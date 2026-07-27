@@ -923,15 +923,23 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
         else if (n >= 0)
         {
+            // `fromIndex` is an unbounded integral Number: step 8 sets k to it as-is and step 10 loops
+            // `while k < len`, so anything at or past len simply has nothing left to scan. Answering
+            // that *before* narrowing is what makes it safe — an out-of-range double-to-long conversion
+            // saturates to long.MaxValue on .NET Core (and is unspecified on .NET Framework), and the
+            // low 32 bits of that are -1, which the dense scan below would use as an array index.
+            if (n >= len)
+            {
+                return JsBoolean.False;
+            }
+
             k = (long) n;
         }
         else
         {
-            k = len + (long) n;
-            if (k < 0)
-            {
-                k = 0;
-            }
+            // step 9 clamps a negative fromIndex to 0, and the same narrowing hazard applies, so the
+            // clamp has to be decided in double arithmetic too
+            k = n <= -len ? 0 : len + (long) n;
         }
 
         // Fast path: dense JsArray scan avoids the per-element virtual call through ArrayOperations.Get.
@@ -989,14 +997,17 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         ulong len = o.GetLongLength();
 
+        var callbackfn = arg0;
+        var thisArg = arg1;
+        // Step 3 rejects an uncallable callback before the iteration starts, so an empty array is no
+        // reason to skip it: `[].every(null)` is a TypeError, not a vacuous `true`. Every sibling
+        // (some/forEach/map/filter/find*/reduce*) already validates ahead of its own length check.
+        var callable = GetCallable(callbackfn);
+
         if (len == 0)
         {
             return JsBoolean.True;
         }
-
-        var callbackfn = arg0;
-        var thisArg = arg1;
-        var callable = GetCallable(callbackfn);
 
         // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
         // JsValue[]; the per-element fills below bypass the covariant array store type check.

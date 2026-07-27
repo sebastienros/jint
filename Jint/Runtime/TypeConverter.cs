@@ -354,13 +354,14 @@ public static class TypeConverter
             return number;
         }
 
-        var integer = (long) Math.Floor(Math.Abs(number));
-        if (number < 0)
-        {
-            integer *= -1;
-        }
-
-        return integer;
+        // Step 4 is truncate(ℝ(number)) over the reals, so the result must stay a double the whole way.
+        // Routing it through `long` silently corrupted every magnitude past 2^63: an out-of-range
+        // double-to-integer conversion saturates to long.MaxValue on .NET Core and is *unspecified* on
+        // .NET Framework, where it yields long.MinValue — so `[1,2,3].includes(1, 1e20)` came back with
+        // a large negative index there and a positive one here, from the same source. Math.Truncate is
+        // exact at any magnitude and is the same round-toward-zero this open-coded abs/floor/negate was
+        // spelling out for the in-range case.
+        return Math.Truncate(number);
     }
 
     /// <summary>

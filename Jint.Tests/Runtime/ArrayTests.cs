@@ -922,6 +922,86 @@ return get + '' === ""length,0,1,2,3"";";
             .AsString().Should().Be("1,2,1,2");
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.includes takes <c>fromIndex</c> as an unbounded
+    /// integral Number: step 8 sets <c>k</c> to it directly and step 10 loops <c>while k &lt; len</c>, so
+    /// any value at or past the length simply finds nothing. Narrowing it to a machine integer first is
+    /// what breaks — <c>(long) 1e20</c> saturates to <c>long.MaxValue</c>, whose low 32 bits are −1, and
+    /// the dense scan then indexes the backing array at −1 and escapes as a CLR
+    /// <see cref="IndexOutOfRangeException"/> that no JavaScript <c>try</c> can catch.
+    /// </summary>
+    [Theory]
+    [InlineData("[1,2,3].includes(1, 1e20)", false)]
+    [InlineData("[1,2,3].includes(1, 9e18)", false)]
+    [InlineData("[1,2,3].includes(1, 2147483648)", false)]
+    [InlineData("[1,2,3].includes(undefined, 1e20)", false)]
+    [InlineData("[1,2,3].includes(1, -1e20)", true)]
+    [InlineData("[1,2,3].includes(1, Infinity)", false)]
+    [InlineData("[1,2,3].includes(1, -Infinity)", true)]
+    [InlineData("[1,2,3].includes(3, 2)", true)]
+    [InlineData("[1,2,3].includes(1, 3)", false)]
+    [InlineData("[1,2,3].includes(1, -3)", true)]
+    public void IncludesClampsAnOutOfRangeFromIndexInsteadOfNarrowingIt(string expression, bool expected)
+    {
+        new Engine().Evaluate(expression).AsBoolean().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The same shape on a non-dense receiver, so the generic loop is covered too.
+    /// </summary>
+    [Fact]
+    public void IncludesClampsAnOutOfRangeFromIndexOnArrayLikes()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("Array.prototype.includes.call({ 0: 'a', length: 1 }, 'a', 1e20)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Array.prototype.includes.call({ 0: 'a', length: 1 }, 'a', -1e20)").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.every step 3 rejects an uncallable callback
+    /// <em>before</em> the iteration begins, so an empty array is no excuse to skip the check. Every one
+    /// of every's siblings already got this right; only <c>every</c> short-circuited on length first.
+    /// </summary>
+    [Fact]
+    public void EveryValidatesTheCallbackEvenWhenThereIsNothingToIterate()
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate("[].every(null)")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("[].every(undefined)")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("[].every({})")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("[].every('nope')")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("Array.prototype.every.call({ length: 0 }, null)")).Should().Throw<JavaScriptException>();
+
+        // a callable one still returns true vacuously, and the non-empty behaviour is unchanged
+        engine.Evaluate("[].every(function () { return false; })").AsBoolean().Should().BeTrue();
+        engine.Evaluate("[1,2].every(function (x) { return x > 0; })").AsBoolean().Should().BeTrue();
+        engine.Evaluate("[1,2].every(function (x) { return x > 1; })").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The siblings, pinned as the control: they already validated first, and must keep doing so.
+    /// </summary>
+    [Theory]
+    [InlineData("[].some(null)")]
+    [InlineData("[].forEach(null)")]
+    [InlineData("[].map(null)")]
+    [InlineData("[].filter(null)")]
+    [InlineData("[].find(null)")]
+    [InlineData("[].findIndex(null)")]
+    [InlineData("[].findLast(null)")]
+    [InlineData("[].findLastIndex(null)")]
+    [InlineData("[].flatMap(null)")]
+    [InlineData("[].reduce(null, 0)")]
+    [InlineData("[].reduceRight(null, 0)")]
+    public void EmptyArrayCallbackMethodsValidateTheCallback(string expression)
+    {
+        var engine = new Engine();
+
+        Invoking(() => engine.Evaluate(expression)).Should().Throw<JavaScriptException>();
+    }
+
     [Fact]
     public void PopWrappedGenericList()
     {
