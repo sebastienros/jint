@@ -267,4 +267,14 @@ public class ModuleLoaderTests
             }
         }
     }
+
+    [Fact]
+    public void ModulesCanBeRegisteredFromAConfigurationCallback()
+    {
+        var engine = new Engine(options => options.Configure(e => e.Modules.Add("lib", "export const answer = 42;")));
+
+        var ns = engine.Modules.Import("lib");
+
+        ns.Get("answer").AsNumber().Should().Be(42);
+    }
 }

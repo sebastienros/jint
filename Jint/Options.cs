@@ -193,6 +193,11 @@ public class Options
     /// </summary>
     internal void Apply(Engine engine)
     {
+        // Modules must exist before the configuration callbacks run: a host's
+        // options.Configure(e => e.Modules.Add(...)) is the documented way to
+        // register programmatic modules at construction time.
+        engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
+
         foreach (var configuration in _configurations)
         {
             configuration(engine);
@@ -234,8 +239,6 @@ public class Options
                     }),
                 PropertyFlag.AllForbidden));
         }
-
-        engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
     }
 
     private static void AttachExtensionMethodsToPrototypes(Engine engine)
