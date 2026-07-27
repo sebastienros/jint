@@ -119,6 +119,33 @@ public class HostDelegateTests
         engine.Evaluate("join('-', 'a', 'b', 'c')").AsString().Should().Be("a-b-c");
     }
 
+    private static string Describe(params JsValue[] values)
+    {
+        var parts = new List<string>();
+        foreach (var value in values)
+        {
+            parts.Add(value.Type.ToString());
+        }
+        return string.Join(",", parts);
+    }
+
+    [Fact]
+    public void ParamsJsValueArrayDelegatePassesEveryArgumentThrough()
+    {
+        // A `params JsValue[]` tail is the one params shape whose elements need no conversion at all, so
+        // it is built as the typed array it already is. Every value kind has to survive that unchanged.
+        var engine = new Engine();
+        engine.SetValue("describe", new Func<JsValue[], string>(Describe));
+
+        engine.Evaluate("describe()").AsString().Should().Be("");
+        engine.Evaluate("describe(1)").AsString().Should().Be("Number");
+        engine.Evaluate("describe('a', 1, true, null, undefined, {}, [])").AsString()
+            .Should().Be("String,Number,Boolean,Null,Undefined,Object,Object");
+        // repeated evaluation of one call site, so a warmed site is covered too
+        engine.Evaluate("function f() { return describe('a', 1); } f(); f(); f()").AsString()
+            .Should().Be("String,Number");
+    }
+
     [Fact]
     public void ValueReferenceAndVoidReturnTypes()
     {

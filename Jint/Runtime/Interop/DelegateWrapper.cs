@@ -233,19 +233,35 @@ internal sealed class DelegateWrapper : Function
             var paramsCount = Math.Max(0, jsArgumentsCount - delegateNonParamsArgumentsCount);
 
             var paramsParameterType = metadata.ParamsElementType!;
+
+            // A `params JsValue[]` tail takes its arguments straight through, so it can be built and
+            // filled as the typed array it is. Array.CreateInstance goes through the runtime's general
+            // array factory to produce the very same JsValue[], and Array.SetValue then re-derives the
+            // element type and re-checks assignability once per element - both to store a value the
+            // C# type system already proved fits. Every other element type keeps the general path,
+            // where SetValue's widening conversions are part of the behaviour.
+            if (metadata.ParamsElementIsJsValue)
+            {
+                var typedParams = new JsValue[paramsCount];
+                for (var i = paramsArgumentIndex; i < jsArgumentsCount; i++)
+                {
+                    // typedParams is exactly JsValue[] by construction, so the covariant store check
+                    // the CLR would otherwise emit is provably redundant
+                    Arguments.WriteNoTypeCheck(typedParams, i - paramsArgumentIndex, arguments[i]);
+                }
+
+                parameters[paramsArgumentIndex] = typedParams;
+                return parameters;
+            }
+
             var paramsParameter = Array.CreateInstance(paramsParameterType, paramsCount);
 
             for (var i = paramsArgumentIndex; i < jsArgumentsCount; i++)
             {
                 var paramsIndex = i - paramsArgumentIndex;
                 var value = arguments[i];
-                object? converted;
 
-                if (metadata.ParamsElementIsJsValue)
-                {
-                    converted = value;
-                }
-                else if (!ReflectionExtensions.TryConvertViaTypeCoercion(paramsParameterType, valueCoercionType, value, out converted))
+                if (!ReflectionExtensions.TryConvertViaTypeCoercion(paramsParameterType, valueCoercionType, value, out var converted))
                 {
                     converted = converter.Convert(
                         value.ToObject(),
