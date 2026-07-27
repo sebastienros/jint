@@ -427,7 +427,9 @@ internal sealed partial class SetPrototype : Prototype
             {
                 nextValue = JsNumber.PositiveZero;
             }
-            resultSetData.Add(nextValue);
+            // this is the one adder that reaches the ordering set directly rather than through
+            // JsSet.Add, so it has to flatten a concatenated key itself
+            resultSetData.Add(SameValueZeroComparer.ToStableKey(nextValue));
         }
 
         var result = new JsSet(_engine, resultSetData);

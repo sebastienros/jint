@@ -58,6 +58,27 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
 
     public bool Contains(T item) => _set.Contains(item);
 
+    /// <summary>
+    /// Position of <paramref name="item"/> in insertion order, or -1. Scans with the set's own
+    /// comparer: <see cref="List{T}.IndexOf(T)"/> would use the default one, which for
+    /// <c>JsValue</c> reports NaN as equal to nothing at all and so contradicts
+    /// <see cref="Contains"/> for a value the set demonstrably holds.
+    /// </summary>
+    public int IndexOf(T item)
+    {
+        var comparer = _set.Comparer;
+        var list = _list;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], item))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     public int Count => _list.Count;
 
     public bool Remove(T item)
@@ -69,15 +90,10 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
 
         // List.Remove would compare with the default comparer, which can disagree with the set's
         // one and leave the ordering list holding a value the set no longer has
-        var comparer = _set.Comparer;
-        var list = _list;
-        for (var i = 0; i < list.Count; i++)
+        var index = IndexOf(item);
+        if (index >= 0)
         {
-            if (comparer.Equals(list[i], item))
-            {
-                list.RemoveAt(i);
-                break;
-            }
+            _list.RemoveAt(index);
         }
 
         return true;

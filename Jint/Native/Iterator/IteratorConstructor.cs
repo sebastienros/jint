@@ -452,10 +452,13 @@ internal sealed partial class IteratorConstructor : Constructor
 
         foreach (var key in ownKeys)
         {
-            PropertyDescriptor desc;
+            // existence + enumerability is the whole question; the descriptor was discarded either way.
+            // The probe still fires a proxy's getOwnPropertyDescriptor trap exactly once, so the
+            // iterator-closing guard around it is as necessary as before.
+            OwnPropertyProbe probe;
             try
             {
-                desc = iterablesObj.GetOwnProperty(key);
+                probe = iterablesObj.ProbeOwnProperty(key);
             }
             catch
             {
@@ -463,7 +466,7 @@ internal sealed partial class IteratorConstructor : Constructor
                 throw;
             }
 
-            if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
+            if (probe != OwnPropertyProbe.Enumerable)
             {
                 continue;
             }

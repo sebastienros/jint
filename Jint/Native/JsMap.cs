@@ -58,6 +58,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
 
     internal JsValue GetOrInsert(JsValue key, JsValue value)
     {
+        key = SameValueZeroComparer.ToStableKey(key);
         if (_map.TryGetValue(key, out var temp))
         {
             return temp;
@@ -69,6 +70,9 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
 
     internal JsValue GetOrInsertComputed(JsValue key, ICallable callbackfn)
     {
+        // Flatten before the callback runs: the key is the string *value* the operation was handed
+        // (spec step 4 canonicalizes it up front), not a buffer the callback may still append to.
+        key = SameValueZeroComparer.ToStableKey(key);
         if (_map.TryGetValue(key, out var temp))
         {
             return temp;
@@ -86,7 +90,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         {
             key = JsNumber.PositiveZero;
         }
-        _map[key] = value;
+        _map[SameValueZeroComparer.ToStableKey(key)] = value;
     }
 
     internal void ForEach(ICallable callable, JsValue thisArg)

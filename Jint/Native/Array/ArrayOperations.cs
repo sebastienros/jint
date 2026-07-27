@@ -324,7 +324,23 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             => _target.SetIndexValue((uint) index, value, updateLength: false);
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
-            => _target.SetIndexValue((uint) index, value, updateLength);
+        {
+            // This receiver was chosen because CanUseFastAccess held, which means every element it owns
+            // carries the default (writable) descriptor — defining a non-default one raises
+            // NonDefaultDataDescriptorUsage and routes the array to ObjectOperations instead. So the only
+            // way an element write here can fail [[Set]] is by *creating* an index the array does not
+            // already own on a non-extensible receiver. Hand exactly those to the ordinary validating
+            // path, which reports the failure — throwing when the caller asked for it — per
+            // https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor step 3.b. Extensible arrays (the
+            // overwhelmingly common case) skip straight to the raw store on a single bool test.
+            if (!_target.Extensible && !_target.HasOwnIndexProperty(index))
+            {
+                _target.Set(JsString.Create(index), value, throwOnError);
+                return;
+            }
+
+            _target.SetIndexValue((uint) index, value, updateLength);
+        }
 
         public override bool HasProperty(ulong index) => _target.HasProperty(index);
     }
