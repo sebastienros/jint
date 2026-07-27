@@ -178,6 +178,20 @@ internal sealed class AdditionChainSuspendData : SuspendData
 
     /// <summary>Index of the next buffered operand to convert with ToPrimitive.</summary>
     public int NextPrimitive { get; set; }
+
+    /// <summary>
+    /// Index of the next coerced operand to fold into the result: 0 while the opening pair is still
+    /// being produced, 2 or more once the chain's kind is known. Folding keeps pace with the
+    /// coercions so a fold's TypeError precedes the next operand's side effects.
+    /// </summary>
+    public int NextFold { get; set; }
+
+    /// <summary>
+    /// The running value of a numeric chain, or <see langword="null"/> before the opening pair has
+    /// been folded and for a string chain (whose partial result lives in
+    /// <see cref="Buffer"/> as the already-coerced text of each operand).
+    /// </summary>
+    public JsValue? Accumulator { get; set; }
 }
 
 /// <summary>
@@ -413,15 +427,21 @@ internal sealed class SuspendDataDictionary
     public T GetOrCreate<T>(object key, IteratorInstance? iteratorInstance = null) where T : SuspendData, new()
     {
         _suspendData ??= [];
-        if (!_suspendData.TryGetValue(key, out var data))
+        // An entry of another type under this key belongs to a construct that no longer owns it, so
+        // it is treated as absent rather than cast: a handler that can evaluate a construct through
+        // two lanes must keep the same lane across a suspension, but this backstop keeps a lapse from
+        // escaping as an InvalidCastException. TryGet applies the same type test.
+        if (_suspendData.TryGetValue(key, out var data) && data is T existing)
         {
-            data = new T
-            {
-                Iterator = iteratorInstance,
-            };
-            _suspendData[key] = data;
+            return existing;
         }
-        return (T) data;
+
+        var created = new T
+        {
+            Iterator = iteratorInstance,
+        };
+        _suspendData[key] = created;
+        return created;
     }
 
     /// <summary>

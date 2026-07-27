@@ -744,4 +744,126 @@ public class GeneratorTests
 
         result.AsString().Should().Be("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""");
     }
+
+    [Fact]
+    public void ShouldNotDivertSuspendedAdditionChainResumeWhenSiblingInvocationLatchesNumericKind()
+    {
+        // A 3+-operand '+' chain is flattened onto one handler node shared by every live invocation
+        // of the declaration. One invocation completing numerically must not send another
+        // invocation's resume down the nested tree: that lane re-evaluates the left operand
+        // (running inc() a second time) and reads the chain's suspend data under an incompatible
+        // type.
+        const string Script = """
+            (function () {
+                var n = 0;
+                function inc() { n++; return n; }
+                function* gen(flag) { return inc() + (flag ? (yield 0) : 0) + 100; }
+
+                var a = gen(true);
+                a.next();              // inc() -> n = 1, suspends at the yield
+                var b = gen(false);
+                b.next();              // completes numerically, latching the chain's kind
+
+                return JSON.stringify([a.next(5).value, n]);
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().Be("[106,2]");
+    }
+
+    [Fact]
+    public void ShouldResumeAdditionChainWithTwoSuspensionsAfterSiblingInvocationLatchesNumericKind()
+    {
+        // Same interleave with a second suspension point in the chain: the diverted resume asked
+        // for its own suspend data type under the key the flattened lane already owns, which threw
+        // an InvalidCastException straight out of the engine.
+        const string Script = """
+            (function () {
+                var n = 0;
+                function inc() { n++; return n; }
+                function* gen(flag) { return inc() + (flag ? (yield 0) : 0) + (flag ? (yield 1) : 0); }
+
+                var a = gen(true);
+                a.next();              // inc() -> n = 1, suspends at the first yield
+                var b = gen(false);
+                b.next();              // completes numerically, latching the chain's kind
+
+                a.next(5);             // resumes the first yield, suspends at the second
+                return JSON.stringify([a.next(6).value, n]);
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().Be("[12,2]");
+    }
+
+    [Fact]
+    public void ShouldNotDivertSuspendedAdditionChainResumeInAsyncFunction()
+    {
+        // The async twin of the generator case: two in-flight calls of one async function, the
+        // second completing (without awaiting) while the first is suspended at its await.
+        var result = _engine.Evaluate("""
+            (async () => {
+                var n = 0;
+                function inc() { n++; return n; }
+                var resolveFirst;
+                var pending = new Promise(function (r) { resolveFirst = r; });
+                async function f(flag, p) { return inc() + (flag ? await p : 0) + 100; }
+
+                var a = f(true, pending);   // inc() -> n = 1, suspends at the await
+                await f(false, null);       // completes numerically, latching the chain's kind
+
+                resolveFirst(5);
+                return JSON.stringify([await a, n]);
+            })()
+            """).UnwrapIfPromise(TimeSpan.FromSeconds(5));
+
+        result.AsString().Should().Be("[106,2]");
+    }
+
+    [Fact]
+    public void ShouldRaiseAdditionChainSymbolCoercionErrorBeforeLaterOperandSideEffects()
+    {
+        // ApplyStringOrNumericBinaryOperator folds left-associatively, so ToString of the Symbol in
+        // ("x" + Symbol.iterator) throws before the third operand is evaluated. Inside a generator
+        // the chain takes the buffered lane, which must order the fold the same way.
+        const string Script = """
+            (function () {
+                function* gen() {
+                    var log = [];
+                    try { ("x" + Symbol.iterator + (log.push(1), "y")); } catch (e) { }
+                    yield log.length;
+                }
+                var insideGenerator = gen().next().value;
+
+                var log = [];
+                try { ("x" + Symbol.iterator + (log.push(1), "y")); } catch (e) { }
+                return JSON.stringify([insideGenerator, log.length]);
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
+    }
+
+    [Fact]
+    public void ShouldRaiseAdditionChainBigIntMixErrorBeforeLaterOperandSideEffects()
+    {
+        // Same ordering requirement for the numeric arm: mixing BigInt and Number throws while
+        // folding the opening pair, before the third operand runs.
+        const string Script = """
+            (function () {
+                function* gen() {
+                    var log = [];
+                    try { (1n + 1 + (log.push(1), 2)); } catch (e) { }
+                    yield log.length;
+                }
+                var insideGenerator = gen().next().value;
+
+                var log = [];
+                try { (1n + 1 + (log.push(1), 2)); } catch (e) { }
+                return JSON.stringify([insideGenerator, log.length]);
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
+    }
 }
