@@ -145,6 +145,19 @@ internal sealed record EventLoop
         return tcs.Task;
     }
 
+    /// <summary>
+    /// Discards every queued job without running it. Used by
+    /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/>: a reaction left behind by an
+    /// evaluation's unsettled promise would otherwise run during the next evaluation's drain, against
+    /// globals it was never meant to see.
+    /// </summary>
+    internal void Clear()
+    {
+        while (_events.TryDequeue(out _))
+        {
+        }
+    }
+
     public void RunAvailableContinuations(Engine engine)
     {
         // If there's a waiting thread (e.g., in UnwrapIfPromise), only that thread

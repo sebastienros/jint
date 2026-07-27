@@ -268,6 +268,13 @@ public sealed partial class Intrinsics
     public RegExpConstructor RegExp =>
         _regExp ??= new RegExpConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
+    /// <summary>
+    /// The RegExp constructor if this realm has already built it, and <see langword="null"/> otherwise —
+    /// for callers that want to touch its state (the Annex B legacy statics) without being the reason it
+    /// exists.
+    /// </summary>
+    internal RegExpConstructor? RegExpIfMaterialized => _regExp;
+
     internal RegExpStringIteratorPrototype RegExpStringIteratorPrototype =>
         _regExpStringIteratorPrototype ??= new RegExpStringIteratorPrototype(_engine, _realm, IteratorPrototype);
 

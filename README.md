@@ -222,6 +222,18 @@ engine per operation never reaches them by design. Note the mirror image if you 
 warmed call site holds a reference to the last receiver it served until it caches a different one, so pooled
 engines can keep host objects alive between runs.
 
+**Reusing a configured engine.** If you build a fresh engine per evaluation only because you need a clean
+global, `engine.Advanced.CaptureGlobalSnapshot()` and `RestoreGlobalSnapshot(snapshot)` are the cheaper route:
+capture once after your `SetValue` calls and module setup, then restore between evaluations. Restore reverts
+the global object's own properties, its prototype and extensibility, and the top-level `let`/`const`/`class`
+declarations (which nothing else can clear, so a script with a top-level `let` can otherwise only be run once
+per engine); it also discards pending promise continuations, clears the `RegExp.$1`-style legacy statics and
+resets the interop wrapper caches. The per-node caches above are deliberately kept, so the next run starts
+warm. **It is a configuration-reuse primitive, not an isolation boundary** — mutations of `Object.prototype`
+and other intrinsics, of object graphs behind restored bindings, of host CLR state, plus `Symbol.for`
+registrations and registered modules, all survive a restore, so mutually distrusting scripts still need
+separate engines.
+
 **Constraints and options.** An `Options` instance is meant to be shared across engines, including concurrent
 ones — the built-in constraint helpers register a *factory*, so each engine gets its own counter and its own
 deadline. (Sharing it is not required: building an `Options` per scope is fine when your globals depend on
