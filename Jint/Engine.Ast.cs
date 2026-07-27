@@ -24,15 +24,16 @@ public partial class Engine
         var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
         var paddedCode = padding.Length > 0 ? padding + code : code;
 
-        var astAnalyzer = new AstAnalyzer(options);
+        var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
+        var astAnalyzer = new AstAnalyzer(options, referencedGlobals);
         var parserOptions = options.GetParserOptions();
-        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
+        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.GetNodeVisitor() });
 
         try
         {
             var preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
 
-            return new Prepared<Script>(preparedScript, parserOptions);
+            return new Prepared<Script>(preparedScript, parserOptions, referencedGlobals?.Build(preparedScript));
         }
         catch (Exception e)
         {
@@ -51,15 +52,16 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ModulePreparationOptions.Default;
 
-        var astAnalyzer = new AstAnalyzer(options);
+        var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
+        var astAnalyzer = new AstAnalyzer(options, referencedGlobals);
         var parserOptions = options.GetParserOptions();
-        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
+        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.GetNodeVisitor() });
 
         try
         {
             var preparedModule = parser.ParseModule(code, source);
 
-            return new Prepared<Module>(preparedModule, parserOptions);
+            return new Prepared<Module>(preparedModule, parserOptions, referencedGlobals?.Build(preparedModule));
         }
         catch (Exception e)
         {
@@ -71,15 +73,29 @@ public partial class Engine
     {
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly bool _retainSourceText;
+        private readonly ReferencedGlobalsCollector? _referencedGlobals;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
+        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions, ReferencedGlobalsCollector? referencedGlobals)
         {
             _preparationOptions = preparationOptions;
             _retainSourceText = preparationOptions.ParsingOptions.RetainFunctionSourceText;
+            _referencedGlobals = referencedGlobals;
         }
 
-        public void NodeVisitor(Node node, in OnNodeContext ctx)
+        /// <summary>
+        /// Picks the callback to install. Referenced-globals collection gets its own visitor rather than a flag
+        /// tested inside the default one, so that not asking for it costs literally nothing per node.
+        /// </summary>
+        public OnNodeHandler GetNodeVisitor() => _referencedGlobals is null ? NodeVisitor : CollectingNodeVisitor;
+
+        private void CollectingNodeVisitor(Node node, in OnNodeContext ctx)
+        {
+            _referencedGlobals!.OnNode(node, in ctx);
+            NodeVisitor(node, in ctx);
+        }
+
+        private void NodeVisitor(Node node, in OnNodeContext ctx)
         {
             switch (node.Type)
             {
