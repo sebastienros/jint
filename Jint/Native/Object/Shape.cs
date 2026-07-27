@@ -75,10 +75,14 @@ internal sealed class Shape
     /// express — so such a key would guarantee a build-then-deopt and would intern junk transition
     /// chains under the shared per-prototype root. Digit-leading is deliberately broader than
     /// "is a canonical array index" ("1x" is rejected too): it is a single char test on a hot path, and
-    /// over-rejecting only costs the dictionary representation.
+    /// over-rejecting only costs the dictionary representation. Only ASCII digits count: a canonical
+    /// array index is spelled with them alone, so a name opening with, say, U+FF13 FULLWIDTH DIGIT
+    /// THREE is an ordinary string key (<see cref="char.IsDigit(char)"/> is Unicode-aware and would
+    /// reject it, which the public <see cref="JsObjectLayout"/> constructor turns into an
+    /// <see cref="ArgumentException"/>).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsIntegerIndexLikeKey(string name) => name.Length > 0 && char.IsDigit(name[0]);
+    internal static bool IsIntegerIndexLikeKey(string name) => name.Length > 0 && (uint) (name[0] - '0') <= 9;
 
     /// <summary>Creates an empty root shape. There is one root per prototype, interned by the engine's
     /// empty-shape table, so all objects sharing a prototype build their layouts from the same tree.</summary>

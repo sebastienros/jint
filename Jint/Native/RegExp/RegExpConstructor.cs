@@ -455,6 +455,10 @@ public sealed partial class RegExpConstructor : Constructor
         // This method is called when a RegExp object is created at run-time, e.g.,
         // `new RegExp("abc", "i")`, `RegExp("abc", "i")`, `/x/.compile("abc", "i")`, `"x".match("abc")`, etc.
 
+        // A previously host-supplied Regex is re-initialized from a JavaScript pattern here (compile),
+        // so it stops being a host regex and gets a real parse result below.
+        r.IsHostRegex = false;
+
         var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
         if (string.IsNullOrEmpty(p))
         {
@@ -1296,6 +1300,11 @@ AppendEscapedNewLine:
 
         var r = RegExpAlloc(this);
         r.Value = regExp;
+
+        // There is no JavaScript pattern to adapt, so there is no RegExpParseResult either: mark the
+        // instance so the prototype lanes route to the .NET engine (rather than dereferencing an absent
+        // custom engine) and read capture-group metadata off the Regex.
+        r.IsHostRegex = true;
 
         // We shouldn't return the .NET pattern as if it were a JS pattern since that would be
         // incorrect and misleading. We could try to convert the .NET pattern to a JS one,

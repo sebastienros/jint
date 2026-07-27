@@ -14,6 +14,14 @@ public sealed class ScriptFunction : Function, IConstructor
     internal bool _isClassConstructor;
     internal JsValue? _classFieldInitializerName;
 
+    // Whether this function's code is strict, resolved once at creation. Normally that is a static
+    // property of the AST: the parser marks the FunctionBody, propagating an enclosing "use strict"
+    // into every nested function. An arrow function with a *concise* (expression) body has no
+    // FunctionBody node to carry the mark, yet is still strict when it appears in strict code
+    // (https://tc39.es/ecma262/#sec-strict-mode-code), so JintArrowFunctionExpression ORs in the
+    // strictness of the running context it was created from.
+    internal bool _strict;
+
     // Own restricted "arguments"/"caller" properties of non-strict, non-arrow, non-generator,
     // non-async functions. Dedicated fields (like Function's name/length/prototype) instead of
     // dictionary entries, so a plain sloppy function's instantiation allocates neither the
@@ -88,6 +96,7 @@ public sealed class ScriptFunction : Function, IConstructor
         // The own "length" property exists from birth; its descriptor is materialized lazily
         // from the definition on first read (see Function._pendingDescriptor).
         _length = _pendingDescriptor;
+        _strict = function.Strict || thisMode == FunctionThisMode.Strict;
 
         if (!function.Strict
             && function.Function is not ArrowFunctionExpression
@@ -140,7 +149,7 @@ public sealed class ScriptFunction : Function, IConstructor
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var state = _functionDefinition!.Initialize();
-        var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
+        var strict = _strict;
 
         // Env-less leaf call: no bindings to create, no this/arguments/new.target route, no
         // closures — the callee FunctionEnvironment would exist only as a chain pointer, so the
