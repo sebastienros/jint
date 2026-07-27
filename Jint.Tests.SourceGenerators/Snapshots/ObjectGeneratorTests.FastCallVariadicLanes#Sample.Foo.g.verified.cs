@@ -53,7 +53,7 @@ internal sealed partial class Foo
                 case Slot.Concat: return Foo.Concat(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0), new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, global::System.Math.Min(1, arguments.Length), global::System.Math.Max(0, arguments.Length - 1)));
                 case Slot.Max:
                 {
-                    var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, 0, arguments.Length);
+                    var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments);
                     global::System.Span<double> __coerced = __values.Length <= 16
                         ? stackalloc double[__values.Length]
                         : new double[__values.Length];
@@ -63,7 +63,7 @@ internal sealed partial class Foo
                     }
                     return Foo.Max(thisObject, __coerced);
                 }
-                case Slot.Push: return Foo.Push(thisObject, new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, 0, arguments.Length));
+                case Slot.Push: return Foo.Push(thisObject, new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments));
                 default: throw UnknownSlot(_slot);
             }
         }

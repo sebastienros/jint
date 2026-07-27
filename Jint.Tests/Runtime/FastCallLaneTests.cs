@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -281,6 +282,32 @@ public class FastCallLaneTests
             """).AsString();
 
         result.Should().Be("true,true,true");
+    }
+
+    /// <summary>
+    /// <c>FastCallGuard</c> spells every kind but <c>Date</c> as the <c>InternalTypes</c> bits that
+    /// answer it, which is what lets a composed guard be decided by a single mask test. Nothing in
+    /// the type system holds the two enums together, and a silent drift would not fail a guard — it
+    /// would answer the wrong question — so the correspondence is pinned here.
+    /// </summary>
+    [Fact]
+    public void FastCallGuardValuesMatchInternalTypes()
+    {
+        ((InternalTypes) FastCallGuard.Number).Should().Be(InternalTypes.Number | InternalTypes.Integer);
+        ((InternalTypes) FastCallGuard.String).Should().Be(InternalTypes.String);
+        ((InternalTypes) FastCallGuard.Undefined).Should().Be(InternalTypes.Undefined);
+        ((InternalTypes) FastCallGuard.Array).Should().Be(InternalTypes.Array);
+
+        // Date is the one kind with no bit of its own, so it borrows one above every InternalTypes
+        // flag. If a future flag reached it, every Date-guarded receiver would start matching values
+        // carrying that flag instead of being sent to the type test.
+        var everyInternalType = InternalTypes.Empty;
+        foreach (InternalTypes value in Enum.GetValues(typeof(InternalTypes)))
+        {
+            everyInternalType |= value;
+        }
+
+        (everyInternalType & (InternalTypes) FastCallGuard.Date).Should().Be(InternalTypes.Empty);
     }
 
     /// <summary>

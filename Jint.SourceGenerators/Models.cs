@@ -524,16 +524,30 @@ internal sealed record class ParameterDefinition(ParameterKind Kind, int Positio
 /// Mirrors <c>Jint.Native.Function.FastCallGuard</c>, values included — a declared guard arrives as
 /// the raw underlying number, so the two enums agreeing by name is not enough. Kept generator-local
 /// so the emitter never has to bind the runtime symbol; the names are emitted verbatim.
+/// <para>
+/// The runtime spells each kind as the <c>InternalTypes</c> bits that answer it so one mask test
+/// decides a composed guard; the numbers are repeated literally here because this project cannot see
+/// that internal enum. They only have to stay distinct and stay in step — a runtime test pins the
+/// correspondence to <c>InternalTypes</c> itself.
+/// </para>
 /// </summary>
 [Flags]
 internal enum FastCallGuardKind
 {
     Any = 0,
-    Number = 1,
-    String = 2,
-    Date = 4,
-    Array = 8,
-    Undefined = 16,
+    Undefined = 1,      // InternalTypes.Undefined
+    String = 8,         // InternalTypes.String
+    Number = 16 | 32,   // InternalTypes.Number | InternalTypes.Integer
+    Array = 16384,      // InternalTypes.Array
+    Date = 1 << 30,     // no InternalTypes bit; decided by a type test
+
+    /// <summary>
+    /// Every bit this generator knows how to name. A declared guard carrying anything else means the
+    /// runtime enum has gained a kind this mirror has not, which is reported rather than emitted —
+    /// an unnameable bit would otherwise render as nothing at all and produce code that does not
+    /// compile, or worse, a guard weaker than the one declared.
+    /// </summary>
+    Known = Undefined | String | Number | Array | Date,
 }
 
 /// <summary>
@@ -602,9 +616,9 @@ internal sealed record class FunctionDefinition(
         var fastCallRequested = leafRequested || (ObjectDefinition.GetNamedArg(attr, "FastCall") as bool? ?? false);
         // FastCallGuard is byte-backed, so the named argument arrives boxed as a byte, not an int —
         // `as int?` silently yields null and the guard would be dropped. Convert on the raw value.
-        var declaredLeafReceiver = ReadGuard(attr, "LeafReceiver");
-        var declaredLeafArg0 = ReadGuard(attr, "LeafArg0");
-        var declaredLeafArg1 = ReadGuard(attr, "LeafArg1");
+        var declaredLeafReceiver = ReadGuard(attr, "LeafReceiver", method, diagnostics);
+        var declaredLeafArg0 = ReadGuard(attr, "LeafArg0", method, diagnostics);
+        var declaredLeafArg1 = ReadGuard(attr, "LeafArg1", method, diagnostics);
         return BuildCommon(method, pc, diagnostics, jsName, /* functionName */ jsName, explicitLength, RegistrationKind.DataProperty, flags,
             captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField,
             fastCallRequested: fastCallRequested,
@@ -619,12 +633,30 @@ internal sealed record class FunctionDefinition(
     /// <c>Number | Undefined</c> arrives as the combined number, which the mirrored generator enum
     /// reproduces because it declares the same underlying values.
     /// </summary>
-    private static FastCallGuardKind ReadGuard(AttributeData? attr, string name)
+    private static FastCallGuardKind ReadGuard(AttributeData? attr, string name, IMethodSymbol method, List<DiagnosticInfo> diagnostics)
     {
         var raw = ObjectDefinition.GetNamedArg(attr, name);
-        return raw is null
-            ? FastCallGuardKind.Any
-            : (FastCallGuardKind) Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
+        if (raw is null)
+        {
+            return FastCallGuardKind.Any;
+        }
+
+        var guard = (FastCallGuardKind) Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
+        if ((guard & ~FastCallGuardKind.Known) != FastCallGuardKind.Any)
+        {
+            // The emitter names guards member by member, so a bit it does not know would silently
+            // vanish from the emitted shape — leaving either uncompilable code or, if other bits
+            // remain, a guard weaker than the declaration asked for. Fail the build instead.
+            diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.FastCallNotExpressible,
+                method.Locations.FirstOrDefault(),
+                method.Name,
+                name,
+                $"the declared FastCallGuard value {(int) guard} carries a kind this generator cannot name — Jint.Native.Function.FastCallGuard and the generator's mirror of it have drifted"));
+            return FastCallGuardKind.Any;
+        }
+
+        return guard;
     }
 
     public static FunctionDefinition? FromJsAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)

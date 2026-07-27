@@ -21,6 +21,14 @@ namespace Jint.Benchmark;
 /// framed half only. The <c>*_Arity3</c> rows overflow the lane's two registers and decline, so they
 /// are the control for the same built-in on the old path.</para>
 ///
+/// <para><b>Reading the over-arity rows.</b> <c>MathMax_Arity3</c> is a pure control: its built-in
+/// was already <c>[Rest]</c>, so nothing about its framed path changed. <c>ArrayPush_Arity3</c> and
+/// <c>StringConcat_Arity3</c> are not — those two built-ins were migrated off the raw
+/// <c>JsCallArguments</c> array onto a <c>[Rest]</c> tail to reach the lane at all, so their framed
+/// path is newly reached through a span over the same pooled array. That span is constructed from
+/// the array the caller already filled, with no copy and no second store, and these rows are what
+/// proves it: an over-arity call must not pay for a lane it declines.</para>
+///
 /// Every row runs its call 1000 times inside one prepared script on an engine that has already
 /// evaluated it, so what is measured is dispatch plus body rather than parse or first-call warmup —
 /// and the lane is only reachable from a warm site in the first place.
@@ -49,6 +57,8 @@ public class FastCallLaneBenchmarks
     private Prepared<Script> _push2;
     private Prepared<Script> _pushArity3;
     private Prepared<Script> _concat1;
+    private Prepared<Script> _concat2;
+    private Prepared<Script> _concatArity3;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -75,6 +85,8 @@ public class FastCallLaneBenchmarks
         _push2 = Loop("a.push(i, i); if (a.length > 64) a.length = 0", prelude: "var a = [];");
         _pushArity3 = Loop("a.push(i, i, i); if (a.length > 64) a.length = 0", prelude: "var a = [];");
         _concat1 = Loop("s += \"ab\".concat(\"cd\").length");
+        _concat2 = Loop("s += \"ab\".concat(\"cd\", \"ef\").length");
+        _concatArity3 = Loop("s += \"ab\".concat(\"cd\", \"ef\", \"gh\").length");
 
         _engine = new Engine();
         foreach (var script in AllScripts())
@@ -118,6 +130,8 @@ public class FastCallLaneBenchmarks
         yield return _push2;
         yield return _pushArity3;
         yield return _concat1;
+        yield return _concat2;
+        yield return _concatArity3;
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Guarded() => _engine.Evaluate(_charCodeAtGuarded);
@@ -137,4 +151,6 @@ public class FastCallLaneBenchmarks
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity2() => _engine.Evaluate(_push2);
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity3() => _engine.Evaluate(_pushArity3);
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity1() => _engine.Evaluate(_concat1);
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity2() => _engine.Evaluate(_concat2);
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity3() => _engine.Evaluate(_concatArity3);
 }

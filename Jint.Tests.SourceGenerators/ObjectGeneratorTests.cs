@@ -1261,8 +1261,10 @@ public class ObjectGeneratorTests
         //
         // FastCallGuard is internal to Jint and this compilation is not on its InternalsVisibleTo
         // list, so the test declares its own — source wins over an inaccessible imported type, and
-        // the values are what the generator reads back. That the two enums agree is what the real
-        // Jint build and FastCallLaneTests check; what is being verified here is the rendering.
+        // the values are what the generator reads back. They have to be the real ones: the guard
+        // travels as a number, so a stub with different values would exercise a different rendering
+        // than the one that ships. That the real enum has these values is pinned by
+        // FastCallGuardValuesMatchInternalTypes; what is being verified here is the rendering.
         return VerifyGenerator("""
             using Jint;
             using Jint.Native;
@@ -1272,14 +1274,14 @@ public class ObjectGeneratorTests
             namespace Jint.Native.Function
             {
                 [System.Flags]
-                internal enum FastCallGuard : byte
+                internal enum FastCallGuard
                 {
                     Any = 0,
-                    Number = 1,
-                    String = 2,
-                    Date = 4,
-                    Array = 8,
-                    Undefined = 16,
+                    Undefined = 1,
+                    String = 8,
+                    Number = 16 | 32,
+                    Array = 16384,
+                    Date = 1 << 30,
                 }
             }
 

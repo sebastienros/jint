@@ -19,15 +19,36 @@ namespace Jint.Native.Function;
 /// absence of a constraint rather than "all bits", so an unguarded position stays a zero.
 /// </para>
 /// </summary>
+/// <remarks>
+/// Every kind but <see cref="Date"/> is spelled as the <see cref="InternalTypes"/> bits that answer
+/// it, so checking a composed guard is one mask test against the value's <c>_type</c> rather than a
+/// walk over the kinds — which matters most for the values that <em>fail</em> a guard, since those
+/// pay the whole walk before falling back to the framed path. <c>JsDate</c> has no <c>_type</c> bit
+/// of its own, so it takes a spare one above the highest <see cref="InternalTypes"/> flag
+/// (<c>OwnValueHook</c>, 1 &lt;&lt; 23) and is the one kind still decided by a type test.
+/// <c>FastCallGuardValuesMatchInternalTypes</c> in <c>FastCallLaneTests</c> pins the correspondence.
+/// </remarks>
 [Flags]
-internal enum FastCallGuard : byte
+internal enum FastCallGuard
 {
     /// <summary>No constraint.</summary>
     Any = 0,
-    Number = 1,
-    String = 2,
-    Date = 4,
-    Array = 8,
+
+    /// <summary>Building block of <see cref="Number"/>; declare that instead.</summary>
+    NumberDouble = (int) InternalTypes.Number,
+
+    /// <summary>Building block of <see cref="Number"/>; declare that instead.</summary>
+    NumberInteger = (int) InternalTypes.Integer,
+
+    /// <summary>
+    /// Either representation a <c>JsNumber</c> can carry — the two are alternatives, so both bits
+    /// have to be in the mask for "is already a number", which is what a numeric coercion is a no-op
+    /// for.
+    /// </summary>
+    Number = NumberDouble | NumberInteger,
+
+    String = (int) InternalTypes.String,
+    Array = (int) InternalTypes.Array,
 
     /// <summary>
     /// Only meaningful on an argument. Coercing <c>undefined</c> runs no user code for any converter
@@ -35,7 +56,10 @@ internal enum FastCallGuard : byte
     /// of <c>end === undefined</c> meaning "to the end of the string"), so it is never folded into
     /// the other kinds — a declaration has to ask for it.
     /// </summary>
-    Undefined = 16,
+    Undefined = (int) InternalTypes.Undefined,
+
+    /// <summary>Deliberately not an <see cref="InternalTypes"/> bit — see the remarks on this enum.</summary>
+    Date = 1 << 30,
 }
 
 /// <summary>
@@ -70,8 +94,10 @@ internal readonly record struct FastCallShape(
 {
     /// <summary>
     /// Whether <paramref name="value"/> matches any kind the composed <paramref name="guard"/> names.
-    /// Ordered by how often built-ins declare each kind, so the common single-flag guards decide in
-    /// one test; <c>Date</c> comes last because it is the only one that is not a <c>_type</c> bit.
+    /// The guard doubles as an <see cref="InternalTypes"/> mask, so however many kinds it names the
+    /// answer is one test — and a value that matches none of them, the case that has to fall back to
+    /// the framed path, reaches that verdict in the same one test rather than after trying each kind
+    /// in turn. Only <c>Date</c> needs more, because it is the one kind with no <c>_type</c> bit.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Satisfies(FastCallGuard guard, JsValue value)
@@ -81,29 +107,13 @@ internal readonly record struct FastCallShape(
             return true;
         }
 
-        var type = value._type;
-
-        if ((guard & FastCallGuard.Number) == FastCallGuard.Number && (type & (InternalTypes.Number | InternalTypes.Integer)) != InternalTypes.Empty)
+        if ((value._type & (InternalTypes) guard) != InternalTypes.Empty)
         {
             return true;
         }
 
-        if ((guard & FastCallGuard.String) == FastCallGuard.String && (type & InternalTypes.String) != InternalTypes.Empty)
-        {
-            return true;
-        }
-
-        if ((guard & FastCallGuard.Undefined) == FastCallGuard.Undefined && (type & InternalTypes.Undefined) != InternalTypes.Empty)
-        {
-            return true;
-        }
-
-        if ((guard & FastCallGuard.Array) == FastCallGuard.Array && (type & InternalTypes.Array) != InternalTypes.Empty)
-        {
-            return true;
-        }
-
-        return (guard & FastCallGuard.Date) == FastCallGuard.Date && value is JsDate;
+        // The Date bit is above every InternalTypes flag, so it cannot have matched above.
+        return (guard & FastCallGuard.Date) != FastCallGuard.Any && value is JsDate;
     }
 
     /// <summary>

@@ -944,18 +944,26 @@ internal static class Emitter
 
     /// <summary>
     /// The <c>[Rest]</c> tail as a span over whichever argument store the entry point was handed.
-    /// The array form has to construct a span; the variadic entry point already has one, and a tail
-    /// that starts at zero <em>is</em> that span. Both clamp, so an arity below the tail's start
-    /// yields an empty tail rather than throwing.
+    /// A tail starting at zero covers the whole store, so neither form does any work to produce it:
+    /// the variadic entry point already holds that span, and the array one wraps the array without
+    /// re-deriving bounds. Only a tail behind fixed parameters slices, and it clamps, so an arity
+    /// below the tail's start yields an empty tail rather than throwing.
     /// </summary>
     private static string RestTailExpression(ArgSource source, int position)
     {
-        var startExpr = position == 0 ? "0" : "global::System.Math.Min(" + position + ", arguments.Length)";
-        var lenExpr = position == 0 ? "arguments.Length" : "global::System.Math.Max(0, arguments.Length - " + position + ")";
+        if (position == 0)
+        {
+            return source == ArgSource.Span
+                ? "arguments"
+                : "new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments)";
+        }
+
+        var startExpr = "global::System.Math.Min(" + position + ", arguments.Length)";
+        var lenExpr = "global::System.Math.Max(0, arguments.Length - " + position + ")";
 
         if (source == ArgSource.Span)
         {
-            return position == 0 ? "arguments" : "arguments.Slice(" + startExpr + ", " + lenExpr + ")";
+            return "arguments.Slice(" + startExpr + ", " + lenExpr + ")";
         }
 
         return "new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, " + startExpr + ", " + lenExpr + ")";
