@@ -60,17 +60,28 @@ namespace Jint.Benchmark;
 /// calls" the derivation already bought, instead of conflating the two.
 /// </description></item>
 /// <item><description>
-/// <see cref="ResolverKind"/> — installing any <see cref="IReferenceResolver"/> sets
-/// <c>Engine._customResolver</c>, which turns off the member-expression inline caches and the
-/// call fast path engine-wide (see <c>JintMemberExpression</c> / <c>JintCallExpression</c>).
-/// The <see cref="HostResolverKind.Unfiltered"/> row sizes that global de-optimization; it is
-/// paid on every member read in the script, not only on the null-propagating ones the resolver
-/// exists for.
+/// <see cref="ResolverKind"/> — a reference resolver de-optimizes per declared <i>interest</i>,
+/// not by its mere presence. <see cref="HostResolverKind.Unfiltered"/> registers one without an
+/// interest set, which means <see cref="ReferenceResolverInterests.All"/> and therefore includes
+/// <see cref="ReferenceResolverInterests.ObjectPropertyBase"/> and
+/// <see cref="ReferenceResolverInterests.PrimitivePropertyBase"/> — the pair the engine folds into
+/// <c>Engine._resolverWatchesValueBase</c>, which is what turns off the non-computed member-read
+/// inline caches, the dense-array indexed-read lane and the member-call callee lane (see
+/// <c>JintMemberExpression</c> / <c>JintCallExpression</c>). That row therefore sizes a
+/// de-optimization paid on every member read in the script, not only on the null-propagating ones
+/// the resolver exists for. <see cref="HostResolverKind.NullishOnly"/> is the identical resolver
+/// declaring only <see cref="ReferenceResolverInterests.NullishPropertyBase"/>: it is still
+/// consulted for every nullish base — the situation embedders install it for — while all of those
+/// lanes stay armed. The NullishOnly → Unfiltered delta is the price of over-subscribing, and
+/// NullishOnly landing on the <see cref="HostResolverKind.None"/> row is the expected result.
 /// </description></item>
 /// <item><description>
 /// <see cref="StatementLimit"/> — a statement limit is an <i>exact</i> constraint, so unlike a
-/// timeout it cannot be amortized: it forces per-statement checks and disarms the tight-body loop
-/// lane. Expect a visible regression on the <c>true</c> rows. See
+/// timeout it cannot be amortized. It is the only exact constraint registered here, which is the
+/// case the engine charges inline (a devirtualized <c>Check()</c> per executed statement) with the
+/// tight-body loop lane left armed — so expect a small uniform cost on the <c>true</c> rows, not a
+/// lane change. Disarming the lane takes a second exact constraint, an unamortizable user-derived
+/// one, or debug mode, none of which this benchmark configures. See
 /// <see cref="ConstrainedExecutionBenchmark"/> for the same effect measured in isolation.
 /// </description></item>
 /// </list>
@@ -125,7 +136,7 @@ public class HostObjectAccessBenchmark
         HostReceiverKind.FixedLayout)]
     public HostReceiverKind ReceiverKind { get; set; }
 
-    [Params(HostResolverKind.None, HostResolverKind.Unfiltered)]
+    [Params(HostResolverKind.None, HostResolverKind.Unfiltered, HostResolverKind.NullishOnly)]
     public HostResolverKind ResolverKind { get; set; }
 
     [Params(false, true)]
@@ -147,18 +158,24 @@ public class HostObjectAccessBenchmark
                 throw new NotSupportedException(ReceiverKind.ToString());
         }
 
-        if (ResolverKind == HostResolverKind.NullishOnly)
-        {
-            // TODO: enable once the resolver interest filter lands — a resolver that declares it only
-            // cares about null/undefined bases, so the engine can keep its member inline caches armed
-            // instead of de-optimizing every member read engine-wide.
-            throw new NotSupportedException($"{ResolverKind} awaits a Jint feature that does not exist yet; see the TODO in {nameof(GlobalSetup)}.");
-        }
-
         var options = new Options();
-        if (ResolverKind == HostResolverKind.Unfiltered)
+        switch (ResolverKind)
         {
-            options.SetReferencesResolver(new UnfilteredNullPropagationResolver());
+            case HostResolverKind.None:
+                break;
+
+            // No interest set means ReferenceResolverInterests.All, which is what the row is for.
+            case HostResolverKind.Unfiltered:
+                options.SetReferencesResolver(new NullPropagationResolver());
+                break;
+
+            // Same resolver, subscribed only to the situation it actually serves.
+            case HostResolverKind.NullishOnly:
+                options.SetReferencesResolver(new NullPropagationResolver(), ReferenceResolverInterests.NullishPropertyBase);
+                break;
+
+            default:
+                throw new NotSupportedException(ResolverKind.ToString());
         }
 
         if (StatementLimit)
@@ -291,21 +308,30 @@ public enum HostResolverKind
 
     /// <summary>
     /// A null-propagating resolver of the kind embedders install so that <c>a.b.c</c> over missing
-    /// data yields undefined instead of throwing. It carries no interest filter, so the engine
-    /// de-optimizes every member read.
+    /// data yields undefined instead of throwing, registered through the overload that declares no
+    /// interests — which means <see cref="ReferenceResolverInterests.All"/>. Because that includes
+    /// the object and primitive property bases, the engine de-optimizes every member read.
     /// </summary>
     Unfiltered,
 
-    /// <summary>Awaits the resolver interest filter. Not runnable yet.</summary>
+    /// <summary>
+    /// The identical resolver, registered with
+    /// <see cref="ReferenceResolverInterests.NullishPropertyBase"/> only. It is still consulted for
+    /// every null/undefined base, so null propagation behaves the same, but the member-read inline
+    /// caches, the dense-array indexed-read lane and the member-call callee lane all stay armed.
+    /// </summary>
     NullishOnly,
 }
 
 /// <summary>
 /// The null-propagating resolver shape embedders install verbatim: any nullish property base
 /// resolves to undefined rather than throwing, and calling through a nullish base yields a no-op
-/// function. Deliberately unfiltered — that is the point of the lane.
+/// function. One class serves both resolver rows — what differs between
+/// <see cref="HostResolverKind.Unfiltered"/> and <see cref="HostResolverKind.NullishOnly"/> is only
+/// the <see cref="ReferenceResolverInterests"/> declared at registration, which is precisely the
+/// variable those two rows exist to isolate.
 /// </summary>
-internal sealed class UnfilteredNullPropagationResolver : IReferenceResolver
+internal sealed class NullPropagationResolver : IReferenceResolver
 {
     public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
     {

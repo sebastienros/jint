@@ -64,10 +64,14 @@ public interface IReferenceResolver
 /// the engine behaves exactly as if no resolver were registered for those situations.
 /// </para>
 /// <para>
-/// Narrowing matters because the mere presence of a resolver disables several interpreter fast paths — the
-/// member-read inline caches, the dense-array indexed-read lane and the member-call callee lane all have to
-/// route through a <see cref="Reference"/> so the resolver gets its chance. Declaring only what is actually
-/// used keeps those lanes armed. A resolver registered through
+/// Narrowing matters because subscribing to a property reference over a <em>value</em> base — an object
+/// (<see cref="ObjectPropertyBase"/>) or a non-nullish primitive (<see cref="PrimitivePropertyBase"/>) —
+/// disables several interpreter fast paths: the member-read inline caches, the dense-array indexed-read
+/// lane and the member-call callee lane all then have to route through a <see cref="Reference"/> so the
+/// resolver gets its chance. The gate is that pair of interests, not the presence of a resolver: a
+/// resolver declaring only <see cref="NullishPropertyBase"/> keeps every one of those lanes armed, since a
+/// lane recognizes a nullish base itself and detours through a <see cref="Reference"/> for that one case.
+/// A resolver registered through
 /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> gets <see cref="All"/>,
 /// which behaves exactly as before this filter existed.
 /// </para>

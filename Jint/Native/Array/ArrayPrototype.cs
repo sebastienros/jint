@@ -232,8 +232,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // Check constraints periodically to prevent memory exhaustion in large fills
         for (var i = k; i < final; ++i)
         {
-            // https://tc39.es/ecma262/#sec-array.prototype.fill step 8.c is `Set(O, Pk, value, true)`,
-            // so a failed write must throw rather than be swallowed — reverse above already does this.
+            // https://tc39.es/ecma262/#sec-array.prototype.fill step 11.b is `Set(O, Pk, value, true)`,
+            // so a failed write must throw rather than be swallowed — reverse (below) already does this.
             // `updateLength` mirrors the same step: Set on an index at or past `length` runs
             // ArrayDefineOwnProperty (10.4.2.1), which extends length — the behaviour a fill whose end
             // coercion shrank the array depends on to put it back.

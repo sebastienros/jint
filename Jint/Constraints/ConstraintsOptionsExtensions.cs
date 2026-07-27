@@ -11,8 +11,9 @@ namespace Jint;
 /// single constraint registered, and each treats a value that cannot express a real limit as
 /// "remove the constraint" rather than registering one. That is deliberate: such a constraint could
 /// never fail, so registering it would only add per-check work to every evaluation — and an exact
-/// constraint (<see cref="MaxStatementsConstraint"/>, <see cref="MemoryLimitConstraint"/>)
-/// additionally disables the interpreter's tight-loop lane, which costs every loop in the program.
+/// constraint can additionally disable the interpreter's tight-loop lane, which costs every loop in the
+/// program. (<see cref="MemoryLimitConstraint"/> always does; a lone <see cref="MaxStatementsConstraint"/>
+/// is charged inline and keeps the lane, but disarms it as soon as a second exact constraint joins it.)
 /// </para>
 /// <para>
 /// The consequence is worth stating plainly, because it is easy to configure by accident: spelling

@@ -6,8 +6,8 @@ namespace Jint.Benchmark;
 /// <summary>
 /// Per-statement constraint check overhead. A registered constraint used to force a virtual
 /// Check() call before every executed statement and disarm the tight for-body lane; the
-/// amortized-constraint partition removed that for the constraints it can legally apply to.
-/// Which constraint you register therefore decides what you pay:
+/// amortized-constraint partition and the inline statement counter each removed that for a class
+/// of constraints. Which constraint you register therefore decides what you pay:
 ///
 /// <list type="bullet">
 /// <item><description>
@@ -18,16 +18,23 @@ namespace Jint.Benchmark;
 /// <item><description>
 /// <see cref="StatementLimitEnabled"/> — a statement limit is an <b>exact</b> constraint: its call
 /// frequency <i>is</i> its semantics (it counts the calls), so it cannot be amortized without
-/// changing what it means. It forces the per-statement check path and therefore disarms the tight
-/// body lane in <c>for</c>, <c>while</c> and <c>do-while</c>. Expect the
-/// <c>StatementLimitEnabled=true</c> rows to be visibly slower than the unconstrained row —
-/// that gap, not the timeout gap, is what an embedder pays for a runaway-script guard today.
+/// changing what it means. It is nevertheless not the generic per-statement path: while it is the
+/// <em>only</em> exact constraint, the engine reports it as the inline statement counter
+/// (<c>Engine.PartitionConstraints</c>) and the interpreter charges it itself through a
+/// devirtualized <c>Check()</c> on the sealed constraint, so the tight body lane in <c>for</c>,
+/// <c>while</c> and <c>do-while</c> <b>stays armed</b>. Expect the
+/// <c>StatementLimitEnabled=true</c> rows to be only modestly slower than the unconstrained row —
+/// one counter increment and comparison per executed statement, not a lane change. What still
+/// disarms the lane is a <i>second</i> exact constraint (e.g. <c>LimitMemory</c>), a user-derived
+/// constraint that did not opt into <c>IsAmortizable</c>, or debug mode; this benchmark registers
+/// at most one exact constraint, so no row here measures that.
 /// </description></item>
 /// </list>
 ///
 /// Both flags are independent, so the four rows also show whether the two costs compose or
-/// overlap (the exact constraint already forces the per-statement path, so adding a timeout on top
-/// of it should cost far less than adding it to the unconstrained row).
+/// overlap. They compose additively and both stay on the fast lane: a timeout is amortizable, so
+/// it never joins the exact partition, which means the statement limit keeps the inline counter
+/// (and the tight lane) even in the both-enabled row.
 /// </summary>
 [MemoryDiagnoser]
 public class ConstrainedExecutionBenchmark

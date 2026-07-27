@@ -174,6 +174,53 @@ and many more.
 
 You can check out [the engine comparison results](Jint.Benchmark), bear in mind that every use case is different and benchmarks might not reflect your real-world usage.
 
+## Embedding performance
+
+Notes for hosts that project their own objects into script, pool engines, or bound execution. Each of these
+is a cost model rather than a rule; the XML documentation on the named APIs has the detail.
+
+**Projecting host data.** Subclassing `ObjectInstance` is the most expensive way to expose data. Such a
+receiver gets no own-property inline caching — every own read reaches your `GetOwnProperty` and allocates the
+`PropertyDescriptor` it returns. Cheaper options, in order of preference:
+
+- For fixed-shape records, do not subclass at all: `JsObject.Create(engine, layout, values)` and
+  `JsObject.CreateFromEntries` build straight into the hidden-class representation, so every object sharing a
+  `JsObjectLayout` shares one hidden class and a script reading a batch of them keeps a monomorphic inline
+  cache.
+- For CLR objects, `engine.SetValue(name, obj)` wraps them in `ObjectWrapper`, whose member resolution and
+  compiled accessors are cached process-wide on the `TypeResolver`.
+- If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
+  descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
+  spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
+  with `GetOwnProperty`; Debug builds verify that on every read, so running your integration suite once
+  against a Debug build of Jint is a free checker.
+
+**Lazy values.** `PropertyFlag.CustomJsValue` is the supported hook for a property whose value is computed on
+first read: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
+caches, because every caching lane re-reads the flag on each hit and caches the descriptor reference rather
+than a value snapshot. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
+the value until script reads the name.
+
+**Prepared scripts and engine reuse.** `Engine.PrepareScript` / `PrepareModule` return an object that is
+reusable *and* thread-safe: prepare once at startup and feed the same `Prepared<T>` to as many engines, on as
+many threads, as you like. The engine's own per-node caches are a separate matter — they are engine-owned and
+engage only on the **second** evaluation of a given script on a given engine, so a host that builds a fresh
+engine per operation never reaches them by design. Note the mirror image if you pool engines instead: a
+warmed call site holds a reference to the last receiver it served until it caches a different one, so pooled
+engines can keep host objects alive between runs.
+
+**Constraints and options.** An `Options` instance is meant to be shared across engines, including concurrent
+ones — the built-in constraint helpers register a *factory*, so each engine gets its own counter and its own
+deadline. (Sharing it is not required: building an `Options` per scope is fine when your globals depend on
+scoped state.) Watch for the sentinel trap: `MaxStatements(int.MaxValue)`, `LimitMemory(long.MaxValue)` and
+`TimeoutInterval(TimeSpan.MaxValue)` register *no* constraint at all and remove any previously registered one
+of that kind, so spelling "effectively unlimited" that way leaves you with no limit rather than a large one.
+
+**Values do not cross engines.** A `JsValue` that is an `ObjectInstance` holds a hard reference to the engine
+and realm that created it, and passing one to a different engine is not supported — it is neither validated
+nor made safe. `Prepared<Script>` / `Prepared<Module>` and `ModuleBuilder` are the supported ways to share
+work between engines; convert to CLR values (`ToObject()`) to move data.
+
 ## Discussion
 
 Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).

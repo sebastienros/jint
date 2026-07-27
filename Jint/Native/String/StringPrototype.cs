@@ -944,7 +944,7 @@ internal sealed partial class StringPrototype : StringInstance
         var intEnd = endArg.IsUndefined() ? len : ToIntegerSupportInfinity(end);
         var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
         var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
-        // Swap value if finalStart < finalEnd
+        // Swap the two if finalStart > finalEnd (substring, unlike slice, orders its endpoints)
         var from = System.Math.Min(finalStart, finalEnd);
         var to = System.Math.Max(finalStart, finalEnd);
         var length = to - from;
