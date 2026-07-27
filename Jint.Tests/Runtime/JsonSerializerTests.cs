@@ -250,6 +250,26 @@ public class JsonSerializerTests
     }
 
     [Fact]
+    public void AReusedSerializerDoesNotCarryReplacerOrSpaceIntoTheNextCall()
+    {
+        // JSON.stringify allocates a serializer per call, but the type is public and a host may hold one.
+        using var engine = new Engine();
+        var serializer = new JsonSerializer(engine);
+
+        var instance = new JsObject(engine);
+        instance["a"] = 21;
+        instance["b"] = 42;
+
+        var replacerArray = new JsArray(engine, [new JsString("b")]);
+        serializer.Serialize(instance, replacerArray, new JsNumber(2)).ToString().Should().Be("{\n  \"b\": 42\n}");
+        serializer.Serialize(instance).ToString().Should().Be("{\"a\":21,\"b\":42}");
+
+        var replacerFunction = engine.Evaluate("(function (k, v) { return k === 'a' ? undefined : v; })");
+        serializer.Serialize(instance, replacerFunction, JsValue.Undefined).ToString().Should().Be("{\"b\":42}");
+        serializer.Serialize(instance).ToString().Should().Be("{\"a\":21,\"b\":42}");
+    }
+
+    [Fact]
     public void ReplacerFunctionAppliesToShapedObjects()
     {
         using var engine = new Engine();

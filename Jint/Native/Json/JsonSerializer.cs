@@ -132,6 +132,14 @@ public sealed class JsonSerializer
     {
         _stack = new ObjectTraverseStack(_engine);
 
+        // JSON.stringify allocates a serializer per call, but the type is public and a host may hold an
+        // instance across calls: every field the prologue only conditionally assigns has to be cleared
+        // here, or the previous call's replacer, property list or indentation leaks into this one.
+        _indent = null;
+        _gap = string.Empty;
+        _propertyList = null;
+        _replacerFunction = JsValue.Undefined;
+
         // for JSON.stringify(), any function passed as the first argument will return undefined
         // if the replacer is not defined. The function is not called either.
         if (value.IsCallable && ReferenceEquals(replacer, JsValue.Undefined))
@@ -165,7 +173,16 @@ public sealed class JsonSerializer
 
             // GetMaxByteCount leaves room for a surrogate held over from the previous round, so a
             // conforming writer always hands back enough space to drain the whole chunk in one go.
-            var destination = writer.GetSpan(Encoding.UTF8.GetMaxByteCount(chunk.Length));
+            var sizeHint = Encoding.UTF8.GetMaxByteCount(chunk.Length);
+            var destination = writer.GetSpan(sizeHint);
+            if (destination.Length < sizeHint)
+            {
+                // GetSpan must return at least sizeHint bytes. A shorter span cannot be relied on to
+                // drain any of the chunk, so the loop would spin (or, on the pointer-based path, fault)
+                // instead of making progress.
+                Throw.InvalidOperationException(
+                    $"The {nameof(IBufferWriter<byte>)} returned a buffer of {destination.Length} bytes for a size hint of {sizeHint} bytes.");
+            }
 
             int charsUsed;
             int bytesUsed;
