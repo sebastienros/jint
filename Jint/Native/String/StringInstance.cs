@@ -66,6 +66,61 @@ internal class StringInstance : ObjectInstance, IJsPrimitive
         return new PropertyDescriptor(str[index], PropertyFlag.OnlyEnumerable);
     }
 
+    /// <summary>
+    /// Index and <c>length</c> existence answered from the string itself, without the
+    /// <see cref="PropertyDescriptor"/> (and the boxed character) that
+    /// <see cref="GetOwnProperty(JsValue)"/> allocates per index. Enumerating a String object
+    /// (for-in, Object.keys/values/entries, Object.assign, spread, JSON.stringify) previously built one
+    /// descriptor per character purely to test it; the probe also skips the
+    /// <see cref="JsString.ToString"/> flattening a rope-backed value would otherwise pay.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors <see cref="GetOwnProperty(JsValue)"/> step for step, so the two agree at every instant:
+    /// the <c>Infinity</c> guard, then <c>length</c> off the same <see cref="_length"/> field (whose
+    /// flags a redefinition can change, so enumerability is read off the descriptor rather than assumed),
+    /// then the ordinary property bag — which shadows an index, exactly as there — and only then the
+    /// index lane, which yields <see cref="PropertyFlag.OnlyEnumerable"/> for an in-range index.
+    /// </remarks>
+    protected internal sealed override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if (CommonProperties.Infinity.Equals(property))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        if (CommonProperties.Length.Equals(property))
+        {
+            var length = _length;
+            if (length is null)
+            {
+                return OwnPropertyProbe.Missing;
+            }
+
+            return length.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+        }
+
+        // ObjectInstance.GetOwnProperty, called non-virtually: the ordinary bag lookup this type's
+        // GetOwnProperty performs at this point, which allocates nothing for a String object.
+        var desc = base.GetOwnProperty(property);
+        if (!ReferenceEquals(desc, PropertyDescriptor.Undefined))
+        {
+            return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+        }
+
+        if ((property._type & (InternalTypes.Number | InternalTypes.Integer | InternalTypes.String)) == InternalTypes.Empty)
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        var number = TypeConverter.ToNumber(property);
+        if (!IsInt32(number, out var index) || index < 0 || index >= StringData.Length)
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        return OwnPropertyProbe.Enumerable;
+    }
+
     public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         foreach (var entry in base.GetOwnProperties())
