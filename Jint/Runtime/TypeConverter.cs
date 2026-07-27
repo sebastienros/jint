@@ -49,6 +49,14 @@ public static class TypeConverter
 
     private static JsValue ToPrimitiveObjectInstance(ObjectInstance oi, Types preferredType)
     {
+        // The third leaf-lane assertion point, and the only one a *well-behaved* user conversion
+        // reaches: JintCallStack.Push and the JavaScriptException constructor both need the
+        // valueOf/toString to nest a call or throw, so a trivial one slipped past the audit
+        // entirely. Converting an object to a primitive always means asking script-supplied code,
+        // which is precisely what a frameless built-in must not do — every shipped Leaf shape
+        // guards its receiver and arguments to Number/String/Date, none of which land here.
+        Native.Function.LeafCallGuard.AssertNotInLeafCall("an object-to-primitive conversion (TypeConverter.ToPrimitive)");
+
         var exoticToPrim = oi.GetMethod(GlobalSymbolRegistry.ToPrimitive);
         if (exoticToPrim is not null)
         {

@@ -38,6 +38,19 @@
         DefaultSeverity: Error,
         IsEnabledByDefault: true
       }
+    },
+    {
+      Location: : (24,27)-(24,37),
+      Message: Method 'Undeclared' requests Leaf = true but the generator cannot honor it: parameter 0 is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …) so the lane can guard it,
+      Severity: Error,
+      Descriptor: {
+        Id: JINT023,
+        Title: [JsFunction] cannot be invoked through the requested fast-call lane,
+        MessageFormat: Method '{0}' requests {1} = true but the generator cannot honor it: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Error,
+        IsEnabledByDefault: true
+      }
     }
   ]
 }

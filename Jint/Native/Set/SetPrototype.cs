@@ -65,7 +65,7 @@ internal sealed partial class SetPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsBoolean Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -386,7 +386,7 @@ internal sealed partial class SetPrototype : Prototype
     }
 
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsBoolean Has(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);

@@ -277,7 +277,7 @@ public sealed partial class ObjectPrototype : Prototype
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue HasOwnProperty(JsValue thisObject, JsValue v)
     {
         var p = TypeConverter.ToPropertyKey(v);

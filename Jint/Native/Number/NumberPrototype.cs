@@ -79,7 +79,9 @@ internal sealed partial class NumberPrototype : NumberInstance
 
     private const double Ten21 = 1e21;
 
-    [JsFunction]
+    // FastCall only: the body raises a RangeError for out-of-range digits and coerces the receiver
+    // through ToNumber, so the frame has to stay — matching toExponential/toPrecision.
+    [JsFunction(FastCall = true)]
     private JsValue ToFixed(JsValue thisObject, [ToInteger] double fAsDouble)
     {
         var f = (int) fAsDouble;

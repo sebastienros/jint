@@ -958,7 +958,9 @@ internal sealed record class FunctionDefinition(
                         var argGuard = GuardForCoercion(p.Kind);
                         if (argGuard is null)
                         {
-                            leafBlocked ??= $"parameter {position} uses a coercion no FastCallGuard can make a no-op";
+                            leafBlocked ??= p.Kind == ParameterKind.ValueAt
+                                ? $"parameter {position} is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …) so the lane can guard it"
+                                : $"parameter {position} uses a coercion no FastCallGuard can make a no-op";
                         }
                         else
                         {
@@ -1043,13 +1045,19 @@ internal sealed record class FunctionDefinition(
     /// <summary>
     /// The guard under which a parameter coercion provably runs no user code. Every numeric
     /// conversion funnels through <c>ToNumber</c>, whose object path calls <c>valueOf</c>; the string
-    /// ones call <c>toString</c>. A plain <c>JsValue</c> parameter is forwarded untouched, so it
-    /// needs no guard. <c>[ToObject]</c> gets none: it throws for null/undefined, and no guard
-    /// expresses "not nullish".
+    /// ones call <c>toString</c>. <c>[ToObject]</c> gets none: it throws for null/undefined, and no
+    /// guard expresses "not nullish".
+    /// <para>
+    /// A plain <c>JsValue</c> parameter gets none either, which blocks <c>Leaf</c> outright. It used
+    /// to map to <c>Any</c> on the premise that an undeclared parameter is "forwarded untouched" —
+    /// but the generator cannot see the body, and four <c>String.prototype</c> methods took the
+    /// value and coerced it themselves, running user <c>valueOf</c> in a window with no frame. The
+    /// declaration is the only thing the generator can trust, so an undeclared coercion now costs
+    /// the leaf lane rather than silently forfeiting the guard that would have prevented it.
+    /// </para>
     /// </summary>
     private static FastCallGuardKind? GuardForCoercion(ParameterKind kind) => kind switch
     {
-        ParameterKind.ValueAt => FastCallGuardKind.Any,
         ParameterKind.ToNumber => FastCallGuardKind.Number,
         ParameterKind.ToInteger => FastCallGuardKind.Number,
         ParameterKind.ToInt32 => FastCallGuardKind.Number,

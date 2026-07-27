@@ -44,7 +44,7 @@ internal sealed partial class MapPrototype : Prototype
         return JsNumber.Create(0);
     }
 
-    [JsFunction(Name = "get")]
+    [JsFunction(Name = "get", FastCall = true)]
     private JsValue MapGet(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
@@ -85,7 +85,7 @@ internal sealed partial class MapPrototype : Prototype
             : JsBoolean.False;
     }
 
-    [JsFunction(Name = "set")]
+    [JsFunction(Name = "set", FastCall = true)]
     private JsValue MapSet(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertMapInstance(thisObject);

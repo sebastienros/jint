@@ -801,13 +801,14 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     /// <summary>
     /// https://tc39.es/proposal-float16array/#sec-math.f16round
     /// </summary>
-    [JsFunction(Length = 1, Name = "f16round")]
-    private static JsValue F16Round(JsValue thisObject, JsValue arg0)
+    // FastCall only, like Fround: on the TFMs without Half this throws, and the frame belongs on a
+    // throwing built-in. The declared [ToNumber] is what keeps the coercion out of the body — where
+    // it used to make the infinity / signed-zero branches hand back the *argument*, so an object
+    // coercing to Infinity was returned as itself instead of as a Number.
+    [JsFunction(Length = 1, Name = "f16round", FastCall = true)]
+    private static JsValue F16Round(JsValue thisObject, [ToNumber] double n)
     {
 #if SUPPORTS_HALF
-        var x = arg0;
-        var n = TypeConverter.ToNumber(x);
-
         if (double.IsNaN(n))
         {
             return JsNumber.DoubleNaN;
@@ -815,7 +816,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
 
         if (double.IsInfinity(n) || NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
         {
-            return x;
+            return n;
         }
 
         return (double) (Half) n;
@@ -902,7 +903,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Tanh(x);
     }
 
-    [JsFunction(Name = "trunc")]
+    [JsFunction(Name = "trunc", FastCall = true, Leaf = true)]
     private static JsValue Truncate(JsValue thisObject, [ToNumber] double x)
     {
         if (double.IsNaN(x))

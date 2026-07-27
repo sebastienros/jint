@@ -1697,7 +1697,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return a;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Shift(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -1747,7 +1747,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.reverse
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Reverse(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
@@ -2240,7 +2240,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return func(array, Arguments.Empty);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue ToReversed(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
