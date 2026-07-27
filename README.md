@@ -189,6 +189,10 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   cache.
 - For CLR objects, `engine.SetValue(name, obj)` wraps them in `ObjectWrapper`, whose member resolution and
   compiled accessors are cached process-wide on the `TypeResolver`.
+- For the *prototypes* those objects sit behind, declare the members once per process with `JsObjectShape` and
+  create one object per engine with `Instantiate`: members materialize only when a script touches them, and
+  because the engine stores and versions the whole member set itself, a shaped prototype can serve the
+  prototype-method inline cache — which an `ObjectInstance` subclass used as a prototype can never do.
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
