@@ -1081,10 +1081,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// Answers whether the named own property exists and is enumerable without materializing a
     /// <see cref="PropertyDescriptor"/>. Shape-mode objects (sealed <see cref="JsObject"/>,
     /// whose slots are always configurable/enumerable/writable — anything else deopts to
-    /// dictionary mode) answer straight from the shape; every other object — including exotics
-    /// like proxies (traps still fire), typed arrays and interop wrappers — routes through the
-    /// virtual <see cref="GetOwnProperty"/>. Read-only callers that don't need the descriptor's
-    /// value (existence checks, enumerability filters) should prefer this over GetOwnProperty.
+    /// dictionary mode) answer straight from the shape, and a builtin-shaped host answers a
+    /// declared member from its shared layout without creating that member's function; every
+    /// other object — including exotics like proxies (traps still fire), typed arrays and interop
+    /// wrappers — routes through the virtual <see cref="GetOwnProperty"/>. Read-only callers that
+    /// don't need the descriptor's value (existence checks, enumerability filters) should prefer
+    /// this over GetOwnProperty.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1117,6 +1119,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 : OwnPropertyProbe.Missing;
         }
 
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty
+            && property is JsString declaredName
+            && TryProbeBuiltinShapeSlot(declaredName.ToString(), out var slotProbe))
+        {
+            AssertBuiltinShapeProbeAgrees(this, property, slotProbe);
+            return slotProbe;
+        }
+
         var desc = GetOwnProperty(property);
         if (ReferenceEquals(desc, PropertyDescriptor.Undefined))
         {
@@ -1124,6 +1134,98 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
 
         return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+    }
+
+    /// <summary>
+    /// Answers an existence/enumerability question about a <b>declared member</b> of a builtin-shaped host
+    /// without materializing it. Web IDL-style prototypes declare their members enumerable, so a page walking
+    /// them (<c>for-in</c>, <c>Object.keys</c>, <c>JSON.stringify</c>, spread) previously created every
+    /// member's function object purely to read one flag off the descriptor it hung on.
+    /// <para>
+    /// A slot that already carries a live descriptor — a constant, a per-realm instance slot filled at
+    /// initialization, a redefined member, or one materialized by an earlier read — is answered from that
+    /// descriptor, so a redefine that changed enumerability is respected. An untouched function or accessor
+    /// slot is answered from the enumerability the shape declares for it. A <see cref="BuiltinSlotKind.Factory"/>
+    /// slot has no declared flags before its factory runs, so it declines, exactly as
+    /// <see cref="BuiltinShape.FixedSlotsAllNonEnumerable"/> gives up on one.
+    /// </para>
+    /// <para>
+    /// It also declines for any name the shape does not declare, rather than reporting it missing. The name
+    /// may be a post-initialization addition in the side dictionary, and — since this runs on the base class
+    /// — it may equally be one a subclass resolves ahead of the shared layout: a <c>Function</c>-derived
+    /// shaped host answers <c>length</c>/<c>name</c>/<c>prototype</c> from its own fields, and an
+    /// array-backed one answers indices from its element storage. Declining routes those to the virtual
+    /// <see cref="GetOwnProperty"/>, which is what every shaped host did before this lane existed.
+    /// </para>
+    /// </summary>
+    private bool TryProbeBuiltinShapeSlot(string name, out OwnPropertyProbe probe)
+    {
+        var shaped = Unsafe.As<IBuiltinShaped>(this);
+        var shape = shaped.BuiltinShape;
+        if (!shape.Index.TryGetValue(name, out var slot))
+        {
+            probe = OwnPropertyProbe.Missing;
+            return false;
+        }
+
+        // An alias carries no flags of its own: materializing it hands back the descriptor of the slot it
+        // shares, so that slot's state is the one to read.
+        while (shape.Kinds[slot] == BuiltinSlotKind.Alias)
+        {
+            slot = shape.FunctionSlots[slot];
+        }
+
+        var descriptor = shaped.BuiltinDescriptors![slot];
+        if (descriptor is not null)
+        {
+            probe = descriptor.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+            return true;
+        }
+
+        if (shape.Kinds[slot] == BuiltinSlotKind.Factory)
+        {
+            probe = OwnPropertyProbe.Missing;
+            return false;
+        }
+
+        probe = (shape.FunctionFlags[slot] & PropertyFlag.Enumerable) != PropertyFlag.None
+            ? OwnPropertyProbe.Enumerable
+            : OwnPropertyProbe.NonEnumerable;
+        return true;
+    }
+
+    /// <summary>
+    /// Debug-only checker for the lane above. The probe contract is trusted and never re-verified at runtime —
+    /// a wrong <see cref="OwnPropertyProbe.Missing"/> silently drops the key from every enumeration and copy
+    /// that consults it — so a Debug build recomputes the answer the way the lane exists to avoid, straight
+    /// from the virtual <see cref="GetOwnProperty"/>, and fails loudly on any disagreement. Materializing the
+    /// slot is the price of checking: a Debug build therefore behaves exactly as every build did before this
+    /// lane, which is also why a test that proves the lane materializes nothing must read Release figures.
+    /// </summary>
+    [Conditional("DEBUG")]
+    private static void AssertBuiltinShapeProbeAgrees(ObjectInstance target, JsValue property, OwnPropertyProbe probe)
+    {
+#if DEBUG
+        var descriptor = target.GetOwnProperty(property);
+        OwnPropertyProbe expected;
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            expected = OwnPropertyProbe.Missing;
+        }
+        else if (descriptor.Enumerable)
+        {
+            expected = OwnPropertyProbe.Enumerable;
+        }
+        else
+        {
+            expected = OwnPropertyProbe.NonEnumerable;
+        }
+
+        if (expected != probe)
+        {
+            Debug.Fail($"{target.GetType()} answered the shared-layout probe for '{property}' with {probe} but its GetOwnProperty reports {expected}. A probe must agree with GetOwnProperty at the same instant; the engine trusts it without re-verifying.");
+        }
+#endif
     }
 
     // Built-in-shape storage helpers (InternalTypes.BuiltinShapeMode). Shared by every host that implements
