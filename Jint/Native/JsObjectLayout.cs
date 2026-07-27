@@ -22,7 +22,13 @@ namespace Jint.Native;
 /// <para>
 /// The property names are validated once, here, so object creation itself has nothing left to check.
 /// </para>
+/// <para>
+/// A layout builds per-item <em>data records</em>: many short-lived objects sharing one set of plain
+/// value properties. For the other shape of sharing — a singleton prototype whose methods, accessors
+/// and constants materialize lazily per realm — use <see cref="JsObjectShape"/> instead.
+/// </para>
 /// </summary>
+/// <seealso cref="JsObjectShape"/>
 /// <example>
 /// <code>
 /// private static readonly JsObjectLayout PointLayout = new("x", "y", "label");

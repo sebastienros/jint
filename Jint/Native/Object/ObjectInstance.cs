@@ -22,6 +22,16 @@ using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Object;
 
+/// <summary>
+/// Base class for every JavaScript object.
+/// </summary>
+/// <remarks>
+/// An <see cref="ObjectInstance"/> is bound to the <see cref="Engine"/> (and realm) that created it and
+/// holds a hard reference to it. Handing an instance to another engine — as an argument, a global, a
+/// prototype or a return value — is unsupported: nothing validates it, and the object will resolve its
+/// prototype chain, intrinsics and interop services against the wrong engine. Convert through a
+/// serialization boundary instead, or create the value on the engine that will consume it.
+/// </remarks>
 [DebuggerTypeProxy(typeof(ObjectInstanceDebugView))]
 public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 {
