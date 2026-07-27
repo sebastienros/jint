@@ -543,6 +543,64 @@ public class HostPrototypeShapeTests
     }
 
     [Fact]
+    public void EnumerabilityAnswersFollowTheLiveDescriptorAfterARedefine()
+    {
+        // Existence and enumerability are answered from the shared layout without creating the member's
+        // function, but a member that has been redefined carries a live descriptor whose flags win — the
+        // two answers must never diverge.
+        var engine = EngineWithPrototype(out _);
+
+        engine.Evaluate("Object.keys(proto).join(',')").Should().Be("greet,tagName,readOnlyTag,ELEMENT_NODE");
+
+        // non-enumerable member made enumerable, and an enumerable one hidden
+        engine.Execute("Object.defineProperty(proto, 'secretMethod', { enumerable: true });");
+        engine.Execute("Object.defineProperty(proto, 'greet', { enumerable: false });");
+
+        engine.Evaluate("Object.keys(proto).join(',')").Should().Be("secretMethod,tagName,readOnlyTag,ELEMENT_NODE");
+        engine.Evaluate("proto.propertyIsEnumerable('secretMethod')").Should().Be(true);
+        engine.Evaluate("proto.propertyIsEnumerable('greet')").Should().Be(false);
+        engine.Evaluate("(function () { var k = []; for (var n in proto) { k.push(n); } return k.join(','); })()")
+            .Should().Be("secretMethod,tagName,readOnlyTag,ELEMENT_NODE");
+
+        // ...and both are still own properties either way
+        engine.Evaluate("proto.hasOwnProperty('greet')").Should().Be(true);
+        engine.Evaluate("'greet' in proto").Should().Be(true);
+    }
+
+    [Fact]
+    public void ExistenceAndEnumerabilityStayCorrectAfterTheFallbackToTheDictionary()
+    {
+        var engine = EngineWithPrototype(out var prototype);
+
+        engine.Evaluate("delete proto.greet").Should().Be(true);
+        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+
+        engine.Evaluate("'greet' in proto").Should().Be(false);
+        engine.Evaluate("proto.hasOwnProperty('greet')").Should().Be(false);
+        engine.Evaluate("proto.hasOwnProperty('secretMethod')").Should().Be(true);
+        engine.Evaluate("proto.propertyIsEnumerable('secretMethod')").Should().Be(false);
+        engine.Evaluate("proto.propertyIsEnumerable('ELEMENT_NODE')").Should().Be(true);
+        engine.Evaluate("Object.keys(proto).join(',')").Should().Be("tagName,readOnlyTag,ELEMENT_NODE");
+    }
+
+    [Fact]
+    public void ExistenceAnswersCoverHybridAdditionsAndAbsentNames()
+    {
+        var engine = EngineWithPrototype(out _);
+
+        engine.Execute("proto.added = 1; Object.defineProperty(proto, 'hiddenAdd', { value: 2, configurable: true });");
+
+        engine.Evaluate("proto.hasOwnProperty('added')").Should().Be(true);
+        engine.Evaluate("proto.propertyIsEnumerable('added')").Should().Be(true);
+        engine.Evaluate("proto.hasOwnProperty('hiddenAdd')").Should().Be(true);
+        engine.Evaluate("proto.propertyIsEnumerable('hiddenAdd')").Should().Be(false);
+        engine.Evaluate("proto.hasOwnProperty('neverDeclared')").Should().Be(false);
+        engine.Evaluate("'neverDeclared' in proto").Should().Be(false);
+        engine.Evaluate("proto.hasOwnProperty('toString')").Should().Be(false, "toString is inherited, not own");
+        engine.Evaluate("'toString' in proto").Should().Be(true);
+    }
+
+    [Fact]
     public void ForInWalksTheEnumerablePrototypeMembers()
     {
         var engine = EngineWithPrototype(out _);

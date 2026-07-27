@@ -120,6 +120,224 @@ public class SharedObjectShapeTests
     }
 
     [Fact]
+    public void AskingWhetherAMemberExistsDoesNotCreateIt()
+    {
+        // The point of the probe lane: a page walking a Web IDL prototype (for-in, Object.keys,
+        // hasOwnProperty) asks only about names and enumerability, and used to pay one function object per
+        // member to read one flag off the descriptor it hung on.
+        var shape = new JsObjectShape.Builder()
+            .Method("touched", static (t, args) => new JsString("touched"))
+            .Method("enumerableUntouched", static (t, args) => new JsString("e"))
+            .Method("hiddenUntouched", static (t, args) => new JsString("h"), enumerable: false)
+            .Accessor("accessorUntouched", getter: static (t, args) => new JsString("a"))
+            .Constant("K", JsNumber.Create(1))
+            .Build();
+
+        var engine = new Engine();
+        var proto = shape.Instantiate(engine);
+        engine.SetValue("proto", proto);
+
+        // One member is read for its value, which necessarily materializes it.
+        engine.Evaluate("proto.touched()").Should().Be("touched");
+
+        // Everything below asks only about names and enumerability.
+        engine.Evaluate("Object.keys(proto).join(',')").Should().Be("touched,enumerableUntouched,accessorUntouched,K");
+        engine.Evaluate("'hiddenUntouched' in proto").Should().Be(true);
+        engine.Evaluate("proto.hasOwnProperty('accessorUntouched')").Should().Be(true);
+        engine.Evaluate("proto.propertyIsEnumerable('hiddenUntouched')").Should().Be(false);
+        engine.Evaluate("proto.propertyIsEnumerable('accessorUntouched')").Should().Be(true);
+        engine.Evaluate("(function () { var k = []; for (var n in proto) { k.push(n); } return k.join(','); })()")
+            .Should().Be("touched,enumerableUntouched,accessorUntouched,K");
+
+        var descriptors = ((IBuiltinShaped) proto).BuiltinDescriptors!;
+        descriptors[0].Should().NotBeNull("the member whose value was read had to materialize");
+        descriptors[4].Should().NotBeNull("a constant points at the shape's shared descriptor from the start");
+
+#if DEBUG
+        // A Debug build cross-checks every probe against GetOwnProperty, which materializes the slot — the
+        // checker doing its job, and the reason the no-materialization figure is a Release figure.
+        descriptors[1].Should().NotBeNull();
+        descriptors[2].Should().NotBeNull();
+        descriptors[3].Should().NotBeNull();
+#else
+        descriptors[1].Should().BeNull("an enumerable member's name and flag come from the shared layout");
+        descriptors[2].Should().BeNull("so do a non-enumerable member's");
+        descriptors[3].Should().BeNull("an accessor is not created to answer whether it is enumerable");
+#endif
+
+        // Reading the values is what creates them, and the answers are unchanged.
+        engine.Evaluate("Object.values(proto).length").Should().Be(4);
+        ((IBuiltinShaped) proto).BuiltinDescriptors![1].Should().NotBeNull();
+        ((IBuiltinShaped) proto).BuiltinDescriptors![3].Should().NotBeNull();
+    }
+
+    [Fact]
+    public void EnumeratingAnIntrinsicNamespaceDoesNotCreateItsFunctions()
+    {
+        // The same lane, on the built-ins it was already storing this way: Object.keys(Math) has to test
+        // every one of Math's ~35 members for enumerability, and used to build every one of their function
+        // objects to do it — for a result that is always empty, since built-in members are non-enumerable.
+        var engine = new Engine();
+        engine.Evaluate("Math.abs(-1)");
+
+        var math = (IBuiltinShaped) engine.Realm.Intrinsics.Math;
+        var materializedAfterOneCall = CountMaterialized(math);
+        materializedAfterOneCall.Should().Be(1, "only the member that was called");
+
+        engine.Evaluate("Object.keys(Math).length").Should().Be(0);
+        engine.Evaluate("JSON.stringify(Math)").Should().Be("{}");
+        engine.Evaluate("Math.hasOwnProperty('sqrt')").Should().Be(true);
+        engine.Evaluate("Math.propertyIsEnumerable('sqrt')").Should().Be(false);
+        engine.Evaluate("'cbrt' in Math").Should().Be(true);
+        engine.Evaluate("(function () { var n = 0; for (var k in Math) { n++; } return n; })()").Should().Be(0);
+
+#if DEBUG
+        CountMaterialized(math).Should().BeGreaterThan(materializedAfterOneCall, "the Debug probe checker materializes what it re-reads");
+#else
+        CountMaterialized(math).Should().Be(materializedAfterOneCall, "no enumerability question created a function");
+#endif
+
+        static int CountMaterialized(IBuiltinShaped shaped)
+        {
+            var descriptors = shaped.BuiltinDescriptors!;
+            var count = 0;
+            for (var i = 0; i < descriptors.Length; i++)
+            {
+                if (descriptors[i] is not null && shaped.BuiltinShape.Kinds[i] != BuiltinSlotKind.Constant)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// The probe contract is trusted and never re-verified at runtime, so it is swept here instead: every
+    /// object a fresh engine reaches that stores its own properties as a shared layout is asked about each
+    /// of its own string keys, and the answer must equal the one its <c>GetOwnProperty</c> gives.
+    /// <para>
+    /// Each key is probed <em>before</em> the comparison materializes it, so the untouched state is what gets
+    /// checked; the whole set is then probed again once materialized. The sweep is what covers the shaped
+    /// hosts whose <c>GetOwnProperty</c> is not the base one — a <c>Function</c>-derived constructor resolves
+    /// <c>length</c>/<c>name</c>/<c>prototype</c> from its own fields, and <c>Array.prototype</c> resolves
+    /// indices from element storage, both ahead of the shared layout.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void EveryReachableSharedLayoutObjectProbesConsistentlyWithItsDescriptors()
+    {
+        var engine = new Engine();
+
+        var roots = new List<ObjectInstance> { engine.Realm.GlobalObject };
+        foreach (var source in new[]
+                 {
+                     "Object.getPrototypeOf(function* () {} ())",
+                     "Object.getPrototypeOf(async function* () {} ())",
+                     "Math", "JSON", "Reflect", "Atomics", "Temporal.Now",
+                 })
+        {
+            if (engine.Evaluate(source) is ObjectInstance seed)
+            {
+                roots.Add(seed);
+            }
+        }
+
+        var visited = new HashSet<ObjectInstance>(ReferenceComparer.Instance);
+        var pending = new Queue<ObjectInstance>(roots);
+        var shapedChecked = 0;
+        var keysChecked = 0;
+
+        while (pending.Count > 0 && visited.Count < 4000)
+        {
+            var current = pending.Dequeue();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            // Asking for the keys is what runs a lazily-initialized built-in's Initialize, and therefore
+            // what installs the shared layout — so the flag is only meaningful after this call. Collecting
+            // keys materializes no slot; reading their values below is what does.
+            var keys = current.GetOwnPropertyKeys(Jint.Runtime.Types.String);
+
+            var shaped = (current._type & Jint.Runtime.InternalTypes.BuiltinShapeMode) != Jint.Runtime.InternalTypes.Empty;
+            if (shaped)
+            {
+                shapedChecked++;
+                keysChecked += AssertProbesAgree(current);
+            }
+
+            // Only data descriptors are followed: invoking a getter would run engine code (and some
+            // intrinsic accessors throw by design), which this sweep has no business doing.
+            foreach (var key in keys)
+            {
+                var descriptor = current.GetOwnProperty(key);
+                if (descriptor.Value is ObjectInstance child)
+                {
+                    pending.Enqueue(child);
+                }
+            }
+
+            if (current.Prototype is { } prototype)
+            {
+                pending.Enqueue(prototype);
+            }
+
+            if (shaped)
+            {
+                // ...and again now that walking the values above materialized every slot.
+                AssertProbesAgree(current);
+            }
+        }
+
+        // A fresh engine reaches 122 shared-layout objects carrying 1154 own string keys between them, each
+        // compared once untouched and once materialized. The floors are deliberately loose — they exist to
+        // fail if the sweep ever stops reaching the built-ins, not to track the exact intrinsic count.
+        shapedChecked.Should().BeGreaterThan(100, "the sweep must keep reaching the engine's shared-layout built-ins");
+        keysChecked.Should().BeGreaterThan(1000);
+
+        static int AssertProbesAgree(ObjectInstance target)
+        {
+            var checkedKeys = 0;
+            foreach (var key in target.GetOwnPropertyKeys(Jint.Runtime.Types.String))
+            {
+                var probe = target.ProbeOwnProperty(key);
+                var descriptor = target.GetOwnProperty(key);
+
+                OwnPropertyProbe expected;
+                if (ReferenceEquals(descriptor, Jint.Runtime.Descriptors.PropertyDescriptor.Undefined))
+                {
+                    expected = OwnPropertyProbe.Missing;
+                }
+                else if (descriptor.Enumerable)
+                {
+                    expected = OwnPropertyProbe.Enumerable;
+                }
+                else
+                {
+                    expected = OwnPropertyProbe.NonEnumerable;
+                }
+
+                probe.Should().Be(expected, $"{target.GetType().Name}.{key} must probe as its descriptor reports");
+                checkedKeys++;
+            }
+
+            return checkedKeys;
+        }
+    }
+
+    private sealed class ReferenceComparer : IEqualityComparer<ObjectInstance>
+    {
+        internal static readonly ReferenceComparer Instance = new();
+
+        public bool Equals(ObjectInstance? x, ObjectInstance? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(ObjectInstance obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+    }
+
+    [Fact]
     public void ASharedShapeDoesNotRetainEngines()
     {
         // The critical invariant of the whole feature: a host declares one shape per process and instantiates
