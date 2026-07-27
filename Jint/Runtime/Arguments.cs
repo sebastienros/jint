@@ -36,6 +36,16 @@ public static class Arguments
     }
 
     /// <summary>
+    /// The span form of <see cref="At(JsValue[], int)"/>, used by the generated variadic fast-call
+    /// dispatchers so their bodies stay character-for-character the same question as the array ones.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static JsValue At(this ReadOnlySpan<JsValue> args, int index)
+    {
+        return (uint) index < (uint) args.Length ? args[index] : JsValue.Undefined;
+    }
+
+    /// <summary>
     /// Writes <paramref name="value"/> to <paramref name="array"/> without the covariant array store
     /// type check (stelemref). Because <see cref="JsValue"/> is not sealed, a plain <c>array[index] = value</c>
     /// must verify at runtime that the array's actual element type accepts the value; that check is pure

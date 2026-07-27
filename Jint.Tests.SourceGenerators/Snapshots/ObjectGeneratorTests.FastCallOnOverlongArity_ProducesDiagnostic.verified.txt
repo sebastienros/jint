@@ -1,8 +1,8 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (12,27)-(12,30),
-      Message: Method 'Bad' requests FastCall = true but the generator cannot honor it: it declares an [ArgCount] parameter, and neither fast-call entry point carries an argument count,
+      Location: : (13,27)-(13,34),
+      Message: Method 'TooWide' requests Leaf = true but the generator cannot honor it: it declares 3 value parameters and the fast-call lane carries at most 2,
       Severity: Error,
       Descriptor: {
         Id: JINT023,

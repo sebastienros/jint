@@ -166,6 +166,17 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal virtual JsValue CallFast(JsValue thisObject, JsValue arg0, JsValue arg1)
         => throw new InvalidOperationException($"{GetType()} does not implement CallFast; GetFastCallShape must not report Supported.");
 
+    /// <summary>
+    /// The <see cref="FastCallShape.Variadic"/> counterpart of <see cref="CallFast"/>, for built-ins
+    /// whose tail is a <c>[Rest]</c> parameter. The span carries the call site's real arity, so an
+    /// omitted argument is genuinely absent here rather than an <see cref="JsValue.Undefined"/>
+    /// standing in for one — which is what a variadic body would otherwise mistake for an extra
+    /// element. Only valid when <see cref="GetFastCallShape"/> reported both
+    /// <see cref="FastCallShape.Supported"/> and <see cref="FastCallShape.Variadic"/> for the arity.
+    /// </summary>
+    internal virtual JsValue CallFastVariadic(JsValue thisObject, ReadOnlySpan<JsValue> arguments)
+        => throw new InvalidOperationException($"{GetType()} does not implement CallFastVariadic; GetFastCallShape must not report Variadic.");
+
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         var prototypeDescriptor = ReferenceEquals(_prototypeDescriptor, _pendingDescriptor)

@@ -1,8 +1,8 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (12,27)-(12,30),
-      Message: Method 'Bad' requests FastCall = true but the generator cannot honor it: it declares an [ArgCount] parameter, and neither fast-call entry point carries an argument count,
+      Location: : (13,27)-(13,30),
+      Message: Method 'Bad' requests Leaf = true but the generator cannot honor it: its [Rest] tail hands the body raw JsValues, so nothing stops it coercing one through a user valueOf/toString inside the frameless window — declare the tail's conversion ([Rest, ToNumber] ReadOnlySpan<double>, …) so the lane can guard it,
       Severity: Error,
       Descriptor: {
         Id: JINT023,

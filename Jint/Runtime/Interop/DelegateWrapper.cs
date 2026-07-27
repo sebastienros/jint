@@ -139,7 +139,7 @@ internal sealed class DelegateWrapper : Function
             return default;
         }
 
-        return new FastCallShape(Supported: true, Leaf: false, FastCallGuard.Any, FastCallGuard.Any, FastCallGuard.Any);
+        return new FastCallShape(Supported: true, Leaf: false, Variadic: false, FastCallGuard.Any, FastCallGuard.Any, FastCallGuard.Any);
     }
 
     /// <remarks>

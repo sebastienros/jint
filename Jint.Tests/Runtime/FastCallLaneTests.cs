@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
@@ -141,10 +142,10 @@ public class FastCallLaneTests
     /// <summary>
     /// The frame invariant again, but at a <em>warmed</em> site — the state the lane's leaf branch is
     /// only ever reached from. <see cref="NonNumericArgumentsStillCoerceExactlyOnce"/> calls each
-    /// built-in once, so the site never warms and the leaf branch is never taken; these four
+    /// built-in once, so the site never warms and the leaf branch is never taken. These four
     /// String.prototype methods take their arguments as plain <c>JsValue</c> and coerce them in the
-    /// body, which no <c>FastCallGuard</c> can see, so a Leaf claim on them elides the frame around
-    /// user <c>valueOf</c>.
+    /// body; they claim Leaf under declared per-argument guards, and an object is exactly what those
+    /// guards exist to turn away — it must keep the frame the user <c>valueOf</c> can observe.
     /// </summary>
     [Theory]
     [InlineData("\"abc\".charCodeAt(p)", "charCodeAt")]
@@ -281,6 +282,212 @@ public class FastCallLaneTests
             """).AsString();
 
         result.Should().Be("true,true,true");
+    }
+
+    /// <summary>
+    /// <c>FastCallGuard</c> spells every kind but <c>Date</c> as the <c>InternalTypes</c> bits that
+    /// answer it, which is what lets a composed guard be decided by a single mask test. Nothing in
+    /// the type system holds the two enums together, and a silent drift would not fail a guard — it
+    /// would answer the wrong question — so the correspondence is pinned here.
+    /// </summary>
+    [Fact]
+    public void FastCallGuardValuesMatchInternalTypes()
+    {
+        ((InternalTypes) FastCallGuard.Number).Should().Be(InternalTypes.Number | InternalTypes.Integer);
+        ((InternalTypes) FastCallGuard.String).Should().Be(InternalTypes.String);
+        ((InternalTypes) FastCallGuard.Undefined).Should().Be(InternalTypes.Undefined);
+        ((InternalTypes) FastCallGuard.Array).Should().Be(InternalTypes.Array);
+
+        // Date is the one kind with no bit of its own, so it borrows one above every InternalTypes
+        // flag. If a future flag reached it, every Date-guarded receiver would start matching values
+        // carrying that flag instead of being sent to the type test.
+        var everyInternalType = InternalTypes.Empty;
+        foreach (InternalTypes value in Enum.GetValues(typeof(InternalTypes)))
+        {
+            everyInternalType |= value;
+        }
+
+        (everyInternalType & (InternalTypes) FastCallGuard.Date).Should().Be(InternalTypes.Empty);
+    }
+
+    /// <summary>
+    /// A declared argument guard is a claim about values, not about the method, so the receiver guard
+    /// still has to hold independently: a boxed or hosted receiver coerces through user code and must
+    /// stay framed even when the argument is a plain number that satisfies its own guard.
+    /// </summary>
+    [Theory]
+    [InlineData("charCodeAt", "1")]
+    [InlineData("charAt", "1")]
+    [InlineData("substring", "0, 2")]
+    [InlineData("slice", "0, 2")]
+    public void ADeclaredArgumentGuardDoesNotExcuseTheReceiverGuard(string method, string args)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function f(r) { return r.{{method}}({{args}}); }
+            const primitive = f("abc");
+            f("abc");
+            const boxed = f(new String("abc"));
+            let stack = "";
+            const host = { toString: function () { stack = new Error().stack; return "abc"; } };
+            host.{{method}} = String.prototype.{{method}};
+            const hosted = f(host);
+            [primitive === boxed, primitive === hosted, stack.indexOf("at {{method}}") >= 0].join(",");
+            """).AsString();
+
+        result.Should().Be("true,true,true");
+    }
+
+    /// <summary>
+    /// The declared guards name numbers and <c>undefined</c>. Every other primitive — a string, a
+    /// boolean, null, a symbol — fails them and must take the framed path with unchanged semantics,
+    /// including the TypeError a symbol argument raises, which the frameless lane must never carry.
+    /// </summary>
+    [Theory]
+    [InlineData("\"abcdef\".substring(\"2\")", "cdef")]
+    [InlineData("\"abcdef\".substring(true, \"3\")", "bc")]
+    [InlineData("\"abcdef\".slice(null, \"3\")", "abc")]
+    [InlineData("String(\"abc\".charCodeAt(\"1\"))", "98")]
+    [InlineData("\"abc\".charAt(false)", "a")]
+    public void NonConformingPrimitiveArgumentsKeepTheirSemanticsAtAWarmedSite(string expression, string expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate($"function f() {{ return {expression}; }} f();").AsString().Should().Be(expected);
+        engine.Evaluate($"function g() {{ return {expression}; }} g(); g(); g();").AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("\"abc\".substring(p)")]
+    [InlineData("\"abc\".slice(0, p)")]
+    [InlineData("\"abc\".charCodeAt(p)")]
+    [InlineData("\"abc\".charAt(p)")]
+    public void ASymbolArgumentStillRaisesACatchableTypeErrorAtAWarmedSite(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function f(p) { return {{call}}; }
+            f(1); f(1);
+            let name = "";
+            try { f(Symbol()); } catch (e) { name = e.constructor.name; }
+            name;
+            """).AsString();
+
+        result.Should().Be("TypeError");
+    }
+
+    /// <summary>
+    /// The variadic lane's whole point: the span it hands the built-in is sized to the call site's
+    /// arity, so an omitted argument is absent rather than an <c>undefined</c> element. Every row
+    /// here would change answer if the two argument registers were passed through padded, and each
+    /// is asserted cold and warm because only the warm run reaches the lane.
+    /// </summary>
+    [Theory]
+    [InlineData("Math.max()", "-Infinity")]
+    [InlineData("Math.max(undefined)", "NaN")]
+    [InlineData("Math.max(1)", "1")]
+    [InlineData("Math.max(1, 2)", "2")]
+    [InlineData("Math.max(1, 2, 3)", "3")]
+    [InlineData("Math.min()", "Infinity")]
+    [InlineData("Math.min(undefined)", "NaN")]
+    [InlineData("Math.min(4, 2)", "2")]
+    [InlineData("Math.hypot()", "0")]
+    [InlineData("Math.hypot(3, 4)", "5")]
+    [InlineData("[].push()", "0")]
+    [InlineData("[].push(undefined)", "1")]
+    [InlineData("[].push(1, 2)", "2")]
+    [InlineData("[].push(1, 2, 3)", "3")]
+    [InlineData("\"a\".concat()", "a")]
+    [InlineData("\"a\".concat(undefined)", "aundefined")]
+    [InlineData("\"a\".concat(\"b\", \"c\")", "abc")]
+    public void AVariadicBuiltinSeesTheSitesRealArity(string expression, string expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate($"function f() {{ return String({expression}); }} f();").AsString().Should().Be(expected);
+        engine.Evaluate($"function g() {{ return String({expression}); }} g(); g(); g();").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A spread makes the arity dynamic, which is precisely what the lane cannot serve, so such a
+    /// site must never take it — and must keep giving the right answer.
+    /// </summary>
+    [Fact]
+    public void ASpreadArgumentListStaysOffTheVariadicLane()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function f(xs) { return Math.max(...xs); }
+            const out = [f([1, 2]), f([5, 3, 9]), f([])];
+            const a = [];
+            function g(xs) { return a.push(...xs); }
+            out.push(g([1, 2]), g([3]), a.length);
+            out.join(",");
+            """).AsString();
+
+        result.Should().Be("2,9,-Infinity,2,3,3");
+    }
+
+    /// <summary>
+    /// <c>Math.max</c> is leaf only under the Number guard its <c>[Rest, ToNumber]</c> tail derives.
+    /// An object element coerces through user <c>valueOf</c>, so the frame that code can read in
+    /// <c>error.stack</c> must survive — at a warmed site, which is the only place the leaf branch
+    /// is reachable from.
+    /// </summary>
+    [Theory]
+    [InlineData("Math.max(1, p)", "max")]
+    [InlineData("Math.min(p, 1)", "min")]
+    [InlineData("Math.hypot(p)", "hypot")]
+    public void AWarmedVariadicSiteKeepsTheBuiltinFrameWhenAnElementCoercesThroughUserCode(string call, string builtin)
+    {
+        var engine = new Engine();
+        var stack = engine.Evaluate($$"""
+            function f(p) { return {{call}}; }
+            f(1); f(1);
+            let captured = "";
+            try { f({ valueOf: function () { throw new Error("x"); } }); } catch (e) { captured = e.stack; }
+            captured;
+            """).AsString();
+
+        stack.Should().Contain("at " + builtin, "the built-in frame must survive at a warmed variadic site too");
+    }
+
+    /// <summary>
+    /// <c>push</c> takes the lane but never its leaf branch: the generic path drives <c>[[Set]]</c> on
+    /// an arbitrary array-like, so a setter or a proxy trap is user code that needs the frame — and
+    /// its exceptions must stay catchable.
+    /// </summary>
+    [Fact]
+    public void PushKeepsItsFrameAndItsSemanticsForExoticReceivers()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const log = [];
+            // The callee has to be `o.push` for the site to reach the lane at all, so every receiver
+            // below carries the very same function object and the site stays monomorphic and warm.
+            function f(o, v) { return o.push(v); }
+            const warm = [];
+            f(warm, 1); f(warm, 2);
+
+            const target = { length: 0, push: Array.prototype.push };
+            const proxied = new Proxy(target, {
+                set: function (t, k, v) { log.push(k); t[k] = v; return true; },
+            });
+            const viaProxy = f(proxied, "x");
+
+            let stack = "";
+            const withSetter = { length: 0, push: Array.prototype.push };
+            Object.defineProperty(withSetter, "0", { set: function () { stack = new Error().stack; } });
+            f(withSetter, "y");
+
+            let frozen = "";
+            const sealed = Object.freeze({ length: 0, push: Array.prototype.push });
+            try { f(sealed, "z"); } catch (e) { frozen = e.constructor.name; }
+
+            [warm.length, viaProxy, log.join("+"), stack.indexOf("at push") >= 0, frozen].join(",");
+            """).AsString();
+
+        result.Should().Be("2,1,0+length,true,TypeError");
     }
 
     /// <summary>

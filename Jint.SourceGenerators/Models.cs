@@ -521,26 +521,50 @@ internal enum ParameterKind
 internal sealed record class ParameterDefinition(ParameterKind Kind, int Position, string? CastTargetType = null, ParameterKind? CoercionKind = null);
 
 /// <summary>
-/// Mirrors <c>Jint.Native.Function.FastCallGuard</c>. Kept as a generator-local enum so the emitter
-/// never has to bind the runtime symbol; the names are emitted verbatim and must stay in sync.
+/// Mirrors <c>Jint.Native.Function.FastCallGuard</c>, values included — a declared guard arrives as
+/// the raw underlying number, so the two enums agreeing by name is not enough. Kept generator-local
+/// so the emitter never has to bind the runtime symbol; the names are emitted verbatim.
+/// <para>
+/// The runtime spells each kind as the <c>InternalTypes</c> bits that answer it so one mask test
+/// decides a composed guard; the numbers are repeated literally here because this project cannot see
+/// that internal enum. They only have to stay distinct and stay in step — a runtime test pins the
+/// correspondence to <c>InternalTypes</c> itself.
+/// </para>
 /// </summary>
+[Flags]
 internal enum FastCallGuardKind
 {
-    Any,
-    Number,
-    String,
-    Date,
-    Array,
+    Any = 0,
+    Undefined = 1,      // InternalTypes.Undefined
+    String = 8,         // InternalTypes.String
+    Number = 16 | 32,   // InternalTypes.Number | InternalTypes.Integer
+    Array = 16384,      // InternalTypes.Array
+    Date = 1 << 30,     // no InternalTypes bit; decided by a type test
+
+    /// <summary>
+    /// Every bit this generator knows how to name. A declared guard carrying anything else means the
+    /// runtime enum has gained a kind this mirror has not, which is reported rather than emitted —
+    /// an unnameable bit would otherwise render as nothing at all and produce code that does not
+    /// compile, or worse, a guard weaker than the one declared.
+    /// </summary>
+    Known = Undefined | String | Number | Array | Date,
 }
 
 /// <summary>
 /// The generator's verdict for one <c>[JsFunction(FastCall = true)]</c> method: what
-/// <c>GetFastCallShape</c> should report and which argument expressions <c>CallFast</c> should read.
-/// Present only when the method both requested a fast-call lane and is expressible in it — a
+/// <c>GetFastCallShape</c> should report and which argument expressions the fast entry point should
+/// read. Present only when the method both requested a fast-call lane and is expressible in it — a
 /// requested-but-inexpressible method is reported as JINT023 instead, never silently dropped.
+/// <para>
+/// <paramref name="Variadic"/> routes the slot to <c>CallFastVariadic</c> instead of
+/// <c>CallFast</c>. <paramref name="Arg0"/>/<paramref name="Arg1"/> then describe the registers as
+/// the body will see them at full arity; the emitter republishes them per arity, because a register
+/// past the site's argument count carries padding the variadic body never receives.
+/// </para>
 /// </summary>
 internal sealed record class FastCallSpec(
     bool Leaf,
+    bool Variadic,
     FastCallGuardKind Receiver,
     FastCallGuardKind Arg0,
     FastCallGuardKind Arg1);
@@ -592,15 +616,47 @@ internal sealed record class FunctionDefinition(
         var fastCallRequested = leafRequested || (ObjectDefinition.GetNamedArg(attr, "FastCall") as bool? ?? false);
         // FastCallGuard is byte-backed, so the named argument arrives boxed as a byte, not an int —
         // `as int?` silently yields null and the guard would be dropped. Convert on the raw value.
-        var leafReceiverRaw = ObjectDefinition.GetNamedArg(attr, "LeafReceiver");
-        var declaredLeafReceiver = leafReceiverRaw is null
-            ? FastCallGuardKind.Any
-            : (FastCallGuardKind) Convert.ToInt32(leafReceiverRaw, System.Globalization.CultureInfo.InvariantCulture);
+        var declaredLeafReceiver = ReadGuard(attr, "LeafReceiver", method, diagnostics);
+        var declaredLeafArg0 = ReadGuard(attr, "LeafArg0", method, diagnostics);
+        var declaredLeafArg1 = ReadGuard(attr, "LeafArg1", method, diagnostics);
         return BuildCommon(method, pc, diagnostics, jsName, /* functionName */ jsName, explicitLength, RegistrationKind.DataProperty, flags,
             captureField: string.IsNullOrWhiteSpace(captureField) ? null : captureField,
             fastCallRequested: fastCallRequested,
             leafRequested: leafRequested,
-            declaredLeafReceiver: declaredLeafReceiver);
+            declaredLeafReceiver: declaredLeafReceiver,
+            declaredLeafArgs: [declaredLeafArg0, declaredLeafArg1]);
+    }
+
+    /// <summary>
+    /// Reads a <c>FastCallGuard</c>-typed named argument. The enum is byte-backed, so the value
+    /// arrives boxed as a byte and <c>as int?</c> would silently yield null; a composed value such as
+    /// <c>Number | Undefined</c> arrives as the combined number, which the mirrored generator enum
+    /// reproduces because it declares the same underlying values.
+    /// </summary>
+    private static FastCallGuardKind ReadGuard(AttributeData? attr, string name, IMethodSymbol method, List<DiagnosticInfo> diagnostics)
+    {
+        var raw = ObjectDefinition.GetNamedArg(attr, name);
+        if (raw is null)
+        {
+            return FastCallGuardKind.Any;
+        }
+
+        var guard = (FastCallGuardKind) Convert.ToInt32(raw, System.Globalization.CultureInfo.InvariantCulture);
+        if ((guard & ~FastCallGuardKind.Known) != FastCallGuardKind.Any)
+        {
+            // The emitter names guards member by member, so a bit it does not know would silently
+            // vanish from the emitted shape — leaving either uncompilable code or, if other bits
+            // remain, a guard weaker than the declaration asked for. Fail the build instead.
+            diagnostics.Add(new DiagnosticInfo(
+                DiagnosticDescriptors.FastCallNotExpressible,
+                method.Locations.FirstOrDefault(),
+                method.Name,
+                name,
+                $"the declared FastCallGuard value {(int) guard} carries a kind this generator cannot name — Jint.Native.Function.FastCallGuard and the generator's mirror of it have drifted"));
+            return FastCallGuardKind.Any;
+        }
+
+        return guard;
     }
 
     public static FunctionDefinition? FromJsAccessor(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics)
@@ -714,7 +770,7 @@ internal sealed record class FunctionDefinition(
         return fn;
     }
 
-    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression, string? captureField = null, bool fastCallRequested = false, bool leafRequested = false, FastCallGuardKind declaredLeafReceiver = FastCallGuardKind.Any)
+    private static FunctionDefinition? BuildCommon(IMethodSymbol method, ParseContext pc, List<DiagnosticInfo> diagnostics, string jsName, string functionName, int explicitLength, RegistrationKind registration, string flagsExpression, string? captureField = null, bool fastCallRequested = false, bool leafRequested = false, FastCallGuardKind declaredLeafReceiver = FastCallGuardKind.Any, FastCallGuardKind[]? declaredLeafArgs = null)
     {
         if (!pc.IsJsValueOrSubtype(method.ReturnType))
         {
@@ -866,7 +922,7 @@ internal sealed record class FunctionDefinition(
 
         var requireOc = ObjectDefinition.HasAttribute(method, "RequireObjectCoercibleAttribute");
 
-        var fastCall = BuildFastCallSpec(method, parameters, requireOc, fastCallRequested, leafRequested, declaredLeafReceiver, diagnostics);
+        var fastCall = BuildFastCallSpec(method, parameters, requireOc, fastCallRequested, leafRequested, declaredLeafReceiver, declaredLeafArgs, diagnostics);
 
         return new FunctionDefinition(
             ClrName: method.Name,
@@ -894,9 +950,16 @@ internal sealed record class FunctionDefinition(
     /// itself could reach user code or raise a JS error must be closed off by a
     /// <c>FastCallGuard</c> that the runtime can check per call. A coercion contributes the guard
     /// that makes it a no-op (<c>[ToNumber]</c> on an actual number never calls <c>valueOf</c>); a
-    /// cast <c>thisObject</c> contributes the guard that makes its TypeError unreachable. Anything
-    /// with no expressible guard fails here rather than silently downgrading, so an unsound
-    /// annotation is a build error.
+    /// cast <c>thisObject</c> contributes the guard that makes its TypeError unreachable. A plain
+    /// <c>JsValue</c> parameter derives nothing and must therefore be given a guard by the
+    /// declaration (<c>LeafArg0</c>/<c>LeafArg1</c>); anything still unguarded fails here rather
+    /// than silently downgrading, so an unsound annotation is a build error.
+    /// </para>
+    /// <para>
+    /// A <c>[Rest]</c> tail makes the slot variadic rather than declining it: the site's arity is a
+    /// build-time constant, so the arities that fit the registers can be served through
+    /// <c>CallFastVariadic</c> and the rest declined. Registers the tail feeds take their guard from
+    /// the tail's own coercion, since every element goes through the same converter.
     /// </para>
     /// </summary>
     private static FastCallSpec? BuildFastCallSpec(
@@ -906,6 +969,7 @@ internal sealed record class FunctionDefinition(
         bool fastCallRequested,
         bool leafRequested,
         FastCallGuardKind declaredLeafReceiver,
+        FastCallGuardKind[]? declaredLeafArgs,
         List<DiagnosticInfo> diagnostics)
     {
         if (!fastCallRequested) return null;
@@ -915,6 +979,9 @@ internal sealed record class FunctionDefinition(
         var receiver = FastCallGuardKind.Any;
         var argGuards = new[] { FastCallGuardKind.Any, FastCallGuardKind.Any };
         var valueCount = 0;
+        var variadic = false;
+        var restPosition = 0;
+        FastCallGuardKind? restGuard = null;
 
         foreach (var p in parameters)
         {
@@ -940,13 +1007,18 @@ internal sealed record class FunctionDefinition(
                     break;
 
                 case ParameterKind.Rest:
-                    decline ??= "it has a [Rest] parameter, and a variadic tail cannot be carried in two argument registers";
+                    // [Rest] is always last, and its Position is the number of fixed value parameters
+                    // ahead of it — exactly the register index where the tail starts.
+                    variadic = true;
+                    restPosition = p.Position;
+                    restGuard = p.CoercionKind is null ? null : GuardForCoercion(p.CoercionKind.Value);
                     break;
 
                 case ParameterKind.ArgCount:
-                    // CallFast carries a receiver and two argument registers but no arity, so a body
-                    // that reads the argument count cannot be invoked through it at all.
-                    decline ??= "it declares an [ArgCount] parameter, and CallFast carries no argument count";
+                    // Neither entry point hands the body an argument count: CallFast has no room for
+                    // one, and CallFastVariadic expresses arity as the span's length, which a method
+                    // declaring [ArgCount] does not have a tail to read.
+                    decline ??= "it declares an [ArgCount] parameter, and neither fast-call entry point carries an argument count";
                     break;
 
                 default:
@@ -956,10 +1028,19 @@ internal sealed record class FunctionDefinition(
                     if (position < argGuards.Length)
                     {
                         var argGuard = GuardForCoercion(p.Kind);
+                        var declared = declaredLeafArgs is not null ? declaredLeafArgs[position] : FastCallGuardKind.Any;
+                        if (argGuard is null && declared != FastCallGuardKind.Any)
+                        {
+                            // The declaration is the only thing that can vouch for a raw JsValue the
+                            // body coerces itself. It is consulted only where nothing was derived, so
+                            // it can add a guard but never weaken one.
+                            argGuard = declared;
+                        }
+
                         if (argGuard is null)
                         {
                             leafBlocked ??= p.Kind == ParameterKind.ValueAt
-                                ? $"parameter {position} is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …) so the lane can guard it"
+                                ? $"parameter {position} is a plain JsValue, so nothing stops the body coercing it through a user valueOf/toString inside the frameless window — declare the conversion ([ToNumber], [ToInteger], …), or the values the body is leaf-safe for (LeafArg{position} = FastCallGuard.…), so the lane can guard it"
                                 : $"parameter {position} uses a coercion no FastCallGuard can make a no-op";
                         }
                         else
@@ -993,7 +1074,7 @@ internal sealed record class FunctionDefinition(
             // Lane 1 only. Guards exist purely to gate frame elision, so publish none — a shape whose
             // Leaf is false never consults them, and emitting the derived ones would imply a claim
             // about the body that the author has not made.
-            return new FastCallSpec(Leaf: false, FastCallGuardKind.Any, FastCallGuardKind.Any, FastCallGuardKind.Any);
+            return new FastCallSpec(Leaf: false, variadic, FastCallGuardKind.Any, FastCallGuardKind.Any, FastCallGuardKind.Any);
         }
 
         // An explicitly declared receiver guard stands in for a cast when 'this' is untyped. Only
@@ -1011,6 +1092,25 @@ internal sealed record class FunctionDefinition(
             leafBlocked ??= "it is [RequireObjectCoercible] with an unguarded 'this', so its TypeError stays reachable";
         }
 
+        if (variadic)
+        {
+            // Every register from the tail's start onwards holds an element the dispatcher pushes
+            // through the tail's converter, so one guard covers them all. An uncoerced tail hands the
+            // body raw JsValues — the same unguardable hazard a plain JsValue parameter is, and with
+            // no per-position declaration that could speak for an unbounded list.
+            if (restGuard is null)
+            {
+                leafBlocked ??= "its [Rest] tail hands the body raw JsValues, so nothing stops it coercing one through a user valueOf/toString inside the frameless window — declare the tail's conversion ([Rest, ToNumber] ReadOnlySpan<double>, …) so the lane can guard it";
+            }
+            else
+            {
+                for (var i = restPosition; i < argGuards.Length; i++)
+                {
+                    argGuards[i] = restGuard.Value;
+                }
+            }
+        }
+
         if (leafBlocked is not null)
         {
             diagnostics.Add(new DiagnosticInfo(
@@ -1022,7 +1122,7 @@ internal sealed record class FunctionDefinition(
             return null;
         }
 
-        return new FastCallSpec(Leaf: true, receiver, argGuards[0], argGuards[1]);
+        return new FastCallSpec(Leaf: true, variadic, receiver, argGuards[0], argGuards[1]);
     }
 
     /// <summary>
@@ -1048,12 +1148,13 @@ internal sealed record class FunctionDefinition(
     /// ones call <c>toString</c>. <c>[ToObject]</c> gets none: it throws for null/undefined, and no
     /// guard expresses "not nullish".
     /// <para>
-    /// A plain <c>JsValue</c> parameter gets none either, which blocks <c>Leaf</c> outright. It used
-    /// to map to <c>Any</c> on the premise that an undeclared parameter is "forwarded untouched" —
-    /// but the generator cannot see the body, and four <c>String.prototype</c> methods took the
-    /// value and coerced it themselves, running user <c>valueOf</c> in a window with no frame. The
-    /// declaration is the only thing the generator can trust, so an undeclared coercion now costs
-    /// the leaf lane rather than silently forfeiting the guard that would have prevented it.
+    /// A plain <c>JsValue</c> parameter gets none either. It used to map to <c>Any</c> on the premise
+    /// that an undeclared parameter is "forwarded untouched" — but the generator cannot see the body,
+    /// and four <c>String.prototype</c> methods took the value and coerced it themselves, running
+    /// user <c>valueOf</c> in a window with no frame. The declaration is the only thing the generator
+    /// can trust: such a parameter blocks <c>Leaf</c> unless <c>LeafArg0</c>/<c>LeafArg1</c> states
+    /// which values the body is leaf-safe for, which is a claim about the body only its author can
+    /// make.
     /// </para>
     /// </summary>
     private static FastCallGuardKind? GuardForCoercion(ParameterKind kind) => kind switch

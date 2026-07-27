@@ -32,7 +32,7 @@ internal sealed partial class Foo
 
         protected internal override global::Jint.Native.JsValue Call(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue[] arguments)
         {
-            var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments, 0, arguments.Length);
+            var __values = new global::System.ReadOnlySpan<global::Jint.Native.JsValue>(arguments);
             global::System.Span<double> __coerced = __values.Length <= 16
                 ? stackalloc double[__values.Length]
                 : new double[__values.Length];

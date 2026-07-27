@@ -546,7 +546,10 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.max
     /// </summary>
-    [JsFunction(Length = 2)]
+    // Leaf through the variadic lane: the tail's declared ToNumber gives every register a Number
+    // guard, and with all-numeric arguments the body is arithmetic that neither throws nor calls out.
+    // Call sites passing more arguments than the lane's registers simply keep the framed path.
+    [JsFunction(Length = 2, Leaf = true)]
     private static JsValue Max(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
         // [Rest, ToNumber] makes the dispatcher coerce every element via TypeConverter.ToNumber
@@ -583,7 +586,8 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.min
     /// </summary>
-    [JsFunction(Length = 2)]
+    // Leaf through the variadic lane — see Max.
+    [JsFunction(Length = 2, Leaf = true)]
     private static JsValue Min(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
         // [Rest, ToNumber] preamble coerces every element first (see Max for spec-side rationale).
@@ -986,7 +990,8 @@ internal sealed partial class MathInstance : BuiltinShapeObject
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.hypot
     /// </summary>
-    [JsFunction(Length = 2)]
+    // Leaf through the variadic lane — see Max.
+    [JsFunction(Length = 2, Leaf = true)]
     private static JsValue Hypot(JsValue thisObject, [Rest, ToNumber] ReadOnlySpan<double> values)
     {
         // [Rest, ToNumber] preamble coerces every element first. Any Infinity returns +Infinity

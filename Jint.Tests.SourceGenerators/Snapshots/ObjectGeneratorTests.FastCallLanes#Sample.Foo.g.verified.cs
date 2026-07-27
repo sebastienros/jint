@@ -88,9 +88,9 @@ internal sealed partial class Foo
         {
             switch (_slot)
             {
-                case Slot.Abs: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
-                case Slot.CharAt: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Number);
-                case Slot.Passthrough: return new global::Jint.Native.Function.FastCallShape(true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.Abs: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.CharAt: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Number);
+                case Slot.Passthrough: return new global::Jint.Native.Function.FastCallShape(true, false, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
                 default: return default;
             }
         }

@@ -36,7 +36,7 @@ internal sealed partial class Foo
         }
 
         internal override global::Jint.Native.Function.FastCallShape GetFastCallShape(int argumentCount)
-            => new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
+            => new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
 
         internal override global::Jint.Native.JsValue CallFast(global::Jint.Native.JsValue thisObject, global::Jint.Native.JsValue arg0, global::Jint.Native.JsValue arg1)
         {

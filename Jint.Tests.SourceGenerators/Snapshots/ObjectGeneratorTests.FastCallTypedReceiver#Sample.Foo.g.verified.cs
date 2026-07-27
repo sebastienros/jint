@@ -86,8 +86,8 @@ internal sealed partial class Foo
         {
             switch (_slot)
             {
-                case Slot.ArrayLength: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Array, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
-                case Slot.GetTime: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Date, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.ArrayLength: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Array, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.GetTime: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Date, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
                 default: return default;
             }
         }

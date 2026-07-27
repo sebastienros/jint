@@ -2543,8 +2543,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.push
     /// </summary>
-    [JsFunction(Length = 1)]
-    public JsValue Push(JsValue thisObject, JsCallArguments arguments)
+    public JsValue Push(JsValue thisObject, JsCallArguments arguments) => Push(thisObject, new ReadOnlySpan<JsValue>(arguments));
+
+    // FastCall only: the generic path runs [[Set]] on an arbitrary array-like, so proxies, setters
+    // and the length TypeError all need the frame. The [Rest] tail is what makes the lane reachable
+    // at all — `arr.push(x)` has a statically known arity of one, which the variadic entry point
+    // carries as a one-element span. Declared separately from the public array-taking overload above,
+    // whose signature is a shipped contract and stays as it is.
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue Push(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> arguments)
     {
         if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance)
         {
