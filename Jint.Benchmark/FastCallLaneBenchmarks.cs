@@ -29,6 +29,16 @@ namespace Jint.Benchmark;
 /// the array the caller already filled, with no copy and no second store, and these rows are what
 /// proves it: an over-arity call must not pay for a lane it declines.</para>
 ///
+/// <para><b>The object-argument rows are the accepted cost of the feature, not a defect.</b> A guard
+/// has to be evaluated before the frameless lane can be declined, so a value that fails one pays for
+/// the question and then takes the framed path anyway — a built-in that never claimed <c>Leaf</c>
+/// never asked it. Reducing the guard to a single <c>InternalTypes</c> mask test took most of that
+/// back but not all: measured against the pre-feature base, <c>CharCodeAt_Object</c> is about +5%
+/// (the shortest such row, so the fixed cost is the largest share of it) while
+/// <c>Substring_Object</c> is flat to better. Conforming arguments win roughly −5%, and the variadic
+/// rows −12..−22%. If a future change makes an object argument materially worse than this, that is a
+/// regression; the single-digit standing cost is the trade.</para>
+///
 /// Every row runs its call 1000 times inside one prepared script on an engine that has already
 /// evaluated it, so what is measured is dispatch plus body rather than parse or first-call warmup —
 /// and the lane is only reachable from a warm site in the first place.
