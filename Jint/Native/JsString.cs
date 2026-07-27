@@ -432,9 +432,11 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return false;
         }
 
-        // both sides go through ToString() so a subclass carrying a null backing value compares by
-        // content instead of silently reporting "not equal"
-        return string.Equals(ToString(), other.ToString(), StringComparison.Ordinal);
+        // A present backing value is the flat text, so it is compared directly; only a subclass that
+        // has not materialized yet pays the virtual ToString(). See the note on GetHashCode for why
+        // reading the field here is safe and why the pattern must not be copied elsewhere.
+        var value = _value;
+        return string.Equals(value ?? ToString(), other.ToString(), StringComparison.Ordinal);
     }
 
     protected internal override bool IsLooselyEqual(JsValue value)
@@ -452,9 +454,21 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return base.IsLooselyEqual(value);
     }
 
-    // ToString() rather than _value so a subclass with a null backing value hashes its content
-    // instead of throwing; a flat string returns _value from ToString(), so nothing changes there
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(ToString());
+    // A null backing value means a subclass has not materialized yet, and only then is the virtual
+    // ToString() needed (it hashes the content instead of throwing); a flat string hashes its field
+    // directly, which is what every '===' and every Map/Set probe on a plain string pays for.
+    //
+    // INVARIANT, and the reason this null-test may NOT be copied into other members: a dirty
+    // ConcatenatedString carries a non-null but STALE _value (the appends live in its StringBuilder
+    // until ToString() flushes them). Reading the field is correct here only because
+    // ConcatenatedString overrides every member that does so — ToString, Length, this[int],
+    // Equals(string), Equals(JsString) and GetHashCode — so these base bodies are unreachable for
+    // it. Any member ConcatenatedString does not override must keep routing through ToString().
+    public override int GetHashCode()
+    {
+        var value = _value;
+        return StringComparer.Ordinal.GetHashCode(value ?? ToString());
+    }
 
     internal sealed class ConcatenatedString : JsString
     {
