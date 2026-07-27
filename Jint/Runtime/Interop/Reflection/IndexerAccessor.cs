@@ -21,6 +21,24 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     private readonly MethodInfo? _setter;
     private readonly MethodInfo? _containsKey;
 
+    // Whether the compiled lanes may cast the baked-in key straight to the parameter type each member
+    // declares. The key was produced for the indexer's index type, and ContainsKey/Contains is looked up by
+    // that same type or by object, so both hold in practice - but the key also comes from a host-installed
+    // ITypeConverter, so it is verified rather than assumed. Anything else keeps the reflection path, whose
+    // ArgumentException for a mismatched argument is the established behaviour.
+    private readonly bool _keyFitsAccessors;
+    private readonly bool _keyFitsContainsKey;
+
+    // per-accessor L1 caches over the process-wide compiled delegates, resolved lazily and racily
+    private CompiledKeyedAccessor.KeyedIndexerGetter? _compiledGetter;
+    private bool _compiledGetterResolved;
+
+    private CompiledKeyedAccessor.KeyedValueSetter? _compiledSetter;
+    private bool _compiledSetterResolved;
+
+    private CompiledKeyedAccessor.KeyedPredicate? _compiledContainsKey;
+    private bool _compiledContainsKeyResolved;
+
     private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key) : base(indexer.PropertyType)
     {
         Indexer = indexer;
@@ -32,6 +50,11 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
         _getter = indexer.GetGetMethod();
         _setter = indexer.GetSetMethod();
+
+        _keyFitsAccessors = key is not null && FirstIndexParameter.ParameterType.IsInstanceOfType(key);
+        _keyFitsContainsKey = key is not null
+                              && containsKey?.GetParameters() is [{ ParameterType: var containsKeyType }]
+                              && containsKeyType.IsInstanceOfType(key);
     }
 
     internal PropertyInfo Indexer { get; }
@@ -184,19 +207,23 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             return null;
         }
 
-        var parameters = _keyParameters;
-
-        if (_containsKey != null)
+        if (!KeyIsPresent(target))
         {
-            if (_containsKey.Invoke(target, parameters) as bool? != true)
-            {
-                return JsValue.Undefined;
-            }
+            return JsValue.Undefined;
+        }
+
+        if (!_compiledGetterResolved)
+        {
+            _compiledGetter = _keyFitsAccessors ? CompiledKeyedAccessor.GetIndexerGetter(_getter) : null;
+            _compiledGetterResolved = true;
         }
 
         try
         {
-            return _getter.Invoke(target, parameters);
+            var compiled = _compiledGetter;
+            return compiled is not null
+                ? InvokeCompiled(compiled, target, _key)
+                : _getter.Invoke(target, _keyParameters);
         }
         catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
         {
@@ -211,20 +238,93 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             Throw.InvalidOperationException("Indexer has no public setter.");
         }
 
-        object?[] parameters = [_key, value];
-        _setter.Invoke(target, parameters);
+        if (!_compiledSetterResolved)
+        {
+            _compiledSetter = _keyFitsAccessors ? CompiledKeyedAccessor.GetValueSetter(_setter) : null;
+            _compiledSetterResolved = true;
+        }
+
+        // The compiled setter casts the value straight to the indexer's value type, so it can only accept a
+        // value whose runtime type is exactly that. Reflection additionally performs widening conversions,
+        // which an unbox.any cannot do, and a null for a value-typed indexer would throw a
+        // NullReferenceException instead of reflection's ArgumentException - both keep the reflection path.
+        var setter = _compiledSetter;
+        if (setter is null || value is null || value.GetType() != MemberType)
+        {
+            object?[] parameters = [_key, value];
+            _setter.Invoke(target, parameters);
+            return;
+        }
+
+        try
+        {
+            setter(target, _key, value);
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            throw new TargetInvocationException(exception);
+        }
     }
 
     public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)
     {
-        if (_containsKey != null)
+        if (!KeyIsPresent(target))
         {
-            if (_containsKey.Invoke(target, _keyParameters) as bool? != true)
-            {
-                return PropertyDescriptor.Undefined;
-            }
+            return PropertyDescriptor.Undefined;
         }
 
         return new ReflectionDescriptor(engine, this, target, memberName, enumerable: true);
+    }
+
+    /// <summary>
+    /// Runs the <c>ContainsKey</c>/<c>Contains</c> probe that keeps a dictionary indexer from throwing on a
+    /// missing key. No probe means "assume present", exactly as before.
+    /// </summary>
+    private bool KeyIsPresent(object target)
+    {
+        if (_containsKey is null)
+        {
+            return true;
+        }
+
+        if (!_compiledContainsKeyResolved)
+        {
+            _compiledContainsKey = _keyFitsContainsKey ? CompiledKeyedAccessor.GetKeyPredicate(_containsKey) : null;
+            _compiledContainsKeyResolved = true;
+        }
+
+        var compiled = _compiledContainsKey;
+        if (compiled is null)
+        {
+            return _containsKey.Invoke(target, _keyParameters) as bool? == true;
+        }
+
+        return InvokeCompiled(compiled, target, _key);
+    }
+
+    private static object? InvokeCompiled(CompiledKeyedAccessor.KeyedIndexerGetter getter, object target, object key)
+    {
+        try
+        {
+            return getter(target, key);
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            // reflection wraps whatever the indexer throws, the compiled delegate rethrows it as-is:
+            // normalize so the callers' TargetInvocationException handling stays identical
+            throw new TargetInvocationException(exception);
+        }
+    }
+
+    private static bool InvokeCompiled(CompiledKeyedAccessor.KeyedPredicate predicate, object target, object key)
+    {
+        try
+        {
+            return predicate(target, key);
+        }
+        catch (Exception exception) when (exception is not TargetInvocationException)
+        {
+            throw new TargetInvocationException(exception);
+        }
     }
 }
