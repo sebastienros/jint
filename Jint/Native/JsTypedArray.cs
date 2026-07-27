@@ -151,6 +151,35 @@ public sealed class JsTypedArray : ObjectInstance
     }
 
     /// <summary>
+    /// Integer-index existence and enumerability straight from the buffer witness, without the element
+    /// read and the <see cref="PropertyDescriptor"/> that
+    /// <see cref="GetOwnProperty(JsValue)"/> allocates per key. Enumerating a typed array
+    /// (for-in, Object.keys/values/entries, Object.assign, spread, JSON.stringify) previously built one
+    /// CEW descriptor and decoded one element per index purely to test it.
+    /// </summary>
+    /// <remarks>
+    /// Agreement with <see cref="GetOwnProperty(JsValue)"/> is exact: for a canonical numeric index that
+    /// method reports the property absent exactly when <c>IntegerIndexedElementGet</c> yields
+    /// <c>undefined</c>, which it does exactly when <see cref="IsValidIntegerIndex(double)"/> is false (a
+    /// valid index always decodes to a number or a BigInt, never <c>undefined</c>), and otherwise builds
+    /// a <see cref="PropertyFlag.ConfigurableEnumerableWritable"/> descriptor. Detached, out-of-bounds and
+    /// length-tracking buffers are all covered because <c>IsValidIntegerIndex</c> is the same witness the
+    /// element read consults. Non-index keys keep the ordinary lookup.
+    /// </remarks>
+    protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
+        if (numericIndex is not null)
+        {
+            return IsValidIntegerIndex(numericIndex.Value)
+                ? OwnPropertyProbe.Enumerable
+                : OwnPropertyProbe.Missing;
+        }
+
+        return base.ProbeOwnProperty(property);
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-integer-indexed-exotic-objects-get-p-receiver
     /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)

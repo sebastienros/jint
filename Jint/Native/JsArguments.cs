@@ -269,6 +269,73 @@ public sealed class JsArguments : ObjectInstance
         return base.GetOwnProperty(property);
     }
 
+    /// <summary>
+    /// Existence and enumerability without materializing. While virtual, the own-property set the object
+    /// <em>would</em> materialize is fully determined by <c>_args</c> and <c>_func</c>, so
+    /// <c>n in arguments</c> / <c>arguments.hasOwnProperty(n)</c> / <c>Reflect.has</c> answer from those
+    /// instead of running <see cref="Initialize"/> — which builds the parameter map, a descriptor per
+    /// argument and three more slots, and permanently unpools the object, all to answer a yes/no.
+    /// Once materialized the probe still skips the parameter-map consultation, which only ever overrides
+    /// a descriptor's <em>value</em> (see <see cref="GetOwnProperty"/>) and never its existence or flags —
+    /// so a read-only probe no longer writes to a cached descriptor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The virtual lane's claim is that <see cref="InitializeCore"/> would define exactly
+    /// <c>[0, _args.Length)</c> (ConfigurableEnumerableWritable, in both the mapped and the unmapped
+    /// shape), <c>length</c> (NonEnumerable), <c>callee</c> (the function or the %ThrowTypeError% accessor
+    /// pair, non-enumerable either way) and <c>@@iterator</c> (Writable | Configurable), and nothing else.
+    /// Both premises of "and nothing else" are checked rather than assumed:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>the property bag must still be empty — every property-adding path routes through
+    /// <c>EnsureInitialized</c> first, but <c>FastSetProperty</c> is public and does not, and this object
+    /// is reachable from a host as a plain <c>ObjectInstance</c>;</item>
+    /// <item><c>_hasRestParameter</c> must be false — <see cref="DefineOwnProperty"/> short-circuits to
+    /// <c>true</c> without defining anything when it is set, which would make the
+    /// <c>DefinePropertyOrThrow</c>/<c>CreateDataProperty</c> calls in <c>InitializeCore</c> no-ops and the
+    /// materialized set something other than the set described above. It cannot currently be set — the flag
+    /// is only ever passed by <c>CreateMappedArgumentsObject</c>, reached only for a <em>simple</em>
+    /// parameter list, which by definition has no rest parameter — but the lane does not depend on that
+    /// staying true.</item>
+    /// </list>
+    /// <para>Either premise failing falls through to the materializing path, i.e. to the previous behaviour.</para>
+    /// </remarks>
+    protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if (_virtualMode
+            && !_hasRestParameter
+            && _properties is null or { Count: 0 }
+            && _symbols is null or { Count: 0 })
+        {
+            if (Array.ArrayInstance.IsArrayIndex(property, out var index))
+            {
+                return index < (uint) _args.Length ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.Missing;
+            }
+
+            if (CommonProperties.Length.Equals(property)
+                || CommonProperties.Callee.Equals(property)
+                || ReferenceEquals(property, GlobalSymbolRegistry.Iterator))
+            {
+                return OwnPropertyProbe.NonEnumerable;
+            }
+
+            return OwnPropertyProbe.Missing;
+        }
+
+        EnsureInitialized();
+
+        // ObjectInstance.GetOwnProperty, called non-virtually: the ordinary bag lookup, without the
+        // parameter-map value patch this type's GetOwnProperty applies on top of it.
+        var desc = base.GetOwnProperty(property);
+        if (ReferenceEquals(desc, PropertyDescriptor.Undefined))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+    }
+
     /// Implementation from ObjectInstance official specs as the one
     /// in ObjectInstance is optimized for the general case and wouldn't work
     /// for arrays

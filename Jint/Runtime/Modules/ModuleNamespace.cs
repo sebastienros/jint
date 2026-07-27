@@ -129,6 +129,40 @@ internal sealed class ModuleNamespace : ObjectInstance
     }
 
     /// <summary>
+    /// Existence and enumerability of an export without the <see cref="PropertyDescriptor"/>
+    /// <see cref="GetOwnProperty"/> allocates per key — a namespace descriptor is invariably
+    /// <c>(value, writable, enumerable, non-configurable)</c>, so the flags never need one.
+    /// </summary>
+    /// <remarks>
+    /// The binding resolution is <b>not</b> skippable, which is why this probe still calls
+    /// <see cref="Get(JsValue, JsValue)"/> and discards the value: step 4 of
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-getownproperty-p performs
+    /// <c>[[Get]]</c>, and <c>[[Get]]</c> of an uninitialized (TDZ) binding throws a ReferenceError.
+    /// Every probe consumer — <c>hasOwnProperty</c>, <c>propertyIsEnumerable</c>, <c>Object.keys</c>,
+    /// for-in — is spec-required to propagate that throw, so answering from <c>_exports</c> alone would
+    /// silently make those operations succeed. (<c>in</c> never reaches here: this type overrides
+    /// <see cref="HasProperty"/>, whose spec algorithm correctly does not resolve the binding.)
+    /// </remarks>
+    protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if (IsSymbolLikeNamespaceKey(property))
+        {
+            return base.ProbeOwnProperty(property);
+        }
+
+        var exports = GetModuleExportsList();
+        var p = TypeConverter.ToString(property);
+
+        if (!exports.Contains(p))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        Get(property);
+        return OwnPropertyProbe.Enumerable;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-defineownproperty-p-desc
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
