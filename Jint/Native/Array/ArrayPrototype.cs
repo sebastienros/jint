@@ -132,6 +132,34 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         var a = CreateBackingArray(len);
+
+        // Fast path: step 9 reads every index the source still has and copies it into a brand-new array,
+        // so a hole-free dense source is one Array.Copy plus the single replaced element instead of `len`
+        // trips through the property protocol.
+        //
+        // Every condition is re-derived HERE, after step 3's ToIntegerOrInfinity has run arbitrary user
+        // code, and none of it may be hoisted above that: a valueOf can switch the receiver's prototype,
+        // define an accessor over an index, make the array sparse, or replace the backing store outright,
+        // and step 9.c is a live `? Get(O, Pk)` that has to observe all of it. CanUseFastAccess is what
+        // proves no index property lives on the prototype chain and no own index carries exotic
+        // attributes; the hole scan is what proves every index in range answers from the backing store,
+        // since a hole is a full [[Get]] that would walk that chain. `len` is the length captured at step
+        // 2 and can exceed the live one, so the store must cover it and still report it - matching the
+        // fill/copyWithin lanes, which bound by the live length as well as by capacity.
+        if (o.Target is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && len <= (ulong) dense.Length
+            && len <= fast.GetLongLength())
+        {
+            var count = (int) len;
+            if (System.Array.IndexOf(dense, null, 0, count) < 0)
+            {
+                System.Array.Copy(dense, a, count);
+                a[actualIndex] = value;
+                return new JsArray(_engine, a);
+            }
+        }
+
         ulong k = 0;
         while (k < len)
         {
@@ -2254,6 +2282,28 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         var a = CreateBackingArray(len);
+
+        // Fast path: a hole-free dense source is copied wholesale and reversed in place, instead of
+        // paying a virtual Get per element. Same lane conditions as `with` — CanUseFastAccess proves no
+        // index property is inherited and none of the own ones is exotic, and the hole scan proves every
+        // index answers from the backing store rather than from a [[Get]] up the prototype chain. Unlike
+        // `with` there is no coercion window to guard against: toReversed takes no arguments, so nothing
+        // between the length read and here can run user code. Span.Reverse is vectorized where the
+        // runtime supports it.
+        if (o.Target is JsArray { CanUseFastAccess: true } fast
+            && fast._dense is { } dense
+            && len <= (ulong) dense.Length
+            && len <= fast.GetLongLength())
+        {
+            var count = (int) len;
+            if (System.Array.IndexOf(dense, null, 0, count) < 0)
+            {
+                System.Array.Copy(dense, a, count);
+                a.AsSpan(0, count).Reverse();
+                return new JsArray(_engine, a);
+            }
+        }
+
         ulong k = 0;
         while (k < len)
         {

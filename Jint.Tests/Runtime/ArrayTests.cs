@@ -826,6 +826,92 @@ return get + '' === ""length,0,1,2,3"";";
     }
 
     /// <summary>
+    /// <c>toReversed</c> and <c>with</c> both build a brand-new array by reading the source per index, so a
+    /// dense source admits a bulk copy. Every case here is one the bulk copy cannot express and must
+    /// therefore decline: holes (step 5.c / 9.c is a full <c>[[Get]]</c>, which for a missing index reaches
+    /// the prototype chain, and the result array has the index <em>present</em> either way), an index
+    /// property inherited from <c>Array.prototype</c>, a sparse array whose length exceeds its backing
+    /// store, and a non-array array-like. Expected values match V8.
+    /// </summary>
+    [Theory]
+    [InlineData("[1,2,3].toReversed()", "[3,2,1]len=3")]
+    [InlineData("[].toReversed()", "[]len=0")]
+    [InlineData("[1].toReversed()", "[1]len=1")]
+    [InlineData("[1,,3].toReversed()", "[3,undefined,1]len=3")]
+    [InlineData("(function(){var a=[1,2];a[5]=6;return a.toReversed();})()", "[6,undefined,undefined,undefined,2,1]len=6")]
+    [InlineData("Array.prototype.toReversed.call({length:3, 0:'a', 2:'c'})", "[c,undefined,a]len=3")]
+    [InlineData("(function(){Array.prototype[1]='p';try{return [0,,2].toReversed();}finally{delete Array.prototype[1];}})()", "[2,p,0]len=3")]
+    [InlineData("[1,2,3,4].with(1,'X')", "[1,X,3,4]len=4")]
+    [InlineData("[1,2,3,4].with(-1,'X')", "[1,2,3,X]len=4")]
+    [InlineData("[1,,3].with(0,'X')", "[X,undefined,3]len=3")]
+    [InlineData("[1,,3].with(1,'X')", "[1,X,3]len=3")]
+    [InlineData("(function(){var a=[1,2];a[4]=5;return a.with(0,'X');})()", "[X,2,undefined,undefined,5]len=5")]
+    [InlineData("Array.prototype.with.call({length:3, 0:'a', 2:'c'}, 1, 'X')", "[a,X,c]len=3")]
+    [InlineData("(function(){Array.prototype[1]='p';try{return [0,,2].with(0,'X');}finally{delete Array.prototype[1];}})()", "[X,p,2]len=3")]
+    public void ToReversedAndWithProduceADenseResultWhateverTheSource(string expression, string expected)
+    {
+        var engine = new Engine();
+        engine.Execute("""
+            function d(a) {
+                var parts = [];
+                for (var i = 0; i < a.length; i++) parts.push(i in a ? String(a[i]) : "<hole>");
+                return "[" + parts.join(",") + "]len=" + a.length;
+            }
+            """);
+        engine.Evaluate($"d({expression})").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.with captures <c>len</c> at step 2, before step 3's
+    /// <c>ToIntegerOrInfinity(index)</c> gets to run arbitrary user code, and then reads every element with
+    /// a live <c>? Get(O, Pk)</c> at step 9.c. A <c>valueOf</c> that shrinks the source therefore produces a
+    /// result of the <em>original</em> length whose tail is <c>undefined</c> — a bulk copy out of the
+    /// backing store, whose capacity still covers those indices, would hand back the stale elements
+    /// instead. Expected values match V8.
+    /// </summary>
+    [Fact]
+    public void WithReadsTheLiveSourceWhenArgumentCoercionShrinksTheArray()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            var a = [0,1,2,3,4,5,6,7];
+            var r = a.with({ valueOf: function () { a.length = 4; return 1; } }, 'X');
+            r.length + '|' + r.join(',') + '|' + (5 in r) + '|' + String(r[5]) + '|' + a.length
+            """).AsString();
+
+        result.Should().Be("8|0,X,2,3,,,,|true|undefined|4");
+
+        // a source that grows during the coercion is read live too, but only up to the captured length
+        var grown = engine.Evaluate("""
+            var b = [0,1];
+            var s = b.with({ valueOf: function () { b.push(9, 9, 9); return 0; } }, 'Y');
+            s.length + '|' + s.join(',')
+            """).AsString();
+
+        grown.Should().Be("2|Y,1");
+    }
+
+    /// <summary>
+    /// The same window seen from the other side: a coercion that replaces the source's backing store (by
+    /// making it sparse, or by moving an index property onto the prototype) must not be read through a
+    /// reference the lane captured beforehand.
+    /// </summary>
+    [Fact]
+    public void WithReadsTheLiveSourceWhenArgumentCoercionDeoptimizesTheArray()
+    {
+        var engine = new Engine();
+
+        var result = engine.Evaluate("""
+            var a = [0,1,2,3];
+            var r = a.with({ valueOf: function () { Object.defineProperty(a, '2', { get: function () { return 'G'; }, configurable: true }); return 0; } }, 'X');
+            r.join(',')
+            """).AsString();
+
+        result.Should().Be("X,1,G,3");
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.copywithin captures <c>len</c> at step 3, before the
     /// target/start/end coercions at steps 5, 7 and 9 get to run arbitrary user code. Keeping that stale
     /// bound is correct for the copy loop, but the loop writes through <c>Set(O, toKey, fromVal, true)</c>,
