@@ -59,17 +59,12 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 
         var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, targetType, m));
 
-        // default indexer wins
-        var descriptor = TypeDescriptor.Get(targetType);
-        if (descriptor.IntegerIndexerProperty is not null && !filter(descriptor.IntegerIndexerProperty))
-        {
-            indexerAccessor = ComposeIndexerFactory(engine, targetType, descriptor.IntegerIndexerProperty, paramType: typeof(int), propertyName, integerKey, paramTypeArray);
-            if (indexerAccessor != null)
-            {
-                indexer = descriptor.IntegerIndexerProperty;
-                return true;
-            }
-        }
+        // There is deliberately no TypeDescriptor.IntegerIndexerProperty shortcut here: that member
+        // is the interface IList.Item (object-typed), so serving it would bypass both the member
+        // filter and the declared indexer's parameter typing — the scan below finds the type's own
+        // correctly-typed indexer and consults the filter with the polarity the resolver documents.
+        // An inverted filter test used to hide this branch for default configurations while letting
+        // a filter-rejected indexer through for writes; removing it fixes both.
 
         // try to find first indexer having either public getter or setter with matching argument type
         PropertyInfo? fallbackIndexer = null;
