@@ -235,6 +235,13 @@ engine per operation never reaches them by design. Note the mirror image if you 
 warmed call site holds a reference to the last receiver it served until it caches a different one, so pooled
 engines can keep host objects alive between runs.
 
+**Registering only what a script uses.** When the ambient API is large and scripts touch little of it,
+prepare with `ScriptPreparationOptions.CollectReferencedGlobals` and read `Prepared<T>.ReferencedGlobals`:
+the free identifiers the program actually references, resolved per binding site, as an immutable set you can
+intersect with your registry — including the CLR-side context you would otherwise build speculatively, which
+lazy globals cannot defer. Honor `HasDirectEvalCall`: a program with direct `eval` can reference anything,
+so install everything for those.
+
 **Reusing a configured engine.** If you build a fresh engine per evaluation only because you need a clean
 global, `engine.Advanced.CaptureGlobalSnapshot()` and `RestoreGlobalSnapshot(snapshot)` are the cheaper route:
 capture once after your `SetValue` calls and module setup, then restore between evaluations. Restore reverts
@@ -242,6 +249,11 @@ the global object's own properties, its prototype and extensibility, and the top
 declarations (which nothing else can clear, so a script with a top-level `let` can otherwise only be run once
 per engine); it also clears the `RegExp.$1`-style legacy statics and resets the interop wrapper caches. The
 per-node caches above are deliberately kept, so the next run starts warm.
+
+Choosing between this and `AddLazyGlobal` is a question of engine lifetime: a fresh-engine-per-evaluation
+host wants lazy globals (nothing to restore — the win is never building what the script does not read); a
+pooled host wants the snapshot. They compose: restore returns a global that was still lazy at capture to its
+unmaterialized state, so a pooled engine keeps both benefits.
 
 Restore also ends the previous cycle on the event loop. Queued jobs are discarded, and — because discarding
 cannot reach work that has not been enqueued yet — any promise registered before the restore is dropped when
