@@ -1027,6 +1027,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 var testResult = callable.Call(thisArg, args);
                 if (!TypeConverter.ToBoolean(testResult))
                 {
+                    _engine._jsValueArrayPool.ReturnArray(args);
                     return JsBoolean.False;
                 }
             }
