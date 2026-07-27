@@ -31,11 +31,51 @@ public sealed class TypeResolver
     private readonly ConcurrentDictionary<AccessorCacheKey, ReflectionAccessor> _reflectionAccessors = new();
 
     /// <summary>
+    /// How many accessors this resolver currently holds. The cache never evicts, so this is the retention
+    /// the resolver commits to: it must stay bounded by the distinct members the engines using it resolve,
+    /// and must not grow with the number of engines constructed.
+    /// </summary>
+    internal int ResolvedAccessorCount => _reflectionAccessors.Count;
+
+    private Predicate<MemberInfo> _memberFilter = static _ => true;
+    private Func<MemberInfo, IEnumerable<string>> _memberNameCreator = NameCreator;
+    private StringComparer _memberNameComparer = DefaultMemberNameComparer.Instance;
+
+    /// <summary>
     /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
     /// By default allows all but will also be limited by <see cref="Options.InteropOptions.AllowGetType"/> configuration.
     /// </summary>
+    /// <remarks>
+    /// Assigning a different filter discards everything this resolver has resolved so far — every cached
+    /// accessor was produced under the previous filter, and a member it exposed (or hid) would otherwise keep
+    /// being served from the cache to engines that ask afterwards, in this engine and in every other one
+    /// sharing the resolver. Assigning the same instance back costs nothing.
+    /// </remarks>
     /// <seealso cref="Options.InteropOptions.AllowGetType"/>
-    public Predicate<MemberInfo> MemberFilter { get; set; } = static _ => true;
+    public Predicate<MemberInfo> MemberFilter
+    {
+        get => _memberFilter;
+        set
+        {
+            if (!ReferenceEquals(_memberFilter, value))
+            {
+                _memberFilter = value;
+                InvalidateResolvedAccessors();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Drops every accessor resolved so far. Called when a setting that steers resolution changes, since a
+    /// cached entry only stays valid for as long as the settings it was resolved under do.
+    /// </summary>
+    /// <remarks>
+    /// A resolution already in flight on another thread can still land its entry afterwards; that is inherent
+    /// to mutating the settings while engines are running and no worse than the write ordering a host would
+    /// have had to reason about anyway. Mutate the settings before handing the resolver to an engine when
+    /// that matters.
+    /// </remarks>
+    private void InvalidateResolvedAccessors() => _reflectionAccessors.Clear();
 
     internal bool Filter(Engine engine, Type targetType, MemberInfo m)
     {
@@ -61,14 +101,29 @@ public sealed class TypeResolver
             }
         }
 
-        return (engine.Options.Interop.AllowGetType || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && MemberFilter(m);
+        return (AllowGetType(engine) || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && _memberFilter(m);
     }
 
     /// <summary>
     /// Gives the exposed names for a member. Allows to expose C# convention following member like IsSelected
     /// as more JS idiomatic "selected" for example. Defaults to returning the <see cref="MemberInfo.Name"/> as-is.
     /// </summary>
-    public Func<MemberInfo, IEnumerable<string>> MemberNameCreator { get; set; } = NameCreator;
+    /// <remarks>
+    /// Assigning a different name creator discards everything this resolver has resolved so far, for the
+    /// reason given on <see cref="MemberFilter"/>.
+    /// </remarks>
+    public Func<MemberInfo, IEnumerable<string>> MemberNameCreator
+    {
+        get => _memberNameCreator;
+        set
+        {
+            if (!ReferenceEquals(_memberNameCreator, value))
+            {
+                _memberNameCreator = value;
+                InvalidateResolvedAccessors();
+            }
+        }
+    }
 
     private static IEnumerable<string> NameCreator(MemberInfo info)
     {
@@ -79,7 +134,56 @@ public sealed class TypeResolver
     /// Sets member name comparison strategy when finding CLR objects members.
     /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
     /// </summary>
-    public StringComparer MemberNameComparer { get; set; } = DefaultMemberNameComparer.Instance;
+    /// <remarks>
+    /// Assigning a different comparer discards everything this resolver has resolved so far, for the reason
+    /// given on <see cref="MemberFilter"/>.
+    /// </remarks>
+    public StringComparer MemberNameComparer
+    {
+        get => _memberNameComparer;
+        set
+        {
+            if (!ReferenceEquals(_memberNameComparer, value))
+            {
+                _memberNameComparer = value;
+                InvalidateResolvedAccessors();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The interop settings that steer member resolution but live on the engine's options rather than on this
+    /// resolver, read from the profile the engine captured so that a resolution and the cache entry it
+    /// produces can never disagree about them. An engine still inside its constructor has not captured a
+    /// profile yet and reads the live options, which is correct there: nothing resolved in that window enters
+    /// the cache (see <see cref="GetAccessor"/>).
+    /// </summary>
+    private static bool AllowGetType(Engine engine)
+    {
+        ref readonly var profile = ref engine._interopResolutionProfile;
+        return profile.IsCaptured ? profile.AllowGetType : engine.Options.Interop.AllowGetType;
+    }
+
+    /// <inheritdoc cref="AllowGetType"/>
+    private static BindingFlags FieldBindingFlags(Engine engine)
+    {
+        ref readonly var profile = ref engine._interopResolutionProfile;
+        return profile.IsCaptured ? profile.FieldBindingFlags : engine.Options.Interop.ObjectWrapperReportedFieldBindingFlags;
+    }
+
+    /// <inheritdoc cref="AllowGetType"/>
+    private static BindingFlags PropertyBindingFlags(Engine engine)
+    {
+        ref readonly var profile = ref engine._interopResolutionProfile;
+        return profile.IsCaptured ? profile.PropertyBindingFlags : engine.Options.Interop.ObjectWrapperReportedPropertyBindingFlags;
+    }
+
+    /// <inheritdoc cref="AllowGetType"/>
+    private static BindingFlags MethodBindingFlags(Engine engine)
+    {
+        ref readonly var profile = ref engine._interopResolutionProfile;
+        return profile.IsCaptured ? profile.MethodBindingFlags : engine.Options.Interop.ObjectWrapperReportedMethodBindingFlags;
+    }
 
     internal ReflectionAccessor GetAccessor(
         Engine engine,
@@ -89,13 +193,29 @@ public sealed class TypeResolver
         bool throwOnError = true,
         Func<ReflectionAccessor?>? accessorFactory = null)
     {
+        if (accessorFactory is not null)
+        {
+            // The caller picked the member itself — ObjectWrapper.GetPropertyDescriptor hands in a MemberInfo
+            // — so what the factory builds is not what ordinary resolution would produce for this
+            // (type, name): a single overload rather than the whole set, for one. The key records nothing of
+            // that origin, so a factory result must neither be stored, where it would answer later ordinary
+            // reads with the host's narrower member, nor be answered from, where a warm entry would silently
+            // ignore the MemberInfo the host passed. Bypass both directions; the factory is cheap and this
+            // call site is per-request rather than per property access.
+            var supplied = accessorFactory();
+            if (supplied is not null)
+            {
+                return supplied;
+            }
+        }
+
         var profile = engine._interopResolutionProfile;
         if (!profile.IsCaptured)
         {
             // The engine is still running its configuration callbacks and has not captured the profile that
             // partitions the cache yet — a host-installed ITypeConverter, for one, is only in place once they
             // have all run. Resolve without touching the cache rather than risk mislabeling an entry.
-            return accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
+            return ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
         }
 
         var key = new AccessorCacheKey(type, member, requirement, profile);
@@ -112,7 +232,7 @@ public sealed class TypeResolver
             return accessor;
         }
 
-        accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
+        accessor = ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
 
         // don't cache if numeric indexer
         if (uint.TryParse(member, out _))
@@ -181,8 +301,8 @@ public sealed class TypeResolver
             return new DynamicObjectAccessor();
         }
 
-        var typeResolverMemberNameComparer = MemberNameComparer;
-        var typeResolverMemberNameCreator = MemberNameCreator;
+        var typeResolverMemberNameComparer = _memberNameComparer;
+        var typeResolverMemberNameCreator = _memberNameCreator;
 
         if (!isInteger)
         {
@@ -447,12 +567,12 @@ public sealed class TypeResolver
     {
         // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
         PropertyInfo? property = null;
-        var memberNameComparer = MemberNameComparer;
-        var typeResolverMemberNameCreator = MemberNameCreator;
+        var memberNameComparer = _memberNameComparer;
+        var typeResolverMemberNameCreator = _memberNameCreator;
 
         PropertyInfo? GetProperty([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type t)
         {
-            foreach (var p in t.GetProperties(bindingFlags ?? engine.Options.Interop.ObjectWrapperReportedPropertyBindingFlags))
+            foreach (var p in t.GetProperties(bindingFlags ?? PropertyBindingFlags(engine)))
             {
                 if (!Filter(engine, type, p))
                 {
@@ -508,7 +628,7 @@ public sealed class TypeResolver
 
         // look for a field
         FieldInfo? field = null;
-        foreach (var f in type.GetFields(bindingFlags ?? engine.Options.Interop.ObjectWrapperReportedFieldBindingFlags))
+        foreach (var f in type.GetFields(bindingFlags ?? FieldBindingFlags(engine)))
         {
             if (!Filter(engine, type, f))
             {
@@ -558,7 +678,7 @@ public sealed class TypeResolver
             }
         }
 
-        foreach (var m in type.GetMethods(bindingFlags ?? engine.Options.Interop.ObjectWrapperReportedMethodBindingFlags))
+        foreach (var m in type.GetMethods(bindingFlags ?? MethodBindingFlags(engine)))
         {
             AddMethod(m);
         }
@@ -583,7 +703,7 @@ public sealed class TypeResolver
         // Add Object methods to interface
         if (type.IsInterface)
         {
-            foreach (var m in typeof(object).GetMethods(bindingFlags ?? engine.Options.Interop.ObjectWrapperReportedMethodBindingFlags))
+            foreach (var m in typeof(object).GetMethods(bindingFlags ?? MethodBindingFlags(engine)))
             {
                 AddMethod(m, skipIfSignatureAlreadyPresent: true);
             }
@@ -734,6 +854,14 @@ internal readonly struct InteropResolutionProfile : IEquatable<InteropResolution
     /// captured one.
     /// </summary>
     internal bool IsCaptured => _extensionMethods is not null;
+
+    internal bool AllowGetType => _allowGetType;
+
+    internal BindingFlags FieldBindingFlags => _fieldBindingFlags;
+
+    internal BindingFlags PropertyBindingFlags => _propertyBindingFlags;
+
+    internal BindingFlags MethodBindingFlags => _methodBindingFlags;
 
     public bool Equals(InteropResolutionProfile other)
     {

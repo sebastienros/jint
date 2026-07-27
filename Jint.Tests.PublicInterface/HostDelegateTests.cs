@@ -182,6 +182,33 @@ public class HostDelegateTests
         Invoking(() => engine.Execute("f(1);")).Should().Throw<ArgumentException>();
     }
 
+    private sealed class Recorder
+    {
+        public List<object> Values { get; } = new();
+
+        public void Record(object value) => Values.Add(value);
+    }
+
+    [Fact]
+    public void AVarianceRelaxedDelegateKeepsTheBinderError()
+    {
+        // Relaxed delegate binding lets the target's parameter be a base type of the delegate's own, so an
+        // Action<string> can stand for a void M(object). Arguments are converted to the target's signature
+        // and the delegate's is what actually gets invoked, so a value the target would accept can still be
+        // rejected - as the reflection binder's ArgumentException against the delegate signature, never as a
+        // cast failure surfaced as a host error by a strongly-typed invocation lane.
+        var recorder = new Recorder();
+        Action<string> narrowed = recorder.Record;
+
+        var engine = new Engine();
+        engine.SetValue("f", narrowed);
+
+        engine.Execute("f('ok');");
+        recorder.Values.Should().ContainSingle().Which.Should().Be("ok");
+
+        Invoking(() => engine.Execute("f(1);")).Should().Throw<ArgumentException>();
+    }
+
     [Fact]
     public void AnOpenInstanceDelegateIsNotMisbound()
     {

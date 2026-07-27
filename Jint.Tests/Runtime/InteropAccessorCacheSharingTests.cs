@@ -218,6 +218,74 @@ public class InteropAccessorCacheSharingTests
     }
 
     [Fact]
+    public void EnginesRegisteringTheSameExtensionMethodsShareTheResolution()
+    {
+        // Partitioning by extension method configuration is done by the *identity* of the built lookup, so
+        // two engines registering the same containers only share the cache if they end up holding the same
+        // lookup instance. Without that, every extension method host resolves everything for itself.
+        var counting = new CountingResolver();
+        var engine1 = CreateEngine(counting.Resolver, new Host(1), options => options.AddExtensionMethods(typeof(HostExtensions)));
+        var engine2 = CreateEngine(counting.Resolver, new Host(2), options => options.AddExtensionMethods(typeof(HostExtensions)));
+        counting.Reset();
+
+        engine1.Evaluate("host.Doubled()").Should().Be(2);
+        counting.Reset().Should().BeGreaterThan(0, "the first engine has to resolve the extension method");
+
+        engine2.Evaluate("host.Doubled()").Should().Be(4);
+        counting.Reset().Should().Be(0, "the resolution is shared through the resolver");
+    }
+
+    [Fact]
+    public void ExtensionMethodEnginesDoNotGrowTheSharedCachePerEngine()
+    {
+        // The cache never evicts and lives as long as the resolver, so an entry set per engine is a leak for
+        // the process. Churning identically configured engines must add nothing after the first one has
+        // resolved the member.
+        var resolver = new TypeResolver();
+
+        Engine Create() => CreateEngine(resolver, new Host(1), options => options.AddExtensionMethods(typeof(HostExtensions)));
+
+        var first = Create();
+        first.Evaluate("host.Doubled()").Should().Be(2);
+        first.Evaluate("host.Value").Should().Be(1);
+        var countAfterFirstEngine = resolver.ResolvedAccessorCount;
+        countAfterFirstEngine.Should().BeGreaterThan(0);
+
+        for (var i = 0; i < 20; i++)
+        {
+            var engine = Create();
+            engine.Evaluate("host.Doubled()").Should().Be(2);
+            engine.Evaluate("host.Value").Should().Be(1);
+        }
+
+        resolver.ResolvedAccessorCount.Should().Be(countAfterFirstEngine);
+    }
+
+    [Fact]
+    public void IdenticallyConfiguredExtensionMethodEnginesShareOneLookup()
+    {
+        var resolver = new TypeResolver();
+        var engine1 = CreateEngine(resolver, new Host(1), options => options.AddExtensionMethods(typeof(HostExtensions)));
+        var engine2 = CreateEngine(resolver, new Host(2), options => options.AddExtensionMethods(typeof(HostExtensions)));
+
+        engine2._extensionMethods.Should().BeSameAs(engine1._extensionMethods);
+        engine2._interopResolutionProfile.Should().Be(engine1._interopResolutionProfile);
+    }
+
+    [Fact]
+    public void RegistrationOrderKeepsTheLookupsApart()
+    {
+        // Order decides which container's overloads are considered first, so it is part of the lookup's
+        // identity - two orders must not collapse onto one interned instance.
+        var engine1 = new Engine(options => options.AddExtensionMethods(typeof(HostExtensions), typeof(OtherHostExtensions)));
+        var engine2 = new Engine(options => options.AddExtensionMethods(typeof(OtherHostExtensions), typeof(HostExtensions)));
+        var engine3 = new Engine(options => options.AddExtensionMethods(typeof(HostExtensions), typeof(OtherHostExtensions)));
+
+        engine2._extensionMethods.Should().NotBeSameAs(engine1._extensionMethods);
+        engine3._extensionMethods.Should().BeSameAs(engine1._extensionMethods);
+    }
+
+    [Fact]
     public void CustomTypeConvertersPartitionTheCache()
     {
         var resolver = new TypeResolver();
@@ -274,4 +342,9 @@ public class InteropAccessorCacheSharingTests
 internal static class HostExtensions
 {
     public static int Doubled(this InteropAccessorCacheSharingTests.Host host) => host.Value * 2;
+}
+
+internal static class OtherHostExtensions
+{
+    public static int Tripled(this InteropAccessorCacheSharingTests.Host host) => host.Value * 3;
 }
