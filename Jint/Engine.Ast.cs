@@ -178,10 +178,10 @@ internal sealed class CachedHoistingScope
 {
     public CachedHoistingScope(Program program)
     {
-        Scope = HoistingScope.GetProgramLevelDeclarations(program);
-
-        VarNames = [];
-        GatherVarNames(Scope, VarNames);
+        // Collecting during the walk makes the walker produce the bound-name list the
+        // separate GatherVarNames re-walk used to build; null means the program has no vars.
+        Scope = HoistingScope.GetProgramLevelDeclarations(program, collectVarNames: true);
+        VarNames = Scope._varNames ?? [];
 
         LexNames = DeclarationCacheBuilder.Build(Scope._lexicalDeclarations);
     }
@@ -213,6 +213,14 @@ internal static class AstPreparationExtensions
 
     internal static List<Key> GetVarNames(this Program program, HoistingScope hoistingScope)
     {
+        // A scope whose walk already collected the names answers without another pass —
+        // the eval cache reuses one HoistingScope across calls, so this also removes a
+        // per-call list allocation there. Callers must treat the result as read-only.
+        if (hoistingScope._varNames is not null)
+        {
+            return hoistingScope._varNames;
+        }
+
         List<Key> boundNames;
         if (program.UserData is CachedHoistingScope cached)
         {

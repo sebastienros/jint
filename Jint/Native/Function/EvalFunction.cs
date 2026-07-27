@@ -168,7 +168,10 @@ public sealed class EvalFunction : Function
             var analyzer = new EvalScriptAnalyzer();
             analyzer.Visit(parsedScript);
 
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(parsedScript, collectVarNames: analyzer._containsLoop);
+            // Always collect: EvalDeclarationInstantiation needs the bound names for its
+            // conflict checks on every call, and collecting rides the walk this parse
+            // already pays for — a cached entry then serves them allocation-free.
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(parsedScript, collectVarNames: true);
 
             // The fixed-slot machinery only pays off when it can amortize: a loop in the body
             // (many accesses within one call) or a promoted source (repeats, so the pooled
