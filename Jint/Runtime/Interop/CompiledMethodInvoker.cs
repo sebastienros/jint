@@ -55,11 +55,12 @@ internal static class CompiledMethodInvoker
     {
         invoker = null;
 
-        // Only plain (non-generic, non-params, no optional args, non-extension) MethodInfo call
-        // sites are eligible; anything else keeps the reflection path.
+        // Only plain (non-generic, non-params, non-extension) MethodInfo call sites are eligible; anything
+        // else keeps the reflection path. Optional parameters are eligible: their declared defaults are
+        // baked into the thunk below, which is the same value the reflection binder substitutes for the
+        // Type.Missing MethodInfoFunction.TryCall would otherwise write.
         if (descriptor.Method is not MethodInfo method
             || descriptor.HasParams
-            || descriptor.ParameterDefaultValuesCount != 0
             || descriptor.IsGenericMethod
             || descriptor.IsExtensionMethod
             || !method.IsPublic)
@@ -96,6 +97,25 @@ internal static class CompiledMethodInvoker
             }
         }
 
+        // The caller's arity check (MethodInfoFunction.Call) guarantees only
+        // `arguments.Length >= parameters.Length - ParameterDefaultValuesCount`, which bounds nothing unless
+        // the optional parameters are the trailing ones. C# guarantees that; a hand-written IL signature
+        // need not, so verify it rather than emitting an unguarded read past the argument array.
+        var firstOptionalIndex = parameters.Length;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].HasDefaultValue)
+            {
+                firstOptionalIndex = i;
+                break;
+            }
+        }
+
+        if (parameters.Length - firstOptionalIndex != descriptor.ParameterDefaultValuesCount)
+        {
+            return false;
+        }
+
         // The method is invoked through an open delegate (built once, embedded as a constant) rather
         // than a direct Expression.Call. A direct call lets the JIT inline a small host method into
         // the compiled lambda, which erases the host method's frame from a thrown exception's stack
@@ -130,7 +150,35 @@ internal static class CompiledMethodInvoker
 
         for (var i = 0; i < parameters.Length; i++)
         {
-            invokeArguments[offset + i] = BuildArgumentBinding(i, parameters[i].ParameterType, argsParam, returnLabel, locals, body);
+            var parameterType = parameters[i].ParameterType;
+
+            if (i < firstOptionalIndex)
+            {
+                invokeArguments[offset + i] = BuildArgumentBinding(i, parameterType, argsParam, returnLabel, locals, body);
+                continue;
+            }
+
+            if (!TryGetElidedArgumentValue(descriptor, i, parameterType, out var elided))
+            {
+                return false;
+            }
+
+            // One slot fed by either branch: the supplied argument bound exactly as any other, or the
+            // declared default. The read of arguments[i] only happens under the length test, so an elided
+            // trailing argument never indexes past the array.
+            var slot = Expression.Variable(parameterType, "p" + i);
+            locals.Add(slot);
+
+            var suppliedBody = new List<Expression>();
+            var bound = BuildArgumentBinding(i, parameterType, argsParam, returnLabel, locals, suppliedBody);
+            suppliedBody.Add(Expression.Assign(slot, bound));
+
+            body.Add(Expression.IfThenElse(
+                Expression.GreaterThan(Expression.ArrayLength(argsParam), Expression.Constant(i)),
+                Expression.Block(suppliedBody),
+                Expression.Assign(slot, elided)));
+
+            invokeArguments[offset + i] = slot;
         }
 
         var call = Expression.Invoke(Expression.Constant(invocationDelegate, delegateType), invokeArguments);
@@ -268,6 +316,55 @@ internal static class CompiledMethodInvoker
         // for this lane in the first place
         return returnType is not null
                && (returnType == typeof(void) || typeof(JsValue).IsAssignableFrom(returnType));
+    }
+
+    /// <summary>
+    /// The value an elided optional argument binds to, or <see langword="false"/> when this lane cannot
+    /// reproduce what the reflection path would have passed.
+    /// <para>
+    /// For every parameter type but <see cref="JsValue"/> that is the declared default, which is what the
+    /// reflection binder substitutes for the <c>Type.Missing</c> <c>MethodInfoFunction.TryCall</c> writes.
+    /// A <see cref="JsValue"/> parameter is the exception: <c>TryCall</c> assigns it the raw argument —
+    /// <see langword="null"/> when absent — from its <c>JsValueAssignable</c> branch, before the
+    /// <c>Type.Missing</c> branch can run, so its declared default is never consulted and must not be here
+    /// either.
+    /// </para>
+    /// </summary>
+    private static bool TryGetElidedArgumentValue(
+        MethodDescriptor descriptor,
+        int index,
+        Type parameterType,
+        [NotNullWhen(true)] out Expression? value)
+    {
+        value = null;
+
+        if (parameterType == typeof(JsValue))
+        {
+            value = Expression.Constant(null, typeof(JsValue));
+            return true;
+        }
+
+        var declared = descriptor.GetDefaultValue(index);
+        if (declared is DBNull)
+        {
+            return false;
+        }
+
+        if (declared is null)
+        {
+            if (parameterType.IsValueType)
+            {
+                return false;
+            }
+        }
+        else if (!parameterType.IsInstanceOfType(declared))
+        {
+            // a constant whose type does not match the parameter is the binder's problem, not this lane's
+            return false;
+        }
+
+        value = Expression.Constant(declared, parameterType);
+        return true;
     }
 
     /// <summary>

@@ -43,7 +43,74 @@ internal sealed class MethodDescriptor
         {
             ParameterFlags[i] = ComputeParameterFlags(Parameters[i].ParameterType);
         }
+
+#if NET8_0_OR_GREATER
+        if (ParameterDefaultValuesCount > 0)
+        {
+            _parameterDefaultValues = ResolveDefaultValues(Parameters);
+        }
+#endif
     }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// The value the reflection binder would substitute for each elided optional argument, resolved once so
+    /// <see cref="Invoke(object, Span{object})"/> can supply it itself and keep the fast invoker, and so
+    /// <see cref="CompiledMethodInvoker"/> can bake it into its thunk. <see cref="DBNull"/> marks a
+    /// parameter whose default only the binder can produce.
+    /// </summary>
+    private readonly object?[]? _parameterDefaultValues;
+
+    /// <summary>
+    /// The declared default for parameter <paramref name="index"/>, or <see cref="DBNull.Value"/> when this
+    /// descriptor cannot supply one itself.
+    /// </summary>
+    internal object? GetDefaultValue(int index)
+    {
+        var defaults = _parameterDefaultValues;
+        return defaults is not null && (uint) index < (uint) defaults.Length ? defaults[index] : DBNull.Value;
+    }
+
+    private static object?[] ResolveDefaultValues(ParameterInfo[] parameters)
+    {
+        var defaults = new object?[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            defaults[i] = ResolveDefaultValue(parameters[i]);
+        }
+
+        return defaults;
+    }
+
+    private static object? ResolveDefaultValue(ParameterInfo parameter)
+    {
+        if (!parameter.HasDefaultValue)
+        {
+            return DBNull.Value;
+        }
+
+        object? declared;
+        try
+        {
+            declared = parameter.DefaultValue;
+        }
+        catch (Exception)
+        {
+            // malformed or otherwise unreadable constant metadata: leave it to the binder
+            return DBNull.Value;
+        }
+
+        // Missing.Value is what an [Optional] parameter carrying no constant reports, and it is the very
+        // sentinel being substituted - hand those back to the binder rather than looping on them. DBNull is
+        // the binder's own "no default" marker and cannot be a C# parameter default, so it is a safe sentinel.
+        if (ReferenceEquals(declared, System.Type.Missing) || declared is DBNull)
+        {
+            return DBNull.Value;
+        }
+
+        return declared;
+    }
+#endif
 
     public MethodBase Method { get; }
     public ParameterInfo[] Parameters { get; }
@@ -253,20 +320,27 @@ internal sealed class MethodDescriptor
     /// </summary>
     public object? Invoke(object? instance, Span<object?> parameters)
     {
-        // MethodInvoker/ConstructorInvoker don't perform Type.Missing default-value
-        // substitution, fall back to MethodBase.Invoke when optional arguments are elided
+        // MethodInvoker/ConstructorInvoker don't perform Type.Missing default-value substitution. Doing it
+        // here - with the very value the binder would have picked - keeps the fast invoker for the common
+        // "host method with one optional argument" shape; only a parameter whose default the binder alone
+        // can produce still falls back to MethodBase.Invoke, where its ArgumentException is unchanged.
         if (ParameterDefaultValuesCount > 0)
         {
             for (var i = 0; i < parameters.Length; i++)
             {
                 if (ReferenceEquals(parameters[i], System.Type.Missing))
                 {
-                    return Method switch
+                    if (!TrySubstituteDefaultValues(parameters))
                     {
-                        MethodInfo m => m.Invoke(instance, parameters.ToArray()),
-                        ConstructorInfo c => c.Invoke(parameters.ToArray()),
-                        _ => throw new NotSupportedException("Method is unknown type"),
-                    };
+                        return Method switch
+                        {
+                            MethodInfo m => m.Invoke(instance, parameters.ToArray()),
+                            ConstructorInfo c => c.Invoke(parameters.ToArray()),
+                            _ => throw new NotSupportedException("Method is unknown type"),
+                        };
+                    }
+
+                    break;
                 }
             }
         }
@@ -296,6 +370,39 @@ internal sealed class MethodDescriptor
         }
 
         throw new NotSupportedException("Method is unknown type");
+    }
+
+    /// <summary>
+    /// Replaces every <see cref="System.Type.Missing"/> in <paramref name="parameters"/> with the declared
+    /// default the reflection binder would have used, returning <see langword="false"/> when some parameter
+    /// has none this can supply. A partial substitution before that <see langword="false"/> is harmless: the
+    /// values written are exactly the ones the binder would have picked for those slots anyway.
+    /// </summary>
+    private bool TrySubstituteDefaultValues(Span<object?> parameters)
+    {
+        var defaults = _parameterDefaultValues;
+        if (defaults is null || parameters.Length != defaults.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!ReferenceEquals(parameters[i], System.Type.Missing))
+            {
+                continue;
+            }
+
+            var value = defaults[i];
+            if (value is DBNull)
+            {
+                return false;
+            }
+
+            parameters[i] = value;
+        }
+
+        return true;
     }
 #endif
 
