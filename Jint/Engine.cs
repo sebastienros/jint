@@ -1966,7 +1966,7 @@ public sealed partial class Engine : IDisposable
                     var varName = varNames[i];
                     if (globalEnvironmentRecord.HasLexicalDeclaration(varName))
                     {
-                        Throw.SyntaxError(realm, "Identifier '" + varName + "' has already been declared");
+                        Throw.SyntaxError(realm, $"Identifier '{varName}' has already been declared");
                     }
                 }
             }
