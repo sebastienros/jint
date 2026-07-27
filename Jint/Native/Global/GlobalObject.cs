@@ -243,7 +243,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private static JsValue IsNaN(JsValue thisObject, JsValue value)
     {
         if (ReferenceEquals(value, JsNumber.DoubleNaN))
@@ -258,7 +258,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private static JsValue IsFinite(JsValue thisObject, JsValue value)
     {
         var n = TypeConverter.ToNumber(value);

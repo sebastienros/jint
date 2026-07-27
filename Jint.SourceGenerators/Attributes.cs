@@ -73,8 +73,9 @@ internal static class Attributes
             /// (<c>[ToNumber]</c>, <c>[ToInteger]</c>, <c>[ToInt32]</c>, <c>[ToUint32]</c>,
             /// <c>[ToLength]</c>) contributes a Number guard, <c>[ToString]</c>/<c>[ToJsString]</c>
             /// contribute a String guard, and a cast <c>thisObject</c> contributes the guard matching
-            /// its type. A plain <c>JsValue</c> parameter carries no guard, so declaring
-            /// <c>Leaf</c> asserts the body is leaf-safe for <em>any</em> value in that position.
+            /// its type. A plain <c>JsValue</c> value parameter carries no guard and is therefore
+            /// rejected outright (JINT023): the generator cannot see whether the body coerces it,
+            /// and a body that does would run user code frameless.
             /// </para>
             /// <para>
             /// This is never inferred from the signature, because a body with perfectly numeric

@@ -1010,8 +1010,8 @@ public class ObjectGeneratorTests
         // Plain (FastCall) reports Supported with no guards — the frame is still pushed, so passing
         // arguments in registers is safe for any value. Leaf additionally reports the guards under
         // which frame elision is legal: [ToNumber] is a no-op for an actual number, [ToJsString] for
-        // an actual string. Absent guards on the second Leaf arg say the body is leaf-safe for any
-        // value there.
+        // an actual string, [ToInteger] for a number again. Every Leaf value parameter must declare
+        // its conversion; an undeclared one is rejected (see LeafOnUnguardableHazards).
         return VerifyGenerator("""
             using Jint;
             using Jint.Native;
@@ -1031,7 +1031,7 @@ public class ObjectGeneratorTests
                 private static JsValue Abs(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(x);
 
                 [JsFunction(Length = 2, Leaf = true)]
-                private static JsValue CharAt(JsValue thisObject, [ToJsString] JsString s, JsValue index) => s;
+                private static JsValue CharAt(JsValue thisObject, [ToJsString] JsString s, [ToInteger] double index) => s;
 
                 [JsFunction(Length = 0)]
                 private static JsValue Untouched(JsValue thisObject) => JsValue.Undefined;
@@ -1213,10 +1213,12 @@ public class ObjectGeneratorTests
     public Task LeafOnUnguardableHazards_ProducesDiagnostic()
     {
         // Frame elision needs every route to user code or a JS error closed off by a guard the
-        // runtime can check. None of these three can be: ObjectInstance has no matching
+        // runtime can check. None of these four can be: ObjectInstance has no matching
         // FastCallGuard, [ToObject] throws for null/undefined and "not nullish" is not expressible,
-        // and [RequireObjectCoercible] on an unguarded 'this' is the same problem. Each is an error
-        // at the declaration rather than a silent downgrade to the non-leaf lane.
+        // [RequireObjectCoercible] on an unguarded 'this' is the same problem, and an undeclared
+        // JsValue parameter hides whatever the body does with it — the shape that let four
+        // String.prototype methods run a user valueOf frameless. Each is an error at the
+        // declaration rather than a silent downgrade to the non-leaf lane.
         return VerifyGenerator("""
             using Jint;
             using Jint.Native;
@@ -1240,6 +1242,9 @@ public class ObjectGeneratorTests
                 [RequireObjectCoercible]
                 [JsFunction(Length = 0, Leaf = true)]
                 private static JsValue NeedsCoercible(JsValue thisObject) => JsValue.Undefined;
+
+                [JsFunction(Length = 1, Leaf = true)]
+                private static JsValue Undeclared(JsValue thisObject, JsValue pos) => pos;
 
                 protected override void Initialize() => CreateProperties_Generated();
             }

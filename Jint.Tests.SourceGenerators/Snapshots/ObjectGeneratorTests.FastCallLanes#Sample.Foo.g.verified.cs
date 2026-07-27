@@ -50,7 +50,7 @@ internal sealed partial class Foo
             switch (_slot)
             {
                 case Slot.Abs: return Foo.Abs(thisObject, global::Jint.Runtime.TypeConverter.ToNumber(global::Jint.Runtime.Arguments.At(arguments, 0)));
-                case Slot.CharAt: return Foo.CharAt(thisObject, global::Jint.Runtime.TypeConverter.ToJsString(global::Jint.Runtime.Arguments.At(arguments, 0)), global::Jint.Runtime.Arguments.At(arguments, 1));
+                case Slot.CharAt: return Foo.CharAt(thisObject, global::Jint.Runtime.TypeConverter.ToJsString(global::Jint.Runtime.Arguments.At(arguments, 0)), global::Jint.Runtime.TypeConverter.ToInteger(global::Jint.Runtime.Arguments.At(arguments, 1)));
                 case Slot.Passthrough: return Foo.Passthrough(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0));
                 case Slot.Untouched: return Foo.Untouched(thisObject);
                 default: throw UnknownSlot(_slot);
@@ -89,7 +89,7 @@ internal sealed partial class Foo
             switch (_slot)
             {
                 case Slot.Abs: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
-                case Slot.CharAt: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.CharAt: return new global::Jint.Native.Function.FastCallShape(true, true, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Number);
                 case Slot.Passthrough: return new global::Jint.Native.Function.FastCallShape(true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
                 default: return default;
             }
@@ -100,7 +100,7 @@ internal sealed partial class Foo
             switch (_slot)
             {
                 case Slot.Abs: return Foo.Abs(thisObject, global::Jint.Runtime.TypeConverter.ToNumber(arg0));
-                case Slot.CharAt: return Foo.CharAt(thisObject, global::Jint.Runtime.TypeConverter.ToJsString(arg0), arg1);
+                case Slot.CharAt: return Foo.CharAt(thisObject, global::Jint.Runtime.TypeConverter.ToJsString(arg0), global::Jint.Runtime.TypeConverter.ToInteger(arg1));
                 case Slot.Passthrough: return Foo.Passthrough(thisObject, arg0);
                 default: return base.CallFast(thisObject, arg0, arg1);
             }

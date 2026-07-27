@@ -157,7 +157,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.trim
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
     private static JsValue Trim(JsValue thisObject)
     {
@@ -172,7 +172,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimstart
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
     private static JsValue TrimStart(JsValue thisObject)
     {
@@ -187,7 +187,7 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimend
     /// </summary>
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
     private static JsValue TrimEnd(JsValue thisObject)
     {
@@ -229,7 +229,7 @@ internal sealed partial class StringPrototype : StringInstance
         return new JsString(ToUpperCaseWithSpecialCasing(s, culture));
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
     private JsValue ToUpperCase(JsValue thisObject)
     {
@@ -444,7 +444,7 @@ internal sealed partial class StringPrototype : StringInstance
         return ToLowerCaseWithSpecialCasing(s, culture);
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
     [RequireObjectCoercible]
     private JsValue ToLowerCase(JsValue thisObject)
     {
@@ -920,7 +920,14 @@ internal sealed partial class StringPrototype : StringInstance
         return intVal;
     }
 
-    [JsFunction(Length = 2, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
+    // FastCall only, deliberately not Leaf: the two arguments arrive as plain JsValue and are
+    // coerced in the body, so no declared guard can keep an object argument — whose valueOf is
+    // user code that can read error.stack — off the frameless lane. Migrating them to
+    // [ToNumber] double would move the coercion into the dispatcher, ahead of ToJsString(this),
+    // inverting the spec's step 2 → step 4/5 order; and step 5 needs `end === undefined` told
+    // apart from an explicit NaN, which survives no numeric coercion. Math.fround is the same
+    // shape and the same verdict.
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
     private static JsValue Substring(JsValue thisObject, JsValue startArg, JsValue endArg)
     {
@@ -1255,7 +1262,11 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.slice
     /// </summary>
-    [JsFunction(Length = 2, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
+    // FastCall only, not Leaf — see the note on Substring: raw JsValue arguments coerced in the
+    // body cannot be guarded, and declaring the coercions would move them into the dispatcher,
+    // ahead of the step-2 ToJsString the body now performs first. The undefined-vs-NaN distinction
+    // `end` needs would not survive the migration either.
+    [JsFunction(Length = 2, FastCall = true)]
     [RequireObjectCoercible]
     private static JsValue Slice(JsValue thisObject, JsValue startArg, JsValue endArg)
     {
@@ -1631,7 +1642,11 @@ internal sealed partial class StringPrototype : StringInstance
         return jsString;
     }
 
-    [JsFunction(Length = 1, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
+    // FastCall only, not Leaf: `pos` is a raw JsValue coerced in the body, so an object argument
+    // would run user valueOf inside a frameless window. A [ToInteger] double migration would earn
+    // the Number guard but move the coercion ahead of ToJsString(this), inverting the spec's
+    // step 2 → step 3 order.
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
     private static JsValue CharCodeAt(JsValue thisObject, JsValue pos)
     {
@@ -1692,7 +1707,8 @@ internal sealed partial class StringPrototype : StringInstance
         return new CodePointResult(char.ConvertToUtf32(first, second), 2, false);
     }
 
-    [JsFunction(Length = 1, FastCall = true, Leaf = true, LeafReceiver = FastCallGuard.String)]
+    // FastCall only, not Leaf — same reasoning as CharCodeAt.
+    [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
     private static JsValue CharAt(JsValue thisObject, JsValue pos)
     {

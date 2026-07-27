@@ -75,7 +75,7 @@ internal sealed partial class WeakMapPrototype : Prototype
         return map.WeakMapDelete(key) ? JsBoolean.True : JsBoolean.False;
     }
 
-    [JsFunction(Name = "set")]
+    [JsFunction(Name = "set", FastCall = true)]
     private JsValue MapSet(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertWeakMapInstance(thisObject);

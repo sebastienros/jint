@@ -349,10 +349,23 @@ internal sealed class JintCallExpression : JintExpression
     {
         if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
         {
+#if DEBUG
+            // try/finally so a throw out of a mis-annotated built-in cannot strand the debug
+            // counter above zero and poison every later assertion on this thread. Compiled out
+            // rather than left to [Conditional] emptying the finally, so Release codegen on the
+            // engine's fastest lane carries no exception-handling region at all.
             LeafCallGuard.Enter();
-            var leafResult = target.CallFast(thisObject, arg0, arg1);
-            LeafCallGuard.Exit();
-            return leafResult;
+            try
+            {
+                return target.CallFast(thisObject, arg0, arg1);
+            }
+            finally
+            {
+                LeafCallGuard.Exit();
+            }
+#else
+            return target.CallFast(thisObject, arg0, arg1);
+#endif
         }
 
         var callStack = engine.CallStack;

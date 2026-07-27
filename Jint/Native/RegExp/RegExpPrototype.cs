@@ -808,7 +808,7 @@ internal sealed partial class RegExpPrototype : Prototype
         return "/" + pattern + "/" + flags;
     }
 
-    [JsFunction]
+    [JsFunction(FastCall = true)]
     private JsValue Test(JsValue thisObject, JsValue stringArg)
     {
         var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");

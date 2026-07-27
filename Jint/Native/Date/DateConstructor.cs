@@ -96,7 +96,10 @@ internal sealed partial class DateConstructor : Constructor
         return finalDate.TimeClip().ToJsValue();
     }
 
-    [JsFunction]
+    // Leaf: no arguments, no JS-error path, no interpreted code. A host ITimeSystem does run inside
+    // the frameless window, which is the same exposure the 19 Leaf getters on DatePrototype already
+    // ship with — a host clock is not script and cannot observe error.stack.
+    [JsFunction(FastCall = true, Leaf = true)]
     private JsValue Now(JsValue thisObject)
     {
         return (long) (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;
