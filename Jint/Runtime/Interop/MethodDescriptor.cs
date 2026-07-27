@@ -228,6 +228,35 @@ internal sealed class MethodDescriptor
     private bool _returnValueVisibilityResolved;
     private bool _returnValueIsInvisibleToObjectConverters;
 
+    // The last converter-type filter that answered "does not claim ReturnType", or null if none
+    // has. The method-invoker twin of CompilableMemberAccessor's memo, with the same safety
+    // argument: descriptors are shared across engines whose filters differ, so the filter
+    // reference is the memo key; only the negative verdict is stored, written after that filter
+    // answered and compared only by reference, so an unsynchronized stale read can at worst
+    // recompute — never wrongly bypass a converter. The affirmative verdict takes the call off
+    // the compiled lane entirely, a path far more expensive than the probe this memo saves.
+    private ObjectConverterTypeFilter? _returnTypeUnclaimedBy;
+
+    /// <summary>
+    /// Whether <paramref name="filter"/> claims this method's return type, with the negative
+    /// answer — the one every call on the compiled lane has to have — memoized per filter.
+    /// </summary>
+    internal bool ReturnTypeClaimedBy(ObjectConverterTypeFilter filter)
+    {
+        if (ReferenceEquals(_returnTypeUnclaimedBy, filter))
+        {
+            return false;
+        }
+
+        if (filter.Claims(ReturnType))
+        {
+            return true;
+        }
+
+        _returnTypeUnclaimedBy = filter;
+        return false;
+    }
+
     /// <summary>
     /// Whether this method's return value is one that registered <see cref="IObjectConverter"/>s
     /// could never observe, so the compiled invoker may produce the <see cref="JsValue"/> itself

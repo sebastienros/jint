@@ -184,7 +184,7 @@ internal sealed class MethodInfoFunction : Function
                 var converterTypeFilter = _engine._objectConverterTypeFilter;
                 if ((converterTypeFilter is null
                         || method.ReturnValueIsInvisibleToObjectConverters
-                        || !converterTypeFilter.Claims(method.ReturnType))
+                        || !method.ReturnTypeClaimedBy(converterTypeFilter))
                     && _engine._typeConverterIsDefault
                     && method.GetCompiledInvoker() is { } compiledInvoker
                     && (method.IsStatic || method.DeclaringType?.IsInstanceOfType(thisObj) == true))

@@ -323,6 +323,37 @@ public class ObjectConverterRegistrationTests
     }
 
     [Fact]
+    public void ASharedMethodDescriptorAnswersTheConverterQuestionPerFilterNotOnce()
+    {
+        // The method-invoker twin of the accessor memo test above: descriptors are shared through
+        // the resolver, so the engine whose converter claims the return type must never be served
+        // the other's "not claimed" verdict. Interleaved in both orders, and repeated.
+        var resolver = new TypeResolver();
+
+        Engine Create(Type declared)
+        {
+            var engine = new Engine(options =>
+            {
+                options.Interop.TypeResolver = resolver;
+                options.AddObjectConverter(new MeddlingConverter(), declared);
+            });
+            engine.SetValue("host", new Host());
+            return engine;
+        }
+
+        var claiming = Create(typeof(bool));
+        var unrelated = Create(typeof(Guid));
+
+        for (var i = 0; i < 3; i++)
+        {
+            ShouldRead(unrelated, "host.GetFlag()", whenBypassed: true, whenConverted: false);
+            claiming.Evaluate("host.GetFlag()").Should().Be(false);
+            claiming.Evaluate("host.GetFlag()").Should().Be(false);
+            ShouldRead(unrelated, "host.GetFlag()", whenBypassed: true, whenConverted: false);
+        }
+    }
+
+    [Fact]
     public void DeclaredConverterDoesNotAffectWrites()
     {
         var host = new Host();
