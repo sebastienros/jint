@@ -24,6 +24,13 @@ namespace Jint.Native.Object;
 /// collection that grows or shrinks between reads is observed live, exactly like a DOM collection.
 /// </para>
 /// <para>
+/// There is a third, optional member: <see cref="HasIndex"/>. Existence questions (<c>index in list</c>,
+/// <c>hasOwnProperty</c>, <c>Object.keys</c>, the per-element hole test the <c>Array.prototype</c> generics run)
+/// need a yes/no, not a value, and by default answer by producing an element and discarding it. A backing store
+/// that can test containment more cheaply than it can project an element should override
+/// <see cref="HasIndex"/>; a host that does not is never asked and pays exactly what it did before.
+/// </para>
+/// <para>
 /// <b>The JS-visible model.</b> Canonical array indices below <see cref="Length"/> for which
 /// <see cref="TryGetIndex"/> answers are own data properties
 /// <c>{ writable: false, enumerable: true, configurable: true }</c>; <c>length</c> is
@@ -31,6 +38,17 @@ namespace Jint.Native.Object;
 /// mode and raise <c>TypeError</c> in strict mode, and <c>delete</c> / <c>Object.defineProperty</c> against an
 /// index key or <c>length</c> are refused — the WebIDL platform-object shape. Named properties are ordinary:
 /// the inherited property bag and the prototype work as usual, and expandos may be added.
+/// </para>
+/// <para>
+/// <b>Where <c>length</c> lives</b> is a known deviation. Here it is an <em>own</em> property, so
+/// <c>list.hasOwnProperty('length')</c> is <c>true</c> and <c>Object.getOwnPropertyNames(list)</c> ends with
+/// <c>"length"</c>; a browser puts it on <c>NodeList.prototype</c> as a WebIDL attribute and answers
+/// <c>false</c>. There is deliberately no opt-out in this version: the engine reads the length of an array-like
+/// through <c>[[Get]]("length")</c> in places that do not go through this type's operations
+/// (<c>JSON.stringify</c>'s array serialization, and every write-mode <c>Array.prototype</c> generic), so a
+/// collection that stopped owning the property would silently behave as empty unless it also installed an
+/// accessor on its prototype. Owning it keeps that impossible to get wrong, and moving it later is an additive
+/// change.
 /// </para>
 /// <para>
 /// <b>What it deliberately is NOT: an Array.</b> <c>Array.isArray</c> answers <c>false</c>,
@@ -117,6 +135,34 @@ public abstract class ArrayLikeObject : ObjectInstance
     public abstract bool TryGetIndex(uint index, out JsValue value);
 
     /// <summary>
+    /// Whether the object has an own element at <paramref name="index"/> — the <em>existence-only</em> question,
+    /// with no value produced. Override it when the backing store can answer containment more cheaply than it can
+    /// produce an element; the default asks <see cref="TryGetIndex"/> and discards the value, which is what every
+    /// host got before this hook existed, so not overriding it changes nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It backs every question that needs a yes/no rather than a value: <c>index in list</c>,
+    /// <c>hasOwnProperty</c>, <c>propertyIsEnumerable</c>, the key enumerations
+    /// (<c>Object.keys</c>/<c>values</c>/<c>entries</c>, <c>Object.getOwnPropertyNames</c>, <c>for-in</c>,
+    /// <c>Object.assign</c>, object spread), <c>delete</c>, and the hole test the <c>Array.prototype</c> generics
+    /// run per element (<c>map</c>, <c>filter</c>, <c>forEach</c>, …). Each of those otherwise materializes an
+    /// element purely to throw it away. Reads still go through <see cref="TryGetIndex"/>: a question that needs
+    /// the value never asks this one first, so an override is never an extra call on a read path.
+    /// </para>
+    /// <para>
+    /// <b>Contract:</b> the answer must equal what <see cref="TryGetIndex"/> would return at the same instant.
+    /// The engine trusts it and does not re-verify: a wrong <see langword="false"/> silently drops the element
+    /// from every enumeration and existence check above while <c>list[index]</c> still reads it, and a wrong
+    /// <see langword="true"/> advertises a key whose read yields <c>undefined</c> or resolves on the prototype.
+    /// A Debug build of Jint verifies both directions on every probe, so running a host suite against one is the
+    /// checker. Like <see cref="TryGetIndex"/> it must be O(1), allocation-free, free of observable side effects,
+    /// and must answer <see langword="false"/> rather than throw for an index that has just gone out of range.
+    /// </para>
+    /// </remarks>
+    protected virtual bool HasIndex(uint index) => TryGetIndex(index, out _);
+
+    /// <summary>
     /// The single funnel every engine-side index read goes through, so the host contract is enforced in one
     /// place: a <see langword="false"/> answer always leaves <paramref name="value"/> as <c>undefined</c> rather
     /// than whatever the host left in the <c>out</c> slot, and a <see langword="true"/> answer is checked for the
@@ -133,6 +179,41 @@ public abstract class ArrayLikeObject : ObjectInstance
 
         value = Undefined;
         return false;
+    }
+
+    /// <summary>
+    /// The existence-only counterpart of <see cref="ReadIndex"/>, and the only way engine code outside this class
+    /// reaches <see cref="HasIndex"/> (which is <c>protected</c>). Every index existence question funnels through
+    /// here so the Debug agreement check sits in one place.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool ProbeIndex(uint index)
+    {
+        var has = HasIndex(index);
+        AssertHasIndexAgreesWithTryGetIndex(this, index, has);
+        return has;
+    }
+
+    /// <summary>
+    /// Debug-only verifier for the <see cref="HasIndex"/> contract, checking <b>both</b> directions against
+    /// <see cref="TryGetIndex"/> for the same index. Free in Release ([Conditional]), so a host's own suite run
+    /// against a Debug build of Jint becomes the checker — the same arrangement
+    /// <c>ObjectInstance.AssertOwnValueAgreesWithDescriptor</c> uses for the value hook.
+    /// </summary>
+    [Conditional("DEBUG")]
+    private static void AssertHasIndexAgreesWithTryGetIndex(ArrayLikeObject target, uint index, bool answered)
+    {
+#if DEBUG
+        var produced = target.TryGetIndex(index, out _);
+        if (produced == answered)
+        {
+            return;
+        }
+
+        Debug.Fail(answered
+            ? $"{target.GetType()}.HasIndex answered true for index {index} but its TryGetIndex answers false. The engine trusts HasIndex, so this advertises a key whose read yields undefined or resolves on the prototype."
+            : $"{target.GetType()}.HasIndex answered false for index {index} but its TryGetIndex produces a value. The engine trusts HasIndex, so this silently drops the element from `in`, hasOwnProperty, Object.keys and the Array.prototype hole tests while list[{index}] still reads it.");
+#endif
     }
 
     /// <summary>
@@ -193,7 +274,7 @@ public abstract class ArrayLikeObject : ObjectInstance
     {
         if (ArrayInstance.IsArrayIndex(property, out var index))
         {
-            return ReadIndex(index, out _) ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.Missing;
+            return ProbeIndex(index) ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.Missing;
         }
 
         if (CommonProperties.Length.Equals(property))
@@ -225,7 +306,7 @@ public abstract class ArrayLikeObject : ObjectInstance
                 _engine.Constraints.Check();
             }
 
-            if (ReadIndex(i, out _))
+            if (ProbeIndex(i))
             {
                 keys.Add(JsString.Create(i));
             }
@@ -274,7 +355,7 @@ public abstract class ArrayLikeObject : ObjectInstance
     {
         if (ArrayInstance.IsArrayIndex(property, out var index))
         {
-            return !ReadIndex(index, out _);
+            return !ProbeIndex(index);
         }
 
         if (CommonProperties.Length.Equals(property))

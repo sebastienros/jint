@@ -115,4 +115,67 @@ public class ArrayLikeObjectLaneTests
         (host._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
         (host._type & InternalTypes.PlainObject).Should().Be(InternalTypes.Empty);
     }
+
+    /// <summary>
+    /// A host that overrides only the containment hook, so the operations class's per-element hole test can be
+    /// told apart from its element read. The observable behaviour is covered from the public surface in
+    /// Jint.Tests.PublicInterface/HostArrayLikeHasIndexTests.cs; what needs internals is proving that the
+    /// dispatcher's <c>HasProperty</c> — the hole test the generics run — is the containment hook and not a
+    /// discarded read.
+    /// </summary>
+    private sealed class ContainmentOnlyHostList : ArrayLikeObject
+    {
+        public ContainmentOnlyHostList(Engine engine) : base(engine)
+        {
+            Prototype = engine.Intrinsics.Array.PrototypeObject;
+        }
+
+        public int TryGetIndexCalls { get; private set; }
+
+        public int HasIndexCalls { get; private set; }
+
+        public override uint Length => 3;
+
+        public override bool TryGetIndex(uint index, out JsValue value)
+        {
+            TryGetIndexCalls++;
+            if (index < 3)
+            {
+                value = "v" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            }
+
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        protected override bool HasIndex(uint index)
+        {
+            HasIndexCalls++;
+            return index < 3;
+        }
+    }
+
+    [Fact]
+    public void TheOperationsHoleTestIsTheContainmentHookAndTheElementReadIsNot()
+    {
+        var engine = new Engine();
+        var host = new ContainmentOnlyHostList(engine);
+        var operations = ArrayOperations.For(host, forWrite: false);
+
+        operations.HasProperty(1).Should().Be(true);
+        host.HasIndexCalls.Should().Be(1);
+#if DEBUG
+        // the agreement verifier re-runs TryGetIndex once per probe
+        host.TryGetIndexCalls.Should().Be(1);
+#else
+        host.TryGetIndexCalls.Should().Be(0);
+#endif
+
+        var before = host.TryGetIndexCalls;
+        var hasIndexBefore = host.HasIndexCalls;
+        operations.Get(1).Should().Be("v1");
+        (host.TryGetIndexCalls - before).Should().Be(1, "a read produces the element");
+        host.HasIndexCalls.Should().Be(hasIndexBefore, "a read must never ask the containment hook first");
+    }
 }

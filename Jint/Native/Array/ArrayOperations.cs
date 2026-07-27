@@ -663,8 +663,10 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             return false;
         }
 
+        // Existence only — this is the hole test the generics run per element, so it goes through the host's
+        // containment hook rather than producing an element to discard.
         public override bool HasProperty(ulong index)
-            => (index < uint.MaxValue && _target.ReadIndex((uint) index, out _)) || _target.HasProperty(JsString.Create(index));
+            => (index < uint.MaxValue && _target.ProbeIndex((uint) index)) || _target.HasProperty(JsString.Create(index));
 
         public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
             => _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
