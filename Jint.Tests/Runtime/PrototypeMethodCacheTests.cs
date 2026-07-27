@@ -333,6 +333,114 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("from-proto,from-proto,own,own");
     }
 
+    /// <summary>
+    /// A built-in whose own properties live in a shared layout plus a per-realm descriptor array is a valid
+    /// holder for this cache: its whole own-property set is engine storage, and every change to that set
+    /// moves <c>_propertiesVersion</c> (materializing a slot does not, but materialization does not change
+    /// the name set). Such a type reaches the protected <see cref="ObjectInstance"/> constructor and so
+    /// carries derived <c>OrdinaryGet</c>, which <c>VersionWitnessesOwnProperty</c> otherwise refuses
+    /// outright — that flag stands for "own properties live outside the engine", which is exactly what is
+    /// not true here, hence the carve-out.
+    /// <para>
+    /// These are the #2823 guards restated for that holder family. Each one warms the cache and then makes
+    /// the change the version has to witness; a stale answer is the failure.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void OwnPropertyAddedAfterCachingShadowsASharedLayoutPrototype()
+    {
+        const string script = """
+            var o = Object.create(Math), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 3) { o.abs = function () { return 'own'; }; }
+                out.push(o.abs(-1));
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("1,1,1,own,own");
+    }
+
+    [Fact]
+    public void ASharedLayoutPrototypeMemberRedefinedAfterCachingIsReResolved()
+    {
+        const string script = """
+            var o = Object.create(Math), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 3) { Object.defineProperty(Math, 'abs', { value: function () { return 'patched'; } }); }
+                out.push(o.abs(-1));
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("1,1,1,patched,patched");
+    }
+
+    [Fact]
+    public void AMemberDeletedFromASharedLayoutPrototypeAfterCachingFallsBack()
+    {
+        // Deleting a declared member is what drops the whole object back to the ordinary dictionary, so this
+        // covers the cache surviving the representation change as well as the name leaving.
+        const string script = """
+            var o = Object.create(Math), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 3) { delete Math.abs; }
+                out.push(typeof o.abs);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("function,function,function,undefined,undefined");
+    }
+
+    [Fact]
+    public void AMemberAddedToASharedLayoutPrototypeAfterCachingIsSeen()
+    {
+        // The mirror image: the opening reads miss everywhere and cache nothing, then the name appears on
+        // the prototype through the side dictionary a shaped host keeps for post-initialization additions.
+        const string script = """
+            var o = Object.create(Math), out = [];
+            for (var i = 0; i < 5; i++) {
+                if (i === 3) { Math.brandNew = 'added'; }
+                out.push(String(o.brandNew));
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("undefined,undefined,undefined,added,added");
+    }
+
+    [Fact]
+    public void AWarmSharedLayoutPrototypeReadKeepsServingTheSameMember()
+    {
+        // The other half: with nothing invalidating it, a warm read must keep answering — same value, and
+        // the same function object, which is what the per-realm descriptor array guarantees.
+        const string script = """
+            var o = Object.create(Math), out = [], first = null, stable = true;
+            for (var i = 0; i < 50; i++) {
+                var f = o.abs;
+                if (first === null) { first = f; } else if (f !== first) { stable = false; }
+                out.push(f(-2));
+            }
+            (stable ? 'stable' : 'unstable') + ':' + out[0] + ':' + out[49] + ':' + out.length;
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("stable:2:2:50");
+    }
+
+    [Fact]
+    public void AGeneratorInstanceReadsItsPrototypeMethodCorrectlyAcrossInvalidation()
+    {
+        // GeneratorPrototype is the shared-layout prototype the design named: gen.next is read through a
+        // generator instance, so the holder is the newly eligible family and the receiver is an ordinary
+        // object that can shadow.
+        const string script = """
+            function* g() { yield 1; yield 2; yield 3; }
+            var it = g(), out = [];
+            for (var i = 0; i < 4; i++) {
+                if (i === 2) { it.next = function () { return { value: 'own', done: false }; }; }
+                out.push(it.next().value);
+            }
+            out.join(',');
+            """;
+        new Engine().Evaluate(script).AsString().Should().Be("1,2,own,own");
+    }
+
     [Fact]
     public void PrototypeGetterIsReInvokedEachRead()
     {
