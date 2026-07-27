@@ -2,8 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Jint.Native;
+using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -397,6 +401,73 @@ public class GlobalSnapshotTests
         engine.Evaluate("typeof globalThis.ran").AsString().Should().Be("undefined");
     }
 
+    /// <summary>
+    /// The cross-tenant leak the event-loop fence exists for. A fire-and-forget async function suspended on a
+    /// host promise leaves nothing in the queue, so the discard at restore time cannot see it; when the host
+    /// settles that promise afterwards, the suspended body would resume and write tenant A's data into tenant
+    /// B's global surface. Deterministic: <c>RegisterPromise</c>'s resolve enqueues and drains synchronously
+    /// on the calling thread, so there is no scheduling to wait on.
+    /// </summary>
+    [Fact]
+    public void APromiseRegisteredBeforeARestoreDoesNotResumeItsContinuationAfterwards()
+    {
+        static (Engine Engine, ManualPromise Handle) Arrange()
+        {
+            var engine = new Engine();
+            var handle = engine.Advanced.RegisterPromise();
+            engine.SetValue("hostWork", handle.Promise);
+            return (engine, handle);
+        }
+
+        // control: with no restore in between, the continuation runs — the fence must not break the feature
+        var (control, controlHandle) = Arrange();
+        control.Evaluate("(async () => { await hostWork; globalThis.cache = 'tenantA'; })();");
+        controlHandle.Resolve(JsValue.Undefined);
+        control.Advanced.ProcessTasks();
+        control.Evaluate("globalThis.cache").AsString().Should().Be("tenantA");
+
+        var (engine, handle) = Arrange();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Evaluate("(async () => { await hostWork; globalThis.cache = 'tenantA'; })();");
+
+        // nothing is queued yet: the promise has not settled, so the discard has nothing to discard
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        handle.Resolve(JsValue.Undefined);
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("typeof globalThis.cache").AsString().Should().Be("undefined");
+    }
+
+    /// <summary>
+    /// The same fence seen from the host side of the guard: while an <c>EvaluateAsync</c> is suspended on a
+    /// host task the engine looks idle — the synchronous phase has finished, the stack is back at base depth —
+    /// so only the pending-operation count can tell restore that an evaluation the host still holds is in
+    /// flight.
+    /// </summary>
+    [Fact]
+    public async Task RestoringWhileAnAsyncEvaluationIsOutstandingIsRejected()
+    {
+        var engine = new Engine();
+        var gate = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.SetValue("hostWork", new Func<Task<object>>(() => gate.Task));
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var pending = engine.EvaluateAsync("(async () => { await hostWork(); return 42; })()");
+        pending.IsCompleted.Should().BeFalse();
+
+        Invoking(() => engine.Advanced.RestoreGlobalSnapshot(snapshot))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*evaluation is in progress*");
+
+        gate.SetResult(1);
+        (await pending).AsNumber().Should().Be(42);
+
+        // and the engine is restorable again the moment that evaluation is really over
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+    }
+
     [Fact]
     public void RestoreClearsTheRegExpLegacyStatics()
     {
@@ -471,6 +542,110 @@ public class GlobalSnapshotTests
 
         engine.Evaluate("hostApi()").AsString().Should().Be("from-host");
         calls.Should().Be(2, "the factory had not yet run at capture time, so restoring that state means it runs again on the next read");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Host-authored storage: what a snapshot can and cannot see
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A host descriptor that keeps its value in state of its own rather than in the inherited field. This is
+    /// legal — <c>CustomJsValue</c> is the documented lazy-value hook — but it puts the value where a snapshot
+    /// cannot reach it.
+    /// </summary>
+    private sealed class HostStateDescriptor : PropertyDescriptor
+    {
+        private JsValue? _state;
+
+        public HostStateDescriptor(JsValue initial)
+            : base(PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.CustomJsValue)
+        {
+            _state = initial;
+        }
+
+        // protected, not protected internal: from outside the Jint assembly that is what the member looks like
+        protected override JsValue? CustomValue
+        {
+            get => _state;
+            set => _state = value;
+        }
+    }
+
+    /// <summary>
+    /// Honesty pin. Restore reinstates such a descriptor by reference and reverts its attribute flags, but it
+    /// does not revert the value, because the value is not in a field the engine owns. Writing that field
+    /// anyway would not restore the property — it would only make the field disagree with the value reads
+    /// resolve to, which is a worse failure than the documented one.
+    /// </summary>
+    [Fact]
+    public void AHostDescriptorHoldingItsValueOutsideTheEngineIsNotReverted()
+    {
+        var engine = new Engine();
+        engine.Global.FastSetProperty("cfg", new HostStateDescriptor(JsNumber.Create(1)));
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Evaluate("cfg = 5;");
+        engine.Evaluate("cfg").AsNumber().Should().Be(5);
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        // documented non-guarantee: the value lives in host state, so it stays
+        engine.Evaluate("cfg").AsNumber().Should().Be(5);
+
+        // ... but every lane agrees on that one value — the descriptor is not left half-reverted
+        engine.Evaluate("Object.getOwnPropertyDescriptor(globalThis, 'cfg').value").AsNumber().Should().Be(5);
+        engine.Evaluate("Object.values(globalThis).indexOf(5) >= 0").AsBoolean().Should().BeTrue();
+        engine.Evaluate("JSON.parse(JSON.stringify({ v: cfg })).v").AsNumber().Should().Be(5);
+    }
+
+    /// <summary>
+    /// The flag half is still reverted: attributes are the engine's own state, wherever the value lives.
+    /// </summary>
+    [Fact]
+    public void AHostDescriptorsAttributeFlagsAreStillReverted()
+    {
+        var engine = new Engine();
+        engine.Global.FastSetProperty("cfg", new HostStateDescriptor(JsNumber.Create(1)));
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Evaluate("Object.defineProperty(globalThis, 'cfg', { enumerable: false, configurable: false });");
+        engine.Evaluate("Object.getOwnPropertyDescriptor(globalThis, 'cfg').enumerable").AsBoolean().Should().BeFalse();
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("Object.getOwnPropertyDescriptor(globalThis, 'cfg').enumerable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(globalThis, 'cfg').configurable").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>A global that resolves its own properties itself — the shape a snapshot cannot serve.</summary>
+    private sealed class ProjectingGlobalObject : ObjectInstance
+    {
+        public ProjectingGlobalObject(Engine engine) : base(engine)
+        {
+        }
+
+        public override PropertyDescriptor GetOwnProperty(JsValue property) => base.GetOwnProperty(property);
+    }
+
+    private sealed class ProjectingGlobalHost : Host
+    {
+        protected override ObjectInstance CreateGlobalObject(Realm realm) => new ProjectingGlobalObject(Engine);
+    }
+
+    /// <summary>
+    /// Fail fast rather than hand back a snapshot that restores nothing. Capture reads the engine's property
+    /// tables and restore writes them; a global that answers own-property questions from its own state would
+    /// see both halves quietly no-op, and every restore would report success while the script's changes stayed
+    /// in place.
+    /// </summary>
+    [Fact]
+    public void CapturingAGlobalThatResolvesItsOwnPropertiesIsRefused()
+    {
+        var engine = new Engine(options => options.UseHostFactory(_ => new ProjectingGlobalHost()));
+
+        Invoking(() => engine.Advanced.CaptureGlobalSnapshot())
+            .Should().Throw<NotSupportedException>()
+            .WithMessage("*GetOwnProperty*");
     }
 
     // ---------------------------------------------------------------------------------------------

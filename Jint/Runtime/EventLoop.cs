@@ -15,17 +15,29 @@ internal readonly struct EventLoopJob
     private readonly object _state;
     private readonly JsValue? _argument;
 
-    public EventLoopJob(Action continuation)
+    /// <summary>
+    /// The <see cref="EventLoop.Generation"/> this job belongs to. A job whose generation is no longer the
+    /// loop's current one belongs to an evaluation cycle that has since been ended by
+    /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/>, and is dropped rather than run — see
+    /// <see cref="EventLoop.RunAvailableContinuations"/>.
+    /// </summary>
+    private readonly int _generation;
+
+    public EventLoopJob(Action continuation, int generation)
     {
         _state = continuation;
         _argument = null;
+        _generation = generation;
     }
 
-    public EventLoopJob(PromiseReaction reaction, JsValue argument)
+    public EventLoopJob(PromiseReaction reaction, JsValue argument, int generation)
     {
         _state = reaction;
         _argument = argument;
+        _generation = generation;
     }
+
+    public int Generation => _generation;
 
     public void Run(Engine engine)
     {
@@ -72,9 +84,29 @@ internal sealed record EventLoop
     private readonly Lock _waitersLock = new();
     private List<TaskCompletionSource<bool>>? _waiters;
 
+    /// <summary>
+    /// The current evaluation cycle. Every job carries the generation that was current when the work was
+    /// <em>registered</em>, and <see cref="RunAvailableContinuations"/> drops any job whose generation has
+    /// since moved on. <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> advances it, which is
+    /// what makes the discard a fence rather than a point-in-time flush: <see cref="Clear"/> can only throw
+    /// away what is already queued, and a host <c>Task</c> started by the previous cycle enqueues its settle
+    /// job whenever it happens to complete — possibly long after the restore.
+    /// </summary>
+    private int _generation;
+
+    internal int Generation => Volatile.Read(ref _generation);
+
+    /// <summary>
+    /// Ends the current cycle: work registered before this call no longer belongs to the engine's timeline
+    /// and is dropped at dequeue. Stamping happens at registration and the check happens at dequeue, and
+    /// both run on the engine thread, so there is no window in which a settle enqueued by a background
+    /// thread can be mistaken for current work.
+    /// </summary>
+    internal void NextGeneration() => Interlocked.Increment(ref _generation);
+
     public bool IsEmpty => _events.IsEmpty;
 
-    public void Enqueue(Action continuation) => Enqueue(new EventLoopJob(continuation));
+    public void Enqueue(Action continuation) => Enqueue(new EventLoopJob(continuation, Generation));
 
     public void Enqueue(in EventLoopJob job)
     {
@@ -146,10 +178,11 @@ internal sealed record EventLoop
     }
 
     /// <summary>
-    /// Discards every queued job without running it. Used by
+    /// Discards every currently queued job without running it. Used by
     /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/>: a reaction left behind by an
     /// evaluation's unsettled promise would otherwise run during the next evaluation's drain, against
-    /// globals it was never meant to see.
+    /// globals it was never meant to see. This only reaches what is already queued — the fence for work
+    /// that arrives later is <see cref="NextGeneration"/>.
     /// </summary>
     internal void Clear()
     {
@@ -181,6 +214,18 @@ internal sealed record EventLoop
         {
             while (_events.TryDequeue(out var job))
             {
+                // Work registered before a RestoreGlobalSnapshot belongs to a cycle the engine has ended.
+                // Running it would resume a previous evaluation's continuation against the restored global
+                // surface — the cross-cycle channel a fresh-engine-per-evaluation host never had. Dropping
+                // it here rather than refusing the enqueue is what makes the check race-free: a background
+                // Task completion can enqueue at any moment, but only the engine thread dequeues.
+                // Re-read per job rather than once per drain: a job is free to call back into host code
+                // that restores a snapshot, and everything queued behind it is then stale too.
+                if (job.Generation != Generation)
+                {
+                    continue;
+                }
+
                 // note that a job can enqueue new events
                 job.Run(engine);
             }

@@ -1,11 +1,16 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
+using BindingFlags = System.Reflection.BindingFlags;
 
 namespace Jint;
 
@@ -22,20 +27,49 @@ public partial class Engine
         /// scripts.
         /// </summary>
         /// <remarks>
-        /// Cost is proportional to the number of global properties. The snapshot holds references into this
-        /// engine and can only be restored on it. Not thread-safe; call between evaluations only. Capturing
-        /// does not force lazily-materialized globals (built-in function slots, lazy host globals) into
-        /// existence.
+        /// <para>
+        /// Cost is proportional to the number of global properties. Not thread-safe; call between evaluations
+        /// only. Capturing does not force lazily-materialized globals (built-in function slots, lazy host
+        /// globals) into existence.
+        /// </para>
+        /// <para>
+        /// <b>Lifetime.</b> A snapshot keeps the engine, its global object and environment, and every captured
+        /// descriptor — and through those, every value a global referenced at capture time — strongly
+        /// reachable. It can only be restored on the engine it came from. Do not cache one past the lifetime
+        /// of that engine: it pins the engine and its whole realm, and a snapshot taken over a global holding
+        /// a large object graph pins that too.
+        /// </para>
+        /// <para>
+        /// <b>What a snapshot can see.</b> Only properties the engine itself stores. A descriptor subclass
+        /// that overrides <see cref="Runtime.Descriptors.PropertyDescriptor.CustomValue"/> and keeps the value
+        /// in state of its own — a field, a CLR property, a lookup against live host data — is captured and
+        /// reinstated by <em>reference</em>, and its attribute flags are reverted, but its value is not: the
+        /// engine cannot revert what it cannot see, and writing the inherited value field would only
+        /// desynchronize it from the value reads resolve to. Keep the value in the inherited field (the plain
+        /// <see cref="Runtime.Descriptors.PropertyDescriptor"/> shape) for a global that must be restorable.
+        /// </para>
+        /// <para>
+        /// <b>Representation.</b> If a host-substituted global is a hidden-class object, capturing normalizes
+        /// it to the property-dictionary representation, permanently — the snapshot's storage model is the
+        /// dictionary one, and the conversion is one-way. The built-in global object is never affected; it
+        /// uses the shared built-in layout, which capture and restore handle in full fidelity.
+        /// </para>
         /// </remarks>
         /// <returns>An opaque snapshot for <see cref="RestoreGlobalSnapshot"/>.</returns>
+        /// <exception cref="NotSupportedException">The realm's global object overrides one of the property
+        /// storage virtuals (<c>GetOwnProperty</c>, <c>Set</c>, …), so it resolves own properties from state
+        /// outside the engine's tables and cannot be captured or restored.</exception>
         public GlobalSnapshot CaptureGlobalSnapshot() => GlobalSnapshot.Capture(_engine);
 
         /// <summary>
         /// Restores the global bindings captured by <see cref="CaptureGlobalSnapshot"/>: global own
         /// properties (additions removed, deletions reinstated, overwritten values and flags reverted,
         /// prototype and extensibility restored), top-level let/const/class declarations cleared to the
-        /// captured set, pending promise continuations discarded, RegExp legacy statics
-        /// (<c>RegExp.$1</c> …) cleared, and interop wrapper identity caches reset. Engine warm-up caches
+        /// captured set, RegExp legacy statics (<c>RegExp.$1</c> …) cleared, and interop wrapper identity
+        /// caches reset. It also ends the previous evaluation cycle on the event loop: queued jobs are
+        /// discarded, and any promise registered before the restore — including one created for a CLR
+        /// <see cref="System.Threading.Tasks.Task"/> awaited from script — is dropped when it settles rather
+        /// than resuming its continuation against the restored globals. Engine warm-up caches
         /// (prepared-script handler trees and their inline caches) are preserved — re-running a cached
         /// prepared script after a restore keeps warm-engine performance.
         /// </summary>
@@ -54,12 +88,32 @@ public partial class Engine
         /// to them stay valid. A lazily-materialized global that was still unmaterialized at capture time
         /// is returned to that state, so its factory runs again on the next access.
         /// </para>
+        /// <para>
+        /// <b>What the event-loop fence does and does not cover.</b> It covers everything that reaches the
+        /// engine through a promise: a fire-and-forget async function suspended on a host
+        /// <see cref="System.Threading.Tasks.Task"/> never resumes after a restore, and a
+        /// <see cref="RegisterPromise"/> handle registered before the restore no longer settles into the
+        /// engine — so register such a promise <em>after</em> the restore if it is meant to span one. It does
+        /// not cover the host calling back in by itself: invoking a function the previous evaluation handed
+        /// you (<c>engine.Invoke</c>, a stored <c>ICallable</c>) runs that function against the restored
+        /// surface, because that is a new evaluation the host asked for.
+        /// </para>
+        /// <para>
+        /// <b>Restore reverts host changes too</b>, not only script's: a host that keeps the
+        /// <see cref="Runtime.Descriptors.PropertyDescriptor"/> it installed and updates its value between
+        /// evaluations has that update rolled back, because the contract is "return to this exact surface".
+        /// One kind of host state is out of reach in the other direction: a descriptor subclass that
+        /// overrides <see cref="Runtime.Descriptors.PropertyDescriptor.CustomValue"/> and keeps the value in
+        /// its own field rather than the inherited one is reinstated by reference but not reverted — see
+        /// <see cref="CaptureGlobalSnapshot"/>.
+        /// </para>
         /// </remarks>
         /// <param name="snapshot">A snapshot captured from this engine.</param>
         /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
         /// <exception cref="ArgumentException"><paramref name="snapshot"/> was captured from another engine.</exception>
-        /// <exception cref="InvalidOperationException">An evaluation is in progress, or the engine's realm
-        /// no longer has the global object the snapshot was taken from.</exception>
+        /// <exception cref="InvalidOperationException">An evaluation is in progress — script on the stack, or
+        /// an <c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c> Task still outstanding — or the
+        /// engine's realm no longer has the global object the snapshot was taken from.</exception>
         public void RestoreGlobalSnapshot(GlobalSnapshot snapshot)
         {
             if (snapshot is null)
@@ -77,7 +131,16 @@ public partial class Engine
             // a depth above it means script is on the stack — a re-entrant host callback trying to reset the
             // globals out from under the code that called it. _activeEvaluationContext catches the same case
             // for paths that do not push a context of their own.
-            if (engine._activeEvaluationContext is not null || engine._executionContexts.Count > 1)
+            //
+            // Neither of those sees a suspended EvaluateAsync: its synchronous phase has already run to
+            // completion, so the stack is unwound to the base context and the ambient field is null while
+            // the settlement loop sits in its await. Restoring there would either strand the loop on a
+            // promise whose settle got discarded (a bogus PromiseTimeout, or a hang when timeouts are off)
+            // or let it resume the previous cycle against the restored globals and complete the host's Task
+            // with a value computed across two global states. The counter is the only signal that sees it.
+            if (engine._activeEvaluationContext is not null
+                || engine._executionContexts.Count > 1
+                || engine.HasPendingAsyncOperations)
             {
                 Throw.InvalidOperationException("The global snapshot cannot be restored while an evaluation is in progress.");
             }
@@ -93,7 +156,8 @@ public partial class Engine
     internal void ResetTransientEvaluationState()
     {
         // A continuation left behind by an unsettled promise would otherwise run during the NEXT
-        // evaluation's drain and observe — and mutate — the freshly restored globals.
+        // evaluation's drain and observe — and mutate — the freshly restored globals. This is the eager
+        // half; the fence for work that has not been enqueued yet is the generation bump in Restore.
         _eventLoop.Clear();
 
         _error = null;
@@ -164,6 +228,8 @@ public sealed class GlobalSnapshot
         var global = realm.GlobalObject;
         var globalEnv = realm.GlobalEnv;
 
+        EnsureGlobalIsCapturable(global);
+
         // A lazily-initialized global would otherwise replace its whole property bag later, silently
         // invalidating everything captured here. The in-box GlobalObject is initialized at construction.
         global.EnsureInitialized();
@@ -195,6 +261,96 @@ public sealed class GlobalSnapshot
             global._prototype,
             global.Extensible,
             CaptureLexicalBindings(globalEnv._declarativeRecord));
+    }
+
+    /// <summary>
+    /// The storage virtuals a snapshot goes around. Capture reads the engine-side property tables directly and
+    /// restore writes them directly, which is the only way to put a descriptor <em>instance</em> back and the
+    /// only way to reach a table an evaluation may have emptied. A global that overrides any of these resolves
+    /// its own properties from state the engine cannot see, so both halves would quietly no-op on it.
+    /// <para>
+    /// The names are matched against the base definition of each declared override, so a member merely
+    /// <em>named</em> like one of these does not trip the check and an override declared in an intermediate
+    /// class does. <c>Initialize</c> is deliberately absent — the in-box <c>GlobalObject</c> overrides it, and
+    /// capture forces it to have run before reading anything.
+    /// </para>
+    /// </summary>
+    private static readonly string[] _storageVirtuals =
+    [
+        nameof(ObjectInstance.GetOwnProperty),
+        nameof(ObjectInstance.SetOwnProperty),
+        nameof(ObjectInstance.TryGetOwnPropertyValue),
+        nameof(ObjectInstance.ProbeOwnProperty),
+        nameof(ObjectInstance.GetOwnProperties),
+        nameof(ObjectInstance.GetOwnPropertyKeys),
+        nameof(ObjectInstance.DefineOwnProperty),
+        nameof(ObjectInstance.RemoveOwnProperty),
+        nameof(ObjectInstance.HasProperty),
+        nameof(ObjectInstance.Delete),
+        nameof(ObjectInstance.PreventExtensions),
+        nameof(ObjectInstance.GetPrototypeOf),
+        nameof(JsValue.Get),
+        nameof(JsValue.Set),
+        "get_" + nameof(ObjectInstance.Extensible),
+    ];
+
+    private static readonly ConcurrentDictionary<Type, string?> _globalStorageOverrides = new();
+
+    /// <summary>
+    /// Refuses to capture a global whose own properties do not live in the engine's storage. Silently
+    /// capturing nothing and silently restoring nothing is the worst outcome available here: the host gets a
+    /// snapshot that reports success on every restore while the script's changes stay in place.
+    /// </summary>
+    private static void EnsureGlobalIsCapturable(ObjectInstance global)
+    {
+        var overridden = _globalStorageOverrides.GetOrAdd(global.GetType(), static type => FindStorageOverride(type));
+        if (overridden is not null)
+        {
+            Throw.NotSupportedException(
+                $"The global object type '{global.GetType()}' overrides '{overridden}', so it resolves own properties from state outside the engine's property tables. "
+                + "A global snapshot can only capture and restore properties the engine itself stores; capturing this global would silently produce a snapshot that restores nothing. "
+                + "Use the built-in global object, or a Host.CreateGlobalObject result that stores its properties through the base ObjectInstance implementation.");
+        }
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2070",
+        Justification = "Enumerates the declared methods of the global object's own type to detect overrides of ObjectInstance's storage virtuals. If the metadata has been trimmed away the walk finds nothing and capture proceeds, which is the pre-check behaviour — a host that trims its own global's metadata is not made less correct by the check being unable to run.")]
+    private static string? FindStorageOverride(Type type)
+    {
+        const BindingFlags Declared = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+        for (var current = type; current is not null && current != typeof(ObjectInstance); current = current.BaseType)
+        {
+            foreach (var method in current.GetMethods(Declared))
+            {
+                if (!method.IsVirtual)
+                {
+                    continue;
+                }
+
+                // GetBaseDefinition returns the method itself for a newly introduced virtual, and the original
+                // declaration for an override — which is how a name collision on an unrelated member is told
+                // apart from a real override of one of ours.
+                var baseDefinition = method.GetBaseDefinition();
+                if (baseDefinition == method)
+                {
+                    continue;
+                }
+
+                var declaringType = baseDefinition.DeclaringType;
+                if (declaringType != typeof(ObjectInstance) && declaringType != typeof(JsValue))
+                {
+                    continue;
+                }
+
+                if (Array.IndexOf(_storageVirtuals, baseDefinition.Name) >= 0)
+                {
+                    return baseDefinition.Name;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static NamedState[] CaptureProperties(PropertyDictionary? properties)
@@ -286,6 +442,12 @@ public sealed class GlobalSnapshot
                 _globalEnv._lexicalMutations++;
                 engine._envBindingInjectionEpoch++;
             }
+
+            // Same rule, applied to time rather than to storage: the event loop's generation only ever moves
+            // forward, so a job stamped by an earlier cycle can never be mistaken for current work. Here
+            // rather than beside EventLoop.Clear so that a partial restore still ends the cycle — half a
+            // restored global surface must not be visible to the previous cycle's continuations either.
+            engine.EventLoop.NextGeneration();
         }
     }
 
@@ -465,6 +627,10 @@ public sealed class GlobalSnapshot
                 "an accessor descriptor's get/set changed in place, which a snapshot restore cannot revert");
 #endif
 
+            // Whether the value lives where this repair can reach it has to be decided from the flags as they
+            // are NOW as well as as they were captured, and therefore before the flags are put back.
+            var valueIsReachable = ValueIsFieldBacked(descriptor, Flags | descriptor._flags);
+
             // Compare before writing. A built-in constant slot points at a descriptor instance shared by
             // every realm in the process (BuiltinShape.ConstTemplate), so an unconditional store would be a
             // write into state another engine may be reading concurrently, for no gain.
@@ -473,7 +639,7 @@ public sealed class GlobalSnapshot
                 descriptor._flags = Flags;
             }
 
-            if (!ReferenceEquals(descriptor._value, Value))
+            if (valueIsReachable && !ReferenceEquals(descriptor._value, Value))
             {
                 // Raw field again, so a CustomValue setter (which can write host CLR state, or refuse) is
                 // never invoked. For a descriptor that was still lazy at capture time this puts back the
@@ -482,6 +648,21 @@ public sealed class GlobalSnapshot
                 descriptor._value = Value;
             }
         }
+
+        /// <summary>
+        /// Whether reverting this descriptor's value means writing the inherited <c>_value</c> field.
+        /// </summary>
+        /// <remarks>
+        /// True for every ordinary descriptor, whose value is that field. False for a descriptor carrying
+        /// <see cref="PropertyFlag.CustomJsValue"/> that is not one of the engine's own field-backed lazies:
+        /// reads then come from the subclass's <see cref="PropertyDescriptor.CustomValue"/> override, which
+        /// may keep the value anywhere. Writing the inherited field would not revert such a descriptor — it
+        /// would leave the field disagreeing with the value reads resolve to, which is worse than not
+        /// reverting, so the descriptor is reinstated by reference and its value left alone.
+        /// </remarks>
+        private static bool ValueIsFieldBacked(PropertyDescriptor descriptor, PropertyFlag flagsEverSeen)
+            => (flagsEverSeen & PropertyFlag.CustomJsValue) == PropertyFlag.None
+               || descriptor is IFieldBackedLazyDescriptor;
     }
 
     [StructLayout(LayoutKind.Auto)]

@@ -181,6 +181,11 @@ public partial class Engine
             effectiveCt = cancellationToken;
         }
 
+        // Taken here rather than at the top of the method so that a throw while building the token source
+        // cannot leak the count. Everything from this point on is inside the try whose finally releases it,
+        // and all of it runs synchronously up to the first await, so the count is already raised by the time
+        // the caller holds the Task.
+        Interlocked.Increment(ref _pendingAsyncOperations);
         try
         {
             while (promise.State == PromiseState.Pending)
@@ -214,6 +219,7 @@ public partial class Engine
         }
         finally
         {
+            Interlocked.Decrement(ref _pendingAsyncOperations);
             ownedCts?.Dispose();
         }
 

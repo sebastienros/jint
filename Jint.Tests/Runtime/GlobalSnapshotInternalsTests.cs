@@ -1,10 +1,13 @@
 #nullable enable
 
 using System.Reflection;
+using System.Threading.Tasks;
 using Acornima.Ast;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
@@ -198,6 +201,111 @@ public class GlobalSnapshotInternalsTests
 
         engine.EventLoop.IsEmpty.Should().BeTrue();
         engine.Evaluate("typeof globalThis.ran").AsString().Should().Be("undefined");
+    }
+
+    /// <summary>
+    /// The reviewer's literal trace: a CLR <see cref="Task"/> awaited from script settles on the thread that
+    /// completes it, which can be long after a restore, so the settle job is enqueued onto a loop that was
+    /// already drained. Only the generation stamped at registration can tell it apart from current work.
+    /// </summary>
+    [Fact]
+    public void AStaleClrTaskSettlingAfterRestoreIsDroppedAtDequeue()
+    {
+        var engine = new Engine();
+        var gate = new TaskCompletionSource<object>();
+        engine.SetValue("hostWork", new Func<Task<object>>(() => gate.Task));
+
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+        var generationBefore = engine.EventLoop.Generation;
+
+        // fire and forget: the outer promise is dropped, the body suspends on the host task
+        engine.Evaluate("(async () => { await hostWork(); globalThis.cache = 'tenantA'; })();");
+        engine.EventLoop.IsEmpty.Should().BeTrue("the task has not completed, so nothing is queued to discard");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        engine.EventLoop.Generation.Should().NotBe(generationBefore);
+
+        // the task completes; ConvertTaskToPromise's continuation is ExecuteSynchronously, so the settle job
+        // is enqueued on this thread before SetResult returns
+        gate.SetResult(1);
+        engine.EventLoop.IsEmpty.Should().BeFalse("the stale settle really did land on the drained loop");
+
+        engine.Advanced.ProcessTasks();
+
+        engine.EventLoop.IsEmpty.Should().BeTrue();
+        engine.Evaluate("typeof globalThis.cache").AsString().Should().Be("undefined");
+    }
+
+    [Fact]
+    public void InCycleWorkEnqueuedAfterARestoreStillRuns()
+    {
+        // The fence must only reach backwards: everything the next cycle queues carries the new generation.
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("Promise.resolve().then(function () { globalThis.ran = true; });");
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("globalThis.ran === true").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A host <c>CustomValue</c> descriptor is reinstated by reference, never repaired through the inherited
+    /// value field: that field is not where its reads come from, so writing it would leave the two
+    /// disagreeing — a descriptor that is neither restored nor consistent.
+    /// </summary>
+    [Fact]
+    public void AHostCustomValueDescriptorIsNotDesynchronizedByRestore()
+    {
+        var engine = new Engine();
+        var descriptor = new HostStateDescriptor(JsNumber.Create(1));
+        engine.Realm.GlobalObject.FastSetProperty("cfg", descriptor);
+
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+        engine.Evaluate("cfg = 5;");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        descriptor.Value.Should().Be(JsNumber.Create(5), "the value lives in host state the engine cannot revert");
+        descriptor._value.Should().BeSameAs(descriptor.Value, "and the inherited field must not be left saying something else");
+    }
+
+    private sealed class HostStateDescriptor : PropertyDescriptor
+    {
+        private JsValue? _state;
+
+        public HostStateDescriptor(JsValue initial)
+            : base(PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.CustomJsValue)
+        {
+            _state = initial;
+        }
+
+        protected internal override JsValue? CustomValue
+        {
+            get => _state;
+            set => _state = value;
+        }
+    }
+
+    /// <summary>
+    /// The in-box lazies keep their value in the inherited field and toggle the flag when it materializes, so
+    /// they are the one <c>CustomJsValue</c> shape restore may revert by writing that field. The marker is
+    /// what says so; if a lazy descriptor ever stops carrying it, the revert silently stops happening.
+    /// </summary>
+    [Fact]
+    public void TheInBoxLazyDescriptorsDeclareThemselvesFieldBacked()
+    {
+        var engine = new Engine(options => options.AddLazyGlobal(
+            "hostApi",
+            e => new ClrFunction(e, "hostApi", (_, _) => "from-host")));
+
+        engine.Realm.GlobalObject.GetOwnProperty("hostApi").Should().BeAssignableTo<IFieldBackedLazyDescriptor>();
+
+        // and the deopt-time wrapper for an unmaterialized built-in slot, the other one
+        var plain = new Engine();
+        plain.Evaluate("globalThis[0] = 'deopt';");
+        plain.Realm.GlobalObject._properties!["parseInt"].Should().BeAssignableTo<IFieldBackedLazyDescriptor>();
     }
 
     [Fact]

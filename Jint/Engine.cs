@@ -149,6 +149,19 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal int ModuleAsyncEvaluationCount;
 
+    /// <summary>
+    /// How many <c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c> settlement loops are outstanding.
+    /// Such a loop is an evaluation in progress from the host's point of view, but not from the engine's: the
+    /// synchronous phase has completed, so the execution-context stack is back at base depth and
+    /// <see cref="_activeEvaluationContext"/> is null while the loop sits in its <c>await</c>. Only this
+    /// counter can see it, which is why <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> consults it.
+    /// Incremented before the first await and decremented in the loop's finally, both synchronously with
+    /// respect to the Task the host holds.
+    /// </summary>
+    private int _pendingAsyncOperations;
+
+    internal bool HasPendingAsyncOperations => System.Threading.Volatile.Read(ref _pendingAsyncOperations) > 0;
+
     // lazy properties
     private DebugHandler? _debugger;
 
@@ -772,6 +785,11 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        // The cycle this promise belongs to, read here on the engine thread. The settle below may run
+        // arbitrarily later on a background thread, and stamping the job with the generation captured now
+        // is what lets the drain tell "work this engine is still waiting for" from "work whose cycle a
+        // RestoreGlobalSnapshot has since ended".
+        var generation = _eventLoop.Generation;
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
@@ -781,7 +799,7 @@ public sealed partial class Engine : IDisposable
             AddToEventLoop(() =>
             {
                 settle.Call(JsValue.Undefined, [value]);
-            });
+            }, generation);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             promise.CompletedEvent.Set();
@@ -810,6 +828,11 @@ public sealed partial class Engine : IDisposable
 
         var (resolve, reject) = promise.CreateResolvingFunctions();
 
+        // Registration-time generation; see RegisterPromise. This is the path a CLR Task awaited from script
+        // takes (JsValue.ConvertTaskToPromise), so it is the one that carries a fire-and-forget Task across a
+        // restore if nothing stamps it.
+        var generation = _eventLoop.Generation;
+
         Action<object?> SettleWithClr(Function settle) => clrValue =>
         {
             // Enqueue to event loop to ensure thread safety - both the FromObject conversion
@@ -819,7 +842,7 @@ public sealed partial class Engine : IDisposable
             {
                 var jsValue = JsValue.FromObject(this, clrValue);
                 settle.Call(JsValue.Undefined, [jsValue]);
-            });
+            }, generation);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             // NOTE: We do NOT call RunAvailableContinuations() here because this method is
@@ -832,9 +855,23 @@ public sealed partial class Engine : IDisposable
         return new ManualPromiseWithClrValue(promise, SettleWithClr(resolve), SettleWithClr(reject));
     }
 
+    /// <summary>
+    /// Enqueues in-cycle work: the job joins the generation that is current right now, which is what every
+    /// caller running on the engine thread wants. Work registered in one cycle and enqueued in a later one
+    /// must use the overload below instead.
+    /// </summary>
     internal void AddToEventLoop(Action continuation)
     {
         _eventLoop.Enqueue(continuation);
+    }
+
+    /// <summary>
+    /// Enqueues work on behalf of an earlier registration, carrying that registration's generation. Used by
+    /// the promise settle closures, which can fire on a background thread long after their cycle ended.
+    /// </summary>
+    internal void AddToEventLoop(Action continuation, int generation)
+    {
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation));
     }
 
     /// <summary>
@@ -843,7 +880,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void AddToEventLoop(PromiseReaction reaction, JsValue value)
     {
-        _eventLoop.Enqueue(new EventLoopJob(reaction, value));
+        _eventLoop.Enqueue(new EventLoopJob(reaction, value, _eventLoop.Generation));
     }
 
     /// <summary>

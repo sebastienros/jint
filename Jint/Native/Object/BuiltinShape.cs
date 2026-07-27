@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Jint.Collections;
 using Jint.Runtime.Descriptors;
 
@@ -187,8 +188,27 @@ internal sealed class BuiltinShape
             _next = 0;
         }
 
+        /// <summary>
+        /// Declares a slot served by a descriptor instance shared by every realm in the process (it goes
+        /// into <see cref="ConstTemplate"/>, which each instance only <em>clones the array of</em>).
+        /// </summary>
+        /// <remarks>
+        /// Non-writable and non-configurable is what makes that sharing sound, and it is an invariant of the
+        /// descriptor rather than of any one caller — see the same reasoning spelled out on
+        /// <c>JsObjectShape.Builder.Constant</c>. <c>ValidateAndApplyPropertyDescriptor</c> mutates the
+        /// <em>current</em> descriptor in place, and for a constant slot "current" is the shared instance, so
+        /// a writable or configurable constant would let one engine's <c>p.X = 1</c> or
+        /// <c>Object.defineProperty(p, 'X', …)</c> rewrite what every other engine reads — and would also put
+        /// a snapshot restore's descriptor repair on that shared instance. With both attributes off, every
+        /// mutation that reaches the descriptor is provably a same-value store; anything that would actually
+        /// change is rejected before the descriptor is touched.
+        /// </remarks>
         internal void Constant(in Key name, PropertyDescriptor descriptor)
         {
+            Debug.Assert(
+                !descriptor.Writable && !descriptor.Configurable,
+                $"Constant slot '{name}' is writable or configurable, but its descriptor instance is shared by every realm in the process — script could then rewrite it for every other engine.");
+
             _names[_next] = name;
             _kinds[_next] = BuiltinSlotKind.Constant;
             _constTemplate[_next] = descriptor;
