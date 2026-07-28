@@ -6,14 +6,15 @@ namespace Jint.Native;
 
 /// <summary>
 /// Produces the value of one lazy layout slot for one object, on the first read that observes that value.
-/// Declared through <c>JsObjectLayout.Builder.AddLazy</c>.
+/// Declared through <see cref="JsObjectLayout.Builder.AddLazy"/>.
 /// </summary>
 /// <param name="instance">
 /// The object being read. Reach the engine it belongs to through <see cref="ObjectInstance.Engine"/>.
 /// </param>
 /// <param name="state">
-/// The per-object state handed to <c>JsObject.Create</c> — typically the host record the object projects, so
-/// several lazy slots of one object can read different parts of one payload.
+/// The per-object state handed to
+/// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue}, object)"/> — typically the host
+/// record the object projects, so several lazy slots of one object can read different parts of one payload.
 /// </param>
 /// <returns>
 /// The property's value. <c>null</c> is stored as <see cref="JsValue.Undefined"/>.
@@ -185,6 +186,33 @@ public sealed class JsObjectLayout
         }
     }
 
+    /// <summary>
+    /// Creates a builder for a layout that mixes eager properties with lazily-produced ones.
+    /// </summary>
+    /// <remarks>
+    /// The constructors build an all-eager layout, every value of which is supplied at
+    /// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> time. Use a builder when
+    /// some members are expensive to produce and most items never have them read — the canonical case being a
+    /// record whose few costly members each parse or decode a part of that item's raw payload. See
+    /// <see cref="Builder.AddLazy"/>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// private static readonly JsObjectLayout EnvelopeLayout = JsObjectLayout.CreateBuilder()
+    ///     .Add("id")
+    ///     .Add("type")
+    ///     .AddLazy("body", static (_, state) =&gt; ((Payload) state!).ParseBody())
+    ///     .Build();
+    ///
+    /// JsObject ToJs(Engine engine, Payload p) =&gt; JsObject.Create(
+    ///     engine,
+    ///     EnvelopeLayout,
+    ///     [new JsString(p.Id), new JsString(p.Type), null],
+    ///     p);
+    /// </code>
+    /// </example>
+    public static Builder CreateBuilder() => new Builder();
+
     /// <summary>The number of properties this layout describes.</summary>
     public int Count => _keys.Length;
 
@@ -249,5 +277,149 @@ public sealed class JsObjectLayout
         }
 
         return index;
+    }
+
+    /// <summary>
+    /// Declares a layout one property at a time, so that individual properties can be marked as produced on
+    /// demand rather than supplied up front. Obtained from <see cref="CreateBuilder"/>; a builder is
+    /// single-use and not thread-safe, while the <see cref="JsObjectLayout"/> it produces is immutable and
+    /// safe to share.
+    /// </summary>
+    public sealed class Builder
+    {
+        private readonly List<Key> _keys = [];
+
+        // Allocated on the first AddLazy and back-filled with nulls for the eager properties already added,
+        // so the overwhelmingly common all-eager builder never allocates it.
+        private List<LazySlotFactory?>? _factories;
+        private bool _built;
+
+        /// <summary>Creates an empty builder.</summary>
+        public Builder()
+        {
+        }
+
+        /// <summary>
+        /// Declares an ordinary property, whose value is supplied at this slot's index in the <c>values</c>
+        /// span passed to <c>JsObject.Create</c>.
+        /// </summary>
+        /// <param name="propertyName">The property name.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentException">
+        /// The name is <c>null</c> or empty, already declared, or starts with a digit; or the layout is
+        /// already at the maximum a hidden class can describe.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">The layout has already been built.</exception>
+        public Builder Add(string propertyName) => Add(propertyName, factory: null);
+
+        /// <summary>
+        /// Declares a property whose value is produced by <paramref name="factory"/> on the first read that
+        /// observes it, and memoized on the object from then on. The corresponding entry in the
+        /// <c>values</c> span passed to <c>JsObject.Create</c> must be <c>null</c>; the per-object state the
+        /// factory reads is the single <c>lazySlotState</c> argument of that same call.
+        /// <para>
+        /// A lazy property is an ordinary configurable/enumerable/writable data property in every observable
+        /// respect: it appears in <c>Object.keys</c>, answers <c>in</c> and <c>hasOwnProperty</c>, and does
+        /// so <em>without</em> running the factory — only observing the value runs it. Writing the property
+        /// before anything reads it discards the factory entirely, and so does deleting it.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The factory is part of the layout, so it is shared by every object built from it and by every
+        /// engine using it, and must be engine-independent — see <see cref="LazySlotFactory"/>. Reads that
+        /// observe the value (<c>Object.values</c>/<c>entries</c>, <c>Object.assign</c>, spread,
+        /// <c>JSON.stringify</c>, <c>getOwnPropertyDescriptor</c>, and of course an ordinary property read)
+        /// run it; <c>Object.keys</c>, <c>for-in</c>, <c>Reflect.ownKeys</c>, <c>in</c>,
+        /// <c>hasOwnProperty</c> and <c>propertyIsEnumerable</c> do not.
+        /// </para>
+        /// <para>
+        /// Laziness survives everything that drops the object to the ordinary dictionary representation — a
+        /// <c>delete</c>, a <c>defineProperty</c> on another key, <c>Object.freeze</c> — so a script touching
+        /// one member never forces the rest to materialize. Defining, freezing or reading the lazy property
+        /// itself does materialize it, since each of those observes its value.
+        /// </para>
+        /// </remarks>
+        /// <param name="propertyName">The property name.</param>
+        /// <param name="factory">Produces the value on first observation.</param>
+        /// <returns>This builder, for chaining.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="factory"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException">
+        /// The name is <c>null</c> or empty, already declared, or starts with a digit; or the layout is
+        /// already at the maximum a hidden class can describe.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">The layout has already been built.</exception>
+        public Builder AddLazy(string propertyName, LazySlotFactory factory)
+        {
+            if (factory is null)
+            {
+                Throw.ArgumentNullException(nameof(factory));
+            }
+
+            return Add(propertyName, factory);
+        }
+
+        /// <summary>
+        /// Produces the immutable layout. The builder cannot be used afterwards.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The layout has already been built.</exception>
+        public JsObjectLayout Build()
+        {
+            CheckNotBuilt();
+            _built = true;
+
+            var keys = _keys.Count > 0 ? _keys.ToArray() : System.Array.Empty<Key>();
+            LazySlotFactory?[]? factories = null;
+            if (_factories is not null)
+            {
+                factories = new LazySlotFactory?[keys.Length];
+                _factories.CopyTo(factories);
+            }
+
+            return new JsObjectLayout(keys, factories);
+        }
+
+        private Builder Add(string propertyName, LazySlotFactory? factory)
+        {
+            CheckNotBuilt();
+
+            var index = _keys.Count;
+            CheckCount(index + 1, nameof(propertyName));
+            CheckName(propertyName, index, nameof(propertyName));
+
+            Key key = propertyName;
+            for (var i = 0; i < _keys.Count; i++)
+            {
+                if (_keys[i] == key)
+                {
+                    Throw.ArgumentException(
+                        $"Duplicate property name '{propertyName}'; layout property names must be distinct.",
+                        nameof(propertyName));
+                }
+            }
+
+            _keys.Add(key);
+
+            if (factory is not null && _factories is null)
+            {
+                // First lazy property: back-fill nulls for the eager ones already declared.
+                _factories = new List<LazySlotFactory?>(index + 1);
+                for (var i = 0; i < index; i++)
+                {
+                    _factories.Add(null);
+                }
+            }
+
+            _factories?.Add(factory);
+            return this;
+        }
+
+        private void CheckNotBuilt()
+        {
+            if (_built)
+            {
+                Throw.InvalidOperationException("The layout has already been built; a builder must not be reused or modified after Build().");
+            }
+        }
     }
 }

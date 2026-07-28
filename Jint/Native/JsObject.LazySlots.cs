@@ -5,7 +5,7 @@ using Jint.Runtime;
 namespace Jint.Native;
 
 /// <summary>
-/// Lazy layout slots: the storage side of <c>JsObjectLayout.Builder.AddLazy</c>.
+/// Lazy layout slots: the storage side of <see cref="JsObjectLayout.Builder.AddLazy"/>.
 /// </summary>
 public sealed partial class JsObject
 {

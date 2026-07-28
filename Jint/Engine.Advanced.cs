@@ -152,7 +152,7 @@ public partial class Engine
         /// something Jint is free to change underneath it.
         /// </para>
         /// <para>
-        /// The motivating case: <see cref="JsObject.Create"/> and <see cref="JsObject.CreateFromEntries(Engine, IEnumerable{KeyValuePair{string, JsValue}})"/>
+        /// The motivating case: <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> and <see cref="JsObject.CreateFromEntries(Engine, IEnumerable{KeyValuePair{string, JsValue}})"/>
         /// fall back to the dictionary representation silently and correctly when they cannot shape an
         /// object, and two of the triggers are not knowable at the call site (they depend on what the engine
         /// has already built). Without this method a host cannot write a test proving its objects are still
@@ -341,7 +341,7 @@ public enum ObjectRepresentation
     /// <summary>
     /// A plain object whose own string-keyed properties are described by a hidden class shared with every
     /// other object of the same layout, leaving only the values stored per object. This is what
-    /// <see cref="Jint.Native.JsObject.Create"/> and <c>JsObject.CreateFromEntries</c> aim for, and what an
+    /// <c>JsObject.Create</c> and <c>JsObject.CreateFromEntries</c> aim for, and what an
     /// ordinary object literal reaches.
     /// </summary>
     HiddenClass = 1,
