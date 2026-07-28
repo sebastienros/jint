@@ -1525,6 +1525,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     public bool TryGetValue(JsValue property, out JsValue value)
+        => TryGetValue(property, this, out value);
+
+    // Same as the public overload, but threads the ORIGINAL receiver through the
+    // prototype-chain walk. Spec: OrdinaryGet(O, P, Receiver) calls an inherited
+    // accessor's getter with `Receiver` - the object the lookup STARTED on - not
+    // with the prototype the accessor happened to be found on. The previous
+    // implementation recursed as `Prototype?.TryGetValue(property, out value)`,
+    // which re-entered with `this` rebound to the prototype and therefore invoked
+    // the getter with the holder as its `this`. Any class whose prototype accessor
+    // reads instance state then saw an "empty" prototype object - e.g.
+    // `get length() { return this._arr.length; }` threw "Cannot read properties of
+    // undefined (reading 'length')" because the prototype has no `_arr`. Reached
+    // most visibly through IsArrayLike, which probes 'length' before every array
+    // destructuring, so `const [a, b] = someInstanceOfSuchAClass;` threw instead of
+    // falling through to the iterator protocol.
+    private bool TryGetValue(JsValue property, JsValue receiver, out JsValue value)
     {
         value = Undefined;
         var desc = GetOwnProperty(property);
@@ -1546,11 +1562,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
             // if getter is not undefined it must be ICallable
             var callable = (ICallable) getter;
-            value = callable.Call(this, Arguments.Empty);
+            value = callable.Call(receiver, Arguments.Empty);
             return true;
         }
 
-        return Prototype?.TryGetValue(property, out value) == true;
+        return Prototype?.TryGetValue(property, receiver, out value) == true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
