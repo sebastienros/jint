@@ -57,6 +57,14 @@ public delegate JsValue LazySlotFactory(JsObject instance, object? state);
 /// The property names are validated once, here, so object creation itself has nothing left to check.
 /// </para>
 /// <para>
+/// A record with members that are expensive to produce and rarely read — a body that must be parsed, a
+/// field that must be decoded — declares those through <see cref="CreateBuilder"/> and
+/// <see cref="Builder.AddLazy"/> and hands the raw payload to
+/// <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue}, object)"/>: such a member
+/// comes into existence on the first read that observes its value, and the object is a hidden-class
+/// object throughout, before and after.
+/// </para>
+/// <para>
 /// A layout builds per-item <em>data records</em>: many short-lived objects sharing one set of plain
 /// value properties. For the other shape of sharing — a singleton prototype whose methods, accessors
 /// and constants materialize lazily per realm — use <see cref="JsObjectShape"/> instead.
