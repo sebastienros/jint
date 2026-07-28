@@ -95,7 +95,17 @@ internal enum InternalTypes
     // test the pair against ShapeMode, so an object with no lazy slots runs byte-identical code — and a
     // sibling arm serves lazy objects through the checked JsObject.GetSlotForRead.
     HasLazySlots = 16777216,
+    // a built-in-shape host on which the shared layout index is the only declarer of a string-keyed own
+    // property besides _properties: a string probe that reaches the base builtin-shape lane and misses
+    // shape.Index can then only be answered by _properties (the hybrid side dictionary), so with that
+    // dictionary still empty the miss is authoritative and ProbeOwnProperty may report it without the
+    // confirming virtual GetOwnProperty call. Subclasses whose own storage resolves string names ahead of the
+    // shared layout must either intercept those names in their own ProbeOwnProperty before calling base
+    // (ArrayInstance does, for length and every canonical index) or override GetInitialOwnStringPropertyKeys
+    // (Function and StringInstance do), which suppresses this flag at derivation. Derived in
+    // InitializeBuiltinShape, cleared on deopt, and only meaningful while BuiltinShapeMode is set.
+    BuiltinShapeIndexAuthoritative = 33554432,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative
 }

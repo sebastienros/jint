@@ -96,10 +96,12 @@ public class GlobalSnapshotInternalsTests
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         var slotsBefore = shaped.BuiltinDescriptors!.Length;
+        (global._type & InternalTypes.BuiltinShapeIndexAuthoritative).Should().NotBe(InternalTypes.Empty);
 
         engine.Evaluate("globalThis[0] = 'deopt';");
         shaped.BuiltinDescriptors.Should().BeNull();
         (global._type & InternalTypes.BuiltinShapeMode).Should().Be(InternalTypes.Empty);
+        (global._type & InternalTypes.BuiltinShapeIndexAuthoritative).Should().Be(InternalTypes.Empty);
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
@@ -107,6 +109,13 @@ public class GlobalSnapshotInternalsTests
         shaped.BuiltinDescriptors.Should().NotBeNull();
         shaped.BuiltinDescriptors!.Length.Should().Be(slotsBefore);
         global._properties.Should().BeNull("the deopt's dictionary must not survive as hybrid overflow");
+
+        // The mode's companion bit must be RE-DERIVED on the way back in, not merely left behind by the
+        // deopt: a bare `|= BuiltinShapeMode` would cost a restored global the absent-name fast lane forever,
+        // in precisely the capture/restore reuse pattern that lane exists for.
+        (global._type & InternalTypes.BuiltinShapeIndexAuthoritative).Should().NotBe(InternalTypes.Empty);
+        engine.Evaluate("'notDeclaredAnywhere' in globalThis").Should().Be(false);
+        engine.Evaluate("'AggregateError' in globalThis").Should().Be(true, "a lazily materialized intrinsic is declared by the layout even before its factory runs");
     }
 
     [Fact]
