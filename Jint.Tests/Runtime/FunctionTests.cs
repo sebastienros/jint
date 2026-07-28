@@ -86,6 +86,77 @@ public class FunctionTests
     }
 
     [Fact]
+    public void CanCallBoundFunctionWhoseTargetIsItselfBound()
+    {
+        // Per the spec a bound function's [[BoundTargetFunction]] only needs to be callable —
+        // binding an already-bound function must produce a function that still calls through
+        // (the first bind wins the this-binding).
+        var result = _engine.Evaluate("""
+            (function () {
+                function f(a) { return this.x + ':' + a; }
+                const once = f.bind({ x: 1 });
+                const twice = once.bind({ x: 2 }, 'arg');
+                return twice();
+            })()
+            """);
+        result.AsString().Should().Be("1:arg");
+    }
+
+    [Fact]
+    public void RepeatedBindAccumulatesArgumentsInOrder()
+    {
+        var result = _engine.Evaluate("""
+            (function () {
+                function f() { return Array.prototype.join.call(arguments, ','); }
+                return f.bind(null, 'a').bind(null, 'b').bind(null, 'c')('d');
+            })()
+            """);
+        result.AsString().Should().Be("a,b,c,d");
+    }
+
+    [Fact]
+    public void CanCallDeeplyReboundObjectMethod()
+    {
+        // The double-bind-into-a-dispatch-map pattern: obj.method.bind(obj) stored,
+        // then bound again when registered into a command map.
+        var result = _engine.Evaluate("""
+            (function () {
+                const obj = { x: 42, method(suffix) { return this.x + suffix; } };
+                const bound = obj.method.bind(obj);
+                const map = { cmd: bound.bind(null, '!') };
+                return map.cmd();
+            })()
+            """);
+        result.AsString().Should().Be("42!");
+    }
+
+    [Fact]
+    public void CanConstructThroughBoundFunctionWhoseTargetIsItselfBound()
+    {
+        var result = _engine.Evaluate("""
+            (function () {
+                function C(a, b) { this.value = a + b; }
+                const Bound = C.bind(null, 1).bind(null, 2);
+                return new Bound().value;
+            })()
+            """);
+        result.AsNumber().Should().Be(3);
+    }
+
+    [Fact]
+    public void InstanceofWorksAgainstBoundFunctionWhoseTargetIsItselfBound()
+    {
+        var result = _engine.Evaluate("""
+            (function () {
+                function C() {}
+                const Bound = C.bind(null).bind(null);
+                return (new C()) instanceof Bound;
+            })()
+            """);
+        result.AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public void ArrowFunctionShouldBeExtensible()
     {
         new Engine()
