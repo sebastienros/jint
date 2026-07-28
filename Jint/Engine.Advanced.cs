@@ -200,6 +200,64 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Reports the <see cref="PropertyAccessSemantics"/> the engine resolved for <paramref name="value"/> —
+        /// derived from its runtime type, or declared through
+        /// <see cref="ObjectInstance.SetPropertyAccessSemantics"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>This is a diagnostic, and it is not part of Jint's compatibility contract.</b> Use it in
+        /// diagnostics, assertions and regression tests; do not branch on it in production code. For an object
+        /// of a <i>host-defined</i> type the answer is exactly the semantics the engine's read lanes honor for
+        /// that instance, and it is stable as long as the type is. For the engine's own types the answer names
+        /// an internal classification which may be refined in any release without notice, and the enum may gain
+        /// members; neither is a breaking change.
+        /// </para>
+        /// <para>
+        /// The motivating case: the derivation is deliberately silent. A host type is
+        /// <see cref="PropertyAccessSemantics.Exotic"/> because it overrides
+        /// <see cref="ObjectInstance.Get(JsValue, JsValue)"/> and
+        /// <see cref="PropertyAccessSemantics.Ordinary"/> because it does not, so an edit that removes the last
+        /// <c>Get</c> override — or a refactor that moves it to a base class the probe cannot see as an
+        /// override — flips the semantics of every read against that type with nothing to fail. Without this
+        /// method a host can only pin the derivation indirectly, by instrumenting its own overrides and
+        /// asserting probe counts.
+        /// </para>
+        /// <para>
+        /// It reports the resolved <see cref="PropertyAccessSemantics"/> and nothing else. In particular it
+        /// does not report whether the type overrides <c>TryGetOwnPropertyValue</c>, which is an orthogonal
+        /// routing decision a host observes directly by instrumenting that override.
+        /// </para>
+        /// </remarks>
+        /// <param name="value">The object to inspect. It must belong to this engine.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="value"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
+        public PropertyAccessSemantics GetPropertyAccessSemantics(ObjectInstance value)
+        {
+            if (value is null)
+            {
+                Throw.ArgumentNullException(nameof(value));
+            }
+
+            if (!ReferenceEquals(value.Engine, _engine))
+            {
+                // The resolved semantics happen not to depend on the engine, but rejecting a foreign object
+                // keeps this diagnostic consistent with GetObjectRepresentation and turns the mixed-up-engine
+                // mistake — easy to make in exactly the multi-engine tests these APIs are written for — into a
+                // failure instead of a misleading pass.
+                Throw.ArgumentException("The object belongs to a different engine.", nameof(value));
+            }
+
+            // Ordinary is the absence of the exotic claim, not a flag of its own: an in-box object built through
+            // the internal constructor carries neither OrdinaryGet nor ExoticGet, and ordinary is what such an
+            // object has. Only ExoticGet — set by the built-ins that deviate, derived for a host type that
+            // overrides Get, and settable either way through SetPropertyAccessSemantics — can move the answer.
+            return (value._type & InternalTypes.ExoticGet) != InternalTypes.Empty
+                ? PropertyAccessSemantics.Exotic
+                : PropertyAccessSemantics.Ordinary;
+        }
+
+        /// <summary>
         /// Event raised when a promise is rejected without a handler (operation = Reject),
         /// or when a handler is added to a previously unhandled rejected promise (operation = Handle).
         /// This implements the HostPromiseRejectionTracker abstract operation from the TC39 spec.

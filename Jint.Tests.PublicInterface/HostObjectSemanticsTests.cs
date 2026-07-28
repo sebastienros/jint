@@ -338,6 +338,149 @@ public class HostObjectSemanticsTests
         engine.Evaluate("host.value").Should().Be(1);
         host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
+
+    // ---- Engine.Advanced.GetPropertyAccessSemantics ----
+
+    [Fact]
+    public void TheResolvedSemanticsAreReadableFromOutsideTheJintAssembly()
+    {
+        // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee: before
+        // it existed, everything that decides the answer — the flag, the probe, the probe counter — was
+        // internal, and a host could only infer the derivation from probe counts against its own overrides.
+        var engine = new Engine();
+
+        engine.Advanced.GetPropertyAccessSemantics(new ProjectedHostObject(engine))
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+    }
+
+    [Fact]
+    public void AHostThatOverridesGetIsReportedExotic()
+    {
+        var engine = new Engine();
+
+        engine.Advanced.GetPropertyAccessSemantics(new ComputingHostObject(engine))
+            .Should().Be(PropertyAccessSemantics.Exotic);
+    }
+
+    [Fact]
+    public void TwoHostsThatAnswerEveryReadIdenticallyStillReportTheDerivationThatSeparatesThem()
+    {
+        // The motivating pin, and the reason the diagnostic is worth a public method. These two types project
+        // the same fields and answer every read the same way — one overrides Get with a pure pass-through to
+        // base, the other does not override it at all — so no assertion about *values* can tell them apart.
+        // The derivation still separates them, and it decides how every read against them is routed. Delete
+        // PassThroughGetHostObject's one-line override, or move it to a base class where the probe stops
+        // seeing it as an override, and the type silently changes from Exotic to Ordinary with every
+        // behavioural test still green. This is the assertion that goes red.
+        var engine = new Engine();
+
+        var withoutOverride = new ProjectedHostObject(engine).Project("value", 42);
+        var withOverride = new PassThroughGetHostObject(engine).Project("value", 42);
+
+        engine.SetValue("a", withoutOverride);
+        engine.SetValue("b", withOverride);
+        engine.Evaluate("a.value").Should().Be(42);
+        engine.Evaluate("b.value").Should().Be(42);
+        engine.Evaluate("a.absent").Should().Be(JsValue.Undefined);
+        engine.Evaluate("b.absent").Should().Be(JsValue.Undefined);
+
+        engine.Advanced.GetPropertyAccessSemantics(withoutOverride).Should().Be(PropertyAccessSemantics.Ordinary);
+        engine.Advanced.GetPropertyAccessSemantics(withOverride).Should().Be(PropertyAccessSemantics.Exotic);
+    }
+
+    [Fact]
+    public void ADeclarationIsWhatTheDiagnosticReports()
+    {
+        // For the two shapes the rule cannot see, the declaration is the answer — so the diagnostic reports
+        // the resolved semantics, not the derived ones. Both directions, plus the last-call-wins rule.
+        var engine = new Engine();
+
+        // overrides Get, declares Ordinary
+        engine.Advanced.GetPropertyAccessSemantics(new TracingHostObject(engine))
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+
+        // does not override Get, declares Exotic
+        engine.Advanced.GetPropertyAccessSemantics(new MutatingHostObject(engine))
+            .Should().Be(PropertyAccessSemantics.Exotic);
+
+        engine.Advanced.GetPropertyAccessSemantics(
+                new RedeclaringHostObject(engine, PropertyAccessSemantics.Exotic, PropertyAccessSemantics.Ordinary))
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+
+        engine.Advanced.GetPropertyAccessSemantics(
+                new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, PropertyAccessSemantics.Exotic))
+            .Should().Be(PropertyAccessSemantics.Exotic);
+    }
+
+    [Fact]
+    public void TheDeclarationIsPerInstanceNotPerType()
+    {
+        // SetPropertyAccessSemantics is called from a constructor and writes the instance, so two instances of
+        // one type can resolve differently. A Type-keyed diagnostic could not report this.
+        var engine = new Engine();
+
+        engine.Advanced.GetPropertyAccessSemantics(
+                new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, PropertyAccessSemantics.Ordinary))
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+
+        engine.Advanced.GetPropertyAccessSemantics(
+                new RedeclaringHostObject(engine, PropertyAccessSemantics.Ordinary, PropertyAccessSemantics.Exotic))
+            .Should().Be(PropertyAccessSemantics.Exotic);
+    }
+
+    [Fact]
+    public void TheEnginesOwnObjectsAreClassifiedToo()
+    {
+        // Non-contractual by documentation — an in-box object's classification may be refined in any release —
+        // but pinned here so a host reading these answers in a test sees what they are today, and so a change
+        // to any of them is a deliberate edit rather than a silent one.
+        var engine = new Engine(options => options.AllowClr(typeof(HostPoint).Assembly));
+
+        // Ordinary is the absence of the exotic claim: a plain object, an array and an ordinary function all
+        // have exactly ordinary [[Get]].
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("({ a: 1 })").AsObject())
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("[1, 2, 3]").AsObject())
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("(function f() {})").AsObject())
+            .Should().Be(PropertyAccessSemantics.Ordinary);
+
+        // The built-ins that genuinely deviate say so.
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("new Proxy({}, {})").AsObject())
+            .Should().Be(PropertyAccessSemantics.Exotic);
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("new Uint8Array(4)").AsObject())
+            .Should().Be(PropertyAccessSemantics.Exotic);
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("(function () { return arguments; })(1)").AsObject())
+            .Should().Be(PropertyAccessSemantics.Exotic);
+
+        // ...and so does a CLR object wrapper, whose members resolve against the wrapped type rather than a
+        // descriptor store.
+        engine.SetValue("point", new HostPoint());
+        engine.Advanced.GetPropertyAccessSemantics(engine.Evaluate("point").AsObject())
+            .Should().Be(PropertyAccessSemantics.Exotic);
+    }
+
+    [Fact]
+    public void AMissingOrForeignObjectIsRejected()
+    {
+        var engine = new Engine();
+        var other = new Engine();
+
+        Invoking(() => engine.Advanced.GetPropertyAccessSemantics(null!))
+            .Should().Throw<ArgumentNullException>();
+
+        // The resolved semantics do not actually depend on the engine, but the guard matches
+        // GetObjectRepresentation's so that the mixed-up-engine mistake fails loudly in the multi-engine tests
+        // these diagnostics are written for.
+        Invoking(() => engine.Advanced.GetPropertyAccessSemantics(new ProjectedHostObject(other)))
+            .Should().Throw<ArgumentException>();
+    }
+
+    /// <summary>A plain CLR object, so a test can ask about the wrapper the engine builds for it.</summary>
+    public sealed class HostPoint
+    {
+        public int X { get; set; }
+    }
 }
 
 /// <summary>
