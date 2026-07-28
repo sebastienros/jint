@@ -14,6 +14,44 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json;
 
+/// <summary>
+/// Serializes a <see cref="JsValue"/> to a JSON document, implementing
+/// https://tc39.es/ecma262/#sec-json.stringify. This is the same code path <c>JSON.stringify</c> takes, so
+/// <c>toJSON</c>, replacers and the <c>space</c> argument behave exactly as they do in script.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Lifetime.</b> An instance is bound to the <see cref="Engine"/> it was constructed with: that engine
+/// supplies the wrapper object each call serializes out of, the realm the <c>toJSON</c> lookup resolves
+/// against, and the execution constraints checked while walking large objects and arrays. It is reusable
+/// across calls — every field the per-call prologue only conditionally assigns (the replacer function, the
+/// replacer-array property list, the indentation and the cycle-detection stack) is reset at the start of
+/// each <c>Serialize</c> call, so a previous call cannot leak state into the next, including a call that
+/// threw part-way through on a circular structure. It is not thread-safe: that per-call state is instance
+/// state, so two concurrent calls on one instance corrupt each other's output. Hold one per engine (and
+/// serialize access to the engine anyway, which is itself single-threaded), or construct one per call as
+/// <c>JSON.stringify</c> does.
+/// </para>
+/// <para>
+/// <b>Choosing an overload.</b> The <see cref="JsValue"/>-returning overloads are the fit unless the sink is
+/// genuinely bytes. The document is always built as UTF-16 internally; the
+/// <see cref="IBufferWriter{T}"/> overloads exist only to transcode that to UTF-8 directly into the caller's
+/// buffer instead of materializing a string first. A caller who writes to an <see cref="IBufferWriter{T}"/>
+/// and then turns the bytes back into a <see cref="string"/> has re-paid the very transcode the overload
+/// exists to avoid, and added a decode on top.
+/// </para>
+/// <para>
+/// <b>BigInt.</b> A <c>BigInt</c> that reaches the output throws a
+/// <see cref="Runtime.JavaScriptException"/> carrying a <c>TypeError</c> ("Do not know how to serialize a
+/// BigInt"), as the specification requires. A host using this type as a storage codec has one escape hatch:
+/// the serializer performs the spec's <c>GetV(value, "toJSON")</c> lookup for BigInt values as well as for
+/// objects, so installing a <c>toJSON</c> on <c>BigInt.prototype</c> —
+/// <c>engine.Evaluate("BigInt.prototype.toJSON = function () { return this.toString(); }")</c> — makes
+/// <c>1n</c> serialize as <c>"1"</c> instead of throwing. That is a realm-wide change rather than a
+/// serializer setting: the property is visible to script and script's own <c>JSON.stringify</c> picks up the
+/// same <c>toJSON</c>, so it is a deliberate host decision about the whole realm, not a private hook.
+/// </para>
+/// </remarks>
 public sealed class JsonSerializer
 {
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
@@ -32,11 +70,39 @@ public sealed class JsonSerializer
         _engine = engine;
     }
 
+    /// <summary>
+    /// Serializes <paramref name="value"/> to a JSON document.
+    /// </summary>
+    /// <returns>
+    /// A <see cref="JsString"/> holding the document, or <see cref="JsValue.Undefined"/> when
+    /// <paramref name="value"/> has no JSON representation — it is <c>undefined</c>, a function or a symbol,
+    /// or its <c>toJSON</c> returned one of those — which are the cases where <c>JSON.stringify</c> itself
+    /// evaluates to <c>undefined</c>. Check for the sentinel rather than converting unconditionally:
+    /// <c>Serialize(v) is JsString s ? s.ToString() : null</c>. <c>Serialize(v).ToString()</c> does not fail
+    /// for those inputs — it hands back the literal text <c>undefined</c>, which is not JSON, and which a
+    /// caller storing the result will only discover on the way back out.
+    /// </returns>
     public JsValue Serialize(JsValue value)
     {
         return Serialize(value, JsValue.Undefined, JsValue.Undefined);
     }
 
+    /// <summary>
+    /// Serializes <paramref name="value"/> to a JSON document, applying <paramref name="replacer"/> (a
+    /// function or an array of keys to keep) and <paramref name="space"/> (the indentation) as
+    /// <c>JSON.stringify</c> does.
+    /// </summary>
+    /// <returns>
+    /// A <see cref="JsString"/> holding the document, or <see cref="JsValue.Undefined"/> when what is to be
+    /// serialized has no JSON representation — the value itself, or whatever a <c>toJSON</c> or
+    /// <paramref name="replacer"/> turned it into, is <c>undefined</c>, a function or a symbol — which are
+    /// the cases where <c>JSON.stringify</c> itself evaluates to <c>undefined</c>. Check for the sentinel
+    /// rather than converting unconditionally:
+    /// <c>Serialize(v, r, s) is JsString js ? js.ToString() : null</c>.
+    /// <c>Serialize(v, r, s).ToString()</c> does not fail for those inputs — it hands back the literal text
+    /// <c>undefined</c>, which is not JSON, and which a caller storing the result will only discover on the
+    /// way back out.
+    /// </returns>
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
         if (!TryCreateHolder(value, replacer, space, out var wrapper))
