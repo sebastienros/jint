@@ -390,6 +390,22 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             oldEnv = suspendData.OuterEnv;
             engine.UpdateLexicalEnvironment(oldEnv);
         }
+        else if (resuming && iteratorKind == IteratorKind.Async
+                 && suspendable?.Data.TryGet<ForAwaitSuspendData>(this, out var forAwaitEntryData) == true
+                 && forAwaitEntryData is { CurrentValue: not null, OuterEnv: not null })
+        {
+            // Same restoration for a for-await-of resuming from a suspension INSIDE the
+            // loop body (CurrentValue set): the saved execution context's lexical env is
+            // the env at the await itself (e.g. the body block's env). Leaving oldEnv
+            // pointing there would parent the NEXT iteration's environment under the
+            // previous iteration's body block — and the block's env-reuse cache then
+            // re-attaches that block env under the new iteration env, creating a CYCLIC
+            // environment chain that turns the next identifier lookup into an infinite
+            // walk. (A resume from the awaited next() suspends at loop level, where the
+            // context env already is the outer env — nothing to restore.)
+            oldEnv = forAwaitEntryData.OuterEnv;
+            engine.UpdateLexicalEnvironment(oldEnv);
+        }
 
         // Reusable fixed-slot iteration environment: gated on a non-suspendable context so a
         // pooled env never round-trips through suspend/resume save-and-restore. ResetSlots at
@@ -450,10 +466,42 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                          && suspendable?.Data.TryGet<ForAwaitSuspendData>(this, out var asyncResumeData) == true
                          && asyncResumeData?.CurrentValue is not null)
                 {
-                    // Resuming from yield inside destructuring in for-await-of
+                    // Resuming from a yield/await inside the loop body (LhsBindingComplete,
+                    // saved before the body ran) or from a yield inside destructuring
+                    // (LhsBindingComplete false) in for-await-of — re-enter the CURRENT
+                    // iteration instead of awaiting the iterator's next result.
                     nextValue = asyncResumeData.CurrentValue;
-                    asyncResumeData.CurrentValue = null;
+                    iterationEnv = asyncResumeData.IterationEnv;
+                    skipLhsSetup = asyncResumeData.LhsBindingComplete;
+                    asyncResumeData.CurrentValue = null; // Clear after use
+                    asyncResumeData.LhsBindingComplete = false; // Save block re-sets if body re-suspends
                     resuming = false;
+
+                    // Restore the iteration environment if it was saved — but never rewind a
+                    // FINER-grained environment the resume machinery already restored: an async
+                    // function's saved execution context holds the env at the await itself
+                    // (e.g. the body block's environment, a descendant of the iteration env when
+                    // the body declares let/const). Clobbering it would detach the body block's
+                    // fast-forward from its own bindings. Only update when the current env is
+                    // not already the iteration env or nested inside it.
+                    if (iterationEnv is not null)
+                    {
+                        var currentEnv = engine.ExecutionContext.LexicalEnvironment;
+                        var withinIterationEnv = false;
+                        for (var env = currentEnv; env is not null; env = env._outerEnv)
+                        {
+                            if (ReferenceEquals(env, iterationEnv))
+                            {
+                                withinIterationEnv = true;
+                                break;
+                            }
+                        }
+
+                        if (!withinIterationEnv)
+                        {
+                            engine.UpdateLexicalEnvironment(iterationEnv);
+                        }
+                    }
                 }
                 else if (iteratorKind == IteratorKind.Async)
                 {
@@ -736,6 +784,41 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     asyncData.LhsBindingComplete = true;
                 }
 
+                // Async generators iterating a SYNC iterable (a plain for...of in an async
+                // generator body) need the same treatment: a yield/await in the body suspends
+                // and later re-enters this statement from the top, and without saved state
+                // the resume path restarts the loop with a fresh iterator — replaying the
+                // first step into the consumed resume value and re-yielding the second
+                // element forever. for-await-of (async iterables) is handled separately via
+                // ForAwaitSuspendData in SuspendForAsyncIteration.
+                var asyncGenBody = engine.ExecutionContext.AsyncGenerator;
+                if (iteratorKind == IteratorKind.Sync && asyncGenBody is not null)
+                {
+                    var asyncGenData = asyncGenBody.Data.GetOrCreate<ForOfSuspendData>(this, iteratorRecord);
+                    asyncGenData.AccumulatedValue = v;
+                    asyncGenData.CurrentValue = valueForResume;
+                    asyncGenData.IterationEnv = iterationEnv;
+                    asyncGenData.OuterEnv = oldEnv;
+                    asyncGenData.LhsBindingComplete = true;
+                }
+
+                // for-await-of (async iterators) needs the same save: an await/yield in the
+                // body suspends and re-enters this statement from the top, and without the
+                // saved current value the resume path would await the iterator's NEXT result
+                // instead of re-entering the current iteration — dropping the in-flight item
+                // and, once the stream ends, silently completing the loop.
+                if (iteratorKind == IteratorKind.Async && suspendable is not null
+                    && (asyncFnBody is not null || asyncGenBody is not null))
+                {
+                    var forAwaitData = suspendable.Data.GetOrCreate<ForAwaitSuspendData>(this);
+                    forAwaitData.Iterator = iteratorRecord;
+                    forAwaitData.AccumulatedValue = v;
+                    forAwaitData.CurrentValue = valueForResume;
+                    forAwaitData.IterationEnv = iterationEnv;
+                    forAwaitData.OuterEnv = oldEnv;
+                    forAwaitData.LhsBindingComplete = true;
+                }
+
                 var result = stmt.Execute(context);
 
                 // Clear current value after successful body execution (not suspended)
@@ -745,6 +828,23 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     {
                         currentData!.CurrentValue = null;
                     }
+                }
+                else if (asyncGenBody is not null && !context.IsSuspended())
+                {
+                    if (asyncGenBody.Data.TryGet<ForOfSuspendData>(this, out var currentData))
+                    {
+                        currentData!.CurrentValue = null;
+                    }
+                }
+
+                // The for-await-of current value must clear too once the body has run
+                // without suspending — a stale value would shadow the awaited-next()
+                // resume on a LATER suspension and replay this iteration's item.
+                if (iteratorKind == IteratorKind.Async && !context.IsSuspended()
+                    && suspendable?.Data.TryGet<ForAwaitSuspendData>(this, out var completedAwaitData) == true)
+                {
+                    completedAwaitData!.CurrentValue = null;
+                    completedAwaitData.LhsBindingComplete = false;
                 }
 
                 // Dispose iteration env's resources. If the env has async-dispose
@@ -791,6 +891,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     if (generator is not null && generator.Data.TryGet<ForOfSuspendData>(this, out var data))
                     {
                         data!.AccumulatedValue = v;
+                    }
+                    else if (asyncGenBody is not null && asyncGenBody.Data.TryGet<ForOfSuspendData>(this, out var asyncGenAccData))
+                    {
+                        asyncGenAccData!.AccumulatedValue = v;
                     }
                 }
 
