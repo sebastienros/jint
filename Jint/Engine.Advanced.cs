@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -258,6 +259,43 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Reports how many CLR arrays this engine has converted for script, and under which semantics.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>This is a diagnostic, and it is not part of Jint's compatibility contract.</b> Exactly which
+        /// internal events are counted may be refined in any release, and
+        /// <see cref="InteropConversionDiagnostics"/> may gain members; neither is a breaking change. Use it
+        /// for audits, assertions and regression tests, never for production branching.
+        /// </para>
+        /// <para>
+        /// The motivating case: <see cref="ArrayConversionMode.LiveView"/> has been the default since 4.14, and
+        /// the two modes differ in behavior a script can observe — a live view writes through to the CLR array
+        /// and tracks its contents, a copy does neither. A host that does not own all of its Jint consumers has
+        /// no way to find out whether any CLR array crosses into script at all, let alone under which
+        /// semantics, short of auditing every transitive caller by hand. Reading the counters around a run
+        /// answers it directly.
+        /// </para>
+        /// <para>
+        /// Scope, stated honestly. What is counted is a conversion that actually went through the
+        /// array-conversion lane, which is not quite the same as "a CLR array reached script". Under
+        /// <see cref="ArrayConversionMode.LiveView"/> an array crossing under a non-array <i>declared</i>
+        /// type — <c>IReadOnlyList&lt;T&gt;</c>, <c>IEnumerable&lt;T&gt;</c> — honors that declared contract
+        /// through the ordinary wrapper lane instead, converts no array, and is not counted; under
+        /// <see cref="ArrayConversionMode.Copy"/> the same value does take the copy lane and is counted. A
+        /// re-crossing served from an identity cache is never counted, since a cache hit performs no
+        /// conversion and implies an earlier one that was — which is what "did arrays cross, and how" needs
+        /// to know.
+        /// </para>
+        /// <para>
+        /// The counters are cumulative for the life of the engine and never reset. Two engines count
+        /// independently, so a host pooling engines should read them per engine.
+        /// </para>
+        /// </remarks>
+        public InteropConversionDiagnostics GetInteropConversionDiagnostics()
+            => new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+
+        /// <summary>
         /// Event raised when a promise is rejected without a handler (operation = Reject),
         /// or when a handler is added to a previously unhandled rejected promise (operation = Handle).
         /// This implements the HostPromiseRejectionTracker abstract operation from the TC39 spec.
@@ -323,6 +361,47 @@ public enum ObjectRepresentation
     /// so none of the other members would describe it honestly.
     /// </summary>
     Specialized = 3,
+}
+
+/// <summary>
+/// Counts of the CLR-array interop conversions an engine has performed, as reported by
+/// <see cref="Engine.AdvancedOperations.GetInteropConversionDiagnostics"/>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>These counts describe internal events and are not part of Jint's compatibility contract.</b> Which
+/// events are counted may be refined in any release, and this type may gain members. Neither is a breaking
+/// change, and neither will be treated as one — which is why the constructor is internal: a host reads the
+/// properties it knows about and is unaffected when another appears.
+/// </para>
+/// <para>
+/// See <see cref="Engine.AdvancedOperations.GetInteropConversionDiagnostics"/> for what falls inside and
+/// outside the counted set.
+/// </para>
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InteropConversionDiagnostics
+{
+    internal InteropConversionDiagnostics(long arrayLiveViewConversions, long arrayCopyConversions)
+    {
+        ArrayLiveViewConversions = arrayLiveViewConversions;
+        ArrayCopyConversions = arrayCopyConversions;
+    }
+
+    /// <summary>
+    /// Live wrapper views created over a CLR array under <see cref="ArrayConversionMode.LiveView"/>. Such a
+    /// view reads and writes the CLR array itself, so script sees later changes to it and the host sees
+    /// script's writes.
+    /// </summary>
+    public long ArrayLiveViewConversions { get; }
+
+    /// <summary>
+    /// Snapshot copies of a CLR array created under <see cref="ArrayConversionMode.Copy"/>, or under
+    /// <see cref="ArrayConversionMode.LiveView"/> where no view could be built — a custom
+    /// <c>WrapObjectHandler</c> declining the value. The resulting JavaScript array is disconnected from the
+    /// CLR array in both directions.
+    /// </summary>
+    public long ArrayCopyConversions { get; }
 }
 
 /// <summary>
