@@ -87,11 +87,11 @@ public abstract class ArrayLikeObject : ObjectInstance
     // platform array-like. configurable:true (plus the [[Delete]]/[[DefineOwnProperty]] refusals below) is the
     // WebIDL shape and is what lets a shrinking collection stay within the [[GetOwnProperty]] invariants: a
     // non-configurable property may never afterwards report as absent.
-    private const PropertyFlag IndexFlags = PropertyFlag.Configurable | PropertyFlag.Enumerable | PropertyFlag.WritableSet;
+    private const PropertyFlag IndexFlags = PropertyFlag.NonWritable;
 
     // { writable: false, enumerable: false, configurable: true } — configurable for the same invariant reason,
     // the value changing from call to call.
-    private const PropertyFlag LengthFlags = PropertyFlag.Configurable | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet;
+    private const PropertyFlag LengthFlags = PropertyFlag.OnlyConfigurable;
 
     /// <summary>
     /// Creates the object against <paramref name="engine"/>. Set <see cref="ObjectInstance.Prototype"/> afterwards
