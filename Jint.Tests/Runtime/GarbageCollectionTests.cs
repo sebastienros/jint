@@ -194,6 +194,53 @@ public class GarbageCollectionTests
         }
     }
 
+    [Fact]
+    public void ALayoutWithLazySlotsDoesNotRetainEnginesOrPerObjectState()
+    {
+        // A JsObjectLayout is meant to live in a static readonly field for the whole process, and one with
+        // lazy slots carries delegates and is referenced from every unmaterialized slot of every object built
+        // from it. If a factory, the engine's per-prototype layout memo or the sentinel reached back to the
+        // engine or to the per-object state, every item of every batch ever created would be immortal.
+
+        var layout = Jint.Native.JsObjectLayout.CreateBuilder()
+            .Add("id")
+            .AddLazy("value", static (_, state) => Jint.Native.JsString.Create((string) state))
+            .Build();
+
+        var references = new List<WeakReference>();
+        for (var i = 0; i < 10; i++)
+        {
+            references.AddRange(RunOnceAndForget(layout, i));
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        GC.KeepAlive(layout);
+
+        aliveCount.Should().Be(0, $"{aliveCount} of {references.Count} engines/objects/states were not collected — the shared layout still pins them.");
+
+        // NoInlining so nothing stays stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference[] RunOnceAndForget(Jint.Native.JsObjectLayout layout, int i)
+        {
+            var engine = new Engine();
+            // A distinct state object per item, and only half of the items materialized, so both the resolved
+            // and the still-unmaterialized shapes are covered.
+            var state = new string('x', 16 + i);
+            var obj = Jint.Native.JsObject.Create(engine, layout, [Jint.Native.JsNumber.Create(i), null], state);
+            engine.SetValue("o", obj);
+            if (i % 2 == 0)
+            {
+                engine.Evaluate("o.value");
+            }
+
+            return [new WeakReference(engine), new WeakReference(state), new WeakReference(obj)];
+        }
+    }
+
     /// <summary>
     /// Only ever used by <see cref="NestedTypeAccessDoesNotRetainEngines"/>: the accessor cache is
     /// process-wide, so a type another test also resolves would let that test's engine take the blame.

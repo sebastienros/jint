@@ -1899,15 +1899,28 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         // Step 3
         var currentGet = current.Get;
         var currentSet = current.Set;
-        var currentValue = current.Value;
+
+        // current.[[Value]] is fetched where it is first needed rather than here. Reading it runs a
+        // PropertyFlag.CustomJsValue override, and for the engine's lazy descriptors — a lazy global, a lazy
+        // layout slot — that RESOLVES the value, which is a side effect an attribute-only redefinition must
+        // not have: Object.freeze and Object.seal redefine every own key with attributes and nothing else,
+        // and would otherwise force every lazy property on the object into existence. Each fetch site below
+        // sits behind a test such a redefinition never passes. Still fetched at most once, so a host
+        // CustomValue override projecting live state is observed exactly as often as it was before.
+        JsValue? currentValue = null;
+        var currentValueFetched = false;
 
         // 4. If every field in Desc is absent, return true.
         if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == PropertyFlag.None &&
             currentGet is null &&
-            currentSet is null &&
-            currentValue is null)
+            currentSet is null)
         {
-            return true;
+            currentValue = current.Value;
+            currentValueFetched = true;
+            if (currentValue is null)
+            {
+                return true;
+            }
         }
 
         // Step 6
@@ -1918,11 +1931,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             current.Writable == desc.Writable && current.WritableSet == desc.WritableSet &&
             current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
             ((currentGet is null && descGet is null) || (currentGet is not null && descGet is not null && SameValue(currentGet, descGet))) &&
-            ((currentSet is null && descSet is null) || (currentSet is not null && descSet is not null && SameValue(currentSet, descSet))) &&
-            ((currentValue is null && descValue is null) || (currentValue is not null && descValue is not null && currentValue == descValue))
+            ((currentSet is null && descSet is null) || (currentSet is not null && descSet is not null && SameValue(currentSet, descSet)))
         )
         {
-            return true;
+            if (!currentValueFetched)
+            {
+                currentValue = current.Value;
+                currentValueFetched = true;
+            }
+
+            if ((currentValue is null && descValue is null) || (currentValue is not null && descValue is not null && currentValue == descValue))
+            {
+                return true;
+            }
         }
 
         if (!current.Configurable)
@@ -1976,9 +1997,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                         return false;
                     }
 
-                    if (!current.Writable)
+                    if (!current.Writable && descValue is not null)
                     {
-                        if (descValue is not null && !SameValue(descValue, currentValue!))
+                        if (!currentValueFetched)
+                        {
+                            currentValue = current.Value;
+                            currentValueFetched = true;
+                        }
+
+                        if (!SameValue(descValue, currentValue!))
                         {
                             return false;
                         }

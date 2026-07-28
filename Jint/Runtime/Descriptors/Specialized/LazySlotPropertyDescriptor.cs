@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized;
@@ -21,9 +21,22 @@ internal sealed class LazySlotPropertyDescriptor : PropertyDescriptor, IFieldBac
     private readonly JsObject.UnmaterializedSlots _sentinel;
     private readonly int _slot;
 
+    // Configurable + enumerable + writable, with the three "attribute present" bits spelled out. Semantically
+    // identical to PropertyFlag.ConfigurableEnumerableWritable — every ConfigurableSet/EnumerableSet/
+    // WritableSet getter already reports true when the corresponding attribute bit is on — but it matters to
+    // one raw-bit test: ValidateAndApplyPropertyDescriptor's "every field absent" fast-out inspects those
+    // three bits directly and, when they are all clear, goes on to read the descriptor's VALUE, which for a
+    // lazy descriptor is the one thing that must not happen. Object.freeze and Object.seal redefine every own
+    // key attribute-only, so without this a freeze would run every lazy factory on the object.
+    private const PropertyFlag LazySlotFlags = PropertyFlag.ConfigurableEnumerableWritable
+                                               | PropertyFlag.ConfigurableSet
+                                               | PropertyFlag.EnumerableSet
+                                               | PropertyFlag.WritableSet
+                                               | PropertyFlag.CustomJsValue;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal LazySlotPropertyDescriptor(JsObject owner, JsObject.UnmaterializedSlots sentinel, int slot)
-        : base(null, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.CustomJsValue)
+        : base(null, LazySlotFlags)
     {
         _flags &= ~PropertyFlag.NonData;
         _owner = owner;

@@ -335,9 +335,12 @@ public sealed class JsObjectLayout
         /// </para>
         /// <para>
         /// Laziness survives everything that drops the object to the ordinary dictionary representation — a
-        /// <c>delete</c>, a <c>defineProperty</c> on another key, <c>Object.freeze</c> — so a script touching
-        /// one member never forces the rest to materialize. Defining, freezing or reading the lazy property
-        /// itself does materialize it, since each of those observes its value.
+        /// <c>delete</c>, a <c>defineProperty</c> on another key, <c>Object.freeze</c>, <c>Object.seal</c> —
+        /// so a script touching one member never forces the rest to materialize, and a host that wants
+        /// read-only members can freeze the object right after creating it. What materializes is only what
+        /// observes the value: a redefinition of the lazy property that supplies a value discards the factory
+        /// (it is a write), and one that must validate against the current value — redefining a
+        /// non-writable, non-configurable property — runs it.
         /// </para>
         /// </remarks>
         /// <param name="propertyName">The property name.</param>
