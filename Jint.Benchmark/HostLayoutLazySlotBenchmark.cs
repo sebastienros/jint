@@ -236,7 +236,7 @@ public class HostLayoutLazySlotBenchmark
 
     private static JsObject CreateEager(Engine engine, RawEnvelope raw)
     {
-        var values = new JsValue[EagerNames.Length + LazyNames.Length];
+        var values = new JsValue?[EagerNames.Length + LazyNames.Length];
         FillEager(values, raw);
 
         // Decoding needs the object the members belong to, and Create has not produced it yet, so the eager
@@ -253,7 +253,7 @@ public class HostLayoutLazySlotBenchmark
 
     private static JsObject CreateLazy(Engine engine, RawEnvelope raw)
     {
-        var values = new JsValue[EagerNames.Length + LazyNames.Length];
+        var values = new JsValue?[EagerNames.Length + LazyNames.Length];
         FillEager(values, raw);
         return JsObject.Create(engine, LazyLayout, values, raw);
     }
@@ -261,11 +261,11 @@ public class HostLayoutLazySlotBenchmark
     private static JsObject CreateDictionary(Engine engine, RawEnvelope raw)
     {
         var obj = new JsObject(engine);
-        var values = new JsValue[EagerNames.Length + LazyNames.Length];
+        var values = new JsValue?[EagerNames.Length + LazyNames.Length];
         FillEager(values, raw);
         for (var i = 0; i < EagerNames.Length; i++)
         {
-            obj.FastSetDataProperty(EagerNames[i], values[i]);
+            obj.FastSetDataProperty(EagerNames[i], values[i]!);
         }
 
         for (var i = 0; i < LazyNames.Length; i++)
@@ -276,7 +276,7 @@ public class HostLayoutLazySlotBenchmark
         return obj;
     }
 
-    private static void FillEager(JsValue[] values, RawEnvelope raw)
+    private static void FillEager(JsValue?[] values, RawEnvelope raw)
     {
         var index = raw.Index;
         values[0] = JsString.Create("id-" + index);
@@ -293,7 +293,7 @@ public class HostLayoutLazySlotBenchmark
         // The lazy members are supplied by the layout; the eager lane overwrites these after creation.
         for (var i = EagerNames.Length; i < values.Length; i++)
         {
-            values[i] = null!;
+            values[i] = null;
         }
     }
 }

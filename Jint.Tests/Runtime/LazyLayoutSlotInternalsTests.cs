@@ -33,7 +33,7 @@ public class LazyLayoutSlotInternalsTests
         .Build();
 
     private static JsObject Create(Engine engine, Counter counter) =>
-        JsObject.Create(engine, MixedLayout, [JsNumber.Create(0), null!, null!], counter);
+        JsObject.Create(engine, MixedLayout, [JsNumber.Create(0), null, null], counter);
 
     private static bool HasLazyFlag(JsObject obj) =>
         (obj._type & InternalTypes.HasLazySlots) != InternalTypes.Empty;

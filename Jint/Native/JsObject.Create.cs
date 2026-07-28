@@ -35,17 +35,17 @@ public sealed partial class JsObject
     /// <see cref="JsValue.Undefined"/> — except at a property the layout declared through
     /// <see cref="JsObjectLayout.Builder.AddLazy"/>, where <c>null</c> is required and the layout supplies
     /// the value. Use the
-    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue}, object)"/> overload to give those
+    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue?}, object)"/> overload to give those
     /// factories per-object state; this one passes <c>null</c>.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="engine"/> or <paramref name="layout"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="values"/> does not have exactly <see cref="JsObjectLayout.Count"/> entries.</exception>
-    public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue> values)
+    public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue?> values)
         => Create(engine, layout, values, lazySlotState: null);
 
     /// <summary>
     /// Creates an object with <paramref name="layout"/>'s properties exactly as
-    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> does, additionally handing
+    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue?})"/> does, additionally handing
     /// <paramref name="lazySlotState"/> to the factories of any properties the layout declared through
     /// <see cref="JsObjectLayout.Builder.AddLazy"/>.
     /// <para>
@@ -72,7 +72,7 @@ public sealed partial class JsObject
     /// <paramref name="values"/> does not have exactly <see cref="JsObjectLayout.Count"/> entries, or a
     /// non-<c>null</c> value was given for a lazy property.
     /// </exception>
-    public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue> values, object? lazySlotState)
+    public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue?> values, object? lazySlotState)
     {
         if (engine is null)
         {
