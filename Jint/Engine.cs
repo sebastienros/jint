@@ -270,6 +270,15 @@ public sealed partial class Engine : IDisposable
     // bounded cache of most recently wrapped CLR objects, see Options.Interop.CacheRecentObjectWrappers
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 
+    // Diagnostic counters for the two mode-governed CLR-array conversions, surfaced through
+    // Engine.Advanced.GetInteropConversionDiagnostics. Bumped only inside DefaultObjectConverter, at the two
+    // points that have just decided to build a live wrapper view or an N-element snapshot copy — so the cost
+    // is one increment on a path that is already allocating, and exactly nothing on every path that converts
+    // no array. Plain longs, not Interlocked: an engine is single-threaded by contract, like every other
+    // per-engine counter here.
+    internal long _arrayLiveViewConversions;
+    internal long _arrayCopyConversions;
+
     internal readonly JintCallStack CallStack;
     internal readonly StackGuard _stackGuard;
 

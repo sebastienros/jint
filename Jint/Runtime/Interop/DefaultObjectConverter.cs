@@ -289,6 +289,7 @@ internal static class DefaultObjectConverter
         }
 
         var result = new JsArray(e, values);
+        e._arrayCopyConversions++;
 
         if (e.Options.Interop.TrackObjectWrapperIdentity)
         {
@@ -330,6 +331,8 @@ internal static class DefaultObjectConverter
             result = null;
             return false;
         }
+
+        e._arrayLiveViewConversions++;
 
         if (e.Options.Interop.TrackObjectWrapperIdentity)
         {
