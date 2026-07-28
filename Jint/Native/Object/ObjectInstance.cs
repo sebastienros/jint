@@ -212,6 +212,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// freshly-built <see cref="PropertyDictionary"/> as an ordinary CEW data descriptor (in slot =
     /// insertion order). After this the object is byte-for-byte the pre-shapes representation, so every
     /// consumer runs the unchanged dictionary code. No-op when not a shape-mode <see cref="JsObject"/>.
+    /// <para>
+    /// A slot still holding a lazy layout sentinel becomes a <see cref="LazySlotPropertyDescriptor"/> rather
+    /// than being materialized, so deleting one key — or freezing the object — does not force every lazy
+    /// member's factory to run.
+    /// </para>
     /// </summary>
     internal void ConvertToDictionaryMode()
     {
@@ -229,9 +234,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             var keys = new Key[slotCount];
             shape.CollectKeys(keys);
-            for (var i = 0; i < slotCount; i++)
+            if ((_type & InternalTypes.HasLazySlots) == InternalTypes.Empty)
             {
-                properties[keys[i]] = new PropertyDescriptor(jo.GetSlot(i), PropertyFlag.ConfigurableEnumerableWritable);
+                for (var i = 0; i < slotCount; i++)
+                {
+                    properties[keys[i]] = new PropertyDescriptor(jo.GetSlot(i), PropertyFlag.ConfigurableEnumerableWritable);
+                }
+            }
+            else
+            {
+                for (var i = 0; i < slotCount; i++)
+                {
+                    var value = jo.GetSlot(i);
+                    properties[keys[i]] = value is JsObject.UnmaterializedSlots sentinel
+                        ? new LazySlotPropertyDescriptor(jo, sentinel, i)
+                        : new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                }
             }
         }
         // The object is now a live mutable dictionary; re-setting an existing key (e.g. defineProperty
@@ -881,7 +899,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 var jo = Unsafe.As<JsObject>(this);
                 if (jo.ShapeOf.TryGetSlot(property.ToString(), out var slot))
                 {
-                    return jo.GetSlot(slot);
+                    // Checked read rather than the raw slot: this is the semi-hot generic lane (computed
+                    // keys, Reflect.get, with, proxy-forwarded reads) and it serves every shaped object, so
+                    // it carries the lazy-slot check unconditionally instead of being duplicated per flag.
+                    return jo.GetSlotForRead(slot);
                 }
 
                 return Prototype?.Get(property, receiver) ?? Undefined;

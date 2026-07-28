@@ -29,8 +29,12 @@ internal sealed class SlotPropertyDescriptor : PropertyDescriptor
 
     protected internal override JsValue? CustomValue
     {
+        // The descriptor VIEW of a slot, so it is a value observation: a lazy layout slot materializes here.
+        // This is the single point through which every descriptor-shaped consumer — GetOwnProperty,
+        // TryGetProperty, GetOwnProperties, getOwnPropertyDescriptor, enumeration of values, spread,
+        // Object.assign — observes a slot's value.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _owner.GetSlot(_slot);
+        get => _owner.GetSlotForRead(_slot);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         set => _owner.SetSlot(_slot, value!);
     }
