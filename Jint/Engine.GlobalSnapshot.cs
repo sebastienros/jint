@@ -505,9 +505,13 @@ public sealed class GlobalSnapshot
             }
 
             ((IBuiltinShaped) global).BuiltinDescriptors = descriptors;
-            // DeoptBuiltinShape is the only thing that leaves this mode and it touches no other _type bit
-            // and no state beyond BuiltinDescriptors and _properties, both of which are rebuilt here.
-            global._type |= InternalTypes.BuiltinShapeMode;
+            // DeoptBuiltinShape is the only thing that leaves this mode, and it touches no state beyond
+            // BuiltinDescriptors and _properties — both rebuilt here — plus the _type bits that describe the
+            // mode itself. Those must be RE-DERIVED rather than merely re-set: BuiltinShapeIndexAuthoritative
+            // rides along with the mode, so entering it with a bare |= BuiltinShapeMode would leave a global
+            // that had once deopted permanently without the fast-miss lane, in exactly the capture/restore
+            // reuse pattern that lane exists for.
+            global._type |= global.BuiltinShapeModeBits();
         }
         else if ((global._type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
         {
@@ -515,7 +519,7 @@ public sealed class GlobalSnapshot
             // global captured unshaped cannot have become shaped. If it ever could, the captured dictionary
             // is the whole truth and the shape has to go.
             ((IBuiltinShaped) global).BuiltinDescriptors = null;
-            global._type &= ~InternalTypes.BuiltinShapeMode;
+            global._type &= ~(InternalTypes.BuiltinShapeMode | InternalTypes.BuiltinShapeIndexAuthoritative);
         }
 
         // A host-substituted global may have entered hidden-class shape mode since the capture.

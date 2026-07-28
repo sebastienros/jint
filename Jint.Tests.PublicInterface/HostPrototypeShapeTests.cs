@@ -38,6 +38,22 @@ public class HostPrototypeShapeTests
         .ToStringTag("Element")
         .Build();
 
+    // Three shapes stacked into a prototype chain, the way a DOM binding stacks Node -> Element -> HTMLElement.
+    // Each level declares a member of its own, so a lookup can be aimed at any depth — and an absent name has
+    // to be refused by every level in turn before the chain as a whole can answer it.
+    private static readonly JsObjectShape ChainRootShape = new JsObjectShape.Builder()
+        .Method("rootMember", static (thisObject, args) => new JsString("root"))
+        .Constant("ROOT_CONST", JsNumber.Create(10))
+        .Build();
+
+    private static readonly JsObjectShape ChainMiddleShape = new JsObjectShape.Builder()
+        .Method("middleMember", static (thisObject, args) => new JsString("middle"))
+        .Build();
+
+    private static readonly JsObjectShape ChainLeafShape = new JsObjectShape.Builder()
+        .Method("leafMember", static (thisObject, args) => new JsString("leaf"))
+        .Build();
+
     // Engine-independent by construction: state comes from the receiver, never from a captured engine.
     private static JsValue GetTag(JsValue thisObject, JsValue[] arguments)
         => thisObject is ObjectInstance o ? o.Get("_tag") : JsValue.Undefined;
@@ -598,6 +614,126 @@ public class HostPrototypeShapeTests
         engine.Evaluate("'neverDeclared' in proto").Should().Be(false);
         engine.Evaluate("proto.hasOwnProperty('toString')").Should().Be(false, "toString is inherited, not own");
         engine.Evaluate("'toString' in proto").Should().Be(true);
+    }
+
+    [Fact]
+    public void AbsentNamesAnswerAcrossAChainOfShapedPrototypes()
+    {
+        // A name nothing declares is the expensive question: it is refused once per prototype level before the
+        // chain as a whole can answer it, so a chain of shaped prototypes is where an absent name has to stay
+        // as cheap and as correct as one dictionary prototype.
+        var engine = new Engine();
+        var root = ChainRootShape.Instantiate(engine);
+        var middle = ChainMiddleShape.Instantiate(engine, root);
+        var leaf = ChainLeafShape.Instantiate(engine, middle);
+
+        engine.SetValue("root", root);
+        engine.SetValue("middle", middle);
+        engine.SetValue("leaf", leaf);
+        engine.Execute("var instance = Object.create(leaf);");
+
+        // Touch every level so the representation has settled, then witness it.
+        engine.Evaluate("[root.ROOT_CONST, typeof middle.middleMember, typeof leaf.leafMember].length").Should().Be(3);
+        engine.Advanced.GetObjectRepresentation(root).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Advanced.GetObjectRepresentation(middle).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Advanced.GetObjectRepresentation(leaf).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+
+        engine.Evaluate("Object.getPrototypeOf(leaf) === middle").Should().Be(true);
+        engine.Evaluate("Object.getPrototypeOf(middle) === root").Should().Be(true);
+        engine.Evaluate("Object.getPrototypeOf(root) === Object.prototype").Should().Be(true);
+
+        // The absent name: refused by the instance, then by all three shaped levels, then by Object.prototype.
+        engine.Evaluate("'nope' in instance").Should().Be(false);
+        engine.Evaluate("instance.nope").Should().Be(JsValue.Undefined);
+        engine.Evaluate("instance.hasOwnProperty('nope')").Should().Be(false);
+        engine.Evaluate("leaf.hasOwnProperty('nope')").Should().Be(false);
+        engine.Evaluate("middle.hasOwnProperty('nope')").Should().Be(false);
+        engine.Evaluate("root.hasOwnProperty('nope')").Should().Be(false);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(middle, 'nope')").Should().Be(JsValue.Undefined);
+
+        // ...while a member declared only on the deepest level still resolves the whole way down.
+        engine.Evaluate("'rootMember' in instance").Should().Be(true);
+        engine.Evaluate("instance.rootMember()").Should().Be("root");
+        engine.Evaluate("instance.ROOT_CONST").Should().Be(10);
+        engine.Evaluate("instance.leafMember()").Should().Be("leaf");
+        engine.Evaluate("instance.middleMember()").Should().Be("middle");
+        engine.Evaluate("instance.hasOwnProperty('rootMember')").Should().Be(false, "it is inherited, not own");
+        engine.Evaluate("root.hasOwnProperty('rootMember')").Should().Be(true);
+        engine.Evaluate("middle.hasOwnProperty('rootMember')").Should().Be(false);
+    }
+
+    [Fact]
+    public void AnUntouchedFactorySlotAnswersExistenceBeforeItsFactoryRuns()
+    {
+        // A per-realm factory slot has no declared attributes until its factory has run, so the shared layout
+        // cannot answer its enumerability on its own. That is a "cannot answer yet", never a "not there" — an
+        // existence question about a declared-but-unmaterialized member must still answer true.
+        var calls = 0;
+        var shape = new JsObjectShape.Builder()
+            .Method("m", static (t, a) => JsValue.Undefined)
+            .PerRealmSlot("lazyCtor", o => { calls++; return new JsString("made"); })
+            .Build();
+
+        var engine = new Engine();
+        var proto = shape.Instantiate(engine);
+        engine.SetValue("proto", proto);
+
+        // Initialize the object through a different member, leaving the factory slot untouched.
+        engine.Evaluate("typeof proto.m").Should().Be("function");
+        calls.Should().Be(0, "nothing has asked for the slot's value yet");
+
+        engine.Evaluate("proto.hasOwnProperty('lazyCtor')").Should().Be(true);
+        engine.Evaluate("'lazyCtor' in proto").Should().Be(true);
+        engine.Evaluate("Object.getOwnPropertyNames(proto).join(',')").Should().Be("m,lazyCtor");
+
+        engine.Evaluate("proto.lazyCtor").Should().Be("made");
+        engine.Evaluate("proto.hasOwnProperty('lazyCtor')").Should().Be(true);
+        engine.Evaluate("proto.hasOwnProperty('neverDeclared')").Should().Be(false);
+    }
+
+    [Fact]
+    public void AbsentNamesStayCorrectAfterAHybridAddition()
+    {
+        // A brand-new string key joins a side dictionary beside the shared layout, so the layout index alone
+        // is no longer the whole own-property set — an absent-name answer must account for the addition.
+        var engine = EngineWithPrototype(out var prototype);
+
+        engine.Execute("proto.extra = 1;");
+        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+
+        engine.Evaluate("proto.hasOwnProperty('extra')").Should().Be(true);
+        engine.Evaluate("'extra' in proto").Should().Be(true);
+        engine.Evaluate("proto.extra").Should().Be(1);
+
+        engine.Evaluate("proto.hasOwnProperty('stillAbsent')").Should().Be(false);
+        engine.Evaluate("'stillAbsent' in proto").Should().Be(false);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, 'stillAbsent')").Should().Be(JsValue.Undefined);
+
+        // and the declared members are untouched by either answer
+        engine.Evaluate("proto.greet('x')").Should().Be("hello x");
+        engine.Evaluate("proto.hasOwnProperty('ELEMENT_NODE')").Should().Be(true);
+    }
+
+    [Fact]
+    public void AbsentNamesStayCorrectAfterADigitLeadingDefineDeopts()
+    {
+        // An integer-like key cannot be expressed in the shape-then-additions own-key order, so defining one
+        // drops the object back to the ordinary dictionary. Every answer has to survive the transition.
+        var engine = EngineWithPrototype(out var prototype);
+
+        engine.Execute("Object.defineProperty(proto, '0', { value: 1, configurable: true });");
+        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+
+        engine.Evaluate("proto.hasOwnProperty('0')").Should().Be(true);
+        engine.Evaluate("'0' in proto").Should().Be(true);
+        engine.Evaluate("proto[0]").Should().Be(1);
+
+        engine.Evaluate("proto.hasOwnProperty('nope')").Should().Be(false);
+        engine.Evaluate("'nope' in proto").Should().Be(false);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, 'nope')").Should().Be(JsValue.Undefined);
+
+        engine.Evaluate("proto.greet('x')").Should().Be("hello x");
+        engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
     }
 
     [Fact]

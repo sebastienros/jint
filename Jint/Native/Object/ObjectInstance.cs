@@ -1178,12 +1178,27 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 : OwnPropertyProbe.Missing;
         }
 
-        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty
-            && property is JsString declaredName
-            && TryProbeBuiltinShapeSlot(declaredName.ToString(), out var slotProbe))
+        if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty && property is JsString declaredName)
         {
-            AssertBuiltinShapeProbeAgrees(this, property, slotProbe);
-            return slotProbe;
+            if (TryProbeBuiltinShapeSlot(declaredName.ToString(), out var slotProbe, out var nameDeclared))
+            {
+                AssertBuiltinShapeProbeAgrees(this, property, slotProbe);
+                return slotProbe;
+            }
+
+            // Fast miss. The name is not in the shared layout index, no hybrid addition can own it (the side
+            // dictionary is still empty) and this type declares nothing ahead of the layout, so nothing on
+            // this object can own it either — the answer is already final and the confirming virtual
+            // GetOwnProperty below would only redo the key conversion and the same index lookup. A DECLARED
+            // name that merely could not be answered here (an unmaterialized Factory slot) reports
+            // nameDeclared and keeps falling through, where GetOwnProperty materializes it and answers.
+            if (!nameDeclared
+                && _properties is null
+                && (_type & InternalTypes.BuiltinShapeIndexAuthoritative) != InternalTypes.Empty)
+            {
+                AssertBuiltinShapeProbeAgrees(this, property, OwnPropertyProbe.Missing);
+                return OwnPropertyProbe.Missing;
+            }
         }
 
         var desc = GetOwnProperty(property);
@@ -1209,23 +1224,31 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <see cref="BuiltinShape.FixedSlotsAllNonEnumerable"/> gives up on one.
     /// </para>
     /// <para>
-    /// It also declines for any name the shape does not declare, rather than reporting it missing. The name
-    /// may be a post-initialization addition in the side dictionary, and — since this runs on the base class
-    /// — it may equally be one a subclass resolves ahead of the shared layout: a <c>Function</c>-derived
-    /// shaped host answers <c>length</c>/<c>name</c>/<c>prototype</c> from its own fields, and an
-    /// array-backed one answers indices from its element storage. Declining routes those to the virtual
-    /// <see cref="GetOwnProperty"/>, which is what every shaped host did before this lane existed.
+    /// It declines for a name the shape does not declare too, but distinguishes that case through
+    /// <paramref name="nameDeclared"/>: <c>false</c> means the shared layout index genuinely has no such
+    /// slot, <c>true</c> means the name IS declared and merely could not be answered from the layout alone
+    /// (the Factory case above). Only the first lets the caller answer an authoritative miss, and only for
+    /// an object that qualifies — the two other ways a shaped host can own a string key the index does not
+    /// list are excluded by the caller's gate, not here: a post-initialization addition lives in the side
+    /// dictionary, and — since this runs on the base class — a subclass may resolve names ahead of the
+    /// shared layout, as a <c>Function</c>-derived shaped host does for
+    /// <c>length</c>/<c>name</c>/<c>prototype</c> and an array-backed one does for indices. Declining
+    /// otherwise routes the name to the virtual <see cref="GetOwnProperty"/>, which is what every shaped
+    /// host did before this lane existed.
     /// </para>
     /// </summary>
-    private bool TryProbeBuiltinShapeSlot(string name, out OwnPropertyProbe probe)
+    private bool TryProbeBuiltinShapeSlot(string name, out OwnPropertyProbe probe, out bool nameDeclared)
     {
         var shaped = Unsafe.As<IBuiltinShaped>(this);
         var shape = shaped.BuiltinShape;
         if (!shape.Index.TryGetValue(name, out var slot))
         {
             probe = OwnPropertyProbe.Missing;
+            nameDeclared = false;
             return false;
         }
+
+        nameDeclared = true;
 
         // An alias carries no flags of its own: materializing it hands back the descriptor of the slot it
         // shares, so that slot's state is the one to read.
@@ -1408,7 +1431,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             }
         }
 
-        _type &= ~InternalTypes.BuiltinShapeMode;
+        _type &= ~(InternalTypes.BuiltinShapeMode | InternalTypes.BuiltinShapeIndexAuthoritative);
         shaped.BuiltinDescriptors = null;
         SetProperties(properties); // sets _properties, bumps version (symbols stay in _symbols)
     }
@@ -1457,8 +1480,26 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         var shaped = Unsafe.As<IBuiltinShaped>(this);
         shaped.BuiltinDescriptors = (PropertyDescriptor?[]) shaped.BuiltinShape.ConstTemplate.Clone();
-        _type |= InternalTypes.BuiltinShapeMode;
+        _type |= BuiltinShapeModeBits();
     }
+
+    /// <summary>
+    /// The <c>_type</c> bits an object takes on when it enters built-in-shape storage. Besides
+    /// <see cref="InternalTypes.BuiltinShapeMode"/> this derives
+    /// <see cref="InternalTypes.BuiltinShapeIndexAuthoritative"/>, which gates the fast-miss lane in
+    /// <see cref="ProbeOwnProperty"/>: a type overriding <see cref="GetInitialOwnStringPropertyKeys"/>
+    /// resolves string names from its own fields ahead of the shared layout — <c>Function</c>'s
+    /// <c>length</c>/<c>name</c>/<c>prototype</c>, <c>StringInstance</c>'s indices — so a layout-index miss
+    /// there says nothing about whether the name is an own property, and such a type must not answer one.
+    /// Everything else leaves the layout index and the hybrid side dictionary as the only declarers of a
+    /// string key on the object. Asking is free: both overrides are sealed iterator methods, and an iterator
+    /// that is never enumerated runs none of its body.
+    /// </summary>
+    internal InternalTypes BuiltinShapeModeBits()
+        => InternalTypes.BuiltinShapeMode
+           | (ReferenceEquals(GetInitialOwnStringPropertyKeys(), System.Linq.Enumerable.Empty<JsValue>())
+               ? InternalTypes.BuiltinShapeIndexAuthoritative
+               : InternalTypes.Empty);
 
     // Fill a per-realm instance-property slot (reserved via BuiltinShape.Builder.Instance) with its value
     // for this realm. Called from generated CreateProperties_Generated after InitializeBuiltinShape.

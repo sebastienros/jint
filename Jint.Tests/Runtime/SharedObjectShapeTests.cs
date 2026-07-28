@@ -292,41 +292,72 @@ public class SharedObjectShapeTests
             }
         }
 
-        // A fresh engine reaches 122 shared-layout objects carrying 1154 own string keys between them, each
-        // compared once untouched and once materialized. The floors are deliberately loose — they exist to
-        // fail if the sweep ever stops reaching the built-ins, not to track the exact intrinsic count.
+        // A fresh engine reaches 122 shared-layout objects carrying 1154 own string keys between them, plus
+        // the nine tricky names probed on each of those objects — 2252 comparisons — each compared once
+        // untouched and once materialized. The floors are deliberately loose: they exist to fail if the sweep
+        // ever stops reaching the built-ins, not to track the exact intrinsic count.
         shapedChecked.Should().BeGreaterThan(100, "the sweep must keep reaching the engine's shared-layout built-ins");
-        keysChecked.Should().BeGreaterThan(1000);
+        keysChecked.Should().BeGreaterThan(2000);
 
         static int AssertProbesAgree(ObjectInstance target)
         {
             var checkedKeys = 0;
             foreach (var key in target.GetOwnPropertyKeys(Jint.Runtime.Types.String))
             {
-                var probe = target.ProbeOwnProperty(key);
-                var descriptor = target.GetOwnProperty(key);
+                AssertOneAgrees(target, key);
+                checkedKeys++;
+            }
 
-                OwnPropertyProbe expected;
-                if (ReferenceEquals(descriptor, Jint.Runtime.Descriptors.PropertyDescriptor.Undefined))
-                {
-                    expected = OwnPropertyProbe.Missing;
-                }
-                else if (descriptor.Enumerable)
-                {
-                    expected = OwnPropertyProbe.Enumerable;
-                }
-                else
-                {
-                    expected = OwnPropertyProbe.NonEnumerable;
-                }
-
-                probe.Should().Be(expected, $"{target.GetType().Name}.{key} must probe as its descriptor reports");
+            // ...and the other half of the contract: a name the object does NOT declare. The probe answers
+            // an absent name from the shared layout index alone, so every shaped type has to be swept for
+            // one that would disagree — a subclass resolving string names ahead of the layout, or a slot
+            // the layout cannot answer without materializing it. Several of these names ARE declared on
+            // some of the objects the sweep reaches (Function.prototype declares length/name, every
+            // prototype declares constructor and toString); the assertion is the agreement, not the answer.
+            foreach (var name in TrickyProbeNames)
+            {
+                AssertOneAgrees(target, JsString.Create(name));
                 checkedKeys++;
             }
 
             return checkedKeys;
         }
+
+        static void AssertOneAgrees(ObjectInstance target, JsValue key)
+        {
+            // Probe FIRST: GetOwnProperty may materialize the slot, which would hide a lane that only
+            // answers correctly once a live descriptor exists.
+            var probe = target.ProbeOwnProperty(key);
+            var descriptor = target.GetOwnProperty(key);
+
+            OwnPropertyProbe expected;
+            if (ReferenceEquals(descriptor, Jint.Runtime.Descriptors.PropertyDescriptor.Undefined))
+            {
+                expected = OwnPropertyProbe.Missing;
+            }
+            else if (descriptor.Enumerable)
+            {
+                expected = OwnPropertyProbe.Enumerable;
+            }
+            else
+            {
+                expected = OwnPropertyProbe.NonEnumerable;
+            }
+
+            probe.Should().Be(expected, $"{target.GetType().Name}.{key} must probe as its descriptor reports");
+        }
     }
+
+    /// <summary>
+    /// Names the shaped-object sweep probes on every object besides its own keys: one that nothing can
+    /// possibly declare, the five that a <c>Function</c>-derived or otherwise field-backed host answers
+    /// ahead of its shared layout, and two integer-like ones an array-backed host answers from element
+    /// storage.
+    /// </summary>
+    private static readonly string[] TrickyProbeNames =
+    [
+        "__definitelyAbsentSweepName__", "length", "name", "prototype", "toString", "constructor", "hasOwnProperty", "0", "42",
+    ];
 
     private sealed class ReferenceComparer : IEqualityComparer<ObjectInstance>
     {
