@@ -24,7 +24,7 @@ namespace Jint.Benchmark;
 /// as absolute per-document figures.
 /// </para>
 ///
-/// <para><b>The three lanes</b></para>
+/// <para><b>The lanes</b></para>
 /// <list type="bullet">
 /// <item><description>
 /// <see cref="BuildPrototypes"/> — per-engine setup, the headline. <see cref="HostPrototypeKind.Dictionary"/>
@@ -48,6 +48,18 @@ namespace Jint.Benchmark;
 /// instances claim inherited members as their own can never reach this lane whatever its prototypes look
 /// like, so measuring against such a receiver would credit this feature for a fix that is not its own.
 /// </description></item>
+/// <item><description>
+/// <see cref="AbsentNameMissOverChain"/> — the absent-name walk, over a depth-<see cref="ChainDepth"/>
+/// prototype chain built the way a DOM binding stacks its interfaces. A Web IDL named-property check
+/// (<c>el.attributes['nope']</c>) asks for a name nothing declares, and the question is refused once per
+/// level before the chain as a whole can answer it, so this is where a per-level cost multiplies. The
+/// <c>in</c> operator drives exactly that walk.
+/// </description></item>
+/// <item><description>
+/// <see cref="DeepHitOverChain"/> — the same loop aimed at a member declared only on the ROOT of the chain,
+/// so it pays every level's refusal and then one hit. The hit-path control: whatever the miss lane costs,
+/// this row must not move.
+/// </description></item>
 /// </list>
 ///
 /// <para>
@@ -67,6 +79,9 @@ public class HostPrototypeShapeBenchmark
     private const int WidePrototypeMembers = 292;
     private const int TouchedPrototypes = 5;
     private const int SteadyStateInstances = 50;
+    private const int ChainDepth = 4;
+    private const int ChainMembersPerLevel = 24;
+    private const int ChainLoopIterations = 20000;
 
     private static readonly JsObjectShape[] _shapes = BuildShapes(PrototypeCount, MembersPerPrototype);
     private static readonly JsObjectShape _wideShape = BuildShape("Wide", WidePrototypeMembers);
@@ -74,9 +89,14 @@ public class HostPrototypeShapeBenchmark
     private static readonly MemberTable[] _tables = BuildTables(PrototypeCount, MembersPerPrototype);
     private static readonly MemberTable _wideTable = new("Wide", WidePrototypeMembers);
 
+    private static readonly MemberTable[] _chainTables = BuildChainTables();
+    private static readonly JsObjectShape[] _chainShapes = BuildChainShapes();
+
     private Engine _readEngine = null!;
     private Prepared<Script> _readLoop;
     private Prepared<Script> _touchScript;
+    private Prepared<Script> _absentMissLoop;
+    private Prepared<Script> _deepHitLoop;
 
     /// <summary>How the per-engine prototype objects are built.</summary>
     [Params(HostPrototypeKind.Dictionary, HostPrototypeKind.Shape)]
@@ -136,6 +156,34 @@ public class HostPrototypeShapeBenchmark
 
         _readEngine.SetValue("items", new JsArray(_readEngine, items));
         _readEngine.Evaluate(_readLoop);
+
+        // The chain lanes: a depth-ChainDepth prototype chain in the same engine, with an ordinary script
+        // object in front of it as the receiver. BuildChain asserts every level's representation.
+        var deepestMember = _chainTables[0].Members[0].Name;
+        _absentMissLoop = Engine.PrepareScript($$"""
+            (function (obj) {
+              var hits = 0;
+              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
+                hits += ('__absent__' in obj) ? 1 : 0;
+              }
+              return hits;
+            })(chainObj)
+            """);
+
+        _deepHitLoop = Engine.PrepareScript($$"""
+            (function (obj) {
+              var hits = 0;
+              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
+                hits += ('{{deepestMember}}' in obj) ? 1 : 0;
+              }
+              return hits;
+            })(chainObj)
+            """);
+
+        _readEngine.SetValue("chainLeaf", BuildChain(_readEngine, PrototypeKind));
+        _readEngine.Execute("var chainObj = Object.create(chainLeaf);");
+        _readEngine.Evaluate(_absentMissLoop);
+        _readEngine.Evaluate(_deepHitLoop);
     }
 
     /// <summary>Lane A: everything a fresh document pays before a single line of script runs.</summary>
@@ -171,6 +219,84 @@ public class HostPrototypeShapeBenchmark
     /// <summary>Lane C: warmed inherited reads and calls through a correct host instance.</summary>
     [Benchmark]
     public JsValue SteadyStateReads() => _readEngine.Evaluate(_readLoop);
+
+    /// <summary>Lane D: a name nothing on the chain declares, refused once per prototype level, in a loop.</summary>
+    [Benchmark]
+    public JsValue AbsentNameMissOverChain() => _readEngine.Evaluate(_absentMissLoop);
+
+    /// <summary>Lane E: the same loop resolving on the chain's deepest level — the hit-path control.</summary>
+    [Benchmark]
+    public JsValue DeepHitOverChain() => _readEngine.Evaluate(_deepHitLoop);
+
+    /// <summary>
+    /// Builds the depth-<see cref="ChainDepth"/> prototype chain both chain lanes walk and returns its leaf.
+    /// The root chains to <c>Object.prototype</c>, exactly as the flat prototypes do, so the walk ends where a
+    /// real one does. Each level's representation is asserted after a forcing touch — engagement is asserted,
+    /// never inferred from timing: a shaped level that silently stopped being shaped would still run the row
+    /// and quietly measure the dictionary path.
+    /// </summary>
+    private static ObjectInstance BuildChain(Engine engine, HostPrototypeKind kind)
+    {
+        var expected = kind == HostPrototypeKind.Shape
+            ? ObjectRepresentation.SharedBuiltinLayout
+            : ObjectRepresentation.Dictionary;
+
+        ObjectInstance? previous = null;
+        for (var i = 0; i < ChainDepth; i++)
+        {
+            ObjectInstance level;
+            if (kind == HostPrototypeKind.Shape)
+            {
+                level = previous is null
+                    ? _chainShapes[i].Instantiate(engine)
+                    : _chainShapes[i].Instantiate(engine, previous);
+            }
+            else
+            {
+                level = BuildDictionaryPrototype(engine, _chainTables[i]);
+                if (previous is not null)
+                {
+                    level.Prototype = previous;
+                }
+            }
+
+            // The representation settles on first touch, so force one before asking.
+            level.Get(_chainTables[i].Members[0].Name);
+            var representation = engine.Advanced.GetObjectRepresentation(level);
+            if (representation != expected)
+            {
+                throw new InvalidOperationException(
+                    $"{kind} chain level {i} landed in the {representation} representation, expected {expected}.");
+            }
+
+            previous = level;
+        }
+
+        return previous!;
+    }
+
+    private static MemberTable[] BuildChainTables()
+    {
+        var tables = new MemberTable[ChainDepth];
+        for (var i = 0; i < ChainDepth; i++)
+        {
+            var level = i.ToString(CultureInfo.InvariantCulture);
+            tables[i] = new MemberTable("ChainLevel" + level, ChainMembersPerLevel, "l" + level + "_");
+        }
+
+        return tables;
+    }
+
+    private static JsObjectShape[] BuildChainShapes()
+    {
+        var shapes = new JsObjectShape[ChainDepth];
+        for (var i = 0; i < ChainDepth; i++)
+        {
+            shapes[i] = BuildShapeFrom(_chainTables[i]);
+        }
+
+        return shapes;
+    }
 
     private static ObjectInstance BuildPrototype(Engine engine, HostPrototypeKind kind, int index)
         => kind == HostPrototypeKind.Shape
@@ -244,9 +370,11 @@ public class HostPrototypeShapeBenchmark
     /// The shape a Web IDL binding generator would emit once per interface: declared from the same member
     /// table the dictionary lane walks, so the two lanes present identical members in identical order.
     /// </summary>
-    private static JsObjectShape BuildShape(string name, int memberCount)
+    private static JsObjectShape BuildShape(string name, int memberCount) => BuildShapeFrom(new MemberTable(name, memberCount));
+
+    private static JsObjectShape BuildShapeFrom(MemberTable table)
     {
-        var table = new MemberTable(name, memberCount);
+        var name = table.Name;
         var builder = new JsObjectShape.Builder();
         foreach (var member in table.Members)
         {
@@ -317,7 +445,11 @@ internal enum MemberKind
 /// </summary>
 internal sealed class MemberTable
 {
-    internal MemberTable(string name, int memberCount)
+    /// <param name="memberPrefix">
+    /// Prepended to every member name. Empty for the flat lanes; the chain lanes give each level its own
+    /// prefix so no level shadows another and a lookup can be aimed at a chosen depth.
+    /// </param>
+    internal MemberTable(string name, int memberCount, string memberPrefix = "")
     {
         Name = name;
         var members = new Member[memberCount];
@@ -326,16 +458,16 @@ internal sealed class MemberTable
             var suffix = i.ToString(CultureInfo.InvariantCulture);
             members[i] = (i % 6) switch
             {
-                0 => new Member("CONST_" + suffix, MemberKind.Constant, null, null, JsNumber.Create(i)),
-                1 or 2 => new Member("attr_" + suffix, MemberKind.Attribute, ReadAttribute, WriteAttribute, null),
-                _ => new Member("op_" + suffix, MemberKind.Operation, RunOperation, null, null),
+                0 => new Member(memberPrefix + "CONST_" + suffix, MemberKind.Constant, null, null, JsNumber.Create(i)),
+                1 or 2 => new Member(memberPrefix + "attr_" + suffix, MemberKind.Attribute, ReadAttribute, WriteAttribute, null),
+                _ => new Member(memberPrefix + "op_" + suffix, MemberKind.Operation, RunOperation, null, null),
             };
         }
 
         // Name the first member of each kind predictably so the benchmark scripts can address them.
-        members[0] = new Member("CONST_0", MemberKind.Constant, null, null, JsNumber.Create(1));
-        members[1] = new Member("attr_0", MemberKind.Attribute, ReadAttribute, WriteAttribute, null);
-        members[3] = new Member("op_0", MemberKind.Operation, RunOperation, null, null);
+        members[0] = new Member(memberPrefix + "CONST_0", MemberKind.Constant, null, null, JsNumber.Create(1));
+        members[1] = new Member(memberPrefix + "attr_0", MemberKind.Attribute, ReadAttribute, WriteAttribute, null);
+        members[3] = new Member(memberPrefix + "op_0", MemberKind.Operation, RunOperation, null, null);
 
         Members = members;
     }
