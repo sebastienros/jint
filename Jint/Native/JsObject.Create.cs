@@ -1,5 +1,6 @@
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native;
 
@@ -31,11 +32,47 @@ public sealed partial class JsObject
     /// <param name="layout">The property layout; see <see cref="JsObjectLayout"/>.</param>
     /// <param name="values">
     /// One value per layout property, in layout order. A <c>null</c> entry is stored as
-    /// <see cref="JsValue.Undefined"/>.
+    /// <see cref="JsValue.Undefined"/> — except at a property the layout declared through
+    /// <see cref="JsObjectLayout.Builder.AddLazy"/>, where <c>null</c> is required and the layout supplies
+    /// the value. Use the
+    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue}, object)"/> overload to give those
+    /// factories per-object state; this one passes <c>null</c>.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="engine"/> or <paramref name="layout"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="values"/> does not have exactly <see cref="JsObjectLayout.Count"/> entries.</exception>
     public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue> values)
+        => Create(engine, layout, values, lazySlotState: null);
+
+    /// <summary>
+    /// Creates an object with <paramref name="layout"/>'s properties exactly as
+    /// <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/> does, additionally handing
+    /// <paramref name="lazySlotState"/> to the factories of any properties the layout declared through
+    /// <see cref="JsObjectLayout.Builder.AddLazy"/>.
+    /// <para>
+    /// The result is indistinguishable from the equivalent object literal — same own-key order, same
+    /// configurable/enumerable/writable data properties, same hidden class as every other object built from
+    /// this layout — <em>except</em> for when a lazy property's value comes into existence: on the first read
+    /// that observes it, not here. Nothing in this call runs a factory.
+    /// </para>
+    /// </summary>
+    /// <param name="engine">The engine the object belongs to.</param>
+    /// <param name="layout">The property layout; see <see cref="JsObjectLayout"/>.</param>
+    /// <param name="values">
+    /// One value per layout property, in layout order. A <c>null</c> entry for an ordinary property is stored
+    /// as <see cref="JsValue.Undefined"/>; the entry for a lazy property MUST be <c>null</c>, since the
+    /// layout supplies that value.
+    /// </param>
+    /// <param name="lazySlotState">
+    /// The per-object state passed to every lazy factory of this object — typically the host record the
+    /// object projects, so several lazy properties can read different parts of one payload. Unlike the
+    /// layout, it is per object and may be engine-affine. Ignored by an all-eager layout.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="engine"/> or <paramref name="layout"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="values"/> does not have exactly <see cref="JsObjectLayout.Count"/> entries, or a
+    /// non-<c>null</c> value was given for a lazy property.
+    /// </exception>
+    public static JsObject Create(Engine engine, JsObjectLayout layout, ReadOnlySpan<JsValue> values, object? lazySlotState)
     {
         if (engine is null)
         {
@@ -55,6 +92,22 @@ public sealed partial class JsObject
                 nameof(values));
         }
 
+        var hasLazySlots = layout.HasLazySlots;
+        if (hasLazySlots)
+        {
+            // Catch the mistake — "I passed the parsed body as well" — at creation rather than letting the
+            // value be silently shadowed by the factory's result, or vice versa.
+            for (var i = 0; i < keys.Length; i++)
+            {
+                if (values[i] is not null && layout.GetFactory(i) is not null)
+                {
+                    Throw.ArgumentException(
+                        $"The value at index {i} ('{keys[i].Name}') must be null: that property is produced by the layout's lazy factory.",
+                        nameof(values));
+                }
+            }
+        }
+
         var obj = new JsObject(engine);
 
         // The JsObject constructor already anchored the object to the active realm's Object.prototype;
@@ -64,9 +117,19 @@ public sealed partial class JsObject
         {
             // No prototype (only reachable while the realm is still being built) or the engine's host
             // transition budget is spent: build the same object in the ordinary dictionary representation.
+            // A lazy property becomes the same descriptor the shaped object's deopt would have produced, so
+            // the fallback is behaviorally identical — including that its factory has still not run.
+            var fallbackSentinel = hasLazySlots ? new UnmaterializedSlots(layout, lazySlotState) : null;
             for (var i = 0; i < keys.Length; i++)
             {
-                obj.FastSetDataProperty(keys[i].Name, values[i] ?? Undefined);
+                if (fallbackSentinel is not null && layout.GetFactory(i) is not null)
+                {
+                    obj.FastSetProperty(keys[i].Name, new LazySlotPropertyDescriptor(obj, fallbackSentinel, i));
+                }
+                else
+                {
+                    obj.FastSetDataProperty(keys[i].Name, values[i] ?? Undefined);
+                }
             }
 
             return obj;
@@ -78,6 +141,13 @@ public sealed partial class JsObject
         for (var i = 0; i < values.Length; i++)
         {
             obj.SetSlot(i, values[i] ?? Undefined);
+        }
+
+        if (hasLazySlots)
+        {
+            // One sentinel shared by every lazy slot, so an object with four of them costs one extra
+            // allocation, not four closures.
+            obj.InstallLazySlots(layout, lazySlotState);
         }
 
         return obj;
@@ -103,6 +173,12 @@ public sealed partial class JsObject
     /// (the object-used-as-a-hash-map pattern). Each engine also bounds how many new layouts host code may
     /// intern over its lifetime; past that, this method keeps working and simply returns dictionary-mode
     /// objects.
+    /// <para>
+    /// Entries are always eager. Lazily-produced properties are declared on a layout
+    /// (<see cref="JsObjectLayout.Builder.AddLazy"/>), and a key set only known at runtime has nowhere to
+    /// declare them; build such an object with <see cref="Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue}, object)"/>
+    /// instead, or install a <see cref="Jint.Runtime.Descriptors.PropertyFlag.CustomJsValue"/> descriptor.
+    /// </para>
     /// </remarks>
     /// <param name="engine">The engine the object belongs to.</param>
     /// <param name="entries">The property names and values, in the order they should appear.</param>

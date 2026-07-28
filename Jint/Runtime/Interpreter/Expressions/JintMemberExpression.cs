@@ -410,7 +410,12 @@ internal sealed class JintMemberExpression : JintExpression
             if (baseValue.IsObject())
             {
                 var baseObject = baseValue.AsObjectNoTypeCheck();
-                if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+                // One AND against the pair, then two compares against it. Testing the pair rather than
+                // ShapeMode alone is what keeps the plain arm below identical to what it was before lazy
+                // layout slots existed: an object with no lazy slots takes the same single AND+CMP it always
+                // did, and only an object that can actually hold an unmaterialized slot pays the checked read.
+                var shapeFlags = baseObject._type & (InternalTypes.ShapeMode | InternalTypes.HasLazySlots);
+                if (shapeFlags == InternalTypes.ShapeMode)
                 {
                     // Shape-keyed read: a matching shape proves the slot index; read it straight out of
                     // the slot array (no descriptor, no dictionary). Misses re-resolve the slot for the
@@ -430,6 +435,33 @@ internal sealed class JintMemberExpression : JintExpression
                     }
 
                     // Slot miss ⇒ no own string property (any non-shapeable property would have deopted).
+                    return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
+                }
+
+                if (shapeFlags == (InternalTypes.ShapeMode | InternalTypes.HasLazySlots))
+                {
+                    // Same cache, same slot indices, one checked read: a slot still holding an
+                    // unmaterialized lazy layout slot runs its factory here and memoizes into the slot.
+                    // _cachedShape/_cachedShapeSlot are deliberately SHARED with the plain arm: a shape maps
+                    // names to slots identically whatever the object's slots currently hold — a lazy layout's
+                    // shape is the very shape an object literal of the same keys interns — and an object
+                    // carrying the flag can never enter the plain arm, so a hit resolved by either arm is
+                    // valid for the other. Once every lazy slot is materialized the flag clears and the
+                    // object is served by the plain arm, indistinguishable from a literal.
+                    var lazyObj = Unsafe.As<JsObject>(baseObject);
+                    var lazyShape = lazyObj.ShapeOf;
+                    if (ReferenceEquals(lazyShape, _cachedShape))
+                    {
+                        return lazyObj.GetSlotForRead(_cachedShapeSlot);
+                    }
+
+                    if (lazyShape.TryGetSlot(determinedProperty.ToString(), out var lazySlot))
+                    {
+                        _cachedShape = lazyShape;
+                        _cachedShapeSlot = lazySlot;
+                        return lazyObj.GetSlotForRead(lazySlot);
+                    }
+
                     return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
                 }
 
@@ -651,7 +683,10 @@ internal sealed class JintMemberExpression : JintExpression
             var baseObject = baseValue.AsObjectNoTypeCheck();
             thisObject = baseObject;
 
-            if ((baseObject._type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+            // See the read lane: testing the pair keeps the plain arm byte-equivalent, and the sibling arm
+            // below serves the objects that can hold an unmaterialized lazy layout slot.
+            var shapeFlags = baseObject._type & (InternalTypes.ShapeMode | InternalTypes.HasLazySlots);
+            if (shapeFlags == InternalTypes.ShapeMode)
             {
                 var shapeObj = Unsafe.As<JsObject>(baseObject);
                 var shape = shapeObj.ShapeOf;
@@ -668,6 +703,28 @@ internal sealed class JintMemberExpression : JintExpression
                 }
 
                 // Slot miss ⇒ no own string property (any non-shapeable property would have deopted).
+                return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
+            }
+
+            if (shapeFlags == (InternalTypes.ShapeMode | InternalTypes.HasLazySlots))
+            {
+                // A member call whose callee is a lazy member (`e.body.toString()` resolves the base through
+                // the read lane; `e.decode()` resolves the callee here) materializes it like any other value
+                // observation. Cache fields shared with the plain arm — see the read lane's note.
+                var lazyObj = Unsafe.As<JsObject>(baseObject);
+                var lazyShape = lazyObj.ShapeOf;
+                if (ReferenceEquals(lazyShape, _cachedShape))
+                {
+                    return lazyObj.GetSlotForRead(_cachedShapeSlot);
+                }
+
+                if (lazyShape.TryGetSlot(determinedProperty.ToString(), out var lazySlot))
+                {
+                    _cachedShape = lazyShape;
+                    _cachedShapeSlot = lazySlot;
+                    return lazyObj.GetSlotForRead(lazySlot);
+                }
+
                 return ReadAfterOwnMiss(baseObject, determinedProperty, ownMissConfirmed: true);
             }
 

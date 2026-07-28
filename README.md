@@ -186,7 +186,11 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
 - For fixed-shape records, do not subclass at all: `JsObject.Create(engine, layout, values)` and
   `JsObject.CreateFromEntries` build straight into the hidden-class representation, so every object sharing a
   `JsObjectLayout` shares one hidden class and a script reading a batch of them keeps a monomorphic inline
-  cache.
+  cache. A record with expensive members most items never have read — a body that must be parsed, a field that
+  must be decoded — declares them with `JsObjectLayout.CreateBuilder().AddLazy(name, factory)` and passes the
+  raw payload as the `lazySlotState` argument of `JsObject.Create`: the factory runs on the first read that
+  observes that member's value and the result is memoized on the object, while enumerating keys, `in` and
+  `hasOwnProperty` never run it. The object stays a hidden-class object throughout.
 - For CLR objects, `engine.SetValue(name, obj)` wraps them in `ObjectWrapper`, whose member resolution and
   compiled accessors are cached process-wide on the `TypeResolver`.
 - For the *prototypes* those objects sit behind, declare the members once per process with `JsObjectShape` and

@@ -892,7 +892,8 @@ public sealed class JsonSerializer
             JsValue member;
             if (ReferenceEquals(value.ShapeOf, shape))
             {
-                member = value.GetSlot(i);
+                // Serializing a member is a value observation, so a lazy layout slot materializes here.
+                member = value.GetSlotForRead(i);
                 if (member._type > InternalTypes.Integer || !_replacerFunction.IsUndefined())
                 {
                     // the key is observable (toJSON/replacer argument); materialize it only now

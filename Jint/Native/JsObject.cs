@@ -108,13 +108,16 @@ public sealed partial class JsObject : ObjectInstance
     }
 
     /// <summary>Drops shape mode back to dictionary mode's starting state (clears the shape and slot
-    /// storage and the <see cref="InternalTypes.ShapeMode"/> flag). Callers must populate <c>_properties</c>.</summary>
+    /// storage and the <see cref="InternalTypes.ShapeMode"/> flag). Callers must populate <c>_properties</c>.
+    /// <see cref="InternalTypes.HasLazySlots"/> goes with it: nothing can hold a sentinel once the slots are
+    /// gone, and any still-unmaterialized slot is carried into the dictionary by the caller as a lazy
+    /// descriptor instead.</summary>
     internal void ClearShape()
     {
         _shape = null;
         _overflow = null;
         _inline = default; // release in-object slot references so they don't outlive shape mode
-        _type &= ~(InternalTypes.ShapeMode | InternalTypes.ShapeBuilding);
+        _type &= ~(InternalTypes.ShapeMode | InternalTypes.ShapeBuilding | InternalTypes.HasLazySlots);
     }
 
     /// <summary>
@@ -223,7 +226,14 @@ public sealed partial class JsObject : ObjectInstance
         // enumerable ones, so decline and let the caller stream them), and share this object's prototype.
         // The interned shape is rooted per prototype (Engine.GetEmptyShape), so a shape whose root belongs
         // to a different prototype must never be installed here.
-        if ((source._type & InternalTypes.ShapeMode) == InternalTypes.Empty
+        //
+        // A source with lazy layout slots is also refused: the raw slot copy below would clone the
+        // unmaterialized sentinel into the target, so the factory would run once per derived object (or,
+        // after the source materialized, not at all) — CopyDataProperties reads each source value exactly
+        // once, which is what the streaming fallback does. Conservative in the harmless direction: an object
+        // whose sentinels were all overwritten by writes still carries the flag until something materializes,
+        // and merely streams instead of adopting.
+        if ((source._type & (InternalTypes.ShapeMode | InternalTypes.HasLazySlots)) != InternalTypes.ShapeMode
             || source._symbols is not null
             || !ReferenceEquals(source._prototype, _prototype))
         {

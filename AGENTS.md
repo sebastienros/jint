@@ -120,7 +120,7 @@ Jint is not only an engine to work on, it is an engine that gets **embedded**. I
 | `Constraint` + `IsAmortizable` | `Jint/IConstraint.cs` |
 | `ProxyHandler` — public abstract class, 13 virtual traps (the ECMAScript trap set), `null` meaning "forward to target" | `Jint/Runtime/Interop/ProxyHandler.cs` |
 | `ObjectWrapper.GetPropertyDescriptor(Engine, object, MemberInfo)` — public **static** | `Jint/Runtime/Interop/ObjectWrapper.cs` |
-| `JsObjectLayout`, `JsObject.Create`, `JsObject.CreateFromEntries` | `Jint/Native/` |
+| `JsObjectLayout` + `JsObjectLayout.CreateBuilder`/`Builder.Add`/`Builder.AddLazy` + `LazySlotFactory`, `JsObject.Create`, `JsObject.CreateFromEntries` | `Jint/Native/` |
 | `JsObjectShape` + `JsObjectShape.Builder` + `JsObjectShape.Set/GetHostState` | `Jint/Native/JsObjectShape.cs` |
 | `Options.AddLazyGlobal` — extension method on `OptionsExtensions` | `Jint/Options.Extensions.cs` |
 | `ReferencedGlobals` + `Prepared<T>.ReferencedGlobals` + `{Script,Module}PreparationOptions.CollectReferencedGlobals` | `Jint/ReferencedGlobals.cs`, `Jint/Prepared.cs`, `Jint/PreparationOptions.cs` |

@@ -85,7 +85,17 @@ internal enum InternalTypes
     // same answer — one probe and one discarded descriptor later. Orthogonal to the Ordinary/Exotic pair,
     // because what the hook answers (own property or not) does not depend on what Get does with the answer.
     OwnValueHook = 8388608,
+    // a shape-mode JsObject at least one of whose slots may still hold the UnmaterializedSlots sentinel —
+    // a lazy layout slot whose factory has not run yet (JsObjectLayout.Builder.AddLazy). Conservative in
+    // one direction only: set means "check the slot before handing its value out", clear means "no slot
+    // can hold a sentinel". Cleared when a materialization finds no sentinel left, and on deopt to
+    // dictionary mode; a raw write over a sentinel (which discards the factory, by design) does not
+    // bother clearing it, since the lazy read lane is correct for a fully-materialized object too.
+    // Implies ShapeMode. Exists so the hot shape read lanes can keep their single AND+CMP gate — they
+    // test the pair against ShapeMode, so an object with no lazy slots runs byte-identical code — and a
+    // sibling arm serves lazy objects through the checked JsObject.GetSlotForRead.
+    HasLazySlots = 16777216,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots
 }
