@@ -328,6 +328,34 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         _symbols?.Clear();
     }
 
+    /// <summary>
+    /// Enumerates this object's own properties as key/descriptor pairs. The base implementation yields the
+    /// stored string keys first, then the symbols; the string keys come out in storage order (slot order
+    /// when shaped, insertion order otherwise), which is not the specification's own-key order —
+    /// integer-like keys are not hoisted and sorted the way <see cref="GetOwnPropertyKeys"/> does it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Script-visible enumeration does not go through this method.</b> <c>Object.keys</c> /
+    /// <c>values</c> / <c>entries</c>, <c>for..in</c>, object spread and rest, <c>Object.assign</c>,
+    /// <c>JSON.stringify</c> and <see cref="Native.Json.JsonSerializer"/> all list keys with
+    /// <see cref="GetOwnPropertyKeys"/> and then filter them with
+    /// <see cref="ProbeOwnProperty"/> — neither of which consults <c>GetOwnProperties</c>. Overriding only
+    /// this method therefore leaves every one of those seeing whatever the base
+    /// <see cref="GetOwnPropertyKeys"/> reports, which for a host object projecting its properties from
+    /// native state is the engine's own (usually empty) property tables. A host that wants its properties
+    /// enumerable to script must override <see cref="GetOwnPropertyKeys"/>, and should override
+    /// <see cref="ProbeOwnProperty"/> alongside it so existence and enumerability are answered without
+    /// materializing a descriptor per key.
+    /// </para>
+    /// <para>
+    /// What does route through it: converting this object to a CLR value
+    /// (<see cref="JsValue.ToObject()"/> when <c>Options.Interop.CreateClrObject</c> is configured),
+    /// <c>GetSmallestIndex</c> on the array-like operation path, the debugger's binding-name enumeration
+    /// (<c>GlobalEnvironment</c> / <c>ObjectEnvironment</c>), and the debug view. Overrides in the box chain
+    /// to <c>base.GetOwnProperties()</c> to combine their exotic own properties with the stored ones.
+    /// </para>
+    /// </remarks>
     public virtual IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         EnsureInitialized();

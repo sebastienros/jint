@@ -55,6 +55,45 @@ public partial class Engine
         /// uses the shared built-in layout, which capture and restore handle in full fidelity.
         /// </para>
         /// </remarks>
+        /// <example>
+        /// The reuse shape: capture once at the end of construction, keep the snapshot in a field beside the
+        /// engine, and restore in a <c>finally</c> so an evaluation that throws cannot leave its globals
+        /// behind for the next one.
+        /// <code>
+        /// private readonly object _gate = new();
+        /// private readonly Engine _engine;
+        /// private readonly GlobalSnapshot _clean;
+        ///
+        /// public ScriptRunner(object host)
+        /// {
+        ///     _engine = new Engine();
+        ///     _engine.SetValue("host", host);                  // all configuration first
+        ///     _clean = _engine.Advanced.CaptureGlobalSnapshot();
+        /// }
+        ///
+        /// public object? Run(string script)
+        /// {
+        ///     lock (_gate)                                     // an Engine is single-threaded
+        ///     {
+        ///         try
+        ///         {
+        ///             return _engine.Evaluate(script).ToObject();
+        ///         }
+        ///         finally
+        ///         {
+        ///             _engine.Advanced.RestoreGlobalSnapshot(_clean);
+        ///         }
+        ///     }
+        /// }
+        /// </code>
+        /// The <c>finally</c> is the point: a script that throws still declared its globals, and restoring
+        /// only on the success path hands them to the next caller. The <c>ToObject()</c> is deliberate too —
+        /// returning CLR values means nothing the caller keeps depends on the engine still being in the state
+        /// that produced it. With the asynchronous entry points
+        /// (<c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c>) await the returned <c>Task</c> before
+        /// restoring; a restore attempted while one is outstanding throws
+        /// <see cref="InvalidOperationException"/> rather than silently restoring underneath it.
+        /// </example>
         /// <returns>An opaque snapshot for <see cref="RestoreGlobalSnapshot"/>.</returns>
         /// <exception cref="NotSupportedException">The realm's global object overrides one of the property
         /// storage virtuals (<c>GetOwnProperty</c>, <c>Set</c>, …), so it resolves own properties from state

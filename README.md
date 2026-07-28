@@ -248,7 +248,9 @@ capture once after your `SetValue` calls and module setup, then restore between 
 the global object's own properties, its prototype and extensibility, and the top-level `let`/`const`/`class`
 declarations (which nothing else can clear, so a script with a top-level `let` can otherwise only be run once
 per engine); it also clears the `RegExp.$1`-style legacy statics and resets the interop wrapper caches. The
-per-node caches above are deliberately kept, so the next run starts warm.
+per-node caches above are deliberately kept, so the next run starts warm. Keep the snapshot in a field beside
+the engine and put the restore in a `finally` — a script that throws still declared its globals, so restoring
+only on the success path hands them to the next caller.
 
 Choosing between this and `AddLazyGlobal` is a question of engine lifetime: a fresh-engine-per-evaluation
 host wants lazy globals (nothing to restore — the win is never building what the script does not read); a
