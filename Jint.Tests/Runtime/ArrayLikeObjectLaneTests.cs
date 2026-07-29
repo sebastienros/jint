@@ -165,12 +165,15 @@ public class ArrayLikeObjectLaneTests
 
         operations.HasProperty(1).Should().Be(true);
         host.HasIndexCalls.Should().Be(1);
-#if DEBUG
-        // the agreement verifier re-runs TryGetIndex once per probe
-        host.TryGetIndexCalls.Should().Be(1);
-#else
-        host.TryGetIndexCalls.Should().Be(0);
-#endif
+        if (HostContractVerificationSwitch.Enabled)
+        {
+            // the agreement verifier re-runs TryGetIndex once per probe
+            host.TryGetIndexCalls.Should().Be(1);
+        }
+        else
+        {
+            host.TryGetIndexCalls.Should().Be(0);
+        }
 
         var before = host.TryGetIndexCalls;
         var hasIndexBefore = host.HasIndexCalls;

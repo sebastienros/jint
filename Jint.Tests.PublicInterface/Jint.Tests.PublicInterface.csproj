@@ -32,6 +32,12 @@
   <ItemGroup>
     <!-- Shared so that a JsValue can be compared against a CLR value in both test projects. -->
     <Compile Include="..\Jint.Tests\JsValueAssertions.cs" Link="JsValueAssertions.cs" />
+    <!--
+      Shared so that both suites turn Jint's host-contract verifiers on the same way, and early enough: the
+      module initializer inside runs before any Jint type is touched, which is the only point at which the
+      AppContext switch can still be observed.
+    -->
+    <Compile Include="..\Jint.Tests\HostContractVerificationSwitch.cs" Link="HostContractVerificationSwitch.cs" />
   </ItemGroup>
 
   <ItemGroup>

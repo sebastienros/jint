@@ -25,6 +25,8 @@ dotnet test -c Release Jint.Tests.Test262/Jint.Tests.Test262.csproj
 
 Always build and test in **Release** — it is the faster feedback loop and the configuration performance claims are about. Never pass `--no-build`; always work against freshly compiled code. `TreatWarningsAsErrors` is on, so every warning must be fixed. Packages are managed centrally through `Directory.Packages.props`.
 
+Setting `JINT_HOST_CONTRACT_VERIFICATION=1` runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on in Release, which is the configuration an embedder is told to use; see [Host-contract verification](#host-contract-verification). It is a separate leg, not the default.
+
 ### Quick manual testing with Jint.Repl
 
 ```bash
@@ -156,6 +158,17 @@ Several extension points oblige a host to keep two answers consistent, and the e
 - **Release builds — including the shipped NuGet package**: on when the host sets the AppContext switch `Jint.EnableHostContractVerification` **before its first use of any Jint type**. The flag is read once at type initialization, so setting it later does nothing for the rest of the process.
 
 The point of the switch is reach: the verifiers used to be `[Conditional("DEBUG")]`, and Jint ships Release only, so reaching them meant cloning and building the repository. When adding a verifier, gate it with an explicit `if (HostContractVerification.Enabled)` **at the call site** — `[Conditional]` removes the call and a runtime flag cannot — and report through `HostContractVerification.Fail`, which throws. `Debug.Fail`/`Debug.Assert` are themselves `[Conditional("DEBUG")]` and would report a Release violation into nothing. Reserve them for in-box invariants an embedder can neither violate nor act on (`JintExpression.AssertEvaluationResult`, `FastCallShape`'s leaf-call guard, the pools' validation), which stay compile-time.
+
+**This repository dogfoods that recipe.** `Jint.Tests` and `Jint.Tests.PublicInterface` turn the switch on when the environment variable `JINT_HOST_CONTRACT_VERIFICATION` is `1` or `true`, so the whole host-test surface can be run in the exact configuration an embedder is told to use:
+
+```bash
+JINT_HOST_CONTRACT_VERIFICATION=1 dotnet test -c Release Jint.Tests/Jint.Tests.csproj
+JINT_HOST_CONTRACT_VERIFICATION=1 dotnet test -c Release Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj
+```
+
+The switch is set from a `[ModuleInitializer]` in `Jint.Tests/HostContractVerificationSwitch.cs` (compiled into both projects, and polyfilled on `net472` by the repository's global `PolySharp` reference), because that is the only hook early enough — a fixture, a collection or a class constructor all run after some Jint type has already been touched, and the gate is read once. `HostContractVerificationSwitch.Enabled` is what every verification-aware expectation selects on; `Jint.Tests.Runtime.HostContractVerificationSwitchTests` pins it against Jint's own gate, and `HostContractVerificationTests.TheHarnessSetsTheSwitchEarlyEnoughForJintToObserveIt` proves the same ordering from behaviour alone. The PR workflow runs it as the `linux - host-contract verification` job.
+
+The **default** Release run stays switch-off, deliberately. The probe-count and no-descriptor pins are the regression net for the claim that the gate folds to zero cost when nobody asked for it, and they can only mean that in a run where nobody did. So a test whose expectation differs between the two configurations selects it at runtime from `HostContractVerificationSwitch.Enabled` rather than on `#if DEBUG`, and a test that only makes sense in one of them says so with `[Fact(Skip = "…", SkipUnless = nameof(Verifying))]` (or `nameof(NotVerifying)`) rather than being compiled out. Every verified figure measured so far equals the Debug one — the extra probes are the verifier's own, and nothing else about the two builds differs on these paths.
 
 What is verified: `TryGetOwnPropertyValue` and `ProbeOwnProperty` against `GetOwnProperty`, a declared `PropertyAccessSemantics.Ordinary` against the type's own `Get`, `ArrayLikeObject.HasIndex` against `TryGetIndex`, the builtin-shape probe lane against `GetOwnProperty`, and a typed `AddObjectConverter` registration against what its `TryConvert` actually converts. Each verifier redoes exactly the work the lane it checks exists to avoid, so any figure about descriptors-not-materialized or probes-per-read is a figure from a process with verification **off** — never quote a Debug number as a cost. `Options.Debugger.Enabled` (`Engine._isDebugMode`), which disarms the interpreter's tight-loop lane, is a separate runtime option and has nothing to do with this switch or with the `DEBUG` symbol.
 
