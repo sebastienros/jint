@@ -97,6 +97,25 @@ public class HostObjectProbeOverrideTests
         }
     }
 
+    /// <summary>
+    /// The probe exists so an existence question costs no descriptor at all. With host-contract verification on
+    /// — a Debug build, or the shipped Release package with the <c>Jint.EnableHostContractVerification</c>
+    /// switch set — the verifier re-asks <c>GetOwnProperty</c> once per probe to check the answer against it, so
+    /// the "no descriptor" figure is a figure from an unverified build, exactly as the equivalent
+    /// no-materialization figures for the shared-layout probe lane are.
+    /// </summary>
+    private static void AssertTheProbeAnsweredWithoutADescriptor(HostRecord host, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+#if DEBUG
+            host.DescriptorsBuiltFor.Should().Contain(key, "the verifier re-asks GetOwnProperty once per probe");
+#else
+            host.DescriptorsBuiltFor.Should().NotContain(key, "an existence question must not build a descriptor");
+#endif
+        }
+    }
+
     private static (Engine Engine, HostRecord Host) CreateEngine()
     {
         var engine = new Engine();
@@ -120,7 +139,11 @@ public class HostObjectProbeOverrideTests
         engine.Evaluate("'absent' in host").AsBoolean().Should().BeFalse();
 
         host.ProbeCalls.Should().Be(3);
+#if DEBUG
+        host.DescriptorsBuiltFor.Should().Equal("visible", "secret", "absent");
+#else
         host.DescriptorsBuiltFor.Should().BeEmpty();
+#endif
     }
 
     [Fact]
@@ -136,9 +159,7 @@ public class HostObjectProbeOverrideTests
         host.ProbeCalls.Should().Be(4);
         // the only descriptors built are for resolving `host.hasOwnProperty` itself (a miss on the host,
         // then the prototype); never for the probed keys
-        host.DescriptorsBuiltFor.Should().NotContain("visible");
-        host.DescriptorsBuiltFor.Should().NotContain("secret");
-        host.DescriptorsBuiltFor.Should().NotContain("absent");
+        AssertTheProbeAnsweredWithoutADescriptor(host, "visible", "secret", "absent");
     }
 
     [Fact]
@@ -151,9 +172,7 @@ public class HostObjectProbeOverrideTests
         engine.Evaluate("host.propertyIsEnumerable('absent')").AsBoolean().Should().BeFalse();
 
         host.ProbeCalls.Should().Be(3);
-        host.DescriptorsBuiltFor.Should().NotContain("visible");
-        host.DescriptorsBuiltFor.Should().NotContain("secret");
-        host.DescriptorsBuiltFor.Should().NotContain("absent");
+        AssertTheProbeAnsweredWithoutADescriptor(host, "visible", "secret", "absent");
     }
 
     [Fact]
@@ -238,4 +257,119 @@ public class HostObjectProbeOverrideTests
         result.Should().Be("alpha,beta");
         bag.ProbeCalls.Should().Be(3);
     }
+
+    /// <summary>
+    /// A host whose probe contradicts its own <see cref="ObjectInstance.GetOwnProperty"/> for the same key.
+    /// The engine trusts the probe without re-verifying it, so this is the one host hook whose failure mode is
+    /// a key silently vanishing from every enumeration rather than a wrong value somewhere visible.
+    /// </summary>
+    private sealed class LyingProbeHost : ObjectInstance
+    {
+        private readonly string _key;
+        private readonly OwnPropertyProbe _lie;
+
+        public LyingProbeHost(Engine engine, string key, OwnPropertyProbe lie) : base(engine)
+        {
+            _key = key;
+            _lie = lie;
+        }
+
+        // "present, enumerable" for exactly two names, whatever the probe claims
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        {
+            var name = property.ToString();
+            if (name == "honest" || name == _key)
+            {
+                return new PropertyDescriptor(name, writable: true, enumerable: true, configurable: true);
+            }
+
+            return PropertyDescriptor.Undefined;
+        }
+
+        protected override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+            => property.ToString() == _key ? _lie : base.ProbeOwnProperty(property);
+
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+            => new() { new JsString("honest"), new JsString(_key) };
+    }
+
+#if DEBUG
+    /// <summary>
+    /// With verification on — a Debug build, or the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set before first use — a probe that disagrees with
+    /// <c>GetOwnProperty</c> for the same key throws on the spot, naming the host, the key and both answers,
+    /// instead of quietly dropping the key. This is the hook that had no verifier at all.
+    /// </summary>
+    [Theory]
+    [InlineData(OwnPropertyProbe.Missing)]
+    [InlineData(OwnPropertyProbe.NonEnumerable)]
+    public void VerificationTurnsASilentProbeDisagreementIntoAThrow(OwnPropertyProbe lie)
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new LyingProbeHost(engine, "lied", lie));
+
+        var act = () => engine.Evaluate("Object.keys(host).join(',')");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*ProbeOwnProperty*lied*");
+    }
+
+    [Fact]
+    public void VerificationAlsoCoversTheExistenceQuestions()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new LyingProbeHost(engine, "lied", OwnPropertyProbe.Missing));
+
+        ((Action) (() => engine.Evaluate("'lied' in host"))).Should().Throw<InvalidOperationException>();
+        ((Action) (() => engine.Evaluate("host.hasOwnProperty('lied')"))).Should().Throw<InvalidOperationException>();
+        ((Action) (() => engine.Evaluate("host.propertyIsEnumerable('lied')"))).Should().Throw<InvalidOperationException>();
+        ((Action) (() => engine.Evaluate("JSON.stringify(host)"))).Should().Throw<InvalidOperationException>();
+        ((Action) (() => engine.Evaluate("JSON.stringify({ ...host })"))).Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void AnHonestOverrideIsUnaffectedByVerification()
+    {
+        // the whole Debug run of this file is the real assertion; this one states it directly
+        var (engine, host) = CreateEngine();
+
+        engine.Evaluate("Object.keys(host).join(',')").AsString().Should().Be("visible,also");
+        engine.Evaluate("'secret' in host").AsBoolean().Should().BeTrue();
+        host.ProbeCalls.Should().Be(4);
+    }
+#else
+    /// <summary>
+    /// What the same host does when nothing is verifying: the lie is believed. Pinned so the damage is on the
+    /// record — a wrong <c>Missing</c> costs the key everywhere existence is asked, while a read still produces
+    /// it, and nothing anywhere reports a problem.
+    /// </summary>
+    [Fact]
+    public void WithoutVerificationAWrongMissingSilentlyDropsTheKey()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new LyingProbeHost(engine, "lied", OwnPropertyProbe.Missing));
+
+        engine.Evaluate("Object.keys(host).join(',')").AsString().Should().Be("honest");
+        engine.Evaluate("'lied' in host").AsBoolean().Should().BeFalse();
+        engine.Evaluate("host.hasOwnProperty('lied')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("JSON.stringify(host)").AsString().Should().Be("""{"honest":"honest"}""");
+
+        // ...while the property is plainly there
+        engine.Evaluate("host.lied").AsString().Should().Be("lied");
+        engine.Evaluate("Object.getOwnPropertyDescriptor(host, 'lied') !== undefined").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void WithoutVerificationAWrongEnumerabilitySilentlyHidesTheKeyFromCopies()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new LyingProbeHost(engine, "lied", OwnPropertyProbe.NonEnumerable));
+
+        engine.Evaluate("Object.keys(host).join(',')").AsString().Should().Be("honest");
+        engine.Evaluate("JSON.stringify({ ...host })").AsString().Should().Be("""{"honest":"honest"}""");
+
+        // but it exists, and getOwnPropertyDescriptor says it is enumerable
+        engine.Evaluate("'lied' in host").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(host, 'lied').enumerable").AsBoolean().Should().BeTrue();
+    }
+#endif
 }

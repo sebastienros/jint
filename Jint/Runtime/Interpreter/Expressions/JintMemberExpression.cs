@@ -995,7 +995,7 @@ internal sealed class JintMemberExpression : JintExpression
                 // No own property on the receiver (which would shadow the prototype's). The caller usually
                 // already established this (shape slot miss / GetOwnProperty undefined), so re-probe only
                 // when it didn't (a non-plain receiver reached here unchecked).
-                && (ownMissConfirmed || baseObject.ProbeOwnProperty(property) == OwnPropertyProbe.Missing))
+                && (ownMissConfirmed || baseObject.ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing))
             {
                 // ...and an own property on the *direct* prototype (deeper chains fall to the slow Get).
                 var descriptor = proto.GetOwnProperty(property);

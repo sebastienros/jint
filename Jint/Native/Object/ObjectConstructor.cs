@@ -73,7 +73,7 @@ public sealed partial class ObjectConstructor : Constructor
                 }
                 processed++;
 
-                if (from.ProbeOwnProperty(nextKey) == OwnPropertyProbe.Enumerable)
+                if (from.ProbeOwnPropertyChecked(nextKey) == OwnPropertyProbe.Enumerable)
                 {
                     var propValue = from.Get(nextKey);
                     to.Set(nextKey, propValue, throwOnError: true);
@@ -385,7 +385,7 @@ public sealed partial class ObjectConstructor : Constructor
         for (var i = 0; i < keys.Count; i++)
         {
             var nextKey = keys[i];
-            if (props.ProbeOwnProperty(nextKey) != OwnPropertyProbe.Enumerable)
+            if (props.ProbeOwnPropertyChecked(nextKey) != OwnPropertyProbe.Enumerable)
             {
                 continue;
             }

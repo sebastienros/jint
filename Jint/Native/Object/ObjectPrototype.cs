@@ -189,7 +189,7 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
-        return o.ProbeOwnProperty(p) == OwnPropertyProbe.Enumerable;
+        return o.ProbeOwnPropertyChecked(p) == OwnPropertyProbe.Enumerable;
     }
 
     [JsFunction]
@@ -282,6 +282,6 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var p = TypeConverter.ToPropertyKey(v);
         var o = TypeConverter.ToObject(_realm, thisObject);
-        return o.ProbeOwnProperty(p) != OwnPropertyProbe.Missing;
+        return o.ProbeOwnPropertyChecked(p) != OwnPropertyProbe.Missing;
     }
 }
