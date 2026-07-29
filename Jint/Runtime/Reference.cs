@@ -28,6 +28,12 @@ public sealed class Reference
     /// <summary>
     /// The value or Environment Record which holds the binding. A [[Base]] of unresolvable indicates that the binding could not be resolved.
     /// </summary>
+    /// <remarks>
+    /// When the binding could not be resolved this property holds an internal sentinel standing for that state — a
+    /// <see cref="JsString"/> reading <c>[[Unresolvable]]</c> — and not <see cref="JsValue.Undefined"/>, so a host
+    /// handing this value to script (from <see cref="Interop.IReferenceResolver.TryUnresolvableReference"/>, for
+    /// instance) leaks it there. Use <see cref="IsUnresolvableReference"/> to test for the state.
+    /// </remarks>
     public JsValue Base
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

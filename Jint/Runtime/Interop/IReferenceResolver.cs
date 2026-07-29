@@ -14,7 +14,22 @@ public interface IReferenceResolver
     /// When unresolvable reference occurs, check if another value can be provided instead of it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A reference error will be thrown if this method return false.
+    /// </para>
+    /// <para>
+    /// While this method runs, <see cref="Reference.Base"/> holds the engine's internal sentinel for the
+    /// unresolvable state — a real <see cref="JsString"/> reading <c>[[Unresolvable]]</c> — and not
+    /// <see cref="JsValue.Undefined"/>. A resolver that passes that base straight through
+    /// (<c>value = reference.Base; return true;</c>) therefore hands the sentinel to script, where the
+    /// unknown name reads as the literal string <c>"[[Unresolvable]]"</c>. A resolver that wants
+    /// unresolvable names to read as <c>undefined</c> has to assign <see cref="JsValue.Undefined"/> to
+    /// <paramref name="value" /> explicitly.
+    /// </para>
+    /// <para>
+    /// <see cref="Reference.IsUnresolvableReference"/> is the supported way to recognize the state; never
+    /// test for it by inspecting or comparing <see cref="Reference.Base"/>.
+    /// </para>
     /// </remarks>
     /// <param name="engine">The current engine instance.</param>
     /// <param name="reference">The reference that is being processed.</param>
