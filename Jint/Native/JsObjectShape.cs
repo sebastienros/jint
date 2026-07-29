@@ -35,7 +35,10 @@ namespace Jint.Native;
 /// The representation is an implementation detail with no script-visible consequence: an
 /// instantiated object behaves exactly like an ordinary object carrying the same properties, and
 /// anything the shared layout cannot express (deleting a member, adding an integer-like key) falls
-/// back to the ordinary property dictionary automatically and correctly.
+/// back to the ordinary property dictionary automatically and correctly. Because that fallback is
+/// silent, <c>engine.Advanced.HasSharedShape(prototype)</c> is the supported way to assert — once,
+/// during adoption — that a prototype really is on the shared layout. It observes without perturbing,
+/// so touch a member first: an instantiated object installs the layout on its first property access.
 /// </para>
 /// </summary>
 /// <example>

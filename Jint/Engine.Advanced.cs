@@ -201,6 +201,68 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Reports whether <paramref name="value"/>'s own string-keyed properties are described by a
+        /// class shared with every other object of the same layout, rather than stored as individual
+        /// descriptors in a per-object dictionary.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Unlike <see cref="GetObjectRepresentation"/>, this is part of Jint's compatibility contract.</b>
+        /// The question it answers has a stable meaning — "does this object share its property layout with its
+        /// siblings, so a script reading a batch of them keeps a monomorphic inline cache" — and a host may pin
+        /// the answer in its own test suite. What may still change from release to release is which
+        /// <i>construction paths</i> reach a shared layout: that set can only be expected to grow, and a host
+        /// pins the documented success case of the API it called, not an incidental one. The three documented
+        /// cases are <see cref="JsObject.Create(Engine, JsObjectLayout, ReadOnlySpan{JsValue})"/>,
+        /// <see cref="JsObject.CreateFromEntries(Engine, IEnumerable{KeyValuePair{string, JsValue}})"/> and
+        /// <see cref="JsObjectShape.Instantiate(Engine, ObjectInstance)"/>.
+        /// </para>
+        /// <para>
+        /// The motivating case is a one-line adoption assertion. Those factories fall back to the per-object
+        /// dictionary silently and correctly when they cannot shape an object, and two of the triggers are not
+        /// knowable at the call site, so the only way to know the optimization was actually obtained is to ask:
+        /// <code>
+        /// var row = JsObject.CreateFromEntries(engine, fields);
+        /// Assert.True(engine.Advanced.HasSharedShape(row));
+        /// </code>
+        /// </para>
+        /// <para>
+        /// A <see langword="false"/> answer is never a correctness problem. The representations are
+        /// indistinguishable from script — they differ only in speed and allocation — so this is a performance
+        /// assertion and nothing more, and production code must not branch on it.
+        /// <see cref="GetObjectRepresentation"/> remains available as the finer-grained diagnostic naming
+        /// <i>which</i> representation an object landed in; it is deliberately not a contract, and this
+        /// predicate is the part of its answer that is.
+        /// </para>
+        /// <para>
+        /// Like that diagnostic, this method observes without perturbing: it does not force a lazily
+        /// initialized object to populate its properties. A built-in, and an object from
+        /// <see cref="JsObjectShape.Instantiate(Engine, ObjectInstance)"/>, installs its shared layout on the
+        /// first property access of any kind, so ask after something has touched the object.
+        /// </para>
+        /// </remarks>
+        /// <param name="value">The object to inspect. It must belong to this engine.</param>
+        /// <returns>
+        /// <see langword="true"/> when the object's own string-keyed properties are served from a shared
+        /// layout; <see langword="false"/> for the per-object property dictionary, and for any specialized
+        /// object type — an array, a proxy, a CLR wrapper, a host-defined <see cref="ObjectInstance"/>
+        /// subclass — whose own properties are that type's own business and share no layout with anything.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="value"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
+        public bool HasSharedShape(ObjectInstance value)
+        {
+            // Answered through the diagnostic rather than beside it, so the two can never disagree about an
+            // object: this predicate is exactly the shared-layout half of that enum. Listed positively, so a
+            // representation added later is excluded until someone decides it belongs — a new member is far
+            // more likely to name a specialized storage than a shared layout, and the safe default for a
+            // contract is to keep answering what it always did. Both arms are internal type-flag tests, so
+            // the call allocates nothing.
+            var representation = GetObjectRepresentation(value);
+            return representation is ObjectRepresentation.HiddenClass or ObjectRepresentation.SharedBuiltinLayout;
+        }
+
+        /// <summary>
         /// Reports the <see cref="PropertyAccessSemantics"/> the engine resolved for <paramref name="value"/> —
         /// derived from its runtime type, or declared through
         /// <see cref="ObjectInstance.SetPropertyAccessSemantics"/>.
@@ -324,8 +386,13 @@ public partial class Engine
 /// </para>
 /// <para>
 /// The representations are indistinguishable from script; they differ only in speed and allocation. This
-/// enum therefore exists for diagnostics and tests — so that host code can assert an optimization it asked
-/// for actually happened — and host code must not branch on it in production.
+/// enum therefore exists for diagnostics and tests, and host code must not branch on it in production. To
+/// <i>assert</i> that an optimization asked for actually happened, use
+/// <see cref="Engine.AdvancedOperations.HasSharedShape"/> instead: it answers the one question a host cares
+/// about — is this object's layout shared with its siblings — and unlike this enum that answer is part of
+/// the compatibility contract and may be pinned in a test suite. What remains here is the finer-grained
+/// diagnostic naming <i>which</i> representation an object landed in, for the times a false answer has to be
+/// explained.
 /// </para>
 /// </remarks>
 public enum ObjectRepresentation
