@@ -129,6 +129,65 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Declares that instances of the given CLR types are immutable while they are exposed to this engine —
+    /// their member and key set, and the values behind them, do not change.
+    /// </summary>
+    /// <remarks>
+    /// The declaration is a promise, and in exchange the engine may cache what it reads through such an
+    /// instance: memoized member results and stable child wrappers. A walk like
+    /// <c>record.value.customer.country</c> over a wrapped dictionary graph therefore wraps each node once
+    /// per wrapper lifetime instead of once per access, and a repeated read of the same key answers without
+    /// touching reflection or the indexer at all. For a declared type this supersedes
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>, whose bounded ring cannot keep a
+    /// nested walk's nodes.
+    /// <para>
+    /// A host that breaks the promise gets stale reads — the same class of consequence
+    /// <see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> and a shared
+    /// <see cref="Runtime.Interop.TypeResolver"/> already carry, and owned by the host in the same way. The
+    /// one concession the engine makes is that a write through the wrapper evicts that key's memo, so a
+    /// script that writes and then reads stays coherent even when the promise was wrong.
+    /// </para>
+    /// <para>
+    /// The memo lives on the wrapper and dies with it, so it holds what that wrapper's subtree resolved to
+    /// for as long as the wrapper is reachable — a root bound through <see cref="Engine.SetValue(string, object)"/>
+    /// therefore keeps its whole walked subtree alive, the same trade
+    /// <see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> makes. It also means the memo only
+    /// pays while the wrapper lives: a node reached through a transient wrapper, such as an element of a
+    /// wrapped list, still re-resolves on each crossing.
+    /// </para>
+    /// <para>
+    /// Assignability is the rule, exactly as for
+    /// <see cref="AddObjectConverter(Options, Runtime.Interop.IObjectConverter, Type[])"/>: declare an
+    /// interface or a base type to cover a whole family (<c>typeof(IReadOnlyDictionary&lt;string, object&gt;)</c>
+    /// for every implementation of it). Unlike that filter this one never guesses in the permissive
+    /// direction — an open generic type declaration claims nothing, since a wrong claim here would serve
+    /// stale reads rather than merely cost a fast lane.
+    /// </para>
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="types">The CLR types whose instances are immutable for the crossing.</param>
+    public static Options AddImmutableCrossing(this Options options, params Type[] types)
+    {
+        if (types is null || types.Length == 0)
+        {
+            Throw.ArgumentException(
+                "At least one type is required.",
+                nameof(types));
+        }
+
+        foreach (var type in types!)
+        {
+            if (type is null)
+            {
+                Throw.ArgumentException("Types cannot contain null.", nameof(types));
+            }
+        }
+
+        options.Interop.ImmutableCrossingTypes.AddRange(types!);
+        return options;
+    }
+
+    /// <summary>
     /// Sets maximum allowed depth of recursion.
     /// </summary>
     /// <param name="options">Options to modify</param>

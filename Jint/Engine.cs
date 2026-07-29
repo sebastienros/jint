@@ -172,6 +172,10 @@ public sealed partial class Engine : IDisposable
     // Lets the compiled interop read lanes stay in play for members no converter can ever be handed.
     internal readonly ObjectConverterTypeFilter? _objectConverterTypeFilter;
 
+    // which CLR types the host declared immutable for the crossing, null when none were declared. Lets an
+    // ObjectWrapper memoize what it reads through such a target. See Options.Interop.ImmutableCrossingTypes.
+    internal readonly ImmutableCrossingTypeFilter? _immutableCrossingFilter;
+
     // snapshot of Options.Interop.EnumConversion, read on every CLR value crossing into script
     internal readonly bool _enumsAsStrings;
 
@@ -347,6 +351,7 @@ public sealed partial class Engine : IDisposable
             ? Options.Interop.ObjectConverters.ToArray()
             : null;
         _objectConverterTypeFilter = ObjectConverterTypeFilter.Create(_objectConverters);
+        _immutableCrossingFilter = ImmutableCrossingTypeFilter.Create(Options.Interop.ImmutableCrossingTypes);
         _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
 
         _constraints = BuildConstraints(Options.Constraints);
