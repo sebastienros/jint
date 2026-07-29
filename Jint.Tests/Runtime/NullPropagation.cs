@@ -10,7 +10,10 @@ public class NullPropagation
     {
         public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
         {
-            value = reference.Base;
+            // Deliberately not `value = reference.Base`: for an unresolvable reference the base is the
+            // engine's internal sentinel (a JsString reading "[[Unresolvable]]"), not undefined, so passing
+            // it through would leak it into script. See the remarks on IReferenceResolver.TryUnresolvableReference.
+            value = JsValue.Undefined;
             return true;
         }
 
