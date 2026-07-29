@@ -228,10 +228,17 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
   hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
 
-**Lazy values.** `PropertyFlag.CustomJsValue` is the supported hook for a property whose value is computed on
-first read: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
+**Lazy values.** `PropertyFlag.CustomJsValue` is the supported hook for a property whose value is *computed on
+every read*: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
 caches, because every caching lane re-reads the flag on each hit and caches the descriptor reference rather
-than a value snapshot. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
+than a value snapshot. When the value is lazy only *once*, use `PropertyDescriptor.CreateLazy(state, factory)`
+instead — it memoizes the produced value and then stops being custom-valued, which readmits the property to the
+member-write fast path and the global-identifier cache that a permanently custom-valued descriptor is declined
+by; store it wherever you store descriptors (`SetOwnProperty` or `GetOwnProperty` on a host subclass,
+`FastSetProperty`, a hand-rolled global). It is the descriptor-shaped member of the same family as
+`JsObjectLayout.AddLazy` (records) and `JsObjectShape` (prototypes), and it does not exempt you from the rule
+above them: storing any raw descriptor under a string key still moves a shape-mode object to the dictionary
+representation. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
 the value until script reads the name, and `engine.Advanced.AddLazyGlobal` does the same on an engine that
 already exists — which is what you need when the value comes from the request you are about to serve rather
 than from process-wide configuration. Both install the property eagerly, so `in`, `hasOwnProperty` and
