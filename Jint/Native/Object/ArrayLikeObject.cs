@@ -173,7 +173,11 @@ public abstract class ArrayLikeObject : ObjectInstance
     {
         if (TryGetIndex(index, out value))
         {
-            Debug.Assert(value is not null, $"{GetType()}.TryGetIndex answered index {index} with a CLR null; return a JsValue or answer false.");
+            if (HostContractVerification.Enabled && value is null)
+            {
+                HostContractVerification.Fail($"{GetType()}.TryGetIndex answered index {index} with a CLR null; return a JsValue or answer false.");
+            }
+
             return true;
         }
 
@@ -190,30 +194,33 @@ public abstract class ArrayLikeObject : ObjectInstance
     internal bool ProbeIndex(uint index)
     {
         var has = HasIndex(index);
-        AssertHasIndexAgreesWithTryGetIndex(this, index, has);
+        if (HostContractVerification.Enabled)
+        {
+            AssertHasIndexAgreesWithTryGetIndex(this, index, has);
+        }
+
         return has;
     }
 
     /// <summary>
-    /// Debug-only verifier for the <see cref="HasIndex"/> contract, checking <b>both</b> directions against
-    /// <see cref="TryGetIndex"/> for the same index. Free in Release ([Conditional]), so a host's own suite run
-    /// against a Debug build of Jint becomes the checker — the same arrangement
-    /// <c>ObjectInstance.AssertOwnValueAgreesWithDescriptor</c> uses for the value hook.
+    /// Verifier for the <see cref="HasIndex"/> contract, checking <b>both</b> directions against
+    /// <see cref="TryGetIndex"/> for the same index. Gated on <see cref="HostContractVerification.Enabled"/>,
+    /// so a host's own suite run against a Debug Jint — or against the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set — becomes the checker, and every other process
+    /// pays nothing. The same arrangement <c>ObjectInstance.AssertOwnValueAgreesWithDescriptor</c> uses for the
+    /// value hook.
     /// </summary>
-    [Conditional("DEBUG")]
     private static void AssertHasIndexAgreesWithTryGetIndex(ArrayLikeObject target, uint index, bool answered)
     {
-#if DEBUG
         var produced = target.TryGetIndex(index, out _);
         if (produced == answered)
         {
             return;
         }
 
-        Debug.Fail(answered
+        HostContractVerification.Fail(answered
             ? $"{target.GetType()}.HasIndex answered true for index {index} but its TryGetIndex answers false. The engine trusts HasIndex, so this advertises a key whose read yields undefined or resolves on the prototype."
             : $"{target.GetType()}.HasIndex answered false for index {index} but its TryGetIndex produces a value. The engine trusts HasIndex, so this silently drops the element from `in`, hasOwnProperty, Object.keys and the Array.prototype hole tests while list[{index}] still reads it.");
-#endif
     }
 
     /// <summary>

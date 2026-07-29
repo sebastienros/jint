@@ -830,15 +830,26 @@ internal sealed class JintMemberExpression : JintExpression
             {
                 if (baseObject.TryGetOwnPropertyValue(property, baseObject, out var projectedValue))
                 {
-                    ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: true, projectedValue);
-                    AssertOrdinaryGetAgrees(baseObject, property, projectedValue);
+                    if (HostContractVerification.Enabled)
+                    {
+                        ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: true, projectedValue);
+                        AssertOrdinaryGetAgrees(baseObject, property, projectedValue);
+                    }
+
                     return projectedValue;
                 }
 
-                ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: false, JsValue.Undefined);
+                if (HostContractVerification.Enabled)
+                {
+                    ObjectInstance.AssertOwnValueAgreesWithDescriptor(baseObject, property, baseObject, answered: false, JsValue.Undefined);
+                }
 
                 var projectedMiss = ReadAfterOwnMiss(baseObject, property, ownMissConfirmed: true);
-                AssertOrdinaryGetAgrees(baseObject, property, projectedMiss);
+                if (HostContractVerification.Enabled)
+                {
+                    AssertOrdinaryGetAgrees(baseObject, property, projectedMiss);
+                }
+
                 return projectedMiss;
             }
 
@@ -849,12 +860,20 @@ internal sealed class JintMemberExpression : JintExpression
                 // be materialized a second time inside Get (ObjectInstance.Get's fast path needs PlainObject,
                 // which such an object cannot claim because it stores nothing in _properties).
                 var ownValue = ObjectInstance.UnwrapJsValue(ownDescriptor, baseObject);
-                AssertOrdinaryGetAgrees(baseObject, property, ownValue);
+                if (HostContractVerification.Enabled)
+                {
+                    AssertOrdinaryGetAgrees(baseObject, property, ownValue);
+                }
+
                 return ownValue;
             }
 
             var inheritedValue = ReadAfterOwnMiss(baseObject, property, ownMissConfirmed: true);
-            AssertOrdinaryGetAgrees(baseObject, property, inheritedValue);
+            if (HostContractVerification.Enabled)
+            {
+                AssertOrdinaryGetAgrees(baseObject, property, inheritedValue);
+            }
+
             return inheritedValue;
         }
 
@@ -880,17 +899,17 @@ internal sealed class JintMemberExpression : JintExpression
     }
 
     /// <summary>
-    /// Debug-only verifier for the <see cref="PropertyAccessSemantics.Ordinary"/> contract a host object
-    /// declares but Jint cannot check statically: the value the descriptor-driven lane produced must equal
-    /// what the object's own <c>Get</c> returns. Free in Release ([Conditional]), so an integration suite run
-    /// against a Debug build of Jint becomes the checker. The recomputation is skipped whenever it could be
-    /// observable — an accessor, a custom-valued descriptor, or an exotic holder anywhere on the chain — so
-    /// enabling it never changes what a script sees.
+    /// Verifier for the <see cref="PropertyAccessSemantics.Ordinary"/> contract a host object declares but Jint
+    /// cannot check statically: the value the descriptor-driven lane produced must equal what the object's own
+    /// <c>Get</c> returns. Gated on <see cref="HostContractVerification.Enabled"/>, so an integration suite run
+    /// against a Debug Jint — or against the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set — becomes the checker, and every other process
+    /// pays nothing. The recomputation is skipped whenever it could be observable — an accessor, a
+    /// custom-valued descriptor, or an exotic holder anywhere on the chain — so enabling it never changes what
+    /// a script sees.
     /// </summary>
-    [Conditional("DEBUG")]
     private static void AssertOrdinaryGetAgrees(ObjectInstance baseObject, JsString property, JsValue value)
     {
-#if DEBUG
         for (var o = (ObjectInstance?) baseObject; o is not null; o = o.GetPrototypeOf())
         {
             if ((o._type & InternalTypes.ExoticGet) != InternalTypes.Empty)
@@ -912,10 +931,10 @@ internal sealed class JintMemberExpression : JintExpression
             break;
         }
 
-        Debug.Assert(
-            JsValue.SameValue(baseObject.Get(property, baseObject), value),
-            $"{baseObject.GetType()} declared PropertyAccessSemantics.Ordinary but its Get('{property}') disagrees with UnwrapJsValue(GetOwnProperty('{property}')). Declare PropertyAccessSemantics.Exotic instead, or make Get ordinary.");
-#endif
+        if (!JsValue.SameValue(baseObject.Get(property, baseObject), value))
+        {
+            HostContractVerification.Fail($"{baseObject.GetType()} declared PropertyAccessSemantics.Ordinary but its Get('{property}') disagrees with UnwrapJsValue(GetOwnProperty('{property}')). Declare PropertyAccessSemantics.Exotic instead, or make Get ordinary.");
+        }
     }
 
     /// <summary>

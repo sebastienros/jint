@@ -928,11 +928,19 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             if (TryGetOwnPropertyValue(property, receiver, out var ownValue))
             {
-                AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: true, ownValue);
+                if (HostContractVerification.Enabled)
+                {
+                    AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: true, ownValue);
+                }
+
                 return ownValue;
             }
 
-            AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: false, Undefined);
+            if (HostContractVerification.Enabled)
+            {
+                AssertOwnValueAgreesWithDescriptor(this, property, receiver, answered: false, Undefined);
+            }
+
             return Prototype?.Get(property, receiver) ?? Undefined;
         }
 
@@ -946,22 +954,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// Debug-only verifier for <see cref="TryGetOwnPropertyValue"/>, checking <b>both</b> directions of its
+    /// Verifier for <see cref="TryGetOwnPropertyValue"/>, checking <b>both</b> directions of its
     /// contract against <see cref="GetOwnProperty"/> for the same key: a <c>true</c> answer must carry exactly
     /// what the descriptor would have unwrapped to, and a <c>false</c> answer must mean the descriptor is
-    /// <see cref="PropertyDescriptor.Undefined"/>. Free in Release ([Conditional]), so a host's own suite run
-    /// against a Debug build of Jint becomes the checker. The value comparison is skipped when unwrapping would
-    /// be observable (an accessor or a custom-valued descriptor).
+    /// <see cref="PropertyDescriptor.Undefined"/>. Gated on <see cref="HostContractVerification.Enabled"/>, so a
+    /// host's own suite run against a Debug Jint — or against the shipped Release package with the
+    /// <c>Jint.EnableHostContractVerification</c> switch set — becomes the checker, and every other process pays
+    /// nothing. The value comparison is skipped when unwrapping would be observable (an accessor or a
+    /// custom-valued descriptor).
     /// <para>
     /// It is a second verifier rather than a reuse of <c>AssertOrdinaryGetAgrees</c>: that one recomputes the
     /// read through <c>Get</c>, and <c>Get</c> consults this hook too, so it can no longer catch a hook that
     /// disagrees with <c>GetOwnProperty</c>. This one asks <c>GetOwnProperty</c> directly.
     /// </para>
     /// </summary>
-    [Conditional("DEBUG")]
     internal static void AssertOwnValueAgreesWithDescriptor(ObjectInstance target, JsValue property, JsValue receiver, bool answered, JsValue value)
     {
-#if DEBUG
         var descriptor = target.GetOwnProperty(property);
         var owns = !ReferenceEquals(descriptor, PropertyDescriptor.Undefined);
 
@@ -969,7 +977,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             if (answered)
             {
-                Debug.Fail($"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' but its GetOwnProperty reports that property as absent.");
+                HostContractVerification.Fail($"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' but its GetOwnProperty reports that property as absent.");
             }
 
             return;
@@ -977,8 +985,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         if (!answered)
         {
-            Debug.Fail($"{target.GetType()}.TryGetOwnPropertyValue returned false for '{property}' but its GetOwnProperty reports that property as present. Returning false states that there is no own property of that name and the read continues up the prototype chain; call base.TryGetOwnPropertyValue to hand the key back to GetOwnProperty instead.");
-            return;
+            HostContractVerification.Fail($"{target.GetType()}.TryGetOwnPropertyValue returned false for '{property}' but its GetOwnProperty reports that property as present. Returning false states that there is no own property of that name and the read continues up the prototype chain; call base.TryGetOwnPropertyValue to hand the key back to GetOwnProperty instead.");
         }
 
         if ((descriptor._flags & (PropertyFlag.NonData | PropertyFlag.CustomJsValue)) != PropertyFlag.None)
@@ -986,10 +993,10 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return;
         }
 
-        Debug.Assert(
-            SameValue(UnwrapJsValue(descriptor, receiver), value),
-            $"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' with a value its GetOwnProperty descriptor does not unwrap to.");
-#endif
+        if (!SameValue(UnwrapJsValue(descriptor, receiver), value))
+        {
+            HostContractVerification.Fail($"{target.GetType()}.TryGetOwnPropertyValue answered '{property}' with a value its GetOwnProperty descriptor does not unwrap to.");
+        }
     }
 
     /// <summary>
@@ -1182,7 +1189,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         {
             if (TryProbeBuiltinShapeSlot(declaredName.ToString(), out var slotProbe, out var nameDeclared))
             {
-                AssertBuiltinShapeProbeAgrees(this, property, slotProbe);
+                if (HostContractVerification.Enabled)
+                {
+                    AssertBuiltinShapeProbeAgrees(this, property, slotProbe);
+                }
+
                 return slotProbe;
             }
 
@@ -1196,7 +1207,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 && _properties is null
                 && (_type & InternalTypes.BuiltinShapeIndexAuthoritative) != InternalTypes.Empty)
             {
-                AssertBuiltinShapeProbeAgrees(this, property, OwnPropertyProbe.Missing);
+                if (HostContractVerification.Enabled)
+                {
+                    AssertBuiltinShapeProbeAgrees(this, property, OwnPropertyProbe.Missing);
+                }
+
                 return OwnPropertyProbe.Missing;
             }
         }
@@ -1277,37 +1292,36 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// Debug-only checker for the lane above. The probe contract is trusted and never re-verified at runtime —
-    /// a wrong <see cref="OwnPropertyProbe.Missing"/> silently drops the key from every enumeration and copy
-    /// that consults it — so a Debug build recomputes the answer the way the lane exists to avoid, straight
-    /// from the virtual <see cref="GetOwnProperty"/>, and fails loudly on any disagreement. Materializing the
-    /// slot is the price of checking: a Debug build therefore behaves exactly as every build did before this
-    /// lane, which is also why a test that proves the lane materializes nothing must read Release figures.
+    /// Checker for the lane above, gated on <see cref="HostContractVerification.Enabled"/>. The probe contract
+    /// is trusted and never re-verified on the hot path — a wrong <see cref="OwnPropertyProbe.Missing"/>
+    /// silently drops the key from every enumeration and copy that consults it — so a verifying build
+    /// recomputes the answer the way the lane exists to avoid, straight from the virtual
+    /// <see cref="GetOwnProperty"/>, and fails loudly on any disagreement. Materializing the slot is the price
+    /// of checking: with verification on, a build therefore behaves exactly as every build did before this
+    /// lane, which is also why a test that proves the lane materializes nothing must read figures from a
+    /// process with verification off.
     /// </summary>
-    [Conditional("DEBUG")]
     private static void AssertBuiltinShapeProbeAgrees(ObjectInstance target, JsValue property, OwnPropertyProbe probe)
     {
-#if DEBUG
-        var descriptor = target.GetOwnProperty(property);
-        OwnPropertyProbe expected;
-        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
-        {
-            expected = OwnPropertyProbe.Missing;
-        }
-        else if (descriptor.Enumerable)
-        {
-            expected = OwnPropertyProbe.Enumerable;
-        }
-        else
-        {
-            expected = OwnPropertyProbe.NonEnumerable;
-        }
-
+        var expected = ExpectedProbe(target.GetOwnProperty(property));
         if (expected != probe)
         {
-            Debug.Fail($"{target.GetType()} answered the shared-layout probe for '{property}' with {probe} but its GetOwnProperty reports {expected}. A probe must agree with GetOwnProperty at the same instant; the engine trusts it without re-verifying.");
+            HostContractVerification.Fail($"{target.GetType()} answered the shared-layout probe for '{property}' with {probe} but its GetOwnProperty reports {expected}. A probe must agree with GetOwnProperty at the same instant; the engine trusts it without re-verifying.");
         }
-#endif
+    }
+
+    /// <summary>
+    /// The <see cref="OwnPropertyProbe"/> a descriptor obliges <see cref="ProbeOwnProperty"/> to answer. Shared
+    /// by both probe verifiers so the agreement matrix is stated once.
+    /// </summary>
+    private static OwnPropertyProbe ExpectedProbe(PropertyDescriptor descriptor)
+    {
+        if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+        {
+            return OwnPropertyProbe.Missing;
+        }
+
+        return descriptor.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
     }
 
     // Built-in-shape storage helpers (InternalTypes.BuiltinShapeMode). Shared by every host that implements
