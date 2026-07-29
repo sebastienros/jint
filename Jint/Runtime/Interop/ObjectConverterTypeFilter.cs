@@ -51,6 +51,13 @@ internal sealed class ObjectConverterTypeFilter
     }
 
     /// <summary>
+    /// The filter for one converter's own declaration, used to check that what the converter actually converts
+    /// stays inside what it declared. It has to be this type rather than a bespoke assignability test, so the
+    /// promise a registration makes and the check that it was kept can never drift apart.
+    /// </summary>
+    internal static ObjectConverterTypeFilter ForDeclaredTypes(Type[] declaredTypes) => new(declaredTypes);
+
+    /// <summary>
     /// Builds the filter for an engine's converter set, or <see langword="null"/> when no converters are
     /// registered at all (in which case no fast lane ever has to consider them).
     /// </summary>
@@ -172,14 +179,53 @@ internal sealed class TypedObjectConverter : IObjectConverter
 {
     private readonly IObjectConverter _converter;
 
+    /// <summary>
+    /// This converter's own declaration as a filter, so a converted value can be asked the very question the
+    /// read lane asks of a member type. Built only when verification is on — the flag is a JIT constant, so an
+    /// ordinary process neither allocates it nor tests it.
+    /// </summary>
+    private readonly ObjectConverterTypeFilter? _declared;
+
     internal TypedObjectConverter(IObjectConverter converter, Type[] handledTypes)
     {
         _converter = converter;
         HandledTypes = handledTypes;
+
+        if (HostContractVerification.Enabled)
+        {
+            _declared = ObjectConverterTypeFilter.ForDeclaredTypes(handledTypes);
+        }
     }
 
     internal Type[] HandledTypes { get; }
 
     public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
-        => _converter.TryConvert(engine, value, out result);
+    {
+        var converted = _converter.TryConvert(engine, value, out result);
+        if (HostContractVerification.Enabled && converted)
+        {
+            AssertConvertedTypeWasDeclared(value);
+        }
+
+        return converted;
+    }
+
+    /// <summary>
+    /// A declaration is a promise about the whole converter, and nothing links it to the <c>switch</c> inside
+    /// <see cref="IObjectConverter.TryConvert"/>: a case added there and not added to the registration is
+    /// silently skipped on exactly the members whose declared type the registration excluded, and honoured
+    /// everywhere else. That inconsistency is invisible from script, so it is worth a check when a host asks
+    /// for one.
+    /// </summary>
+    private void AssertConvertedTypeWasDeclared(object value)
+    {
+        var runtimeType = value.GetType();
+        if (_declared!.Claims(runtimeType))
+        {
+            return;
+        }
+
+        HostContractVerification.Fail(
+            $"{_converter.GetType()} converted a value of type {runtimeType}, which is not among the types it was registered as handling ({string.Join(", ", Array.ConvertAll(HandledTypes, static t => t.ToString()))}). That registration promised the engine it may keep the compiled interop fast lanes for members and methods which cannot produce the declared types, so this converter is silently bypassed on exactly those — the declaration and the converter's own switch have drifted. Declare {runtimeType} at the AddObjectConverter call, or stop converting it.");
+    }
 }
