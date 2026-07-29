@@ -195,8 +195,21 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return !(a == b);
     }
 
-    internal static JsString Create(string value)
+    /// <summary>
+    /// Creates a <see cref="JsString"/> for a .NET string. The counterpart of <see cref="JsNumber.Create(double)"/>,
+    /// and the preferred way for a host to produce a string value: it returns a shared interned instance for the
+    /// empty string and for single-ASCII-character strings instead of allocating a new one.
+    /// </summary>
+    /// <param name="value">The string value.</param>
+    /// <returns>A <see cref="JsString"/> for <paramref name="value" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value" /> is <see langword="null" />.</exception>
+    public static JsString Create(string value)
     {
+        if (value is null)
+        {
+            Throw.ArgumentNullException(nameof(value));
+        }
+
         if (value.Length > 1)
         {
             return new JsString(value);
