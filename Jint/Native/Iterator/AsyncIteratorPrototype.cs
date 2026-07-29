@@ -92,11 +92,24 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     private static IteratorInstance.ObjectIterator GetIteratorDirect(ObjectInstance objectInstance) => new(objectInstance);
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorclose
     /// Close an iterator by calling its return() method directly.
     /// </summary>
     private static void IteratorClose(ObjectInstance obj, CompletionType completionType)
     {
-        var returnMethod = obj.GetMethod(CommonProperties.Return);
+        // See the identical helper on IteratorPrototype: step 4 runs before innerResult is
+        // inspected, so neither the GetMethod of step 2 nor the call of step 3.c may replace the
+        // error that triggered the close.
+        ICallable? returnMethod;
+        try
+        {
+            returnMethod = obj.GetMethod(CommonProperties.Return);
+        }
+        catch when (completionType == CompletionType.Throw)
+        {
+            return;
+        }
+
         if (returnMethod is null)
         {
             return;
