@@ -458,7 +458,7 @@ internal sealed partial class IteratorConstructor : Constructor
             OwnPropertyProbe probe;
             try
             {
-                probe = iterablesObj.ProbeOwnProperty(key);
+                probe = iterablesObj.ProbeOwnPropertyChecked(key);
             }
             catch
             {

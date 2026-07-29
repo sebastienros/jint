@@ -293,18 +293,38 @@ public class HostArrayLikeHasIndexTests
         engine.Evaluate("list[1]").Should().Be("B");
     }
 
+#if DEBUG
+    /// <summary>
+    /// The other side of the same coin: with verification on — a Debug build, or the shipped Release package
+    /// with the <c>Jint.EnableHostContractVerification</c> switch set before first use — the damage pinned below
+    /// never gets the chance to happen, because the first probe that disagrees with <c>TryGetIndex</c> throws
+    /// and names the host, the index and both answers.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void VerificationTurnsASilentIndexDisagreementIntoAThrow(bool overclaiming)
+    {
+        var engine = new Engine();
+        ArrayLikeObject list = overclaiming ? new OverclaimingHostList(engine) : new UnderclaimingHostList(engine);
+        engine.SetValue("list", list);
+
+        var act = () => engine.Evaluate("Object.keys(list).join(',')");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*HasIndex*");
+    }
+#endif
+
 #if !DEBUG
     /// <summary>
-    /// What a host that breaks the agreement observes. These are <b>not</b> a specification of desired behaviour
-    /// — they pin the damage so it is on the record and reviewable, exactly as the
-    /// <c>ProbeOwnProperty</c> contract does for a wrong <c>Missing</c>. The engine trusts the hook and does not
-    /// re-verify it in Release, so a violation cannot be turned into an exception without paying for the check on
-    /// every probe.
+    /// What a host that breaks the agreement observes when nothing is verifying. These are <b>not</b> a
+    /// specification of desired behaviour — they pin the damage so it is on the record and reviewable, exactly
+    /// as the <c>ProbeOwnProperty</c> contract does for a wrong <c>Missing</c>. The engine trusts the hook and
+    /// does not re-verify it on the hot path, so a violation is silent unless verification is turned on.
     /// <para>
-    /// Release-only on purpose: a Debug build runs the agreement verifier on every probe, and it reports through
-    /// <c>Debug.Fail</c>, which writes diagnostics rather than throwing. Running these under Debug would emit
-    /// alarming (and correct) failure text into a passing gate run, so the violating hosts stay out of that
-    /// configuration and the Debug suite exercises only well-behaved overrides.
+    /// Guarded to the unverified configuration on purpose: with the verifier running, the first disagreeing
+    /// probe throws, which is what the Debug-side theory above asserts instead.
     /// </para>
     /// </summary>
     [Fact]

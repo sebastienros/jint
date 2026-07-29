@@ -607,7 +607,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         while (index < bound)
         {
             var candidate = JsString.Create(index++);
-            if (ProbeOwnProperty(candidate) == OwnPropertyProbe.Enumerable)
+            if (ProbeOwnPropertyChecked(candidate) == OwnPropertyProbe.Enumerable)
             {
                 key = candidate;
                 return true;

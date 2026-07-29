@@ -284,7 +284,7 @@ internal sealed partial class PromiseConstructor : Constructor
         foreach (var key in allKeys)
         {
             // existence + enumerability is the whole question; the descriptor was discarded either way
-            if (promises.ProbeOwnProperty(key) != OwnPropertyProbe.Enumerable)
+            if (promises.ProbeOwnPropertyChecked(key) != OwnPropertyProbe.Enumerable)
             {
                 continue;
             }

@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Runtime.Interop;
@@ -65,9 +66,28 @@ public class ObjectConverterRegistrationTests
         false;
 #endif
 
+    /// <summary>
+    /// Every caller of this helper reads a member through a <b>deliberately misdeclared</b> converter — one
+    /// whose <c>TryConvert</c> would change the value but whose registration does not mention its type — since
+    /// that is the only way to observe from the outside whether the fast lane ran. Where the lane exists the
+    /// converter is skipped and the raw value comes back. Where it does not, the converter really is consulted,
+    /// and converting an undeclared type is exactly the drift the claim verifier reports: with host-contract
+    /// verification on, the read therefore throws rather than quietly returning the converted value.
+    /// </summary>
     private static void ShouldRead(Engine engine, string expression, JsValue whenBypassed, JsValue whenConverted)
     {
-        engine.Evaluate(expression).Should().Be(_compiledReadLaneAvailable ? whenBypassed : whenConverted);
+        if (_compiledReadLaneAvailable)
+        {
+            engine.Evaluate(expression).Should().Be(whenBypassed);
+            return;
+        }
+
+#if DEBUG
+        ((Action) (() => engine.Evaluate(expression))).Should().Throw<InvalidOperationException>(
+            "the converter is reached here, and it converts a type its registration did not declare");
+#else
+        engine.Evaluate(expression).Should().Be(whenConverted);
+#endif
     }
 
     /// <summary>Turns every bool it sees into its negation, and every enum into its name.</summary>
@@ -87,6 +107,23 @@ public class ObjectConverterRegistrationTests
                 return true;
             }
 
+            result = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Records every value it is offered and converts nothing, so "did this value reach the converters?" can be
+    /// asserted directly — without the converter having to step outside its own declaration to make the answer
+    /// visible.
+    /// </summary>
+    private sealed class RecordingConverter : IObjectConverter
+    {
+        public readonly List<object> Seen = new();
+
+        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        {
+            Seen.Add(value);
             result = null;
             return false;
         }
@@ -187,11 +224,13 @@ public class ObjectConverterRegistrationTests
     [Fact]
     public void ObjectTypedMemberIsAlwaysOfferedToConverters()
     {
-        var host = new Host { Boxed = true };
-        var engine = CreateEngine(host, options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+        var recorder = new RecordingConverter();
+        var engine = CreateEngine(new Host { Boxed = true }, options => options.AddObjectConverter(recorder, typeof(Guid)));
 
-        // the declared type says nothing about what the member actually holds
-        engine.Evaluate("host.Boxed").Should().Be(false);
+        // the declared type says nothing about what the member actually holds, so no declaration can keep a
+        // member typed `object` off the converters
+        engine.Evaluate("host.Boxed").Should().Be(true);
+        recorder.Seen.Should().Contain(true);
     }
 
     [Fact]
@@ -271,8 +310,10 @@ public class ObjectConverterRegistrationTests
         declared.Evaluate("host.GetEnumValue()").Should().Be("One");
 
         // and a method declared to return object can hand back anything at all
-        var boxed = CreateEngine(new Host { Boxed = true }, options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
-        boxed.Evaluate("host.GetBoxed()").Should().Be(false);
+        var recorder = new RecordingConverter();
+        var boxed = CreateEngine(new Host { Boxed = true }, options => options.AddObjectConverter(recorder, typeof(Guid)));
+        boxed.Evaluate("host.GetBoxed()").Should().Be(true);
+        recorder.Seen.Should().Contain(true);
     }
 
     [Fact]
@@ -365,6 +406,72 @@ public class ObjectConverterRegistrationTests
         host.Number.Should().Be(7);
         host.Text.Should().Be("written");
     }
+
+    #endregion
+
+    #region 5. the declaration and the converter's switch drifting apart
+
+#if DEBUG
+    /// <summary>
+    /// Declaring types is a promise, and nothing links it to the <c>switch</c> inside the converter: add a case
+    /// to <c>TryConvert</c> and forget the registration, and the engine keeps the fast lanes for every member
+    /// that cannot produce the declared types — so the new case is silently skipped on exactly those members,
+    /// and works everywhere else. With host-contract verification on, converting an undeclared type says so.
+    /// </summary>
+    [Fact]
+    public void VerificationCatchesAConverterConvertingAnUndeclaredType()
+    {
+        // Boxed is declared `object`, so no declaration can exclude it and the converter is always offered its
+        // value — a bool, which the registration below does not mention.
+        var engine = CreateEngine(
+            new Host { Boxed = true },
+            options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+
+        var act = () => engine.Evaluate("host.Boxed");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*MeddlingConverter*Boolean*Guid*");
+    }
+
+    [Fact]
+    public void VerificationIsSilentForAConverterThatStaysInsideItsDeclaration()
+    {
+        var engine = CreateEngine(
+            new Host { Boxed = Level.One },
+            options => options.AddObjectConverter(new MeddlingConverter(), typeof(Enum), typeof(bool)));
+
+        engine.Evaluate("host.Boxed").Should().Be("One");
+        engine.Evaluate("host.Flag").Should().Be(false);
+        engine.Evaluate("host.EnumValue").Should().Be("One");
+    }
+
+    [Fact]
+    public void VerificationLeavesAnUndeclaredRegistrationAlone()
+    {
+        // registering without declared types claims everything, so nothing can be out of scope
+        var engine = CreateEngine(new Host { Boxed = true }, options => options.AddObjectConverter(new MeddlingConverter()));
+
+        engine.Evaluate("host.Boxed").Should().Be(false);
+    }
+#else
+    /// <summary>
+    /// The same drift with nothing verifying: the converter runs on the members whose declared type happens to
+    /// be wide enough to reach it, and is skipped on the rest. Pinned so the damage is on the record — the
+    /// inconsistency is invisible from script and from the host.
+    /// </summary>
+    [Fact]
+    public void WithoutVerificationADriftedDeclarationIsSilentlyInconsistent()
+    {
+        var engine = CreateEngine(
+            new Host { Boxed = true },
+            options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+
+        // an `object`-typed member cannot be excluded, so the undeclared bool case does run here...
+        engine.Evaluate("host.Boxed").Should().Be(false);
+        // ...while the same value read through a `bool`-typed member skips it, where the lane exists
+        ShouldRead(engine, "host.Flag", whenBypassed: true, whenConverted: false);
+    }
+#endif
 
     #endregion
 }

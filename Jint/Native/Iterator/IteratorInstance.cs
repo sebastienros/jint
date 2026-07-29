@@ -375,7 +375,7 @@ internal abstract class IteratorInstance : ObjectInstance
                 while (_index < keys.Count)
                 {
                     var key = keys[_index++];
-                    var probe = current.ProbeOwnProperty(key);
+                    var probe = current.ProbeOwnPropertyChecked(key);
                     if (probe == OwnPropertyProbe.Missing)
                     {
                         // absent before its turn — not visited, does not shadow. Record it so a

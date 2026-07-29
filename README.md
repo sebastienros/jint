@@ -213,8 +213,20 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
-  with `GetOwnProperty`; Debug builds verify that on every read, so running your integration suite once
-  against a Debug build of Jint is a free checker.
+  with `GetOwnProperty`, and neither is re-verified on the hot path — a `ProbeOwnProperty` that wrongly reports
+  a key as absent drops it from every enumeration, silently. Run your integration suite once with
+  **host-contract verification** on and every such disagreement throws instead, naming the type, the key and
+  both answers:
+
+  ```csharp
+  // before the first use of any Jint type — the flag is read once, at type initialization
+  AppContext.SetSwitch("Jint.EnableHostContractVerification", true);
+  ```
+
+  It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, and an
+  `IObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
+  declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
+  hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
 
 **Lazy values.** `PropertyFlag.CustomJsValue` is the supported hook for a property whose value is computed on
 first read: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
