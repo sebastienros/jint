@@ -151,6 +151,7 @@ and many more.
 - ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ Immutable Arraybuffers
 - ✔ Import Bytes (`import x from './file' with { type: 'bytes' }`)
+- ✔ Iterator Join (`Iterator.prototype.join`)
 - ✔ Iterator Sequencing
 - ✔ Joint Iteration
 - ✔ JSON.parse source text access
