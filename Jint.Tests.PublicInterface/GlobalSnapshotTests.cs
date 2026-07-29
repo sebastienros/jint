@@ -893,4 +893,104 @@ public class GlobalSnapshotTests
         engine.Evaluate("Object.getPrototypeOf(globalThis) === Object.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // WithRestoredGlobals — the documented recipe, with the finally supplied
+    // ---------------------------------------------------------------------------------------------
+    //
+    // The recipe every reusing host writes by hand is "run, then restore in a finally". The finally is
+    // the part that is easy to leave out, and leaving it out is invisible until a script throws: the
+    // globals that evaluation declared are then handed to the next caller.
+
+    [Fact]
+    public void WithRestoredGlobalsRestoresAfterNormalCompletion()
+    {
+        var engine = new Engine();
+        engine.SetValue("hostValue", 1);
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Advanced.WithRestoredGlobals(snapshot, () =>
+        {
+            engine.Evaluate("var leaked = 1; let lexical = 2; hostValue = 9;");
+            engine.Evaluate("hostValue").AsNumber().Should().Be(9);
+        });
+
+        engine.Evaluate("typeof leaked").AsString().Should().Be("undefined");
+        engine.Evaluate("hostValue").AsNumber().Should().Be(1);
+        engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
+    }
+
+    [Fact]
+    public void WithRestoredGlobalsRestoresWhenTheActionThrowsAndTheExceptionPropagates()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        Invoking(() => engine.Advanced.WithRestoredGlobals(snapshot, () =>
+            {
+                engine.Evaluate("var leaked = 1; let lexical = 2;");
+                throw new InvalidTimeZoneException("from the action");
+            }))
+            .Should().Throw<InvalidTimeZoneException>()
+            .WithMessage("from the action");
+
+        // the whole point: the throw did not skip the restore
+        engine.Evaluate("typeof leaked").AsString().Should().Be("undefined");
+        engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
+    }
+
+    [Fact]
+    public void WithRestoredGlobalsRestoresWhenTheSCRIPTThrows()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        Invoking(() => engine.Advanced.WithRestoredGlobals(snapshot, () =>
+                engine.Evaluate("let lexical = 2; null.boom;")))
+            .Should().Throw<JavaScriptException>();
+
+        engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
+    }
+
+    [Fact]
+    public void WithRestoredGlobalsRunsTheRestoreExactlyOnce()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+        var ran = 0;
+
+        engine.Advanced.WithRestoredGlobals(snapshot, () => ran++);
+
+        ran.Should().Be(1);
+        // and the engine is still usable for the next round
+        engine.Advanced.WithRestoredGlobals(snapshot, () => engine.Evaluate("let a = 1;"));
+        engine.Advanced.WithRestoredGlobals(snapshot, () => engine.Evaluate("let a = 1;"));
+    }
+
+    [Fact]
+    public void WithRestoredGlobalsRejectsNullArguments()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        Invoking(() => engine.Advanced.WithRestoredGlobals(null!, () => { })).Should().Throw<ArgumentNullException>();
+        Invoking(() => engine.Advanced.WithRestoredGlobals(snapshot, null!)).Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void WithRestoredGlobalsLetsTheRestoresOwnGuardsSpeak()
+    {
+        var a = new Engine();
+        var b = new Engine();
+        var foreign = a.Advanced.CaptureGlobalSnapshot();
+        var ran = false;
+
+        // A foreign snapshot is RestoreGlobalSnapshot's own rejection, and it fires after the action has
+        // run — the wrapper adds a finally, it does not pre-validate on the restore's behalf.
+        Invoking(() => b.Advanced.WithRestoredGlobals(foreign, () => ran = true))
+            .Should().Throw<ArgumentException>()
+            .WithMessage("*different engine*");
+
+        ran.Should().BeTrue();
+    }
 }

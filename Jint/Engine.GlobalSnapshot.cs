@@ -87,7 +87,9 @@ public partial class Engine
         /// }
         /// </code>
         /// The <c>finally</c> is the point: a script that throws still declared its globals, and restoring
-        /// only on the success path hands them to the next caller. The <c>ToObject()</c> is deliberate too —
+        /// only on the success path hands them to the next caller — <see cref="WithRestoredGlobals"/> is that
+        /// <c>try</c>/<c>finally</c> in one call, for a host that would rather not spell it out. The
+        /// <c>ToObject()</c> is deliberate too —
         /// returning CLR values means nothing the caller keeps depends on the engine still being in the state
         /// that produced it. With the asynchronous entry points
         /// (<c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c>) await the returned <c>Task</c> before
@@ -185,6 +187,69 @@ public partial class Engine
             }
 
             snapshot.Restore();
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> and then restores <paramref name="snapshot"/> in a
+        /// <see langword="finally"/>, so an evaluation that throws cannot leave its globals behind for the
+        /// next one. The documented reuse recipe with the part that is easy to forget supplied.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Equivalent to <c>try { action(); } finally { RestoreGlobalSnapshot(snapshot); }</c> and nothing
+        /// more. Exceptions from <paramref name="action"/> propagate — after the restore has run — and the
+        /// restore's own guards are left to speak for themselves rather than being pre-validated here, so a
+        /// foreign snapshot or an outstanding asynchronous evaluation fails exactly as
+        /// <see cref="RestoreGlobalSnapshot"/> documents, once the action has already run.
+        /// </para>
+        /// <para>
+        /// Everything <see cref="RestoreGlobalSnapshot"/> does and does not revert applies unchanged; in
+        /// particular <b>this is a configuration-reuse primitive, not an isolation or security boundary</b>.
+        /// See that method for the full list of what survives a restore. This overload adds no isolation of
+        /// its own: it is a <see langword="finally"/>, not a sandbox.
+        /// </para>
+        /// <para>
+        /// An <see cref="Engine"/> is single-threaded, so a host sharing one across requests still needs its
+        /// own lock around the whole call — the restore is only correct if nothing else is evaluating.
+        /// Asynchronous work has to be awaited <em>inside</em> <paramref name="action"/>: an
+        /// <c>EvaluateAsync</c> whose <see cref="System.Threading.Tasks.Task"/> is still outstanding when the
+        /// action returns makes the restore throw.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// lock (_gate)
+        /// {
+        ///     engine.Advanced.WithRestoredGlobals(_clean, () => result = engine.Evaluate(script).ToObject());
+        /// }
+        /// </code>
+        /// </example>
+        /// <param name="snapshot">A snapshot captured from this engine.</param>
+        /// <param name="action">The work to run before restoring.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> or <paramref name="action"/>
+        /// is <see langword="null"/>.</exception>
+        public void WithRestoredGlobals(GlobalSnapshot snapshot, Action action)
+        {
+            if (snapshot is null)
+            {
+                Throw.ArgumentNullException(nameof(snapshot));
+            }
+
+            if (action is null)
+            {
+                Throw.ArgumentNullException(nameof(action));
+            }
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                // Deliberately not guarded by a success flag: the restore is what the caller asked for, and
+                // skipping it on the throwing path is precisely the mistake this method exists to prevent.
+                RestoreGlobalSnapshot(snapshot);
+            }
         }
     }
 

@@ -124,7 +124,7 @@ Jint is not only an engine to work on, it is an engine that gets **embedded**. I
 | `JsObjectShape` + `JsObjectShape.Builder` + `JsObjectShape.Set/GetHostState` | `Jint/Native/JsObjectShape.cs` |
 | `Options.AddLazyGlobal` — extension method on `OptionsExtensions` — and its per-engine counterpart `Engine.Advanced.AddLazyGlobal` | `Jint/Options.Extensions.cs`, `Jint/Engine.Advanced.cs` |
 | `ReferencedGlobals` + `Prepared<T>.ReferencedGlobals` + `{Script,Module}PreparationOptions.CollectReferencedGlobals` | `Jint/ReferencedGlobals.cs`, `Jint/Prepared.cs`, `Jint/PreparationOptions.cs` |
-| `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` | `Jint/Engine.GlobalSnapshot.cs` |
+| `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` / `WithRestoredGlobals` | `Jint/Engine.GlobalSnapshot.cs` |
 
 `Get` and `Set` are overridable too, but they are `public override` of `JsValue` virtuals rather than declared on `ObjectInstance`.
 
