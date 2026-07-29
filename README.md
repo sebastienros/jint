@@ -220,7 +220,12 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
 first read: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
 caches, because every caching lane re-reads the flag on each hit and caches the descriptor reference rather
 than a value snapshot. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
-the value until script reads the name.
+the value until script reads the name, and `engine.Advanced.AddLazyGlobal` does the same on an engine that
+already exists — which is what you need when the value comes from the request you are about to serve rather
+than from process-wide configuration. Both install the property eagerly, so `in`, `hasOwnProperty` and
+`Object.keys(globalThis)` see the name without building anything; only reading the value runs the factory,
+once. The per-engine overload receives its engine, so unlike an `Options`-registered factory it may capture
+engine-affine state.
 
 **Sparse data.** Hosts that read deep chains off optional data — `input.Address.City.length`, where any link
 may be absent — usually install an `IReferenceResolver` so a nullish base yields a value instead of throwing.
