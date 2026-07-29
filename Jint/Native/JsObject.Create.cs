@@ -27,6 +27,12 @@ public sealed partial class JsObject
     /// a property, defining an accessor or a non-default attribute, freezing or sealing all convert the
     /// object to the ordinary dictionary representation, exactly as they do for an object literal.
     /// </para>
+    /// <para>
+    /// Creation can fall back too, silently and for reasons not knowable at the call site (see
+    /// <see cref="CreateFromEntries(Engine, ReadOnlySpan{KeyValuePair{string, JsValue}})"/>'s remarks for the
+    /// engine-wide budget). <c>engine.Advanced.HasSharedShape(result)</c> is the supported way to assert —
+    /// once, during adoption — that the shaping actually happened.
+    /// </para>
     /// </summary>
     /// <param name="engine">The engine the object belongs to.</param>
     /// <param name="layout">The property layout; see <see cref="JsObjectLayout"/>.</param>
@@ -173,6 +179,11 @@ public sealed partial class JsObject
     /// (the object-used-as-a-hash-map pattern). Each engine also bounds how many new layouts host code may
     /// intern over its lifetime; past that, this method keeps working and simply returns dictionary-mode
     /// objects.
+    /// <para>
+    /// Because every one of those triggers is decided by state the call site cannot see,
+    /// <c>engine.Advanced.HasSharedShape(result)</c> is the supported way to assert — once, during adoption —
+    /// that a representative object really did get a shared layout.
+    /// </para>
     /// <para>
     /// Entries are always eager. Lazily-produced properties are declared on a layout
     /// (<see cref="JsObjectLayout.Builder.AddLazy"/>), and a key set only known at runtime has nowhere to
