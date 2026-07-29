@@ -125,12 +125,27 @@ internal partial class IteratorPrototype : Prototype
     private static IteratorInstance.ObjectIterator GetIteratorDirect(ObjectInstance objectInstance) => new(objectInstance);
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorclose
     /// Close an iterator by calling its return() method directly (without reading next).
     /// Used when validation fails before GetIteratorDirect is called.
     /// </summary>
     private static void IteratorClose(ObjectInstance obj, CompletionType completionType)
     {
-        var returnMethod = obj.GetMethod(CommonProperties.Return);
+        // Step 4 - "If completion is a throw completion, return ? completion" - is reached before
+        // innerResult is inspected, so nothing raised while closing may replace the error that
+        // triggered the close. That covers the GetMethod in step 2 as much as the call in step 3.c:
+        // a throwing "return" accessor, or a "return" that is present but not callable, must leave
+        // the original TypeError/RangeError/coercion error standing.
+        ICallable? returnMethod;
+        try
+        {
+            returnMethod = obj.GetMethod(CommonProperties.Return);
+        }
+        catch when (completionType == CompletionType.Throw)
+        {
+            return;
+        }
+
         if (returnMethod is null)
         {
             return;
