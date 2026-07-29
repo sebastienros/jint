@@ -67,49 +67,48 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostObjectProbeCountTests
 {
-    // A Debug build of Jint verifies the ordinary semantics on every read, by recomputing the read through Get
-    // and through GetOwnProperty and comparing, and verifies a value-hook answer against the descriptor it
-    // claims to agree with. Both cost probes of their own. Release strips them entirely, and Release is the
-    // configuration these numbers are about.
-#if DEBUG
-    private const int OrdinaryOwnHit = 3;
-    private const int OrdinaryOwnMiss = 4;
-    private const int OrdinaryPrototypeHit = 3;
-    private const int HookOwnHit = 3;
-    private const int HookOwnMiss = 4;
-    private const int HookPrototypeHit = 3;
-    private const int HookMemberCallBase = 1;
-#else
-    private const int OrdinaryOwnHit = 1;
-    private const int OrdinaryOwnMiss = 2;
-    private const int OrdinaryPrototypeHit = 1;
-    private const int HookOwnHit = 0;
-    private const int HookOwnMiss = 0;
-    private const int HookPrototypeHit = 0;
-    private const int HookMemberCallBase = 0;
-#endif
+    /// <summary>
+    /// What one read costs a host of a given shape, in <c>GetOwnProperty</c> calls.
+    /// </summary>
+    private readonly record struct ProbeCosts(int OwnHit, int OwnMiss, int PrototypeHit, int MemberCallBase);
 
-    // The exotic host's Get delegates to base.Get, which probes once whatever the outcome: on a hit the probe
-    // produces the value, on a miss it establishes the miss before the prototype walk. Nothing in the
-    // interpreter probes on its own behalf for an exotic receiver, so these are entirely the host's own doing —
-    // which is also why no Debug verifier runs for them and the counts do not depend on the configuration.
-    private const int ExoticOwnHit = 1;
-    private const int ExoticOwnMiss = 1;
-    private const int ExoticPrototypeHit = 1;
+    // Jint's host-contract verifiers recompute an ordinary read through both Get and GetOwnProperty and compare
+    // them, and check a value-hook answer against the descriptor it claims to agree with. Both cost probes of
+    // their own. They run in a Debug build, and in Release when Jint.EnableHostContractVerification was set
+    // before the first use of any Jint type — which is what this repository's Release verification leg does
+    // (JINT_HOST_CONTRACT_VERIFICATION=1). The unverified numbers are the ones an embedder pays, and the ones
+    // every cost claim about this lane is about.
+    private static ProbeCosts CostsFor(ProbeCountingHostKind kind) => kind switch
+    {
+        ProbeCountingHostKind.Ordinary => HostContractVerificationSwitch.Enabled
+            ? new ProbeCosts(OwnHit: 3, OwnMiss: 4, PrototypeHit: 3, MemberCallBase: 1)
+            : new ProbeCosts(OwnHit: 1, OwnMiss: 2, PrototypeHit: 1, MemberCallBase: 1),
 
-    // The base of a member call resolves straight through ObjectInstance.Get rather than through the
-    // member-read lane, so it costs one probe in the two descriptor columns — and the member lane's Debug
-    // verifier never runs for it. This was already true before the derivation; it is what showed that the extra
-    // probe on the value lane was removable rather than intrinsic. The value hook does reach this lane, because
-    // Get consults it, which is what shows the hook is not member-read-only.
-    private const int MemberCallBase = 1;
+        ProbeCountingHostKind.OrdinaryWithValueHook => HostContractVerificationSwitch.Enabled
+            ? new ProbeCosts(OwnHit: 3, OwnMiss: 4, PrototypeHit: 3, MemberCallBase: 1)
+            : new ProbeCosts(OwnHit: 0, OwnMiss: 0, PrototypeHit: 0, MemberCallBase: 0),
+
+        // The exotic host's Get delegates to base.Get, which probes once whatever the outcome: on a hit the
+        // probe produces the value, on a miss it establishes the miss before the prototype walk. Nothing in the
+        // interpreter probes on its own behalf for an exotic receiver, so these are entirely the host's own
+        // doing — which is also why no verifier runs for them and the counts do not depend on the configuration.
+        //
+        // The base of a member call resolves straight through ObjectInstance.Get rather than through the
+        // member-read lane, so it costs one probe in the two descriptor columns — and the member lane's verifier
+        // never runs for it. This was already true before the derivation; it is what showed that the extra probe
+        // on the value lane was removable rather than intrinsic. The value hook does reach this lane, because
+        // Get consults it, which is what shows the hook is not member-read-only.
+        _ => new ProbeCosts(OwnHit: 1, OwnMiss: 1, PrototypeHit: 1, MemberCallBase: 1),
+    };
 
     [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryOwnHit)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookOwnHit)]
-    [InlineData(ProbeCountingHostKind.Exotic, ExoticOwnHit)]
-    public void AnOwnPropertyReadProbesTheHostObject(ProbeCountingHostKind kind, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [InlineData(ProbeCountingHostKind.Exotic)]
+    public void AnOwnPropertyReadProbesTheHostObject(ProbeCountingHostKind kind)
     {
+        var expectedProbes = CostsFor(kind).OwnHit;
+
         var engine = new Engine();
         var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
@@ -126,11 +125,13 @@ public class HostObjectProbeCountTests
     }
 
     [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary, 3 * OrdinaryOwnHit)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, 3 * HookOwnHit)]
-    [InlineData(ProbeCountingHostKind.Exotic, 3 * ExoticOwnHit)]
-    public void EachOwnPropertyReadCostsItsOwnProbes(ProbeCountingHostKind kind, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [InlineData(ProbeCountingHostKind.Exotic)]
+    public void EachOwnPropertyReadCostsItsOwnProbes(ProbeCountingHostKind kind)
     {
+        var expectedProbes = 3 * CostsFor(kind).OwnHit;
+
         var engine = new Engine();
         var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
@@ -144,11 +145,13 @@ public class HostObjectProbeCountTests
     }
 
     [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryOwnMiss)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookOwnMiss)]
-    [InlineData(ProbeCountingHostKind.Exotic, ExoticOwnMiss)]
-    public void AMissingOwnPropertyReadIsNoCheaperThanAHit(ProbeCountingHostKind kind, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [InlineData(ProbeCountingHostKind.Exotic)]
+    public void AMissingOwnPropertyReadIsNoCheaperThanAHit(ProbeCountingHostKind kind)
     {
+        var expectedProbes = CostsFor(kind).OwnMiss;
+
         var engine = new Engine();
         var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
@@ -165,11 +168,13 @@ public class HostObjectProbeCountTests
     }
 
     [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary, OrdinaryPrototypeHit)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookPrototypeHit)]
-    [InlineData(ProbeCountingHostKind.Exotic, ExoticPrototypeHit)]
-    public void APrototypeReadReEstablishesTheOwnMissOnTheHost(ProbeCountingHostKind kind, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [InlineData(ProbeCountingHostKind.Exotic)]
+    public void APrototypeReadReEstablishesTheOwnMissOnTheHost(ProbeCountingHostKind kind)
     {
+        var expectedProbes = CostsFor(kind).PrototypeHit;
+
         var engine = new Engine();
         var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);
@@ -186,11 +191,13 @@ public class HostObjectProbeCountTests
     }
 
     [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary, MemberCallBase)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook, HookMemberCallBase)]
-    [InlineData(ProbeCountingHostKind.Exotic, MemberCallBase)]
-    public void AMemberCallBaseProbesOnceUnlessTheHostAnswersItself(ProbeCountingHostKind kind, int expectedProbes)
+    [InlineData(ProbeCountingHostKind.Ordinary)]
+    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [InlineData(ProbeCountingHostKind.Exotic)]
+    public void AMemberCallBaseProbesOnceUnlessTheHostAnswersItself(ProbeCountingHostKind kind)
     {
+        var expectedProbes = CostsFor(kind).MemberCallBase;
+
         var engine = new Engine();
         var host = ProbeCountingHostObject.Create(engine, kind);
         engine.SetValue("host", host);

@@ -153,17 +153,20 @@ public class SharedObjectShapeTests
         descriptors[0].Should().NotBeNull("the member whose value was read had to materialize");
         descriptors[4].Should().NotBeNull("a constant points at the shape's shared descriptor from the start");
 
-#if DEBUG
-        // A Debug build cross-checks every probe against GetOwnProperty, which materializes the slot — the
-        // checker doing its job, and the reason the no-materialization figure is a Release figure.
-        descriptors[1].Should().NotBeNull();
-        descriptors[2].Should().NotBeNull();
-        descriptors[3].Should().NotBeNull();
-#else
-        descriptors[1].Should().BeNull("an enumerable member's name and flag come from the shared layout");
-        descriptors[2].Should().BeNull("so do a non-enumerable member's");
-        descriptors[3].Should().BeNull("an accessor is not created to answer whether it is enumerable");
-#endif
+        if (HostContractVerificationSwitch.Enabled)
+        {
+            // Host-contract verification cross-checks every probe against GetOwnProperty, which materializes the
+            // slot — the checker doing its job, and the reason the no-materialization figure is an unverified one.
+            descriptors[1].Should().NotBeNull();
+            descriptors[2].Should().NotBeNull();
+            descriptors[3].Should().NotBeNull();
+        }
+        else
+        {
+            descriptors[1].Should().BeNull("an enumerable member's name and flag come from the shared layout");
+            descriptors[2].Should().BeNull("so do a non-enumerable member's");
+            descriptors[3].Should().BeNull("an accessor is not created to answer whether it is enumerable");
+        }
 
         // Reading the values is what creates them, and the answers are unchanged.
         engine.Evaluate("Object.values(proto).length").Should().Be(4);
@@ -191,11 +194,14 @@ public class SharedObjectShapeTests
         engine.Evaluate("'cbrt' in Math").Should().Be(true);
         engine.Evaluate("(function () { var n = 0; for (var k in Math) { n++; } return n; })()").Should().Be(0);
 
-#if DEBUG
-        CountMaterialized(math).Should().BeGreaterThan(materializedAfterOneCall, "the Debug probe checker materializes what it re-reads");
-#else
-        CountMaterialized(math).Should().Be(materializedAfterOneCall, "no enumerability question created a function");
-#endif
+        if (HostContractVerificationSwitch.Enabled)
+        {
+            CountMaterialized(math).Should().BeGreaterThan(materializedAfterOneCall, "the probe checker materializes what it re-reads");
+        }
+        else
+        {
+            CountMaterialized(math).Should().Be(materializedAfterOneCall, "no enumerability question created a function");
+        }
 
         static int CountMaterialized(IBuiltinShaped shaped)
         {

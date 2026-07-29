@@ -74,6 +74,17 @@ public class ObjectConverterRegistrationTests
     /// and converting an undeclared type is exactly the drift the claim verifier reports: with host-contract
     /// verification on, the read therefore throws rather than quietly returning the converted value.
     /// </summary>
+    /// <summary>
+    /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
+    /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
+    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// </summary>
+    public static bool Verifying => HostContractVerificationSwitch.Enabled;
+
+    /// <inheritdoc cref="Verifying" />
+    public static bool NotVerifying => !Verifying;
+
     private static void ShouldRead(Engine engine, string expression, JsValue whenBypassed, JsValue whenConverted)
     {
         if (_compiledReadLaneAvailable)
@@ -82,12 +93,14 @@ public class ObjectConverterRegistrationTests
             return;
         }
 
-#if DEBUG
-        ((Action) (() => engine.Evaluate(expression))).Should().Throw<InvalidOperationException>(
-            "the converter is reached here, and it converts a type its registration did not declare");
-#else
+        if (Verifying)
+        {
+            ((Action) (() => engine.Evaluate(expression))).Should().Throw<InvalidOperationException>(
+                "the converter is reached here, and it converts a type its registration did not declare");
+            return;
+        }
+
         engine.Evaluate(expression).Should().Be(whenConverted);
-#endif
     }
 
     /// <summary>Turns every bool it sees into its negation, and every enum into its name.</summary>
@@ -411,14 +424,13 @@ public class ObjectConverterRegistrationTests
 
     #region 5. the declaration and the converter's switch drifting apart
 
-#if DEBUG
     /// <summary>
     /// Declaring types is a promise, and nothing links it to the <c>switch</c> inside the converter: add a case
     /// to <c>TryConvert</c> and forget the registration, and the engine keeps the fast lanes for every member
     /// that cannot produce the declared types — so the new case is silently skipped on exactly those members,
     /// and works everywhere else. With host-contract verification on, converting an undeclared type says so.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     public void VerificationCatchesAConverterConvertingAnUndeclaredType()
     {
         // Boxed is declared `object`, so no declaration can exclude it and the converter is always offered its
@@ -433,7 +445,7 @@ public class ObjectConverterRegistrationTests
             .WithMessage("*MeddlingConverter*Boolean*Guid*");
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     public void VerificationIsSilentForAConverterThatStaysInsideItsDeclaration()
     {
         var engine = CreateEngine(
@@ -445,7 +457,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.EnumValue").Should().Be("One");
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     public void VerificationLeavesAnUndeclaredRegistrationAlone()
     {
         // registering without declared types claims everything, so nothing can be out of scope
@@ -453,13 +465,13 @@ public class ObjectConverterRegistrationTests
 
         engine.Evaluate("host.Boxed").Should().Be(false);
     }
-#else
+
     /// <summary>
     /// The same drift with nothing verifying: the converter runs on the members whose declared type happens to
     /// be wide enough to reach it, and is skipped on the rest. Pinned so the damage is on the record — the
     /// inconsistency is invisible from script and from the host.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
     public void WithoutVerificationADriftedDeclarationIsSilentlyInconsistent()
     {
         var engine = CreateEngine(
@@ -471,7 +483,6 @@ public class ObjectConverterRegistrationTests
         // ...while the same value read through a `bool`-typed member skips it, where the lane exists
         ShouldRead(engine, "host.Flag", whenBypassed: true, whenConverted: false);
     }
-#endif
 
     #endregion
 }

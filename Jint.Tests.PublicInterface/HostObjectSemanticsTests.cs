@@ -31,31 +31,25 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostObjectSemanticsTests
 {
-    // A Debug build of Jint verifies the Ordinary contract on every read by recomputing it (one probe to walk
-    // the chain looking for side-effect-free descriptors, one more inside the Get it compares against), and
-    // verifies a value-hook answer against the descriptor it claims to match (one more, on the hook lanes
-    // only). Release strips both, and its count is the one the probes-per-read guard is about.
-#if DEBUG
-    private const int OrdinaryOwnReadProbes = 3;
-    private const int OrdinaryWarmPrototypeReadProbes = 3;
-    private const int HookMemberReadProbes = 3;
-    private const int HookMemberReadHookCalls = 2;
-    private const int HookComputedReadProbes = 1;
-    private const int HookPrototypeReadProbes = 3;
-    private const int HookAbsentReadProbes = 4;
+    // Jint's host-contract verifiers check the Ordinary contract on every read by recomputing it (one probe to
+    // walk the chain looking for side-effect-free descriptors, one more inside the Get it compares against), and
+    // check a value-hook answer against the descriptor it claims to match (one more, on the hook lanes only).
+    // They run in a Debug build, and in Release when Jint.EnableHostContractVerification was set before the
+    // first use of any Jint type — which is what this repository's Release verification leg does
+    // (JINT_HOST_CONTRACT_VERIFICATION=1). The unverified count is the one the probes-per-read guard is about.
+    private static bool Verifying => HostContractVerificationSwitch.Enabled;
+
+    private static readonly int OrdinaryOwnReadProbes = Verifying ? 3 : 1;
+    private static readonly int OrdinaryWarmPrototypeReadProbes = Verifying ? 3 : 1;
+    private static readonly int HookMemberReadProbes = Verifying ? 3 : 0;
+    private static readonly int HookMemberReadHookCalls = Verifying ? 2 : 1;
+    private static readonly int HookComputedReadProbes = Verifying ? 1 : 0;
+    private static readonly int HookPrototypeReadProbes = Verifying ? 3 : 0;
+    private static readonly int HookAbsentReadProbes = Verifying ? 4 : 0;
+
     // Deferring to the base implementation is the descriptor lane again, plus the verifier that asks
-    // GetOwnProperty a second time on each of the two hook consults a Debug read makes.
-    private const int HookDeferredReadProbes = 5;
-#else
-    private const int OrdinaryOwnReadProbes = 1;
-    private const int OrdinaryWarmPrototypeReadProbes = 1;
-    private const int HookMemberReadProbes = 0;
-    private const int HookMemberReadHookCalls = 1;
-    private const int HookComputedReadProbes = 0;
-    private const int HookPrototypeReadProbes = 0;
-    private const int HookAbsentReadProbes = 0;
-    private const int HookDeferredReadProbes = 1;
-#endif
+    // GetOwnProperty a second time on each of the two hook consults a verifying read makes.
+    private static readonly int HookDeferredReadProbes = Verifying ? 5 : 1;
 
     [Fact]
     public void OrdinarySemanticsAgreeWithGetOwnPropertyForEveryReadOutcome()

@@ -1,9 +1,14 @@
 #nullable enable
 
+using System.Collections.Generic;
 using System.Reflection;
 #if NET8_0_OR_GREATER
 using System.Runtime.Loader;
 #endif
+using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -50,23 +55,87 @@ public class HostContractVerificationTests
     [Fact]
     public void TheDefaultIsOnForADebugBuildAndOffForTheShippedRelease()
     {
-        // Reading it here also forces this process's copy to initialize while the switch is still unset, so the
-        // test below cannot accidentally turn verification on for the rest of a parallel suite run.
+        // Reading it here also forces this process's copy to initialize while the switch is still whatever the
+        // harness left it, so the test below cannot accidentally change it for the rest of a parallel suite run.
         var enabled = ReadGate(typeof(Engine).Assembly);
 
 #if DEBUG
         enabled.Should().BeTrue("a Debug build of Jint verifies host contracts without being asked");
 #else
-        enabled.Should().BeFalse("the shipped Release package must cost nothing until an embedder opts in");
+        if (HostContractVerificationSwitch.RequestedByTheEnvironment())
+        {
+            enabled.Should().BeTrue(
+                "this run asked for verification through " + HostContractVerificationSwitch.EnvironmentVariableName +
+                ", and the harness set the switch from a module initializer — before the first use of any Jint type");
+        }
+        else
+        {
+            enabled.Should().BeFalse("the shipped Release package must cost nothing until an embedder opts in");
+        }
 #endif
+    }
+
+    /// <summary>
+    /// The ordering claim, proven through <b>behaviour</b> rather than through the gate's field: a host whose
+    /// <c>ProbeOwnProperty</c> contradicts its own <c>GetOwnProperty</c> throws exactly when the verifiers are
+    /// running. A `true` here means Jint read the switch this harness set, and read it in time — the whole
+    /// contract of a <c>static readonly</c> gate.
+    /// </summary>
+    [Fact]
+    public void TheHarnessSetsTheSwitchEarlyEnoughForJintToObserveIt()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new SelfContradictingHost(engine));
+
+        var act = () => engine.Evaluate("Object.keys(host).join(',')");
+
+        if (HostContractVerificationSwitch.Enabled)
+        {
+            act.Should().Throw<InvalidOperationException>(
+                "the verifiers are on in this run, so the contradiction must be reported").WithMessage("*lied*");
+        }
+        else
+        {
+            act.Should().NotThrow("nothing is verifying in this run, so the contradiction is believed");
+            engine.Evaluate("Object.keys(host).join(',')").AsString().Should().Be("honest");
+        }
+    }
+
+    /// <summary>
+    /// Denies through its probe one name its own <c>GetOwnProperty</c> plainly serves. The engine trusts the
+    /// probe and never re-asks, so the key simply vanishes from every enumeration — silently, unless something
+    /// is verifying.
+    /// </summary>
+    private sealed class SelfContradictingHost : ObjectInstance
+    {
+        public SelfContradictingHost(Engine engine) : base(engine)
+        {
+        }
+
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        {
+            var name = property.ToString();
+            return name is "honest" or "lied"
+                ? new PropertyDescriptor(name, writable: true, enumerable: true, configurable: true)
+                : PropertyDescriptor.Undefined;
+        }
+
+        // outside the Jint assembly a `protected internal` member is visible as `protected`
+        protected override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+            => property.ToString() == "lied" ? OwnPropertyProbe.Missing : base.ProbeOwnProperty(property);
+
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+            => [new JsString("honest"), new JsString("lied")];
     }
 
 #if NET8_0_OR_GREATER && !DEBUG
     [Fact]
     public void TheSwitchTurnsVerificationOnInAReleaseBuild()
     {
-        // force this process's copy to initialize first, with the switch unset
-        ReadGate(typeof(Engine).Assembly).Should().BeFalse();
+        var requested = HostContractVerificationSwitch.RequestedByTheEnvironment();
+
+        // force this process's copy to initialize first, with the switch at whatever the harness left it
+        ReadGate(typeof(Engine).Assembly).Should().Be(requested);
 
         AppContext.SetSwitch(SwitchName, true);
         try
@@ -79,7 +148,8 @@ public class HostContractVerificationTests
         }
         finally
         {
-            AppContext.SetSwitch(SwitchName, false);
+            // back to what the harness asked for, so nothing later in the process sees a switch it did not set
+            AppContext.SetSwitch(SwitchName, requested);
         }
     }
 #endif

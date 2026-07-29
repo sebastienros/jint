@@ -171,17 +171,31 @@ public class HostArrayLikeHasIndexTests
     }
 
     /// <summary>
-    /// The claim the hook exists for. In Release no element is produced at all for an existence question; under
-    /// Debug the only <c>TryGetIndex</c> calls are the verifier's, one per probe.
+    /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
+    /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
+    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// </summary>
+    public static bool Verifying => HostContractVerificationSwitch.Enabled;
+
+    /// <inheritdoc cref="Verifying" />
+    public static bool NotVerifying => !Verifying;
+
+    /// <summary>
+    /// The claim the hook exists for. Unverified, no element is produced at all for an existence question; while
+    /// verifying, the only <c>TryGetIndex</c> calls are the verifier's, one per probe.
     /// </summary>
     private static void AssertNoValueWasMaterialized(SparseHostList list)
     {
         list.HasIndexCalls.Should().BeGreaterThan(0, "the existence question must reach the containment hook");
-#if DEBUG
-        list.TryGetIndexCalls.Should().Be(list.HasIndexCalls, "under Debug the agreement verifier re-runs TryGetIndex once per probe");
-#else
-        list.TryGetIndexCalls.Should().Be(0, "an existence question must not project an element");
-#endif
+        if (Verifying)
+        {
+            list.TryGetIndexCalls.Should().Be(list.HasIndexCalls, "the agreement verifier re-runs TryGetIndex once per probe");
+        }
+        else
+        {
+            list.TryGetIndexCalls.Should().Be(0, "an existence question must not project an element");
+        }
     }
 
     [Theory]
@@ -293,14 +307,13 @@ public class HostArrayLikeHasIndexTests
         engine.Evaluate("list[1]").Should().Be("B");
     }
 
-#if DEBUG
     /// <summary>
     /// The other side of the same coin: with verification on — a Debug build, or the shipped Release package
     /// with the <c>Jint.EnableHostContractVerification</c> switch set before first use — the damage pinned below
     /// never gets the chance to happen, because the first probe that disagrees with <c>TryGetIndex</c> throws
     /// and names the host, the index and both answers.
     /// </summary>
-    [Theory]
+    [Theory(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     [InlineData(true)]
     [InlineData(false)]
     public void VerificationTurnsASilentIndexDisagreementIntoAThrow(bool overclaiming)
@@ -314,9 +327,7 @@ public class HostArrayLikeHasIndexTests
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*HasIndex*");
     }
-#endif
 
-#if !DEBUG
     /// <summary>
     /// What a host that breaks the agreement observes when nothing is verifying. These are <b>not</b> a
     /// specification of desired behaviour — they pin the damage so it is on the record and reviewable, exactly
@@ -324,10 +335,10 @@ public class HostArrayLikeHasIndexTests
     /// does not re-verify it on the hot path, so a violation is silent unless verification is turned on.
     /// <para>
     /// Guarded to the unverified configuration on purpose: with the verifier running, the first disagreeing
-    /// probe throws, which is what the Debug-side theory above asserts instead.
+    /// probe throws, which is what the theory above asserts instead.
     /// </para>
     /// </summary>
-    [Fact]
+    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
     public void AHostClaimingAnIndexItCannotServeAdvertisesAKeyThatReadsAsUndefined()
     {
         var engine = new Engine();
@@ -348,7 +359,7 @@ public class HostArrayLikeHasIndexTests
             .Should().Be(true);
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
     public void AHostDenyingAnIndexItDoesServeHidesTheElementFromEveryEnumeration()
     {
         var engine = new Engine();
@@ -364,5 +375,4 @@ public class HostArrayLikeHasIndexTests
         engine.Evaluate("list[1]").Should().Be("item1");
         engine.Evaluate("JSON.stringify(list)").Should().Be("""["item0","item1","item2"]""");
     }
-#endif
 }

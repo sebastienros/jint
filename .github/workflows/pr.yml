@@ -53,3 +53,34 @@ jobs:
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
+  # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
+  # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
+  # is the other one an embedder is told to use — the shipped Release package with
+  # Jint.EnableHostContractVerification set — so that a verifier which misbehaves under the Release JIT, or a
+  # gating bug, fails here rather than in someone's integration suite. One OS is enough: the verifiers are
+  # platform-independent, and the switch is set the same way everywhere.
+  test-release-verification:
+
+    name: 'linux - host-contract verification'
+
+    runs-on: ubuntu-latest
+
+    env:
+      JINT_HOST_CONTRACT_VERIFICATION: 1
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Test Jint.Tests
+      run: dotnet test Jint.Tests/Jint.Tests.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+    - name: Test Jint.Tests.PublicInterface
+      run: dotnet test Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+

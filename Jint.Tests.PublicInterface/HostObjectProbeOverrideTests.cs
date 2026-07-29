@@ -108,13 +108,27 @@ public class HostObjectProbeOverrideTests
     {
         foreach (var key in keys)
         {
-#if DEBUG
-            host.DescriptorsBuiltFor.Should().Contain(key, "the verifier re-asks GetOwnProperty once per probe");
-#else
-            host.DescriptorsBuiltFor.Should().NotContain(key, "an existence question must not build a descriptor");
-#endif
+            if (Verifying)
+            {
+                host.DescriptorsBuiltFor.Should().Contain(key, "the verifier re-asks GetOwnProperty once per probe");
+            }
+            else
+            {
+                host.DescriptorsBuiltFor.Should().NotContain(key, "an existence question must not build a descriptor");
+            }
         }
     }
+
+    /// <summary>
+    /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
+    /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
+    /// static so xUnit can read it for <c>SkipUnless</c>/<c>SkipWhen</c>.
+    /// </summary>
+    public static bool Verifying => HostContractVerificationSwitch.Enabled;
+
+    /// <inheritdoc cref="Verifying" />
+    public static bool NotVerifying => !Verifying;
 
     private static (Engine Engine, HostRecord Host) CreateEngine()
     {
@@ -139,11 +153,14 @@ public class HostObjectProbeOverrideTests
         engine.Evaluate("'absent' in host").AsBoolean().Should().BeFalse();
 
         host.ProbeCalls.Should().Be(3);
-#if DEBUG
-        host.DescriptorsBuiltFor.Should().Equal("visible", "secret", "absent");
-#else
-        host.DescriptorsBuiltFor.Should().BeEmpty();
-#endif
+        if (Verifying)
+        {
+            host.DescriptorsBuiltFor.Should().Equal("visible", "secret", "absent");
+        }
+        else
+        {
+            host.DescriptorsBuiltFor.Should().BeEmpty();
+        }
     }
 
     [Fact]
@@ -293,14 +310,13 @@ public class HostObjectProbeOverrideTests
             => new() { new JsString("honest"), new JsString(_key) };
     }
 
-#if DEBUG
     /// <summary>
     /// With verification on — a Debug build, or the shipped Release package with the
     /// <c>Jint.EnableHostContractVerification</c> switch set before first use — a probe that disagrees with
     /// <c>GetOwnProperty</c> for the same key throws on the spot, naming the host, the key and both answers,
     /// instead of quietly dropping the key. This is the hook that had no verifier at all.
     /// </summary>
-    [Theory]
+    [Theory(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     [InlineData(OwnPropertyProbe.Missing)]
     [InlineData(OwnPropertyProbe.NonEnumerable)]
     public void VerificationTurnsASilentProbeDisagreementIntoAThrow(OwnPropertyProbe lie)
@@ -313,7 +329,7 @@ public class HostObjectProbeOverrideTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*ProbeOwnProperty*lied*");
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     public void VerificationAlsoCoversTheExistenceQuestions()
     {
         var engine = new Engine();
@@ -326,23 +342,23 @@ public class HostObjectProbeOverrideTests
         ((Action) (() => engine.Evaluate("JSON.stringify({ ...host })"))).Should().Throw<InvalidOperationException>();
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
     public void AnHonestOverrideIsUnaffectedByVerification()
     {
-        // the whole Debug run of this file is the real assertion; this one states it directly
+        // the whole verifying run of this file is the real assertion; this one states it directly
         var (engine, host) = CreateEngine();
 
         engine.Evaluate("Object.keys(host).join(',')").AsString().Should().Be("visible,also");
         engine.Evaluate("'secret' in host").AsBoolean().Should().BeTrue();
         host.ProbeCalls.Should().Be(4);
     }
-#else
+
     /// <summary>
     /// What the same host does when nothing is verifying: the lie is believed. Pinned so the damage is on the
     /// record — a wrong <c>Missing</c> costs the key everywhere existence is asked, while a read still produces
     /// it, and nothing anywhere reports a problem.
     /// </summary>
-    [Fact]
+    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
     public void WithoutVerificationAWrongMissingSilentlyDropsTheKey()
     {
         var engine = new Engine();
@@ -358,7 +374,7 @@ public class HostObjectProbeOverrideTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(host, 'lied') !== undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
     public void WithoutVerificationAWrongEnumerabilitySilentlyHidesTheKeyFromCopies()
     {
         var engine = new Engine();
@@ -371,5 +387,4 @@ public class HostObjectProbeOverrideTests
         engine.Evaluate("'lied' in host").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.getOwnPropertyDescriptor(host, 'lied').enumerable").AsBoolean().Should().BeTrue();
     }
-#endif
 }
