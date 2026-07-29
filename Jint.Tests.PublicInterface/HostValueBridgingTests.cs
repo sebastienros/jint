@@ -126,4 +126,34 @@ public class HostValueBridgingTests
 
         bridged.Should().Equal("a", null, null, "d");
     }
+
+    [Fact]
+    public void JsStringCreateReturnsTheInternedEmptyInstance()
+    {
+        JsString.Create("").Should().BeSameAs(JsString.Empty);
+    }
+
+    [Fact]
+    public void JsStringCreateReturnsAnInternedInstanceForASingleCharacter()
+    {
+        JsString.Create("a").Should().BeSameAs(JsString.Create("a"));
+    }
+
+    [Fact]
+    public void JsStringCreateRoundTripsALongerString()
+    {
+        var value = JsString.Create("ab");
+
+        value.ToString().Should().Be("ab");
+
+        var engine = new Engine();
+        engine.SetValue("bridged", value);
+        engine.Evaluate("bridged + '!'").AsString().Should().Be("ab!");
+    }
+
+    [Fact]
+    public void JsStringCreateRejectsNull()
+    {
+        Invoking(() => JsString.Create(null!)).Should().Throw<ArgumentNullException>();
+    }
 }
