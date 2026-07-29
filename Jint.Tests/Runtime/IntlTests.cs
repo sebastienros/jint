@@ -741,4 +741,37 @@ public class IntlTests
             ".formatRange(2.9, 3.1)");
         result.AsString().Should().Be("+$2.90–3.10");
     }
+
+    [Theory]
+    // a tag matching no available locale falls back to the hardcoded root collations
+    [InlineData("und", """["emoji","eor"]""")]
+    [InlineData("und-Latn-US", """["emoji","eor"]""")]
+    [InlineData("qtz-CN", """["emoji","eor"]""")]
+    // a matched locale reports the root collations plus its own, in code unit order
+    [InlineData("tr", """["emoji","eor"]""")]
+    [InlineData("de", """["emoji","eor","phonebk"]""")]
+    [InlineData("ko", """["emoji","eor","searchjl","unihan"]""")]
+    // an explicitly requested collation is the whole answer, however it was requested
+    [InlineData("de-u-co-phonebk", """["phonebk"]""")]
+    [InlineData("und-u-co-pinyin", """["pinyin"]""")]
+    public void LocaleGetCollations(string tag, string expected)
+    {
+        var result = _engine.Evaluate($"JSON.stringify(new Intl.Locale('{tag}').getCollations())");
+        result.AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void LocaleGetCollationsNeverReportsStandardOrSearch()
+    {
+        var result = _engine.Evaluate("""
+            ['ar', 'de', 'en', 'ja', 'ko', 'sv', 'tr', 'zh', 'und'].every(tag => {
+                const collations = new Intl.Locale(tag).getCollations();
+                return collations.length > 0
+                    && !collations.includes('standard')
+                    && !collations.includes('search')
+                    && collations.join() === [...collations].sort().join();
+            });
+            """);
+        result.AsBoolean().Should().BeTrue();
+    }
 }

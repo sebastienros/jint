@@ -677,6 +677,25 @@ public abstract class CyclicModule : Module
     }
 
     /// <summary>
+    /// https://tc39.es/proposal-defer-import-eval/#sec-IsModuleSCCEvaluated
+    /// A module that finished its own body is only really done once the strongly connected component
+    /// it belongs to is: a member of an async cycle reaches EVALUATED as soon as its body returns,
+    /// while the cycle root is still EVALUATING-ASYNC awaiting a top-level await. Reading the member's
+    /// own status alone would report that graph as settled and let a deferred dependency of it run —
+    /// or be declared synchronously runnable — before the cycle has actually finished.
+    /// </summary>
+    private static bool IsModuleSCCEvaluated(CyclicModule module)
+    {
+        var cycleRoot = module._cycleRoot;
+        if (cycleRoot is not null)
+        {
+            return cycleRoot.Status == ModuleStatus.Evaluated;
+        }
+
+        return module.Status == ModuleStatus.Evaluated;
+    }
+
+    /// <summary>
     /// https://tc39.es/proposal-defer-import-eval/#sec-ReadyForSyncExecution
     /// </summary>
     internal static bool ReadyForSyncExecution(Module module, HashSet<Module> seen = null)
@@ -692,12 +711,15 @@ public abstract class CyclicModule : Module
             return true;
         }
 
-        if (cyclicModule.Status == ModuleStatus.Evaluated)
+        if (IsModuleSCCEvaluated(cyclicModule))
         {
             return true;
         }
 
-        if (cyclicModule.Status is ModuleStatus.Evaluating or ModuleStatus.EvaluatingAsync)
+        // The spec asserts LINKED here, having ruled out EVALUATING and EVALUATING-ASYNC. EVALUATED is
+        // reachable too — a member of an async cycle whose root has not settled — and such a module
+        // cannot be completed synchronously either, so it is refused rather than asserted on.
+        if (cyclicModule.Status is ModuleStatus.Evaluating or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
             return false;
         }
@@ -766,7 +788,7 @@ public abstract class CyclicModule : Module
             return;
         }
 
-        if (cyclicModule.Status is ModuleStatus.Evaluating or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
+        if (cyclicModule.Status == ModuleStatus.Evaluating || IsModuleSCCEvaluated(cyclicModule))
         {
             return;
         }

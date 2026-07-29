@@ -1,3 +1,4 @@
+using System.Text;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -638,6 +639,92 @@ internal partial class IteratorPrototype : Prototype
         }
 
         return Undefined;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-iterator-join/#sec-iterator.prototype.join
+    /// </summary>
+    [JsFunction]
+    private JsValue Join(JsValue thisObject, JsValue separator)
+    {
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.join called on non-object");
+            return Undefined;
+        }
+
+        string sep;
+        if (separator.IsUndefined())
+        {
+            // 3. If separator is undefined, let sep be ",".
+            sep = ",";
+        }
+        else
+        {
+            // 4. Else, let sep be Completion(ToString(separator)), closing O if that is abrupt.
+            try
+            {
+                sep = TypeConverter.ToString(separator);
+            }
+            catch
+            {
+                IteratorClose(o, CompletionType.Throw);
+                throw;
+            }
+        }
+
+        // 5. Let iterated be ? GetIteratorDirect(O). Reading "next" deliberately happens only after
+        // the separator has been coerced, and an abrupt lookup here does NOT close the receiver.
+        var iterated = GetIteratorDirect(o);
+
+        // 6. Let R be the empty String. 7. Let first be true.
+        using var sb = new ValueStringBuilder();
+        var first = true;
+        var iterations = 0;
+
+        // 8. Repeat,
+        //    a. Let next be ? IteratorStepValue(iterated). b. If next is DONE, return R.
+        // An abrupt step — a throwing next(), a non-object result, or a throwing "value" getter —
+        // propagates without closing, per IteratorStepValue marking the record done.
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            var value = iteratorResult.Get(CommonProperties.Value);
+
+            // c. If first is false, set R to the string-concatenation of R and sep.
+            if (!first)
+            {
+                sb.Append(sep);
+            }
+
+            // d. Set first to false.
+            first = false;
+
+            try
+            {
+                // e. If next is neither undefined nor null, set R to the string-concatenation of R
+                //    and ? ToString(next), closing the iterator if the coercion is abrupt.
+                if (!value.IsNullOrUndefined())
+                {
+                    sb.Append(TypeConverter.ToString(value));
+                }
+
+                // Check constraints periodically so a huge (or native-backed) iterator cannot run
+                // uninterrupted; the catch closes the iterator.
+                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return sb.Length == 0 ? JsString.Empty : JsString.Create(sb.ToString());
     }
 
     [JsSymbolFunction("Iterator", Length = 0, Flags = PropertyFlag.NonEnumerable)]

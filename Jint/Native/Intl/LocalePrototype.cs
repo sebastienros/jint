@@ -207,10 +207,24 @@ internal sealed partial class LocalePrototype : Prototype
     {
         var locale = ValidateLocale(thisObject);
 
-        // Return array of supported collations
-        var result = new JsArray(Engine, 1);
-        result.SetIndexValue(0, locale.Collation ?? "default", updateLength: true);
-        return result;
+        // 1. If loc.[[Collation]] is not undefined, return CreateArrayFromList(« loc.[[Collation]] »).
+        if (locale.Collation is not null)
+        {
+            var requested = new JsArray(Engine, 1);
+            requested.SetIndexValue(0, locale.Collation, updateLength: true);
+            return requested;
+        }
+
+        // 2-6. Otherwise report the matched locale's collations, or the hardcoded root list when the
+        // tag matches no available Collator locale, sorted in lexicographic code unit order.
+        var collations = CollatorConstructor.GetCollationsForLanguage(locale.Language);
+        var values = new JsValue[collations.Length];
+        for (var i = 0; i < collations.Length; i++)
+        {
+            values[i] = JsString.Create(collations[i]);
+        }
+
+        return new JsArray(Engine, values);
     }
 
     /// <summary>

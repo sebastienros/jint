@@ -330,6 +330,47 @@ internal sealed partial class CollatorConstructor : Constructor
         return "default";
     }
 
+    // The collations CLDR's root locale contributes to every locale. "standard" and "search" are
+    // deliberately absent: ECMA-402 forbids either from appearing in a reported collation list.
+    private static readonly string[] RootCollations = ["emoji", "eor"];
+
+    /// <summary>
+    /// The collation identifiers reported for <paramref name="language"/> by
+    /// https://tc39.es/ecma402/#sec-collationsoflocale — the root collations plus whatever the
+    /// language adds, in lexicographic code unit order. A language carrying no data of its own —
+    /// including "und" and any tag matching no available Collator locale — gets exactly the root
+    /// list, which is what the spec hardcodes for the unmatched case.
+    /// </summary>
+    internal static string[] GetCollationsForLanguage(string? language)
+    {
+        if (language is null || !LocaleCollationSupport.TryGetValue(language, out var supported))
+        {
+            return RootCollations;
+        }
+
+        var list = new List<string>(supported.Count + RootCollations.Length);
+        foreach (var collation in supported)
+        {
+            // "default" is Jint's placeholder for "no explicit collation was requested", not an
+            // identifier a locale can report.
+            if (!string.Equals(collation, "default", StringComparison.Ordinal))
+            {
+                list.Add(collation);
+            }
+        }
+
+        foreach (var rootCollation in RootCollations)
+        {
+            if (!list.Contains(rootCollation))
+            {
+                list.Add(rootCollation);
+            }
+        }
+
+        list.Sort(StringComparer.Ordinal);
+        return list.ToArray();
+    }
+
     private static bool IsCollationSupportedForLocale(string language, string collation)
     {
         if (string.Equals(collation, "default", StringComparison.Ordinal))
