@@ -225,4 +225,214 @@ public class LazyGlobalRegistrationTests
         Invoking(() => options.AddLazyGlobal("name", null!))
             .Should().Throw<System.ArgumentNullException>();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // engine.Advanced.AddLazyGlobal — the same mechanism, installable after construction
+    // ---------------------------------------------------------------------------------------------
+    //
+    // Options.AddLazyGlobal is options-time only, so a host whose globals are computed from per-request
+    // data — which it only knows AFTER `new Engine(...)` — cannot use it. The post-construction install
+    // carries one design risk the options-time one does not have: at construction time no interpreter
+    // cache exists yet, while a post-construction install lands on an engine whose handler trees may
+    // already hold a resolved binding for that very name. Everything below the first two tests is the
+    // same contract as above; those two are about the caches.
+
+    [Fact]
+    public void PostConstructionInstallIsSeenByASiteThatAlreadyFailedToResolveTheName()
+    {
+        var engine = new Engine();
+
+        // Same handler tree both times: a Prepared<Script> is what a reusing host actually runs, and it
+        // is the only way to guarantee the second evaluation reaches the node the first one warmed.
+        var script = Engine.PrepareScript("x");
+
+        Invoking(() => engine.Evaluate(script))
+            .Should().Throw<JavaScriptException>()
+            .WithMessage("*x is not defined*");
+
+        engine.Advanced.AddLazyGlobal("x", _ => 42);
+
+        engine.Evaluate(script).AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void PostConstructionInstallReplacesAWarmedEagerGlobal()
+    {
+        var engine = new Engine();
+        engine.SetValue("y", "eager");
+
+        // A plain writable data property of the global object is exactly what the identifier cache
+        // remembers by descriptor reference, and `globalThis.y` warms the member-read cache as well.
+        var identifierRead = Engine.PrepareScript("y");
+        var memberRead = Engine.PrepareScript("globalThis.y");
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Evaluate(identifierRead).AsString().Should().Be("eager");
+            engine.Evaluate(memberRead).AsString().Should().Be("eager");
+        }
+
+        engine.Advanced.AddLazyGlobal("y", _ => "lazy");
+
+        engine.Evaluate(identifierRead).AsString().Should().Be("lazy");
+        engine.Evaluate(memberRead).AsString().Should().Be("lazy");
+    }
+
+    [Fact]
+    public void PostConstructionInstallReplacesAWarmedBuiltinGlobal()
+    {
+        var engine = new Engine();
+
+        // A built-in global lives in the global object's shared layout rather than its property
+        // dictionary, so installing over one takes a different storage path than the two above.
+        var identifierRead = Engine.PrepareScript("parseInt");
+        var memberRead = Engine.PrepareScript("globalThis.parseInt");
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Evaluate(identifierRead).IsCallable().Should().BeTrue();
+            engine.Evaluate(memberRead).IsCallable().Should().BeTrue();
+        }
+
+        engine.Advanced.AddLazyGlobal("parseInt", _ => "shadowed");
+
+        engine.Evaluate(identifierRead).AsString().Should().Be("shadowed");
+        engine.Evaluate(memberRead).AsString().Should().Be("shadowed");
+    }
+
+    [Fact]
+    public void PostConstructionFactoryRunsLazilyAndAtMostOnce()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        engine.Advanced.AddLazyGlobal("value", _ =>
+        {
+            calls++;
+            return "built";
+        });
+
+        engine.Evaluate("var unrelated = 1 + 1;");
+        calls.Should().Be(0);
+
+        engine.Evaluate("value").AsString().Should().Be("built");
+        calls.Should().Be(1);
+
+        engine.Evaluate("value; value; globalThis.value; value === globalThis.value;")
+            .AsBoolean().Should().BeTrue();
+        calls.Should().Be(1);
+    }
+
+    [Fact]
+    public void PostConstructionExistenceChecksDoNotMaterialize()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        engine.Advanced.AddLazyGlobal("value", _ =>
+        {
+            calls++;
+            return 42;
+        });
+
+        engine.Evaluate("'value' in globalThis").AsBoolean().Should().BeTrue();
+        engine.Evaluate("globalThis.hasOwnProperty('value')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.keys(globalThis).indexOf('value') >= 0").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyNames(globalThis).indexOf('value') >= 0").AsBoolean().Should().BeTrue();
+        calls.Should().Be(0);
+
+        engine.Evaluate("value").AsNumber().Should().Be(42);
+        calls.Should().Be(1);
+    }
+
+    [Fact]
+    public void PostConstructionFlagsAreHonoured()
+    {
+        var engine = new Engine();
+        engine.Advanced.AddLazyGlobal("hidden", _ => "value", PropertyFlag.NonEnumerable);
+
+        engine.Evaluate("Object.keys(globalThis).indexOf('hidden') >= 0").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'hidden' in globalThis").AsBoolean().Should().BeTrue();
+        engine.Evaluate("hidden").AsString().Should().Be("value");
+    }
+
+    [Fact]
+    public void PostConstructionFactoryMayCaptureEngineAffineState()
+    {
+        var engine = new Engine();
+        var perRequest = engine.Evaluate("({ requestId: 7 })");
+
+        // The whole point of the per-engine overload: this closure holds a JsValue of THIS engine, which
+        // an Options-registered factory must never do because an Options instance is shared.
+        engine.Advanced.AddLazyGlobal("context", _ => perRequest);
+
+        engine.Evaluate("context.requestId").AsNumber().Should().Be(7);
+        engine.Evaluate("context === globalThis.context").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void PostConstructionNullFactoryResultBecomesUndefinedRatherThanReRunning()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        engine.Advanced.AddLazyGlobal("nothing", _ =>
+        {
+            calls++;
+            return null!;
+        });
+
+        engine.Evaluate("typeof nothing").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof nothing").AsString().Should().Be("undefined");
+        calls.Should().Be(1);
+    }
+
+    [Fact]
+    public void PostConstructionInstallAfterACaptureIsRemovedByTheRestore()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Advanced.AddLazyGlobal("perRequest", _ =>
+        {
+            calls++;
+            return "value";
+        });
+        engine.Evaluate("'perRequest' in globalThis").AsBoolean().Should().BeTrue();
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("'perRequest' in globalThis").AsBoolean().Should().BeFalse();
+        engine.Evaluate("typeof perRequest").AsString().Should().Be("undefined");
+        calls.Should().Be(0);
+    }
+
+    [Fact]
+    public void RestoreReArmsAFactoryThatWasUnmaterializedAtCapture()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        engine.Advanced.AddLazyGlobal("value", _ =>
+        {
+            calls++;
+            return "built";
+        });
+
+        // captured while still unmaterialized, so "this exact surface" IS the unresolved state
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Evaluate("value").AsString().Should().Be("built");
+        calls.Should().Be(1);
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("value").AsString().Should().Be("built");
+        calls.Should().Be(2, "a restore returns the binding to its state at capture, where the factory had not run");
+    }
+
+    [Fact]
+    public void PostConstructionNullArgumentsAreRejected()
+    {
+        var engine = new Engine();
+        Invoking(() => engine.Advanced.AddLazyGlobal(null!, _ => JsValue.Undefined))
+            .Should().Throw<System.ArgumentNullException>();
+        Invoking(() => engine.Advanced.AddLazyGlobal("name", null!))
+            .Should().Throw<System.ArgumentNullException>();
+    }
 }

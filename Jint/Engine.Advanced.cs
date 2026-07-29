@@ -3,6 +3,8 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint;
@@ -294,6 +296,109 @@ public partial class Engine
         /// </remarks>
         public InteropConversionDiagnostics GetInteropConversionDiagnostics()
             => new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+
+        /// <summary>
+        /// Installs a global on <em>this</em> engine whose value is produced the first time script reads it,
+        /// instead of now. The per-engine counterpart of
+        /// <see cref="OptionsExtensions.AddLazyGlobal(Options, string, Func{Engine, JsValue}, PropertyFlag)"/>,
+        /// for the values a host cannot know until after the engine exists — per-request data, a scoped
+        /// service provider, a workflow context.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The property is installed eagerly, so existence checks and enumeration — <c>in</c>,
+        /// <c>hasOwnProperty</c>, <c>Object.keys(globalThis)</c>, <c>Object.getOwnPropertyNames</c> — see it
+        /// immediately without materializing anything. Only its value is left unresolved:
+        /// <paramref name="valueFactory"/> runs at most once, on the first read of that value, and the
+        /// produced value is stored in the descriptor so subsequent reads are ordinary property reads.
+        /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type.
+        /// </para>
+        /// <para>
+        /// A script that <b>deletes</b> the global before ever reading it (<c>delete globalThis.name</c>,
+        /// requires <see cref="PropertyFlag.Configurable"/>) removes the descriptor outright, and the factory
+        /// never runs. A script that <b>overwrites or redefines</b> it first does still run the factory once
+        /// and then discard the result: <c>[[Set]]</c> on the global object funnels into
+        /// <c>[[DefineOwnProperty]]</c>, whose ValidateAndApplyPropertyDescriptor step reads the current
+        /// value before replacing it. The end state is correct in every case — the script's value wins — the
+        /// laziness is simply not preserved through that particular sequence.
+        /// </para>
+        /// <para>
+        /// <b>Differences from the <see cref="Options"/> registration.</b> That one is recorded on a
+        /// configuration object which may be shared by any number of engines, so its factories must not
+        /// capture anything engine-affine. This one belongs to one engine and receives it, so its factory
+        /// <em>may</em> close over that engine's <see cref="JsValue"/>s and over per-request host state — the
+        /// case the options-time API cannot express. It also replaces any existing global of that name,
+        /// including a built-in, rather than being applied once during construction.
+        /// </para>
+        /// <para>
+        /// <b>When to call it.</b> Any time between evaluations, under the engine's usual single-thread
+        /// contract; an <see cref="Engine"/> is not thread-safe and this is an ordinary mutation of its
+        /// global object. Installing during an evaluation — from a host callback the script invoked — is not
+        /// prevented, but the read that is already in flight may have resolved the old binding.
+        /// </para>
+        /// <para>
+        /// <b>Interaction with <see cref="CaptureGlobalSnapshot"/>.</b> A restore returns the binding to its
+        /// state at capture, which cuts both ways: a global installed after the capture is gone after the
+        /// restore, and one installed before it whose factory had <em>not</em> yet run at capture time is
+        /// returned to that unmaterialized state — so the factory may run again on the next read. That is
+        /// the point rather than an artifact: it is what lets a pooled engine keep the laziness across
+        /// evaluations. A factory whose result must survive a restore has to be installed after it.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// The per-request shape the <see cref="Options"/> registration cannot express, since the values are
+        /// only known once the request is in hand:
+        /// <code>
+        /// engine.Advanced.AddLazyGlobal("user", _ => JsValue.FromObject(engine, request.User));
+        /// engine.Advanced.AddLazyGlobal("db", e => new ObjectWrapper(e, scope.ServiceProvider.GetRequiredService&lt;IDb&gt;()));
+        /// </code>
+        /// Neither the user projection nor the database wrapper is built for a script that never mentions
+        /// the name.
+        /// </example>
+        /// <param name="name">The global property name.</param>
+        /// <param name="valueFactory">
+        /// Produces the value, given this engine. Invoked lazily, so it may use anything the engine exposes.
+        /// A <see langword="null"/> return is replaced by <see cref="JsValue.Undefined"/>, so that it cannot
+        /// silently turn into a factory that re-runs on every read.
+        /// </param>
+        /// <param name="flags">
+        /// Property attributes; defaults to the configurable/enumerable/writable combination that
+        /// <see cref="Engine.SetValue(string, JsValue)"/> produces — <b>not</b> the
+        /// <see cref="PropertyFlag.NonEnumerable"/> that <see cref="Engine.SetValue(string, Delegate)"/> uses.
+        /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="name"/> or
+        /// <paramref name="valueFactory"/> is <see langword="null"/>.</exception>
+        public void AddLazyGlobal(
+            string name,
+            Func<Engine, JsValue> valueFactory,
+            PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
+        {
+            if (name is null)
+            {
+                Throw.ArgumentNullException(nameof(name));
+            }
+
+            if (valueFactory is null)
+            {
+                Throw.ArgumentNullException(nameof(valueFactory));
+            }
+
+            var engine = _engine;
+
+            // Resolved once per registration, not per read: LazyPropertyDescriptor treats a null value as
+            // "not materialized yet", so a factory returning null would silently re-run on every read.
+            Func<Engine, JsValue> resolver = e => valueFactory(e) ?? JsValue.Undefined;
+
+            // SetProperty, exactly as the options-time registration uses, and for a reason that only bites
+            // here: unlike a registration applied during construction, this one lands on an engine whose
+            // handler trees may already hold a resolved binding for this very name. Every storage path
+            // SetProperty can take — replacing a slot of the global's shared built-in layout, adding to the
+            // hybrid side dictionary, plain dictionary store, and the deopt fallback — bumps
+            // _propertiesVersion, which is the sole thing the global-identifier and member-read inline
+            // caches revalidate against. Installing through anything that skipped that bump would leave a
+            // warmed read site serving the previous binding forever.
+            engine.Realm.GlobalObject.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, resolver, flags));
+        }
 
         /// <summary>
         /// Event raised when a promise is rejected without a handler (operation = Reject),
