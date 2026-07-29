@@ -24,6 +24,27 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     internal readonly TypeDescriptor _typeDescriptor;
     private bool _lengthPropertyPending;
 
+    /// <summary>
+    /// Whether the host declared <see cref="Target"/>'s type immutable for the crossing
+    /// (<see cref="Options.InteropOptions.ImmutableCrossingTypes"/>). Fixed for the wrapper's lifetime.
+    /// </summary>
+    private readonly bool _immutableCrossing;
+
+    /// <summary>
+    /// Memoized results of the dictionary-key lane, populated only while <see cref="_immutableCrossing"/> —
+    /// the host's promise that the target's key set and values do not change is the whole warrant for it.
+    /// <para>
+    /// Deliberately a store of its own rather than the inherited <c>_properties</c>. That keeps every existing
+    /// observable of the wrapper untouched: the memo is invisible to <see cref="GetOwnPropertyKeys"/> (which
+    /// stays live from the target), never bumps <c>_propertiesVersion</c> so no unrelated inline cache is
+    /// invalidated as keys are memoized, and stays unambiguously distinguishable from a descriptor a script
+    /// actually defined — which is what lets a write evict exactly the memo and nothing else. It also cannot
+    /// shadow <c>_properties</c>: a key is only memoized once that store has been shown not to hold it, and
+    /// every path that can add one afterwards drops the memo first.
+    /// </para>
+    /// </summary>
+    private PropertyDictionary? _crossingMemo;
+
     internal ObjectWrapper(
         Engine engine,
         object obj,
@@ -38,6 +59,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         Target = obj;
         ClrType = GetClrType(obj, type);
         _typeDescriptor = TypeDescriptor.Get(ClrType);
+
+        // The promise is about instances, so it is the runtime type that is asked rather than the exposed
+        // one: an object handed over under an interface view still is what it is. Costs one null check when
+        // no host declared anything, and one memoized type probe when one did.
+        _immutableCrossing = engine._immutableCrossingFilter?.Claims(obj.GetType()) == true;
 
         if (_typeDescriptor.LengthProperty is not null)
         {
@@ -238,6 +264,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (property is JsString stringKey)
         {
             var member = stringKey.ToString();
+
+            // A write must never be answered from the memo afterwards. The host promised the target does
+            // not change, so in principle nothing here can invalidate it - this is insurance for the host
+            // that was wrong, not a licence to be, and it costs one probe on a path that is about to run
+            // a CLR write anyway. Only the memo is dropped: _properties is untouched, so everything below
+            // (the accessor fast path, freeze, an expando added by a previous extend) behaves exactly as
+            // it did before the memo existed.
+            _crossingMemo?.Remove(member);
+
             if (_lengthPropertyPending && string.Equals(member, "length", StringComparison.Ordinal))
             {
                 MaterializeLengthProperty();
@@ -375,6 +410,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
+        // whatever this defines lands in _properties, which is consulted ahead of the dictionary lane from
+        // here on, so the memo must not answer for it any more
+        DropCrossingMemo();
+
         if (_typeDescriptor.IsStringKeyedGenericDictionary && property.IsString() && !TryGetProperty(property, out _))
         {
             // For dictionary-backed objects, GetOwnProperty returns fresh descriptors that are not stored
@@ -392,8 +431,20 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override object ToObject() => Target;
 
+    protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        // same reason as DefineOwnProperty: a descriptor in _properties outranks the memo from now on
+        DropCrossingMemo();
+        base.SetOwnProperty(property, desc);
+    }
+
     public override void RemoveOwnProperty(JsValue property)
     {
+        if (property is JsString removedKey)
+        {
+            _crossingMemo?.Remove(removedKey.ToString());
+        }
+
         if (_lengthPropertyPending && CommonProperties.Length.Equals(property))
         {
             // an explicit removal of the not-yet-materialized forwarder must behave like removing the
@@ -507,7 +558,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 if (_typeDescriptor.IsStringKeyedGenericDictionary)
                 {
-                    var found = _typeDescriptor.TryGetDictionaryValue(Target, property.ToString(), out var value);
+                    var member = property.ToString();
+
+                    // Immutability promise: a memoized key answers with no dictionary probe, no conversion
+                    // and no host boundary crossing at all - there is no host code left to run.
+                    if (_crossingMemo is not null && _crossingMemo.TryGetValue(member, out var memoized))
+                    {
+                        return UnwrapJsValue(memoized, receiver);
+                    }
+
+                    var found = _typeDescriptor.TryGetDictionaryValue(Target, member, out var value);
                     if (found)
                     {
                         // the miss path needs no check here: it falls through to GetOwnProperty,
@@ -520,7 +580,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                             return UnwrapJsValue(stored, receiver);
                         }
 
-                        return FromObject(_engine, value);
+                        var converted = FromObject(_engine, value);
+                        if (_immutableCrossing)
+                        {
+                            // reached only once _properties has been shown not to hold the key, so the memo
+                            // can never shadow a descriptor a script defined
+                            MemoizeDictionaryValue(member, converted);
+                        }
+
+                        return converted;
                     }
                 }
             }
@@ -748,16 +816,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         var isDictionary = _typeDescriptor.IsStringKeyedGenericDictionary;
         if (isDictionary)
         {
+            // see the matching lane in Get: under the immutability promise the memoized descriptor is the
+            // answer, and it is the same instance every read, so this path stops allocating one per access
+            if (_crossingMemo is not null && _crossingMemo.TryGetValue(member, out var memoized))
+            {
+                return memoized;
+            }
+
             var found = _typeDescriptor.TryGetDictionaryValue(Target, member, out var value);
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             if (found)
             {
-                var flags = PropertyFlag.Enumerable;
-                if (_engine.Options.Interop.AllowWrite)
+                var converted = FromObject(_engine, value);
+                if (_immutableCrossing)
                 {
-                    flags |= PropertyFlag.Configurable;
+                    return MemoizeDictionaryValue(member, converted);
                 }
-                return new PropertyDescriptor(FromObject(_engine, value), flags);
+
+                return new PropertyDescriptor(converted, DictionaryMemberFlags());
             }
         }
 
@@ -813,6 +889,49 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         return descriptor;
     }
+
+    /// <summary>
+    /// The flags a dictionary-backed member is reported with. Configurability follows
+    /// <see cref="Options.InteropOptions.AllowWrite"/>, exactly as it did before the memo existed.
+    /// </summary>
+    private PropertyFlag DictionaryMemberFlags()
+    {
+        var flags = PropertyFlag.Enumerable;
+        if (_engine.Options.Interop.AllowWrite)
+        {
+            flags |= PropertyFlag.Configurable;
+        }
+
+        return flags;
+    }
+
+    /// <summary>
+    /// Records the descriptor a dictionary key resolves to, so every later read of that key on this wrapper
+    /// answers from it. Only ever called while <see cref="_immutableCrossing"/>, and only for a key
+    /// <c>_properties</c> has been shown not to carry.
+    /// </summary>
+    private PropertyDescriptor MemoizeDictionaryValue(string member, JsValue value)
+    {
+        var descriptor = new PropertyDescriptor(value, DictionaryMemberFlags());
+        (_crossingMemo ??= new PropertyDictionary())[member] = descriptor;
+        return descriptor;
+    }
+
+    /// <summary>
+    /// Drops the whole crossing memo. Called from every path that can put a descriptor for an arbitrary key
+    /// into <c>_properties</c>, which must win over the memo from then on — <c>Object.freeze</c>,
+    /// <c>Object.defineProperty</c> and a direct host <see cref="SetOwnProperty"/>. Dropping everything
+    /// rather than one key is deliberate: these are rare, and a key whose descriptor now lives in
+    /// <c>_properties</c> is answered from there before the dictionary lane is reached again, so it simply
+    /// never re-enters the memo.
+    /// <para>
+    /// Also the escape hatch for a subclass whose write path does not reach <see cref="Set"/>'s per-key
+    /// eviction — <see cref="ArrayLikeWrapper"/> serves length and fixed-size index writes itself. Such a
+    /// target only ever carries a memo when it is dictionary-shaped as well (Newtonsoft's <c>JObject</c> is
+    /// both), which is exactly when a length write can invalidate arbitrary keys.
+    /// </para>
+    /// </summary>
+    private protected void DropCrossingMemo() => _crossingMemo = null;
 
     /// <summary>
     /// Per-AST-node inline-cache support (see the wrapper member lane in

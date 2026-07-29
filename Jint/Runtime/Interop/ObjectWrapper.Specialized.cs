@@ -242,6 +242,12 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
+        // The length and fixed-size index lanes below never reach base.Set, which is where a crossing memo
+        // is otherwise evicted per key. Dropping it here keeps that guarantee for the one target shape that
+        // can carry both a memo and these lanes — a dictionary-shaped array-like such as JObject, where a
+        // length write can invalidate arbitrary keys. Everywhere else the memo is already null.
+        DropCrossingMemo();
+
         if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
         {
             if (!CanWrite)

@@ -374,6 +374,22 @@ public class Options
         public List<IObjectConverter> ObjectConverters { get; } = new();
 
         /// <summary>
+        /// CLR types whose instances the host promises are immutable while they are exposed to the engine —
+        /// their member and key set, and the values behind them, do not change. In exchange the engine may
+        /// cache what it reads through them: memoized member results and stable child wrappers, so a walk
+        /// such as <c>record.value.customer.country</c> wraps each node once per wrapper lifetime instead of
+        /// once per access. Register through <see cref="OptionsExtensions.AddImmutableCrossing"/>, which
+        /// validates the declaration; assignability is the rule, so an interface or base type covers a whole
+        /// family. Empty by default, in which case nothing is memoized and behaviour is unchanged.
+        /// </summary>
+        /// <remarks>
+        /// A host that breaks the promise gets stale reads — the same class of consequence
+        /// <see cref="TrackObjectWrapperIdentity"/> and a shared <see cref="TypeResolver"/> already describe,
+        /// and owned by the host in exactly the same way. Read once, while the engine is being constructed.
+        /// </remarks>
+        public List<Type> ImmutableCrossingTypes { get; } = new();
+
+        /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
         /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
         /// Also covers CLR arrays: repeated conversions of the same array instance return the same result — the live
