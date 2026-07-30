@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -84,9 +85,9 @@ public partial class Engine
                 return module;
             }
 
-            if (_builders.TryGetValue(moduleResolution.Key, out var moduleBuilder))
+            if (TryGetBuilder(moduleResolution, out var builderSpecifier, out var moduleBuilder))
             {
-                module = LoadFromBuilder(moduleResolution.Key, moduleBuilder, moduleResolution, cacheKey);
+                module = LoadFromBuilder(builderSpecifier, moduleBuilder, moduleResolution, cacheKey);
             }
             else
             {
@@ -99,6 +100,29 @@ public partial class Engine
             }
 
             return module;
+        }
+
+        /// <summary>
+        /// Finds the builder registered for a module, under either name it can be filed under. Add stores
+        /// one against the specifier the host passed it, which is not necessarily the key the module loader
+        /// resolves that specifier to - any loader that canonicalizes spells <c>http://host</c> as
+        /// <c>http://host/</c>. Consulting only the resolved key silently replaces the source the host
+        /// supplied with a load from the file system or the network.
+        /// </summary>
+        private bool TryGetBuilder(
+            ResolvedSpecifier moduleResolution,
+            [NotNullWhen(true)] out string? specifier,
+            [NotNullWhen(true)] out ModuleBuilder? moduleBuilder)
+        {
+            if (_builders.TryGetValue(moduleResolution.Key, out moduleBuilder))
+            {
+                specifier = moduleResolution.Key;
+                return true;
+            }
+
+            specifier = moduleResolution.ModuleRequest.Specifier;
+            return !string.Equals(specifier, moduleResolution.Key, StringComparison.Ordinal)
+                && _builders.TryGetValue(specifier, out moduleBuilder);
         }
 
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
