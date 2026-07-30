@@ -1193,4 +1193,56 @@ export const count = globals.counter;
 
         log.Should().Equal("mid");
     }
+
+    [Fact]
+    public void ShouldNotBindALexicalDeclarationFromANestedBlockAtModuleLevel()
+    {
+        // A block's `let` is not a module item, so binding it at module level would leave the `var` of the same name uninitialized.
+        _engine.Modules.Add("my-module", "{ let a = 1; } var a = 2; export const value = a;");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("value").AsInteger().Should().Be(2);
+    }
+
+    [Fact]
+    public void ShouldNotBindAForHeadDeclarationAtModuleLevel()
+    {
+        // The `let` of a for head is scoped to the loop, so nothing named `key` reaches module scope.
+        _engine.Modules.Add("my-module", "for (let key in { x: 1 }) {} export const value = typeof key;");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("value").AsString().Should().Be("undefined");
+    }
+
+    [Fact]
+    public void ShouldNotBindAClassDeclaredInABlockAtModuleLevel()
+    {
+        _engine.Modules.Add("my-module", "{ class C {} } export const value = typeof C;");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("value").AsString().Should().Be("undefined");
+    }
+
+    [Fact]
+    public void ShouldBindExportedLexicalDeclarationsAtModuleLevel()
+    {
+        // The counterpart: an exported declaration sits inside the export declaration and is a module item.
+        _engine.Modules.Add("my-module", "export const c = 1; export let l = 2; export class K {} export default class D {}");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("c").AsInteger().Should().Be(1);
+        ns.Get("l").AsInteger().Should().Be(2);
+        ns.Get("K").IsCallable.Should().BeTrue();
+        ns.Get("default").IsCallable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldStillApplyTheTemporalDeadZoneToModuleLevelDeclarations()
+    {
+        // A module-level `const` is bound uninitialized until its declaration runs, so reading it early throws even through typeof.
+        _engine.Modules.Add("my-module", "globalThis.probe = typeof x; const x = 1;");
+
+        Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("Cannot access 'x' before initialization");
+    }
 }

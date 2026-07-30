@@ -267,6 +267,10 @@ internal sealed class HoistingScope
 
             var effectiveLexicalNames = currentScopeLexicalNames ?? enclosingLexicalNames;
 
+            // Only a direct child of the module, or an export wrapping one, is a module item; a top-level block or `for` head is not.
+            var atTopLevel = parent is null
+                || (parent is AstModule && node.Type is NodeType.ExportNamedDeclaration or NodeType.ExportDefaultDeclaration);
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -288,7 +292,7 @@ internal sealed class HoistingScope
                         }
                     }
 
-                    if (parent is null or AstModule && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                    if (atTopLevel && variableDeclaration.Kind != VariableDeclarationKind.Var)
                     {
                         _lexicalDeclarations ??= [];
                         _lexicalDeclarations.Add(variableDeclaration);
@@ -349,7 +353,7 @@ internal sealed class HoistingScope
                         }
                     }
                 }
-                else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
+                else if (childType == NodeType.ClassDeclaration && atTopLevel)
                 {
                     _lexicalDeclarations ??= [];
                     _lexicalDeclarations.Add((Declaration) childNode);
