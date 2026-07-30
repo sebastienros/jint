@@ -8,23 +8,31 @@ namespace Jint.Benchmark;
 /// environment slots. These are the workloads where transient JsNumber allocations dominate
 /// (values outside the int cache allocate per write), which the rest of the suite under-covers
 /// because its loops live at script top level where bindings are global-object properties.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six scripts, so each
+/// row was measured on an engine carrying the other five rows' globals (every one of them declares
+/// <c>function f</c>, so they collided outright) plus their handler-tree, call-site and
+/// environment-reuse state — which makes a row's number depend on which siblings exist and on what a
+/// change did to <em>them</em>. The rows still measure the warm loop, and engine construction and
+/// warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not
+/// comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class FunctionLocalNumberLoopBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _doubleAccumulator;
-    private Prepared<Script> _largeIntCounter;
-    private Prepared<Script> _accumulatorWithCallArg;
-    private Prepared<Script> _mixedArithmetic;
-    private Prepared<Script> _whileAccumulator;
-    private Prepared<Script> _doWhileCounter;
+    private IsolatedScript _doubleAccumulator;
+    private IsolatedScript _largeIntCounter;
+    private IsolatedScript _accumulatorWithCallArg;
+    private IsolatedScript _mixedArithmetic;
+    private IsolatedScript _whileAccumulator;
+    private IsolatedScript _doWhileCounter;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         // pure accumulator: every += result is an uncached double
-        _doubleAccumulator = Engine.PrepareScript("""
+        _doubleAccumulator = IsolatedScript.Warm("""
             function f() {
                 var s = 0.5;
                 for (var i = 0; i < 100000; i++) {
@@ -36,7 +44,7 @@ public class FunctionLocalNumberLoopBenchmark
             """);
 
         // counter beyond the interned-int range with a materializing loop test
-        _largeIntCounter = Engine.PrepareScript("""
+        _largeIntCounter = IsolatedScript.Warm("""
             function f() {
                 var n = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -48,7 +56,7 @@ public class FunctionLocalNumberLoopBenchmark
             """);
 
         // unboxed write followed by a materializing read every iteration
-        _accumulatorWithCallArg = Engine.PrepareScript("""
+        _accumulatorWithCallArg = IsolatedScript.Warm("""
             function g(v) { return v > 0; }
             function f() {
                 var s = 0.5;
@@ -63,7 +71,7 @@ public class FunctionLocalNumberLoopBenchmark
             """);
 
         // several locals updated per iteration (numeric kernel shape)
-        _mixedArithmetic = Engine.PrepareScript("""
+        _mixedArithmetic = IsolatedScript.Warm("""
             function f() {
                 var x = 0.1;
                 var y = 0.2;
@@ -81,7 +89,7 @@ public class FunctionLocalNumberLoopBenchmark
 
         // the while/do-while twins of the for-loop accumulator: same tight-lane body shapes,
         // different loop statements
-        _whileAccumulator = Engine.PrepareScript("""
+        _whileAccumulator = IsolatedScript.Warm("""
             function f() {
                 var s = 0.5;
                 var i = 0;
@@ -94,7 +102,7 @@ public class FunctionLocalNumberLoopBenchmark
             f();
             """);
 
-        _doWhileCounter = Engine.PrepareScript("""
+        _doWhileCounter = IsolatedScript.Warm("""
             function f() {
                 var n = 0;
                 var i = 0;
@@ -106,31 +114,23 @@ public class FunctionLocalNumberLoopBenchmark
             }
             f();
             """);
-
-        _engine = new Engine();
-        _engine.Evaluate(_doubleAccumulator);
-        _engine.Evaluate(_largeIntCounter);
-        _engine.Evaluate(_accumulatorWithCallArg);
-        _engine.Evaluate(_mixedArithmetic);
-        _engine.Evaluate(_whileAccumulator);
-        _engine.Evaluate(_doWhileCounter);
     }
 
     [Benchmark]
-    public JsValue DoubleAccumulator() => _engine.Evaluate(_doubleAccumulator);
+    public JsValue DoubleAccumulator() => _doubleAccumulator.Run();
 
     [Benchmark]
-    public JsValue LargeIntCounter() => _engine.Evaluate(_largeIntCounter);
+    public JsValue LargeIntCounter() => _largeIntCounter.Run();
 
     [Benchmark]
-    public JsValue AccumulatorWithCallArg() => _engine.Evaluate(_accumulatorWithCallArg);
+    public JsValue AccumulatorWithCallArg() => _accumulatorWithCallArg.Run();
 
     [Benchmark]
-    public JsValue MixedArithmetic() => _engine.Evaluate(_mixedArithmetic);
+    public JsValue MixedArithmetic() => _mixedArithmetic.Run();
 
     [Benchmark]
-    public JsValue WhileAccumulator() => _engine.Evaluate(_whileAccumulator);
+    public JsValue WhileAccumulator() => _whileAccumulator.Run();
 
     [Benchmark]
-    public JsValue DoWhileCounter() => _engine.Evaluate(_doWhileCounter);
+    public JsValue DoWhileCounter() => _doWhileCounter.Run();
 }

@@ -20,6 +20,15 @@ namespace Jint.Benchmark;
 /// The benchmark types live inside this class — same pattern as InteropBenchmark.Person —
 /// so when [JsAccessible] lands the same source files can grow `[JsAccessible]` on Player and
 /// the bench runs both paths.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with that row's own script and
+/// nothing else. It used to be four engines for seven rows: the three property-get rows shared one
+/// engine warmed with <c>p.Score; p.Name; p.Alive</c> and the two method rows shared one warmed with
+/// <c>p.AddPoints(1); p.Describe()</c>, so each of those rows was measured on an engine whose
+/// member-resolution and wrapper state had been established by its siblings. The rows still measure warm
+/// dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement.
+/// The per-scenario Player values are preserved exactly. <b>Numbers from this class are not comparable
+/// to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class InteropAccessibleBenchmarks
@@ -36,51 +45,63 @@ public class InteropAccessibleBenchmarks
         public string Describe() => $"{Name}:{Score}";
     }
 
-    private Engine _engineGet = null!;
+    private Engine _engineGetInt = null!;
+    private Engine _engineGetString = null!;
+    private Engine _engineGetBool = null!;
     private Engine _engineSet = null!;
-    private Engine _engineMethod = null!;
+    private Engine _engineMethodOneArg = null!;
+    private Engine _engineMethodNoArgs = null!;
     private Engine _engineMixed = null!;
+
+    /// <summary>
+    /// Builds a fresh engine exposing one Player as <c>p</c>. One Engine per row keeps property-access
+    /// caches monomorphic on the same Player instance — eliminates accidental polymorphism noise across
+    /// benchmarks — and stops a row inheriting the state a sibling row's warm-up established.
+    /// </summary>
+    private static Engine CreateEngine(Player player)
+    {
+        var engine = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
+        engine.SetValue("p", player);
+        return engine;
+    }
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        // One Engine per scenario keeps property-access caches monomorphic on the same Player
-        // instance — eliminates accidental polymorphism noise across benchmarks.
-        _engineGet = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
-        _engineGet.SetValue("p", new Player { Name = "alice", Score = 42, Alive = true });
+        _engineGetInt = CreateEngine(new Player { Name = "alice", Score = 42, Alive = true });
+        _engineGetString = CreateEngine(new Player { Name = "alice", Score = 42, Alive = true });
+        _engineGetBool = CreateEngine(new Player { Name = "alice", Score = 42, Alive = true });
+        _engineSet = CreateEngine(new Player { Name = "bob", Score = 0, Alive = true });
+        _engineMethodOneArg = CreateEngine(new Player { Name = "carol", Score = 0, Alive = true });
+        _engineMethodNoArgs = CreateEngine(new Player { Name = "carol", Score = 0, Alive = true });
+        _engineMixed = CreateEngine(new Player { Name = "dave", Score = 0, Alive = true });
 
-        _engineSet = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
-        _engineSet.SetValue("p", new Player { Name = "bob", Score = 0, Alive = true });
-
-        _engineMethod = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
-        _engineMethod.SetValue("p", new Player { Name = "carol", Score = 0, Alive = true });
-
-        _engineMixed = new Engine(cfg => cfg.AllowClr(typeof(Player).GetTypeInfo().Assembly));
-        _engineMixed.SetValue("p", new Player { Name = "dave", Score = 0, Alive = true });
-
-        // Warm the access caches.
-        _engineGet.Execute("p.Score; p.Name; p.Alive");
+        // Warm the access caches — each engine with its own row's script and nothing else.
+        _engineGetInt.Execute("p.Score");
+        _engineGetString.Execute("p.Name");
+        _engineGetBool.Execute("p.Alive");
         _engineSet.Execute("p.Score = 1");
-        _engineMethod.Execute("p.AddPoints(1); p.Describe()");
-        _engineMixed.Execute("p.Score; p.AddPoints(1); p.Describe()");
+        _engineMethodOneArg.Execute("p.AddPoints(1)");
+        _engineMethodNoArgs.Execute("p.Describe()");
+        _engineMixed.Execute("p.Name; p.Describe()");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_Int()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Score");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGetInt.Execute("p.Score");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_String()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Name");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGetString.Execute("p.Name");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void PropertyGet_Bool()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineGet.Execute("p.Alive");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineGetBool.Execute("p.Alive");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
@@ -92,13 +113,13 @@ public class InteropAccessibleBenchmarks
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void MethodInvoke_OneArg()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Execute("p.AddPoints(1)");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethodOneArg.Execute("p.AddPoints(1)");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void MethodInvoke_NoArgs()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethod.Execute("p.Describe()");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineMethodNoArgs.Execute("p.Describe()");
     }
 
     /// <summary>Mixed get + method-invoke pattern — the realistic interop call site. The script

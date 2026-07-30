@@ -49,6 +49,19 @@ namespace Jint.Benchmark;
 /// flag, so it advertises a <c>length</c> property and lets the engine's dynamic probe find it, which is exactly
 /// what a real host has to do.
 /// </para>
+///
+/// <para>
+/// <b>Engine isolation.</b> Each of the three rows gets its own engine — built by <c>CreateEngine</c>, which
+/// re-creates the receiver and re-registers the one <c>list</c> global every row reads — and warmed with its
+/// own script and nothing else (see <see cref="IsolatedScript"/>). It used to be one engine per parameter
+/// combination warmed with all three scripts, so each row was measured on an engine carrying the other two
+/// rows' globals (<see cref="IndexedLoop"/> and <see cref="ForOf"/> both declare <c>n</c>) and their
+/// handler-tree and call-site state — and for a class whose whole subject is the per-element lanes an
+/// <see cref="ArrayLikeObject"/> receiver reaches, a row's number must not depend on which siblings warmed
+/// those lanes first. The rows still measure warm reads, and engine construction and warm-up stay in
+/// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
+/// published before the harness changed.</b>
+/// </para>
 /// </summary>
 [MemoryDiagnoser]
 public class HostArrayLikeBenchmark
@@ -66,10 +79,9 @@ public class HostArrayLikeBenchmark
     [Params(10_000)]
     public int Count { get; set; }
 
-    private Engine _engine = null!;
-    private Prepared<Script> _indexedLoop;
-    private Prepared<Script> _join;
-    private Prepared<Script> _forOf;
+    private IsolatedScript _indexedLoop;
+    private IsolatedScript _join;
+    private IsolatedScript _forOf;
 
     private static List<string> BuildItems(int count)
     {
@@ -151,37 +163,47 @@ public class HostArrayLikeBenchmark
         }
     }
 
-    [GlobalSetup]
-    public void Setup()
+    /// <summary>
+    /// Builds a fresh engine carrying the one <c>list</c> global every row reads, and nothing else. The
+    /// backing <see cref="List{T}"/> is shared by the three engines — it is plain CLR state with no engine
+    /// affinity, so sharing it keeps the rows projecting byte-identical items — while the receiver in front
+    /// of it is per engine, as an <see cref="ObjectInstance"/> must be.
+    /// </summary>
+    private Engine CreateEngine(List<string> items)
     {
-        _engine = new Engine();
-        var items = BuildItems(Count);
+        var engine = new Engine();
 
         JsValue list = Kind switch
         {
-            HostArrayLikeKind.PlainHost => new PlainHostList(_engine, items),
-            HostArrayLikeKind.ArrayLike => new ArrayLikeHostList(_engine, items),
-            _ => CopyToJsArray(_engine, items),
+            HostArrayLikeKind.PlainHost => new PlainHostList(engine, items),
+            HostArrayLikeKind.ArrayLike => new ArrayLikeHostList(engine, items),
+            _ => CopyToJsArray(engine, items),
         };
 
-        _engine.SetValue("list", list);
+        engine.SetValue("list", list);
+        return engine;
+    }
 
-        _indexedLoop = Engine.PrepareScript("var n = 0; for (var i = 0; i < list.length; i++) { if (list[i].length > 4) { n++; } } n;");
-        _join = Engine.PrepareScript("list.join(',').length;");
-        _forOf = Engine.PrepareScript("var n = 0; for (var x of list) { n += x.length; } n;");
+    [GlobalSetup]
+    public void Setup()
+    {
+        var items = BuildItems(Count);
+        Engine Factory() => CreateEngine(items);
 
-        // Warm the per-node caches — a host that runs the same script repeatedly is the case this measures.
-        _engine.Evaluate(_indexedLoop);
-        _engine.Evaluate(_join);
-        _engine.Evaluate(_forOf);
+        // Warming stays: a host that runs the same script repeatedly is the case this measures. Only the
+        // sibling rows' warm-up is gone, and with it their state on the engine each row is measured on.
+        _indexedLoop = IsolatedScript.Warm(
+            Engine.PrepareScript("var n = 0; for (var i = 0; i < list.length; i++) { if (list[i].length > 4) { n++; } } n;"), Factory);
+        _join = IsolatedScript.Warm(Engine.PrepareScript("list.join(',').length;"), Factory);
+        _forOf = IsolatedScript.Warm(Engine.PrepareScript("var n = 0; for (var x of list) { n += x.length; } n;"), Factory);
     }
 
     [Benchmark]
-    public JsValue IndexedLoop() => _engine.Evaluate(_indexedLoop);
+    public JsValue IndexedLoop() => _indexedLoop.Run();
 
     [Benchmark]
-    public JsValue Join() => _engine.Evaluate(_join);
+    public JsValue Join() => _join.Run();
 
     [Benchmark]
-    public JsValue ForOf() => _engine.Evaluate(_forOf);
+    public JsValue ForOf() => _forOf.Run();
 }

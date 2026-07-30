@@ -13,24 +13,35 @@ namespace Jint.Benchmark;
 /// path the fixed-slot cap routes that binding count to.
 /// The Sloppy rows run the method-call shapes non-strict, where OrdinaryCallBindThis additionally
 /// pays TypeConverter.ToObject on the receiver every call — a cost the strict rows never see.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be two shared engines — one strict, one sloppy —
+/// each warmed with every one of its rows' scripts, so a row was measured on an engine carrying its
+/// siblings' globals (all six scripts declare <c>i</c>, four declare <c>b</c>) and their handler-tree,
+/// call-site and environment-reuse state; a change affecting one row could then move another. The
+/// strict/sloppy split is preserved per row, the rows still measure warm dispatch, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this
+/// class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ClosureCallBenchmarks
 {
-    private Engine _engine = null!;
-    private Engine _sloppyEngine = null!;
-    private Prepared<Script> _emptyClosureCall;
-    private Prepared<Script> _capturedVarReadWrite;
-    private Prepared<Script> _paramLocalCall;
-    private Prepared<Script> _manyLocalCall;
-    private Prepared<Script> _sloppyEmptyClosureCall;
-    private Prepared<Script> _sloppyCapturedVarReadWrite;
+    private IsolatedScript _emptyClosureCall;
+    private IsolatedScript _capturedVarReadWrite;
+    private IsolatedScript _paramLocalCall;
+    private IsolatedScript _manyLocalCall;
+    private IsolatedScript _sloppyEmptyClosureCall;
+    private IsolatedScript _sloppyCapturedVarReadWrite;
+
+    private static Engine CreateStrictEngine() => new(static options => options.Strict());
+
+    private static Engine CreateSloppyEngine() => new();
 
     [GlobalSetup]
     public void Setup()
     {
-        _emptyClosureCall = Engine.PrepareScript("""
+        _emptyClosureCall = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function Box() {
                     this.nop = function () { };
@@ -43,9 +54,9 @@ public class ClosureCallBenchmarks
                 }
                 return b;
             })();
-            """, strict: true);
+            """, strict: true), CreateStrictEngine);
 
-        _capturedVarReadWrite = Engine.PrepareScript("""
+        _capturedVarReadWrite = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function Box() {
                     var on = false;
@@ -62,9 +73,9 @@ public class ClosureCallBenchmarks
                 }
                 return b;
             })();
-            """, strict: true);
+            """, strict: true), CreateStrictEngine);
 
-        _paramLocalCall = Engine.PrepareScript("""
+        _paramLocalCall = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function add(a, b) {
                     var sum = a + b;
@@ -78,12 +89,12 @@ public class ClosureCallBenchmarks
                 }
                 return acc;
             })();
-            """, strict: true);
+            """, strict: true), CreateStrictEngine);
 
         // 2 params + 18 var locals = 20 bindings. The body has no inner closures, so the environment is
         // pooled and reused across calls (mirrors 3d-cube's DrawLine). Whether per-call setup uses the
         // array-backed fixed-slot path or the dictionary path depends on the fixed-slot cap.
-        _manyLocalCall = Engine.PrepareScript("""
+        _manyLocalCall = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function compute(a, b) {
                     var v0 = a + b;
@@ -112,9 +123,9 @@ public class ClosureCallBenchmarks
                 }
                 return acc;
             })();
-            """, strict: true);
+            """, strict: true), CreateStrictEngine);
 
-        _sloppyEmptyClosureCall = Engine.PrepareScript("""
+        _sloppyEmptyClosureCall = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function Box() {
                     this.nop = function () { };
@@ -127,9 +138,9 @@ public class ClosureCallBenchmarks
                 }
                 return b;
             })();
-            """);
+            """), CreateSloppyEngine);
 
-        _sloppyCapturedVarReadWrite = Engine.PrepareScript("""
+        _sloppyCapturedVarReadWrite = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 function Box() {
                     var on = false;
@@ -146,34 +157,24 @@ public class ClosureCallBenchmarks
                 }
                 return b;
             })();
-            """);
-
-        _engine = new Engine(static options => options.Strict());
-        _engine.Evaluate(_emptyClosureCall);
-        _engine.Evaluate(_capturedVarReadWrite);
-        _engine.Evaluate(_paramLocalCall);
-        _engine.Evaluate(_manyLocalCall);
-
-        _sloppyEngine = new Engine();
-        _sloppyEngine.Evaluate(_sloppyEmptyClosureCall);
-        _sloppyEngine.Evaluate(_sloppyCapturedVarReadWrite);
+            """), CreateSloppyEngine);
     }
 
     [Benchmark]
-    public JsValue EmptyClosureCall() => _engine.Evaluate(_emptyClosureCall);
+    public JsValue EmptyClosureCall() => _emptyClosureCall.Run();
 
     [Benchmark]
-    public JsValue CapturedVarReadWrite() => _engine.Evaluate(_capturedVarReadWrite);
+    public JsValue CapturedVarReadWrite() => _capturedVarReadWrite.Run();
 
     [Benchmark]
-    public JsValue ParamLocalCall() => _engine.Evaluate(_paramLocalCall);
+    public JsValue ParamLocalCall() => _paramLocalCall.Run();
 
     [Benchmark]
-    public JsValue ManyLocalCall() => _engine.Evaluate(_manyLocalCall);
+    public JsValue ManyLocalCall() => _manyLocalCall.Run();
 
     [Benchmark]
-    public JsValue SloppyEmptyClosureCall() => _sloppyEngine.Evaluate(_sloppyEmptyClosureCall);
+    public JsValue SloppyEmptyClosureCall() => _sloppyEmptyClosureCall.Run();
 
     [Benchmark]
-    public JsValue SloppyCapturedVarReadWrite() => _sloppyEngine.Evaluate(_sloppyCapturedVarReadWrite);
+    public JsValue SloppyCapturedVarReadWrite() => _sloppyCapturedVarReadWrite.Run();
 }

@@ -11,18 +11,29 @@ namespace Jint.Benchmark;
 /// internal C# JsonParser/JsonSerializer over fixtures downloaded from the network), the payloads
 /// here are generated deterministically offline, so rows are stable gates. One parse or stringify
 /// per op — the Allocated column is the per-document allocation cost.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <see cref="CreateEngine"/>,
+/// which re-runs <see cref="SetupSource"/> so each engine owns its own <c>records</c>/<c>config</c>
+/// graphs — and warmed with its own script and nothing else (see <see cref="IsolatedScript"/>). It used
+/// to be one engine warmed with all six row scripts, so each row was measured on an engine carrying the
+/// other five rows' handler-tree, call-site and object-shape state, plus the retained result graphs their
+/// warm-up left behind. The rows still measure warm parse/stringify, and engine construction and warm-up
+/// stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable
+/// to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class JsonJsBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _parseRecords;
-    private Prepared<Script> _parseConfig;
-    private Prepared<Script> _parseBigObject;
-    private Prepared<Script> _stringifyRecords;
-    private Prepared<Script> _stringifyConfig;
-    private Prepared<Script> _roundTripRecords;
+    private string _recordsJson = null!;
+    private string _configJson = null!;
+    private string _bigObjectJson = null!;
+    private IsolatedScript _parseRecords;
+    private IsolatedScript _parseConfig;
+    private IsolatedScript _parseBigObject;
+    private IsolatedScript _stringifyRecords;
+    private IsolatedScript _stringifyConfig;
+    private IsolatedScript _roundTripRecords;
 
     internal const string ParseRecordsSource = "JSON.parse(recordsJson);";
     internal const string ParseConfigSource = "JSON.parse(configJson);";
@@ -126,45 +137,51 @@ public class JsonJsBenchmark
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Builds a fresh engine carrying the fixture every row needs, and nothing else. The three payloads
+    /// are generated once in <see cref="Setup"/> and handed to every engine, so the deterministic
+    /// builders stay a one-off setup cost rather than running once per row.
+    /// </summary>
+    private Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.SetValue("recordsJson", _recordsJson);
+        engine.SetValue("configJson", _configJson);
+        engine.SetValue("bigObjectJson", _bigObjectJson);
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.SetValue("recordsJson", BuildRecordsJson());
-        _engine.SetValue("configJson", BuildConfigJson());
-        _engine.SetValue("bigObjectJson", BuildBigObjectJson());
-        _engine.Execute(SetupSource);
+        _recordsJson = BuildRecordsJson();
+        _configJson = BuildConfigJson();
+        _bigObjectJson = BuildBigObjectJson();
 
-        _parseRecords = Engine.PrepareScript(ParseRecordsSource);
-        _parseConfig = Engine.PrepareScript(ParseConfigSource);
-        _parseBigObject = Engine.PrepareScript(ParseBigObjectSource);
-        _stringifyRecords = Engine.PrepareScript(StringifyRecordsSource);
-        _stringifyConfig = Engine.PrepareScript(StringifyConfigSource);
-        _roundTripRecords = Engine.PrepareScript(RoundTripRecordsSource);
-
-        _engine.Evaluate(_parseRecords);
-        _engine.Evaluate(_parseConfig);
-        _engine.Evaluate(_parseBigObject);
-        _engine.Evaluate(_stringifyRecords);
-        _engine.Evaluate(_stringifyConfig);
-        _engine.Evaluate(_roundTripRecords);
+        _parseRecords = IsolatedScript.Warm(Engine.PrepareScript(ParseRecordsSource), CreateEngine);
+        _parseConfig = IsolatedScript.Warm(Engine.PrepareScript(ParseConfigSource), CreateEngine);
+        _parseBigObject = IsolatedScript.Warm(Engine.PrepareScript(ParseBigObjectSource), CreateEngine);
+        _stringifyRecords = IsolatedScript.Warm(Engine.PrepareScript(StringifyRecordsSource), CreateEngine);
+        _stringifyConfig = IsolatedScript.Warm(Engine.PrepareScript(StringifyConfigSource), CreateEngine);
+        _roundTripRecords = IsolatedScript.Warm(Engine.PrepareScript(RoundTripRecordsSource), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue ParseRecords() => _engine.Evaluate(_parseRecords);
+    public JsValue ParseRecords() => _parseRecords.Run();
 
     [Benchmark]
-    public JsValue ParseConfig() => _engine.Evaluate(_parseConfig);
+    public JsValue ParseConfig() => _parseConfig.Run();
 
     [Benchmark]
-    public JsValue ParseBigObject() => _engine.Evaluate(_parseBigObject);
+    public JsValue ParseBigObject() => _parseBigObject.Run();
 
     [Benchmark]
-    public JsValue StringifyRecords() => _engine.Evaluate(_stringifyRecords);
+    public JsValue StringifyRecords() => _stringifyRecords.Run();
 
     [Benchmark]
-    public JsValue StringifyConfig() => _engine.Evaluate(_stringifyConfig);
+    public JsValue StringifyConfig() => _stringifyConfig.Run();
 
     [Benchmark]
-    public JsValue RoundTripRecords() => _engine.Evaluate(_roundTripRecords);
+    public JsValue RoundTripRecords() => _roundTripRecords.Run();
 }

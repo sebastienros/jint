@@ -7,18 +7,27 @@ namespace Jint.Benchmark;
 /// Guard-style strict comparisons over LCG-mixed inputs the branch predictor cannot memorize:
 /// `v === undefined`, `v === null`, `v == null` and `typeof v === '...'` — the idioms defensive
 /// library code (linq.js, lodash, handlebars) runs on nearly every call.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs <see cref="SetupSource"/> so each engine owns its own <c>mixedVals</c>/<c>order</c> — and
+/// warmed with its own script and nothing else (see <see cref="IsolatedScript"/>). It used to be one
+/// engine warmed with all six scripts, so each row was measured on an engine carrying the other five
+/// rows' globals (every one of them declares <c>function f</c>, so they collided outright) plus their
+/// handler-tree and call-site state, which makes a row's number depend on which siblings exist and on
+/// what a change did to <em>them</em>. The rows still measure warm comparison dispatch, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this
+/// class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class GuardComparisonBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _isUndefinedGuard;
-    private Prepared<Script> _isNullGuard;
-    private Prepared<Script> _looseNullGuard;
-    private Prepared<Script> _typeofStringGuard;
-    private Prepared<Script> _typeofUndefinedGuard;
-    private Prepared<Script> _logicalGuard;
+    private IsolatedScript _isUndefinedGuard;
+    private IsolatedScript _isNullGuard;
+    private IsolatedScript _looseNullGuard;
+    private IsolatedScript _typeofStringGuard;
+    private IsolatedScript _typeofUndefinedGuard;
+    private IsolatedScript _logicalGuard;
 
     private const string SetupSource = """
         var mixedVals = [];
@@ -40,13 +49,18 @@ public class GuardComparisonBenchmark
         })();
         """;
 
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
-        _isUndefinedGuard = Engine.PrepareScript("""
+        _isUndefinedGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -57,9 +71,9 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _isNullGuard = Engine.PrepareScript("""
+        _isNullGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -70,9 +84,9 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _looseNullGuard = Engine.PrepareScript("""
+        _looseNullGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -82,9 +96,9 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _typeofStringGuard = Engine.PrepareScript("""
+        _typeofStringGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -95,9 +109,9 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _typeofUndefinedGuard = Engine.PrepareScript("""
+        _typeofUndefinedGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -107,12 +121,12 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
         // Composed guards: `&&`/`||`/`!` over comparisons in a boolean `if` context. Each
         // comparison feeds the enclosing logical operator's unboxed GetBooleanValue, so the whole
         // condition stays off the JsBoolean-materialization path.
-        _logicalGuard = Engine.PrepareScript("""
+        _logicalGuard = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -125,31 +139,24 @@ public class GuardComparisonBenchmark
                 return s;
             }
             f();
-            """);
-
-        _engine.Evaluate(_isUndefinedGuard);
-        _engine.Evaluate(_isNullGuard);
-        _engine.Evaluate(_looseNullGuard);
-        _engine.Evaluate(_typeofStringGuard);
-        _engine.Evaluate(_typeofUndefinedGuard);
-        _engine.Evaluate(_logicalGuard);
+            """), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue IsUndefinedGuard() => _engine.Evaluate(_isUndefinedGuard);
+    public JsValue IsUndefinedGuard() => _isUndefinedGuard.Run();
 
     [Benchmark]
-    public JsValue IsNullGuard() => _engine.Evaluate(_isNullGuard);
+    public JsValue IsNullGuard() => _isNullGuard.Run();
 
     [Benchmark]
-    public JsValue LooseNullGuard() => _engine.Evaluate(_looseNullGuard);
+    public JsValue LooseNullGuard() => _looseNullGuard.Run();
 
     [Benchmark]
-    public JsValue TypeofStringGuard() => _engine.Evaluate(_typeofStringGuard);
+    public JsValue TypeofStringGuard() => _typeofStringGuard.Run();
 
     [Benchmark]
-    public JsValue TypeofUndefinedGuard() => _engine.Evaluate(_typeofUndefinedGuard);
+    public JsValue TypeofUndefinedGuard() => _typeofUndefinedGuard.Run();
 
     [Benchmark]
-    public JsValue LogicalGuard() => _engine.Evaluate(_logicalGuard);
+    public JsValue LogicalGuard() => _logicalGuard.Run();
 }

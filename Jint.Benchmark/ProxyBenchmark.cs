@@ -14,30 +14,42 @@ namespace Jint.Benchmark;
 /// per-operation trap machinery — handler lookup, trap invocation and invariant checks.
 /// The Clr* rows mirror the JS-handler rows 1:1 using the .NET <see cref="ProxyHandler"/>
 /// trap API (Engine.Advanced.CreateProxy) over the same target objects.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, built by <c>CreateEngine</c> (which
+/// installs the shared <see cref="SetupSource"/> fixture and the three CLR-handler proxies every row
+/// needs) and warmed with its own script and nothing else (see <see cref="IsolatedScript"/>). It used to
+/// be one shared engine warmed with all eighteen scripts, so each row was measured on an engine carrying
+/// seventeen siblings' globals (every script declares <c>f</c>, <c>s</c> and <c>i</c>) plus their
+/// handler-tree and call-site state. It also coupled the rows through the fixture: the set lanes drive
+/// <c>target.x</c> to 99999, which every get lane then read. Isolation gives each row a pristine
+/// <c>target.x === 1</c>, which is why the ClrTrapGet/ClrForwardGet sanity expectations below are now
+/// 100000 rather than 9999900000 — the same 100000 reads, of 1 instead of 99999. The rows still measure
+/// warm dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the
+/// measurement. <b>Numbers from this class are not comparable to any published before the harness
+/// changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ProxyBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _trapGet;
-    private Prepared<Script> _trapSet;
-    private Prepared<Script> _trapHas;
-    private Prepared<Script> _forwardGet;
-    private Prepared<Script> _forwardSet;
-    private Prepared<Script> _ownKeysTrap;
-    private Prepared<Script> _ownKeysForward;
-    private Prepared<Script> _applyTrap;
-    private Prepared<Script> _applyForward;
-    private Prepared<Script> _constructTrap;
-    private Prepared<Script> _revocableCreate;
-    private Prepared<Script> _revokedTypeof;
-    private Prepared<Script> _clrTrapGet;
-    private Prepared<Script> _clrTrapSet;
-    private Prepared<Script> _clrTrapHas;
-    private Prepared<Script> _clrForwardGet;
-    private Prepared<Script> _clrApplyTrap;
-    private Prepared<Script> _clrConstructTrap;
+    private IsolatedScript _trapGet;
+    private IsolatedScript _trapSet;
+    private IsolatedScript _trapHas;
+    private IsolatedScript _forwardGet;
+    private IsolatedScript _forwardSet;
+    private IsolatedScript _ownKeysTrap;
+    private IsolatedScript _ownKeysForward;
+    private IsolatedScript _applyTrap;
+    private IsolatedScript _applyForward;
+    private IsolatedScript _constructTrap;
+    private IsolatedScript _revocableCreate;
+    private IsolatedScript _revokedTypeof;
+    private IsolatedScript _clrTrapGet;
+    private IsolatedScript _clrTrapSet;
+    private IsolatedScript _clrTrapHas;
+    private IsolatedScript _clrForwardGet;
+    private IsolatedScript _clrApplyTrap;
+    private IsolatedScript _clrConstructTrap;
 
     private const string SetupSource = """
         var target = { x: 1, a: 2, b: 3, c: 4, d: 5, e: 6, f: 7, g: 8, h: 9, k: 10 };
@@ -58,20 +70,28 @@ public class ProxyBenchmark
         revokedFn.revoke();
         """;
 
+    /// <summary>
+    /// Builds a fresh engine carrying the shared <see cref="SetupSource"/> fixture and the CLR-handler
+    /// proxies every row needs.
+    /// </summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+
+        // CLR-handler proxies over the same targets as the JS-handler lanes
+        var target = (ObjectInstance) engine.GetValue("target");
+        var fnTarget = (ObjectInstance) engine.GetValue("fnTarget");
+        engine.SetValue("pClrTrap", engine.Advanced.CreateProxy(target, new TrappingClrHandler()));
+        engine.SetValue("pClrForward", engine.Advanced.CreateProxy(target, new ForwardingClrHandler()));
+        engine.SetValue("fClrTrap", engine.Advanced.CreateProxy(fnTarget, new ApplyClrHandler()));
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
-        // CLR-handler proxies over the same targets as the JS-handler lanes
-        var target = (ObjectInstance) _engine.GetValue("target");
-        var fnTarget = (ObjectInstance) _engine.GetValue("fnTarget");
-        _engine.SetValue("pClrTrap", _engine.Advanced.CreateProxy(target, new TrappingClrHandler()));
-        _engine.SetValue("pClrForward", _engine.Advanced.CreateProxy(target, new ForwardingClrHandler()));
-        _engine.SetValue("fClrTrap", _engine.Advanced.CreateProxy(fnTarget, new ApplyClrHandler()));
-
-        _trapGet = Engine.PrepareScript("""
+        _trapGet = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -80,9 +100,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _trapSet = Engine.PrepareScript("""
+        _trapSet = IsolatedScript.Warm("""
             function f() {
                 for (var i = 0; i < 100000; i++) {
                     pTrap.x = i;
@@ -90,9 +110,9 @@ public class ProxyBenchmark
                 return pTrap.x;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _trapHas = Engine.PrepareScript("""
+        _trapHas = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -101,9 +121,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _forwardGet = Engine.PrepareScript("""
+        _forwardGet = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -112,9 +132,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _forwardSet = Engine.PrepareScript("""
+        _forwardSet = IsolatedScript.Warm("""
             function f() {
                 for (var i = 0; i < 100000; i++) {
                     pForward.x = i;
@@ -122,9 +142,9 @@ public class ProxyBenchmark
                 return pForward.x;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _ownKeysTrap = Engine.PrepareScript("""
+        _ownKeysTrap = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -133,9 +153,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _ownKeysForward = Engine.PrepareScript("""
+        _ownKeysForward = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -144,9 +164,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _applyTrap = Engine.PrepareScript("""
+        _applyTrap = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -155,9 +175,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _applyForward = Engine.PrepareScript("""
+        _applyForward = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -166,11 +186,11 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
         // two arguments on purpose: a single numeric ctor argument currently trips Array(n)
         // length semantics when JsProxy builds the trap's argumentsList (see JsProxy.Construct)
-        _constructTrap = Engine.PrepareScript("""
+        _constructTrap = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -179,9 +199,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _revocableCreate = Engine.PrepareScript("""
+        _revocableCreate = IsolatedScript.Warm("""
             function f() {
                 var n = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -192,10 +212,10 @@ public class ProxyBenchmark
                 return n;
             }
             f();
-            """);
+            """, CreateEngine);
 
         // typeof does not consult the handler; it must stay 'function' and not throw after revoke
-        _revokedTypeof = Engine.PrepareScript("""
+        _revokedTypeof = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -204,9 +224,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrTrapGet = Engine.PrepareScript("""
+        _clrTrapGet = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -215,9 +235,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrTrapSet = Engine.PrepareScript("""
+        _clrTrapSet = IsolatedScript.Warm("""
             function f() {
                 for (var i = 0; i < 100000; i++) {
                     pClrTrap.x = i;
@@ -225,9 +245,9 @@ public class ProxyBenchmark
                 return pClrTrap.x;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrTrapHas = Engine.PrepareScript("""
+        _clrTrapHas = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -236,9 +256,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrForwardGet = Engine.PrepareScript("""
+        _clrForwardGet = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -247,9 +267,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrApplyTrap = Engine.PrepareScript("""
+        _clrApplyTrap = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -258,9 +278,9 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _clrConstructTrap = Engine.PrepareScript("""
+        _clrConstructTrap = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -269,29 +289,18 @@ public class ProxyBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _engine.Evaluate(_trapGet);
-        _engine.Evaluate(_trapSet);
-        _engine.Evaluate(_trapHas);
-        _engine.Evaluate(_forwardGet);
-        _engine.Evaluate(_forwardSet);
-        _engine.Evaluate(_ownKeysTrap);
-        _engine.Evaluate(_ownKeysForward);
-        _engine.Evaluate(_applyTrap);
-        _engine.Evaluate(_applyForward);
-        _engine.Evaluate(_constructTrap);
-        _engine.Evaluate(_revocableCreate);
-        _engine.Evaluate(_revokedTypeof);
-
-        // warm the CLR lanes and sanity-check the trap wiring; ClrTrapSet runs first so
-        // target.x is a known 99999 before the get lanes read it
-        AssertResult(_engine.Evaluate(_clrTrapSet), 99_999, nameof(ClrTrapSet));
-        AssertResult(_engine.Evaluate(_clrTrapGet), 9_999_900_000, nameof(ClrTrapGet));
-        AssertResult(_engine.Evaluate(_clrTrapHas), 100_000, nameof(ClrTrapHas));
-        AssertResult(_engine.Evaluate(_clrForwardGet), 9_999_900_000, nameof(ClrForwardGet));
-        AssertResult(_engine.Evaluate(_clrApplyTrap), 5_000_050_000, nameof(ClrApplyTrap));
-        AssertResult(_engine.Evaluate(_clrConstructTrap), 49_995_000, nameof(ClrConstructTrap));
+        // Sanity-check the CLR trap wiring. Each lane re-runs its own script on its own already-warmed
+        // engine, so no lane's fixture state can reach another's — which is why the get lanes now expect
+        // 100000 (100000 reads of the pristine target.x === 1) instead of the 9999900000 they returned
+        // when ClrTrapSet had first driven the shared target.x to 99999.
+        AssertResult(_clrTrapSet.Run(), 99_999, nameof(ClrTrapSet));
+        AssertResult(_clrTrapGet.Run(), 100_000, nameof(ClrTrapGet));
+        AssertResult(_clrTrapHas.Run(), 100_000, nameof(ClrTrapHas));
+        AssertResult(_clrForwardGet.Run(), 100_000, nameof(ClrForwardGet));
+        AssertResult(_clrApplyTrap.Run(), 5_000_050_000, nameof(ClrApplyTrap));
+        AssertResult(_clrConstructTrap.Run(), 49_995_000, nameof(ClrConstructTrap));
     }
 
     private static void AssertResult(JsValue actual, double expected, string lane)
@@ -303,58 +312,58 @@ public class ProxyBenchmark
     }
 
     [Benchmark]
-    public JsValue TrapGet() => _engine.Evaluate(_trapGet);
+    public JsValue TrapGet() => _trapGet.Run();
 
     [Benchmark]
-    public JsValue TrapSet() => _engine.Evaluate(_trapSet);
+    public JsValue TrapSet() => _trapSet.Run();
 
     [Benchmark]
-    public JsValue TrapHas() => _engine.Evaluate(_trapHas);
+    public JsValue TrapHas() => _trapHas.Run();
 
     [Benchmark]
-    public JsValue ForwardGet() => _engine.Evaluate(_forwardGet);
+    public JsValue ForwardGet() => _forwardGet.Run();
 
     [Benchmark]
-    public JsValue ForwardSet() => _engine.Evaluate(_forwardSet);
+    public JsValue ForwardSet() => _forwardSet.Run();
 
     [Benchmark]
-    public JsValue OwnKeysTrap() => _engine.Evaluate(_ownKeysTrap);
+    public JsValue OwnKeysTrap() => _ownKeysTrap.Run();
 
     [Benchmark]
-    public JsValue OwnKeysForward() => _engine.Evaluate(_ownKeysForward);
+    public JsValue OwnKeysForward() => _ownKeysForward.Run();
 
     [Benchmark]
-    public JsValue ApplyTrap() => _engine.Evaluate(_applyTrap);
+    public JsValue ApplyTrap() => _applyTrap.Run();
 
     [Benchmark]
-    public JsValue ApplyForward() => _engine.Evaluate(_applyForward);
+    public JsValue ApplyForward() => _applyForward.Run();
 
     [Benchmark]
-    public JsValue ConstructTrap() => _engine.Evaluate(_constructTrap);
+    public JsValue ConstructTrap() => _constructTrap.Run();
 
     [Benchmark]
-    public JsValue RevocableCreate() => _engine.Evaluate(_revocableCreate);
+    public JsValue RevocableCreate() => _revocableCreate.Run();
 
     [Benchmark]
-    public JsValue RevokedTypeof() => _engine.Evaluate(_revokedTypeof);
+    public JsValue RevokedTypeof() => _revokedTypeof.Run();
 
     [Benchmark]
-    public JsValue ClrTrapGet() => _engine.Evaluate(_clrTrapGet);
+    public JsValue ClrTrapGet() => _clrTrapGet.Run();
 
     [Benchmark]
-    public JsValue ClrTrapSet() => _engine.Evaluate(_clrTrapSet);
+    public JsValue ClrTrapSet() => _clrTrapSet.Run();
 
     [Benchmark]
-    public JsValue ClrTrapHas() => _engine.Evaluate(_clrTrapHas);
+    public JsValue ClrTrapHas() => _clrTrapHas.Run();
 
     [Benchmark]
-    public JsValue ClrForwardGet() => _engine.Evaluate(_clrForwardGet);
+    public JsValue ClrForwardGet() => _clrForwardGet.Run();
 
     [Benchmark]
-    public JsValue ClrApplyTrap() => _engine.Evaluate(_clrApplyTrap);
+    public JsValue ClrApplyTrap() => _clrApplyTrap.Run();
 
     [Benchmark]
-    public JsValue ClrConstructTrap() => _engine.Evaluate(_clrConstructTrap);
+    public JsValue ClrConstructTrap() => _clrConstructTrap.Run();
 
     /// <summary>
     /// CLR equivalent of the JS handler <c>{ get: (t, k) => t[k], set: (t, k, v) => (t[k] = v, true), has: (t, k) => k in t }</c>.

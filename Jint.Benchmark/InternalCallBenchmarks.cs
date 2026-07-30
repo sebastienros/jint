@@ -12,45 +12,46 @@ namespace Jint.Benchmark;
 ///
 /// for-of over a JsArray invokes ArrayIteratorPrototype.next() on every iteration; that's a tight
 /// loop where the precondition cost is measurable. Map/Set iteration uses the same pattern.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all five scripts, so
+/// each row was measured on an engine carrying the other four rows' globals (<c>a</c> is declared by two
+/// of them with different values, and <c>s</c>/<c>i</c> by three) plus their handler-tree and iterator
+/// call-site state — which, for a class about the receiver type an internal <c>next()</c> call site
+/// sees, is exactly the state a row must own. The rows still measure the warm path, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this
+/// class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class InternalCallBenchmarks
 {
     private const int OperationsPerInvoke = 100;
 
-    private Engine _warm = null!;
-    private Prepared<Script> _forOfArray;
-    private Prepared<Script> _forOfMap;
-    private Prepared<Script> _forOfSet;
-    private Prepared<Script> _spreadArray;
-    private Prepared<Script> _arrayFromIterable;
+    private IsolatedScript _forOfArray;
+    private IsolatedScript _forOfMap;
+    private IsolatedScript _forOfSet;
+    private IsolatedScript _spreadArray;
+    private IsolatedScript _arrayFromIterable;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _forOfArray = Engine.PrepareScript("var a = [1,2,3,4,5,6,7,8,9,10]; var s = 0; for (var i = 0; i < 100; i++) for (var x of a) s += x; s");
-        _forOfMap   = Engine.PrepareScript("var m = new Map([['a',1],['b',2],['c',3],['d',4],['e',5]]); var s = 0; for (var i = 0; i < 100; i++) for (var [k,v] of m) s += v; s");
-        _forOfSet   = Engine.PrepareScript("var z = new Set([1,2,3,4,5,6,7,8,9,10]); var s = 0; for (var i = 0; i < 100; i++) for (var x of z) s += x; s");
-        _spreadArray      = Engine.PrepareScript("var a = [1,2,3,4,5,6,7,8,9,10]; var b = [...a]; b.length");
-        _arrayFromIterable = Engine.PrepareScript("var a = new Set([1,2,3,4,5,6,7,8,9,10]); Array.from(a).length");
-
-        _warm = new Engine();
-        _warm.Evaluate(_forOfArray);
-        _warm.Evaluate(_forOfMap);
-        _warm.Evaluate(_forOfSet);
-        _warm.Evaluate(_spreadArray);
-        _warm.Evaluate(_arrayFromIterable);
+        _forOfArray = IsolatedScript.Warm("var a = [1,2,3,4,5,6,7,8,9,10]; var s = 0; for (var i = 0; i < 100; i++) for (var x of a) s += x; s");
+        _forOfMap   = IsolatedScript.Warm("var m = new Map([['a',1],['b',2],['c',3],['d',4],['e',5]]); var s = 0; for (var i = 0; i < 100; i++) for (var [k,v] of m) s += v; s");
+        _forOfSet   = IsolatedScript.Warm("var z = new Set([1,2,3,4,5,6,7,8,9,10]); var s = 0; for (var i = 0; i < 100; i++) for (var x of z) s += x; s");
+        _spreadArray      = IsolatedScript.Warm("var a = [1,2,3,4,5,6,7,8,9,10]; var b = [...a]; b.length");
+        _arrayFromIterable = IsolatedScript.Warm("var a = new Set([1,2,3,4,5,6,7,8,9,10]); Array.from(a).length");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Warm_ForOf_Array() => _warm.Evaluate(_forOfArray);
+    public JsValue Warm_ForOf_Array() => _forOfArray.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Warm_ForOf_Map() => _warm.Evaluate(_forOfMap);
+    public JsValue Warm_ForOf_Map() => _forOfMap.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Warm_ForOf_Set() => _warm.Evaluate(_forOfSet);
+    public JsValue Warm_ForOf_Set() => _forOfSet.Run();
 
-    [Benchmark] public JsValue Warm_SpreadArray() => _warm.Evaluate(_spreadArray);
-    [Benchmark] public JsValue Warm_ArrayFromIterable() => _warm.Evaluate(_arrayFromIterable);
+    [Benchmark] public JsValue Warm_SpreadArray() => _spreadArray.Run();
+    [Benchmark] public JsValue Warm_ArrayFromIterable() => _arrayFromIterable.Run();
 }

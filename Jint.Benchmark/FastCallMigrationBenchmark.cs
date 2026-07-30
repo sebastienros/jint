@@ -9,7 +9,7 @@ namespace Jint.Benchmark;
 /// arguments over in registers instead of filling a pooled array, so these rows are where the migration
 /// shows up.
 /// <para>
-/// Every row runs its call in a tight loop inside one prepared script on one long-lived engine, so the
+/// Every row runs its call in a tight loop inside one prepared script on its own long-lived engine, so the
 /// site is warm and the measurement is the call, not the parse or the first-touch dispatch. The loop body
 /// is deliberately trivial where the method allows it (a short scan, an immediate hit) so the dispatch is
 /// not buried under the built-in's own work.
@@ -19,6 +19,15 @@ namespace Jint.Benchmark;
 /// migrated pair either side of them: still on <c>JsCallArguments</c>, so they should not move at all and
 /// are the cross-run floor for reading the others.
 /// </para>
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all ten scripts, so a row
+/// was measured on an engine carrying the other nine rows' globals (every script declares <c>r</c> and
+/// <c>n</c>) and their handler-tree entries and per-call-site caches — which is what the two control rows
+/// exist to be free of, so leaving them exposed to it defeated their purpose. The <c>data</c>/<c>text</c>
+/// fixture is still shared, but now by being re-run per engine rather than by the engine being re-used.
+/// The rows still measure warm dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>,
+/// outside the measurement. <b>Numbers from this class are not comparable to any published before the
+/// harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class FastCallMigrationBenchmark
@@ -32,25 +41,28 @@ public class FastCallMigrationBenchmark
         var isThree = function (x) { return x === 3; };
         """;
 
-    private Engine _engine = null!;
+    private IsolatedScript _stringIncludes;
+    private IsolatedScript _stringEndsWith;
+    private IsolatedScript _arrayIndexOf;
+    private IsolatedScript _arraySome;
+    private IsolatedScript _arrayFind;
+    private IsolatedScript _arrayFindIndex;
+    private IsolatedScript _numberToString;
+    private IsolatedScript _numberToStringRadix;
+    private IsolatedScript _arrayLastIndexOf;
+    private IsolatedScript _arrayFindLast;
 
-    private Prepared<Script> _stringIncludes;
-    private Prepared<Script> _stringEndsWith;
-    private Prepared<Script> _arrayIndexOf;
-    private Prepared<Script> _arraySome;
-    private Prepared<Script> _arrayFind;
-    private Prepared<Script> _arrayFindIndex;
-    private Prepared<Script> _numberToString;
-    private Prepared<Script> _numberToStringRadix;
-    private Prepared<Script> _arrayLastIndexOf;
-    private Prepared<Script> _arrayFindLast;
+    /// <summary>Builds a fresh engine carrying the <c>data</c>/<c>text</c>/<c>isThree</c> fixture every row uses.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(Setup);
+        return engine;
+    }
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _engine = new Engine();
-        _engine.Execute(Setup);
-
         _stringIncludes = Prepare("text.includes('bar')");
         _stringEndsWith = Prepare("text.endsWith('baz')");
         _arrayIndexOf = Prepare("data.indexOf(3)");
@@ -61,51 +73,42 @@ public class FastCallMigrationBenchmark
         _numberToStringRadix = Prepare("(255).toString(16)");
         _arrayLastIndexOf = Prepare("data.lastIndexOf(3)");
         _arrayFindLast = Prepare("data.findLast(isThree)");
-
-        _engine.Evaluate(_stringIncludes);
-        _engine.Evaluate(_stringEndsWith);
-        _engine.Evaluate(_arrayIndexOf);
-        _engine.Evaluate(_arraySome);
-        _engine.Evaluate(_arrayFind);
-        _engine.Evaluate(_arrayFindIndex);
-        _engine.Evaluate(_numberToString);
-        _engine.Evaluate(_numberToStringRadix);
-        _engine.Evaluate(_arrayLastIndexOf);
-        _engine.Evaluate(_arrayFindLast);
     }
 
-    private static Prepared<Script> Prepare(string call)
-        => Engine.PrepareScript("var r; for (var n = 0; n < " + OperationsPerInvoke + "; n++) { r = " + call + "; } r");
+    private static IsolatedScript Prepare(string call)
+        => IsolatedScript.Warm(
+            Engine.PrepareScript("var r; for (var n = 0; n < " + OperationsPerInvoke + "; n++) { r = " + call + "; } r"),
+            CreateEngine);
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue StringIncludes() => _engine.Evaluate(_stringIncludes);
+    public JsValue StringIncludes() => _stringIncludes.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue StringEndsWith() => _engine.Evaluate(_stringEndsWith);
+    public JsValue StringEndsWith() => _stringEndsWith.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ArrayIndexOf() => _engine.Evaluate(_arrayIndexOf);
+    public JsValue ArrayIndexOf() => _arrayIndexOf.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ArraySome() => _engine.Evaluate(_arraySome);
+    public JsValue ArraySome() => _arraySome.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ArrayFind() => _engine.Evaluate(_arrayFind);
+    public JsValue ArrayFind() => _arrayFind.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ArrayFindIndex() => _engine.Evaluate(_arrayFindIndex);
+    public JsValue ArrayFindIndex() => _arrayFindIndex.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue NumberToString() => _engine.Evaluate(_numberToString);
+    public JsValue NumberToString() => _numberToString.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue NumberToStringRadix() => _engine.Evaluate(_numberToStringRadix);
+    public JsValue NumberToStringRadix() => _numberToStringRadix.Run();
 
     /// <summary>Untouched sibling of <see cref="ArrayIndexOf"/>: still takes the raw argument array.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Control_ArrayLastIndexOf() => _engine.Evaluate(_arrayLastIndexOf);
+    public JsValue Control_ArrayLastIndexOf() => _arrayLastIndexOf.Run();
 
     /// <summary>Untouched sibling of <see cref="ArrayFind"/>: still takes the raw argument array.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Control_ArrayFindLast() => _engine.Evaluate(_arrayFindLast);
+    public JsValue Control_ArrayFindLast() => _arrayFindLast.Run();
 }

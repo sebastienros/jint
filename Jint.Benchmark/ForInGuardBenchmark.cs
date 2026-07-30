@@ -8,23 +8,32 @@ namespace Jint.Benchmark;
 /// hasOwnProperty guard, prototype-chain filtering, for-in over arrays (dense, holey, and with
 /// extra named own props), for-of over a string, and typeof / instanceof / in dispatch over
 /// LCG-mixed inputs the branch predictor cannot memorize.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs <see cref="SetupSource"/> so each engine owns its own fixture objects — and warmed with its
+/// own script and nothing else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with
+/// all eleven row scripts, so each row was measured on an engine carrying the other ten rows' globals
+/// (every one of them declares <c>function f</c>, so they collided outright) plus their handler-tree,
+/// call-site and enumeration-cache state — which makes a row's number depend on which siblings exist and
+/// on what a change did to <em>them</em>. The rows still measure warm iteration, and engine construction
+/// and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not
+/// comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ForInGuardBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _forInSmall;
-    private Prepared<Script> _forInWide;
-    private Prepared<Script> _forInHasOwnGuard;
-    private Prepared<Script> _forInProtoChain;
-    private Prepared<Script> _forInDenseArray;
-    private Prepared<Script> _forInHoleyArray;
-    private Prepared<Script> _forInArrayExtraProps;
-    private Prepared<Script> _forOfString;
-    private Prepared<Script> _typeofSwitchMixed;
-    private Prepared<Script> _instanceofMixed;
-    private Prepared<Script> _inOperatorMixed;
+    private IsolatedScript _forInSmall;
+    private IsolatedScript _forInWide;
+    private IsolatedScript _forInHasOwnGuard;
+    private IsolatedScript _forInProtoChain;
+    private IsolatedScript _forInDenseArray;
+    private IsolatedScript _forInHoleyArray;
+    private IsolatedScript _forInArrayExtraProps;
+    private IsolatedScript _forOfString;
+    private IsolatedScript _typeofSwitchMixed;
+    private IsolatedScript _instanceofMixed;
+    private IsolatedScript _inOperatorMixed;
 
     internal const string SetupSource = """
         var six = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 };
@@ -99,13 +108,18 @@ public class ForInGuardBenchmark
         f();
         """;
 
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
-        _forInSmall = Engine.PrepareScript("""
+        _forInSmall = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 20000; i++) {
@@ -114,9 +128,9 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _forInWide = Engine.PrepareScript("""
+        _forInWide = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 2000; i++) {
@@ -125,12 +139,12 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _forInHasOwnGuard = Engine.PrepareScript(ForInHasOwnGuardSource);
+        _forInHasOwnGuard = IsolatedScript.Warm(Engine.PrepareScript(ForInHasOwnGuardSource), CreateEngine);
 
         // 1,000 dense int-indexed keys, no holes, no named own props
-        _forInDenseArray = Engine.PrepareScript("""
+        _forInDenseArray = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 200; i++) {
@@ -139,10 +153,10 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
         // every 4th index present; enumeration must skip the holes
-        _forInHoleyArray = Engine.PrepareScript("""
+        _forInHoleyArray = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 200; i++) {
@@ -151,10 +165,10 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
         // 100 indices plus two named own props; order must stay indices-then-named
-        _forInArrayExtraProps = Engine.PrepareScript("""
+        _forInArrayExtraProps = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 2000; i++) {
@@ -163,10 +177,10 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
         // 6 own + 6 enumerable inherited keys; the guard filters the inherited half
-        _forInProtoChain = Engine.PrepareScript("""
+        _forInProtoChain = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -177,9 +191,9 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _forOfString = Engine.PrepareScript("""
+        _forOfString = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var n = 0;
                 for (var i = 0; i < 5; i++) {
@@ -188,11 +202,11 @@ public class ForInGuardBenchmark
                 return n;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _typeofSwitchMixed = Engine.PrepareScript(TypeofSwitchMixedSource);
+        _typeofSwitchMixed = IsolatedScript.Warm(Engine.PrepareScript(TypeofSwitchMixedSource), CreateEngine);
 
-        _instanceofMixed = Engine.PrepareScript("""
+        _instanceofMixed = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -201,9 +215,9 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _inOperatorMixed = Engine.PrepareScript("""
+        _inOperatorMixed = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -212,51 +226,39 @@ public class ForInGuardBenchmark
                 return s;
             }
             f();
-            """);
-
-        _engine.Evaluate(_forInSmall);
-        _engine.Evaluate(_forInWide);
-        _engine.Evaluate(_forInHasOwnGuard);
-        _engine.Evaluate(_forInProtoChain);
-        _engine.Evaluate(_forInDenseArray);
-        _engine.Evaluate(_forInHoleyArray);
-        _engine.Evaluate(_forInArrayExtraProps);
-        _engine.Evaluate(_forOfString);
-        _engine.Evaluate(_typeofSwitchMixed);
-        _engine.Evaluate(_instanceofMixed);
-        _engine.Evaluate(_inOperatorMixed);
+            """), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue ForInSmall() => _engine.Evaluate(_forInSmall);
+    public JsValue ForInSmall() => _forInSmall.Run();
 
     [Benchmark]
-    public JsValue ForInWide() => _engine.Evaluate(_forInWide);
+    public JsValue ForInWide() => _forInWide.Run();
 
     [Benchmark]
-    public JsValue ForInHasOwnGuard() => _engine.Evaluate(_forInHasOwnGuard);
+    public JsValue ForInHasOwnGuard() => _forInHasOwnGuard.Run();
 
     [Benchmark]
-    public JsValue ForInProtoChain() => _engine.Evaluate(_forInProtoChain);
+    public JsValue ForInProtoChain() => _forInProtoChain.Run();
 
     [Benchmark]
-    public JsValue ForInDenseArray() => _engine.Evaluate(_forInDenseArray);
+    public JsValue ForInDenseArray() => _forInDenseArray.Run();
 
     [Benchmark]
-    public JsValue ForInHoleyArray() => _engine.Evaluate(_forInHoleyArray);
+    public JsValue ForInHoleyArray() => _forInHoleyArray.Run();
 
     [Benchmark]
-    public JsValue ForInArrayExtraProps() => _engine.Evaluate(_forInArrayExtraProps);
+    public JsValue ForInArrayExtraProps() => _forInArrayExtraProps.Run();
 
     [Benchmark]
-    public JsValue ForOfString() => _engine.Evaluate(_forOfString);
+    public JsValue ForOfString() => _forOfString.Run();
 
     [Benchmark]
-    public JsValue TypeofSwitchMixed() => _engine.Evaluate(_typeofSwitchMixed);
+    public JsValue TypeofSwitchMixed() => _typeofSwitchMixed.Run();
 
     [Benchmark]
-    public JsValue InstanceofMixed() => _engine.Evaluate(_instanceofMixed);
+    public JsValue InstanceofMixed() => _instanceofMixed.Run();
 
     [Benchmark]
-    public JsValue InOperatorMixed() => _engine.Evaluate(_inOperatorMixed);
+    public JsValue InOperatorMixed() => _inOperatorMixed.Run();
 }

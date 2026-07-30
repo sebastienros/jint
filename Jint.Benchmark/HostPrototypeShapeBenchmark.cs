@@ -70,6 +70,20 @@ namespace Jint.Benchmark;
 /// <see cref="PropertyDescriptor"/>, because the public surface offers no reusable data-descriptor form. That
 /// cost sits in both prototype lanes equally, so it does not distort the comparison.
 /// </para>
+///
+/// <para>
+/// <b>Engine isolation.</b> <see cref="BuildPrototypes"/> and <see cref="BuildAndTouchPrototypes"/> build
+/// their engine inside the benchmark method, which is what they measure. The other three rows used to
+/// share one <c>_readEngine</c> warmed with all three of their scripts, so each was measured on an engine
+/// carrying the others' globals (<c>items</c>, <c>chainLeaf</c>, <c>chainObj</c>) and their handler-tree
+/// and prototype-method-cache state — and a class whose whole subject is what a prototype lookup costs
+/// must not let one row warm another's caches. Each now gets its own engine, built by
+/// <c>CreateReadEngine</c> or <c>CreateChainEngine</c> and warmed with its own script and nothing else
+/// (see <see cref="IsolatedScript"/>); both factories keep the representation assertions, so engagement is
+/// still asserted per engine rather than inferred. The rows still measure warm reads, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from the
+/// three warm rows are not comparable to any published before the harness changed.</b>
+/// </para>
 /// </summary>
 [MemoryDiagnoser]
 public class HostPrototypeShapeBenchmark
@@ -92,11 +106,10 @@ public class HostPrototypeShapeBenchmark
     private static readonly MemberTable[] _chainTables = BuildChainTables();
     private static readonly JsObjectShape[] _chainShapes = BuildChainShapes();
 
-    private Engine _readEngine = null!;
-    private Prepared<Script> _readLoop;
+    private IsolatedScript _readLoop;
     private Prepared<Script> _touchScript;
-    private Prepared<Script> _absentMissLoop;
-    private Prepared<Script> _deepHitLoop;
+    private IsolatedScript _absentMissLoop;
+    private IsolatedScript _deepHitLoop;
 
     /// <summary>How the per-engine prototype objects are built.</summary>
     [Params(HostPrototypeKind.Dictionary, HostPrototypeKind.Shape)]
@@ -118,7 +131,7 @@ public class HostPrototypeShapeBenchmark
             })(protos)
             """);
 
-        _readLoop = Engine.PrepareScript("""
+        _readLoop = IsolatedScript.Warm(Engine.PrepareScript("""
             (function (items) {
               var total = 0;
               for (var i = 0; i < items.length; i++) {
@@ -127,11 +140,40 @@ public class HostPrototypeShapeBenchmark
               }
               return total;
             })(items)
-            """);
+            """), CreateReadEngine);
 
-        // The read lane's engine is built once: it measures steady-state reads, not setup.
-        _readEngine = new Engine();
-        var prototype = BuildPrototype(_readEngine, PrototypeKind, 0);
+        // The chain lanes: a depth-ChainDepth prototype chain, with an ordinary script object in front of
+        // it as the receiver. BuildChain asserts every level's representation.
+        var deepestMember = _chainTables[0].Members[0].Name;
+        _absentMissLoop = IsolatedScript.Warm(Engine.PrepareScript($$"""
+            (function (obj) {
+              var hits = 0;
+              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
+                hits += ('__absent__' in obj) ? 1 : 0;
+              }
+              return hits;
+            })(chainObj)
+            """), CreateChainEngine);
+
+        _deepHitLoop = IsolatedScript.Warm(Engine.PrepareScript($$"""
+            (function (obj) {
+              var hits = 0;
+              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
+                hits += ('{{deepestMember}}' in obj) ? 1 : 0;
+              }
+              return hits;
+            })(chainObj)
+            """), CreateChainEngine);
+    }
+
+    /// <summary>
+    /// The read row's engine: the prototype under test plus the instances in front of it, and nothing else.
+    /// It is built in <c>[GlobalSetup]</c> because the row measures steady-state reads, not setup.
+    /// </summary>
+    private Engine CreateReadEngine()
+    {
+        var engine = new Engine();
+        var prototype = BuildPrototype(engine, PrototypeKind, 0);
 
         // Engagement is asserted, never inferred from timing: if the shaped lane silently stopped being
         // shaped, the row would still run and quietly measure the dictionary path. The representation
@@ -141,7 +183,7 @@ public class HostPrototypeShapeBenchmark
         var expected = PrototypeKind == HostPrototypeKind.Shape
             ? ObjectRepresentation.SharedBuiltinLayout
             : ObjectRepresentation.Dictionary;
-        var representation = _readEngine.Advanced.GetObjectRepresentation(prototype);
+        var representation = engine.Advanced.GetObjectRepresentation(prototype);
         if (representation != expected)
         {
             throw new InvalidOperationException(
@@ -151,39 +193,24 @@ public class HostPrototypeShapeBenchmark
         var items = new JsValue[SteadyStateInstances];
         for (var i = 0; i < items.Length; i++)
         {
-            items[i] = new ReflectiveHostInstance(_readEngine, prototype, i);
+            items[i] = new ReflectiveHostInstance(engine, prototype, i);
         }
 
-        _readEngine.SetValue("items", new JsArray(_readEngine, items));
-        _readEngine.Evaluate(_readLoop);
+        engine.SetValue("items", new JsArray(engine, items));
+        return engine;
+    }
 
-        // The chain lanes: a depth-ChainDepth prototype chain in the same engine, with an ordinary script
-        // object in front of it as the receiver. BuildChain asserts every level's representation.
-        var deepestMember = _chainTables[0].Members[0].Name;
-        _absentMissLoop = Engine.PrepareScript($$"""
-            (function (obj) {
-              var hits = 0;
-              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
-                hits += ('__absent__' in obj) ? 1 : 0;
-              }
-              return hits;
-            })(chainObj)
-            """);
-
-        _deepHitLoop = Engine.PrepareScript($$"""
-            (function (obj) {
-              var hits = 0;
-              for (var i = 0; i < {{ChainLoopIterations}}; i++) {
-                hits += ('{{deepestMember}}' in obj) ? 1 : 0;
-              }
-              return hits;
-            })(chainObj)
-            """);
-
-        _readEngine.SetValue("chainLeaf", BuildChain(_readEngine, PrototypeKind));
-        _readEngine.Execute("var chainObj = Object.create(chainLeaf);");
-        _readEngine.Evaluate(_absentMissLoop);
-        _readEngine.Evaluate(_deepHitLoop);
+    /// <summary>
+    /// A chain row's engine: the depth-<see cref="ChainDepth"/> prototype chain, an ordinary script object
+    /// in front of it as the receiver, and nothing else. Each chain row gets one of its own, so neither
+    /// walks a chain the other has already warmed.
+    /// </summary>
+    private Engine CreateChainEngine()
+    {
+        var engine = new Engine();
+        engine.SetValue("chainLeaf", BuildChain(engine, PrototypeKind));
+        engine.Execute("var chainObj = Object.create(chainLeaf);");
+        return engine;
     }
 
     /// <summary>Lane A: everything a fresh document pays before a single line of script runs.</summary>
@@ -218,15 +245,15 @@ public class HostPrototypeShapeBenchmark
 
     /// <summary>Lane C: warmed inherited reads and calls through a correct host instance.</summary>
     [Benchmark]
-    public JsValue SteadyStateReads() => _readEngine.Evaluate(_readLoop);
+    public JsValue SteadyStateReads() => _readLoop.Run();
 
     /// <summary>Lane D: a name nothing on the chain declares, refused once per prototype level, in a loop.</summary>
     [Benchmark]
-    public JsValue AbsentNameMissOverChain() => _readEngine.Evaluate(_absentMissLoop);
+    public JsValue AbsentNameMissOverChain() => _absentMissLoop.Run();
 
     /// <summary>Lane E: the same loop resolving on the chain's deepest level — the hit-path control.</summary>
     [Benchmark]
-    public JsValue DeepHitOverChain() => _readEngine.Evaluate(_deepHitLoop);
+    public JsValue DeepHitOverChain() => _deepHitLoop.Run();
 
     /// <summary>
     /// Builds the depth-<see cref="ChainDepth"/> prototype chain both chain lanes walk and returns its leaf.

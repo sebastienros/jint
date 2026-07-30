@@ -8,18 +8,26 @@ namespace Jint.Benchmark;
 /// over 100,000 LCG-mixed small integers (values vary enough that the branch predictor cannot
 /// memorize outcomes, yet stay inside the small-int cache so rows measure callback dispatch,
 /// not number boxing). One built-in call per op — the element count is the loop.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs <see cref="SetupSource"/> so each engine owns its own <c>data</c>/<c>data10k</c> — and warmed
+/// with its own script and nothing else (see <see cref="IsolatedScript"/>). It used to be one engine
+/// warmed with all six row scripts, so each row was measured on an engine carrying the other five rows'
+/// handler-tree and call-site caches and their callback shapes, which makes a row's number depend on
+/// which siblings exist and on what a change did to <em>them</em>. The rows still measure warm callback
+/// dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement.
+/// <b>Numbers from this class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ArrayCallbackBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _reduceSum;
-    private Prepared<Script> _reduceToObject;
-    private Prepared<Script> _forEachSum;
-    private Prepared<Script> _someMiss;
-    private Prepared<Script> _everyHit;
-    private Prepared<Script> _mapFilterReduceChain;
+    private IsolatedScript _reduceSum;
+    private IsolatedScript _reduceToObject;
+    private IsolatedScript _forEachSum;
+    private IsolatedScript _someMiss;
+    private IsolatedScript _everyHit;
+    private IsolatedScript _mapFilterReduceChain;
 
     internal const string SetupSource = """
         var data = [];
@@ -42,52 +50,50 @@ public class ArrayCallbackBenchmark
             .reduce(function (a, x) { return a + x; }, 0);
         """;
 
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
-        _reduceSum = Engine.PrepareScript(ReduceSumSource);
+        _reduceSum = IsolatedScript.Warm(Engine.PrepareScript(ReduceSumSource), CreateEngine);
 
         // the dictionary-growth reduce shape: accumulator object gains keys as it goes
-        _reduceToObject = Engine.PrepareScript("""
+        _reduceToObject = IsolatedScript.Warm(Engine.PrepareScript("""
             data10k.reduce(function (a, x) { a['k' + (x & 63)] = x; return a; }, {});
-            """);
+            """), CreateEngine);
 
-        _forEachSum = Engine.PrepareScript(ForEachSumSource);
+        _forEachSum = IsolatedScript.Warm(Engine.PrepareScript(ForEachSumSource), CreateEngine);
 
         // full-scan miss: predicate never satisfied
-        _someMiss = Engine.PrepareScript("data.some(function (x) { return x < 0; });");
+        _someMiss = IsolatedScript.Warm(Engine.PrepareScript("data.some(function (x) { return x < 0; });"), CreateEngine);
 
         // full-scan hit: predicate always satisfied
-        _everyHit = Engine.PrepareScript("data.every(function (x) { return x >= 0; });");
+        _everyHit = IsolatedScript.Warm(Engine.PrepareScript("data.every(function (x) { return x >= 0; });"), CreateEngine);
 
-        _mapFilterReduceChain = Engine.PrepareScript(MapFilterReduceChainSource);
-
-        _engine.Evaluate(_reduceSum);
-        _engine.Evaluate(_reduceToObject);
-        _engine.Evaluate(_forEachSum);
-        _engine.Evaluate(_someMiss);
-        _engine.Evaluate(_everyHit);
-        _engine.Evaluate(_mapFilterReduceChain);
+        _mapFilterReduceChain = IsolatedScript.Warm(Engine.PrepareScript(MapFilterReduceChainSource), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue ReduceSum() => _engine.Evaluate(_reduceSum);
+    public JsValue ReduceSum() => _reduceSum.Run();
 
     [Benchmark]
-    public JsValue ReduceToObject() => _engine.Evaluate(_reduceToObject);
+    public JsValue ReduceToObject() => _reduceToObject.Run();
 
     [Benchmark]
-    public JsValue ForEachSum() => _engine.Evaluate(_forEachSum);
+    public JsValue ForEachSum() => _forEachSum.Run();
 
     [Benchmark]
-    public JsValue SomeMiss() => _engine.Evaluate(_someMiss);
+    public JsValue SomeMiss() => _someMiss.Run();
 
     [Benchmark]
-    public JsValue EveryHit() => _engine.Evaluate(_everyHit);
+    public JsValue EveryHit() => _everyHit.Run();
 
     [Benchmark]
-    public JsValue MapFilterReduceChain() => _engine.Evaluate(_mapFilterReduceChain);
+    public JsValue MapFilterReduceChain() => _mapFilterReduceChain.Run();
 }

@@ -62,6 +62,16 @@ The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and 
 3. For standalone benchmarks, add `[Benchmark]` methods directly, using `Engine.PrepareScript()` to separate parsing from execution.
 4. Put required JS files in `Jint.Benchmark/Scripts/`; they are copied to the output directory automatically.
 
+### Never warm one engine with more than one row's workload
+
+**`[GlobalSetup]` may only touch the engine a row is measured on with that row's own work.** A class that builds one `Engine` and warms it by evaluating *every* `[Benchmark]` row's script hands each row an engine carrying its siblings' state: their globals on the shared global object (nearly every micro-script here declares `var i`, `var s` or `function f`, so they collide outright), their entries in the engine-owned handler-tree caches (`Engine._functionDefinitions`, `_scriptStatementLists`), their per-call-site monomorphic caches, and the environment-reuse and constructor-shape state behind them. A row's number then depends on which sibling rows exist and on what a change did to *them*. This is not theoretical: a call-path change that a single-workload reproduction showed to be 2.5–3.0% **faster** was reported by `MethodCallBenchmark` as +5.6…+9.2% **slower** on three rows, reproducibly and in both A/B orderings.
+
+The default fix is **one engine per row**, built in `[GlobalSetup]` and warmed with that row's script and nothing else — `IsolatedScript` (`Jint.Benchmark/IsolatedScript.cs`) is the helper, `MethodCallBenchmark` and `ClosureCallBenchmarks` the worked examples, and `InteropMethodDispatchBenchmark` the pre-existing precedent for doing it with plain `Engine` fields when a row's workload is not a `Prepared<Script>`. It keeps each row's *warm* dispatch character — several of these classes exist specifically to measure warm dispatch, and making them cold would silently change what the suite is for — and keeps engine construction and warm-up out of the measurement.
+
+Two things this rule does **not** forbid. A shared *fixture* every row needs (`engine.Execute("var testArray = [...]")`) is fine, as long as each row still gets its own engine. And re-evaluating one row's own script many times on one engine is fine where that is the point. Where a benchmark genuinely wants cold-start behaviour, build the engine **inside the benchmark method** so BenchmarkDotNet can auto-scale `InvocationCount` — see `DromaeoBenchmark`, `SunSpiderBenchmark` and `SingleScriptBenchmark`. **Never reach for `[IterationSetup]`**: it forces `InvocationCount=1`, which leaks tiered-JIT warmup into the measured iterations and made identical code report 2.489 ms and 9.811 ms in different runs (the full account is in `DromaeoBenchmark`'s comment).
+
+Document the choice in the class's XML doc comment, including whether engine construction now enters the measurement and roughly what it costs relative to the op.
+
 ## Architecture
 
 ```

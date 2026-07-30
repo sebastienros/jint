@@ -9,6 +9,19 @@ using Jint.Native.Function;
 
 namespace Jint.Benchmark;
 
+/// <summary>
+/// Finding a record in a host-supplied collection, across the four shapes an embedder hands over
+/// (<see cref="TestDataType"/>) and the five ways a host can drive the script function.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, carrying only that row's own
+/// <c>findIt</c>. It used to be one engine on which <c>[GlobalSetup]</c> evaluated <em>both</em> script
+/// variants — and since both declare <c>function findIt</c> at global scope, the second install even
+/// overwrote the first's global binding — so every row was measured on an engine carrying the other
+/// variant's handler-tree, call-site and wrapper-cache state. The rows still measure the same warm
+/// invocation paths, and engine construction and function compilation stay in <c>[GlobalSetup]</c>,
+/// outside the measurement. <b>Numbers from this class are not comparable to any published before the
+/// harness changed.</b></para>
+/// </summary>
 [RankColumn]
 [MemoryDiagnoser]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
@@ -21,8 +34,6 @@ public class InteropLambdaBenchmark
     private const string FindValue = "SomeKind22222";
 
     private const int Iterations = 10;
-
-    private Engine _engine;
 
     private const string ScriptInline = """
                                         function findIt(data, value) {
@@ -45,9 +56,22 @@ public class InteropLambdaBenchmark
                                          }
                                          """;
 
-    private Function _forLoopFunction;
+    // One (engine, findIt) pair per row: the function is engine-affine, so isolating the engine means
+    // compiling that row's own script on it.
+    private Engine _inlineEngineInvokeEngine;
+    private Function _inlineEngineInvokeFunction;
+
+    private Engine _inlineEngine;
     private Function _inlineFunction;
+
+    private Engine _inlineCSharpEngine;
     private Func<JsValue, JsValue[], JsValue> _inlineCSharpFunction;
+
+    private Engine _forLoopEngine;
+    private Function _forLoopFunction;
+
+    private Engine _forLoopEngineInvokeEngine;
+    private Function _forLoopEngineInvokeFunction;
 
     [Params(TestDataType.ClrObject, TestDataType.Dictionary, TestDataType.JsonNode, TestDataType.JsValue)]
     public TestDataType Type { get; set; }
@@ -55,8 +79,6 @@ public class InteropLambdaBenchmark
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _engine = new Engine();
-
         _testArray = [new TestData("SomeKind00000"), new TestData("SomeKind1111"), new TestData(FindValue)];
         _root = new TestDataRoot(_testArray);
 
@@ -77,9 +99,22 @@ public class InteropLambdaBenchmark
             _data = JsonSerializer.Deserialize<JsObject>(JsonSerializer.Serialize(_root, JsonDefaults.JsonSerializerOptions), JsonDefaults.JsonSerializerOptions);
         }
 
-        _inlineFunction = (Function) _engine.Evaluate(ScriptInline + "findIt;");
-        _inlineCSharpFunction = (Func<JsValue, JsValue[], JsValue>) _inlineFunction.ToObject();
-        _forLoopFunction = (Function) _engine.Evaluate(ScriptForLoop + "findIt;");
+        // Each row compiles its own findIt on its own engine, so no row inherits the other script
+        // variant's handler-tree, call-site or wrapper-cache state.
+        _inlineEngineInvokeEngine = new Engine();
+        _inlineEngineInvokeFunction = (Function) _inlineEngineInvokeEngine.Evaluate(ScriptInline + "findIt;");
+
+        _inlineEngine = new Engine();
+        _inlineFunction = (Function) _inlineEngine.Evaluate(ScriptInline + "findIt;");
+
+        _inlineCSharpEngine = new Engine();
+        _inlineCSharpFunction = (Func<JsValue, JsValue[], JsValue>) ((Function) _inlineCSharpEngine.Evaluate(ScriptInline + "findIt;")).ToObject();
+
+        _forLoopEngine = new Engine();
+        _forLoopFunction = (Function) _forLoopEngine.Evaluate(ScriptForLoop + "findIt;");
+
+        _forLoopEngineInvokeEngine = new Engine();
+        _forLoopEngineInvokeFunction = (Function) _forLoopEngineInvokeEngine.Evaluate(ScriptForLoop + "findIt;");
     }
 
     [Benchmark]
@@ -87,7 +122,7 @@ public class InteropLambdaBenchmark
     {
         for (var i = 0; i < Iterations; i++)
         {
-            var value = _engine.Invoke(_inlineFunction!, [_data, FindValue]).ToObject();
+            var value = _inlineEngineInvokeEngine.Invoke(_inlineEngineInvokeFunction!, [_data, FindValue]).ToObject();
         }
     }
 
@@ -96,7 +131,7 @@ public class InteropLambdaBenchmark
     {
         for (var i = 0; i < Iterations; i++)
         {
-            var value = _inlineFunction!.Call(JsValue.FromObject(_engine, _data), JsValue.FromObject(_engine, FindValue)).ToObject();
+            var value = _inlineFunction!.Call(JsValue.FromObject(_inlineEngine, _data), JsValue.FromObject(_inlineEngine, FindValue)).ToObject();
         }
     }
 
@@ -105,7 +140,7 @@ public class InteropLambdaBenchmark
     {
         for (var i = 0; i < Iterations; i++)
         {
-            var value = _inlineCSharpFunction(JsValue.Undefined, [JsValue.FromObject(_engine, _data), JsValue.FromObject(_engine, FindValue)]).ToObject();
+            var value = _inlineCSharpFunction(JsValue.Undefined, [JsValue.FromObject(_inlineCSharpEngine, _data), JsValue.FromObject(_inlineCSharpEngine, FindValue)]).ToObject();
         }
     }
 
@@ -114,7 +149,7 @@ public class InteropLambdaBenchmark
     {
         for (var i = 0; i < Iterations; i++)
         {
-            var value = _forLoopFunction!.Call(JsValue.FromObject(_engine, _data), JsValue.FromObject(_engine, FindValue)).ToObject();
+            var value = _forLoopFunction!.Call(JsValue.FromObject(_forLoopEngine, _data), JsValue.FromObject(_forLoopEngine, FindValue)).ToObject();
         }
     }
 
@@ -123,7 +158,7 @@ public class InteropLambdaBenchmark
     {
         for (var i = 0; i < Iterations; i++)
         {
-            var value = _engine.Invoke(_forLoopFunction!, [_data, FindValue]).ToObject();
+            var value = _forLoopEngineInvokeEngine.Invoke(_forLoopEngineInvokeFunction!, [_data, FindValue]).ToObject();
         }
     }
 }

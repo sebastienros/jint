@@ -12,43 +12,43 @@ namespace Jint.Benchmark;
 ///   - 64 args: forced rent from ArrayPool&lt;double&gt;.Shared.
 /// All three should win equally from [Coerced&lt;T&gt;] vs the current emit which boxes into
 /// arguments[] and re-coerces inside the host method.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and
+/// nothing else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six row
+/// scripts, so each row was measured on an engine carrying the other five rows' handler-tree entries
+/// and their per-call-site caches on <c>Math</c> — the very state that decides whether a variadic call
+/// takes the fast lane — which makes a row's number depend on which siblings exist and on what a change
+/// did to <em>them</em>. The rows still measure warm variadic dispatch, and engine construction and
+/// warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not
+/// comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class VariadicCoercionBenchmarks
 {
-    private Engine _warm = null!;
-    private Prepared<Script> _max2;
-    private Prepared<Script> _max4;
-    private Prepared<Script> _max16;
-    private Prepared<Script> _max64;
-    private Prepared<Script> _min4;
-    private Prepared<Script> _hypot4;
+    private IsolatedScript _max2;
+    private IsolatedScript _max4;
+    private IsolatedScript _max16;
+    private IsolatedScript _max64;
+    private IsolatedScript _min4;
+    private IsolatedScript _hypot4;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _max2  = Engine.PrepareScript("Math.max(1, 2)");
-        _max4  = Engine.PrepareScript("Math.max(1, 2, 3, 4)");
-        _max16 = Engine.PrepareScript("Math.max(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)");
-        _max64 = Engine.PrepareScript(BuildVariadicCall("Math.max", 64));
-        _min4  = Engine.PrepareScript("Math.min(1, 2, 3, 4)");
-        _hypot4 = Engine.PrepareScript("Math.hypot(1, 2, 3, 4)");
-
-        _warm = new Engine();
-        _warm.Evaluate(_max2);
-        _warm.Evaluate(_max4);
-        _warm.Evaluate(_max16);
-        _warm.Evaluate(_max64);
-        _warm.Evaluate(_min4);
-        _warm.Evaluate(_hypot4);
+        _max2  = IsolatedScript.Warm("Math.max(1, 2)");
+        _max4  = IsolatedScript.Warm("Math.max(1, 2, 3, 4)");
+        _max16 = IsolatedScript.Warm("Math.max(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)");
+        _max64 = IsolatedScript.Warm(BuildVariadicCall("Math.max", 64));
+        _min4  = IsolatedScript.Warm("Math.min(1, 2, 3, 4)");
+        _hypot4 = IsolatedScript.Warm("Math.hypot(1, 2, 3, 4)");
     }
 
-    [Benchmark] public JsValue Warm_Max2() => _warm.Evaluate(_max2);
-    [Benchmark] public JsValue Warm_Max4() => _warm.Evaluate(_max4);
-    [Benchmark] public JsValue Warm_Max16() => _warm.Evaluate(_max16);
-    [Benchmark] public JsValue Warm_Max64() => _warm.Evaluate(_max64);
-    [Benchmark] public JsValue Warm_Min4() => _warm.Evaluate(_min4);
-    [Benchmark] public JsValue Warm_Hypot4() => _warm.Evaluate(_hypot4);
+    [Benchmark] public JsValue Warm_Max2() => _max2.Run();
+    [Benchmark] public JsValue Warm_Max4() => _max4.Run();
+    [Benchmark] public JsValue Warm_Max16() => _max16.Run();
+    [Benchmark] public JsValue Warm_Max64() => _max64.Run();
+    [Benchmark] public JsValue Warm_Min4() => _min4.Run();
+    [Benchmark] public JsValue Warm_Hypot4() => _hypot4.Run();
 
     private static string BuildVariadicCall(string fn, int arity)
     {

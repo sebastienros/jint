@@ -42,33 +42,42 @@ namespace Jint.Benchmark;
 /// Every row runs its call 1000 times inside one prepared script on an engine that has already
 /// evaluated it, so what is measured is dispatch plus body rather than parse or first-call warmup —
 /// and the lane is only reachable from a warm site in the first place.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). All 18 rows used to be warmed on one engine by a single
+/// <c>foreach</c> loop, so each was measured on an engine carrying the other 17 rows' globals — they
+/// collide outright on <c>s</c> and <c>i</c>, and the three <c>push</c> rows all declare <c>a</c> and the
+/// two object-argument rows both declare <c>o</c>, so a row inherited whichever sibling wrote last — plus
+/// 17 other rows' handler-tree entries and call-site caches. Since the whole point of the class is which
+/// call sites reach the fast-call lane, sibling state on those very sites is exactly the wrong thing to
+/// carry. The rows still measure warm dispatch, and engine construction and warm-up stay in
+/// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
+/// published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class FastCallLaneBenchmarks
 {
     private const int OperationsPerInvoke = 1_000;
 
-    private Engine _engine = null!;
+    private IsolatedScript _charCodeAtGuarded;
+    private IsolatedScript _charCodeAtObject;
+    private IsolatedScript _charAtGuarded;
+    private IsolatedScript _substringGuarded;
+    private IsolatedScript _substringAbsentEnd;
+    private IsolatedScript _substringObject;
+    private IsolatedScript _sliceGuarded;
 
-    private Prepared<Script> _charCodeAtGuarded;
-    private Prepared<Script> _charCodeAtObject;
-    private Prepared<Script> _charAtGuarded;
-    private Prepared<Script> _substringGuarded;
-    private Prepared<Script> _substringAbsentEnd;
-    private Prepared<Script> _substringObject;
-    private Prepared<Script> _sliceGuarded;
-
-    private Prepared<Script> _max2;
-    private Prepared<Script> _max1;
-    private Prepared<Script> _maxArity3;
-    private Prepared<Script> _min2;
-    private Prepared<Script> _hypot2;
-    private Prepared<Script> _push1;
-    private Prepared<Script> _push2;
-    private Prepared<Script> _pushArity3;
-    private Prepared<Script> _concat1;
-    private Prepared<Script> _concat2;
-    private Prepared<Script> _concatArity3;
+    private IsolatedScript _max2;
+    private IsolatedScript _max1;
+    private IsolatedScript _maxArity3;
+    private IsolatedScript _min2;
+    private IsolatedScript _hypot2;
+    private IsolatedScript _push1;
+    private IsolatedScript _push2;
+    private IsolatedScript _pushArity3;
+    private IsolatedScript _concat1;
+    private IsolatedScript _concat2;
+    private IsolatedScript _concatArity3;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -97,70 +106,43 @@ public class FastCallLaneBenchmarks
         _concat1 = Loop("s += \"ab\".concat(\"cd\").length");
         _concat2 = Loop("s += \"ab\".concat(\"cd\", \"ef\").length");
         _concatArity3 = Loop("s += \"ab\".concat(\"cd\", \"ef\", \"gh\").length");
-
-        _engine = new Engine();
-        foreach (var script in AllScripts())
-        {
-            _engine.Evaluate(script);
-        }
     }
 
     /// <summary>
-    /// One call per iteration inside a warm loop. <c>s</c> accumulates so the call cannot be dropped,
-    /// and the loop variable feeds the argument so the values are not constant-folded into the site.
+    /// One call per iteration inside a warm loop, on the row's own engine. <c>s</c> accumulates so the
+    /// call cannot be dropped, and the loop variable feeds the argument so the values are not
+    /// constant-folded into the site.
     /// <para>
     /// Everything is declared with <c>var</c> on purpose: each row is evaluated many times on one
     /// engine, and a <c>const</c> would survive in the global lexical environment and make the second
     /// evaluation a redeclaration SyntaxError.
     /// </para>
     /// </summary>
-    private static Prepared<Script> Loop(string body, string prelude = "")
-        => Engine.PrepareScript($$"""
+    private static IsolatedScript Loop(string body, string prelude = "")
+        => IsolatedScript.Warm(Engine.PrepareScript($$"""
             {{prelude}}
             var s = 0;
             for (var i = 0; i < {{OperationsPerInvoke}}; i++) { {{body}}; }
             s;
-            """);
+            """));
 
-    private IEnumerable<Prepared<Script>> AllScripts()
-    {
-        yield return _charCodeAtGuarded;
-        yield return _charCodeAtObject;
-        yield return _charAtGuarded;
-        yield return _substringGuarded;
-        yield return _substringAbsentEnd;
-        yield return _substringObject;
-        yield return _sliceGuarded;
-        yield return _max2;
-        yield return _max1;
-        yield return _maxArity3;
-        yield return _min2;
-        yield return _hypot2;
-        yield return _push1;
-        yield return _push2;
-        yield return _pushArity3;
-        yield return _concat1;
-        yield return _concat2;
-        yield return _concatArity3;
-    }
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Guarded() => _charCodeAtGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Object() => _charCodeAtObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharAt_Guarded() => _charAtGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_Guarded() => _substringGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_AbsentEnd() => _substringAbsentEnd.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_Object() => _substringObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Slice_Guarded() => _sliceGuarded.Run();
 
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Guarded() => _engine.Evaluate(_charCodeAtGuarded);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Object() => _engine.Evaluate(_charCodeAtObject);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharAt_Guarded() => _engine.Evaluate(_charAtGuarded);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_Guarded() => _engine.Evaluate(_substringGuarded);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_AbsentEnd() => _engine.Evaluate(_substringAbsentEnd);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Substring_Object() => _engine.Evaluate(_substringObject);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue Slice_Guarded() => _engine.Evaluate(_sliceGuarded);
-
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity1() => _engine.Evaluate(_max1);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity2() => _engine.Evaluate(_max2);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity3() => _engine.Evaluate(_maxArity3);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMin_Arity2() => _engine.Evaluate(_min2);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathHypot_Arity2() => _engine.Evaluate(_hypot2);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity1() => _engine.Evaluate(_push1);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity2() => _engine.Evaluate(_push2);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity3() => _engine.Evaluate(_pushArity3);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity1() => _engine.Evaluate(_concat1);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity2() => _engine.Evaluate(_concat2);
-    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity3() => _engine.Evaluate(_concatArity3);
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity1() => _max1.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity2() => _max2.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMax_Arity3() => _maxArity3.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathMin_Arity2() => _min2.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MathHypot_Arity2() => _hypot2.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity1() => _push1.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity2() => _push2.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayPush_Arity3() => _pushArity3.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity1() => _concat1.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity2() => _concat2.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity3() => _concatArity3.Run();
 }

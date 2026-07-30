@@ -16,24 +16,48 @@ namespace Jint.Benchmark;
 /// on every call. With zero-copy span search overrides this drops to ~0 allocation.
 /// SliceOfSlice slices a large view of a view: without receiver unwrapping the second slice
 /// materializes the intermediate view; with it, it rebases straight onto the backing string.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs the fixture so each engine owns its own <c>str</c> — and warmed with its own script and
+/// nothing else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all seven row
+/// scripts, so each row was measured on an engine carrying the other six rows' handler-tree entries,
+/// per-call-site caches and — because these rows differ precisely in whether a result is a flat string
+/// or a zero-copy view — their string-representation history. That makes a row's number depend on which
+/// siblings exist and on what a change did to <em>them</em>. The rows still measure warm slicing, and
+/// engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers
+/// from this class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class StringSliceBenchmarks
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _sliceLargeDiscard;
-    private Prepared<Script> _substringLargeDiscard;
-    private Prepared<Script> _sliceSmall;
-    private Prepared<Script> _sliceThenRead;
-    private Prepared<Script> _searchOnSlice;
-    private Prepared<Script> _searchOnFlat;
-    private Prepared<Script> _sliceOfSlice;
+    private IsolatedScript _sliceLargeDiscard;
+    private IsolatedScript _substringLargeDiscard;
+    private IsolatedScript _sliceSmall;
+    private IsolatedScript _sliceThenRead;
+    private IsolatedScript _searchOnSlice;
+    private IsolatedScript _searchOnFlat;
+    private IsolatedScript _sliceOfSlice;
+
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine(static options => options.Strict());
+        // Build the shared ~128K char base string once (dromaeo-style doubling) — once per row's
+        // own engine, so no row ever observes another row's string representations.
+        engine.Execute("""
+            var str = "aB3$xQ9pLm0_kEwZ";
+            while (str.length < 131072) {
+                str += str;
+            }
+            """);
+        return engine;
+    }
 
     [GlobalSetup]
     public void Setup()
     {
-        _sliceLargeDiscard = Engine.PrepareScript("""
+        _sliceLargeDiscard = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var ret = null;
                 for (var i = 0; i < 5000; i++) {
@@ -42,9 +66,9 @@ public class StringSliceBenchmarks
                 }
                 return ret.length;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
-        _substringLargeDiscard = Engine.PrepareScript("""
+        _substringLargeDiscard = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var ret = null;
                 for (var i = 0; i < 5000; i++) {
@@ -53,9 +77,9 @@ public class StringSliceBenchmarks
                 }
                 return ret.length;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
-        _sliceSmall = Engine.PrepareScript("""
+        _sliceSmall = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var ret = null;
                 for (var i = 0; i < 5000; i++) {
@@ -65,9 +89,9 @@ public class StringSliceBenchmarks
                 }
                 return ret.length;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
-        _sliceThenRead = Engine.PrepareScript("""
+        _sliceThenRead = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var n = 0;
                 for (var i = 0; i < 5000; i++) {
@@ -77,9 +101,9 @@ public class StringSliceBenchmarks
                 }
                 return n;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
-        _searchOnSlice = Engine.PrepareScript("""
+        _searchOnSlice = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var hits = 0;
                 for (var i = 0; i < 5000; i++) {
@@ -91,14 +115,14 @@ public class StringSliceBenchmarks
                 }
                 return hits;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
         // Guard: searching a plain (non-view) JsString must not regress from making the base
         // search methods virtual. str.slice(0) returns a flat JsString, not a SlicedString.
         // Deliberately dispatch-bound (many cheap short searches that hit early / compare only the
         // needle) so the measurement isolates per-call dispatch overhead rather than the highly
         // thermal-sensitive throughput of one giant not-found scan.
-        _searchOnFlat = Engine.PrepareScript("""
+        _searchOnFlat = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var hits = 0;
                 var flat = str.slice(0);
@@ -110,12 +134,12 @@ public class StringSliceBenchmarks
                 }
                 return hits;
             })();
-            """, strict: true);
+            """, strict: true), CreateEngine);
 
         // Slice-of-slice: the first slice returns a large zero-copy view; the second slices that view.
         // Without receiver unwrapping the second slice materializes the intermediate view first; with
         // it, the second slice rebases straight onto the original backing string.
-        _sliceOfSlice = Engine.PrepareScript("""
+        _sliceOfSlice = IsolatedScript.Warm(Engine.PrepareScript("""
             (function() {
                 var ret = null;
                 for (var i = 0; i < 5000; i++) {
@@ -124,43 +148,27 @@ public class StringSliceBenchmarks
                 }
                 return ret.length;
             })();
-            """, strict: true);
-
-        _engine = new Engine(static options => options.Strict());
-        // Build the shared ~128K char base string once (dromaeo-style doubling).
-        _engine.Execute("""
-            var str = "aB3$xQ9pLm0_kEwZ";
-            while (str.length < 131072) {
-                str += str;
-            }
-            """);
-        _engine.Evaluate(_sliceLargeDiscard);
-        _engine.Evaluate(_substringLargeDiscard);
-        _engine.Evaluate(_sliceSmall);
-        _engine.Evaluate(_sliceThenRead);
-        _engine.Evaluate(_searchOnSlice);
-        _engine.Evaluate(_searchOnFlat);
-        _engine.Evaluate(_sliceOfSlice);
+            """, strict: true), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue SliceLargeDiscard() => _engine.Evaluate(_sliceLargeDiscard);
+    public JsValue SliceLargeDiscard() => _sliceLargeDiscard.Run();
 
     [Benchmark]
-    public JsValue SubstringLargeDiscard() => _engine.Evaluate(_substringLargeDiscard);
+    public JsValue SubstringLargeDiscard() => _substringLargeDiscard.Run();
 
     [Benchmark]
-    public JsValue SliceSmall() => _engine.Evaluate(_sliceSmall);
+    public JsValue SliceSmall() => _sliceSmall.Run();
 
     [Benchmark]
-    public JsValue SliceThenRead() => _engine.Evaluate(_sliceThenRead);
+    public JsValue SliceThenRead() => _sliceThenRead.Run();
 
     [Benchmark]
-    public JsValue SearchOnSlice() => _engine.Evaluate(_searchOnSlice);
+    public JsValue SearchOnSlice() => _searchOnSlice.Run();
 
     [Benchmark]
-    public JsValue SearchOnFlat() => _engine.Evaluate(_searchOnFlat);
+    public JsValue SearchOnFlat() => _searchOnFlat.Run();
 
     [Benchmark]
-    public JsValue SliceOfSlice() => _engine.Evaluate(_sliceOfSlice);
+    public JsValue SliceOfSlice() => _sliceOfSlice.Run();
 }

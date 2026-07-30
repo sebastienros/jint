@@ -7,18 +7,27 @@ namespace Jint.Benchmark;
 /// Exception-path costs that validation/parse-style code pays constantly: try scaffolding without
 /// a throw (read against the LoopDispatch CounterAdd floor), throw+catch round-trips, Error
 /// construction with and without touching <c>.stack</c>, and unwinding through a deep call chain.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six scripts, so a row
+/// was measured on an engine carrying the other five rows' globals (every script declares
+/// <c>function f</c>, so they overwrite one another outright) and their handler-tree, call-site and
+/// Error-intrinsic state — which makes a row's number depend on what a change did to its siblings. The
+/// <c>reusedError</c> fixture is still shared, but now by being re-created per engine rather than by the
+/// engine being re-used. The rows still measure warm exception handling, and engine construction and
+/// warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not
+/// comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ErrorHandlingBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _tryNoThrow;
-    private Prepared<Script> _throwCatchLoop;
-    private Prepared<Script> _throwCatchReuseError;
-    private Prepared<Script> _errorConstructOnly;
-    private Prepared<Script> _errorStackAccess;
-    private Prepared<Script> _deepStackThrow;
+    private IsolatedScript _tryNoThrow;
+    private IsolatedScript _throwCatchLoop;
+    private IsolatedScript _throwCatchReuseError;
+    private IsolatedScript _errorConstructOnly;
+    private IsolatedScript _errorStackAccess;
+    private IsolatedScript _deepStackThrow;
 
     internal const string TryNoThrowSource = """
         function f() {
@@ -54,17 +63,22 @@ public class ErrorHandlingBenchmark
         f();
         """;
 
+    /// <summary>Builds a fresh engine carrying the <c>reusedError</c> fixture the unwind-only row throws.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute("var reusedError = new Error('r');");
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute("var reusedError = new Error('r');");
-
-        _tryNoThrow = Engine.PrepareScript(TryNoThrowSource);
-        _throwCatchLoop = Engine.PrepareScript(ThrowCatchLoopSource);
+        _tryNoThrow = IsolatedScript.Warm(Engine.PrepareScript(TryNoThrowSource), CreateEngine);
+        _throwCatchLoop = IsolatedScript.Warm(Engine.PrepareScript(ThrowCatchLoopSource), CreateEngine);
 
         // unwind cost isolated from Error construction
-        _throwCatchReuseError = Engine.PrepareScript("""
+        _throwCatchReuseError = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -73,10 +87,10 @@ public class ErrorHandlingBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
         // construction only: no throw, no stack read
-        _errorConstructOnly = Engine.PrepareScript("""
+        _errorConstructOnly = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 10000; i++) {
@@ -86,12 +100,12 @@ public class ErrorHandlingBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _errorStackAccess = Engine.PrepareScript(ErrorStackAccessSource);
+        _errorStackAccess = IsolatedScript.Warm(Engine.PrepareScript(ErrorStackAccessSource), CreateEngine);
 
         // throw from 50 frames down, catch at the top
-        _deepStackThrow = Engine.PrepareScript("""
+        _deepStackThrow = IsolatedScript.Warm(Engine.PrepareScript("""
             function d(n) {
                 if (n === 0) { throw new Error('deep'); }
                 return d(n - 1);
@@ -104,31 +118,24 @@ public class ErrorHandlingBenchmark
                 return s;
             }
             f();
-            """);
-
-        _engine.Evaluate(_tryNoThrow);
-        _engine.Evaluate(_throwCatchLoop);
-        _engine.Evaluate(_throwCatchReuseError);
-        _engine.Evaluate(_errorConstructOnly);
-        _engine.Evaluate(_errorStackAccess);
-        _engine.Evaluate(_deepStackThrow);
+            """), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue TryNoThrow() => _engine.Evaluate(_tryNoThrow);
+    public JsValue TryNoThrow() => _tryNoThrow.Run();
 
     [Benchmark]
-    public JsValue ThrowCatchLoop() => _engine.Evaluate(_throwCatchLoop);
+    public JsValue ThrowCatchLoop() => _throwCatchLoop.Run();
 
     [Benchmark]
-    public JsValue ThrowCatchReuseError() => _engine.Evaluate(_throwCatchReuseError);
+    public JsValue ThrowCatchReuseError() => _throwCatchReuseError.Run();
 
     [Benchmark]
-    public JsValue ErrorConstructOnly() => _engine.Evaluate(_errorConstructOnly);
+    public JsValue ErrorConstructOnly() => _errorConstructOnly.Run();
 
     [Benchmark]
-    public JsValue ErrorStackAccess() => _engine.Evaluate(_errorStackAccess);
+    public JsValue ErrorStackAccess() => _errorStackAccess.Run();
 
     [Benchmark]
-    public JsValue DeepStackThrow() => _engine.Evaluate(_deepStackThrow);
+    public JsValue DeepStackThrow() => _deepStackThrow.Run();
 }
