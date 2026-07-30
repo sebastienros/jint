@@ -1749,6 +1749,29 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
+    /// The <see cref="JintFunctionDefinition.State.CanUseFastFDI"/> arm of
+    /// <see cref="FunctionDeclarationInstantiation"/>, generic over where the argument values live.
+    /// Callers must have established the same gate the general method tests — <c>CanUseFastFDI</c>
+    /// and <c>!_isDebugMode</c> — which is also what makes the arguments-object return value
+    /// unnecessary here: fixed slots require <c>!ArgumentsObjectNeeded</c>, so there is never one.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void FunctionDeclarationInstantiationFast<TArgs>(JintFunctionDefinition.State configuration, in TArgs argumentsList)
+        where TArgs : struct, IArgumentSource
+    {
+        var fastEnv = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
+        fastEnv.InitializeParametersFast(configuration.ParameterNames, in argumentsList);
+
+        // Initialize var slots to Undefined
+        var slots = fastEnv._slots!;
+        var paramCount = configuration.ParameterSlotCount;
+        for (var i = paramCount; i < slots.Length; i++)
+        {
+            slots[i] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
+        }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
     /// </summary>
     internal JsArguments? FunctionDeclarationInstantiation(

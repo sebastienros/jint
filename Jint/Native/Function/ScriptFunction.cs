@@ -161,6 +161,16 @@ public sealed class ScriptFunction : Function, IConstructor
             return CallLeaf(strict);
         }
 
+        // Fixed-slot synchronous call: shares its whole body with the register-argument entry point
+        // (CallFromRegisters) through CallCore, which the ArrayArguments source specializes back to
+        // reading this very array. Disjoint from the leaf arm above — SupportsLeafCall requires
+        // CanUseEmptyFDI (no slots at all) while SupportsRegisterCall requires CanUseFastFDI (at
+        // least one). Anything else falls through to the general arm below unchanged.
+        if (state.SupportsRegisterCall && !_engine._isDebugMode && !_isClassConstructor)
+        {
+            return CallCore(thisObject, new ArrayArguments(arguments), state);
+        }
+
         FunctionEnvironment? funcEnv = null;
 
         try
@@ -227,55 +237,157 @@ public sealed class ScriptFunction : Function, IConstructor
         {
             if (funcEnv is not null)
             {
-                // Cache on this function instance (per-engine by construction, so a prepared script's
-                // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
-                // no Interlocked is needed on the instance side.
-                if (state.IsDirectRecursive)
-                {
-                    // Return the env (with its fixed-slot array still attached) to the bounded
-                    // recursive pool so another simultaneously live frame can reuse env + slots.
-                    if (funcEnv._slots is { } recursiveSlots)
-                    {
-                        System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
-                    }
-                    var pool = _envReuse as RecursiveEnvPool;
-                    if (pool is null)
-                    {
-                        _envReuse = pool = new RecursiveEnvPool();
-                    }
-                    pool.Return(funcEnv);
-                }
-                else
-                {
-                    // Cache the slot array on the shared State: cleared, it holds no engine references,
-                    // so any instance sharing this State (also in another engine) can reuse it.
-                    if (funcEnv._slots is { } slots)
-                    {
-                        System.Array.Clear(slots, 0, slots.Length);
-                        Interlocked.Exchange(ref state._cachedSlots, slots);
-                        funcEnv._slots = null;
-                    }
-
-                    if (_functionDefinition!.IsDynamic)
-                    {
-                        // Function-constructor instances are one-shot (a fresh ScriptFunction per
-                        // `new Function(...)`), so an instance-level cache never warms. Park the env
-                        // on the per-realm definition instead — env identity then stays stable across
-                        // instances, keeping the shared statement tree's per-node slot caches valid.
-                        funcEnv._outerEnv = null;
-                        Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
-                    }
-                    else
-                    {
-                        // Cache the env itself so the next call to this function avoids the allocation.
-                        _envReuse = funcEnv;
-                    }
-                }
+                ReturnEnvironment(funcEnv, state);
             }
             _engine.LeaveExecutionContext();
         }
 
         return Undefined;
+    }
+
+    /// <summary>
+    /// The end-of-call environment-reuse step, shared by <see cref="Call"/>'s general arm and by
+    /// <see cref="CallCore{TArgs}"/>: hands a non-escaping call environment (and its fixed-slot
+    /// array) to whichever cache can serve the next call.
+    /// </summary>
+    private void ReturnEnvironment(FunctionEnvironment funcEnv, JintFunctionDefinition.State state)
+    {
+        // Cache on this function instance (per-engine by construction, so a prepared script's
+        // shared State can't pin engines — see _envReuse). Single-threaded like the engine, so
+        // no Interlocked is needed on the instance side.
+        if (state.IsDirectRecursive)
+        {
+            // Return the env (with its fixed-slot array still attached) to the bounded
+            // recursive pool so another simultaneously live frame can reuse env + slots.
+            if (funcEnv._slots is { } recursiveSlots)
+            {
+                System.Array.Clear(recursiveSlots, 0, recursiveSlots.Length);
+            }
+            var pool = _envReuse as RecursiveEnvPool;
+            if (pool is null)
+            {
+                _envReuse = pool = new RecursiveEnvPool();
+            }
+            pool.Return(funcEnv);
+        }
+        else
+        {
+            // Cache the slot array on the shared State: cleared, it holds no engine references,
+            // so any instance sharing this State (also in another engine) can reuse it.
+            if (funcEnv._slots is { } slots)
+            {
+                System.Array.Clear(slots, 0, slots.Length);
+                Interlocked.Exchange(ref state._cachedSlots, slots);
+                funcEnv._slots = null;
+            }
+
+            if (_functionDefinition!.IsDynamic)
+            {
+                // Function-constructor instances are one-shot (a fresh ScriptFunction per
+                // `new Function(...)`), so an instance-level cache never warms. Park the env
+                // on the per-realm definition instead — env identity then stays stable across
+                // instances, keeping the shared statement tree's per-node slot caches valid.
+                funcEnv._outerEnv = null;
+                Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
+            }
+            else
+            {
+                // Cache the env itself so the next call to this function avoids the allocation.
+                _envReuse = funcEnv;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The shared body behind this function's two fast synchronous [[Call]] entry points — the
+    /// array-backed <see cref="Call"/> arm and the register-backed <see cref="CallFromRegisters"/> —
+    /// generic over where the argument values live, so the JIT specializes it per source and the
+    /// register form never materializes an argument array.
+    /// </summary>
+    /// <remarks>
+    /// Covers only what both callers gate on: <see cref="JintFunctionDefinition.State.SupportsRegisterCall"/>
+    /// (fixed-slot FDI, neither generator nor async), not in debug mode, not a class constructor.
+    /// Those preconditions are exactly what removes the three things <see cref="Call"/>'s general arm
+    /// still carries — the async DisposeResources deferral, the JsArguments materialization (fixed
+    /// slots require !ArgumentsObjectNeeded) and the debugger's OnReturnPoint hook. Everything else
+    /// is step for step the general arm.
+    /// </remarks>
+    private JsValue CallCore<TArgs>(JsValue thisObject, in TArgs args, JintFunctionDefinition.State state)
+        where TArgs : struct, IArgumentSource
+    {
+        FunctionEnvironment? funcEnv = null;
+
+        try
+        {
+            ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined, state, _strict);
+
+            // Capture funcEnv for end-of-call pool return when bindings can't escape.
+            if (!state.EnvironmentMayEscape)
+            {
+                funcEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
+            }
+
+            // Bodies that provably never resolve this/super/new.target leave the this-binding
+            // Uninitialized. Debug mode, which always binds, is excluded by the gate.
+            if (!state.CanSkipThisBinding)
+            {
+                OrdinaryCallBindThis(in calleeContext, thisObject);
+            }
+
+            // actual call
+            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+
+            var result = _functionDefinition!.EvaluateBodyFast(context, in args, state);
+
+            // Not async by the gate, so disposal is never deferred to AsyncBlockStart.
+            result = calleeContext.LexicalEnvironment.DisposeResources(result);
+
+            if (result.Type == CompletionType.Throw)
+            {
+                Throw.JavaScriptException(_engine, result.Value, in result);
+            }
+
+            if (result.Type == CompletionType.Return)
+            {
+                return result.Value;
+            }
+        }
+        finally
+        {
+            if (funcEnv is not null)
+            {
+                ReturnEnvironment(funcEnv, state);
+            }
+            _engine.LeaveExecutionContext();
+        }
+
+        return Undefined;
+    }
+
+    /// <summary>
+    /// The register-argument [[Call]] entry point: same observable behaviour as <see cref="Call"/>,
+    /// but the arguments arrive in locals instead of through a rented <see cref="JsCallArguments"/>.
+    /// Arguments the site did not supply arrive as <see cref="JsValue.Undefined"/>, matching
+    /// <c>Arguments.At</c>; <paramref name="argCount"/> is the site's real arity, so registers beyond
+    /// it are never read.
+    /// </summary>
+    /// <remarks>
+    /// Only valid when <paramref name="state"/> is this function's own state, its
+    /// <see cref="JintFunctionDefinition.State.SupportsRegisterCall"/> holds, and the caller has
+    /// established !Engine._isDebugMode and !_isClassConstructor — the same gate <see cref="Call"/>
+    /// applies before taking the array-backed arm. Deliberately not named CallFast: that name belongs
+    /// to <see cref="Function.CallFast"/>, the arity-specialized built-in lane, which this is not.
+    /// </remarks>
+    internal JsValue CallFromRegisters(
+        JsValue thisObject,
+        JsValue arg0,
+        JsValue arg1,
+        JsValue arg2,
+        JsValue arg3,
+        int argCount,
+        JintFunctionDefinition.State state)
+    {
+        return CallCore(thisObject, new RegisterArguments(arg0, arg1, arg2, arg3, argCount), state);
     }
 
     /// <summary>
