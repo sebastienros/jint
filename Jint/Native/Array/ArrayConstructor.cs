@@ -95,7 +95,7 @@ public sealed partial class ArrayConstructor : Constructor
         var iterator = items.GetIterator(_realm, method: usingIterator);
 
         var builder = new JsValueListBuilder(16);
-        var args = callable is not null ? _engine._jsValueArrayPool.RentArray(2) : null;
+        var invoker = callable is not null ? CallbackInvoker.Rent(_engine, callable, 2) : default;
         try
         {
             var iterations = 0;
@@ -119,9 +119,7 @@ public sealed partial class ArrayConstructor : Constructor
 
                     if (callable is not null)
                     {
-                        args![0] = jsValue;
-                        args[1] = index;
-                        jsValue = callable.Call(thisArg, args);
+                        jsValue = invoker.Call(thisArg, jsValue, index);
                     }
 
                     builder.Add(jsValue);
@@ -138,10 +136,7 @@ public sealed partial class ArrayConstructor : Constructor
         finally
         {
             builder.Dispose();
-            if (args is not null)
-            {
-                _engine._jsValueArrayPool.ReturnArray(args);
-            }
+            invoker.Return();
         }
     }
 
@@ -665,9 +660,7 @@ public sealed partial class ArrayConstructor : Constructor
             a = ArrayCreate(length);
         }
 
-        var args = callable is not null
-            ? _engine._jsValueArrayPool.RentArray(2)
-            : null;
+        var invoker = callable is not null ? CallbackInvoker.Rent(_engine, callable, 2) : default;
 
         var target = ArrayOperations.For(a, forWrite: true);
         uint n = 0;
@@ -682,9 +675,7 @@ public sealed partial class ArrayConstructor : Constructor
             var value = source.Get(i);
             if (callable is not null)
             {
-                args![0] = value;
-                args[1] = i;
-                value = callable.Call(thisArg, args);
+                value = invoker.Call(thisArg, value, i);
 
                 // function can alter data
                 length = source.GetLength();
@@ -694,10 +685,7 @@ public sealed partial class ArrayConstructor : Constructor
             n++;
         }
 
-        if (callable is not null)
-        {
-            _engine._jsValueArrayPool.ReturnArray(args!);
-        }
+        invoker.Return();
 
         target.SetLength(length);
         return a;

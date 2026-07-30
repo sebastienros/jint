@@ -1667,17 +1667,12 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         var callable = GetCallable(callbackfn);
         var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, this);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
         for (uint k = 0; k < len; k++)
         {
             if (TryGetValue(k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                Arguments.WriteNoTypeCheck(args, 1, k);
-                var mappedValue = callable.Call(thisArg, args);
+                var mappedValue = invoker.Call(thisArg, kvalue, k);
                 if (a._dense != null && k < (uint) a._dense.Length)
                 {
                     a._dense[k] = mappedValue;
@@ -1689,7 +1684,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             }
         }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
         return a;
     }
 
@@ -1706,10 +1701,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         // materialize an exact-size result instead of growing the result's dense backing by
         // doubling. Capped initial rent so a large low-selectivity source doesn't rent ~len slots.
         var builder = new JsValueListBuilder((int) System.Math.Min(len, 1024));
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, this);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
         // try/finally so the rented args array and the pooled builder buffer are released
         // when the callback or a periodic Check() throws.
@@ -1724,9 +1716,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
                 if (TryGetValue(k, out var kvalue))
                 {
-                    Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                    Arguments.WriteNoTypeCheck(args, 1, k);
-                    var selected = callable.Call(thisArg, args);
+                    var selected = invoker.Call(thisArg, kvalue, k);
                     if (TypeConverter.ToBoolean(selected))
                     {
                         builder.Add(kvalue);
@@ -1739,7 +1729,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         finally
         {
             builder.Dispose();
-            _engine._jsValueArrayPool.ReturnArray(args);
+            invoker.Return();
         }
     }
 
@@ -1762,10 +1752,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             return false;
         }
 
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, this);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
         // try/finally so the rented pool array is returned on every exit path: the early
         // return-on-match below and a periodic Check() throw both previously leaked it.
@@ -1783,9 +1770,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                        Arguments.WriteNoTypeCheck(args, 1, k);
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = invoker.Call(thisArg, kvalue, k);
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = k;
@@ -1808,9 +1793,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                     if (TryGetValue(idx, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                        Arguments.WriteNoTypeCheck(args, 1, idx);
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = invoker.Call(thisArg, kvalue, idx);
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = idx;
@@ -1823,7 +1806,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
         finally
         {
-            _engine._jsValueArrayPool.ReturnArray(args);
+            invoker.Return();
         }
 
         index = 0;

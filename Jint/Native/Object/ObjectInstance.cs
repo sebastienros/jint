@@ -2470,10 +2470,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         var callable = GetCallable(callbackfn);
 
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, this);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
         // try/finally so the rented pool array is returned on every exit path: the early
         // return-on-match below and a periodic Check() throw both previously leaked it.
@@ -2490,9 +2487,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
                     if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                        Arguments.WriteNoTypeCheck(args, 1, k);
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = invoker.Call(thisArg, kvalue, k);
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = k;
@@ -2514,9 +2509,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
-                        Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                        Arguments.WriteNoTypeCheck(args, 1, k);
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = invoker.Call(thisArg, kvalue, k);
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = (ulong) k;
@@ -2529,7 +2522,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
         finally
         {
-            _engine._jsValueArrayPool.ReturnArray(args);
+            invoker.Return();
         }
 
         index = 0;

@@ -520,10 +520,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }
         }
 
-        // args is a freshly allocated exact JsValue[4], so the per-element fills below bypass the
-        // covariant array store type check.
-        var args = new JsValue[4];
-        Arguments.WriteNoTypeCheck(args, 3, o.Target);
+        var invoker = CallbackInvoker.Create(_engine, callable, 4, o.Target);
         while (k < len)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -534,10 +531,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var i = (uint) k;
             if (o.TryGetValue(i, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, accumulator);
-                Arguments.WriteNoTypeCheck(args, 1, kvalue);
-                Arguments.WriteNoTypeCheck(args, 2, i);
-                accumulator = callable.Call(Undefined, args);
+                accumulator = invoker.Call(Undefined, accumulator, kvalue, i);
             }
 
             k++;
@@ -570,10 +564,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var operations = ArrayOperations.For(a, forWrite: true);
 
         uint to = 0;
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, o.Target);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
         for (uint k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -583,9 +574,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (o.TryGetValue(k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                Arguments.WriteNoTypeCheck(args, 1, k);
-                var selected = callable.Call(thisArg, args);
+                var selected = invoker.Call(thisArg, kvalue, k);
                 if (TypeConverter.ToBoolean(selected))
                 {
                     operations.CreateDataPropertyOrThrow(to, kvalue);
@@ -595,7 +584,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
 
         operations.SetLength(to);
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
 
         return a;
     }
@@ -625,10 +614,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var callable = GetCallable(callbackfn);
 
         var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), (uint) len), forWrite: true);
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, o.Target);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
         for (uint k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -638,13 +624,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (o.TryGetValue(k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                Arguments.WriteNoTypeCheck(args, 1, k);
-                var mappedValue = callable.Call(thisArg, args);
+                var mappedValue = invoker.Call(thisArg, kvalue, k);
                 a.CreateDataPropertyOrThrow(k, mappedValue);
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
         return a.Target;
     }
 
@@ -742,14 +726,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var targetIndex = start;
         ulong sourceIndex = 0;
 
-        var callArguments = System.Array.Empty<JsValue>();
-        if (mapperFunction is not null)
-        {
-            // callArguments is rented from the pool whose factory allocates new JsValue[3], so it is an
-            // exact JsValue[]; the per-element fills below bypass the covariant array store type check.
-            callArguments = _engine._jsValueArrayPool.RentArray(3);
-            Arguments.WriteNoTypeCheck(callArguments, 2, source.Target);
-        }
+        var invoker = mapperFunction is not null
+            ? CallbackInvoker.Rent(_engine, mapperFunction, 3, source.Target)
+            : default;
 
         while (sourceIndex < sourceLen)
         {
@@ -764,9 +743,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 var element = source.Get(sourceIndex);
                 if (mapperFunction is not null)
                 {
-                    Arguments.WriteNoTypeCheck(callArguments, 0, element);
-                    Arguments.WriteNoTypeCheck(callArguments, 1, JsNumber.Create(sourceIndex));
-                    element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
+                    element = invoker.Call(thisArg ?? Undefined, element, JsNumber.Create(sourceIndex));
                 }
 
                 var shouldFlatten = false;
@@ -800,10 +777,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             sourceIndex++;
         }
 
-        if (mapperFunction is not null)
-        {
-            _engine._jsValueArrayPool.ReturnArray(callArguments);
-        }
+        invoker.Return();
 
         return targetIndex;
     }
@@ -825,14 +799,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
     {
         ulong sourceIndex = 0;
 
-        var callArguments = System.Array.Empty<JsValue>();
-        if (mapperFunction is not null)
-        {
-            // callArguments is rented from the pool whose factory allocates new JsValue[3], so it is an
-            // exact JsValue[]; the per-element fills below bypass the covariant array store type check.
-            callArguments = _engine._jsValueArrayPool.RentArray(3);
-            Arguments.WriteNoTypeCheck(callArguments, 2, source.Target);
-        }
+        var invoker = mapperFunction is not null
+            ? CallbackInvoker.Rent(_engine, mapperFunction, 3, source.Target)
+            : default;
 
         try
         {
@@ -849,9 +818,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     var element = source.Get(sourceIndex);
                     if (mapperFunction is not null)
                     {
-                        Arguments.WriteNoTypeCheck(callArguments, 0, element);
-                        Arguments.WriteNoTypeCheck(callArguments, 1, JsNumber.Create(sourceIndex));
-                        element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
+                        element = invoker.Call(thisArg ?? Undefined, element, JsNumber.Create(sourceIndex));
                     }
 
                     var shouldFlatten = false;
@@ -881,10 +848,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         }
         finally
         {
-            if (mapperFunction is not null)
-            {
-                _engine._jsValueArrayPool.ReturnArray(callArguments);
-            }
+            invoker.Return();
         }
     }
 
@@ -899,10 +863,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         var callable = GetCallable(callbackfn);
 
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, o.Target);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
         for (uint k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -912,12 +873,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (o.TryGetValue(k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                Arguments.WriteNoTypeCheck(args, 1, k);
-                callable.Call(thisArg, args);
+                invoker.Call(thisArg, kvalue, k);
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
 
         return Undefined;
     }
@@ -1037,10 +996,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             return JsBoolean.True;
         }
 
-        // args is rented from the pool whose factory allocates new JsValue[3], so it is an exact
-        // JsValue[]; the per-element fills below bypass the covariant array store type check.
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        Arguments.WriteNoTypeCheck(args, 2, o.Target);
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
         for (uint k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -1050,17 +1006,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (o.TryGetValue(k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(args, 0, kvalue);
-                Arguments.WriteNoTypeCheck(args, 1, k);
-                var testResult = callable.Call(thisArg, args);
+                var testResult = invoker.Call(thisArg, kvalue, k);
                 if (!TypeConverter.ToBoolean(testResult))
                 {
-                    _engine._jsValueArrayPool.ReturnArray(args);
+                    invoker.Return();
                     return JsBoolean.False;
                 }
             }
         }
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
 
         return JsBoolean.True;
     }
@@ -2517,10 +2471,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }
         }
 
-        // jsValues is a freshly allocated exact JsValue[4], so the per-element fills below bypass the
-        // covariant array store type check.
-        var jsValues = new JsValue[4];
-        Arguments.WriteNoTypeCheck(jsValues, 3, o.Target);
+        var invoker = CallbackInvoker.Create(_engine, callable, 4, o.Target);
         for (; k >= 0; k--)
         {
             if (k % ConstraintCheckInterval == 0)
@@ -2530,10 +2481,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
             if (o.TryGetValue((ulong) k, out var kvalue))
             {
-                Arguments.WriteNoTypeCheck(jsValues, 0, accumulator);
-                Arguments.WriteNoTypeCheck(jsValues, 1, kvalue);
-                Arguments.WriteNoTypeCheck(jsValues, 2, k);
-                accumulator = callable.Call(Undefined, jsValues);
+                accumulator = invoker.Call(Undefined, accumulator, kvalue, k);
             }
         }
 
@@ -2627,12 +2575,18 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         private readonly Engine? _engine;
         private readonly ICallable? _compare;
-        private readonly JsValue[] _comparableArray = new JsValue[2];
+        // Built once per sort rather than per comparison: the comparator cannot change between two
+        // comparisons, so neither can the lane it is dispatched through.
+        private readonly CallbackInvoker _invoker;
 
         private ArrayComparer(Engine? engine, ICallable? compare)
         {
             _engine = engine;
             _compare = compare;
+            if (compare is not null)
+            {
+                _invoker = CallbackInvoker.Create(engine!, compare, 2);
+            }
         }
 
         public int Compare(JsValue? x, JsValue? y)
@@ -2678,12 +2632,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 _engine!.RunBeforeExecuteStatementChecks(null);
 
-                // _comparableArray is an exact JsValue[2]; bypass the per-comparison covariance check
-                // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
-                Arguments.WriteNoTypeCheck(_comparableArray, 0, x!);
-                Arguments.WriteNoTypeCheck(_comparableArray, 1, y!);
-
-                var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
+                var s = TypeConverter.ToNumber(_invoker.Call(Undefined, x!, y!));
                 if (s < 0)
                 {
                     return -1;

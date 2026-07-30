@@ -84,7 +84,7 @@ internal abstract class IteratorProtocol
             Throw.TypeError(target.Engine.Realm, "adder must be callable");
         }
 
-        var args = target.Engine._jsValueArrayPool.RentArray(2);
+        var invoker = CallbackInvoker.Rent(target.Engine, callable, 2);
 
         var skipClose = true;
         var iterations = 0;
@@ -116,10 +116,7 @@ internal abstract class IteratorProtocol
                 var k = oi.Get(JsString.NumberZeroString);
                 var v = oi.Get(JsString.NumberOneString);
 
-                args[0] = k;
-                args[1] = v;
-
-                callable.Call(target, args);
+                invoker.Call(target, k, v);
             } while (true);
         }
         catch
@@ -132,7 +129,7 @@ internal abstract class IteratorProtocol
         }
         finally
         {
-            target.Engine._jsValueArrayPool.ReturnArray(args);
+            invoker.Return();
         }
     }
 }
