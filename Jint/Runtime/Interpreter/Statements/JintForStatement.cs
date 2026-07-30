@@ -271,7 +271,28 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
 
-            if (_canPoolLoopEnv && suspendable is null)
+            // When resuming from an await inside a body that declares let/const, the saved
+            // execution context's lexical environment is the one that was current at the await
+            // — the body block's environment — not the loop's outer environment. Taking it as
+            // oldEnv would restore a block environment on loop exit. Restore the real one from
+            // suspend data, exactly as JintForInForOfStatement.BodyEvaluation does.
+            if (resumingInLoop && suspendData?.OuterEnv is not null)
+            {
+                oldEnv = suspendData.OuterEnv;
+                engine.UpdateLexicalEnvironment(oldEnv);
+            }
+
+            if (resumingInLoop && suspendData?.IterationEnv is not null)
+            {
+                // Reuse the very environment the suspension left behind rather than building a
+                // fresh one and copying the bindings' values into it. A closure created before the
+                // await already captured this environment, so a rebuild would strand it: writes
+                // after the await would land in the new environment while the closure kept reading
+                // the old one. ForOfSuspendData.IterationEnv exists for the same reason.
+                loopEnv = suspendData.IterationEnv;
+                engine.UpdateLexicalEnvironment(loopEnv);
+            }
+            else if (_canPoolLoopEnv && suspendable is null)
             {
                 // Pooled fixed-slot environment, reset and reused across loop entries. ResetSlots leaves
                 // every binding uninitialized (TDZ re-established); the for-init then initializes them.
@@ -370,6 +391,17 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     var currentEnv = engine.ExecutionContext.LexicalEnvironment;
 
                     var data = suspendable.Data.GetOrCreate<ForLoopSuspendData>(this);
+
+                    // The environment to restore on loop exit, and the live iteration environment
+                    // to resume into. Written on every suspension, but only ever read by a resume
+                    // into the body, test or update — and for those the rewrite is a no-op, since
+                    // such a resume installed exactly these two and the loop went on running in
+                    // them. A suspension in the *init* also lands here and its oldEnv is not the
+                    // loop's outer environment, but nothing reads it as one: resuming from init
+                    // re-runs the init and rebuilds the loop environment from scratch.
+                    data.OuterEnv = oldEnv;
+                    data.IterationEnv = currentEnv as DeclarativeEnvironment;
+
                     data.BoundValues ??= new Dictionary<Key, JsValue>();
                     for (var i = 0; i < _boundNames.Count; i++)
                     {
@@ -577,7 +609,11 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             return TightForBody(context, flattenActive);
         }
 
-        if (!resumeUpdateOnce && _shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
+        // CreatePerIterationEnvironment runs once before the first iteration (spec ForBodyEvaluation
+        // step 2). A resume into the body or the update lands MID-iteration, where the spec creates
+        // no new per-iteration environment — and creating one anyway would fork away from the
+        // environment a closure made earlier in this same iteration already captured.
+        if (!skipTestOnce && !resumeUpdateOnce && _shouldCreatePerIterationEnvironment && !_canReuseIterationEnvironment)
         {
             CreatePerIterationEnvironment(context);
         }

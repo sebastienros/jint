@@ -99,6 +99,44 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The accumulated completion value from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
+
+    /// <summary>
+    /// The environment that was current when the loop was entered — the one the loop must
+    /// restore on exit.
+    /// <para>
+    /// It cannot be re-read from the execution context on resume. An async function captures
+    /// <c>_savedContext</c> afresh at <em>every</em> await
+    /// (<see cref="Interpreter.Expressions.JintAwaitExpression"/>), so the environment current at
+    /// the top of a replayed body is the one that was live at the await — the body block's
+    /// environment when the body declares let/const, not the loop's outer environment. Restoring
+    /// that instead would leave a block environment current after the loop, which both leaks the
+    /// block's bindings past it and — once the block parks and detaches that environment — leaves
+    /// the chain no longer terminating in the global environment.
+    /// </para>
+    /// <para>
+    /// <see cref="ForOfSuspendData.OuterEnv"/> exists for exactly this reason and is the direct
+    /// precedent; a generator needs neither, because it captures its context once at
+    /// GeneratorStart and re-enters that same function-level context on every resume.
+    /// </para>
+    /// </summary>
+    public Environments.Environment? OuterEnv { get; set; }
+
+    /// <summary>
+    /// The loop's live iteration environment at the moment of suspension, resumed into rather
+    /// than rebuilt.
+    /// <para>
+    /// Rebuilding it and copying <see cref="BoundValues"/> across is not equivalent. A closure
+    /// created in the body before the await has already captured the original environment, so a
+    /// rebuild strands it: assignments to the loop variable after the await land in the new
+    /// environment while the closure — and the loop's own test and update — go on reading the old
+    /// one. That silently loses writes and can change a loop's trip count.
+    /// </para>
+    /// <para>
+    /// <see cref="ForOfSuspendData.IterationEnv"/> is the direct precedent. <see cref="BoundValues"/>
+    /// remains the fallback for a resume that has no saved environment.
+    /// </para>
+    /// </summary>
+    public DeclarativeEnvironment? IterationEnv { get; set; }
 }
 
 internal sealed class SwitchBlockSuspendData : SuspendData
