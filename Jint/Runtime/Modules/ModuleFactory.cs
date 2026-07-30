@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Native.Json;
 
 namespace Jint.Runtime.Modules;
@@ -9,19 +9,34 @@ namespace Jint.Runtime.Modules;
 public static class ModuleFactory
 {
     /// <summary>
+    /// The name a module knows itself by. A <c>file:</c> url reads better as a filesystem path, but
+    /// reducing any other url to one drops its scheme, host and query - and a module that knows itself
+    /// as <c>/lib/a.js</c> has no origin left for a relative import of its own to resolve against, nor
+    /// one to report through <c>import.meta.url</c>. A relative or absent uri leaves the resolved key,
+    /// which is the only name such a module has.
+    /// </summary>
+    private static string? LocationOf(ResolvedSpecifier resolved)
+    {
+        var uri = resolved.Uri;
+        if (uri is null || !uri.IsAbsoluteUri) return resolved.Key;
+
+        return uri.IsFile ? uri.LocalPath : uri.AbsoluteUri;
+    }
+
+    /// <summary>
     /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
     /// from the provided javascript <paramref name="code"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) points to
-    /// <see cref="Uri.LocalPath"/> if <see cref="ResolvedSpecifier.Uri"/> is not null. If
-    /// <see cref="ResolvedSpecifier.Uri"/> is null, the modules location source will be null as well.
+    /// The returned modules location (see <see cref="Module.Location"/>) is the whole url of
+    /// <see cref="ResolvedSpecifier.Uri"/>, or its <see cref="Uri.LocalPath"/> for a <c>file:</c> url,
+    /// falling back to <see cref="ResolvedSpecifier.Key"/> when there is no absolute uri.
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
-        var source = resolved.Uri?.LocalPath ?? resolved.Key;
+        var source = LocationOf(resolved);
         var parserOptions = (parsingOptions ?? ModuleParsingOptions.Default).GetParserOptions();
         var parser = new Parser(parserOptions);
         var module = parser.ParseModuleGuarded(engine, code, source);
@@ -53,14 +68,14 @@ public static class ModuleFactory
     /// provided JSON module <paramref name="jsonString"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) points to
-    /// <see cref="Uri.LocalPath"/> if <see cref="ResolvedSpecifier.Uri"/> is not null. If
-    /// <see cref="ResolvedSpecifier.Uri"/> is null, the modules location source will be null as well.
+    /// The returned modules location (see <see cref="Module.Location"/>) is the whole url of
+    /// <see cref="ResolvedSpecifier.Uri"/>, or its <see cref="Uri.LocalPath"/> for a <c>file:</c> url,
+    /// falling back to <see cref="ResolvedSpecifier.Key"/> when there is no absolute uri.
     /// </remarks>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="jsonString"/>.</exception>
     public static Module BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string jsonString)
     {
-        var source = resolved.Uri?.LocalPath;
+        var source = LocationOf(resolved);
         JsValue module;
         try
         {
@@ -72,7 +87,7 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildJsonModule(engine, module, resolved.Uri?.LocalPath);
+        return BuildJsonModule(engine, module, source);
     }
 
     /// <summary>
@@ -102,7 +117,7 @@ public static class ModuleFactory
 
         var uint8Array = engine.Realm.Intrinsics.Uint8Array.Construct([arrayBuffer], engine.Realm.Intrinsics.Uint8Array);
 
-        return new SyntheticModule(engine, engine.Realm, uint8Array, resolved.Uri?.LocalPath);
+        return new SyntheticModule(engine, engine.Realm, uint8Array, LocationOf(resolved));
     }
 
     /// <summary>
@@ -114,6 +129,6 @@ public static class ModuleFactory
     /// </remarks>
     public static Module BuildTextModule(Engine engine, ResolvedSpecifier resolved, string text)
     {
-        return new SyntheticModule(engine, engine.Realm, JsString.Create(text), resolved.Uri?.LocalPath);
+        return new SyntheticModule(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
     }
 }
