@@ -653,6 +653,65 @@ var id = ns.Get("result").AsInteger();
 
 Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
 
+### Loading modules asynchronously
+
+`IModuleLoader.LoadModule` must return a parsed module immediately, so a loader that fetches module source over I/O — HTTP, a dev server, an asset pipeline — would have to block the calling thread. Implement `IAsyncModuleLoader` instead, or derive from the `AsyncModuleLoader` template, and no thread is held while the fetch is in flight:
+
+```c#
+internal sealed class HttpModuleLoader : AsyncModuleLoader
+{
+    private readonly HttpClient _client = new() { BaseAddress = new Uri("http://localhost:5173/") };
+
+    // Resolution stays synchronous — only fetching an unseen module is allowed to take time
+    public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+    {
+        var baseUri = new Uri(referencingModuleLocation ?? _client.BaseAddress!.ToString());
+        var uri = new Uri(baseUri, moduleRequest.Specifier);
+        return new ResolvedSpecifier(moduleRequest, uri.AbsoluteUri, uri, SpecifierType.RelativeOrAbsolute);
+    }
+
+    protected override Task<string> LoadModuleContentsAsync(Engine engine, ResolvedSpecifier resolved, CancellationToken cancellationToken)
+        => _client.GetStringAsync(resolved.Uri);
+}
+
+var engine = new Engine(options => options.EnableModules(new HttpModuleLoader()));
+
+var ns = await engine.Modules.ImportAsync("./main.js");
+```
+
+Static imports inside an asynchronously loaded module are fetched the same way, transitively, before anything is linked; a module wanted by several importers is fetched once. A loader failure — a faulted task, or `ModuleLoadCompletion.SetError` — becomes a rejected promise rather than an exception on the calling thread, and a dynamic `import()` in script keeps working with nothing blocked:
+
+```c#
+// Returns immediately; the promise settles on a later turn of the event loop
+engine.Execute("import('./late.js').then(ns => log(ns.value));");
+```
+
+For full control over when and where the load finishes, implement `IAsyncModuleLoader` directly and settle the `ModuleLoadCompletion` whenever the content arrives, from any thread:
+
+```c#
+public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+{
+    // e.g. a Unity coroutine, a callback-based transport, a worker queue
+    StartCoroutine(Fetch(resolved.Uri, onSuccess: completion.SetSource, onError: completion.SetError));
+}
+```
+
+The engine is single-threaded, and settling the completion does not change that: the outcome is queued and applied when the engine is next given a turn. On a thread the engine must not block — a game loop, a UI thread — drive the import from your own loop instead of awaiting it:
+
+```c#
+// once
+var import = engine.Modules.StartImport("./main.js");
+
+// every frame
+engine.Advanced.ProcessTasks();
+if (import.IsCompleted)
+{
+    var ns = import.GetResult();   // throws PromiseRejectedException if the load or evaluation failed
+}
+```
+
+The synchronous `Engine.Modules.Import` still works with an async loader, but the calling thread is what drives the event loop while the loads are in flight — so it deadlocks if the loader's own completions need that same thread. Prefer `ImportAsync` or `StartImport` there. Existing synchronous `IModuleLoader` implementations are unaffected; async loading is opt-in.
+
 ## Asynchronous Execution
 
 Jint supports non-blocking execution of JavaScript that involves `async`/`await` and Promises. This is important in ASP.NET Core and other environments where blocking a thread while waiting for I/O can cause thread-pool exhaustion.

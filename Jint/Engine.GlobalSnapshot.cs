@@ -261,6 +261,13 @@ public partial class Engine
         // half; the fence for work that has not been enqueued yet is the generation bump in Restore.
         _eventLoop.Clear();
 
+        // An asynchronous module load the host has not finished belongs to the cycle that started it: its
+        // completion carries that cycle's generation and will be discarded at dequeue. Forgetting the
+        // in-flight entry is what stops the next cycle attaching to a load that can never finish; it will
+        // start a fresh one instead. Modules already loaded stay registered — the module registry is
+        // deliberately not part of what a restore reverts.
+        Modules?.DiscardPendingLoads();
+
         _error = null;
         _lastSyntaxElement = null;
 

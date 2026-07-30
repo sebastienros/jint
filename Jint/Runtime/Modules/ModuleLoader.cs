@@ -59,6 +59,13 @@ public abstract class ModuleLoader : IModuleLoader
         return moduleRecord;
     }
 
+    /// <summary>
+    /// Reaches <see cref="GetModuleSource"/> from the asynchronous load path, which builds the module record
+    /// outside this class and must still attach the same host-defined <c>[[ModuleSource]]</c>.
+    /// </summary>
+    internal Jint.Native.Object.ObjectInstance? GetModuleSourceForAsyncLoad(Engine engine, ResolvedSpecifier resolved)
+        => GetModuleSource(engine, resolved);
+
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
 
     /// <summary>

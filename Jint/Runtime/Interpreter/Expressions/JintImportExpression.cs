@@ -91,7 +91,8 @@ internal sealed class JintImportExpression : JintExpression
             }
 
             var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray()) { Phase = _phase };
-            context.Engine._host.LoadImportedModule(referrer, moduleRequest, promiseCapability);
+            var payload = new DynamicImportPayload(context.Engine, moduleRequest, promiseCapability);
+            context.Engine._host.LoadImportedModule(referrer, moduleRequest, payload);
         }
         catch (JavaScriptException e)
         {

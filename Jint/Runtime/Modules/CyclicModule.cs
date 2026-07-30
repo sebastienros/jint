@@ -43,6 +43,78 @@ public abstract class CyclicModule : Module
     internal ref readonly SourceLocation AbnormalCompletionLocation => ref _abnormalCompletionLocation;
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-LoadRequestedModules
+    /// </summary>
+    /// <remarks>
+    /// The <c>hostDefined</c> parameter of the spec's signature is not modelled: Jint's
+    /// <see cref="IModuleLoader"/> receives the <see cref="ResolvedSpecifier"/> and the engine, and has no
+    /// second channel that would carry an opaque host value through the graph.
+    /// </remarks>
+    public override JsValue LoadRequestedModules()
+    {
+        var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        var state = new GraphLoadingState(capability);
+        InnerModuleLoading(state, this);
+        return capability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-InnerModuleLoading
+    /// </summary>
+    internal static void InnerModuleLoading(GraphLoadingState state, Module module)
+    {
+        if (!state.IsLoading)
+        {
+            Throw.InvalidOperationException("Error while loading module: the graph loading state is no longer loading");
+        }
+
+        if (module is CyclicModule cyclicModule
+            && cyclicModule.Status == ModuleStatus.New
+            && !state.Visited.Contains(cyclicModule))
+        {
+            state.Visited.Add(cyclicModule);
+            state.PendingModulesCount += cyclicModule._requestedModules.Count;
+
+            foreach (var request in cyclicModule._requestedModules)
+            {
+                if (cyclicModule.TryGetLoadedModule(request, out var loaded))
+                {
+                    InnerModuleLoading(state, loaded);
+                }
+                else
+                {
+                    // HostLoadImportedModule finishes the request - now or on a later turn - by calling
+                    // FinishLoadingImportedModule, which re-enters this method through
+                    // GraphLoadingState.Continue.
+                    cyclicModule._engine._host.LoadImportedModule(cyclicModule, request, state);
+                }
+
+                // Step 2.d.iii: a failed sibling ends the whole load; the remaining requests must not be
+                // started. Only reachable for a loader that answers synchronously - an asynchronous one has
+                // not settled anything by the time control returns here.
+                if (!state.IsLoading)
+                {
+                    return;
+                }
+            }
+        }
+
+        state.SettleOnePendingModule();
+    }
+
+    /// <summary>
+    /// Step 5.b.i of <see href="https://tc39.es/ecma262/#sec-InnerModuleLoading">InnerModuleLoading</see>:
+    /// the graph this module belongs to has finished loading, so it becomes linkable.
+    /// </summary>
+    internal void OnGraphLoaded()
+    {
+        if (Status == ModuleStatus.New)
+        {
+            Status = ModuleStatus.Unlinked;
+        }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-moduledeclarationlinking
     /// </summary>
     public override void Link()
@@ -50,6 +122,30 @@ public abstract class CyclicModule : Module
         if (Status is ModuleStatus.Linking or ModuleStatus.Evaluating)
         {
             Throw.InvalidOperationException("Error while linking module: Module is already either linking or evaluating");
+        }
+
+        if (Status == ModuleStatus.New)
+        {
+            // The spec asserts the load phase has already run. Link() is public and predates it, so a host
+            // driving a module by hand - ModuleFactory.BuildSourceTextModule, then Link(), then Evaluate() -
+            // legitimately arrives here without one; run it now so that keeps working. A synchronous loader
+            // settles the promise before it returns, which is exactly the pre-load this method used to do
+            // from inside InnerModuleLinking. An asynchronous one cannot, and has to be driven through
+            // LoadRequestedModules by a caller able to wait for the promise.
+            var loadResult = LoadRequestedModules();
+            if (loadResult is JsPromise loadPromise)
+            {
+                if (loadPromise.State == PromiseState.Pending)
+                {
+                    Throw.InvalidOperationException(
+                        $"Error while linking module '{Location ?? "(null)"}': the module graph is still loading. An asynchronous module loader requires the load phase to complete before linking - await the promise returned by LoadRequestedModules(), or import the module through Engine.Modules.ImportAsync.");
+                }
+
+                if (loadPromise.State == PromiseState.Rejected)
+                {
+                    Throw.JavaScriptException(_engine, loadPromise.Value, in AstExtensions.DefaultLocation);
+                }
+            }
         }
 
         var stack = new Stack<CyclicModule>();
@@ -215,13 +311,9 @@ public abstract class CyclicModule : Module
         index++;
         stack.Push(this);
 
-        // Pre-load all requested modules before linking to ensure loading errors
-        // (e.g. unresolvable specifiers) are reported before any linking errors.
-        foreach (var request in _requestedModules)
-        {
-            _engine._host.GetImportedModule(this, request);
-        }
-
+        // Loading errors used to be reported before linking errors by pre-loading every requested module
+        // here. The load phase (LoadRequestedModules) now guarantees the whole graph is present before
+        // Link() is entered at all, which is both the spec's ordering and a stronger one.
         foreach (var request in _requestedModules)
         {
             // Source phase imports only load the module, no recursive linking needed
