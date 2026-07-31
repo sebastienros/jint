@@ -8,6 +8,17 @@ namespace Jint.Benchmark;
 /// (CacheRecentObjectWrappers), so repeated crossings reuse the wrapper; the NoCache rows opt out
 /// to measure the fresh-wrapper-per-crossing path, and the identity-flag rows measure the
 /// ConditionalWeakTable variant. Together they bracket the design space for wrapper reuse.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, in its own scenario's interop
+/// configuration, warmed with that row's script and nothing else. It used to be five engines for ten
+/// rows: each configuration's object-churn row and its array-traversal row(s) shared one engine, and
+/// every one of those engines was warmed with <c>h.Payload.Value</c> — the churn row's script — so the
+/// array rows were measured with the <c>Payload</c> wrapper already resident in the very cache
+/// (recent-wrapper ring or CWT) the row exists to characterize. The default-configuration engine carried
+/// three rows, whose scripts also collide on the globals <c>s</c> and <c>i</c>. The rows still measure
+/// warm crossings, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the
+/// measurement. <b>Numbers from this class are not comparable to any published before the harness
+/// changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class InteropWrapperChurnBenchmark
@@ -31,11 +42,16 @@ public class InteropWrapperChurnBenchmark
         public int Value { get; set; }
     }
 
-    private Engine _engineDefault = null!;
-    private Engine _engineNoCache = null!;
-    private Engine _engineIdentity = null!;
-    private Engine _engineRecentCache = null!;
-    private Engine _engineCopy = null!;
+    private Engine _engineChurnDefault = null!;
+    private Engine _engineChurnNoCache = null!;
+    private Engine _engineChurnIdentity = null!;
+    private Engine _engineChurnRecentCache = null!;
+    private Engine _engineArrayDefault = null!;
+    private Engine _engineArrayNoCache = null!;
+    private Engine _engineArrayHoistedDefault = null!;
+    private Engine _engineArrayCopy = null!;
+    private Engine _engineArrayIdentity = null!;
+    private Engine _engineArrayRecentCache = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -44,69 +60,116 @@ public class InteropWrapperChurnBenchmark
 
         // the out-of-the-box engine: since 4.14 ArrayConversion defaults to LiveView and
         // CacheRecentObjectWrappers defaults to true (repeated crossings reuse the wrapper)
-        _engineDefault = new Engine();
-        _engineDefault.SetValue("h", holder);
-        _engineDefault.Execute("h.Payload.Value");
+        Engine CreateDefault()
+        {
+            var engine = new Engine();
+            engine.SetValue("h", holder);
+            return engine;
+        }
 
         // opt out of the recent-wrapper cache: every crossing builds a fresh wrapper
-        _engineNoCache = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = false);
-        _engineNoCache.SetValue("h", holder);
-        _engineNoCache.Execute("h.Payload.Value");
+        Engine CreateNoCache()
+        {
+            var engine = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = false);
+            engine.SetValue("h", holder);
+            return engine;
+        }
 
         // the identity flags are most interesting on top of Copy, where they let the otherwise
         // per-read deep-copied JsArray snapshot be reused across crossings (pin Copy so the array
         // traversal rows below measure exactly that; the object-churn rows are array-mode agnostic).
         // The recent cache is disabled in the CWT lane so each row measures a single mechanism.
-        _engineIdentity = new Engine(cfg =>
+        Engine CreateIdentity()
         {
-            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
-            cfg.Interop.TrackObjectWrapperIdentity = true;
-            cfg.Interop.CacheRecentObjectWrappers = false;
-        });
-        _engineIdentity.SetValue("h", holder);
-        _engineIdentity.Execute("h.Payload.Value");
+            var engine = new Engine(cfg =>
+            {
+                cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+                cfg.Interop.TrackObjectWrapperIdentity = true;
+                cfg.Interop.CacheRecentObjectWrappers = false;
+            });
+            engine.SetValue("h", holder);
+            return engine;
+        }
 
-        _engineRecentCache = new Engine(cfg =>
+        Engine CreateRecentCache()
         {
-            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
-            cfg.Interop.CacheRecentObjectWrappers = true;
-        });
-        _engineRecentCache.SetValue("h", holder);
-        _engineRecentCache.Execute("h.Payload.Value");
+            var engine = new Engine(cfg =>
+            {
+                cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+                cfg.Interop.CacheRecentObjectWrappers = true;
+            });
+            engine.SetValue("h", holder);
+            return engine;
+        }
 
         // the pre-4.14 default: every array crossing deep-copies into a fresh JsArray snapshot
         // (the cache opt-out keeps this row measuring the copy itself)
-        _engineCopy = new Engine(cfg =>
+        Engine CreateCopy()
         {
-            cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
-            cfg.Interop.CacheRecentObjectWrappers = false;
-        });
-        _engineCopy.SetValue("h", holder);
-        _engineCopy.Execute("h.Payload.Value");
+            var engine = new Engine(cfg =>
+            {
+                cfg.Interop.ArrayConversion = ArrayConversionMode.Copy;
+                cfg.Interop.CacheRecentObjectWrappers = false;
+            });
+            engine.SetValue("h", holder);
+            return engine;
+        }
+
+        // Each row's engine is warmed with that row's own script, so no row starts with another
+        // row's wrapper already in the cache it is measuring.
+        _engineChurnDefault = CreateDefault();
+        _engineChurnDefault.Execute("h.Payload.Value");
+
+        _engineChurnNoCache = CreateNoCache();
+        _engineChurnNoCache.Execute("h.Payload.Value");
+
+        _engineChurnIdentity = CreateIdentity();
+        _engineChurnIdentity.Execute("h.Payload.Value");
+
+        _engineChurnRecentCache = CreateRecentCache();
+        _engineChurnRecentCache.Execute("h.Payload.Value");
+
+        _engineArrayDefault = CreateDefault();
+        _engineArrayDefault.Execute(_arrayTraversal);
+
+        _engineArrayNoCache = CreateNoCache();
+        _engineArrayNoCache.Execute(_arrayTraversal);
+
+        _engineArrayHoistedDefault = CreateDefault();
+        _engineArrayHoistedDefault.Execute(_arrayHoistedTraversal);
+
+        _engineArrayCopy = CreateCopy();
+        _engineArrayCopy.Execute(_arrayTraversal);
+
+        _engineArrayIdentity = CreateIdentity();
+        _engineArrayIdentity.Execute(_arrayTraversal);
+
+        _engineArrayRecentCache = CreateRecentCache();
+        _engineArrayRecentCache.Execute(_arrayTraversal);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void SameObjectReturnedInLoop_DefaultFlag()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineDefault.Execute("h.Payload.Value");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineChurnDefault.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void SameObjectReturnedInLoop_NoCache()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineNoCache.Execute("h.Payload.Value");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineChurnNoCache.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void SameObjectReturnedInLoop_IdentityFlag()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineIdentity.Execute("h.Payload.Value");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineChurnIdentity.Execute("h.Payload.Value");
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
     public void SameObjectReturnedInLoop_RecentCache()
     {
-        for (var i = 0; i < OperationsPerInvoke; i++) _engineRecentCache.Execute("h.Payload.Value");
+        for (var i = 0; i < OperationsPerInvoke; i++) _engineChurnRecentCache.Execute("h.Payload.Value");
     }
 
     // A CLR array member read repeatedly inside the loop. Under the default (LiveView) each h.Numbers
@@ -118,13 +181,13 @@ public class InteropWrapperChurnBenchmark
     [Benchmark]
     public void ArrayMemberTraversal_DefaultLiveView()
     {
-        _engineDefault.Execute(_arrayTraversal);
+        _engineArrayDefault.Execute(_arrayTraversal);
     }
 
     [Benchmark]
     public void ArrayMemberTraversal_LiveViewNoCache()
     {
-        _engineNoCache.Execute(_arrayTraversal);
+        _engineArrayNoCache.Execute(_arrayTraversal);
     }
 
     // The README-recommended pattern: hoist the collection into a local so the wrapper is created
@@ -135,24 +198,24 @@ public class InteropWrapperChurnBenchmark
     [Benchmark]
     public void ArrayHoistedTraversal_DefaultLiveView()
     {
-        _engineDefault.Execute(_arrayHoistedTraversal);
+        _engineArrayHoistedDefault.Execute(_arrayHoistedTraversal);
     }
 
     [Benchmark]
     public void ArrayMemberTraversal_CopyMode()
     {
-        _engineCopy.Execute(_arrayTraversal);
+        _engineArrayCopy.Execute(_arrayTraversal);
     }
 
     [Benchmark]
     public void ArrayMemberTraversal_CopyIdentityFlag()
     {
-        _engineIdentity.Execute(_arrayTraversal);
+        _engineArrayIdentity.Execute(_arrayTraversal);
     }
 
     [Benchmark]
     public void ArrayMemberTraversal_CopyRecentCache()
     {
-        _engineRecentCache.Execute(_arrayTraversal);
+        _engineArrayRecentCache.Execute(_arrayTraversal);
     }
 }

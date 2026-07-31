@@ -10,18 +10,26 @@ namespace Jint.Benchmark;
 /// one Evaluate; <see cref="AsyncFunctionExitBenchmark"/> keeps owning bare exit cost.
 /// <see cref="SyncCallLoop"/> is the baseline: the same call count without suspension, so
 /// per-await overhead = (AwaitResolvedLoop − SyncCallLoop) / 1000.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own default engine, warmed with its own script and
+/// nothing else (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six row
+/// scripts, which is worse here than almost anywhere else: the rows share global names (<c>f</c>, <c>i</c>,
+/// <c>last</c>, <c>p</c>) and each one additionally leaves promise, microtask and event-loop state behind
+/// for the next, on top of the usual handler-tree and call-site caches — so the baseline <em>and</em> the
+/// row measured against it both depended on which siblings existed. The rows still measure warm async
+/// dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement.
+/// <b>Numbers from this class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class AsyncAwaitBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _syncCallLoop;
-    private Prepared<Script> _awaitResolvedLoop;
-    private Prepared<Script> _awaitChainDepth50;
-    private Prepared<Script> _promiseAll100;
-    private Prepared<Script> _thenChain1000;
-    private Prepared<Script> _microtaskFanout;
+    private IsolatedScript _syncCallLoop;
+    private IsolatedScript _awaitResolvedLoop;
+    private IsolatedScript _awaitChainDepth50;
+    private IsolatedScript _promiseAll100;
+    private IsolatedScript _thenChain1000;
+    private IsolatedScript _microtaskFanout;
 
     internal const string AwaitResolvedLoopSource = """
         async function f() {
@@ -56,10 +64,8 @@ public class AsyncAwaitBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-
         // the sync floor for the same call count
-        _syncCallLoop = Engine.PrepareScript("""
+        _syncCallLoop = IsolatedScript.Warm(Engine.PrepareScript("""
             function g(i) { return i + 1; }
             function f() {
                 var s = 0;
@@ -67,12 +73,12 @@ public class AsyncAwaitBenchmark
                 return s;
             }
             f();
-            """);
+            """));
 
-        _awaitResolvedLoop = Engine.PrepareScript(AwaitResolvedLoopSource);
+        _awaitResolvedLoop = IsolatedScript.Warm(Engine.PrepareScript(AwaitResolvedLoopSource));
 
         // 20 × a 50-deep await-recursion chain
-        _awaitChainDepth50 = Engine.PrepareScript("""
+        _awaitChainDepth50 = IsolatedScript.Warm(Engine.PrepareScript("""
             async function step(n) {
                 if (n === 0) { return 0; }
                 return (await step(n - 1)) + 1;
@@ -82,43 +88,36 @@ public class AsyncAwaitBenchmark
                 for (var i = 0; i < 20; i++) { last = step(50); }
                 return last;
             })();
-            """);
+            """));
 
-        _promiseAll100 = Engine.PrepareScript(PromiseAll100Source);
-        _thenChain1000 = Engine.PrepareScript(ThenChain1000Source);
+        _promiseAll100 = IsolatedScript.Warm(Engine.PrepareScript(PromiseAll100Source));
+        _thenChain1000 = IsolatedScript.Warm(Engine.PrepareScript(ThenChain1000Source));
 
         // 1,000 independent resolved promises, one .then each
-        _microtaskFanout = Engine.PrepareScript("""
+        _microtaskFanout = IsolatedScript.Warm(Engine.PrepareScript("""
             (function () {
                 var last;
                 for (var i = 0; i < 1000; i++) { last = Promise.resolve(i).then(function (x) { return x + 1; }); }
                 return last;
             })();
-            """);
-
-        _engine.Evaluate(_syncCallLoop);
-        _engine.Evaluate(_awaitResolvedLoop);
-        _engine.Evaluate(_awaitChainDepth50);
-        _engine.Evaluate(_promiseAll100);
-        _engine.Evaluate(_thenChain1000);
-        _engine.Evaluate(_microtaskFanout);
+            """));
     }
 
     [Benchmark(Baseline = true)]
-    public JsValue SyncCallLoop() => _engine.Evaluate(_syncCallLoop);
+    public JsValue SyncCallLoop() => _syncCallLoop.Run();
 
     [Benchmark]
-    public JsValue AwaitResolvedLoop() => _engine.Evaluate(_awaitResolvedLoop);
+    public JsValue AwaitResolvedLoop() => _awaitResolvedLoop.Run();
 
     [Benchmark]
-    public JsValue AwaitChainDepth50() => _engine.Evaluate(_awaitChainDepth50);
+    public JsValue AwaitChainDepth50() => _awaitChainDepth50.Run();
 
     [Benchmark]
-    public JsValue PromiseAll100() => _engine.Evaluate(_promiseAll100);
+    public JsValue PromiseAll100() => _promiseAll100.Run();
 
     [Benchmark]
-    public JsValue ThenChain1000() => _engine.Evaluate(_thenChain1000);
+    public JsValue ThenChain1000() => _thenChain1000.Run();
 
     [Benchmark]
-    public JsValue MicrotaskFanout() => _engine.Evaluate(_microtaskFanout);
+    public JsValue MicrotaskFanout() => _microtaskFanout.Run();
 }

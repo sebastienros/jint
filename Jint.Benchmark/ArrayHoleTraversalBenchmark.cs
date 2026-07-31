@@ -9,19 +9,28 @@ namespace Jint.Benchmark;
 /// HasProperty/Get walk), so index loops, join and indexOf pay a per-hole penalty that a packed
 /// array never sees. The dense/holey lane pairs measure that gap; `in` exercises the raw
 /// HasProperty probe.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs the <c>dense</c>/<c>holey</c> fixture — and warmed with its own script and nothing else (see
+/// <see cref="IsolatedScript"/>). It used to be one engine warmed with all seven row scripts, so each
+/// row was measured on an engine carrying the other six rows' handler-tree and call-site caches, and
+/// every row's <c>function f</c> declaration collided on the shared global object. That matters most
+/// for a paired benchmark like this one: the point of a dense/holey pair is that only one half should
+/// move, which cross-row state can quietly break. The rows still measure warm traversal, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this
+/// class are not comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ArrayHoleTraversalBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _sumDense;
-    private Prepared<Script> _sumHoley;
-    private Prepared<Script> _joinDense;
-    private Prepared<Script> _joinHoley;
-    private Prepared<Script> _indexOfMissDense;
-    private Prepared<Script> _indexOfMissHoley;
-    private Prepared<Script> _inOperatorHoley;
+    private IsolatedScript _sumDense;
+    private IsolatedScript _sumHoley;
+    private IsolatedScript _joinDense;
+    private IsolatedScript _joinHoley;
+    private IsolatedScript _indexOfMissDense;
+    private IsolatedScript _indexOfMissHoley;
+    private IsolatedScript _inOperatorHoley;
 
     private const string SetupSource = """
         var dense = [];
@@ -34,13 +43,18 @@ public class ArrayHoleTraversalBenchmark
         })();
         """;
 
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
-        _sumDense = Engine.PrepareScript("""
+        _sumDense = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var n = 0; n < 20; n++) {
@@ -49,9 +63,9 @@ public class ArrayHoleTraversalBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _sumHoley = Engine.PrepareScript("""
+        _sumHoley = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var n = 0; n < 20; n++) {
@@ -60,45 +74,45 @@ public class ArrayHoleTraversalBenchmark
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _joinDense = Engine.PrepareScript("""
+        _joinDense = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var len = 0;
                 for (var n = 0; n < 10; n++) { len += dense.join(',').length; }
                 return len;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _joinHoley = Engine.PrepareScript("""
+        _joinHoley = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var len = 0;
                 for (var n = 0; n < 10; n++) { len += holey.join(',').length; }
                 return len;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _indexOfMissDense = Engine.PrepareScript("""
+        _indexOfMissDense = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var n = 0; n < 50; n++) { s += dense.indexOf(-1); }
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _indexOfMissHoley = Engine.PrepareScript("""
+        _indexOfMissHoley = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var n = 0; n < 50; n++) { s += holey.indexOf(-1); }
                 return s;
             }
             f();
-            """);
+            """), CreateEngine);
 
-        _inOperatorHoley = Engine.PrepareScript("""
+        _inOperatorHoley = IsolatedScript.Warm(Engine.PrepareScript("""
             function f() {
                 var s = 0;
                 for (var n = 0; n < 20; n++) {
@@ -107,35 +121,27 @@ public class ArrayHoleTraversalBenchmark
                 return s;
             }
             f();
-            """);
-
-        _engine.Evaluate(_sumDense);
-        _engine.Evaluate(_sumHoley);
-        _engine.Evaluate(_joinDense);
-        _engine.Evaluate(_joinHoley);
-        _engine.Evaluate(_indexOfMissDense);
-        _engine.Evaluate(_indexOfMissHoley);
-        _engine.Evaluate(_inOperatorHoley);
+            """), CreateEngine);
     }
 
     [Benchmark]
-    public JsValue SumDense() => _engine.Evaluate(_sumDense);
+    public JsValue SumDense() => _sumDense.Run();
 
     [Benchmark]
-    public JsValue SumHoley() => _engine.Evaluate(_sumHoley);
+    public JsValue SumHoley() => _sumHoley.Run();
 
     [Benchmark]
-    public JsValue JoinDense() => _engine.Evaluate(_joinDense);
+    public JsValue JoinDense() => _joinDense.Run();
 
     [Benchmark]
-    public JsValue JoinHoley() => _engine.Evaluate(_joinHoley);
+    public JsValue JoinHoley() => _joinHoley.Run();
 
     [Benchmark]
-    public JsValue IndexOfMissDense() => _engine.Evaluate(_indexOfMissDense);
+    public JsValue IndexOfMissDense() => _indexOfMissDense.Run();
 
     [Benchmark]
-    public JsValue IndexOfMissHoley() => _engine.Evaluate(_indexOfMissHoley);
+    public JsValue IndexOfMissHoley() => _indexOfMissHoley.Run();
 
     [Benchmark]
-    public JsValue InOperatorHoley() => _engine.Evaluate(_inOperatorHoley);
+    public JsValue InOperatorHoley() => _inOperatorHoley.Run();
 }

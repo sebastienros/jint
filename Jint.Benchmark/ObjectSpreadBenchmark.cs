@@ -8,21 +8,30 @@ namespace Jint.Benchmark;
 /// <c>Object.fromEntries</c>, all copying from stable source objects in a hot loop.
 /// <see cref="LiteralClone"/> is the baseline — a plain shaped literal with the same four
 /// properties — so every other row reads as a multiple of the layout-equivalent literal cost.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, built by <c>CreateEngine</c> (which
+/// installs the shared <see cref="SetupSource"/> fixture every row needs) and warmed with its own script
+/// and nothing else (see <see cref="IsolatedScript"/>). It used to be one shared engine warmed with all
+/// nine scripts, so each row was measured on an engine carrying its siblings' globals (every script
+/// declares <c>f</c>, <c>c</c> and <c>i</c>) and their handler-tree, call-site and object-shape state —
+/// and <see cref="AssignExistingTarget"/> mutates the shared <c>acc</c> fixture, which every other row's
+/// warm-up then saw. The rows still measure warm dispatch, and engine construction and warm-up stay in
+/// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
+/// published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class ObjectSpreadBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _literalClone;
-    private Prepared<Script> _spreadSmall;
-    private Prepared<Script> _spreadSmallOverride;
-    private Prepared<Script> _spreadLarge;
-    private Prepared<Script> _spreadTwoSources;
-    private Prepared<Script> _assignFreshTarget;
-    private Prepared<Script> _assignExistingTarget;
-    private Prepared<Script> _restDestructuring;
-    private Prepared<Script> _fromEntriesPairs;
+    private IsolatedScript _literalClone;
+    private IsolatedScript _spreadSmall;
+    private IsolatedScript _spreadSmallOverride;
+    private IsolatedScript _spreadLarge;
+    private IsolatedScript _spreadTwoSources;
+    private IsolatedScript _assignFreshTarget;
+    private IsolatedScript _assignExistingTarget;
+    private IsolatedScript _restDestructuring;
+    private IsolatedScript _fromEntriesPairs;
 
     internal const string SetupSource = """
         var o = { a: 1, b: 2, c: 3, d: 4 };
@@ -52,88 +61,83 @@ public class ObjectSpreadBenchmark
         f();
         """;
 
+    /// <summary>Builds a fresh engine carrying the shared <see cref="SetupSource"/> fixture every row needs.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
-
         // the layout-equivalent shaped literal: what a 4-prop copy costs when built as a literal
-        _literalClone = Engine.PrepareScript("""
+        _literalClone = IsolatedScript.Warm("""
             function f() { var c; for (var i = 0; i < 100000; i++) { c = { a: o.a, b: o.b, c: o.c, d: o.d }; } return c.d; }
             f();
-            """);
+            """, CreateEngine);
 
-        _spreadSmall = Engine.PrepareScript(SpreadSmallSource);
+        _spreadSmall = IsolatedScript.Warm(SpreadSmallSource, CreateEngine);
 
         // spread + trailing static override — the {...defaults, x} config-merge shape
-        _spreadSmallOverride = Engine.PrepareScript("""
+        _spreadSmallOverride = IsolatedScript.Warm("""
             function f() { var c; for (var i = 0; i < 100000; i++) { c = { ...o, d: i }; } return c.d; }
             f();
-            """);
+            """, CreateEngine);
 
         // 24-prop source: beyond the 4-slot inline capacity and the 16-key linear-scan limit
-        _spreadLarge = Engine.PrepareScript("""
+        _spreadLarge = IsolatedScript.Warm("""
             function f() { var c; for (var i = 0; i < 10000; i++) { c = { ...wide }; } return c.p23; }
             f();
-            """);
+            """, CreateEngine);
 
         // the two-source options-merge shape
-        _spreadTwoSources = Engine.PrepareScript("""
+        _spreadTwoSources = IsolatedScript.Warm("""
             function f() { var c; for (var i = 0; i < 100000; i++) { c = { ...half1, ...half2 }; } return c.d; }
             f();
-            """);
+            """, CreateEngine);
 
-        _assignFreshTarget = Engine.PrepareScript(AssignFreshTargetSource);
+        _assignFreshTarget = IsolatedScript.Warm(AssignFreshTargetSource, CreateEngine);
 
         // assign onto a long-lived target: pure overwrite, no object creation
-        _assignExistingTarget = Engine.PrepareScript("""
+        _assignExistingTarget = IsolatedScript.Warm("""
             function f() { for (var i = 0; i < 100000; i++) { Object.assign(acc, o); } return acc.d; }
             f();
-            """);
+            """, CreateEngine);
 
-        _restDestructuring = Engine.PrepareScript(RestDestructuringSource);
+        _restDestructuring = IsolatedScript.Warm(RestDestructuringSource, CreateEngine);
 
-        _fromEntriesPairs = Engine.PrepareScript("""
+        _fromEntriesPairs = IsolatedScript.Warm("""
             function f() { var c; for (var i = 0; i < 10000; i++) { c = Object.fromEntries(pairs); } return c.d; }
             f();
-            """);
-
-        _engine.Evaluate(_literalClone);
-        _engine.Evaluate(_spreadSmall);
-        _engine.Evaluate(_spreadSmallOverride);
-        _engine.Evaluate(_spreadLarge);
-        _engine.Evaluate(_spreadTwoSources);
-        _engine.Evaluate(_assignFreshTarget);
-        _engine.Evaluate(_assignExistingTarget);
-        _engine.Evaluate(_restDestructuring);
-        _engine.Evaluate(_fromEntriesPairs);
+            """, CreateEngine);
     }
 
     [Benchmark(Baseline = true)]
-    public JsValue LiteralClone() => _engine.Evaluate(_literalClone);
+    public JsValue LiteralClone() => _literalClone.Run();
 
     [Benchmark]
-    public JsValue SpreadSmall() => _engine.Evaluate(_spreadSmall);
+    public JsValue SpreadSmall() => _spreadSmall.Run();
 
     [Benchmark]
-    public JsValue SpreadSmallOverride() => _engine.Evaluate(_spreadSmallOverride);
+    public JsValue SpreadSmallOverride() => _spreadSmallOverride.Run();
 
     [Benchmark]
-    public JsValue SpreadLarge() => _engine.Evaluate(_spreadLarge);
+    public JsValue SpreadLarge() => _spreadLarge.Run();
 
     [Benchmark]
-    public JsValue SpreadTwoSources() => _engine.Evaluate(_spreadTwoSources);
+    public JsValue SpreadTwoSources() => _spreadTwoSources.Run();
 
     [Benchmark]
-    public JsValue AssignFreshTarget() => _engine.Evaluate(_assignFreshTarget);
+    public JsValue AssignFreshTarget() => _assignFreshTarget.Run();
 
     [Benchmark]
-    public JsValue AssignExistingTarget() => _engine.Evaluate(_assignExistingTarget);
+    public JsValue AssignExistingTarget() => _assignExistingTarget.Run();
 
     [Benchmark]
-    public JsValue RestDestructuring() => _engine.Evaluate(_restDestructuring);
+    public JsValue RestDestructuring() => _restDestructuring.Run();
 
     [Benchmark]
-    public JsValue FromEntriesPairs() => _engine.Evaluate(_fromEntriesPairs);
+    public JsValue FromEntriesPairs() => _fromEntriesPairs.Run();
 }

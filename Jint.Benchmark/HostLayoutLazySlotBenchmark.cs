@@ -60,6 +60,18 @@ namespace Jint.Benchmark;
 /// <c>protected internal</c> because this project is a friend assembly, where an embedder writes
 /// <c>protected</c> for the same member.
 /// </para>
+///
+/// <para>
+/// <b>Engine isolation.</b> Each of the two rows gets its own engine — built by <c>CreateEngine</c>, which
+/// re-runs <c>BuildSource</c> and re-registers the <c>makeItem</c> host delegate — and warmed with its own
+/// script and nothing else (see <see cref="IsolatedScript"/>). It used to be one engine per parameter
+/// combination warmed with both scripts, so <see cref="Build"/> was measured on an engine on which
+/// <see cref="BuildAndProject"/> had already warmed the projection loop's member sites, and vice versa —
+/// and for a class whose subject is which hidden class a batch lands in and how a member site sees it,
+/// that is precisely the state a row must own. The rows still measure warm creation, and engine
+/// construction and warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this
+/// class are not comparable to any published before the harness changed.</b>
+/// </para>
 /// </summary>
 [MemoryDiagnoser]
 public class HostLayoutLazySlotBenchmark
@@ -189,38 +201,39 @@ public class HostLayoutLazySlotBenchmark
         }
         """;
 
-    private Engine _engine = null!;
-    private Prepared<Script> _build;
-    private Prepared<Script> _project;
+    private IsolatedScript _build;
+    private IsolatedScript _project;
 
     [Params(EnvelopeKind.LayoutEager, EnvelopeKind.LayoutLazy, EnvelopeKind.DictionaryCustomValue)]
     public EnvelopeKind Kind { get; set; }
 
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(BuildSource);
+
+        var kind = Kind;
+        engine.SetValue("makeItem", new Func<int, JsValue>(index => MakeItem(engine, kind, index)));
+        return engine;
+    }
+
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _engine = new Engine();
-        _engine.Execute(BuildSource);
-
-        var kind = Kind;
-        var engine = _engine;
-        _engine.SetValue("makeItem", new Func<int, JsValue>(index => MakeItem(engine, kind, index)));
-
-        _build = Engine.PrepareScript($"build({ItemCount}).length;");
-        _project = Engine.PrepareScript($"project({ItemCount});");
-
-        // Warm the handler-tree caches so the measured runs are the steady state, and prove both lanes work.
-        _engine.Evaluate(_build);
-        _engine.Evaluate(_project);
+        // Warm each row's own engine with that row's script, so the measured runs are the steady state and
+        // both lanes are proven to work, without either row warming the other's.
+        _build = IsolatedScript.Warm(Engine.PrepareScript($"build({ItemCount}).length;"), CreateEngine);
+        _project = IsolatedScript.Warm(Engine.PrepareScript($"project({ItemCount});"), CreateEngine);
     }
 
     /// <summary>Creation only: no member is ever observed, so the eager lane's decodes are pure waste.</summary>
     [Benchmark]
-    public JsValue Build() => _engine.Evaluate(_build);
+    public JsValue Build() => _build.Run();
 
     /// <summary>Creation plus the projection loop, which observes one decoded member of every item.</summary>
     [Benchmark]
-    public JsValue BuildAndProject() => _engine.Evaluate(_project);
+    public JsValue BuildAndProject() => _project.Run();
 
     private static JsValue MakeItem(Engine engine, EnvelopeKind kind, int index)
     {

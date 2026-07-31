@@ -7,17 +7,25 @@ namespace Jint.Benchmark;
 /// Number parsing and formatting in loops — the CSV/JSON-ingestion and UI-formatting shapes:
 /// parseInt/parseFloat/Number() over prebuilt LCG-varied numeric strings, and
 /// toFixed/toString(radix) over varied doubles. 100k operations per op.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, built by <c>CreateEngine</c> (which
+/// installs the shared <see cref="SetupSource"/> fixture every row needs) and warmed with its own script
+/// and nothing else (see <see cref="IsolatedScript"/>). It used to be one shared engine warmed with all
+/// five scripts, so each row was measured on an engine carrying its siblings' globals (every script
+/// declares <c>f</c>, <c>s</c> and <c>i</c>) and their handler-tree and call-site state. The rows still
+/// measure warm dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the
+/// measurement. <b>Numbers from this class are not comparable to any published before the harness
+/// changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 public class NumberParseBenchmark
 {
-    private Engine _engine = null!;
-    private Prepared<Script> _parseIntLoop;
-    private Prepared<Script> _parseFloatLoop;
-    private Prepared<Script> _numberCoerce;
-    private Prepared<Script> _toFixedLoop;
-    private Prepared<Script> _toStringRadix;
+    private IsolatedScript _parseIntLoop;
+    private IsolatedScript _parseFloatLoop;
+    private IsolatedScript _numberCoerce;
+    private IsolatedScript _toFixedLoop;
+    private IsolatedScript _toStringRadix;
 
     // Mixing is precomputed at setup into `order` (see ModernOperatorsBenchmark note): a
     // per-iteration JS LCG boxes JsNumber transients that would dominate these rows.
@@ -65,15 +73,20 @@ public class NumberParseBenchmark
         f();
         """;
 
+    /// <summary>Builds a fresh engine carrying the shared <see cref="SetupSource"/> fixture every row needs.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(SetupSource);
+        return engine;
+    }
+
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine();
-        _engine.Execute(SetupSource);
+        _parseIntLoop = IsolatedScript.Warm(ParseIntLoopSource, CreateEngine);
 
-        _parseIntLoop = Engine.PrepareScript(ParseIntLoopSource);
-
-        _parseFloatLoop = Engine.PrepareScript("""
+        _parseFloatLoop = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -82,9 +95,9 @@ public class NumberParseBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _numberCoerce = Engine.PrepareScript("""
+        _numberCoerce = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -93,11 +106,11 @@ public class NumberParseBenchmark
                 return s;
             }
             f();
-            """);
+            """, CreateEngine);
 
-        _toFixedLoop = Engine.PrepareScript(ToFixedLoopSource);
+        _toFixedLoop = IsolatedScript.Warm(ToFixedLoopSource, CreateEngine);
 
-        _toStringRadix = Engine.PrepareScript("""
+        _toStringRadix = IsolatedScript.Warm("""
             function f() {
                 var s = 0;
                 for (var i = 0; i < 100000; i++) {
@@ -106,27 +119,21 @@ public class NumberParseBenchmark
                 return s;
             }
             f();
-            """);
-
-        _engine.Evaluate(_parseIntLoop);
-        _engine.Evaluate(_parseFloatLoop);
-        _engine.Evaluate(_numberCoerce);
-        _engine.Evaluate(_toFixedLoop);
-        _engine.Evaluate(_toStringRadix);
+            """, CreateEngine);
     }
 
     [Benchmark]
-    public JsValue ParseIntLoop() => _engine.Evaluate(_parseIntLoop);
+    public JsValue ParseIntLoop() => _parseIntLoop.Run();
 
     [Benchmark]
-    public JsValue ParseFloatLoop() => _engine.Evaluate(_parseFloatLoop);
+    public JsValue ParseFloatLoop() => _parseFloatLoop.Run();
 
     [Benchmark]
-    public JsValue NumberCoerce() => _engine.Evaluate(_numberCoerce);
+    public JsValue NumberCoerce() => _numberCoerce.Run();
 
     [Benchmark]
-    public JsValue ToFixedLoop() => _engine.Evaluate(_toFixedLoop);
+    public JsValue ToFixedLoop() => _toFixedLoop.Run();
 
     [Benchmark]
-    public JsValue ToStringRadix() => _engine.Evaluate(_toStringRadix);
+    public JsValue ToStringRadix() => _toStringRadix.Run();
 }

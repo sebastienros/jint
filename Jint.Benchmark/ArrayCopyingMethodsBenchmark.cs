@@ -18,6 +18,15 @@ namespace Jint.Benchmark;
 /// allocation is the same either way - both paths allocate exactly one backing array - so <c>Allocated</c>
 /// is a control column here, not a result.
 /// </para>
+/// <para><b>Engine isolation.</b> Every row gets its own engine — built by <c>CreateEngine</c>, which
+/// rebuilds this instance's <see cref="Size"/>-dependent <c>dense</c>/<c>holey</c> fixture — and warmed
+/// with its own script and nothing else (see <see cref="IsolatedScript"/>). It used to be one shared
+/// engine per <see cref="Size"/>, warmed with all five row scripts, so each dense row and its holey
+/// control were measured on an engine already carrying the others' handler-tree and call-site state —
+/// which is how a control row that must not move at all can move because a sibling changed. The rows
+/// still measure warm dispatch, and engine construction, the fixture and the warm-up all stay in
+/// <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable to any
+/// published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class ArrayCopyingMethodsBenchmark
@@ -27,19 +36,17 @@ public class ArrayCopyingMethodsBenchmark
     [Params(8, 1024)]
     public int Size { get; set; }
 
-    private Engine _engine = null!;
+    private IsolatedScript _toReversedDense;
+    private IsolatedScript _toReversedHoley;
+    private IsolatedScript _withDense;
+    private IsolatedScript _withHoley;
+    private IsolatedScript _toSortedDense;
 
-    private Prepared<Script> _toReversedDense;
-    private Prepared<Script> _toReversedHoley;
-    private Prepared<Script> _withDense;
-    private Prepared<Script> _withHoley;
-    private Prepared<Script> _toSortedDense;
-
-    [GlobalSetup]
-    public void GlobalSetup()
+    /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
+    private Engine CreateEngine()
     {
-        _engine = new Engine();
-        _engine.Execute($$"""
+        var engine = new Engine();
+        engine.Execute($$"""
             var size = {{Size}};
             var dense = new Array(size);
             for (var i = 0; i < size; i++) dense[i] = i;
@@ -47,38 +54,37 @@ public class ArrayCopyingMethodsBenchmark
             for (var i = 0; i < size; i++) holey[i] = i;
             delete holey[size >> 1];
             """);
+        return engine;
+    }
 
-        _toReversedDense = Prepare("dense.toReversed()");
-        _toReversedHoley = Prepare("holey.toReversed()");
-        _withDense = Prepare("dense.with(0, 'X')");
-        _withHoley = Prepare("holey.with(0, 'X')");
-        _toSortedDense = Prepare("dense.toSorted()");
-
-        _engine.Evaluate(_toReversedDense);
-        _engine.Evaluate(_toReversedHoley);
-        _engine.Evaluate(_withDense);
-        _engine.Evaluate(_withHoley);
-        _engine.Evaluate(_toSortedDense);
+    [GlobalSetup]
+    public void GlobalSetup()
+    {
+        _toReversedDense = IsolatedScript.Warm(Prepare("dense.toReversed()"), CreateEngine);
+        _toReversedHoley = IsolatedScript.Warm(Prepare("holey.toReversed()"), CreateEngine);
+        _withDense = IsolatedScript.Warm(Prepare("dense.with(0, 'X')"), CreateEngine);
+        _withHoley = IsolatedScript.Warm(Prepare("holey.with(0, 'X')"), CreateEngine);
+        _toSortedDense = IsolatedScript.Warm(Prepare("dense.toSorted()"), CreateEngine);
     }
 
     private static Prepared<Script> Prepare(string call)
         => Engine.PrepareScript("var r; for (var n = 0; n < " + OperationsPerInvoke + "; n++) { r = " + call + "; } r.length");
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ToReversed_Dense() => _engine.Evaluate(_toReversedDense);
+    public JsValue ToReversed_Dense() => _toReversedDense.Run();
 
     /// <summary>Control: one hole sends the whole call down the per-element path.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ToReversed_Holey() => _engine.Evaluate(_toReversedHoley);
+    public JsValue ToReversed_Holey() => _toReversedHoley.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue With_Dense() => _engine.Evaluate(_withDense);
+    public JsValue With_Dense() => _withDense.Run();
 
     /// <summary>Control: one hole sends the whole call down the per-element path.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue With_Holey() => _engine.Evaluate(_withHoley);
+    public JsValue With_Holey() => _withHoley.Run();
 
     /// <summary>Control: an untouched sibling that also builds a new array from the source.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue ToSorted_Dense() => _engine.Evaluate(_toSortedDense);
+    public JsValue ToSorted_Dense() => _toSortedDense.Run();
 }

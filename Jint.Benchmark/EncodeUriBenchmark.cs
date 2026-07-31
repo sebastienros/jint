@@ -11,11 +11,19 @@ namespace Jint.Benchmark;
 /// it (where copying whole clean runs pays), and one where nearly every character escapes (the floor - all
 /// work, no runs to copy).
 /// <para>
-/// Every row runs a tight loop over one prepared script on one long-lived engine, so the measurement is the
-/// encode, not the parse. <c>[MemoryDiagnoser]</c> matters for the clean row: with an early-out it should
+/// Every row runs a tight loop over one prepared script on its own long-lived engine, so the measurement is
+/// the encode, not the parse. <c>[MemoryDiagnoser]</c> matters for the clean row: with an early-out it should
 /// allocate the result string only, without one it builds a whole second buffer to produce a copy of its
 /// input.
 /// </para>
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing else
+/// (see <see cref="IsolatedScript"/>). It used to be one engine warmed with all six scripts, so a row was
+/// measured on an engine carrying the other five rows' globals (every script declares <c>r</c> and <c>n</c>)
+/// and their handler-tree and per-call-site state — which makes a row's number depend on what a change did to
+/// its siblings. The input fixture the rows share is still shared, but now by being re-run per engine rather
+/// than by the engine being re-used. The rows still measure warm encoding, and engine construction and
+/// warm-up stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not
+/// comparable to any published before the harness changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class EncodeUriBenchmark
@@ -29,34 +37,30 @@ public class EncodeUriBenchmark
         var longClean = clean + clean + clean + clean + clean + clean + clean + clean;
         """;
 
-    private Engine _engine = null!;
+    private IsolatedScript _cleanUri;
+    private IsolatedScript _cleanComponent;
+    private IsolatedScript _longClean;
+    private IsolatedScript _mixedUri;
+    private IsolatedScript _mixedComponent;
+    private IsolatedScript _dirtyUri;
 
-    private Prepared<Script> _cleanUri;
-    private Prepared<Script> _cleanComponent;
-    private Prepared<Script> _longClean;
-    private Prepared<Script> _mixedUri;
-    private Prepared<Script> _mixedComponent;
-    private Prepared<Script> _dirtyUri;
+    /// <summary>Builds a fresh engine carrying the input fixture every row reads from.</summary>
+    private static Engine CreateEngine()
+    {
+        var engine = new Engine();
+        engine.Execute(Setup);
+        return engine;
+    }
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _engine = new Engine();
-        _engine.Execute(Setup);
-
-        _cleanUri = Prepare("encodeURI(clean)");
-        _cleanComponent = Prepare("encodeURIComponent(clean)");
-        _longClean = Prepare("encodeURI(longClean)");
-        _mixedUri = Prepare("encodeURI(mixed)");
-        _mixedComponent = Prepare("encodeURIComponent(mixed)");
-        _dirtyUri = Prepare("encodeURI(dirty)");
-
-        _engine.Evaluate(_cleanUri);
-        _engine.Evaluate(_cleanComponent);
-        _engine.Evaluate(_longClean);
-        _engine.Evaluate(_mixedUri);
-        _engine.Evaluate(_mixedComponent);
-        _engine.Evaluate(_dirtyUri);
+        _cleanUri = IsolatedScript.Warm(Prepare("encodeURI(clean)"), CreateEngine);
+        _cleanComponent = IsolatedScript.Warm(Prepare("encodeURIComponent(clean)"), CreateEngine);
+        _longClean = IsolatedScript.Warm(Prepare("encodeURI(longClean)"), CreateEngine);
+        _mixedUri = IsolatedScript.Warm(Prepare("encodeURI(mixed)"), CreateEngine);
+        _mixedComponent = IsolatedScript.Warm(Prepare("encodeURIComponent(mixed)"), CreateEngine);
+        _dirtyUri = IsolatedScript.Warm(Prepare("encodeURI(dirty)"), CreateEngine);
     }
 
     private static Prepared<Script> Prepare(string call)
@@ -64,26 +68,26 @@ public class EncodeUriBenchmark
 
     /// <summary>Nothing to escape: no buffer needs building at all.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUri_Clean() => _engine.Evaluate(_cleanUri);
+    public JsValue EncodeUri_Clean() => _cleanUri.Run();
 
     /// <summary>
     /// The same input through <c>encodeURIComponent</c>, whose allowed set excludes the URI reserved
     /// characters, so this one does escape - the control that the clean row is about the input, not the call.
     /// </summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUriComponent_Clean() => _engine.Evaluate(_cleanComponent);
+    public JsValue EncodeUriComponent_Clean() => _cleanComponent.Run();
 
     /// <summary>Eight times the clean input: the early-out's win should scale with the length it skips.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUri_LongClean() => _engine.Evaluate(_longClean);
+    public JsValue EncodeUri_LongClean() => _longClean.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUri_Mixed() => _engine.Evaluate(_mixedUri);
+    public JsValue EncodeUri_Mixed() => _mixedUri.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUriComponent_Mixed() => _engine.Evaluate(_mixedComponent);
+    public JsValue EncodeUriComponent_Mixed() => _mixedComponent.Run();
 
     /// <summary>Almost every character escapes: no clean runs to copy, so this row is the floor.</summary>
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue EncodeUri_Dirty() => _engine.Evaluate(_dirtyUri);
+    public JsValue EncodeUri_Dirty() => _dirtyUri.Run();
 }

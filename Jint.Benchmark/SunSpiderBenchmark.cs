@@ -1,7 +1,29 @@
-﻿using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Attributes;
 
 namespace Jint.Benchmark;
 
+/// <summary>
+/// The SunSpider suite, one row per script.
+///
+/// <para><b>Engine isolation.</b> The engine is built inside the benchmark method, so each op runs its
+/// script on an engine that has never seen anything else — the same choice, and for the same reasons,
+/// as <see cref="DromaeoBenchmark"/>. This class used to build one engine in <c>[GlobalSetup]</c> and
+/// execute the row's script on it over and over. That is a shared-state measurement even though only
+/// one script per row ever touches it: the source is re-parsed on every op, so every op adds a fresh
+/// set of AST nodes to the engine-owned handler-tree caches (<c>Engine._functionDefinitions</c>,
+/// <c>Engine._scriptStatementLists</c>) that nothing ever evicts, on top of the globals each re-run
+/// redeclares. Per-op cost therefore drifted with the invocation index, and the invocation count is
+/// picked by a pilot whose answer depends on the very change being measured — so a row could move
+/// several percent, in either direction, on a change that could not have touched it.</para>
+///
+/// <para>Engine construction now counts toward the measurement: roughly 0.1-0.3 ms against ops that run
+/// from a few ms to tens of ms. It is constant across revisions, so A/B comparisons stay valid, but it
+/// is a larger share of the shortest rows (the <c>bitops-*</c> family) than of the longest.
+/// Deliberately <em>not</em> an <c>[IterationSetup]</c>: that forces <c>InvocationCount=1</c>, which
+/// leaks tiered-JIT warmup into the measured iterations — see the comment in
+/// <see cref="DromaeoBenchmark"/> for the full account. <b>Numbers from this class are not comparable
+/// to any published before the harness changed.</b></para>
+/// </summary>
 [MemoryDiagnoser]
 public class SunSpiderBenchmark
 {
@@ -35,8 +57,6 @@ public class SunSpiderBenchmark
         {"string-validate-input", null}
     };
 
-    private Engine engine;
-
     [GlobalSetup]
     public void Setup()
     {
@@ -44,10 +64,6 @@ public class SunSpiderBenchmark
         {
             files[fileName] = File.ReadAllText($"Scripts/{fileName}.js");
         }
-
-        engine = new Engine()
-            .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool>(b => { }));
     }
 
     [ParamsSource(nameof(FileNames))]
@@ -64,6 +80,10 @@ public class SunSpiderBenchmark
     [Benchmark]
     public void Run()
     {
+        var engine = new Engine()
+            .SetValue("log", new Action<object>(Console.WriteLine))
+            .SetValue("assert", new Action<bool>(b => { }));
+
         engine.Execute(files[FileName]);
     }
 }

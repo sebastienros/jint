@@ -12,49 +12,48 @@ namespace Jint.Benchmark;
 ///
 /// Each tight loop runs 1000 calls inside one prepared script so we measure dispatch + call cost,
 /// not script-eval/parse overhead. OperationsPerInvoke amortises BDN's per-iteration noise.
+///
+/// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
+/// else (see <see cref="IsolatedScript"/>). It used to be one shared <c>_warm</c> engine warmed with all
+/// six scripts, so each row was measured on an engine carrying its siblings' globals (the two tight-loop
+/// scripts both declare <c>s</c> and <c>i</c>) plus their handler-tree and call-site state. The rows still
+/// measure warm dispatch, and engine construction and warm-up stay in <c>[GlobalSetup]</c>, outside the
+/// measurement. <b>Numbers from this class are not comparable to any published before the harness
+/// changed.</b></para>
 /// </summary>
 [MemoryDiagnoser]
 public class MathHotPathBenchmarks
 {
     private const int OperationsPerInvoke = 1_000;
 
-    private Engine _warm = null!;
-    private Prepared<Script> _abs;
-    private Prepared<Script> _floor;
-    private Prepared<Script> _sqrt;
-    private Prepared<Script> _max2;
-    private Prepared<Script> _absInLoop;
-    private Prepared<Script> _maxInLoop;
+    private IsolatedScript _abs;
+    private IsolatedScript _floor;
+    private IsolatedScript _sqrt;
+    private IsolatedScript _max2;
+    private IsolatedScript _absInLoop;
+    private IsolatedScript _maxInLoop;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _abs   = Engine.PrepareScript("Math.abs(-1.5)");
-        _floor = Engine.PrepareScript("Math.floor(3.7)");
-        _sqrt  = Engine.PrepareScript("Math.sqrt(2.0)");
-        _max2  = Engine.PrepareScript("Math.max(1, 2)");
+        _abs   = IsolatedScript.Warm("Math.abs(-1.5)");
+        _floor = IsolatedScript.Warm("Math.floor(3.7)");
+        _sqrt  = IsolatedScript.Warm("Math.sqrt(2.0)");
+        _max2  = IsolatedScript.Warm("Math.max(1, 2)");
 
         // Tight-loop variants: amortises script-eval cost, isolates dispatch + body.
-        _absInLoop = Engine.PrepareScript("var s = 0; for (var i = 0; i < 1000; i++) s += Math.abs(i - 500); s");
-        _maxInLoop = Engine.PrepareScript("var s = 0; for (var i = 0; i < 1000; i++) s += Math.max(i, 500); s");
-
-        _warm = new Engine();
-        _warm.Evaluate(_abs);
-        _warm.Evaluate(_floor);
-        _warm.Evaluate(_sqrt);
-        _warm.Evaluate(_max2);
-        _warm.Evaluate(_absInLoop);
-        _warm.Evaluate(_maxInLoop);
+        _absInLoop = IsolatedScript.Warm("var s = 0; for (var i = 0; i < 1000; i++) s += Math.abs(i - 500); s");
+        _maxInLoop = IsolatedScript.Warm("var s = 0; for (var i = 0; i < 1000; i++) s += Math.max(i, 500); s");
     }
 
-    [Benchmark] public JsValue Warm_Abs() => _warm.Evaluate(_abs);
-    [Benchmark] public JsValue Warm_Floor() => _warm.Evaluate(_floor);
-    [Benchmark] public JsValue Warm_Sqrt() => _warm.Evaluate(_sqrt);
-    [Benchmark] public JsValue Warm_Max2() => _warm.Evaluate(_max2);
+    [Benchmark] public JsValue Warm_Abs() => _abs.Run();
+    [Benchmark] public JsValue Warm_Floor() => _floor.Run();
+    [Benchmark] public JsValue Warm_Sqrt() => _sqrt.Run();
+    [Benchmark] public JsValue Warm_Max2() => _max2.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Warm_AbsTightLoop() => _warm.Evaluate(_absInLoop);
+    public JsValue Warm_AbsTightLoop() => _absInLoop.Run();
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
-    public JsValue Warm_MaxTightLoop() => _warm.Evaluate(_maxInLoop);
+    public JsValue Warm_MaxTightLoop() => _maxInLoop.Run();
 }
