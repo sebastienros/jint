@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -36,6 +36,36 @@ internal sealed class JintCallExpression : JintExpression
     // Argument shape is fixed at build time; only sites the fast lane could ever serve pay any probe.
     private readonly int _argCount;
     private readonly bool _fastArgsEligible;
+
+    // Monomorphic register-call cache for interpreted callees, deliberately NOT merged with
+    // _fastCallee/_fastShape above. The built-in lane's fixed-arity shapes report Supported without
+    // consulting the site's arity (the emitter writes ShapeExpression(only, arity: null)), which is
+    // only safe because that lane is capped at two arguments by _fastArgsEligible; this lane serves
+    // four, so sharing the slots would route a four-argument call into CallFast(this, arg0, arg1)
+    // and silently drop the tail.
+    //
+    // _regCallee is non-null only when the probe *accepted* the callee, and every static half of the
+    // gate — this site's arity and spread shape, the callee's SupportsRegisterCall, the engine's
+    // readonly _isDebugMode — is folded into the arming. So the dispatch test below is a single
+    // reference compare, and a site that never sees an eligible callee (every built-in call, every
+    // zero-argument call) compares against a field that stays null and pays nothing else.
+    // _regProbedCallee is whatever callee this site last examined, accepted or not, so such a site
+    // remembers the rejection instead of re-probing on every dispatch.
+    //
+    // NOTE: these are engine-affine, like _fastCallee. Handler trees are engine-owned for exactly
+    // this reason (Engine._functionDefinitions / _scriptStatementLists) and must never be stashed on
+    // the AST shared by a Prepared<Script> — see the INVARIANT in JintStatement.Build. Unlike a realm
+    // intrinsic, which is rooted anyway, a ScriptFunction drags its closure environment along — the
+    // same retention a warmed member-read site already has (see AGENTS.md).
+    private Function? _regProbedCallee;
+    private ScriptFunction? _regCallee;
+    private JintFunctionDefinition.State? _regState;
+
+    /// <summary>
+    /// Widest arity the register lane serves, matching <see cref="ScriptFunction.CallFromRegisters"/>'s
+    /// register count.
+    /// </summary>
+    private const int MaxRegisterArguments = 4;
 
     public JintCallExpression(CallExpression expression) : base(expression)
     {
@@ -197,6 +227,13 @@ internal sealed class JintCallExpression : JintExpression
             && _fastShape.Supported
             && !engine._isDebugMode)
         {
+            // Snapshot the shape beside the guard, i.e. before any argument expression can run. An
+            // argument can re-enter this very node and re-cache it against a different callee, and
+            // the guards this dispatch consults must be the ones belonging to the callee it is about
+            // to invoke — otherwise a re-entrant re-cache could route it under another built-in's
+            // Variadic verdict, or elide a frame that error.stack can observe.
+            var shape = _fastShape;
+
             var arg0 = _argCount >= 1 ? _arguments.GetValue(context, 0) : JsValue.Undefined;
             var arg1 = _argCount >= 2 ? _arguments.GetValue(context, 1) : JsValue.Undefined;
 
@@ -207,7 +244,21 @@ internal sealed class JintCallExpression : JintExpression
                 engine._referencePool.Return(referenceRecord);
             }
 
-            return FastCall(engine, Unsafe.As<Function>(func), thisObject, arg0, arg1);
+            return FastCall(engine, Unsafe.As<Function>(func), shape, thisObject, arg0, arg1);
+        }
+
+        // Register-argument lane for interpreted callees, strictly additive to the built-in lane
+        // above: a call that took that lane has already returned, and every other call pays exactly
+        // one reference compare against a field that is null unless this site's last callee was an
+        // eligible ScriptFunction. Everything else the lane needs — the argument evaluation, the
+        // reference return, the frame and the dispatch — lives in RegisterLaneCall, so this method
+        // grows by the guard alone. Generator/async frames are the one part of the gate that can
+        // still differ between two evaluations of the same node (argument evaluation there must go
+        // through ExpressionCache's resume buffer rather than straight into locals), so they stay a
+        // runtime test — second, because it can only exclude a site the compare already accepted.
+        if (ReferenceEquals(func, _regCallee) && suspendable is null)
+        {
+            return RegisterLaneCall(context, engine, Unsafe.As<ScriptFunction>(func), thisObject, referenceRecord);
         }
 
         var tailCall = IsInTailPosition((CallExpression) _expression);
@@ -284,6 +335,14 @@ internal sealed class JintCallExpression : JintExpression
                 _fastCallee = functionInstance;
                 _fastShape = functionInstance.GetFastCallShape(_argCount);
             }
+
+            // Same deal for the register lane, in its own slots. Recorded against _regProbedCallee
+            // rather than _regCallee so a callee the probe rejects is remembered as rejected —
+            // otherwise a site whose callee never qualifies would re-probe on every dispatch.
+            if (!ReferenceEquals(functionInstance, _regProbedCallee))
+            {
+                ProbeRegisterCallee(engine, functionInstance);
+            }
         }
         else
         {
@@ -303,6 +362,115 @@ internal sealed class JintCallExpression : JintExpression
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Decides whether <paramref name="functionInstance"/> can be dispatched through
+    /// <see cref="ScriptFunction.CallFromRegisters"/> and records the verdict for this site. Kept out
+    /// of line because it runs at most once per distinct callee, on the already-slow generic path,
+    /// and because everything it settles here is one reference compare at dispatch time.
+    /// </summary>
+    /// <remarks>
+    /// Two halves of the gate are settled here rather than per dispatch. This site's argument shape
+    /// is a build-time constant, and <c>Engine._isDebugMode</c> is <c>readonly</c> on an engine whose
+    /// handler trees are its own — so an engine that debugs simply never arms the lane, which is the
+    /// same answer a per-dispatch test would give, reached once instead of per call.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ProbeRegisterCallee(Engine engine, Function functionInstance)
+    {
+        _regProbedCallee = functionInstance;
+        _regCallee = null;
+        _regState = null;
+
+        // A zero-argument site is deliberately excluded: it rents nothing today (ExpressionCache
+        // hands back a cached empty array without renting), so there is no allocation for the lane
+        // to avoid and arming would only buy the site a retained callee and an extra dispatch test.
+        // Spreads make the arity a runtime quantity, which the register form cannot carry.
+        if (_argCount is not (>= 1 and <= MaxRegisterArguments)
+            || _arguments.HasSpreads
+            || engine._isDebugMode)
+        {
+            return;
+        }
+
+        if (functionInstance is not ScriptFunction { _isClassConstructor: false } scriptFunction)
+        {
+            return;
+        }
+
+        // Initialize() is what the callee's own [[Call]] would do first anyway, and the State it
+        // returns is stored on the (immutable) AST node, so the reference stays valid for as long as
+        // this callee does.
+        var state = scriptFunction._functionDefinition!.Initialize();
+        if (!state.SupportsRegisterCall)
+        {
+            return;
+        }
+
+        _regState = state;
+        _regCallee = scriptFunction;
+    }
+
+    /// <summary>
+    /// Invokes an interpreted callee through its register-argument entry point, evaluating this
+    /// site's arguments straight into locals instead of into a rented <c>JsCallArguments</c>. The
+    /// call-stack frame is deliberately kept: unlike the built-in lane's leaf shapes, a script body
+    /// can throw and read <c>error.stack</c>, where its own frame is observable.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="target"/> arrives as a parameter and <see cref="_regState"/> is read as the
+    /// first statement, i.e. both are snapshotted before any argument expression can run. That
+    /// ordering is required, not incidental: an argument can re-enter this very node —
+    /// <c>function h() { return f(h()); }</c> recurses through the same handler — and a re-entrant
+    /// evaluation taking the generic path re-probes and overwrites the cache, so reading the state
+    /// afterwards could hand this frame another function's slot layout. <c>_argCount</c> is readonly
+    /// and safe to read at any point.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue RegisterLaneCall(
+        EvaluationContext context,
+        Engine engine,
+        ScriptFunction target,
+        JsValue thisObject,
+        Reference? referenceRecord)
+    {
+        var state = _regState!;
+
+        // Arming requires at least one argument, so the first read is unconditional.
+        var arg0 = _arguments.GetValue(context, 0);
+        var arg1 = _argCount >= 2 ? _arguments.GetValue(context, 1) : JsValue.Undefined;
+        var arg2 = _argCount >= 3 ? _arguments.GetValue(context, 2) : JsValue.Undefined;
+        var arg3 = _argCount >= 4 ? _arguments.GetValue(context, 3) : JsValue.Undefined;
+
+        // Everything the reference was kept for has been read (the this-binding at the call site; the
+        // "not a function" messages cannot be reached from here, the callee is callable).
+        if (referenceRecord is not null)
+        {
+            engine._referencePool.Return(referenceRecord);
+        }
+
+        var callStack = engine.CallStack;
+        var recursionDepth = callStack.Push(target, _calleeExpression, engine.ExecutionContext);
+
+        if (recursionDepth > engine._maxRecursionDepth)
+        {
+            // automatically pops the current element as it was never reached
+            Throw.RecursionDepthOverflowException(callStack);
+        }
+
+        try
+        {
+            return target.CallFromRegisters(thisObject, arg0, arg1, arg2, arg3, _argCount, state);
+        }
+        finally
+        {
+            // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+            if (callStack.Count > 0)
+            {
+                callStack.Pop();
+            }
+        }
     }
 
     /// <summary>
@@ -344,15 +512,21 @@ internal sealed class JintCallExpression : JintExpression
     /// user code can both throw and read <c>error.stack</c> — where the built-in's own frame is
     /// observable. Anything that fails a guard keeps its frame and only takes the argument-passing
     /// half of the optimization.
+    /// <para>
+    /// <paramref name="shape"/> arrives as a parameter rather than being re-read from
+    /// <see cref="_fastShape"/>, because by this point the site's arguments have been evaluated and
+    /// one of them may have re-entered this node and re-cached it against a different callee. The
+    /// guards consulted here must belong to <paramref name="target"/>.
+    /// </para>
     /// </remarks>
-    private JsValue FastCall(Engine engine, Function target, JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsValue FastCall(Engine engine, Function target, FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
     {
-        if (_fastShape.Variadic)
+        if (shape.Variadic)
         {
-            return FastCallVariadic(engine, target, thisObject, arg0, arg1);
+            return FastCallVariadic(engine, target, shape, thisObject, arg0, arg1);
         }
 
-        if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
+        if (shape.IsLeafFor(thisObject, arg0, arg1))
         {
 #if DEBUG
             // try/finally so a throw out of a mis-annotated built-in cannot strand the debug
@@ -419,7 +593,7 @@ internal sealed class JintCallExpression : JintExpression
     /// elsewhere it falls back to the same pooled array the framed path would have rented, which
     /// costs what today's path costs rather than adding to it.
     /// </remarks>
-    private JsValue FastCallVariadic(Engine engine, Function target, JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsValue FastCallVariadic(Engine engine, Function target, FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var count = _argCount;
 
@@ -427,7 +601,7 @@ internal sealed class JintCallExpression : JintExpression
         TwoArguments buffer = default;
         buffer[0] = arg0;
         buffer[1] = arg1;
-        return InvokeVariadic(engine, target, thisObject, arg0, arg1, ((ReadOnlySpan<JsValue>) buffer).Slice(0, count));
+        return InvokeVariadic(engine, target, shape, thisObject, arg0, arg1, ((ReadOnlySpan<JsValue>) buffer).Slice(0, count));
 #else
         var rented = engine._jsValueArrayPool.RentArray(count);
         if (count >= 1)
@@ -441,7 +615,7 @@ internal sealed class JintCallExpression : JintExpression
 
         try
         {
-            return InvokeVariadic(engine, target, thisObject, arg0, arg1, new ReadOnlySpan<JsValue>(rented, 0, count));
+            return InvokeVariadic(engine, target, shape, thisObject, arg0, arg1, new ReadOnlySpan<JsValue>(rented, 0, count));
         }
         finally
         {
@@ -458,12 +632,13 @@ internal sealed class JintCallExpression : JintExpression
     private JsValue InvokeVariadic(
         Engine engine,
         Function target,
+        FastCallShape shape,
         JsValue thisObject,
         JsValue arg0,
         JsValue arg1,
         ReadOnlySpan<JsValue> arguments)
     {
-        if (_fastShape.IsLeafFor(thisObject, arg0, arg1))
+        if (shape.IsLeafFor(thisObject, arg0, arg1))
         {
 #if DEBUG
             LeafCallGuard.Enter();

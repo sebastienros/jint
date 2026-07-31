@@ -109,6 +109,36 @@ internal sealed class JintFunctionDefinition
     }
 
     /// <summary>
+    /// The synchronous, fast-FDI arms of <see cref="EvaluateBody"/>, generic over where the argument
+    /// values live. Callers must have established that the function is neither a generator nor async
+    /// and that <see cref="State.CanUseFastFDI"/> holds, which removes both async extractions, the
+    /// generator arms, and the arguments-object bookkeeping (fixed slots require
+    /// <c>!ArgumentsObjectNeeded</c>, so <c>FunctionWasCalled</c> has nothing to notify).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    internal Completion EvaluateBodyFast<TArgs>(EvaluationContext context, in TArgs argumentsList, State state)
+        where TArgs : struct, IArgumentSource
+    {
+        System.Diagnostics.Debug.Assert(!Function.Generator && !Function.Async);
+
+        if (Function.Body is not FunctionBody)
+        {
+            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
+            _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
+
+            context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
+            context.RunBeforeExecuteStatementChecks(Function.Body);
+            var jsValue = _bodyExpression.GetValue(context).Clone();
+            return new Completion(CompletionType.Return, jsValue, Function.Body);
+        }
+
+        // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
+        context.Engine.FunctionDeclarationInstantiationFast(state, in argumentsList);
+        _bodyStatementList ??= new JintStatementList(Function);
+        return _bodyStatementList.Execute(context);
+    }
+
+    /// <summary>
     /// Body evaluation for env-less leaf calls (<see cref="State.SupportsLeafCall"/>): FDI is a
     /// no-op by the flag's gate and the body is a plain synchronous statement list, so nothing
     /// remains but executing it.
@@ -422,6 +452,18 @@ internal sealed class JintFunctionDefinition
         /// frame) and !_isClassConstructor at runtime.
         /// </summary>
         public bool SupportsLeafCall;
+
+        /// <summary>
+        /// The static half of the register-lane gate (<c>ScriptFunction.CallCore</c>): a plain
+        /// synchronous call whose instantiation is the fixed-slot fast path. Requires
+        /// <see cref="CanUseFastFDI"/> (so there is no arguments object and no parameter-default
+        /// evaluation) plus non-generator and non-async (so there is no suspension machinery and
+        /// no deferred DisposeResources). Precomputed rather than re-derived per call because
+        /// <c>IFunction.Generator</c>/<c>.Async</c> are interface properties on a polymorphic AST
+        /// node. Callers additionally gate on !Engine._isDebugMode and !_isClassConstructor at
+        /// runtime, exactly as <see cref="SupportsLeafCall"/>'s callers do.
+        /// </summary>
+        public bool SupportsRegisterCall;
 
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
@@ -738,6 +780,8 @@ internal sealed class JintFunctionDefinition
             && state.FunctionsToInitialize is null
             && varsToInitialize.Count == 0
             && state.LexicalDeclarations is null;
+
+        state.SupportsRegisterCall = state.CanUseFastFDI && !function.Generator && !function.Async;
 
         // Compute EnvironmentMayEscape unconditionally so consumers (e.g. FunctionEnvironment pooling)
         // can rely on it without first checking UseFixedSlots. Generators / async functions / direct eval

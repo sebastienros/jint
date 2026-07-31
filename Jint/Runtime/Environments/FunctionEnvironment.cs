@@ -155,6 +155,23 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         _dictionary.CheckExistingKeys = true;
     }
 
+    /// <summary>
+    /// The fixed-slot arm of <see cref="InitializeParameters"/>, generic over where the argument
+    /// values live. Reachable only from <see cref="Engine.FunctionDeclarationInstantiationFast{TArgs}"/>,
+    /// whose <see cref="JintFunctionDefinition.State.CanUseFastFDI"/> gate guarantees fixed slots
+    /// (so <see cref="DeclarativeEnvironment._slots"/> is non-null) and no duplicate parameter names.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void InitializeParametersFast<TArgs>(Key[] parameterNames, in TArgs arguments)
+        where TArgs : struct, IArgumentSource
+    {
+        var slots = _slots!;
+        for (var i = 0; i < parameterNames.Length; i++)
+        {
+            slots[i] = new Binding(arguments.At(i), canBeDeleted: false, mutable: true, strict: false);
+        }
+    }
+
     internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsCallArguments arguments)
     {
         var empty = _dictionary is null || _dictionary.Count == 0;
