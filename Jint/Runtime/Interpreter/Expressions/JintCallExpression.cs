@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -244,7 +244,7 @@ internal sealed class JintCallExpression : JintExpression
                 engine._referencePool.Return(referenceRecord);
             }
 
-            return FastCall(engine, Unsafe.As<Function>(func), in shape, thisObject, arg0, arg1);
+            return FastCall(engine, Unsafe.As<Function>(func), shape, thisObject, arg0, arg1);
         }
 
         // Register-argument lane for interpreted callees, strictly additive to the built-in lane
@@ -519,11 +519,11 @@ internal sealed class JintCallExpression : JintExpression
     /// guards consulted here must belong to <paramref name="target"/>.
     /// </para>
     /// </remarks>
-    private JsValue FastCall(Engine engine, Function target, in FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsValue FastCall(Engine engine, Function target, FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         if (shape.Variadic)
         {
-            return FastCallVariadic(engine, target, in shape, thisObject, arg0, arg1);
+            return FastCallVariadic(engine, target, shape, thisObject, arg0, arg1);
         }
 
         if (shape.IsLeafFor(thisObject, arg0, arg1))
@@ -593,7 +593,7 @@ internal sealed class JintCallExpression : JintExpression
     /// elsewhere it falls back to the same pooled array the framed path would have rented, which
     /// costs what today's path costs rather than adding to it.
     /// </remarks>
-    private JsValue FastCallVariadic(Engine engine, Function target, in FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
+    private JsValue FastCallVariadic(Engine engine, Function target, FastCallShape shape, JsValue thisObject, JsValue arg0, JsValue arg1)
     {
         var count = _argCount;
 
@@ -601,7 +601,7 @@ internal sealed class JintCallExpression : JintExpression
         TwoArguments buffer = default;
         buffer[0] = arg0;
         buffer[1] = arg1;
-        return InvokeVariadic(engine, target, in shape, thisObject, arg0, arg1, ((ReadOnlySpan<JsValue>) buffer).Slice(0, count));
+        return InvokeVariadic(engine, target, shape, thisObject, arg0, arg1, ((ReadOnlySpan<JsValue>) buffer).Slice(0, count));
 #else
         var rented = engine._jsValueArrayPool.RentArray(count);
         if (count >= 1)
@@ -615,7 +615,7 @@ internal sealed class JintCallExpression : JintExpression
 
         try
         {
-            return InvokeVariadic(engine, target, in shape, thisObject, arg0, arg1, new ReadOnlySpan<JsValue>(rented, 0, count));
+            return InvokeVariadic(engine, target, shape, thisObject, arg0, arg1, new ReadOnlySpan<JsValue>(rented, 0, count));
         }
         finally
         {
@@ -632,7 +632,7 @@ internal sealed class JintCallExpression : JintExpression
     private JsValue InvokeVariadic(
         Engine engine,
         Function target,
-        in FastCallShape shape,
+        FastCallShape shape,
         JsValue thisObject,
         JsValue arg0,
         JsValue arg1,
