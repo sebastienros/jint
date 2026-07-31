@@ -1,4 +1,4 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Linq;
 using System.Text;
@@ -2575,18 +2575,16 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         private readonly Engine? _engine;
         private readonly ICallable? _compare;
-        // Built once per sort rather than per comparison: the comparator cannot change between two
-        // comparisons, so neither can the lane it is dispatched through.
-        private readonly CallbackInvoker _invoker;
+        // Deliberately a plain JsValue[2] and not a CallbackInvoker: this comparer is dereferenced
+        // on every comparison of an n log n sort, and embedding the invoker struct by value grew the
+        // object enough to cost ~4% on SortWithComparer_1K and ~2% on the default-comparison rows,
+        // which never touch it at all. Measured, both A/B orderings.
+        private readonly JsValue[] _comparableArray = new JsValue[2];
 
         private ArrayComparer(Engine? engine, ICallable? compare)
         {
             _engine = engine;
             _compare = compare;
-            if (compare is not null)
-            {
-                _invoker = CallbackInvoker.Create(engine!, compare, 2);
-            }
         }
 
         public int Compare(JsValue? x, JsValue? y)
@@ -2632,7 +2630,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 _engine!.RunBeforeExecuteStatementChecks(null);
 
-                var s = TypeConverter.ToNumber(_invoker.Call(Undefined, x!, y!));
+                // _comparableArray is an exact JsValue[2]; bypass the per-comparison covariance check
+                // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
+                Arguments.WriteNoTypeCheck(_comparableArray, 0, x!);
+                Arguments.WriteNoTypeCheck(_comparableArray, 1, y!);
+
+                var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
                 if (s < 0)
                 {
                     return -1;

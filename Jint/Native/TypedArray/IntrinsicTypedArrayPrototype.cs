@@ -1,4 +1,4 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -1827,18 +1827,15 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         private readonly JsArrayBuffer _buffer;
         private readonly ICallable? _compare;
-        // Built once per sort rather than per comparison: the comparator cannot change between two
-        // comparisons, so neither can the lane it is dispatched through.
-        private readonly CallbackInvoker _invoker;
+        // Plain JsValue[2], not a CallbackInvoker — see the note on ArrayPrototype.ArrayComparer:
+        // a sort dereferences its comparer once per comparison, and embedding the invoker by value
+        // measurably regressed the sort rows.
+        private readonly JsValue[] _comparableArray = new JsValue[2];
 
         private TypedArrayComparer(JsArrayBuffer buffer, ICallable? compare)
         {
             _buffer = buffer;
             _compare = compare;
-            if (compare is not null)
-            {
-                _invoker = CallbackInvoker.Create(buffer.Engine, compare, 2);
-            }
         }
 
         public int Compare(JsValue? x, JsValue? y)
@@ -1865,7 +1862,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
             if (_compare is not null)
             {
-                var v = TypeConverter.ToNumber(_invoker.Call(Undefined, x, y));
+                Arguments.WriteNoTypeCheck(_comparableArray, 0, x);
+                Arguments.WriteNoTypeCheck(_comparableArray, 1, y);
+
+                var v = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
 
                 if (double.IsNaN(v))
                 {
