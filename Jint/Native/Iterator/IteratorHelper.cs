@@ -280,6 +280,145 @@ internal sealed class MapIterator : IteratorHelper
 }
 
 /// <summary>
+/// Iterator helper for chunks(chunkSize) - yields consecutive non-overlapping arrays.
+/// https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.chunks
+/// </summary>
+internal sealed class ChunksIterator : IteratorHelper
+{
+    private readonly uint _chunkSize;
+    private readonly List<JsValue> _buffer;
+    private bool _underlyingDone;
+
+    public ChunksIterator(Engine engine, IteratorInstance.ObjectIterator iterated, uint chunkSize) : base(engine, iterated)
+    {
+        _chunkSize = chunkSize;
+        // Deliberately not sized to chunkSize: it can be as large as 2**32 - 1, and the buffer only
+        // ever needs to hold what the underlying iterator actually produced.
+        _buffer = new List<JsValue>();
+    }
+
+    protected override StepResult ExecuteStep()
+    {
+        // Once the underlying iterator has reported done, never step it again - a trailing partial
+        // chunk is yielded from the buffer, and the call after it must not re-enter next().
+        if (_underlyingDone)
+        {
+            return StepResult.DoneResult;
+        }
+
+        var iterations = 0;
+        while (true)
+        {
+            var step = IteratorStepValue();
+            if (step.Done)
+            {
+                _underlyingDone = true;
+                Exhausted = true;
+
+                // If buffer is not empty, yield it as the final, shorter-than-chunkSize chunk.
+                if (_buffer.Count > 0)
+                {
+                    return new StepResult(TakeBufferAsArray(), false);
+                }
+
+                return StepResult.DoneResult;
+            }
+
+            _buffer.Add(step.Value);
+
+            if ((uint) _buffer.Count == _chunkSize)
+            {
+                return new StepResult(TakeBufferAsArray(), false);
+            }
+
+            // A large chunkSize means many next() calls inside one step; keep the engine
+            // interruptible, and let the catch in the base class close the iterator.
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+        }
+    }
+
+    private JsArray TakeBufferAsArray()
+    {
+        var array = _engine.Realm.Intrinsics.Array.ConstructFast(_buffer);
+        _buffer.Clear();
+        return array;
+    }
+}
+
+/// <summary>
+/// Iterator helper for windows(windowSize [, undersized]) - yields overlapping sliding windows.
+/// https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.windows
+/// </summary>
+internal sealed class WindowsIterator : IteratorHelper
+{
+    private readonly uint _windowSize;
+    private readonly bool _allowPartial;
+    private readonly List<JsValue> _buffer;
+    private bool _underlyingDone;
+
+    public WindowsIterator(Engine engine, IteratorInstance.ObjectIterator iterated, uint windowSize, bool allowPartial) : base(engine, iterated)
+    {
+        _windowSize = windowSize;
+        _allowPartial = allowPartial;
+        // See ChunksIterator: windowSize can be 2**32 - 1, so the buffer grows with arrivals.
+        _buffer = new List<JsValue>();
+    }
+
+    protected override StepResult ExecuteStep()
+    {
+        if (_underlyingDone)
+        {
+            return StepResult.DoneResult;
+        }
+
+        var iterations = 0;
+        while (true)
+        {
+            var step = IteratorStepValue();
+            if (step.Done)
+            {
+                _underlyingDone = true;
+                Exhausted = true;
+
+                // Only "allow-partial" yields a trailing window, and only one that never reached
+                // full size - a buffer already at windowSize was yielded as a full window already.
+                if (_allowPartial && _buffer.Count > 0 && (uint) _buffer.Count < _windowSize)
+                {
+                    var partial = _engine.Realm.Intrinsics.Array.ConstructFast(_buffer);
+                    _buffer.Clear();
+                    return new StepResult(partial, false);
+                }
+
+                return StepResult.DoneResult;
+            }
+
+            // Slide before appending, and only once the window is full, so window N+1 drops exactly
+            // one element of window N.
+            if ((uint) _buffer.Count == _windowSize)
+            {
+                _buffer.RemoveAt(0);
+            }
+
+            _buffer.Add(step.Value);
+
+            if ((uint) _buffer.Count == _windowSize)
+            {
+                // The buffer is retained for the next window, so the yielded array must be a copy.
+                return new StepResult(_engine.Realm.Intrinsics.Array.ConstructFast(_buffer), false);
+            }
+
+            if (++iterations % Engine.ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+        }
+    }
+}
+
+/// <summary>
 /// Iterator helper for flatMap(mapper) - maps and flattens one level.
 /// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
 /// </summary>
