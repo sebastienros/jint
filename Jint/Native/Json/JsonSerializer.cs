@@ -401,7 +401,7 @@ public sealed class JsonSerializer
                 return SerializeResult.NotUndefined;
             }
 
-            var isFinite = !double.IsNaN(doubleValue) && !double.IsInfinity(doubleValue);
+            var isFinite = double.IsFinite(doubleValue);
             if (isFinite)
             {
                 if (TypeConverter.CanBeStringifiedAsLong(doubleValue))

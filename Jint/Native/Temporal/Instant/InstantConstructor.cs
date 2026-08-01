@@ -55,7 +55,7 @@ internal sealed partial class InstantConstructor : Constructor
         var ms = TypeConverter.ToNumber(epochMilliseconds);
 
         // NumberToBigInt: must be an integral number
-        if (double.IsNaN(ms) || double.IsInfinity(ms))
+        if (!double.IsFinite(ms))
         {
             Throw.RangeError(_realm, "Invalid epoch milliseconds");
         }

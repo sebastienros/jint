@@ -53,7 +53,7 @@ internal sealed partial class RelativeTimeFormatPrototype : Prototype
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
 
         var numericValue = TypeConverter.ToNumber(value);
-        if (double.IsNaN(numericValue) || double.IsInfinity(numericValue))
+        if (!double.IsFinite(numericValue))
         {
             Throw.RangeError(_realm, "Invalid value");
         }
@@ -77,7 +77,7 @@ internal sealed partial class RelativeTimeFormatPrototype : Prototype
         var relativeTimeFormat = ValidateRelativeTimeFormat(thisObject);
 
         var numericValue = TypeConverter.ToNumber(value);
-        if (double.IsNaN(numericValue) || double.IsInfinity(numericValue))
+        if (!double.IsFinite(numericValue))
         {
             Throw.RangeError(_realm, "Invalid value");
         }

@@ -257,7 +257,7 @@ internal sealed partial class PlainTimeConstructor : Constructor
         hasAny = true;
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"Time {name} must be a finite number");
         }

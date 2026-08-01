@@ -135,7 +135,7 @@ internal sealed class JsPluralRules : ObjectInstance
     private string SelectCardinal(double n)
     {
         // Handle special values
-        if (double.IsNaN(n) || double.IsInfinity(n))
+        if (!double.IsFinite(n))
         {
             return "other";
         }
@@ -194,7 +194,7 @@ internal sealed class JsPluralRules : ObjectInstance
     /// </summary>
     private string SelectOrdinal(double n)
     {
-        if (double.IsNaN(n) || double.IsInfinity(n))
+        if (!double.IsFinite(n))
         {
             return "other";
         }
