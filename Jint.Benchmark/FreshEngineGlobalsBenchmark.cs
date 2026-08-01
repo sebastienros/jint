@@ -80,7 +80,7 @@ public class FreshEngineGlobalsBenchmark
     [Params(1, 10, 40)]
     public int GlobalCount { get; set; }
 
-    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction, GlobalKind.Lazy, GlobalKind.LazyPerEngine)]
+    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction, GlobalKind.Lazy, GlobalKind.LazyPerEngine, GlobalKind.LazyPerEngineWithState)]
     public GlobalKind Kind { get; set; }
 
     [GlobalSetup]
@@ -147,6 +147,15 @@ public class FreshEngineGlobalsBenchmark
                 // here: a host whose globals depend on the request has nothing to hoist.
                 var index = i;
                 engine.Advanced.AddLazyGlobal(name, e => CreateClrFunction(e, name, index));
+            }
+            else if (Kind == GlobalKind.LazyPerEngineWithState)
+            {
+                // The same registration with the per-request data passed through instead of captured, so the
+                // factory is static and the descriptor is the only thing allocated.
+                engine.Advanced.AddLazyGlobal(
+                    name,
+                    (Owner: this, Name: name, Index: i),
+                    static (e, s) => s.Owner.CreateClrFunction(e, s.Name, s.Index));
             }
             else
             {
@@ -235,4 +244,12 @@ public enum GlobalKind
     /// </para>
     /// </summary>
     LazyPerEngine,
+
+    /// <summary>
+    /// <see cref="LazyPerEngine"/> registered through the state-taking overload, so the factory is a
+    /// <see langword="static"/> lambda rather than a closure. The gap between the two rows is exactly what a
+    /// capturing factory costs a host that registers per engine — nothing else about the two differs, the
+    /// same function objects are built at the same moment.
+    /// </summary>
+    LazyPerEngineWithState,
 }

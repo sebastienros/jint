@@ -1,7 +1,21 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized;
+
+/// <summary>
+/// The state of a lazy property whose factory wants both the engine and something the host supplied, packed
+/// so that <see cref="LazyPropertyDescriptor{T}"/> can carry it in its single state field.
+/// </summary>
+/// <remarks>
+/// This exists to keep a per-engine registration allocation-free apart from the descriptor itself. Handing
+/// <see cref="LazyPropertyDescriptor{T}"/> a lambda that closes over the host's state would allocate a display
+/// class and a delegate for every property, on every engine; packing the state into a struct lets the resolver
+/// be a <see langword="static"/> lambda, which the compiler caches once per instantiation.
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct EngineAndState<TState>(Engine Engine, TState State, Func<Engine, TState, JsValue> Factory);
 
 internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor, IFieldBackedLazyDescriptor
 {

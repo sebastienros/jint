@@ -435,4 +435,87 @@ public class LazyGlobalRegistrationTests
         Invoking(() => engine.Advanced.AddLazyGlobal("name", null!))
             .Should().Throw<System.ArgumentNullException>();
     }
+
+    [Fact]
+    public void StatefulFactoryReceivesTheStateAndTheEngine()
+    {
+        var engine = new Engine();
+
+        engine.Advanced.AddLazyGlobal(
+            "greeting",
+            "world",
+            static (e, s) => JsValue.FromObject(e, "hello " + s));
+
+        engine.Evaluate("greeting").AsString().Should().Be("hello world");
+    }
+
+    [Fact]
+    public void StatefulFactoryIsStillLazyAndRunsAtMostOnce()
+    {
+        var box = new Box();
+        var engine = new Engine();
+
+        engine.Advanced.AddLazyGlobal(
+            "value",
+            box,
+            static (_, b) =>
+            {
+                b.Calls++;
+                return "built";
+            });
+
+        // The property exists from the moment it is declared; only its value is deferred.
+        engine.Evaluate("'value' in globalThis").AsBoolean().Should().BeTrue();
+        box.Calls.Should().Be(0, "an existence check does not need the value");
+
+        engine.Evaluate("value").AsString().Should().Be("built");
+        engine.Evaluate("value").AsString().Should().Be("built");
+        box.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public void StatefulFactoryNullResultBecomesUndefinedRatherThanReRunning()
+    {
+        var box = new Box();
+        var engine = new Engine();
+
+        engine.Advanced.AddLazyGlobal(
+            "nothing",
+            box,
+            static (_, b) =>
+            {
+                b.Calls++;
+                return null!;
+            });
+
+        engine.Evaluate("typeof nothing").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof nothing").AsString().Should().Be("undefined");
+        box.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public void StatefulRegistrationReplacesAnExistingGlobalLikeTheNonGenericOverload()
+    {
+        var engine = new Engine();
+        engine.SetValue("name", "eager");
+
+        engine.Advanced.AddLazyGlobal("name", "lazy", static (e, s) => JsValue.FromObject(e, s));
+
+        engine.Evaluate("name").AsString().Should().Be("lazy");
+    }
+
+    [Fact]
+    public void StatefulNullArgumentsAreRejected()
+    {
+        var engine = new Engine();
+        Invoking(() => engine.Advanced.AddLazyGlobal(null!, 1, static (_, _) => JsValue.Undefined))
+            .Should().Throw<System.ArgumentNullException>();
+        Invoking(() => engine.Advanced.AddLazyGlobal<int>("name", 1, null!))
+            .Should().Throw<System.ArgumentNullException>();
+    }
+
+    private sealed class Box
+    {
+        public int Calls;
+    }
 }
