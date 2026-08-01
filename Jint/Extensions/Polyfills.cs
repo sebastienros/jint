@@ -85,6 +85,13 @@ public static class DoubleExtensions
 {
     extension(double)
     {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // double.IsFinite arrived in .NET Core 3.0 / netstandard2.1. Backfill it so spec steps
+        // phrased as "if x is finite" read the same on every target framework.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+#endif
+
 #if NETFRAMEWORK || NETSTANDARD
         public static double Parse(ReadOnlySpan<char> span, IFormatProvider? provider = null)
         {

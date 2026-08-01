@@ -1,4 +1,5 @@
 using System.Text;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -208,7 +209,11 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 3. Let numLimit be ? ToNumber(limit).
+        // 3. Let iterated be the Iterator Record { [[Iterator]]: O, [[NextMethod]]: undefined, [[Done]]: false }.
+        //    The record is modelled by the receiver alone, because every close below happens before
+        //    GetIteratorDirect and so must read "return" without ever touching "next".
+        // 4. Let numLimit be Completion(ToNumber(limit)).
+        // 5. IfAbruptCloseIterator(numLimit, iterated).
         double numLimit;
         try
         {
@@ -220,7 +225,7 @@ internal partial class IteratorPrototype : Prototype
             throw;
         }
 
-        // 4. If numLimit is NaN, throw a RangeError exception.
+        // 6. If numLimit is NaN, close the iterator and throw a RangeError exception.
         if (double.IsNaN(numLimit))
         {
             IteratorClose(o, CompletionType.Throw);
@@ -228,10 +233,19 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 5. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
+        // 7. If numLimit is finite and numLimit > 𝔽(2**53 - 1), close the iterator and throw a
+        //    RangeError exception. Infinity stays valid and means an unbounded limit.
+        if (double.IsFinite(numLimit) && numLimit > NumberConstructor.MaxSafeInteger)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, $"{numLimit} exceeds the maximum safe integer");
+            return Undefined;
+        }
+
+        // 8. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
         var integerLimit = TypeConverter.ToIntegerOrInfinity(numLimit);
 
-        // 6. If integerLimit < 0, throw a RangeError exception.
+        // 9. If integerLimit < 0, close the iterator and throw a RangeError exception.
         if (integerLimit < 0)
         {
             IteratorClose(o, CompletionType.Throw);
@@ -239,7 +253,7 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 7. Let iterated be GetIteratorDirect(O).
+        // 10. Set iterated to ? GetIteratorDirect(O).
         var iterated = GetIteratorDirect(o);
 
         // Create and return take iterator
@@ -261,7 +275,11 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 3. Let numLimit be ? ToNumber(limit).
+        // 3. Let iterated be the Iterator Record { [[Iterator]]: O, [[NextMethod]]: undefined, [[Done]]: false }.
+        //    The record is modelled by the receiver alone, because every close below happens before
+        //    GetIteratorDirect and so must read "return" without ever touching "next".
+        // 4. Let numLimit be Completion(ToNumber(limit)).
+        // 5. IfAbruptCloseIterator(numLimit, iterated).
         double numLimit;
         try
         {
@@ -273,7 +291,7 @@ internal partial class IteratorPrototype : Prototype
             throw;
         }
 
-        // 4. If numLimit is NaN, throw a RangeError exception.
+        // 6. If numLimit is NaN, close the iterator and throw a RangeError exception.
         if (double.IsNaN(numLimit))
         {
             IteratorClose(o, CompletionType.Throw);
@@ -281,10 +299,19 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 5. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
+        // 7. If numLimit is finite and numLimit > 𝔽(2**53 - 1), close the iterator and throw a
+        //    RangeError exception. Infinity stays valid and means an unbounded limit.
+        if (double.IsFinite(numLimit) && numLimit > NumberConstructor.MaxSafeInteger)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, $"{numLimit} exceeds the maximum safe integer");
+            return Undefined;
+        }
+
+        // 8. Let integerLimit be ! ToIntegerOrInfinity(numLimit).
         var integerLimit = TypeConverter.ToIntegerOrInfinity(numLimit);
 
-        // 6. If integerLimit < 0, throw a RangeError exception.
+        // 9. If integerLimit < 0, close the iterator and throw a RangeError exception.
         if (integerLimit < 0)
         {
             IteratorClose(o, CompletionType.Throw);
@@ -292,7 +319,7 @@ internal partial class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        // 7. Let iterated be GetIteratorDirect(O).
+        // 10. Set iterated to ? GetIteratorDirect(O).
         var iterated = GetIteratorDirect(o);
 
         // Create and return drop iterator

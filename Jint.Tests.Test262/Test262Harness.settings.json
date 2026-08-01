@@ -1,11 +1,17 @@
 {
-  "SuiteGitSha": "defaaf1571cd13b183e3f505c6a06e8db316e593",
+  "SuiteGitSha": "b363f29d3c43c626dc852744ad64a0b48a003693",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "tail-call-optimization"
+    "tail-call-optimization",
+
+    // Parked until the implementation lands; both arrived with this suite bump.
+    // https://tc39.es/proposal-iterator-chunking/ - Iterator.prototype.chunks / .windows
+    "iterator-chunking",
+    // https://tc39.es/proposal-iterator-includes/ - Iterator.prototype.includes
+    "iterator-includes"
   ],
   "ExcludedFlags": [
   ],
