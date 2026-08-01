@@ -27,6 +27,14 @@ Always build and test in **Release** — it is the faster feedback loop and the 
 
 Setting `JINT_HOST_CONTRACT_VERIFICATION=1` runs `Jint.Tests` and `Jint.Tests.PublicInterface` with the host-contract verifiers on in Release, which is the configuration an embedder is told to use; see [Host-contract verification](#host-contract-verification). It is a separate leg, not the default.
 
+### Updating the test262 suite
+
+Bump `SuiteGitSha` in `Jint.Tests.Test262/Test262Harness.settings.json` to the new upstream commit. The next build notices the settings-file hash changed, wipes `Generated/` and regenerates it (`dotnet tool restore && dotnet test262 generate`); `Generated/` is gitignored, so the committed diff stays one line.
+
+A bump is a **code** change, not just a pin change. An upstream normative change can turn a feature that passes today red tomorrow, so read the commits in the range rather than only the new test files — `git log --oneline <old>..<new>` in a test262 checkout, plus the `features.txt` diff for newly added features.
+
+A feature that arrives unimplemented parks in `ExcludedFeatures`, and the PR that implements it removes the entry again. Keep exclusions outside `intl402/` temporary and commented with what removes them; every `ExcludedFiles` entry today is intl402, and that invariant is worth keeping.
+
 ### Quick manual testing with Jint.Repl
 
 ```bash
@@ -260,7 +268,7 @@ Performance is a first-class concern; every change must consider its impact.
 - **Partial classes** — Large types are split (`Engine.*.cs`, `Intrinsics.*.cs`, `ObjectInstance.*.cs`). Keep related functionality together when editing.
 - **Type flags** — The `InternalTypes` enum enables fast type checks without casting; many hot paths depend on it.
 - **Property keys** — `KnownKeys` holds pre-computed common property names.
-- **Spec references** — Code cites TC39 sections in comments (`// https://tc39.es/ecma262/#sec-...`). Maintain them when editing.
+- **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`).
 
 ### Data structures
 
@@ -291,11 +299,19 @@ Use it for manual checks before a direct `array[i]` / `span[i]` where the index 
 
 Follow the specification as closely as practical, support both strict and sloppy mode with their spec-defined differences, and do not introduce non-standard language extensions. When implementing a feature:
 
-1. Read the TC39 spec section, and cite it in comments.
-2. Put the built-in where its peers live under `Jint/Native/` (e.g. `Array/` for Array methods).
-3. Register new globals and well-known symbols in `Intrinsics`.
-4. Update `TypeConverter` if new coercion rules apply.
-5. Add a statement/expression handler under `Runtime/Interpreter/` if it is new syntax.
+1. Read the normative text before writing code, from whichever document currently owns the feature:
+   - **merged language features** — the *living* spec, <https://tc39.es/ecma262/>. Not a dated snapshot, not MDN, not a compatibility table.
+   - **stage 2.7/3 proposals not yet in ECMA-262** — that proposal's own spec, `https://tc39.es/proposal-<name>/`. Jint ships a lot of these (the "ECMAScript proposals" list in `README.md` is the current set), and the `ecma262` URL form is simply wrong for them.
+   - **internationalization** — ECMA-402, <https://tc39.es/ecma402/>.
+
+   Cite the URL you actually read, per the **Spec references** convention above.
+2. Where the prose and test262 disagree, **test262 at the pinned SHA wins** — see the `Jint.Tests.Test262` note about never "fixing" those tests. A test's `info:` block usually quotes the numbered algorithm verbatim, which is the fastest way to read a normative change and the most reliable way to get argument-validation order right.
+3. Put the built-in where its peers live under `Jint/Native/` (e.g. `Array/` for Array methods).
+4. Register new globals and well-known symbols in `Intrinsics`.
+5. Update `TypeConverter` if new coercion rules apply.
+6. Add a statement/expression handler under `Runtime/Interpreter/` if it is new syntax.
+
+Proposal-stage built-ins are registered unconditionally — there is no per-feature option or ES-version gate. `Options.ExperimentalFeatures` is about CLR interop and has nothing to do with which built-ins exist.
 
 ## Modules
 
