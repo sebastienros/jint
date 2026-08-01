@@ -1762,12 +1762,16 @@ public sealed partial class Engine : IDisposable
         var fastEnv = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
         fastEnv.InitializeParametersFast(configuration.ParameterNames, in argumentsList);
 
-        // Initialize var slots to Undefined
+        // Stamp every non-parameter slot from the template: undefined for a hoisted var, the temporal
+        // dead zone with the declaration's mutability for a top-level let/const. One unconditional
+        // copy for every fixed-slot function — see State.NonParameterSlotTemplate for why the arm has
+        // no branch of its own to select.
         var slots = fastEnv._slots!;
+        var template = configuration.NonParameterSlotTemplate!;
         var paramCount = configuration.ParameterSlotCount;
-        for (var i = paramCount; i < slots.Length; i++)
+        for (var i = 0; i < template.Length; i++)
         {
-            slots[i] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
+            slots[paramCount + i] = template[i];
         }
     }
 
@@ -1796,12 +1800,13 @@ public sealed partial class Engine : IDisposable
             var fastEnv = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
             fastEnv.InitializeParameters(configuration.ParameterNames, false, argumentsList);
 
-            // Initialize var slots to Undefined
+            // Stamp every non-parameter slot from the template (see FunctionDeclarationInstantiationFast).
             var slots = fastEnv._slots!;
+            var template = configuration.NonParameterSlotTemplate!;
             var paramCount = configuration.ParameterSlotCount;
-            for (var i = paramCount; i < slots.Length; i++)
+            for (var i = 0; i < template.Length; i++)
             {
-                slots[i] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
+                slots[paramCount + i] = template[i];
             }
 
             return null;

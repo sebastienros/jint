@@ -421,6 +421,36 @@ internal sealed class JintFunctionDefinition
         public Key[]? SlotNames;
         public int ParameterSlotCount;
         public int VarSlotCount;
+
+        /// <summary>
+        /// The initial <see cref="Binding"/> for every slot the fixed-slot instantiation arm fills —
+        /// the whole region from <see cref="ParameterSlotCount"/> to the end of <see cref="SlotNames"/>,
+        /// so <c>Length</c> is exactly <c>SlotNames.Length - ParameterSlotCount</c>. Non-null whenever
+        /// <see cref="CanUseFastFDI"/> holds (empty for a parameters-only function), which is what lets
+        /// the arm be one unconditional copy with no arm selection of its own.
+        /// <para>
+        /// The hoisted-var region holds <c>undefined</c>, mutable, exactly as the general arm writes it.
+        /// The top-level let/const region holds UNINITIALIZED entries — the temporal dead zone — each
+        /// carrying its declaration kind's mutability, so a read before the declaration executes is a
+        /// ReferenceError and a write to a <c>const</c> is a TypeError. Byte for byte what
+        /// <see cref="Engine.FunctionDeclarationInstantiation"/>'s general arm writes into the same slots.
+        /// </para>
+        /// <para>
+        /// Immutable once built, and the only <see cref="Jint.Native.JsValue"/> it can hold is the
+        /// <see cref="Jint.Native.JsValue.Undefined"/> singleton, which is engine-independent — hence
+        /// safe on this cross-engine shared State (same argument as
+        /// <c>JintBlockStatement.BlockState.SlotTemplates</c>).
+        /// </para>
+        /// </summary>
+        public Binding[]? NonParameterSlotTemplate;
+
+        /// <summary>
+        /// True when <see cref="Engine.FunctionDeclarationInstantiation"/> can be served by its
+        /// fixed-slot arm. Currently coincides with <see cref="UseFixedSlots"/>: the arm can express
+        /// every binding kind the slot layout admits, including the temporal dead zone (see
+        /// <see cref="NonParameterSlotTemplate"/>). Kept as its own flag because it names the
+        /// instantiation capability, not the storage — a future lane may gate more narrowly.
+        /// </summary>
         public bool CanUseFastFDI;
         /// <summary>
         /// True when FunctionDeclarationInstantiation has nothing to do at all: no parameters,
@@ -742,20 +772,41 @@ internal sealed class JintFunctionDefinition
                 var slotNames = new Key[totalSlots];
                 state.ParameterNames.CopyTo(slotNames, 0);
                 var varOffset = state.ParameterNames.Length;
+
+                // Every non-parameter slot's initial Binding, built here alongside the names so the
+                // two orders can never drift. The fixed-slot instantiation arm then stamps this over
+                // the whole non-parameter region unconditionally — one code path, whatever the
+                // function declares. Empty (and allocation-free) for a parameters-only function.
+                var nonParameterSlotTemplate = totalSlots > varOffset ? new Binding[totalSlots - varOffset] : [];
+
                 for (var i = 0; i < varsToInitialize.Count; i++)
                 {
                     slotNames[varOffset + i] = varsToInitialize[i].Name;
+
+                    // A hoisted var starts initialized to undefined and mutable. JsValue.Undefined is a
+                    // process-wide singleton, so this stays engine-independent.
+                    nonParameterSlotTemplate[i] = new Binding(JsValue.Undefined, canBeDeleted: false, mutable: true, strict: false);
                 }
 
-                // Add lexical declaration names (let/const)
+                // Add lexical declaration names (let/const) and their initial Bindings.
                 if (lexicalBindingCount > 0)
                 {
                     var lexOffset = varOffset + varsToInitialize.Count;
+                    var templateIndex = varsToInitialize.Count;
                     foreach (var decl in lexDecls!.Value.Declarations)
                     {
+                        // A null value is the temporal dead zone: the binding exists but is
+                        // uninitialized until its declaration executes, so a read before that
+                        // point is a ReferenceError rather than `undefined`. Byte for byte what
+                        // FunctionDeclarationInstantiation's general arm writes into these slots.
+                        var template = decl.IsConstantDeclaration
+                            ? new Binding(null!, canBeDeleted: false, mutable: false, strict: true)
+                            : new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
+
                         foreach (var bn in decl.BoundNames)
                         {
                             slotNames[lexOffset++] = bn;
+                            nonParameterSlotTemplate[templateIndex++] = template;
                         }
                     }
                 }
@@ -763,8 +814,9 @@ internal sealed class JintFunctionDefinition
                 state.SlotNames = slotNames;
                 state.ParameterSlotCount = state.ParameterNames.Length;
                 state.VarSlotCount = varsToInitialize.Count;
+                state.NonParameterSlotTemplate = nonParameterSlotTemplate;
                 state.UseFixedSlots = true;
-                state.CanUseFastFDI = lexicalBindingCount == 0;
+                state.CanUseFastFDI = true;
             }
         }
 
