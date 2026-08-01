@@ -247,6 +247,29 @@ Each of these cost a real integrator or a real bug.
 
 Global usings for Acornima and `Acornima.Ast` are defined in `Directory.Build.props`. Nullable reference types are enabled across the codebase, unsafe code is allowed for performance-critical paths, and the latest analyzers run with `EnforceCodeStyleInBuild`.
 
+### Write against the modern BCL, and polyfill downwards
+
+`Jint` multi-targets `net462;netstandard2.0;netstandard2.1;net8.0;net10.0`, so the oldest target decides what compiles. **Write the call site the way you would on .NET 10 anyway, and add the missing API to `Jint/Extensions/Polyfills.cs`** rather than open-coding the old-framework equivalent everywhere or scattering `#if` through the logic.
+
+Use a C# extension member so the call reads identically on every target framework, and guard it with the narrowest symbol for the frameworks that actually lack the API:
+
+```csharp
+public static class DoubleExtensions
+{
+    extension(double)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // double.IsFinite arrived in .NET Core 3.0 / netstandard2.1.
+        public static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+#endif
+    }
+}
+```
+
+A real member always beats an extension member, so on the frameworks that *do* have the API the BCL implementation is what binds — usually the better one (`double.IsFinite` is a single exponent-bits test where the polyfill is two calls). There is no ambiguity to resolve, and nothing to undo when a target framework is eventually dropped: delete the guarded block and every call site is already correct.
+
+This matters beyond tidiness. Spec algorithms are phrased in terms like "if *x* is finite", so a call site reading `double.IsFinite(x)` can be checked against the spec text at a glance where `!double.IsNaN(x) && !double.IsInfinity(x)` has to be decoded first. `Polyfills.cs` is the single home for these — `string.Join(char, …)` and the `ReadOnlySpan<char>` `Parse`/`TryParse` overloads are already there. Add to it rather than working around it.
+
 ### Performance is critical
 
 Performance is a first-class concern; every change must consider its impact.
