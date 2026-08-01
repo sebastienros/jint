@@ -61,7 +61,15 @@ public sealed class JsonSerializer
     private string? _indent;
     private string _gap = string.Empty;
     private List<JsValue>? _propertyList;
-    private JsValue _replacerFunction = JsValue.Undefined;
+    private bool _hasReplacerFunction;
+
+    // Declared last: this is the only field that is not read on the per-key hot path (only
+    // UnwrapValueSlow touches it, and only when _hasReplacerFunction says there is one), and embedding
+    // the invoker by value is what keeps the replacer call array-free. It grows the instance by about
+    // one cache line, which is one allocation per Serialize call against a walk of the whole graph —
+    // unlike ArrayPrototype.ArrayComparer, where the same embedding cost ~4% because that object is
+    // dereferenced once per comparison of an n log n sort with almost no work in between.
+    private CallbackInvoker _replacerInvoker;
 
     private static readonly JsString toJsonProperty = new("toJSON");
 
@@ -204,7 +212,8 @@ public sealed class JsonSerializer
         _indent = null;
         _gap = string.Empty;
         _propertyList = null;
-        _replacerFunction = JsValue.Undefined;
+        _hasReplacerFunction = false;
+        _replacerInvoker = default;
 
         // for JSON.stringify(), any function passed as the first argument will return undefined
         // if the replacer is not defined. The function is not called either.
@@ -276,7 +285,14 @@ public sealed class JsonSerializer
 
         if (oi.IsCallable)
         {
-            _replacerFunction = replacer;
+            // Built once here rather than per key: the replacer is invoked for every key of the whole
+            // graph, and how it must be invoked depends only on the callback — which no key, and no
+            // mutation a replacer performs, can change. Create() rather than Rent() because the
+            // invoker lives for the whole recursive walk, which can exit by exception (a cycle, a
+            // BigInt, an execution constraint) from any depth, so there is no one place that could
+            // reliably hand a pooled array back. On the register lane there is no array at all.
+            _replacerInvoker = CallbackInvoker.Create(_engine, (ICallable) oi, 2);
+            _hasReplacerFunction = true;
         }
         else
         {
@@ -457,7 +473,7 @@ public sealed class JsonSerializer
     {
         var value = holder.Get(key);
 
-        if (value._type <= InternalTypes.Integer && _replacerFunction.IsUndefined())
+        if (value._type <= InternalTypes.Integer && !_hasReplacerFunction)
         {
             return value;
         }
@@ -489,10 +505,9 @@ public sealed class JsonSerializer
             }
         }
 
-        if (!_replacerFunction.IsUndefined())
+        if (_hasReplacerFunction)
         {
-            var replacerFunctionCallable = (ICallable) _replacerFunction.AsObject();
-            value = replacerFunctionCallable.Call(holder, TypeConverter.ToPropertyKey(key), value);
+            value = _replacerInvoker.Call(holder, TypeConverter.ToPropertyKey(key), value);
         }
 
         if (value.IsObject())
@@ -894,7 +909,7 @@ public sealed class JsonSerializer
             {
                 // Serializing a member is a value observation, so a lazy layout slot materializes here.
                 member = value.GetSlotForRead(i);
-                if (member._type > InternalTypes.Integer || !_replacerFunction.IsUndefined())
+                if (member._type > InternalTypes.Integer || _hasReplacerFunction)
                 {
                     // the key is observable (toJSON/replacer argument); materialize it only now
                     member = UnwrapValueSlow(new JsString(keys[i].Name), value, member);
