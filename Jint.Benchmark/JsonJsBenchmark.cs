@@ -12,11 +12,18 @@ namespace Jint.Benchmark;
 /// here are generated deterministically offline, so rows are stable gates. One parse or stringify
 /// per op — the Allocated column is the per-document allocation cost.
 ///
+/// <para><b>Callback rows.</b> <see cref="StringifyRecordsWithReplacer"/> and
+/// <see cref="ParseRecordsWithReviver"/> pass a user function, so <c>JSON.stringify</c> invokes it once
+/// per key of the whole graph and <c>JSON.parse</c> once per key/element it internalizes — the shapes
+/// where a per-key dispatch decision is paid thousands of times per document. Their controls are the
+/// plain <see cref="StringifyRecords"/> and <see cref="ParseRecords"/> rows over the same fixture, which
+/// pass no callback and which a change to callback dispatch therefore cannot move.</para>
+///
 /// <para><b>Engine isolation.</b> Every row gets its own engine — built by <see cref="CreateEngine"/>,
 /// which re-runs <see cref="SetupSource"/> so each engine owns its own <c>records</c>/<c>config</c>
 /// graphs — and warmed with its own script and nothing else (see <see cref="IsolatedScript"/>). It used
-/// to be one engine warmed with all six row scripts, so each row was measured on an engine carrying the
-/// other five rows' handler-tree, call-site and object-shape state, plus the retained result graphs their
+/// to be one engine warmed with every row script, so each row was measured on an engine carrying the
+/// other rows' handler-tree, call-site and object-shape state, plus the retained result graphs their
 /// warm-up left behind. The rows still measure warm parse/stringify, and engine construction and warm-up
 /// stay in <c>[GlobalSetup]</c>, outside the measurement. <b>Numbers from this class are not comparable
 /// to any published before the harness changed.</b></para>
@@ -34,6 +41,8 @@ public class JsonJsBenchmark
     private IsolatedScript _stringifyRecords;
     private IsolatedScript _stringifyConfig;
     private IsolatedScript _roundTripRecords;
+    private IsolatedScript _stringifyRecordsWithReplacer;
+    private IsolatedScript _parseRecordsWithReviver;
 
     internal const string ParseRecordsSource = "JSON.parse(recordsJson);";
     internal const string ParseConfigSource = "JSON.parse(configJson);";
@@ -41,6 +50,12 @@ public class JsonJsBenchmark
     internal const string StringifyRecordsSource = "JSON.stringify(records);";
     internal const string StringifyConfigSource = "JSON.stringify(config);";
     internal const string RoundTripRecordsSource = "JSON.parse(JSON.stringify(records));";
+
+    // The replacer/reviver are declared inside the row's own script rather than in SetupSource: a
+    // global there would land on every other row's engine too, and instantiating one closure per op
+    // is negligible next to the thousands of invocations it then receives.
+    internal const string StringifyRecordsWithReplacerSource = "JSON.stringify(records, function (key, value) { return value; });";
+    internal const string ParseRecordsWithReviverSource = "JSON.parse(recordsJson, function (key, value) { return value; });";
     internal const string SetupSource = "var records = JSON.parse(recordsJson); var config = JSON.parse(configJson);";
 
     /// <summary>1,000 records × 6 mixed-type properties (~90 KB) — the array-of-identical-records shape.</summary>
@@ -165,6 +180,8 @@ public class JsonJsBenchmark
         _stringifyRecords = IsolatedScript.Warm(Engine.PrepareScript(StringifyRecordsSource), CreateEngine);
         _stringifyConfig = IsolatedScript.Warm(Engine.PrepareScript(StringifyConfigSource), CreateEngine);
         _roundTripRecords = IsolatedScript.Warm(Engine.PrepareScript(RoundTripRecordsSource), CreateEngine);
+        _stringifyRecordsWithReplacer = IsolatedScript.Warm(Engine.PrepareScript(StringifyRecordsWithReplacerSource), CreateEngine);
+        _parseRecordsWithReviver = IsolatedScript.Warm(Engine.PrepareScript(ParseRecordsWithReviverSource), CreateEngine);
     }
 
     [Benchmark]
@@ -184,4 +201,12 @@ public class JsonJsBenchmark
 
     [Benchmark]
     public JsValue RoundTripRecords() => _roundTripRecords.Run();
+
+    /// <summary>The replacer is invoked once per key of the whole graph; <see cref="StringifyRecords"/> is its control.</summary>
+    [Benchmark]
+    public JsValue StringifyRecordsWithReplacer() => _stringifyRecordsWithReplacer.Run();
+
+    /// <summary>The reviver is invoked once per internalized key/element; <see cref="ParseRecords"/> is its control.</summary>
+    [Benchmark]
+    public JsValue ParseRecordsWithReviver() => _parseRecordsWithReviver.Run();
 }

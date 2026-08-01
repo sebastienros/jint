@@ -97,10 +97,18 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
     /// Internalizes a JSON property with source text tracking for the reviver.
     /// https://tc39.es/proposal-json-parse-with-source/#sec-internalizejsonproperty
     /// </summary>
+    /// <remarks>
+    /// The reviver is taken as an already-built <see cref="CallbackInvoker"/>, by <c>in</c> so the walk
+    /// passes a pointer rather than copying the struct down every level. It is built once in
+    /// <see cref="Parse"/> — the reviver is fixed for the whole parse, and nothing a reviver does
+    /// (mutating the holder, deleting keys, throwing, being a revoked proxy) can change how it must be
+    /// invoked. One invoker serves the whole recursion without its argument array being aliased across
+    /// levels: a level fills and invokes only after every child level has finished doing so.
+    /// </remarks>
     private JsValue InternalizeJSONProperty(
         JsValue holder,
         JsValue name,
-        ICallable reviver,
+        in CallbackInvoker reviver,
         JsonParseNode? parseNode,
         string jsonSource)
     {
@@ -117,7 +125,7 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
                 {
                     var prop = JsString.Create(i);
                     var elementNode = elements != null && (int) i < elements.Count ? elements[(int) i] : null;
-                    var newElement = InternalizeJSONProperty(obj, prop, reviver, elementNode, jsonSource);
+                    var newElement = InternalizeJSONProperty(obj, prop, in reviver, elementNode, jsonSource);
                     if (newElement.IsUndefined())
                     {
                         obj.Delete(prop);
@@ -141,7 +149,7 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
                         var keyStr = TypeConverter.ToString(p);
                         entries.TryGetValue(keyStr, out entryNode);
                     }
-                    var newElement = InternalizeJSONProperty(obj, p, reviver, entryNode, jsonSource);
+                    var newElement = InternalizeJSONProperty(obj, p, in reviver, entryNode, jsonSource);
                     if (newElement.IsUndefined())
                     {
                         obj.Delete(p);
@@ -168,6 +176,8 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
             }
         }
 
+        // The context object is built fresh per key (its "source" property depends on this key's parse
+        // node), so all three arguments vary and none of them can be hoisted into the invoker.
         return reviver.Call(holder, name, val, context);
     }
 
@@ -188,7 +198,14 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
             var root = _realm.Intrinsics.Object.Construct(Arguments.Empty);
             var rootName = JsString.Empty;
             root.CreateDataPropertyOrThrow(rootName, parseResult.Value);
-            return InternalizeJSONProperty(root, rootName, (ICallable) reviver, parseResult.Node, jsonString);
+
+            // Arity is always three: this implementation follows the json-parse-with-source proposal,
+            // where the reviver's third argument is the context object, and InternalizeJSONProperty
+            // constructs and passes one unconditionally (only its "source" property is conditional).
+            var invoker = CallbackInvoker.Rent(_engine, (ICallable) reviver, 3);
+            var result = InternalizeJSONProperty(root, rootName, in invoker, parseResult.Node, jsonString);
+            invoker.Return();
+            return result;
         }
         else
         {
