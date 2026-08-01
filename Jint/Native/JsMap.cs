@@ -95,8 +95,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
         var i = 0;
         var iterations = 0;
@@ -109,9 +108,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
             }
 
             var key = _map.GetKey(i);
-            args[0] = _map[key];
-            args[1] = key;
-            callable.Call(thisArg, args);
+            invoker.Call(thisArg, _map[key], key);
 
             // Adjust position for mutations during callback
             if (i < _map.Count && ReferenceEquals(_map.GetKey(i), key))
@@ -132,7 +129,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
             // else: key was deleted, entries shifted left so i now points to next entry
         }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
     }
 
     internal ObjectInstance Iterator() => _realm.Intrinsics.MapIteratorPrototype.ConstructEntryIterator(this);

@@ -85,7 +85,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
         var targetObj = TypedArrayCreate(_realm, (IConstructor) c, argumentList);
         targetObj._viewedArrayBuffer.AssertNotImmutable();
 
-        var mappingArgs = mapping ? new JsValue[2] : null;
+        var invoker = mapping ? CallbackInvoker.Create(_engine, (ICallable) mapFunction, 2) : default;
         for (uint k = 0; k < len; ++k)
         {
             var Pk = JsNumber.Create(k);
@@ -93,9 +93,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
             JsValue mappedValue;
             if (mapping)
             {
-                mappingArgs![0] = kValue;
-                mappingArgs[1] = Pk;
-                mappedValue = ((ICallable) mapFunction).Call(thisArg, mappingArgs);
+                mappedValue = invoker.Call(thisArg, kValue, Pk);
             }
             else
             {

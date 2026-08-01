@@ -58,8 +58,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
-        var args = _engine._jsValueArrayPool.RentArray(3);
-        args[2] = this;
+        var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
         var i = 0;
         var iterations = 0;
@@ -72,9 +71,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
             }
 
             var value = _set._list[i];
-            args[0] = value;
-            args[1] = value;
-            callable.Call(thisArg, args);
+            invoker.Call(thisArg, value, value);
 
             // Adjust position for mutations during callback
             if (i < _set._list.Count && (ReferenceEquals(_set._list[i], value) || SameValueZeroComparer.Equals(_set._list[i], value)))
@@ -95,7 +92,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
             // else: value was deleted, entries shifted left so i now points to next entry
         }
 
-        _engine._jsValueArrayPool.ReturnArray(args);
+        invoker.Return();
     }
 
     internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);

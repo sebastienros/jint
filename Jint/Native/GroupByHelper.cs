@@ -24,10 +24,9 @@ internal static class GroupByHelper
     {
         private readonly Engine _engine;
         private readonly Dictionary<JsValue, JsArray> _result;
-        private readonly ICallable _callable;
         private readonly bool _mapMode;
         private ulong _k;
-        private readonly JsValue[] _callArgs = new JsValue[2];
+        private readonly CallbackInvoker _invoker;
 
         public GroupByProtocol(
             Engine engine,
@@ -38,8 +37,8 @@ internal static class GroupByHelper
         {
             _engine = engine;
             _result = result;
-            _callable = callable;
             _mapMode = mapMode;
+            _invoker = CallbackInvoker.Create(engine, callable, 2);
         }
 
         protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
@@ -49,12 +48,7 @@ internal static class GroupByHelper
                 Throw.TypeError(_engine.Realm);
             }
 
-            // _callArgs is an exact JsValue[2]; bypass the per-element covariance check
-            // (stelem.ref -> CastHelpers.StelemRef) a plain store pays because JsValue is not sealed.
-            Arguments.WriteNoTypeCheck(_callArgs, 0, currentValue);
-            Arguments.WriteNoTypeCheck(_callArgs, 1, _k);
-
-            var value = _callable.Call(JsValue.Undefined, _callArgs);
+            var value = _invoker.Call(JsValue.Undefined, currentValue, _k);
             JsValue key;
             if (_mapMode)
             {
