@@ -689,6 +689,102 @@ internal partial class IteratorPrototype : Prototype
     }
 
     /// <summary>
+    /// https://tc39.es/proposal-iterator-includes/#sec-iterator.prototype.includes
+    /// </summary>
+    [JsFunction(Length = 1)]
+    private JsValue Includes(JsValue thisObject, JsValue searchElement, JsValue skippedElements)
+    {
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.includes called on non-object");
+            return Undefined;
+        }
+
+        // 3. Let iterated be the Iterator Record { [[Iterator]]: O, [[NextMethod]]: undefined, [[Done]]: false }.
+        //    As in take/drop, the receiver alone stands in for the record: every close below runs
+        //    before GetIteratorDirect and so reaches "return" without reading "next".
+        // 4. If skippedElements is undefined, let toSkip be 0.
+        var toSkip = 0d;
+        if (!skippedElements.IsUndefined())
+        {
+            // 5. Else if skippedElements is not one of +INFINITY, -INFINITY, or an integral Number,
+            //    close the iterator and throw a TypeError exception. The value is inspected as-is,
+            //    with no ToNumber coercion, which is where NaN lands.
+            if (skippedElements is not JsNumber number
+                || (!double.IsInfinity(number._value) && !TypeConverter.IsIntegralNumber(number._value)))
+            {
+                IteratorClose(o, CompletionType.Throw);
+                Throw.TypeError(_realm, "skippedElements must be an integral Number or +/-Infinity");
+                return Undefined;
+            }
+
+            // 6. Else, let toSkip be skippedElements.
+            toSkip = number._value;
+        }
+
+        // 7. If toSkip < -0, close the iterator and throw a RangeError exception. -0 itself passes,
+        //    since -0 < -0 is false; -Infinity does not.
+        if (toSkip < 0)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, "skippedElements must not be negative");
+            return Undefined;
+        }
+
+        // 8. If toSkip is finite and toSkip > 𝔽(2**53 - 1), close the iterator and throw a
+        //    RangeError exception. +Infinity is exempt and simply skips every element.
+        if (double.IsFinite(toSkip) && toSkip > NumberConstructor.MaxSafeInteger)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, $"{toSkip} exceeds the maximum safe integer");
+            return Undefined;
+        }
+
+        // 9. Let skipped be 0.
+        var skipped = 0d;
+
+        // 10. Set iterated to ? GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        // 11. Repeat, stepping the iterator until it is exhausted or the search element is found.
+        var iterations = 0;
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+
+                if (skipped < toSkip)
+                {
+                    skipped++;
+                }
+                else if (SameValueZeroComparer.Equals(value, searchElement))
+                {
+                    // A match closes the iterator; natural exhaustion below deliberately does not.
+                    iterated.Close(CompletionType.Normal);
+                    return JsBoolean.True;
+                }
+
+                // skippedElements may be +Infinity, so this loop is unbounded even for a well
+                // behaved iterator; keep the engine interruptible.
+                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                {
+                    _engine.Constraints.Check();
+                }
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return JsBoolean.False;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.every
     /// </summary>
     [JsFunction]
