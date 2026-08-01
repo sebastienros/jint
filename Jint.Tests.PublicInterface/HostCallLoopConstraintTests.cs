@@ -24,6 +24,13 @@ namespace Jint.Tests.PublicInterface;
 /// whole traversal is one run and one budget.
 /// </para>
 /// <para>
+/// The one exception is the <em>amortized</em> constraints — cancellation and the timeout's polling
+/// cadence. Their check countdown is engine state, not evaluation-context state, so it spans top-level
+/// entries: a cancelled token is noticed within 64 statements however those statements are spread over
+/// host calls. That bounds detection latency, not the budget — the timeout's deadline is still re-armed
+/// per entry, which is why the timeout tests below still record no throw.
+/// </para>
+/// <para>
 /// These tests deliberately assert the <em>current</em> behaviour so that any change to it is a
 /// conscious, reviewed decision rather than a silent one. They are not an endorsement of it.
 /// </para>
@@ -221,12 +228,13 @@ public class HostCallLoopConstraintTests
     }
 
     [Fact]
-    public void ACancelledTokenIsNotObservedByHostCallsShorterThanTheAmortizationInterval()
+    public void ACancelledTokenIsObservedAcrossAHostLoopOfCallsShorterThanTheAmortizationInterval()
     {
-        // Cancellation is the one constraint whose Reset() is a no-op, so the cancelled state itself does
-        // survive across host calls. It still goes unnoticed here, for an independent reason: the
-        // amortized constraints are checked once per 64 statements of a single evaluation context, and a
-        // host call gets a brand new context — so a callee shorter than that interval never reaches a check.
+        // Cancellation is the one constraint whose Reset() is a no-op, so the cancelled state survives
+        // across host calls — and it is now actually looked at. The amortized check cadence is engine
+        // state, not evaluation-context state, so the statements of one short call carry the countdown
+        // forward into the next instead of every top-level entry restarting it at 64. This is the one
+        // shape in this file where the host loop *is* bounded from inside the engine.
         using var cts = new CancellationTokenSource();
         var engine = new Engine(o => o.CancellationToken(cts.Token));
         engine.Execute("function tiny() { return 1; }");
@@ -234,13 +242,21 @@ public class HostCallLoopConstraintTests
 
         cts.Cancel();
 
+        var calls = 0;
+
         Invoking(() =>
         {
             for (var i = 0; i < 1000; i++)
             {
+                calls++;
                 tiny.Call();
             }
-        }).Should().NotThrow("a one-statement callee never reaches the amortized check, however many times it is invoked");
+        }).Should().Throw<ExecutionCanceledException>("the amortized countdown spans top-level entries, so a loop of one-statement calls reaches a check");
+
+        // ...and it is noticed promptly: every call runs at least one statement, so the countdown must
+        // reach zero within AmortizedConstraintCheckInterval (64) calls. That constant is internal, hence
+        // the literal; the point of the assertion is that detection latency stays bounded, not unbounded.
+        calls.Should().BeLessThanOrEqualTo(64);
     }
 
     [Fact]
@@ -305,23 +321,29 @@ public class HostCallLoopConstraintTests
     }
 
     [Fact]
-    public void AnAmortizableUserConstraintStillMissesHostCallsShorterThanTheCheckInterval()
+    public void AnAmortizableUserConstraintIsReachedByAHostLoopOfCallsShorterThanTheCheckInterval()
     {
-        // The trap that goes with the workaround above: declaring IsAmortizable => true moves the
-        // constraint onto the per-64-statement cadence, whose countdown lives on the evaluation context —
-        // and a host call gets a fresh one. An always-failing amortizable constraint is therefore never
-        // even consulted by a loop of short calls.
+        // The generalisation of the cancellation case above, for a user-derived constraint: declaring
+        // IsAmortizable => true moves the constraint onto the per-64-statement cadence, and that
+        // countdown is engine state that spans top-level entries. An always-failing amortizable
+        // constraint is therefore consulted — within 64 statements — by a loop of short calls too.
+        // It still keeps the tight-loop fast lane armed, unlike the exact constraint above.
         var engine = new Engine(new Options().Constraint(new AlwaysFailingAmortizableConstraint()));
         engine.Execute("function tiny() { return 1; }");
         var tiny = engine.GetValue("tiny");
+
+        var calls = 0;
 
         Invoking(() =>
         {
             for (var i = 0; i < 1000; i++)
             {
+                calls++;
                 tiny.Call();
             }
-        }).Should().NotThrow("the amortized countdown restarts at 64 for every host call");
+        }).Should().Throw<BudgetExhaustedException>("the amortized countdown spans host calls instead of restarting at 64 for each");
+
+        calls.Should().BeLessThanOrEqualTo(64);
     }
 
     /// <summary>
