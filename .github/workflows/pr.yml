@@ -2,8 +2,12 @@ name: PR
 
 on:
 
+  # Deliberately no "branches:" filter. That filter matches a pull request's *base*, so restricting
+  # it to main and 3.x silently skipped CI on every layer of a stacked pull request except the
+  # bottom one - the upper layers base on the branch below them, not on main, and showed "no checks
+  # reported" until GitHub retargeted them at merge time. Running on every pull request costs a
+  # little more CI on the rare cross-branch PR and makes a stack reviewable.
   pull_request:
-    branches: [ main, 3.x ]
 
 env:
   DOTNET_NOLOGO: true
