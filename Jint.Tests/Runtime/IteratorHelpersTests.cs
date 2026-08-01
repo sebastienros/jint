@@ -637,4 +637,158 @@ public class IteratorHelpersTests
         // return() after exhaustion must not forward either.
         result.Should().Be("[1,1]");
     }
+
+    [Fact]
+    public void IncludesFindsAValueAndSkipsLeadingElements()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 1; yield 2; yield 3; }
+            JSON.stringify([
+                gen().includes(2),
+                gen().includes(9),
+                gen().includes(1),
+                gen().includes(1, 1),
+                gen().includes(3, 2),
+                gen().includes(3, 3)
+            ]);
+            """).AsString();
+
+        result.Should().Be("[true,false,true,false,true,false]");
+    }
+
+    [Fact]
+    public void IncludesComparesWithSameValueZero()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const sym = Symbol();
+            JSON.stringify([
+                [NaN].values().includes(NaN),
+                [0].values().includes(-0),
+                [-0].values().includes(0),
+                [{}].values().includes({}),
+                [sym].values().includes(sym)
+            ]);
+            """).AsString();
+
+        // SameValueZero: NaN matches itself and the two zeroes match, but objects are by identity.
+        result.Should().Be("[true,true,true,false,true]");
+    }
+
+    [Fact]
+    public void IncludesSkippedElementsIsNotCoerced()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 1; }
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const values = [NaN, 0.1, -0.1, '1', true, null, {}, Symbol(), [2]];
+            JSON.stringify(values.map(v => raised(() => gen().includes(0, v))));
+            """).AsString();
+
+        // Only +/-Infinity and integral Numbers are accepted, so NaN is a TypeError and not a
+        // RangeError - there is no ToNumber step that could turn a string into a number first.
+        result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
+    }
+
+    [Fact]
+    public void IncludesRejectsNegativeAndOversizedSkippedElements()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 1; }
+            const raised = f => { try { f(); return 'ok'; } catch (e) { return e.constructor.name; } };
+            JSON.stringify([
+                raised(() => gen().includes(0, -1)),
+                raised(() => gen().includes(0, -Infinity)),
+                raised(() => gen().includes(0, Number.MAX_SAFE_INTEGER + 1)),
+                raised(() => gen().includes(0, -0)),
+                raised(() => gen().includes(0, 0)),
+                raised(() => gen().includes(0, Infinity)),
+                raised(() => gen().includes(0, Number.MAX_SAFE_INTEGER))
+            ]);
+            """).AsString();
+
+        // -0 passes because -0 < -0 is false, and +Infinity is exempt from the upper bound.
+        result.Should().Be("""["RangeError","RangeError","RangeError","ok","ok","ok","ok"]""");
+    }
+
+    [Fact]
+    public void IncludesClosesOnAMatchButNotOnExhaustion()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            let closed = 0;
+            const source = () => ({
+                __proto__: Iterator.prototype,
+                i: 0,
+                next() { return this.i < 3 ? { done: false, value: this.i++ } : { done: true }; },
+                return() { closed++; return {}; }
+            });
+
+            const matched = source().includes(1);
+            const afterMatch = closed;
+            const missed = source().includes(99);
+            JSON.stringify([matched, afterMatch, missed, closed]);
+            """).AsString();
+
+        result.Should().Be("[true,1,false,1]");
+    }
+
+    [Fact]
+    public void IncludesValidationFailureClosesTheReceiverWithoutReadingNext()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            let closed = 0;
+            const closable = () => ({
+                __proto__: Iterator.prototype,
+                get next() { throw new Error('next must not be read'); },
+                return() { closed++; return {}; }
+            });
+
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const type = raised(() => closable().includes(0, NaN));
+            const range = raised(() => closable().includes(0, -1));
+            JSON.stringify([type, range, closed]);
+            """).AsString();
+
+        result.Should().Be("""["TypeError","RangeError",2]""");
+    }
+
+    [Fact]
+    public void IncludesWithInfiniteSkipNeverMatches()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            let returnCalls = 0;
+            let count = 0;
+            const iter = {
+                __proto__: Iterator.prototype,
+                next() { return ++count < 4 ? { done: false, value: count } : { done: true }; },
+                return() { returnCalls++; return {}; }
+            };
+
+            JSON.stringify([iter.includes(1, Infinity), returnCalls, count]);
+            """).AsString();
+
+        // Every element is skipped, so the iterator runs to natural exhaustion and is not closed.
+        result.Should().Be("[false,0,4]");
+    }
+
+    [Fact]
+    public void IncludesComposesWithTheOtherHelpers()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            JSON.stringify([
+                [1, 2, 3, 4, 5].values().map(x => x * 2).includes(6),
+                [1, 2, 3, 4, 5].values().drop(3).includes(1),
+                [1, 2, 3, 4, 5].values().filter(x => x % 2 === 0).includes(4)
+            ]);
+            """).AsString();
+
+        result.Should().Be("[true,false,true]");
+    }
 }

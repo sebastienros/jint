@@ -152,6 +152,7 @@ and many more.
 - ✔ Immutable Arraybuffers
 - ✔ Import Bytes (`import x from './file' with { type: 'bytes' }`)
 - ✔ Iterator Chunking (`Iterator.prototype.chunks`, `Iterator.prototype.windows`)
+- ✔ Iterator Includes (`Iterator.prototype.includes`)
 - ✔ Iterator Join (`Iterator.prototype.join`)
 - ✔ Iterator Sequencing
 - ✔ Joint Iteration

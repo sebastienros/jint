@@ -5,11 +5,7 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "tail-call-optimization",
-
-    // Parked until the implementation lands.
-    // https://tc39.es/proposal-iterator-includes/ - Iterator.prototype.includes
-    "iterator-includes"
+    "tail-call-optimization"
   ],
   "ExcludedFlags": [
   ],
