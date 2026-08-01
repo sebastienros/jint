@@ -395,4 +395,246 @@ public class IteratorHelpersTests
 
         result.Should().Be("""["RangeError","no throw","no throw"]""");
     }
+
+    [Fact]
+    public void ChunksYieldsConsecutiveNonOverlappingArrays()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 0; yield 1; yield 2; yield 3; yield 4; }
+            JSON.stringify([
+                Array.from(gen().chunks(2)),
+                Array.from(gen().chunks(1)),
+                Array.from(gen().chunks(5)),
+                Array.from(gen().chunks(100))
+            ]);
+            """).AsString();
+
+        // A final chunk shorter than chunkSize is still yielded.
+        result.Should().Be("[[[0,1],[2,3],[4]],[[0],[1],[2],[3],[4]],[[0,1,2,3,4]],[[0,1,2,3,4]]]");
+    }
+
+    [Fact]
+    public void WindowsSlidesOneElementAtATime()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 0; yield 1; yield 2; yield 3; yield 4; }
+            JSON.stringify([
+                Array.from(gen().windows(2)),
+                Array.from(gen().windows(1)),
+                Array.from(gen().windows(3))
+            ]);
+            """).AsString();
+
+        result.Should().Be("[[[0,1],[1,2],[2,3],[3,4]],[[0],[1],[2],[3],[4]],[[0,1,2],[1,2,3],[2,3,4]]]");
+    }
+
+    [Fact]
+    public void WindowsUndersizedDefaultsToOnlyFull()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 0; yield 1; yield 2; }
+            JSON.stringify([
+                Array.from(gen().windows(100)),
+                Array.from(gen().windows(100, undefined)),
+                Array.from(gen().windows(100, 'only-full')),
+                Array.from(gen().windows(100, 'allow-partial'))
+            ]);
+            """).AsString();
+
+        // Only "allow-partial" yields the never-filled trailing window.
+        result.Should().Be("[[],[],[],[[0,1,2]]]");
+    }
+
+    [Fact]
+    public void ChunksAndWindowsYieldDistinctArrays()
+    {
+        // windows reuses its buffer across yields, so each yielded array has to be a copy.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() { yield 0; yield 1; yield 2; yield 3; }
+            const chunks = Array.from(gen().chunks(2));
+            const windows = Array.from(gen().windows(2));
+            JSON.stringify([
+                chunks[0] !== chunks[1],
+                windows[0] !== windows[1],
+                windows.every(Array.isArray),
+                JSON.stringify(windows[0])
+            ]);
+            """).AsString();
+
+        result.Should().Be("""[true,true,true,"[0,1]"]""");
+    }
+
+    [Fact]
+    public void WindowsSlidesBeforeAppendingWhenTheUnderlyingIteratorAdvancesInParallel()
+    {
+        // Stealing an element from underneath the helper proves the drop-then-append ordering:
+        // the buffer is [0,1], 2 goes to the outside caller, so the next window is [1,3] not [1,2].
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const iterator = (function* () { for (let i = 0; i < 6; ++i) yield i; })();
+            const windowed = iterator.windows(2);
+            const first = windowed.next().value;
+            const stolen = iterator.next().value;
+            JSON.stringify([first, stolen, windowed.next().value, windowed.next().value]);
+            """).AsString();
+
+        result.Should().Be("[[0,1],2,[1,3],[3,4]]");
+    }
+
+    [Theory]
+    [InlineData("chunks")]
+    [InlineData("windows")]
+    public void ChunkAndWindowSizeAreNotCoerced(string method)
+    {
+        // The size is taken verbatim - no ToNumber - so anything that is not already an integral
+        // Number is a TypeError, which is where NaN and both infinities land too.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function* gen() {}
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const sizes = ['1', true, null, undefined, {}, [2], Symbol(), NaN, 0.5, 1.5, Infinity, -Infinity];
+            JSON.stringify(sizes.map(s => raised(() => gen().{{method}}(s))));
+            """).AsString();
+
+        result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
+    }
+
+    [Theory]
+    [InlineData("chunks")]
+    [InlineData("windows")]
+    public void ChunkAndWindowSizeMustBeWithinTheValidRange(string method)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function* gen() {}
+            const raised = f => { try { f(); return 'ok'; } catch (e) { return e.constructor.name; } };
+            JSON.stringify([
+                raised(() => gen().{{method}}(0)),
+                raised(() => gen().{{method}}(-0)),
+                raised(() => gen().{{method}}(-1)),
+                raised(() => gen().{{method}}(2 ** 32)),
+                raised(() => gen().{{method}}(2 ** 53)),
+                raised(() => gen().{{method}}(1)),
+                raised(() => gen().{{method}}(2 ** 32 - 1))
+            ]);
+            """).AsString();
+
+        result.Should().Be("""["RangeError","RangeError","RangeError","RangeError","RangeError","ok","ok"]""");
+    }
+
+    [Fact]
+    public void WindowsRejectsAnInvalidUndersizedWithoutCoercingIt()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function* gen() {}
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const values = [null, '', 'something else', 0, true, false, {}, Symbol(), new String('only-full')];
+            JSON.stringify(values.map(v => raised(() => gen().windows(1, v))));
+            """).AsString();
+
+        result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
+    }
+
+    [Theory]
+    [InlineData("chunks")]
+    [InlineData("windows")]
+    public void AnInvalidSizeClosesTheReceiverWithoutReadingNext(string method)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            let closed = 0;
+            const closable = () => ({
+                __proto__: Iterator.prototype,
+                get next() { throw new Error('next must not be read'); },
+                return() { closed++; return {}; }
+            });
+
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const type = raised(() => closable().{{method}}('nope'));
+            const range = raised(() => closable().{{method}}(0));
+            JSON.stringify([type, range, closed]);
+            """).AsString();
+
+        result.Should().Be("""["TypeError","RangeError",2]""");
+    }
+
+    [Fact]
+    public void WindowsValidatesSizeBeforeUndersized()
+    {
+        // An invalid size wins even when undersized is also invalid, and an invalid undersized is
+        // still caught before "next" is ever read.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            let reads = 0;
+            const probe = () => ({ get next() { reads++; return function () { return { done: true }; }; } });
+            const raised = f => { try { f(); return 'ok'; } catch (e) { return e.constructor.name; } };
+
+            const both = raised(() => Iterator.prototype.windows.call(probe(), 0, 'bad'));
+            const onlyUndersized = raised(() => Iterator.prototype.windows.call(probe(), 1, 'bad'));
+            const valid = raised(() => Iterator.prototype.windows.call(probe(), 1));
+            JSON.stringify([both, onlyUndersized, valid, reads]);
+            """).AsString();
+
+        // Only the fully valid call reaches GetIteratorDirect, so "next" is read exactly once.
+        result.Should().Be("""["RangeError","TypeError","ok",1]""");
+    }
+
+    [Theory]
+    [InlineData("chunks(2)")]
+    [InlineData("windows(2)")]
+    public void ChunkingHelpersComposeWithTheOtherHelpers(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            JSON.stringify([1, 2, 3, 4, 5, 6, 7].values().drop(1).{{call}}.map(a => a.join('-')).toArray());
+            """).AsString();
+
+        var expected = call.StartsWith("chunks", StringComparison.Ordinal)
+            ? """["2-3","4-5","6-7"]"""
+            : """["2-3","3-4","4-5","5-6","6-7"]""";
+        result.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("chunks")]
+    [InlineData("windows")]
+    public void ChunkingHelpersForwardReturnAndStopAfterExhaustion(string method)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            let closed = 0;
+            const source = {
+                __proto__: Iterator.prototype,
+                i: 0,
+                next() { return this.i < 4 ? { done: false, value: this.i++ } : { done: true }; },
+                return() { closed++; return {}; }
+            };
+
+            const helper = source.{{method}}(2);
+            helper.next();
+            helper.return();
+            const afterEarlyReturn = closed;
+
+            const drained = {
+                __proto__: Iterator.prototype,
+                i: 0,
+                next() { return this.i < 4 ? { done: false, value: this.i++ } : { done: true }; },
+                return() { closed++; return {}; }
+            };
+            const all = drained.{{method}}(2);
+            while (!all.next().done) { }
+            all.return();
+
+            JSON.stringify([afterEarlyReturn, closed]);
+            """).AsString();
+
+        // An early return() forwards to the underlying iterator; natural exhaustion does not, and a
+        // return() after exhaustion must not forward either.
+        result.Should().Be("[1,1]");
+    }
 }

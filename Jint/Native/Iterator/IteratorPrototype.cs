@@ -328,6 +328,115 @@ internal partial class IteratorPrototype : Prototype
     }
 
     /// <summary>
+    /// https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.chunks
+    /// </summary>
+    [JsFunction]
+    private JsValue Chunks(JsValue thisObject, JsValue chunkSize)
+    {
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.chunks called on non-object");
+            return Undefined;
+        }
+
+        // 3-6. Validate chunkSize against the pre-GetIteratorDirect Iterator Record.
+        var size = ValidateChunkOrWindowSize(o, chunkSize, "chunkSize");
+
+        // 7. Set iterated to ? GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        return new ChunksIterator(_engine, iterated, size);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.windows
+    /// </summary>
+    [JsFunction(Length = 1)]
+    private JsValue Windows(JsValue thisObject, JsValue windowSize, JsValue undersized)
+    {
+        // 1. Let O be the this value.
+        // 2. If O is not an Object, throw a TypeError exception.
+        if (thisObject is not ObjectInstance o)
+        {
+            Throw.TypeError(_realm, "Iterator.prototype.windows called on non-object");
+            return Undefined;
+        }
+
+        // 3-6. Validate windowSize first - an invalid size is a RangeError even when undersized is
+        //      also invalid, so the two checks may not be reordered.
+        var size = ValidateChunkOrWindowSize(o, windowSize, "windowSize");
+
+        // 7. If undersized is undefined, set undersized to "only-full".
+        // 8. If undersized is neither "only-full" nor "allow-partial", close the iterator and throw
+        //    a TypeError exception. The value is compared as-is: there is no ToString coercion, so
+        //    a String object or anything else non-string is a TypeError rather than a match.
+        var allowPartial = false;
+        if (!undersized.IsUndefined())
+        {
+            if (undersized is not JsString mode)
+            {
+                IteratorClose(o, CompletionType.Throw);
+                Throw.TypeError(_realm, "undersized must be either \"only-full\" or \"allow-partial\"");
+                return Undefined;
+            }
+
+            switch (mode.ToString())
+            {
+                case "only-full":
+                    break;
+                case "allow-partial":
+                    allowPartial = true;
+                    break;
+                default:
+                    IteratorClose(o, CompletionType.Throw);
+                    Throw.TypeError(_realm, "undersized must be either \"only-full\" or \"allow-partial\"");
+                    return Undefined;
+            }
+        }
+
+        // 9. Set iterated to ? GetIteratorDirect(O).
+        var iterated = GetIteratorDirect(o);
+
+        return new WindowsIterator(_engine, iterated, size, allowPartial);
+    }
+
+    /// <summary>
+    /// Shared steps 4-6 of Iterator.prototype.chunks and Iterator.prototype.windows.
+    /// https://tc39.es/proposal-iterator-chunking/#sec-iterator.prototype.chunks
+    /// </summary>
+    /// <remarks>
+    /// The size is taken verbatim, with no ToNumber coercion: anything that is not already an
+    /// integral Number is a TypeError, which is why NaN and ±Infinity land there rather than in the
+    /// range check below. Every failure closes the receiver through "return" without reading "next",
+    /// because the spec's Iterator Record still carries an undefined [[NextMethod]] at this point.
+    /// </remarks>
+    private uint ValidateChunkOrWindowSize(ObjectInstance o, JsValue size, string parameterName)
+    {
+        // 4. If size is not a Number, close the iterator and throw a TypeError exception.
+        // 5. If size is not an integral Number, close the iterator and throw a TypeError exception.
+        if (size is not JsNumber number || !TypeConverter.IsIntegralNumber(number._value))
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.TypeError(_realm, $"{parameterName} must be an integral Number");
+            return 0;
+        }
+
+        // 6. If size is not in the inclusive interval from 1𝔽 to 𝔽(2**32 - 1), close the iterator
+        //    and throw a RangeError exception. -0 is integral but below 1, so it lands here.
+        var value = number._value;
+        if (value < 1 || value > uint.MaxValue)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, $"{parameterName} must be in the inclusive interval from 1 to 2**32 - 1");
+            return 0;
+        }
+
+        return (uint) value;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
     /// </summary>
     [JsFunction]

@@ -7,9 +7,7 @@
   "ExcludedFeatures": [
     "tail-call-optimization",
 
-    // Parked until the implementation lands; both arrived with this suite bump.
-    // https://tc39.es/proposal-iterator-chunking/ - Iterator.prototype.chunks / .windows
-    "iterator-chunking",
+    // Parked until the implementation lands.
     // https://tc39.es/proposal-iterator-includes/ - Iterator.prototype.includes
     "iterator-includes"
   ],
