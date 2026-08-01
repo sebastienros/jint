@@ -80,7 +80,7 @@ public class FreshEngineGlobalsBenchmark
     [Params(1, 10, 40)]
     public int GlobalCount { get; set; }
 
-    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction, GlobalKind.Lazy)]
+    [Params(GlobalKind.Delegate, GlobalKind.ClrFunction, GlobalKind.Lazy, GlobalKind.LazyPerEngine)]
     public GlobalKind Kind { get; set; }
 
     [GlobalSetup]
@@ -139,6 +139,14 @@ public class FreshEngineGlobalsBenchmark
             if (Kind == GlobalKind.Delegate)
             {
                 engine.SetValue(name, CreateDelegate(i));
+            }
+            else if (Kind == GlobalKind.LazyPerEngine)
+            {
+                // Declared on this engine, so the factory may close over per-request state. The closure is
+                // built here rather than hoisted for the same reason the Delegate row builds its delegates
+                // here: a host whose globals depend on the request has nothing to hoist.
+                var index = i;
+                engine.Advanced.AddLazyGlobal(name, e => CreateClrFunction(e, name, index));
             }
             else
             {
@@ -212,4 +220,19 @@ public enum GlobalKind
     /// a per-<i>used</i>-global one.
     /// </summary>
     Lazy,
+
+    /// <summary>
+    /// The same declaration made on the engine itself through
+    /// <see cref="Engine.AdvancedOperations.AddLazyGlobal"/>, which is what a host must use when the value
+    /// depends on per-request state a shared <see cref="Options"/> cannot hold — a scoped service provider,
+    /// a request, a workflow context.
+    /// <para>
+    /// It is a genuinely different cost from <see cref="Lazy"/> rather than a restatement of it. The options
+    /// registration happens once for the process and the engine only replays it, so its factory delegates are
+    /// created once; this one runs the registration itself on every engine, so anything the API allocates per
+    /// call is a per-request cost. That makes this the row that decides whether declaring a per-request global
+    /// is cheaper than simply building it.
+    /// </para>
+    /// </summary>
+    LazyPerEngine,
 }

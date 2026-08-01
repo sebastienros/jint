@@ -447,10 +447,6 @@ public partial class Engine
 
             var engine = _engine;
 
-            // Resolved once per registration, not per read: LazyPropertyDescriptor treats a null value as
-            // "not materialized yet", so a factory returning null would silently re-run on every read.
-            Func<Engine, JsValue> resolver = e => valueFactory(e) ?? JsValue.Undefined;
-
             // SetProperty, exactly as the options-time registration uses, and for a reason that only bites
             // here: unlike a registration applied during construction, this one lands on an engine whose
             // handler trees may already hold a resolved binding for this very name. Every storage path
@@ -459,7 +455,7 @@ public partial class Engine
             // _propertiesVersion, which is the sole thing the global-identifier and member-read inline
             // caches revalidate against. Installing through anything that skipped that bump would leave a
             // warmed read site serving the previous binding forever.
-            engine.Realm.GlobalObject.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, resolver, flags));
+            engine.Realm.GlobalObject.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags));
         }
 
         /// <summary>

@@ -24,7 +24,13 @@ internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor, IFieldBack
             var value = _value;
             if (value is null)
             {
-                _value = value = _resolver(_state);
+                // A resolver returning null would leave the pair in its "not materialized yet" state and
+                // re-run on every read. Substituting Undefined here rather than making each caller wrap its
+                // factory in a null-guarding lambda is what lets the registration APIs hand their own
+                // delegate straight to this constructor: a wrapper allocated per registration is one thing,
+                // but Engine.Advanced.AddLazyGlobal registers per engine, so a host installing globals on
+                // every request paid a closure pair for each of them.
+                _value = value = _resolver(_state) ?? JsValue.Undefined;
             }
 
             if (value is not null)
