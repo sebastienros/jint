@@ -799,7 +799,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
                 if (fsdValue.IsNumber())
                 {
                     var fsdNum = fsdValue.AsNumber();
-                    if (double.IsNaN(fsdNum) || double.IsInfinity(fsdNum))
+                    if (!double.IsFinite(fsdNum))
                     {
                         Throw.RangeError(_realm, "fractionalSecondDigits must be a finite number");
                     }
@@ -1141,7 +1141,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     private int ConvertToInteger(JsValue value, string fieldName)
     {
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"DateTime {fieldName} must be a finite number");
         }
@@ -1239,7 +1239,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         hasAny = true;
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"Duration {name} must be a finite number");
         }

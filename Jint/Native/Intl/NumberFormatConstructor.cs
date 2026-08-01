@@ -668,7 +668,7 @@ internal sealed partial class NumberFormatConstructor : Constructor
         }
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, "roundingIncrement must be a finite number");
         }

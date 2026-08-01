@@ -281,7 +281,7 @@ internal sealed partial class DurationFormatPrototype : Prototype
         }
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"Invalid value for {property}");
         }

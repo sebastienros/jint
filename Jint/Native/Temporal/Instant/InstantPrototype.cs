@@ -190,7 +190,7 @@ internal sealed partial class InstantPrototype : Prototype
             if (!incValue.IsUndefined())
             {
                 var inc = TypeConverter.ToNumber(incValue);
-                if (double.IsNaN(inc) || double.IsInfinity(inc))
+                if (!double.IsFinite(inc))
                 {
                     Throw.RangeError(_realm, "roundingIncrement must be finite");
                 }
@@ -323,7 +323,7 @@ internal sealed partial class InstantPrototype : Prototype
         if (!roundingIncrementValue.IsUndefined())
         {
             var inc = TypeConverter.ToNumber(roundingIncrementValue);
-            if (double.IsNaN(inc) || double.IsInfinity(inc))
+            if (!double.IsFinite(inc))
             {
                 Throw.RangeError(_realm, "roundingIncrement must be finite");
             }
@@ -561,7 +561,7 @@ internal sealed partial class InstantPrototype : Prototype
                 else
                 {
                     var num = ((JsNumber) digitsValue)._value;
-                    if (double.IsNaN(num) || double.IsInfinity(num))
+                    if (!double.IsFinite(num))
                     {
                         Throw.RangeError(_realm, "fractionalSecondDigits must be finite");
                     }

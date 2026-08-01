@@ -982,7 +982,7 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         }
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, "epochNanoseconds must be a finite number");
         }

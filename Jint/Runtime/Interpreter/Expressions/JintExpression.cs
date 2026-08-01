@@ -227,7 +227,9 @@ internal abstract class JintExpression
                 var n = left.AsNumber();
                 var d = right.AsNumber();
 
-                if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
+                // A non-finite dividend, or a NaN divisor, gives NaN. An infinite *divisor* does not,
+                // and is handled by the branch below, so only n gets the full finiteness test.
+                if (!double.IsFinite(n) || double.IsNaN(d))
                 {
                     result = JsNumber.DoubleNaN;
                 }

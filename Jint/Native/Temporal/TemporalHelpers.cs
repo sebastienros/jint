@@ -1134,7 +1134,7 @@ internal static class TemporalHelpers
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool CheckDurationComponent(double component, ref int sign)
     {
-        if (double.IsNaN(component) || double.IsInfinity(component))
+        if (!double.IsFinite(component))
             return false;
 
         if (component > 0)
@@ -4944,7 +4944,7 @@ internal static class TemporalHelpers
         var number = TypeConverter.ToNumber(increment);
 
         // 6. If integerIncrement is NaN, +∞, or -∞, throw a RangeError exception.
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(realm, "Rounding increment must be finite");
         }

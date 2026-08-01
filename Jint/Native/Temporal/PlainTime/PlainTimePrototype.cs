@@ -409,7 +409,7 @@ internal sealed partial class PlainTimePrototype : Prototype
                 if (fsdValue.IsNumber())
                 {
                     var fsdNum = fsdValue.AsNumber();
-                    if (double.IsNaN(fsdNum) || double.IsInfinity(fsdNum))
+                    if (!double.IsFinite(fsdNum))
                     {
                         Throw.RangeError(_realm, "fractionalSecondDigits must be a finite number");
                     }

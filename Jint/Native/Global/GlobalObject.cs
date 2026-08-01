@@ -262,7 +262,7 @@ public sealed partial class GlobalObject : ObjectInstance
     private static JsValue IsFinite(JsValue thisObject, JsValue value)
     {
         var n = TypeConverter.ToNumber(value);
-        return !double.IsNaN(n) && !double.IsInfinity(n);
+        return double.IsFinite(n);
     }
 
     private const string UriReservedString = ";/?:@&=+$,";

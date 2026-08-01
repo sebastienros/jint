@@ -968,7 +968,7 @@ internal sealed partial class DatePrototype : Prototype
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         var tv = TypeConverter.ToPrimitive(o, Types.Number);
-        if (tv.IsNumber() && !IsFinite(((JsNumber) tv)._value))
+        if (tv.IsNumber() && !double.IsFinite(((JsNumber) tv)._value))
         {
             return Null;
         }
@@ -1420,19 +1420,16 @@ internal sealed partial class DatePrototype : Prototype
         return new DatePresentation((long) (day * MsPerDay + time), DateFlags.None);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
-
-    private static bool AreFinite(double value1, double value2) => IsFinite(value1) && IsFinite(value2);
+    private static bool AreFinite(double value1, double value2) => double.IsFinite(value1) && double.IsFinite(value2);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsFinite(DatePresentation value) => value.IsFinite;
 
     private static bool AreFinite(double value1, double value2, double value3)
-        => IsFinite(value1) && IsFinite(value2) && IsFinite(value3);
+        => double.IsFinite(value1) && double.IsFinite(value2) && double.IsFinite(value3);
 
     private static bool AreFinite(double value1, double value2, double value3, double value4)
-        => IsFinite(value1) && IsFinite(value2) && IsFinite(value3) && IsFinite(value4);
+        => double.IsFinite(value1) && double.IsFinite(value2) && double.IsFinite(value3) && double.IsFinite(value4);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct Date(int Year, int Month, int Day);

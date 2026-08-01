@@ -122,7 +122,7 @@ internal sealed partial class DurationPrototype : Prototype
         anyDefined = true;
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"Duration {name} must be a finite number");
         }
@@ -278,7 +278,7 @@ internal sealed partial class DurationPrototype : Prototype
             if (!roundingIncrementValue.IsUndefined())
             {
                 roundingIncrement = TypeConverter.ToNumber(roundingIncrementValue);
-                if (double.IsNaN(roundingIncrement) || double.IsInfinity(roundingIncrement))
+                if (!double.IsFinite(roundingIncrement))
                 {
                     Throw.RangeError(_realm, "roundingIncrement must be a finite number");
                 }
@@ -1381,7 +1381,7 @@ internal sealed partial class DurationPrototype : Prototype
                 if (fsdValue.IsNumber())
                 {
                     var fsdNum = fsdValue.AsNumber();
-                    if (double.IsNaN(fsdNum) || double.IsInfinity(fsdNum))
+                    if (!double.IsFinite(fsdNum))
                     {
                         Throw.RangeError(_realm, "fractionalSecondDigits must be 'auto' or a number 0-9");
                     }

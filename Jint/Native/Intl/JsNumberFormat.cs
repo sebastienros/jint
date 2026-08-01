@@ -208,7 +208,7 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatScientific(double value)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value == 0)
+        if (!double.IsFinite(value) || value == 0)
         {
             return FormatDecimal(value);
         }
@@ -232,7 +232,7 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatEngineering(double value)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value == 0)
+        if (!double.IsFinite(value) || value == 0)
         {
             return FormatDecimal(value);
         }
@@ -702,7 +702,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     private double ApplyRounding(double value, int decimalPlaces)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value))
+        if (!double.IsFinite(value))
         {
             return value;
         }
@@ -1214,7 +1214,7 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatWithSignificantDigits(double value)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value))
+        if (!double.IsFinite(value))
         {
             return value.ToString(NumberFormatInfo);
         }

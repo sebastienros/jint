@@ -965,7 +965,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
                 else
                 {
                     var num = ((JsNumber) precisionProp)._value;
-                    if (double.IsNaN(num) || double.IsInfinity(num))
+                    if (!double.IsFinite(num))
                     {
                         Throw.RangeError(_realm, "fractionalSecondDigits must be finite");
                     }
@@ -1398,7 +1398,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
         hasAny = true;
 
         var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number) || double.IsInfinity(number))
+        if (!double.IsFinite(number))
         {
             Throw.RangeError(_realm, $"Duration {name} must be a finite number");
         }
