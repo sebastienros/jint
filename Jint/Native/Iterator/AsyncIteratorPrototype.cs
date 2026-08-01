@@ -1,3 +1,4 @@
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
@@ -179,6 +180,17 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         {
             IteratorClose(o, CompletionType.Throw);
             Throw.RangeError(_realm, "NaN must be positive");
+            limit = 0;
+            return null!;
+        }
+
+        // Kept in lockstep with the synchronous Iterator.prototype.take/drop: a finite limit above
+        // 2**53 - 1 is a RangeError, while Infinity stays valid as an unbounded limit. test262 has
+        // no AsyncIterator directory, so nothing upstream pins this - the two validators agreeing does.
+        if (double.IsFinite(numLimit) && numLimit > NumberConstructor.MaxSafeInteger)
+        {
+            IteratorClose(o, CompletionType.Throw);
+            Throw.RangeError(_realm, $"{numLimit} exceeds the maximum safe integer");
             limit = 0;
             return null!;
         }

@@ -310,4 +310,89 @@ public class IteratorHelpersTests
 
         result.Should().Be(2);
     }
+
+    [Theory]
+    [InlineData("take")]
+    [InlineData("drop")]
+    public void LimitAtOrBelowMaxSafeIntegerIsAccepted(string method)
+    {
+        // Number.MAX_SAFE_INTEGER is the inclusive upper bound, and Infinity is exempt from the
+        // bound entirely because the spec step only rejects a *finite* limit above it.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function* gen() {}
+            const raised = f => { try { f(); return 'ok'; } catch (e) { return e.constructor.name; } };
+            JSON.stringify([
+                raised(() => gen().{{method}}(0)),
+                raised(() => gen().{{method}}(Number.MAX_SAFE_INTEGER)),
+                raised(() => gen().{{method}}(Infinity))
+            ]);
+            """).AsString();
+
+        result.Should().Be("""["ok","ok","ok"]""");
+    }
+
+    [Theory]
+    [InlineData("take")]
+    [InlineData("drop")]
+    public void FiniteLimitAboveMaxSafeIntegerThrowsRangeError(string method)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function* gen() {}
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            JSON.stringify([
+                raised(() => gen().{{method}}(Number.MAX_SAFE_INTEGER + 1)),
+                raised(() => gen().{{method}}(Number.MAX_SAFE_INTEGER + 3)),
+                raised(() => gen().{{method}}(2 ** 53))
+            ]);
+            """).AsString();
+
+        result.Should().Be("""["RangeError","RangeError","RangeError"]""");
+    }
+
+    [Theory]
+    [InlineData("take")]
+    [InlineData("drop")]
+    public void AnOversizedLimitClosesTheReceiverWithoutReadingNext(string method)
+    {
+        // The spec validates against an Iterator Record whose [[NextMethod]] is still undefined, so
+        // the close must reach "return" while "next" stays untouched.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            let closed = 0;
+            const closable = {
+                __proto__: Iterator.prototype,
+                get next() { throw new Error('next must not be read'); },
+                return() { closed++; return {}; }
+            };
+
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const error = raised(() => closable.{{method}}(Number.MAX_SAFE_INTEGER + 1));
+            JSON.stringify([error, closed]);
+            """).AsString();
+
+        result.Should().Be("""["RangeError",1]""");
+    }
+
+    [Theory]
+    [InlineData("take")]
+    [InlineData("drop")]
+    public void AsyncFiniteLimitAboveMaxSafeIntegerThrowsRangeError(string method)
+    {
+        // Nothing in test262 covers AsyncIterator, so this is what keeps the two limit validators
+        // from drifting apart.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            const raised = f => { try { f(); return 'no throw'; } catch (e) { return e.constructor.name; } };
+            const iter = { __proto__: AsyncIterator.prototype, next() { return Promise.resolve({ done: true }); } };
+            JSON.stringify([
+                raised(() => AsyncIterator.prototype.{{method}}.call(iter, Number.MAX_SAFE_INTEGER + 1)),
+                raised(() => AsyncIterator.prototype.{{method}}.call(iter, Number.MAX_SAFE_INTEGER)),
+                raised(() => AsyncIterator.prototype.{{method}}.call(iter, Infinity))
+            ]);
+            """).AsString();
+
+        result.Should().Be("""["RangeError","no throw","no throw"]""");
+    }
 }
