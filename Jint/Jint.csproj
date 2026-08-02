@@ -24,7 +24,11 @@
 
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 
-    <PolySharpExcludeGeneratedTypes>System.Runtime.CompilerServices.RequiresLocationAttribute</PolySharpExcludeGeneratedTypes>
+    <!-- PolySharp supplies the compiler-required attributes and marker types the downlevel targets
+         lack (IsExternalInit, RequiredMember, the nullable/trimming attributes, SkipLocalsInit, ...).
+         Generated types are internal; keep it that way, since a public one would put a type whose
+         members vary by target framework into Jint's public API. -->
+    <PolySharpUsePublicAccessibilityForGeneratedTypes>false</PolySharpUsePublicAccessibilityForGeneratedTypes>
     <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
 
   </PropertyGroup>
