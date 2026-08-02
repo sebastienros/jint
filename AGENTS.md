@@ -257,7 +257,7 @@ Global usings for Acornima and `Acornima.Ast` are defined in `Directory.Build.pr
 Use a C# extension member so the call reads identically on every target framework, and guard it with the narrowest symbol for the frameworks that actually lack the API:
 
 ```csharp
-public static class DoubleExtensions
+internal static class DoublePolyfills
 {
     extension(double)
     {
@@ -268,6 +268,12 @@ public static class DoubleExtensions
     }
 }
 ```
+
+Two things about that shape are load-bearing. The container is **`internal`**: it exists only to host polyfills, and a `public` one both leaks a type whose members differ per target framework and invites `CS0104` in any embedder that has a class of the same name and a `using Jint;`. And there is **one container per receiver type** — a *static* extension member lowers into its containing class with the receiver type erased from the signature, so `int.Parse(ReadOnlySpan<char>, IFormatProvider?)` and `long.Parse(ReadOnlySpan<char>, IFormatProvider?)` differ only by return type and collide with `CS0111` if they share a class. Hence `Int32Polyfills`, `Int64Polyfills`, `DoublePolyfills` are separate; instance extension members have no such constraint and all live on `Polyfills`.
+
+**Mirror the BCL signature exactly, defaults included.** An optional parameter the real API does not have changes overload resolution on the frameworks that *do* have it, so the polyfill quietly stops being one — `int.Parse(ReadOnlySpan<char>, IFormatProvider?)` takes no default on `provider` precisely because the BCL's doesn't.
+
+**A polyfill must match the downlevel API's *behaviour*, not just its signature.** `Polyfills.Order` is a hand-written merge sort rather than a call to `OrderBy` because LINQ's sort on .NET Framework is a quicksort with no depth limit and no fallback, so an inconsistent comparer — which a JavaScript comparison function is allowed to be — makes it spin forever instead of terminating. Sorting and searching are where downlevel implementations differ most; check them rather than assuming the older framework's version is merely slower.
 
 A real member always beats an extension member, so on the frameworks that *do* have the API the BCL implementation is what binds — usually the better one (`double.IsFinite` is a single exponent-bits test where the polyfill is two calls). There is no ambiguity to resolve, and nothing to undo when a target framework is eventually dropped: delete the guarded block and every call site is already correct.
 
