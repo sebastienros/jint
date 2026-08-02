@@ -135,7 +135,7 @@ internal static class NumberingSystemData
 
         foreach (var c in input)
         {
-            if (c >= '0' && c <= '9')
+            if (char.IsAsciiDigit(c))
             {
                 // Replace Latin digit with target numbering system digit
                 var digitIndex = c - '0';

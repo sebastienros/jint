@@ -280,7 +280,7 @@ internal static class LikelySubtags
     {
         foreach (var c in s)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+            if (!char.IsAsciiLetter(c))
             {
                 return false;
             }
@@ -292,7 +292,7 @@ internal static class LikelySubtags
     {
         foreach (var c in s)
         {
-            if (c < '0' || c > '9')
+            if (!char.IsAsciiDigit(c))
             {
                 return false;
             }
@@ -308,7 +308,7 @@ internal static class LikelySubtags
         }
 
         // 4 characters starting with digit
-        if (s.Length == 4 && s[0] >= '0' && s[0] <= '9')
+        if (s.Length == 4 && char.IsAsciiDigit(s[0]))
         {
             return IsAllAlphanumeric(s);
         }
@@ -326,7 +326,7 @@ internal static class LikelySubtags
     {
         foreach (var c in s)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+            if (!char.IsAsciiLetterOrDigit(c))
             {
                 return false;
             }

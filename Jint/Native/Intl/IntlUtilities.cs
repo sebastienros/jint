@@ -858,7 +858,7 @@ internal static class IntlUtilities
             foreach (var c in part)
             {
                 // Must be ASCII alphanumeric only (a-z, A-Z, 0-9)
-                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+                if (!char.IsAsciiLetterOrDigit(c))
                 {
                     return false;
                 }

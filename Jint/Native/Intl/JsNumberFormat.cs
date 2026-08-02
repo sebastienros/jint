@@ -1623,7 +1623,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
 
             // Handle ASCII digits 0-9
-            if (c >= '0' && c <= '9')
+            if (char.IsAsciiDigit(c))
             {
                 sb.Append(c);
                 continue;

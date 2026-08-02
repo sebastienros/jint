@@ -576,11 +576,6 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsUpperAsciiLetter(char c)
-    {
-        return c >= 'A' && c <= 'Z';
-    }
-
     private static string RemoveExtensions(string locale)
     {
         var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
@@ -768,9 +763,9 @@ public sealed class DefaultCldrProvider : ICldrProvider
                 var currencyCode = region.ISOCurrencySymbol;
 
                 if (currencyCode.Length == 3 &&
-                    IsUpperAsciiLetter(currencyCode[0]) &&
-                    IsUpperAsciiLetter(currencyCode[1]) &&
-                    IsUpperAsciiLetter(currencyCode[2]) &&
+                    char.IsAsciiLetterUpper(currencyCode[0]) &&
+                    char.IsAsciiLetterUpper(currencyCode[1]) &&
+                    char.IsAsciiLetterUpper(currencyCode[2]) &&
                     !string.Equals(currencyCode, "XXX", StringComparison.Ordinal))
                 {
                     currencies.Add(currencyCode);
