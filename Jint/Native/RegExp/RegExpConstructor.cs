@@ -818,19 +818,11 @@ public sealed partial class RegExpConstructor : Constructor
                                 var name = pattern.Substring(nameStart, nameEnd - nameStart);
                                 namedGroupNumbers ??= new(StringComparer.Ordinal);
 
-#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 if (!namedGroupNumbers.TryAdd(name, groupNumber))
                                 {
                                     // Duplicate named group
                                     return true;
                                 }
-#else
-                                if (namedGroupNumbers.ContainsKey(name))
-                                {
-                                    return true;
-                                }
-                                namedGroupNumbers.Add(name, groupNumber);
-#endif
 
                                 i = nameEnd;
                             }
