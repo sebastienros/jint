@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -37,7 +37,7 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly Type taskType = typeof(Task);
     private static readonly Type genTaskType = typeof(Task<>);
     private static readonly MethodInfo taskFromResultInfo = taskType.GetMethod("FromResult")!;
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
     private static readonly Type valueTaskType = typeof(ValueTask);
     private static readonly Type genValueTaskType = typeof(ValueTask<>);
     private static readonly MethodInfo valueTaskFromResultInfo = valueTaskType.GetMethod("FromResult")!;
@@ -368,7 +368,7 @@ public class DefaultTypeConverter : ITypeConverter
             return false;
         }
 
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
         return Enum.TryParse(enumType, value, ignoreCase: false, out result!);
 #else
         try
@@ -488,7 +488,7 @@ public class DefaultTypeConverter : ITypeConverter
             return Task.CompletedTask;
         }
 
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
         if (conversionType == valueTaskType)
         {
             return default(ValueTask);
@@ -505,7 +505,7 @@ public class DefaultTypeConverter : ITypeConverter
             }
         }
 
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
         if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition() == genValueTaskType)
         {
             var key = new TypeConversionKey(conversionType.GetGenericArguments()[0], genValueTaskType);
@@ -526,7 +526,7 @@ public class DefaultTypeConverter : ITypeConverter
     private static MethodInfo? GetFromResultMethod(TypeConversionKey key)
     {
         var (target, taskType) = key;
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
         if (taskType == genValueTaskType)
         {
             return valueTaskFromResultInfo.MakeGenericMethod(target);

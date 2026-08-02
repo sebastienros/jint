@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Jint.Native.Function;
@@ -1629,7 +1629,7 @@ internal static class IntlUtilities
 
         if (endIndex < locale.Length)
         {
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
             return string.Concat(locale.AsSpan(0, extensionIndex), locale.AsSpan(endIndex));
 #else
             return locale.Substring(0, extensionIndex) + locale.Substring(endIndex);

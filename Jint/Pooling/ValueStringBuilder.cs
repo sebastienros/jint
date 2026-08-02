@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Buffers;
@@ -165,7 +165,7 @@ internal ref struct ValueStringBuilder
         int remaining = _pos - index;
         _chars.Slice(index, remaining).CopyTo(_chars.Slice(index + count));
         s
-#if !NETCOREAPP
+#if !NET8_0_OR_GREATER
             .AsSpan()
 #endif
             .CopyTo(_chars.Slice(index));
@@ -220,7 +220,7 @@ internal ref struct ValueStringBuilder
         }
     }
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append<T>(T value) where T : ISpanFormattable
     {
@@ -256,7 +256,7 @@ internal ref struct ValueStringBuilder
         }
 
         s
-#if !NETCOREAPP
+#if !NET8_0_OR_GREATER
             .AsSpan()
 #endif
             .CopyTo(_chars.Slice(pos));

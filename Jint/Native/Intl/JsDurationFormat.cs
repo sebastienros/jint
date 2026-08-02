@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Jint.Native.Object;
 
@@ -252,7 +252,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                     var formatStr = "F" + digits;
                     var fractionalStr = fractionalPart.ToString(formatStr, CultureInfo.InvariantCulture);
                     // Remove leading "0" to get just ".xxx"
-#if NETCOREAPP || NETSTANDARD2_1_OR_GREATER
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                     sb.Append(fractionalStr.AsSpan(1));
 #else
                     sb.Append(fractionalStr, 1, fractionalStr.Length - 1);
@@ -273,7 +273,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                 }
                 if (endIndex > startIndex + 1) // More than just "."
                 {
-#if NETCOREAPP || NETSTANDARD2_1_OR_GREATER
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                     sb.Append(fractionalStr.AsSpan(startIndex, endIndex - startIndex));
 #else
                     sb.Append(fractionalStr, startIndex, endIndex - startIndex);
@@ -514,7 +514,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                                 var formatStr = "F" + digits;
                                 var fractionalStr = totalSubSeconds.ToString(formatStr, CultureInfo.InvariantCulture);
                                 // Remove leading "0" to get just ".xxx"
-#if NETCOREAPP || NETSTANDARD2_1_OR_GREATER
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 sb.Append(fractionalStr.AsSpan(1));
 #else
                                 sb.Append(fractionalStr, 1, fractionalStr.Length - 1);
@@ -534,7 +534,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                             }
                             if (endIndex > startIndex + 1) // More than just "."
                             {
-#if NETCOREAPP || NETSTANDARD2_1_OR_GREATER
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 sb.Append(fractionalStr.AsSpan(startIndex, endIndex - startIndex));
 #else
                                 sb.Append(fractionalStr, startIndex, endIndex - startIndex);

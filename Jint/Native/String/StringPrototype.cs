@@ -1,4 +1,4 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -217,7 +217,7 @@ internal sealed partial class StringPrototype : StringInstance
         if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
         {
             s = StringInlHelper.LithuanianStringProcessor(s);
-#if NET462
+#if NETFRAMEWORK
             // Code specific to .NET Framework 4.6.2.
             // For no good reason this verison does not upper case these characters correctly.
             return new JsString(ToUpperCaseWithSpecialCasing(s, culture)

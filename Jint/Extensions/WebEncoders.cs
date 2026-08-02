@@ -1,4 +1,4 @@
-// modified from
+﻿// modified from
 // https://github.com/dotnet/aspnetcore/blob/fd060ce8c36ffe195b9e9a69a1bbd8fb53cc6d7c/src/Shared/WebEncoders/WebEncoders.cs
 //
 // Retire this file when net8.0 is dropped -- System.Buffers.Text.Base64Url is in-box from .NET 9.
@@ -6,7 +6,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
 using System.Buffers;
 #endif
 using System.Diagnostics;
@@ -135,7 +135,7 @@ internal static class WebEncoders
             throw new ArgumentNullException(nameof(input));
         }
 
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
         return Base64UrlEncode(input.AsSpan(offset, count), omitPadding);
 #else
         // Special-case empty input
@@ -192,7 +192,7 @@ internal static class WebEncoders
             throw new ArgumentException("invalid", nameof(count));
         }
 
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
         return Base64UrlEncode(input.AsSpan(offset, count), output.AsSpan(outputOffset), omitPadding);
 #else
         // Special-case empty input.
@@ -243,7 +243,7 @@ internal static class WebEncoders
         return checked(numWholeOrPartialInputBlocks * 4);
     }
 
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
     /// <summary>
     /// Encodes <paramref name="input"/> using base64url encoding.
     /// </summary>

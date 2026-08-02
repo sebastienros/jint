@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
@@ -169,7 +169,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return ConvertTaskToPromise(engine, task);
         }
 
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
         if (obj is ValueTask valueTask)
         {
             return ConvertTaskToPromise(engine, valueTask.AsTask());

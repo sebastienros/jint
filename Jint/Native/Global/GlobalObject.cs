@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -738,7 +738,7 @@ uriError:
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static char ParseHexString(ReadOnlySpan<char> input)
         {
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
             return (char) int.Parse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
 #else
             return (char) int.Parse(input.ToString(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Jint.Collections;
@@ -818,7 +818,7 @@ public sealed partial class RegExpConstructor : Constructor
                                 var name = pattern.Substring(nameStart, nameEnd - nameStart);
                                 namedGroupNumbers ??= new(StringComparer.Ordinal);
 
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 if (!namedGroupNumbers.TryAdd(name, groupNumber))
                                 {
                                     // Duplicate named group

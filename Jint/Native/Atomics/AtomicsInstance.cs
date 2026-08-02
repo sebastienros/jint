@@ -1,4 +1,4 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of methods return JsValue
+﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of methods return JsValue
 
 using System.Collections.Concurrent;
 using System.Numerics;
@@ -1346,7 +1346,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
 
     // Interlocked.And/Or/Xor are only available in .NET 5.0+
     // For older frameworks, we use CompareExchange loops
-#if NET5_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int InterlockedAnd(ref int location, int value)
     {

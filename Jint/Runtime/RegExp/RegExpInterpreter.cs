@@ -1,4 +1,4 @@
-// IDE0055: formatting rules conflict with try/finally wrapping a pre-existing ~600 line while loop
+﻿// IDE0055: formatting rules conflict with try/finally wrapping a pre-existing ~600 line while loop
 #pragma warning disable IDE0055
 
 // Ported from QuickJS libregexp.c - Bytecode Interpreter
@@ -248,7 +248,7 @@ internal static class RegExpInterpreter
 
             if (end > offset)
             {
-#if NETSTANDARD2_0 || NET462
+#if NETFRAMEWORK || NETSTANDARD2_0
                 names[i] = Encoding.UTF8.GetString(bytecode.Slice(offset, end - offset).ToArray());
 #else
                 names[i] = Encoding.UTF8.GetString(bytecode.Slice(offset, end - offset));
@@ -777,7 +777,7 @@ internal static class RegExpInterpreter
 
                 if (litLen > 1)
                 {
-#if NETSTANDARD2_0 || NET462
+#if NETFRAMEWORK || NETSTANDARD2_0
                     literal = litBuf.Slice(0, litLen).ToString();
 #else
                     literal = new string(litBuf.Slice(0, litLen));
@@ -824,7 +824,7 @@ internal static class RegExpInterpreter
 
                     if (litLen > 1)
                     {
-#if NETSTANDARD2_0 || NET462
+#if NETFRAMEWORK || NETSTANDARD2_0
                         literal = litBuf.Slice(0, litLen).ToString();
 #else
                         literal = new string(litBuf.Slice(0, litLen));
