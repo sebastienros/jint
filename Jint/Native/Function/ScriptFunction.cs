@@ -200,7 +200,7 @@ public sealed class ScriptFunction : Function, IConstructor
             }
 
             // actual call
-            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var context = _engine._evaluationContext;
 
             var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
 
@@ -335,7 +335,7 @@ public sealed class ScriptFunction : Function, IConstructor
             }
 
             // actual call
-            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var context = _engine._evaluationContext;
 
             var result = _functionDefinition!.EvaluateBodyFast(context, in args, state);
 
@@ -406,7 +406,7 @@ public sealed class ScriptFunction : Function, IConstructor
         engine.EnterLeafCallExecutionContext(_scriptOrModule, _environment!, _privateEnvironment, _realm, this, strict);
         try
         {
-            var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+            var context = engine._evaluationContext;
             var result = _functionDefinition!.EvaluateLeafBody(context);
 
             if (result.Type == CompletionType.Throw)
@@ -506,7 +506,7 @@ public sealed class ScriptFunction : Function, IConstructor
                 ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
             }
 
-            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var context = _engine._evaluationContext;
 
             var result = _functionDefinition.EvaluateBody(context, this, arguments, state);
             result = constructorEnv.DisposeResources(result);

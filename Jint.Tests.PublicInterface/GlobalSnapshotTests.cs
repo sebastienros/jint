@@ -696,6 +696,52 @@ public class GlobalSnapshotTests
     }
 
     [Fact]
+    public void RestoringFromInsideAHostCallWithNoScriptOnTheStackIsRejected()
+    {
+        // The sibling above re-enters from a callback invoked BY script, so the engine has an
+        // execution context pushed. This one calls the delegate directly through Engine.Call: a
+        // ClrFunction pushes no execution context at all, so execution-context depth alone cannot
+        // see it and the rejection rests on the host-entry count instead.
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        Exception? caught = null;
+        engine.SetValue("reenter", new Action(() =>
+        {
+            try
+            {
+                engine.Advanced.RestoreGlobalSnapshot(snapshot);
+            }
+            catch (Exception e)
+            {
+                caught = e;
+            }
+        }));
+
+        engine.Invoke("reenter");
+
+        caught.Should().BeOfType<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void RestoringAfterEveryHostCallHasReturnedIsAllowed()
+    {
+        // The counterpart to the two above: once the entry has unwound the engine is idle again and
+        // a restore must be accepted, so the guard cannot simply latch.
+        var engine = new Engine();
+        engine.Execute("var marker = 1;");
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.SetValue("noop", new Action(() => { }));
+        engine.Invoke("noop");
+        engine.Evaluate("marker = 2;");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("marker").AsNumber().Should().Be(1);
+    }
+
+    [Fact]
     public void RestoringTwiceInARowIsANoOpTheSecondTime()
     {
         var engine = new Engine();

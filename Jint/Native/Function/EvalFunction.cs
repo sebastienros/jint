@@ -335,7 +335,7 @@ public sealed class EvalFunction : Function
             Engine.EvalDeclarationInstantiation(script, cached.HoistingScope, varEnv, lexEnv, privateEnv, strictEval, bindingsPreInitialized: useSlots);
 
             var statement = cached.JintScript;
-            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var context = _engine._evaluationContext;
             var result = statement.Execute(context);
 
             var value = result.GetValueOrDefault();

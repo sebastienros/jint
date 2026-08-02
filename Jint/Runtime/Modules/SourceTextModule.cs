@@ -375,7 +375,7 @@ internal class SourceTextModule : CyclicModule
                 var statementList = new JintStatementList(statement: null, _source.Body);
 
                 //Create new evaluation context when called from e.g. module tests
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                var context = _engine._evaluationContext;
 
                 result = statementList.Execute(context);
             }
@@ -421,7 +421,7 @@ internal class SourceTextModule : CyclicModule
             _engine.EnterExecutionContext(in asyncContext);
 
             // Create evaluation context
-            var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var context = _engine._evaluationContext;
 
             Completion result;
             try

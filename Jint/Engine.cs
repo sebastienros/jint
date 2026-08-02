@@ -43,16 +43,64 @@ public sealed partial class Engine : IDisposable
 
     private readonly ExecutionContextStack _executionContexts;
 
-    // Invariant for engine-level ambient mutable fields (e.g. _activeEvaluationContext, _error,
-    // _lastSyntaxElement): they must not hold an in-flight result across a call that can re-enter
-    // the engine (anything that may run RunAvailableContinuations, or a CLR callback that calls
-    // Evaluate/Execute/Invoke). Either save-and-restore around the re-entrant region (see the
-    // ownsContext pattern in ExecuteWithConstraints and ShadowRealm), or carry the value out-of-band
-    // rather than in a field. A script's completion value used to live here as a field and was
-    // clobbered by a re-entrant drain (https://github.com/sebastienros/jint/issues/2492); it is now
-    // returned from ScriptEvaluation as a per-frame local. _error and _lastSyntaxElement are safe
-    // because they are produced and consumed synchronously with no re-entrant drain in between.
-    internal EvaluationContext? _activeEvaluationContext;
+    // Invariant for engine-level ambient mutable fields (e.g. _error, _lastSyntaxElement): they must
+    // not hold an in-flight result across a call that can re-enter the engine (anything that may run
+    // RunAvailableContinuations, or a CLR callback that calls Evaluate/Execute/Invoke). Either
+    // save-and-restore around the re-entrant region, or carry the value out-of-band rather than in a
+    // field. A script's completion value used to live here as a field and was clobbered by a
+    // re-entrant drain (https://github.com/sebastienros/jint/issues/2492); it is now returned from
+    // ScriptEvaluation as a per-frame local. _error and _lastSyntaxElement are safe because they are
+    // produced and consumed synchronously with no re-entrant drain in between.
+
+    /// <summary>
+    /// The context threaded through every statement and expression handler. Per <em>engine</em>, not
+    /// per evaluation: everything it carries is either engine-lifetime-constant configuration (the
+    /// constraint and debug gates, operator overloading) or a facade over engine state, so a context
+    /// built for one entry never differed from one already in flight — which is why the sites that
+    /// could not find an ambient one simply built their own and threw it away.
+    /// <para>
+    /// Built before <see cref="Options.Apply"/>, because a host's <c>options.Configure(e =&gt; …)</c>
+    /// callback runs from there and may execute script.
+    /// </para>
+    /// </summary>
+    internal readonly EvaluationContext _evaluationContext;
+
+    /// <summary>
+    /// How many host entries into the engine are on the stack — every public entry that runs script
+    /// funnels through <see cref="ExecuteWithConstraints{T}"/>, the internal spec <c>Invoke</c>, or
+    /// module evaluation, and each brackets this counter.
+    /// <para>
+    /// It exists because "is this engine running something for someone" used to be answered by
+    /// whether an evaluation context happened to be installed, which stopped being a question about
+    /// the context at all once the context became per-engine — and was never a reliable answer even
+    /// before that, since async and generator resume paths ran script without installing one. It is
+    /// needed <em>in addition</em> to execution-context depth because <see cref="Call(JsValue, JsValue, JsCallArguments)"/>
+    /// of a pure <see cref="Runtime.Interop.ClrFunction"/> pushes no execution context at all.
+    /// </para>
+    /// <para>
+    /// A plain <see cref="int"/>: an engine is single-threaded by contract, and the settlement loop
+    /// behind <c>EvaluateAsync</c> never touches
+    /// this — it runs after the synchronous phase has already returned and decremented. Contrast
+    /// <see cref="HasPendingAsyncOperations"/>, which is a volatile read precisely because it is not
+    /// confined that way.
+    /// </para>
+    /// </summary>
+    private int _hostEntryDepth;
+
+    /// <summary>
+    /// Whether the engine is running something for someone: a host entry is on the stack
+    /// (<see cref="_hostEntryDepth"/>) or an interpreter frame is. The base global execution context
+    /// is pushed once at realm initialization and never popped, so a depth above it means script.
+    /// <para>
+    /// Both terms are needed. A host <see cref="Call(JsValue, JsValue, JsCallArguments)"/> of a pure
+    /// <see cref="Runtime.Interop.ClrFunction"/> pushes no execution context, and every async or
+    /// generator resume — which runs script from an event-loop drain, with no host entry of its own —
+    /// pushes one. Neither alone sees a suspended <c>EvaluateAsync</c>,
+    /// whose synchronous phase has already unwound; callers that care about that add
+    /// <see cref="HasPendingAsyncOperations"/>.
+    /// </para>
+    /// </summary>
+    internal bool IsEvaluationInProgress => _hostEntryDepth > 0 || _executionContexts.Count > 1;
 
     // set by DebugHandler.Evaluate around watch/breakpoint-condition expression evaluation so the
     // host-boundary constraint checks can exempt it (see CheckAmortizedConstraintsAtHostBoundary)
@@ -152,9 +200,10 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// How many <c>EvaluateAsync</c>/<c>ExecuteAsync</c>/<c>InvokeAsync</c> settlement loops are outstanding.
     /// Such a loop is an evaluation in progress from the host's point of view, but not from the engine's: the
-    /// synchronous phase has completed, so the execution-context stack is back at base depth and
-    /// <see cref="_activeEvaluationContext"/> is null while the loop sits in its <c>await</c>. Only this
-    /// counter can see it, which is why <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> consults it.
+    /// synchronous phase has completed, so the execution-context stack is back at base depth and the host
+    /// entry has been popped — <see cref="IsEvaluationInProgress"/> is false — while the loop sits in its
+    /// <c>await</c>. Only this counter can see it, which is why
+    /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> consults it.
     /// Incremented before the first await and decremented in the loop's finally, both synchronously with
     /// respect to the Task the host holds.
     /// </summary>
@@ -382,6 +431,12 @@ public sealed partial class Engine : IDisposable
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;
         _inlineStatementCounter = partitionedConstraints.InlineStatementCounter;
+
+        // Everything the context snapshots is settled by now (debug mode, the constraint partition,
+        // operator overloading), and it must exist before Options.Apply below, whose configuration
+        // callbacks may execute script.
+        _evaluationContext = new EvaluationContext(this);
+
         _referenceResolver = Options.ReferenceResolver;
         var resolverInterests = ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance)
             ? ReferenceResolverInterests.None
@@ -782,7 +837,7 @@ public sealed partial class Engine : IDisposable
             Completion result;
             try
             {
-                result = list.Execute(_activeEvaluationContext!);
+                result = list.Execute(_evaluationContext);
             }
             catch
             {
@@ -1115,9 +1170,11 @@ public sealed partial class Engine : IDisposable
     /// window constraint state is meaningless: <see cref="Constraints.TimeConstraint"/>'s timer
     /// is re-armed at the end of every run and keeps counting while the engine is idle, and a
     /// cancellation token may be cancelled during normal teardown, so host-initiated access to
-    /// wrapped objects from C# must not observe either. Not keyed on
-    /// <see cref="_activeEvaluationContext"/>: async resume paths create evaluation contexts
-    /// without installing the ambient field, so it can be null mid-drain.</item>
+    /// wrapped objects from C# must not observe either. Deliberately execution-context depth alone
+    /// rather than <see cref="IsEvaluationInProgress"/>: a host <see cref="Call(JsValue, JsValue, JsCallArguments)"/>
+    /// of a pure <see cref="Runtime.Interop.ClrFunction"/> raises <see cref="_hostEntryDepth"/>
+    /// without any script being on the stack, and that is exactly the host-initiated access this
+    /// gate must not fire for.</item>
     /// <item>Not during debugger expression evaluation (<see cref="Runtime.Debugger.DebugHandler.Evaluate(string, ScriptParsingOptions)"/>)
     /// — a debugger paused longer than the timeout would otherwise deterministically fail every
     /// interop read in watch/conditional-breakpoint expressions. Normal debug-mode execution
@@ -1505,8 +1562,7 @@ public sealed partial class Engine : IDisposable
             ResetConstraints();
         }
 
-        var ownsContext = _activeEvaluationContext is null;
-        _activeEvaluationContext ??= new EvaluationContext(this);
+        _hostEntryDepth++;
 
         // Establish the requested strictness on the active (entry) execution context for the
         // callback, mirroring the former non-force StrictModeScope(strict): it can only raise
@@ -1526,10 +1582,7 @@ public sealed partial class Engine : IDisposable
             {
                 ReplaceTopStrict(previousStrict);
             }
-            if (ownsContext)
-            {
-                _activeEvaluationContext = null!;
-            }
+            _hostEntryDepth--;
             if (!isNested)
             {
                 ResetConstraints();
@@ -1543,8 +1596,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal JsValue Invoke(JsValue v, JsValue p, JsCallArguments arguments)
     {
-        var ownsContext = _activeEvaluationContext is null;
-        _activeEvaluationContext ??= new EvaluationContext(this);
+        _hostEntryDepth++;
         try
         {
             var func = GetV(v, p);
@@ -1558,10 +1610,7 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
-            if (ownsContext)
-            {
-                _activeEvaluationContext = null!;
-            }
+            _hostEntryDepth--;
         }
     }
 
@@ -1953,9 +2002,6 @@ public sealed partial class Engine : IDisposable
             // At this point, if hasParameterExpressions:
             // - VariableEnvironment = paramEnv (for eval vars during param init)
             // - LexicalEnvironment = paramEnv (for closures to capture)
-            // The caller's context is used instead of the ambient _activeEvaluationContext,
-            // which is null when a function is called from an event-loop drain (e.g. a promise
-            // reaction after awaiting a .NET Task via EvaluateAsync/UnwrapIfPromise).
             env.AddFunctionParameters(context, func.Function, argumentsList);
         }
 

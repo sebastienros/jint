@@ -252,7 +252,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
         var genContext = _asyncGeneratorContext;
         _engine.EnterExecutionContext(in genContext);
 
-        var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+        var context = _engine._evaluationContext;
         Completion result;
 
         try
@@ -475,7 +475,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
         try
         {
-            var evalContext = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+            var evalContext = _engine._evaluationContext;
             var bodyResult = _generatorBody.Execute(evalContext);
 
             if (_awaitSuspended)

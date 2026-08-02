@@ -168,20 +168,17 @@ public partial class Engine
                 Throw.ArgumentException("The snapshot was captured from a different engine.", nameof(snapshot));
             }
 
-            // The base global execution context is pushed once at realm initialization and never popped, so
-            // a depth above it means script is on the stack — a re-entrant host callback trying to reset the
-            // globals out from under the code that called it. _activeEvaluationContext catches the same case
-            // for paths that do not push a context of their own.
+            // IsEvaluationInProgress covers script on the stack — a re-entrant host callback trying to reset
+            // the globals out from under the code that called it — and host entries that run without pushing
+            // an execution context of their own, such as Engine.Call of a pure ClrFunction.
             //
-            // Neither of those sees a suspended EvaluateAsync: its synchronous phase has already run to
-            // completion, so the stack is unwound to the base context and the ambient field is null while
-            // the settlement loop sits in its await. Restoring there would either strand the loop on a
-            // promise whose settle got discarded (a bogus PromiseTimeout, or a hang when timeouts are off)
-            // or let it resume the previous cycle against the restored globals and complete the host's Task
-            // with a value computed across two global states. The counter is the only signal that sees it.
-            if (engine._activeEvaluationContext is not null
-                || engine._executionContexts.Count > 1
-                || engine.HasPendingAsyncOperations)
+            // It does not see a suspended EvaluateAsync: its synchronous phase has already run to completion,
+            // so the stack is unwound to the base context and the host entry has been popped while the
+            // settlement loop sits in its await. Restoring there would either strand the loop on a promise
+            // whose settle got discarded (a bogus PromiseTimeout, or a hang when timeouts are off) or let it
+            // resume the previous cycle against the restored globals and complete the host's Task with a
+            // value computed across two global states. The counter is the only signal that sees it.
+            if (engine.IsEvaluationInProgress || engine.HasPendingAsyncOperations)
             {
                 Throw.InvalidOperationException("The global snapshot cannot be restored while an evaluation is in progress.");
             }
