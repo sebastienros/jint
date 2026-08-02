@@ -451,10 +451,6 @@ internal sealed class JintObjectExpression : JintExpression
             if (propName is null)
             {
                 var value = property.TryGetKey(engine);
-                if (context.IsAbrupt())
-                {
-                    return value;
-                }
 
                 // Check for generator suspension after evaluating computed property key
                 if (context.IsSuspended())

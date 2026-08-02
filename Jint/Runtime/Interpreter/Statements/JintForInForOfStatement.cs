@@ -603,7 +603,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 close = true;
 
                 var valueForResume = nextValue;
-                var status = CompletionType.Normal;
 
                 // Skip lhs setup (env creation, BindingInstantiation, destructuring/init) on body
                 // resume — bindings already exist in the restored iterationEnv. Re-running
@@ -655,11 +654,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         {
                             // single bound name -> slot 0; ChangeValue preserves the const/let flags
                             iterationEnv!.InitializeSlotBinding(0, nextValue);
-                        }
-                        else if (context.IsAbrupt())
-                        {
-                            close = true;
-                            status = context.Completion;
                         }
                         else
                         {
@@ -720,8 +714,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             return new Completion(CompletionType.Return, returnValue, _statement!);
                         }
 
-                        status = context.Completion;
-
                         if (lhsKind == LhsKind.Assignment)
                         {
                             // DestructuringAssignmentEvaluation of assignmentPattern using nextValue as the argument.
@@ -737,25 +729,6 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         }
 #pragma warning restore MA0140
                     }
-                }
-
-                if (status != CompletionType.Normal)
-                {
-                    engine.UpdateLexicalEnvironment(oldEnv);
-                    suspendable?.Data.Clear(this);
-                    if (_iterationKind == IterationKind.AsyncIterate)
-                    {
-                        iteratorRecord.Close(status);
-                        return new Completion(status, nextValue, context.LastSyntaxElement);
-                    }
-
-                    if (iterationKind == IterationKind.Enumerate)
-                    {
-                        return new Completion(status, nextValue, context.LastSyntaxElement);
-                    }
-
-                    iteratorRecord.Close(status);
-                    return new Completion(status, nextValue, context.LastSyntaxElement);
                 }
 
                 // Before executing body, save state in case of yield/await suspension.

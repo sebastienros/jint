@@ -836,7 +836,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                 completion = right.GetValue(context);
             }
 
-            if (context.IsAbrupt() || context.IsGeneratorAborted())
+            if (context.IsGeneratorAborted())
             {
                 result = completion;
                 return true;
@@ -1064,11 +1064,6 @@ internal sealed class JintAssignmentExpression : JintExpression
                     completion = right.GetValue(context);
                 }
 
-                if (context.IsAbrupt())
-                {
-                    return completion;
-                }
-
                 // If generator suspended or return requested during right-hand side evaluation, don't assign.
                 // IsSuspended also covers an async function suspending at an `await` in the right-hand side
                 // (see the note in SetValue): storing the suspension sentinel here permanently clobbers the
@@ -1133,11 +1128,6 @@ internal sealed class JintAssignmentExpression : JintExpression
             else
             {
                 completion = right.GetValue(context);
-            }
-
-            if (context.IsAbrupt())
-            {
-                return completion;
             }
 
             // If generator suspended or return requested during right-hand side evaluation, don't assign.

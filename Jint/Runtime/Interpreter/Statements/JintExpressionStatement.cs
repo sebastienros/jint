@@ -33,11 +33,11 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
                 ? _identifierExpression.GetValue(context)
                 : _expression.GetValue(context);
 
-            return new Completion(context.Completion, value, _statement);
+            return new Completion(CompletionType.Normal, value, _statement);
         }
 
         _expression.EvaluateAndDiscard(context);
-        return new Completion(context.Completion, JsValue.Undefined, _statement);
+        return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
     }
 
     /// <summary>
