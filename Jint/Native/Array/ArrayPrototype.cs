@@ -1494,16 +1494,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
             else
             {
                 var comparer = ArrayComparer.WithFunction(_engine, compareFn);
-#if NETCOREAPP
-                // OrderBy is stable; List<T>.Sort is not. Stability is required by the spec since ES2019.
-#if NET8_0_OR_GREATER
+                // Order is stable; List<T>.Sort is not. Stability is required by the spec since ES2019.
                 items = items.Order(comparer).ToList();
-#else
-                items = items.OrderBy(x => x, comparer).ToList();
-#endif
-#else
-                items.Sort(comparer);
-#endif
             }
 
             for (uint j = 0; j < itemCount; j++)

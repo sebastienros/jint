@@ -1089,6 +1089,26 @@ return get + '' === ""length,0,1,2,3"";";
     }
 
     [Fact]
+    public void SortIsStableForEqualElements()
+    {
+        // ES2019 requires Array.prototype.sort to be stable. The element count matters: List<T>.Sort
+        // falls back to insertion sort at 16 elements or fewer and happens to be stable there, so a
+        // smaller input passes even on an unstable implementation.
+        const string Script = """
+            var items = [];
+            for (var i = 0; i < 32; i++) {
+                items.push({ order: i });
+            }
+            items.sort(function () { return 0; });
+            items.map(function (x) { return x.order; }).join(',');
+            """;
+
+        var engine = new Engine();
+
+        engine.Evaluate(Script).AsString().Should().Be(string.Join(",", Enumerable.Range(0, 32)));
+    }
+
+    [Fact]
     public void PopWrappedGenericList()
     {
         var engine = new Engine();
