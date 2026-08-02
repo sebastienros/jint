@@ -41,6 +41,16 @@
     <PackageVersion Include="Zio" Version="0.24.0" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Compiler-required attributes and marker types for the downlevel targets. This is not optional
+         polish: without it `init`, `record`, `required` and the nullable/trimming attributes do not
+         compile on net462/netstandard2.0. Global because the test projects need it too: the
+         [ModuleInitializer] in Jint.Tests/HostContractVerificationSwitch.cs is what arms host-contract
+         verification early enough on the net472 leg.
+
+         Keep the SDK floor in global.json at 10.0.100 or later. PolySharp 1.16.0 emits its types with
+         [Microsoft.CodeAnalysis.Embedded], which Roslyn only accepts from 4.14 onwards; on an older
+         compiler it fails with CS8336, and Jint.SourceGenerators (netstandard2.0 + IsRoslynComponent
+         + Microsoft.CodeAnalysis.CSharp) is exactly the shape that trips it. -->
     <GlobalPackageReference Include="PolySharp" Version="1.16.0" />
   </ItemGroup>
 </Project>
