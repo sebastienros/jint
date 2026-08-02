@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Jint;
 
@@ -87,7 +88,26 @@ internal static class Polyfills
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;
 #endif
+}
 
+internal static class MemoryMarshalPolyfills
+{
+    extension(MemoryMarshal)
+    {
+#if !NET8_0_OR_GREATER
+        // MemoryMarshal.GetArrayDataReference arrived in .NET 5 and is not in netstandard2.1.
+        //
+        // GetReference over the array's span is the same address by construction. It is not the same
+        // cost everywhere: netstandard2.1 gets the runtime's span and so gets the bounds-check and
+        // covariance-check elision the real API is used for, while net462 and netstandard2.0 bind
+        // System.Memory's slower span and land roughly where the plain indexer did. Correct on all of
+        // them, which is what lets the call sites drop their #if.
+        //
+        // Deliberately not `ref array[0]`: ldelema on a reference-type array performs the array-type
+        // check this helper exists to avoid.
+        public static ref T GetArrayDataReference<T>(T[] array) => ref MemoryMarshal.GetReference(array.AsSpan());
+#endif
+    }
 }
 
 // One container per receiver type is required, not stylistic. A static extension member lowers into

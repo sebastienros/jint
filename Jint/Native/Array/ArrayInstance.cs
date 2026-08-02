@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native.Object;
@@ -1076,12 +1076,8 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         System.Diagnostics.Debug.Assert(dense.GetType() == typeof(JsValue[]), "_dense must be an exact JsValue[]");
         System.Diagnostics.Debug.Assert(index < (uint) dense.Length, "index must be within the dense backing");
 
-#if NET8_0_OR_GREATER
         ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(dense);
         Unsafe.Add(ref slot, (nint) index) = value;
-#else
-        dense[index] = value;
-#endif
     }
 
     /// <summary>

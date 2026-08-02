@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -63,12 +63,8 @@ internal ref struct JsValueListBuilder
         Debug.Assert(array.GetType() == typeof(JsValue[]), "backing buffer must be an exact JsValue[]");
         Debug.Assert((uint) index < (uint) array.Length, "index must be within the backing buffer");
 
-#if NET8_0_OR_GREATER
         ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(array);
         Unsafe.Add(ref slot, (nint) index) = value;
-#else
-        array[index] = value;
-#endif
     }
 
     /// <summary>
