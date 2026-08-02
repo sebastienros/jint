@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -570,7 +570,7 @@ public sealed class JsonSerializer
 
         json.Append('"');
 
-#if NETCOREAPP1_0_OR_GREATER
+#if NET8_0_OR_GREATER
         fixed (char* ptr = value)
         {
             int remainingLength = value.Length;
@@ -641,7 +641,7 @@ public sealed class JsonSerializer
             default:
                 if (char.IsSurrogatePair(value, index))
                 {
-#if NETCOREAPP1_0_OR_GREATER
+#if NET8_0_OR_GREATER
                     json.Append(value.AsSpan(index, 2));
                     index++;
 #else

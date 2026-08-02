@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Linq;
 using System.Numerics;
-#if NETSTANDARD
+#if !NET8_0_OR_GREATER && !NETFRAMEWORK
 using System.Runtime.InteropServices;
 #endif
 
@@ -19,13 +19,14 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 {
     private static bool IsWindowsPlatform()
     {
-#if NET5_0_OR_GREATER
+        // Not an API gap but a genuine three-way: OperatingSystem arrived in .NET 5, netstandard has
+        // to ask the runtime, and net462 only ever runs on Windows.
+#if NET8_0_OR_GREATER
         return OperatingSystem.IsWindows();
-#elif NETSTANDARD
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-#else
-        // net462 only runs on Windows
+#elif NETFRAMEWORK
         return true;
+#else
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 #endif
     }
 
@@ -639,7 +640,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             return CanonicalizeTimeZone(timeZoneId);
         }
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
         // Use .NET's IANA→Windows mapping to find the primary identifier
         // Both "Asia/Calcutta" and "Asia/Kolkata" map to "India Standard Time"
         // Then convert back to get the primary IANA name
@@ -720,7 +721,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
                 }
             }
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
             // Case-insensitive fallback: try all system timezones
             foreach (var systemTz in TimeZoneInfo.GetSystemTimeZones())
             {
@@ -871,8 +872,8 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
             dict[key] = key;
         }
 
-#if NET6_0_OR_GREATER
-        // Also add system timezone IDs (on .NET 6+ these include IANA IDs)
+#if NET8_0_OR_GREATER
+        // Also add system timezone IDs (from .NET 6 onwards these include IANA IDs)
         foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
         {
             if (!dict.ContainsKey(tz.Id))

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Jint.Native.Object;
 using Jint.Native.Temporal;
@@ -1650,7 +1650,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // Try to get an IANA timezone ID for the CLDR lookup.
         // The IanaToMetaZone table also includes Windows timezone ID aliases for .NET Framework compatibility.
         var defaultTzId = defaultTz.Id;
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
         if (!defaultTz.HasIanaId && TimeZoneInfo.TryConvertWindowsIdToIanaId(defaultTzId, out var defaultIanaId))
         {
             defaultTzId = defaultIanaId;

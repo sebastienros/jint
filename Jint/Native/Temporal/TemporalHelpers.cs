@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -3452,7 +3452,7 @@ internal static class TemporalHelpers
 
     private static int GetBigIntegerBitLength(BigInteger abs)
     {
-#if NET5_0_OR_GREATER
+#if NET8_0_OR_GREATER
         return (int) abs.GetBitLength();
 #else
         // Convert to byte array (little-endian, unsigned)

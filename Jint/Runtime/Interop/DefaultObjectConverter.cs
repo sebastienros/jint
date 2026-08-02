@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
@@ -116,7 +116,7 @@ internal static class DefaultObjectConverter
                     return result is not null;
                 }
 
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
                 if (value is ValueTask valueTask)
                 {
                     result = JsValue.ConvertAwaitableToPromise(engine, valueTask);

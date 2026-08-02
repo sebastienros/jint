@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Native.Object;
 
 namespace Jint.Native.Intl;
@@ -137,7 +137,7 @@ internal sealed class JsCollator : ObjectInstance
                 while (yi < y.Length && char.IsDigit(y[yi])) yi++;
 
                 // Compare numeric values
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
                 var xNum = long.Parse(x.AsSpan(xStart, xi - xStart), System.Globalization.CultureInfo.InvariantCulture);
                 var yNum = long.Parse(y.AsSpan(yStart, yi - yStart), System.Globalization.CultureInfo.InvariantCulture);
 #else

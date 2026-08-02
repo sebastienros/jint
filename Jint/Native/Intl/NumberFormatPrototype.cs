@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using Jint.Native.BigInt;
 using Jint.Native.Object;
@@ -186,7 +186,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
                 return false;
         }
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
         if (!BigInteger.TryParse(s.AsSpan(i), NumberStyles.None, CultureInfo.InvariantCulture, out value))
             return false;
 #else

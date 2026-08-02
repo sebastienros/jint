@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Jint.Extensions;
 using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
@@ -118,7 +118,7 @@ internal sealed partial class Uint8ArrayPrototype : Prototype
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
 
         var omitPadding = TypeConverter.ToBoolean(opts.Get("omitPadding"));
-#if NETCOREAPP
+#if NET8_0_OR_GREATER
         var toEncode = GetUint8ArrayBytes(o);
 #else
         var toEncode = GetUint8ArrayBytes(o).ToArray();

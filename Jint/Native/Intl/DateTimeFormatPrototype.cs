@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Jint.Native.Object;
 using Jint.Native.Temporal;
 using Jint.Runtime;
@@ -1270,7 +1270,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             return timeZoneId;
         }
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
         // Try to convert Windows ID to IANA
         if (TimeZoneInfo.TryConvertWindowsIdToIanaId(timeZoneId, out var ianaId))
         {
@@ -1288,7 +1288,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         try
         {
             var tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
             // On .NET 6+, check if HasIanaId is available
             if (tz.HasIanaId)
             {

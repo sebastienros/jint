@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Jint.Native;
@@ -354,7 +354,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         {
             var memberNameComparer = typeResolver.MemberNameComparer;
             var typeResolverMemberNameCreator = typeResolver.MemberNameCreator;
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
             var enumValues = type.GetEnumValuesAsUnderlyingType();
 #else
             var enumValues = Enum.GetValues(type);

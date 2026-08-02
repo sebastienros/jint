@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace System.Buffers;
 
@@ -48,7 +48,7 @@ file sealed class CharSearchValues : SearchValues<char>
 }
 #endif
 
-#if !NET9_0_OR_GREATER
+#if !NET10_0_OR_GREATER
 internal readonly struct StringSearchValues
 {
     private readonly HashSet<string> _data;

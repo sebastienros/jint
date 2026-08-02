@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -697,7 +697,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         public override int GetHashCode()
         {
-#if NETFRAMEWORK || NETSTANDARD2_0 || NETSTANDARD2_1
+#if !NET8_0_OR_GREATER
             // netstandard2.1 lacks the (ReadOnlySpan<char>, StringComparison) overload
             return StringComparer.Ordinal.GetHashCode(ToString());
 #else

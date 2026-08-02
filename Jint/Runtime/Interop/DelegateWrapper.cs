@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
@@ -397,7 +397,7 @@ internal sealed class DelegateWrapper : Function
         {
             return true;
         }
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+#if !NETFRAMEWORK && !NETSTANDARD2_0
         if (obj is ValueTask)
         {
             return true;
