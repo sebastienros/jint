@@ -544,6 +544,11 @@ public sealed class JsonParser
     // Portable fallback: the vectorized IndexOfAny locates the next quote/backslash, then we make sure
     // no control character (< 0x20) appears earlier, so the returned index matches the NET8
     // SearchValues path.
+    //
+    // Deliberately NOT routed through an IndexOfAny(SearchValues<char>) polyfill, even though one
+    // exists. This keeps the vectorized IndexOfAny that every target framework has and only walks the
+    // span up to the quote; a polyfilled SearchValues search would test every character one at a time
+    // over the whole run, which is a real regression in the hottest parser here. The #if stays.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int IndexOfStringStop(ReadOnlySpan<char> span)
     {
