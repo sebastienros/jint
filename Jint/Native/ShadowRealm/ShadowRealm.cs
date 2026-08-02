@@ -172,19 +172,12 @@ public sealed class ShadowRealm : ObjectInstance
         {
             _engine.EvalDeclarationInstantiation(script, script.GetHoistingScope(), varEnv, lexEnv, privateEnv: null, strictEval);
 
-            // _activeEvaluationContext must be set or e.g. a nested eval could lead to NullReferenceException...
-
-            // TODO: is this correct or should we join the current EvaluationContext if any?
-            var originalEvaluationContext = _engine._activeEvaluationContext;
-            _engine._activeEvaluationContext = new EvaluationContext(_engine);
-            try
-            {
-                result = new JintScript(script).Execute(_engine._activeEvaluationContext);
-            }
-            finally
-            {
-                _engine._activeEvaluationContext = originalEvaluationContext;
-            }
+            // Joins the engine's context rather than substituting a fresh one. The old code did the
+            // latter, with a TODO asking which was correct: a fresh context differed only in the
+            // completion-observability flag, which the shadow script's own statement list sets on
+            // entry and restores in a finally. The shadow realm itself arrives through the execution
+            // context pushed above, which the evaluation context knows nothing about.
+            result = new JintScript(script).Execute(_engine._evaluationContext);
 
             if (result.Type == CompletionType.Throw)
             {

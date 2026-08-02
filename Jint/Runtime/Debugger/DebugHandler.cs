@@ -97,11 +97,12 @@ public class DebugHandler
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
         }
 
-        var context = _engine._activeEvaluationContext;
-        if (context == null)
+        if (!_engine.IsEvaluationInProgress)
         {
             throw new DebugEvaluationException("Jint has no active evaluation context");
         }
+
+        var context = _engine._evaluationContext;
         var callStackSize = _engine.CallStack.Count;
 
         var list = new JintStatementList(null, preparedScript.Program.Body);

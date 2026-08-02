@@ -227,7 +227,7 @@ internal sealed class JintAwaitExpression : JintExpression
 
         engine.EnterExecutionContext(in asyncInstance._savedContext);
 
-        var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+        var context = engine._evaluationContext;
 
         Completion result;
         try

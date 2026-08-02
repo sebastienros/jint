@@ -185,8 +185,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         // Clear the suspended value from previous suspension
         _suspendedValue = null;
 
-        var context = _engine._activeEvaluationContext;
-        return ResumeExecution(in genContext, context ?? new EvaluationContext(_engine));
+        return ResumeExecution(in genContext, _engine._evaluationContext);
     }
 
     /// <summary>
@@ -231,8 +230,7 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
         // Clear the suspended value from previous suspension
         _suspendedValue = null;
 
-        var context = _engine._activeEvaluationContext;
-        return ResumeExecution(in genContext, context ?? new EvaluationContext(_engine));
+        return ResumeExecution(in genContext, _engine._evaluationContext);
     }
 
     private ObjectInstance ResumeExecution(in ExecutionContext genContext, EvaluationContext context)

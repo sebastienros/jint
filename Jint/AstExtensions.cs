@@ -72,7 +72,7 @@ public static class AstExtensions
         // allowlist of node types with a silent JsValue.Undefined fallback, which made keys like
         // `{ [(sideEffect(), "k")]: v }` (SequenceExpression) or `{ [new Key()]: v }` bind the
         // property "undefined" without running the key expression at all.
-        var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+        var context = engine._evaluationContext;
         var result = JintExpression.Build(expression).GetValue(context);
 
         // If the expression suspended the generator (e.g., yield in computed property name),

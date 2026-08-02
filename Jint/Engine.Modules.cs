@@ -199,8 +199,9 @@ public partial class Engine
 
         private JsValue EvaluateModule(string specifier, Module module)
         {
-            var ownsContext = _engine._activeEvaluationContext is null;
-            _engine._activeEvaluationContext ??= new EvaluationContext(_engine);
+            // Brackets the host entry the same way ExecuteWithConstraints does: Import reaches this
+            // outside that method for a non-cyclic module, so it is an entry in its own right.
+            _engine._hostEntryDepth++;
             JsValue evaluationResult;
             try
             {
@@ -208,10 +209,7 @@ public partial class Engine
             }
             finally
             {
-                if (ownsContext)
-                {
-                    _engine._activeEvaluationContext = null!;
-                }
+                _engine._hostEntryDepth--;
             }
 
             // This should instead be returned and resolved in ImportModule(specifier) only so Host.ImportModuleDynamically can use this promise
