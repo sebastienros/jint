@@ -236,7 +236,7 @@ public sealed class JsonSerializer
     /// chunk's worth of destination space, however large the document is. The stateful encoder carries a
     /// surrogate pair split across a chunk boundary into the next round.
     /// </summary>
-    private static unsafe void WriteUtf8(ReadOnlySpan<char> chars, IBufferWriter<byte> writer)
+    private static void WriteUtf8(ReadOnlySpan<char> chars, IBufferWriter<byte> writer)
     {
         const int ChunkLength = 1024;
 
@@ -261,15 +261,7 @@ public sealed class JsonSerializer
 
             int charsUsed;
             int bytesUsed;
-#if SUPPORTS_SPAN_PARSE
             encoder.Convert(chunk, destination, flush, out charsUsed, out bytesUsed, out _);
-#else
-            fixed (char* chunkPtr = chunk)
-            fixed (byte* destinationPtr = destination)
-            {
-                encoder.Convert(chunkPtr, chunk.Length, destinationPtr, destination.Length, flush, out charsUsed, out bytesUsed, out _);
-            }
-#endif
 
             writer.Advance(bytesUsed);
             chars = chars.Slice(charsUsed);

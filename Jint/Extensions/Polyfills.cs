@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Jint;
 
@@ -89,6 +90,93 @@ internal static class Polyfills
 #if NETFRAMEWORK
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;
+#endif
+
+#if NETFRAMEWORK || NETSTANDARD2_0
+    // The span overloads below arrived in .NET Core 2.1 / netstandard2.1. Each forwards to the
+    // pointer-based overload that net462 and netstandard2.0 do have, so none of them allocates -- the
+    // obvious `Append(value.ToString())` shape would, on paths that exist to avoid exactly that.
+
+    internal static unsafe StringBuilder Append(this StringBuilder builder, ReadOnlySpan<char> value)
+    {
+        // Pinning an empty span yields a null pointer, and Append(char*, int) rejects null even for a
+        // zero count, where the real span overload simply does nothing. Short-circuit so the polyfill
+        // cannot differ from it.
+        if (value.IsEmpty)
+        {
+            return builder;
+        }
+
+        fixed (char* p = &MemoryMarshal.GetReference(value))
+        {
+            return builder.Append(p, value.Length);
+        }
+    }
+
+    internal static unsafe string GetString(this Encoding encoding, ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        fixed (byte* p = &MemoryMarshal.GetReference(bytes))
+        {
+            return encoding.GetString(p, bytes.Length);
+        }
+    }
+
+    internal static unsafe void Convert(
+        this Encoder encoder,
+        ReadOnlySpan<char> chars,
+        Span<byte> bytes,
+        bool flush,
+        out int charsUsed,
+        out int bytesUsed,
+        out bool completed)
+    {
+        // Encoder.Convert(char*, ...) rejects a null pointer, and pinning an empty span produces one.
+        // Route an empty side through a one-element scratch buffer, still passing the real length of 0,
+        // so the call behaves as the span overload does rather than throwing.
+        Span<char> charScratch = stackalloc char[1];
+        Span<byte> byteScratch = stackalloc byte[1];
+        var charSource = chars.IsEmpty ? (ReadOnlySpan<char>) charScratch : chars;
+        var byteSource = bytes.IsEmpty ? byteScratch : bytes;
+
+        fixed (char* charsPtr = &MemoryMarshal.GetReference(charSource))
+        fixed (byte* bytesPtr = &MemoryMarshal.GetReference(byteSource))
+        {
+            encoder.Convert(charsPtr, chars.Length, bytesPtr, bytes.Length, flush, out charsUsed, out bytesUsed, out completed);
+        }
+    }
+#endif
+
+#if !NET8_0_OR_GREATER
+    // string.GetHashCode(ReadOnlySpan<char>, StringComparison) arrived in .NET Core 2.1 but was not
+    // exposed by netstandard2.1. The contract that matters here is only that a sliced string hash
+    // equal the flat string's within one process, and StringComparer.Ordinal.GetHashCode(s) is
+    // s.GetHashCode() on every target framework, so this is exact. It does materialize the slice,
+    // which is the cost these targets already paid.
+    extension(string)
+    {
+        public static int GetHashCode(ReadOnlySpan<char> value, StringComparison comparisonType)
+        {
+            // StringComparer.FromComparison is itself netstandard2.1+, so the mapping is spelled out.
+            var s = value.ToString();
+            switch (comparisonType)
+            {
+                case StringComparison.Ordinal: return StringComparer.Ordinal.GetHashCode(s);
+                case StringComparison.OrdinalIgnoreCase: return StringComparer.OrdinalIgnoreCase.GetHashCode(s);
+                case StringComparison.CurrentCulture: return StringComparer.CurrentCulture.GetHashCode(s);
+                case StringComparison.CurrentCultureIgnoreCase: return StringComparer.CurrentCultureIgnoreCase.GetHashCode(s);
+                case StringComparison.InvariantCulture: return StringComparer.InvariantCulture.GetHashCode(s);
+                case StringComparison.InvariantCultureIgnoreCase: return StringComparer.InvariantCultureIgnoreCase.GetHashCode(s);
+                default:
+                    Jint.Runtime.Throw.ArgumentException("The string comparison type passed in is currently not supported.", nameof(comparisonType));
+                    return 0;
+            }
+        }
+    }
 #endif
 
 #if !NET8_0_OR_GREATER

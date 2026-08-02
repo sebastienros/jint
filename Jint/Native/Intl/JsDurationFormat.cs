@@ -252,11 +252,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                     var formatStr = "F" + digits;
                     var fractionalStr = fractionalPart.ToString(formatStr, CultureInfo.InvariantCulture);
                     // Remove leading "0" to get just ".xxx"
-#if !NETFRAMEWORK && !NETSTANDARD2_0
                     sb.Append(fractionalStr.AsSpan(1));
-#else
-                    sb.Append(fractionalStr, 1, fractionalStr.Length - 1);
-#endif
                 }
             }
             else if (fractionalPart > 0)
@@ -273,11 +269,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                 }
                 if (endIndex > startIndex + 1) // More than just "."
                 {
-#if !NETFRAMEWORK && !NETSTANDARD2_0
                     sb.Append(fractionalStr.AsSpan(startIndex, endIndex - startIndex));
-#else
-                    sb.Append(fractionalStr, startIndex, endIndex - startIndex);
-#endif
                 }
             }
         }
@@ -514,11 +506,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                                 var formatStr = "F" + digits;
                                 var fractionalStr = totalSubSeconds.ToString(formatStr, CultureInfo.InvariantCulture);
                                 // Remove leading "0" to get just ".xxx"
-#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 sb.Append(fractionalStr.AsSpan(1));
-#else
-                                sb.Append(fractionalStr, 1, fractionalStr.Length - 1);
-#endif
                             }
                         }
                         else if (totalSubSeconds > 0)
@@ -534,11 +522,7 @@ internal sealed class JsDurationFormat : ObjectInstance
                             }
                             if (endIndex > startIndex + 1) // More than just "."
                             {
-#if !NETFRAMEWORK && !NETSTANDARD2_0
                                 sb.Append(fractionalStr.AsSpan(startIndex, endIndex - startIndex));
-#else
-                                sb.Append(fractionalStr, startIndex, endIndex - startIndex);
-#endif
                             }
                         }
                         subSecondsConsumed = true;
