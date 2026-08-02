@@ -1,8 +1,6 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
-#if NET8_0_OR_GREATER
 using System.Runtime.InteropServices;
-#endif
 using Jint.Native;
 
 namespace Jint.Runtime;
@@ -68,11 +66,7 @@ public static class Arguments
             Throw.ArgumentOutOfRangeException(nameof(index), "Index was outside the bounds of the array.");
         }
 
-#if NET8_0_OR_GREATER
         Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), index) = value;
-#else
-        array[index] = value;
-#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

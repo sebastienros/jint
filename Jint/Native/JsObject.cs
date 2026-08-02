@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -99,12 +99,8 @@ public sealed partial class JsObject : ObjectInstance
         System.Diagnostics.Debug.Assert(overflow.GetType() == typeof(JsValue[]), "_overflow must be an exact JsValue[]");
         System.Diagnostics.Debug.Assert((uint) index < (uint) overflow.Length, "overflow index must be in range");
 
-#if NET8_0_OR_GREATER
         ref var slot = ref System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(overflow);
         Unsafe.Add(ref slot, (nint) index) = value;
-#else
-        overflow[index] = value;
-#endif
     }
 
     /// <summary>Drops shape mode back to dictionary mode's starting state (clears the shape and slot
