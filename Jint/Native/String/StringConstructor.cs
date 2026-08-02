@@ -57,11 +57,7 @@ internal sealed partial class StringConstructor : Constructor
 
         // length is arguments.Length, already bounded by the materialized arguments array, so no
         // size cap is needed here (unlike padStart/repeat whose length comes from a JS number).
-#if SUPPORTS_SPAN_PARSE
-        var elements = length < 512 ? stackalloc char[length] : new char[length];
-#else
-        var elements = new char[length];
-#endif
+        Span<char> elements = length < 512 ? stackalloc char[length] : new char[length];
         for (var i = 0; i < elements.Length; i++)
         {
             // Spread can inflate the argument count; check constraints periodically.
@@ -74,7 +70,7 @@ internal sealed partial class StringConstructor : Constructor
             elements[i] = (char) nextCu;
         }
 
-        return JsString.Create(new string(elements));
+        return JsString.Create(elements.ToString());
     }
 
     /// <summary>
