@@ -434,6 +434,12 @@ public sealed partial class Engine : IDisposable
     {
         _host = Options.Host.Factory(this);
         _host.Initialize(this);
+
+        // InitializeHostDefinedRealm has just pushed the base execution context, and nothing pops it, so the
+        // realm it created is this engine's principal one for as long as the engine lives. It is otherwise
+        // reachable only from the bottom of the execution context stack: `Realm` names the *current* realm,
+        // which a ShadowRealm evaluation replaces for the duration of its own execution context.
+        _mainRealm = ExecutionContext.Realm;
     }
 
     internal ref readonly ExecutionContext ExecutionContext
@@ -454,6 +460,13 @@ public sealed partial class Engine : IDisposable
     // identity alone cannot see a name added to a pinned env. Creates into fresh environments
     // never bump: a fresh environment cannot appear in a previously pinned chain.
     internal int _envBindingInjectionEpoch;
+
+    /// <summary>
+    /// The realm <c>InitializeHostDefinedRealm</c> created for this engine, as opposed to
+    /// <see cref="Realm"/>, which is whichever realm the running execution context names. Assigned once, in
+    /// <c>Reset()</c>, and never replaced.
+    /// </summary>
+    internal Realm _mainRealm = null!;
 
     internal Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
