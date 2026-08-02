@@ -3,6 +3,13 @@ using Jint.Runtime;
 
 namespace Jint.Native.Error;
 
+/// <summary>
+/// Host-only facts about the CLR origin of an <see cref="ErrorInstance"/>, held behind a single reference
+/// rather than as one field per fact. Errors that came out of CLR interop are a small minority of the errors
+/// an engine builds, so a field per fact would have every error object carrying the ones it never fills.
+/// </summary>
+internal sealed record ClrErrorContext(Type? ResolutionType, string? ResolutionMemberName);
+
 public class ErrorInstance : ObjectInstance
 {
     private protected ErrorInstance(Engine engine, ObjectClass objectClass)
@@ -11,18 +18,23 @@ public class ErrorInstance : ObjectInstance
     }
 
     /// <summary>
-    /// When this error was produced by a failed CLR interop method or constructor resolution, the
-    /// originating CLR type. These are plain CLR fields (not JavaScript properties), so a running script
-    /// cannot observe them; the host reads them via <see cref="JintException.TryGetClrType"/>.
+    /// Host-only facts about the CLR origin of this error, or null for an error that has none. This is plain
+    /// CLR state and not JavaScript properties, so a running script cannot observe it; the host reads it
+    /// through the <see cref="JintException"/> accessors.
     /// </summary>
-    internal Type? ClrResolutionType { get; private set; }
+    private ClrErrorContext? _clrContext;
 
-    internal string? ClrResolutionMemberName { get; private set; }
+    /// <summary>
+    /// When this error was produced by a failed CLR interop method or constructor resolution, the
+    /// originating CLR type. Read host-side via <see cref="JintException.TryGetClrType"/>.
+    /// </summary>
+    internal Type? ClrResolutionType => _clrContext?.ResolutionType;
+
+    internal string? ClrResolutionMemberName => _clrContext?.ResolutionMemberName;
 
     internal void SetClrResolutionInfo(Type clrType, string? memberName)
     {
-        ClrResolutionType = clrType;
-        ClrResolutionMemberName = memberName;
+        _clrContext = new ClrErrorContext(clrType, memberName);
     }
 
     /// <summary>
