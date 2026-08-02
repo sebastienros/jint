@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -290,7 +290,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             {
                 if (hour12.Value)
                 {
-                    var lang = resolvedLocale.Split('-')[0].ToLowerInvariant();
+                    var lang = IntlUtilities.GetLanguageSubtag(resolvedLocale).ToLowerInvariant();
                     hourCycle = string.Equals(lang, "ja", StringComparison.Ordinal) ? "h11" : "h12";
                 }
                 else

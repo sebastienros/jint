@@ -727,7 +727,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             var yearName = lunisolarDate.Value.YearName;
 
             // Check locale for formatting - zh locale uses "年" suffix
-            var lang = Locale.Split('-')[0].ToLowerInvariant();
+            var lang = IntlUtilities.GetLanguageSubtag(Locale).ToLowerInvariant();
             var isChineseLocale = string.Equals(lang, "zh", StringComparison.Ordinal);
 
             // Add relatedYear part
@@ -820,7 +820,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private string FormatLongDate(DateTime dateTime)
     {
         // Use MMMM d, yyyy for en-US style, or locale-appropriate pattern
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        var lang = IntlUtilities.GetLanguageSubtag(Locale).ToLowerInvariant();
         if (string.Equals(lang, "en", StringComparison.Ordinal))
         {
             return dateTime.ToString("MMMM d, yyyy", CultureInfo);
@@ -868,7 +868,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private string FormatShortDate(DateTime dateTime)
     {
         // Use locale's short date pattern but with 2-digit year
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        var lang = IntlUtilities.GetLanguageSubtag(Locale).ToLowerInvariant();
         if (string.Equals(lang, "en", StringComparison.Ordinal))
         {
             // US style: M/d/yy with literal slash separator
@@ -1512,7 +1512,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     /// </summary>
     private void AddLunisolarDateParts(List<DateTimePart> result, ChineseCalendarHelper.ChineseCalendarDate date, bool textualMonth, bool shortFormat = false)
     {
-        var lang = Locale.Split('-')[0].ToLowerInvariant();
+        var lang = IntlUtilities.GetLanguageSubtag(Locale).ToLowerInvariant();
         var isChineseLocale = string.Equals(lang, "zh", StringComparison.Ordinal);
 
         // Month
@@ -1906,7 +1906,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     {
         // For English locale (en), use CLDR day period names
         // Other locales would need locale-specific data
-        var lang = Locale.Split('-')[0];
+        var lang = IntlUtilities.GetLanguageSubtag(Locale);
 
         if (string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase))
         {
