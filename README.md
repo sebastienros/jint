@@ -773,6 +773,99 @@ var engine = new Engine(options =>
   - Function -> Delegate
 - Extensions methods
 
+## Error handling
+
+### A CLR exception thrown by host code
+
+By default an exception thrown by host code — a delegate you registered, a reflected member, a proxy trap —
+is **not** converted into anything. It bubbles straight out of `Execute`/`Evaluate`/`Invoke` to you, with its
+message, .NET stack trace and inner exceptions untouched, and the script gets no chance to catch it:
+
+```c#
+var engine = new Engine();
+engine.SetValue("parse", new Action<string>(s => new XmlDocument().LoadXml(s)));
+
+// throws System.Xml.XmlException, with its own stack trace
+engine.Evaluate("parse('<not xml')");
+```
+
+`CatchClrExceptions` changes that: the exception becomes a JavaScript `Error` carrying its message, which the
+script can `try`/`catch` like any other. The predicate overload decides per exception, so you can let the
+script handle what it should handle and keep the rest fatal.
+
+```c#
+var engine = new Engine(options => options.CatchClrExceptions(e => e is not OperationCanceledException));
+```
+
+### Getting the original exception back
+
+Once an exception has been turned into a JavaScript error, the error is what travels — so when the script does
+not catch it and it reaches you as a `JavaScriptException`, the message alone is rarely enough to diagnose
+anything. `JintException.TryGetClrException` gives you the exception itself:
+
+```c#
+try
+{
+    engine.Evaluate(script);
+}
+catch (JavaScriptException e) when (JintException.TryGetClrException(e, out var clrException))
+{
+    logger.LogError(clrException, "host call failed while running {Script}", name);
+}
+```
+
+It survives nested frames, a script catching and rethrowing the same error, module evaluation and a rejected
+promise (`PromiseRejectedException`), and it follows the standard `cause` chain, so a script that rewraps with
+`throw new Error(msg, { cause: err })` keeps it too. A script that throws something unrelated instead keeps
+nothing, which is correct — it discarded the original.
+
+The exception is host-only. It is CLR state on the error object rather than a JavaScript property, so a script
+can neither read it nor strip it, and it does not appear in `Object.getOwnPropertyNames`, `Reflect.ownKeys` or
+`JSON.stringify`. Note that the error object holds the exception, and everything the exception's object graph
+reaches, for as long as the script keeps the error reachable.
+
+If you would rather your logging pipeline find it without asking, `ChainClrExceptions` also hangs it in the
+`InnerException` chain, so `ToString()` and any chain-walking logger render your own frames alongside the
+JavaScript ones. It is off by default because it puts host stack traces into whatever consumes that string —
+treat it the way an ASP.NET application treats developer exception details.
+
+```c#
+var engine = new Engine(options => options
+    .CatchClrExceptions()
+    .ChainClrExceptions());
+```
+
+Two related accessors work the same way: `JintException.TryGetJavaScriptLocation` and
+`TryGetJavaScriptCallStack` give the JavaScript position for both `JavaScriptException` and a bubbled CLR
+exception, and `TryGetClrType`/`TryGetClrMemberName` report the type and member behind a failed interop
+resolution. To shape what the *script* sees — rewrite the message, attach an error code —
+use `DecorateClrExceptionErrors`.
+
+### Raising an error from host code
+
+To fail a host function in a way the script can catch, throw a `JavaScriptException`. The overload taking a
+CLR exception records it for `TryGetClrException`, so the script sees an ordinary `Error` while you keep the
+original:
+
+```c#
+engine.SetValue("parse", new Action<string>(s =>
+{
+    try
+    {
+        new XmlDocument().LoadXml(s);
+    }
+    catch (XmlException e)
+    {
+        throw new JavaScriptException(engine.Intrinsics.Error, "XML parsing failed", e);
+    }
+}));
+```
+
+Do not throw the exception projected into the script instead
+(`new JavaScriptException(JsValue.FromObject(engine, e))`). That value is not an `Error` — it has no `stack`
+and fails `instanceof Error` — and it hands the running script the exception's members, including its .NET
+stack trace and inner exceptions.
+
 ## Security
 
 The following features provide you with a secure, sand-boxed environment to run user scripts.
