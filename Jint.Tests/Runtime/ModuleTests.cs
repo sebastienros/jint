@@ -1193,4 +1193,79 @@ export const count = globals.counter;
 
         log.Should().Equal("mid");
     }
+
+    [Fact]
+    public void ShouldNotBindALexicalDeclarationFromANestedBlockAtModuleLevel()
+    {
+        // A block's `let` is not a module item, so binding it at module level would leave the `var` of the same name uninitialized.
+        // The value is read from inside the block as well, because the post-block value alone cannot tell the fixed behaviour
+        // apart from the equally wrong one where the block's initializer lands on the module-level `var`.
+        _engine.Modules.Add("my-module", "let inner; { let a = 1; inner = a; } var a = 2; export const value = a; export { inner };");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("inner").AsInteger().Should().Be(1);
+        ns.Get("value").AsInteger().Should().Be(2);
+    }
+
+    [Fact]
+    public void ShouldNotBindAForHeadDeclarationAtModuleLevel()
+    {
+        // The `let` of a for head is scoped to the loop, so nothing it binds reaches module scope, and a module-level
+        // `var` of the same name stays writable. Each head shape is a separate branch of the walk, and the two a
+        // bundler actually emits are `for` and `for-of`.
+        _engine.Modules.Add("for-in", "for (let key in { x: 1 }) {} export const value = typeof key;");
+        _engine.Modules.Add("for", "for (let i = 0; i < 1; i++) {} var i = 5; export const value = i;");
+        _engine.Modules.Add("for-of", "for (const o of [1]) {} var o = 6; export const value = o;");
+
+        _engine.Modules.Import("for-in").Get("value").AsString().Should().Be("undefined");
+        _engine.Modules.Import("for").Get("value").AsInteger().Should().Be(5);
+        _engine.Modules.Import("for-of").Get("value").AsInteger().Should().Be(6);
+    }
+
+    [Fact]
+    public void ShouldNotBindAClassDeclaredInABlockAtModuleLevel()
+    {
+        // A class declaration is a separate branch of the walk from a variable declaration, so it needs both facts: the
+        // name is invisible outside its block, and it does not leave a module-level `var` of the same name uninitialized.
+        _engine.Modules.Add("invisible", "{ class C {} } export const value = typeof C;");
+        _engine.Modules.Add("clobbered", "{ class C {} } var C = 1; export const value = C;");
+
+        _engine.Modules.Import("invisible").Get("value").AsString().Should().Be("undefined");
+        _engine.Modules.Import("clobbered").Get("value").AsInteger().Should().Be(1);
+    }
+
+    [Fact]
+    public void ShouldBindExportedLexicalDeclarationsAtModuleLevel()
+    {
+        // The counterpart: an exported declaration sits inside the export declaration and is a module item.
+        _engine.Modules.Add("my-module", "export const c = 1; export let l = 2; export class K {} export default class D {}");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("c").AsInteger().Should().Be(1);
+        ns.Get("l").AsInteger().Should().Be(2);
+        ns.Get("K").IsCallable.Should().BeTrue();
+        ns.Get("default").IsCallable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldBindADefaultExportedClassAtModuleLevel()
+    {
+        // `export default class D {}` binds `D` at module level like any other module item, so `D` is in scope - and in
+        // its temporal dead zone - for the module items above it. The namespace's `default` is supplied by the export
+        // machinery either way, so only an early read of the name itself pins this arm of the whitelist.
+        _engine.Modules.Add("my-module", "export const value = typeof D; export default class D {}");
+
+        Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("Cannot access 'D' before initialization");
+    }
+
+    [Fact]
+    public void ShouldStillApplyTheTemporalDeadZoneToModuleLevelDeclarations()
+    {
+        // A module-level `const` is bound uninitialized until its declaration runs, so reading it early throws even through typeof.
+        _engine.Modules.Add("my-module", "typeof x; const x = 1;");
+
+        Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
+            .Which.Message.Should().Be("Cannot access 'x' before initialization");
+    }
 }

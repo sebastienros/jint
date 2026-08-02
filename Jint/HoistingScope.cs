@@ -70,7 +70,7 @@ internal sealed class HoistingScope
         bool collectLexicalNames = false)
     {
         // modules area always strict
-        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
+        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: true);
         treeWalker.Visit(module, null);
         return new HoistingScope(
             treeWalker._functions,
@@ -186,6 +186,12 @@ internal sealed class HoistingScope
         internal List<Key>? _lexicalNames;
 
         /// <summary>
+        /// Whether the walk started at an <see cref="AstModule"/>. Only there can an export declaration wrap a
+        /// module-level lexical declaration, so a script or function body walk stops at the root test.
+        /// </summary>
+        private readonly bool _module;
+
+        /// <summary>
         /// B.3.2/B.3.3: Function declarations inside blocks/switch cases in sloppy mode.
         /// </summary>
         internal List<FunctionDeclaration>? _annexBFunctions;
@@ -193,10 +199,11 @@ internal sealed class HoistingScope
         private int _depth;
         private const int MaxDepth = 256;
 
-        public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
+        public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module = false)
         {
             _collectVarNames = collectVarNames;
             _collectLexicalNames = collectLexicalNames;
+            _module = module;
         }
 
         public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null)
@@ -267,6 +274,12 @@ internal sealed class HoistingScope
 
             var effectiveLexicalNames = currentScopeLexicalNames ?? enclosingLexicalNames;
 
+            // https://tc39.es/ecma262/#sec-module-semantics-static-semantics-lexicallyscopeddeclarations
+            // Only a direct child of the module, or an export wrapping one, is a module item; a top-level block or `for` head is not.
+            // Outside a module the module-item question cannot arise, so the root test is the whole answer.
+            var atTopLevel = parent is null
+                || (_module && node.Type is NodeType.ExportNamedDeclaration or NodeType.ExportDefaultDeclaration && parent is AstModule);
+
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
@@ -288,7 +301,7 @@ internal sealed class HoistingScope
                         }
                     }
 
-                    if (parent is null or AstModule && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                    if (atTopLevel && variableDeclaration.Kind != VariableDeclarationKind.Var)
                     {
                         _lexicalDeclarations ??= [];
                         _lexicalDeclarations.Add(variableDeclaration);
@@ -349,7 +362,7 @@ internal sealed class HoistingScope
                         }
                     }
                 }
-                else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
+                else if (childType == NodeType.ClassDeclaration && atTopLevel)
                 {
                     var classDeclaration = (ClassDeclaration) childNode;
                     _lexicalDeclarations ??= [];
