@@ -459,6 +459,21 @@ public class Options
         public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
 
         /// <summary>
+        /// Whether the CLR exception behind a caught interop error is also chained into the
+        /// <see cref="Exception.InnerException"/> of the <see cref="JavaScriptException"/> the host catches, so
+        /// that logging which walks the inner-exception chain surfaces it. Defaults to false, which leaves
+        /// <see cref="object.ToString"/> on that exception rendering exactly the JavaScript error and stack it
+        /// renders today.
+        /// <para>
+        /// Turning this on puts the host's own .NET stack traces into whatever consumes that string, so treat it
+        /// the way an ASP.NET application treats developer exception details. It changes only how the exception
+        /// presents itself to the host; the originating exception is recorded either way and can always be read
+        /// with <see cref="JintException.TryGetClrException"/>, and a running script sees neither.
+        /// </para>
+        /// </summary>
+        public bool ChainClrExceptionAsInnerException { get; set; }
+
+        /// <summary>
         /// Called after a JavaScript error object is created from a CLR exception (when <see cref="ExceptionHandler"/> returns true).
         /// Allows decorating the error object with additional properties or modifying its state.
         /// The decorator receives the engine instance, the created error object, and the original CLR exception.
