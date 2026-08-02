@@ -773,11 +773,7 @@ internal static class RegExpInterpreter
 
                 if (litLen > 1)
                 {
-#if NETFRAMEWORK || NETSTANDARD2_0
                     literal = litBuf.Slice(0, litLen).ToString();
-#else
-                    literal = new string(litBuf.Slice(0, litLen));
-#endif
                 }
             }
 
@@ -820,11 +816,7 @@ internal static class RegExpInterpreter
 
                     if (litLen > 1)
                     {
-#if NETFRAMEWORK || NETSTANDARD2_0
                         literal = litBuf.Slice(0, litLen).ToString();
-#else
-                        literal = new string(litBuf.Slice(0, litLen));
-#endif
                     }
                 }
 

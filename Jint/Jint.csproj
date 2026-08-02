@@ -34,13 +34,15 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(TargetFramework)' != 'net462' and '$(TargetFramework)' != 'netstandard2.0' ">
-    <DefineConstants>$(DefineConstants);SUPPORTS_SPAN_PARSE;SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE;SUPPORTS_WEAK_TABLE_CLEAR;SUPPORTS_ASYNC_DISPOSE</DefineConstants>
+    <DefineConstants>$(DefineConstants);SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE;SUPPORTS_WEAK_TABLE_CLEAR;SUPPORTS_ASYNC_DISPOSE</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
-    <!-- SUPPORTS_UTF8_TRANSCODE: System.Text.Unicode.Utf8 (OperationStatus-based, allocation-free
-         transcoding). It is a .NET Core 3.0+ type and is NOT part of netstandard2.1, so it cannot ride
-         along on SUPPORTS_SPAN_PARSE. -->
+    <!-- These name absent TYPES, which is the only thing a SUPPORTS_ constant is for: an absent member
+         is backfilled in Polyfills.cs instead, so its call sites need no guard. SUPPORTS_HALF is
+         System.Half and SUPPORTS_UTF8_TRANSCODE is System.Text.Unicode.Utf8 (OperationStatus-based,
+         allocation-free transcoding); both are .NET Core 3.0+ types that netstandard2.1 does not carry,
+         which is why they cannot ride along on the group above. -->
     <DefineConstants>$(DefineConstants);SUPPORTS_HALF;SUPPORTS_UTF8_TRANSCODE</DefineConstants>
   </PropertyGroup>
 
