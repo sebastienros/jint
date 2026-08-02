@@ -1,4 +1,4 @@
-namespace Jint.Runtime.Modules;
+﻿namespace Jint.Runtime.Modules;
 
 /// <summary>
 /// Phase of a module import, as introduced by the
@@ -66,7 +66,9 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
 
     public override int GetHashCode()
     {
-        // Same pattern as OptionalSourceBreakLocationEqualityComparer — HashCode.Combine is net6+ only.
+        // Hand-rolled rather than HashCode.Combine, which is netstandard2.1+ and so absent on net462
+        // and netstandard2.0, where no shim exists either. Backfilling it would mean carrying xxHash32,
+        // and for two or three inputs the multiply-xor below is the cheaper hash anyway.
         unchecked
         {
             return (StringComparer.Ordinal.GetHashCode(Specifier) * 397) ^ (int) Phase;
