@@ -27,14 +27,6 @@ internal static class TemporalHelpers
         return $"{year:D4}";
     }
 
-    // Polyfill for Math.Clamp which doesn't exist in netstandard2.0
-    private static int Clamp(int value, int min, int max)
-    {
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
-    }
-
     /// <summary>
     /// Validates that a string doesn't contain non-ASCII minus sign (U+2212).
     /// Only ASCII hyphen-minus (U+002D) is valid in ISO 8601 strings.
@@ -1832,8 +1824,8 @@ internal static class TemporalHelpers
         // Validate/constrain in the Islamic calendar system first
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            month = Clamp(month, 1, 12);
-            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+            month = System.Math.Clamp(month, 1, 12);
+            day = System.Math.Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
         }
         else // "reject"
         {
@@ -1858,8 +1850,8 @@ internal static class TemporalHelpers
         // Same leap year and month structure as Islamic Civil
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            month = Clamp(month, 1, 12);
-            day = Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
+            month = System.Math.Clamp(month, 1, 12);
+            day = System.Math.Clamp(day, 1, IslamicCivilDaysInMonth(year, month));
         }
         else
         {
@@ -2785,9 +2777,9 @@ internal static class TemporalHelpers
     {
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            month = Clamp(month, 1, 12);
+            month = System.Math.Clamp(month, 1, 12);
             var daysInMonth = IsoDate.IsoDateInMonth(year, month);
-            day = Clamp(day, 1, daysInMonth);
+            day = System.Math.Clamp(day, 1, daysInMonth);
             var date = new IsoDate(year, month, day);
             // Even with constrain, check Temporal limits (unless skipped for PlainMonthDay)
             return skipRangeCheck || IsValidIsoDateTime(year, month, day) ? date : null;
@@ -2815,12 +2807,12 @@ internal static class TemporalHelpers
     {
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            hour = Clamp(hour, 0, 23);
-            minute = Clamp(minute, 0, 59);
-            second = Clamp(second, 0, 59);
-            millisecond = Clamp(millisecond, 0, 999);
-            microsecond = Clamp(microsecond, 0, 999);
-            nanosecond = Clamp(nanosecond, 0, 999);
+            hour = System.Math.Clamp(hour, 0, 23);
+            minute = System.Math.Clamp(minute, 0, 59);
+            second = System.Math.Clamp(second, 0, 59);
+            millisecond = System.Math.Clamp(millisecond, 0, 999);
+            microsecond = System.Math.Clamp(microsecond, 0, 999);
+            nanosecond = System.Math.Clamp(nanosecond, 0, 999);
             return new IsoTime(hour, minute, second, millisecond, microsecond, nanosecond);
         }
 
@@ -3450,6 +3442,10 @@ internal static class TemporalHelpers
         return result;
     }
 
+    // Not routed through a BigInteger.GetBitLength polyfill (the API is .NET 5+). The real one is
+    // defined over the shortest two's complement representation, so it differs from this magnitude
+    // count for negative values; every caller here passes an absolute value, but a backfill carrying
+    // that discrepancy under the BCL's name is the kind of near-miss that goes unnoticed. Kept local.
     private static int GetBigIntegerBitLength(BigInteger abs)
     {
 #if NET8_0_OR_GREATER
