@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Jint.Constraints;
 using Jint.Runtime;
 
@@ -28,7 +29,8 @@ namespace Jint.Tests.PublicInterface;
 /// cadence. Their check countdown is engine state, not evaluation-context state, so it spans top-level
 /// entries: a cancelled token is noticed within 64 statements however those statements are spread over
 /// host calls. That bounds detection latency, not the budget — the timeout's deadline is still re-armed
-/// per entry, which is why the timeout tests below still record no throw.
+/// per entry, which is why the timeout tests below only ever see it fire inside an entry that itself
+/// outlived the interval.
 /// </para>
 /// <para>
 /// These tests deliberately assert the <em>current</em> behaviour so that any change to it is a
@@ -60,6 +62,58 @@ public class HostCallLoopConstraintTests
             work(k);
         }
         """;
+
+    /// <summary>
+    /// The same callee, plus a host call that spends a known, deterministic slice of the entry's budget.
+    /// <para>
+    /// The timeout tests need a host loop whose <em>engine-resident</em> time provably exceeds the
+    /// timeout, and a script loop cannot express "take at least this long" — how much wall clock 200
+    /// interpreted iterations cost depends on the machine. A <see cref="Thread.Sleep(TimeSpan)"/> behind a
+    /// CLR delegate can, and it only ever errs by sleeping longer, which is the direction the premise
+    /// needs. The pause is charged against the entry's deadline like any other elapsed time, and is looked
+    /// at the moment the delegate returns, because interop call sites re-check the amortized constraints
+    /// on return from host code.
+    /// </para>
+    /// </summary>
+    private const string PausingFunctionSource = """
+        function pausingWork(n) {
+            pause();
+            var total = 0;
+            for (var i = 0; i < 200; i++) {
+                total += i * n;
+            }
+            return total;
+        }
+        """;
+
+    /// <summary>
+    /// The wall-clock budget one entry into the engine gets in the timeout tests below.
+    /// </summary>
+    private static readonly TimeSpan HostCallTimeout = TimeSpan.FromMilliseconds(600);
+
+    /// <summary>
+    /// What each host call spends of that budget. Deliberately a small fraction of
+    /// <see cref="HostCallTimeout"/>: the remainder is the headroom an entry has for a scheduling stall
+    /// before the engine is entitled to fail it, and the smaller the fraction the more calls it takes for
+    /// a deadline that failed to re-arm to accumulate past the timeout — four, with these numbers, which
+    /// is well inside the loop.
+    /// </summary>
+    private static readonly TimeSpan PausePerCall = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>
+    /// Enough calls that the loop's engine-resident time (<see cref="TimedLoopCalls"/> ×
+    /// <see cref="PausePerCall"/> = 900 ms) comfortably outlives <see cref="HostCallTimeout"/>.
+    /// </summary>
+    private const int TimedLoopCalls = 6;
+
+    /// <summary>
+    /// Absorbs the constraint's conversion of the configured interval into <see cref="Stopwatch"/> ticks,
+    /// which truncates and so can put the deadline a fraction of a tick early. Everything else about the
+    /// attribution below is one-sided in the safe direction, so this is the only slack needed — and it is
+    /// two orders of magnitude clear of <see cref="PausePerCall"/>, which is what a carried-over deadline
+    /// would fail at.
+    /// </summary>
+    private static readonly TimeSpan AttributionSlack = TimeSpan.FromMilliseconds(1);
 
     [Fact]
     public void MaxStatementsIsRefundedOnEveryHostCallSoAHostLoopSpendsItOverAndOver()
@@ -99,29 +153,46 @@ public class HostCallLoopConstraintTests
         // The case an embedder is most likely to get wrong: a wall-clock timeout reads as protection
         // against "this script may not run longer than X", but it only ever means "one entry into the
         // engine may not run longer than X".
-        var timeout = TimeSpan.FromMilliseconds(250);
-        var runFor = TimeSpan.FromMilliseconds(1500);
+        WarmUpTheInterpreter();
 
-        var engine = new Engine(o => o.TimeoutInterval(timeout));
-        engine.Execute(FunctionSource);
-        var work = engine.GetValue("work");
+        var engine = CreatePausingEngine(PausePerCall);
+        var work = engine.GetValue("pausingWork");
 
-        var elapsed = Stopwatch.StartNew();
-        var calls = 0;
+        var engineTime = TimeSpan.Zero;
+        var completed = 0;
 
-        Invoking(() =>
+        for (var i = 0; i < TimedLoopCalls; i++)
         {
-            while (elapsed.Elapsed < runFor)
+            var iteration = RunOneHostLoopIteration(() => work.Call(i));
+            engineTime += iteration.Elapsed;
+            if (iteration.Completed)
             {
-                work.Call(calls++);
+                completed++;
             }
-        }).Should().NotThrow("the deadline is re-armed on entry to every host call, so it can only ever expire inside one of them");
+        }
 
-        elapsed.Stop();
+        // premise: the engine really was resident for longer than one entry's budget, over several
+        // separate entries — deterministically so, because each call sleeps for at least PausePerCall
+        engineTime.Should().BeGreaterThan(HostCallTimeout);
+        completed.Should().BeGreaterThan(
+            1,
+            "a deadline that carried over would leave only the calls before it expired, and every "
+            + "iteration here spends a quarter of the interval");
+    }
 
-        // premise checks: the loop really did outlive the timeout, over many separate entries
-        elapsed.Elapsed.Should().BeGreaterThan(timeout);
-        calls.Should().BeGreaterThan(1);
+    [Fact]
+    public void APauseLongerThanTheTimeoutFiresInsideTheOneHostCallThatCausedIt()
+    {
+        // The control the two accumulation tests need: time spent inside a host call really is charged
+        // against that entry's deadline, so their "no throw" is a statement about the deadline being
+        // re-armed and not about the pause being invisible. Robust in the direction that matters, since
+        // Thread.Sleep only ever overshoots and the entry is already past its deadline when it returns.
+        WarmUpTheInterpreter();
+
+        var engine = CreatePausingEngine(HostCallTimeout + PausePerCall);
+        var work = engine.GetValue("pausingWork");
+
+        Invoking(() => work.Call(1)).Should().Throw<TimeoutException>();
     }
 
     [Fact]
@@ -280,23 +351,34 @@ public class HostCallLoopConstraintTests
         // The public escape hatch does not close the gap on its own: TimeConstraint re-arms its deadline
         // at the end of every run, so a host-loop Constraints.Check() measures the time since the last
         // call returned, never the time the loop has been running.
-        var engine = new Engine(o => o.TimeoutInterval(TimeSpan.FromMilliseconds(250)));
-        engine.Execute(FunctionSource);
-        var work = engine.GetValue("work");
+        WarmUpTheInterpreter();
 
-        var elapsed = Stopwatch.StartNew();
+        var engine = CreatePausingEngine(PausePerCall);
+        var work = engine.GetValue("pausingWork");
 
-        Invoking(() =>
+        var engineTime = TimeSpan.Zero;
+        var completed = 0;
+
+        for (var i = 0; i < TimedLoopCalls; i++)
         {
-            while (elapsed.Elapsed < TimeSpan.FromMilliseconds(1000))
+            var iteration = RunOneHostLoopIteration(() =>
             {
-                work.Call(1);
+                work.Call(i);
                 engine.Constraints.Check();
-            }
-        }).Should().NotThrow();
+            });
 
-        elapsed.Stop();
-        elapsed.Elapsed.Should().BeGreaterThan(TimeSpan.FromMilliseconds(250));
+            engineTime += iteration.Elapsed;
+            if (iteration.Completed)
+            {
+                completed++;
+            }
+        }
+
+        engineTime.Should().BeGreaterThan(HostCallTimeout);
+        completed.Should().BeGreaterThan(
+            1,
+            "the host-loop check measures the time since the last entry returned and re-armed the "
+            + "deadline, not the age of the loop");
     }
 
     [Fact]
@@ -344,6 +426,82 @@ public class HostCallLoopConstraintTests
         }).Should().Throw<BudgetExhaustedException>("the amortized countdown spans host calls instead of restarting at 64 for each");
 
         calls.Should().BeLessThanOrEqualTo(64);
+    }
+
+    /// <summary>
+    /// An engine running <see cref="PausingFunctionSource"/> under <see cref="HostCallTimeout"/>, whose
+    /// <c>pause()</c> spends <paramref name="pause"/> of the current entry's budget.
+    /// </summary>
+    private static Engine CreatePausingEngine(TimeSpan pause)
+    {
+        var engine = new Engine(o => o.TimeoutInterval(HostCallTimeout));
+        engine.SetValue("pause", new Action(() => Thread.Sleep(pause)));
+        engine.Execute(PausingFunctionSource);
+        return engine;
+    }
+
+    /// <summary>
+    /// Runs one iteration of a host loop under <see cref="HostCallTimeout"/> and reports whether it
+    /// completed, converting the one <see cref="TimeoutException"/> the engine is entitled to throw into
+    /// an observation instead of a failure.
+    /// <para>
+    /// A timeout constraint measures wall clock, so <c>NotThrow</c> over a host loop is a stronger claim
+    /// than the engine ever made: if the operating system deschedules the thread for longer than the
+    /// interval in the middle of an entry, that entry <em>did</em> outlive its deadline and failing it is
+    /// the documented behaviour, not the bug this file guards. Asserting no throw at all therefore made
+    /// these tests assertions about a CI agent's scheduling latency, and they failed as such — repeatedly,
+    /// on unrelated changes, on every operating system and both target frameworks.
+    /// </para>
+    /// <para>
+    /// What the engine does promise is the implication: a throw can only come from an entry that itself
+    /// ran past the interval. That is what is asserted here, and it cannot be falsified by a stall, only
+    /// by the regression the tests exist for — a deadline carried over from an earlier host call fires
+    /// after an iteration costing <see cref="PausePerCall"/>, a quarter of the interval. The stopwatch
+    /// starts before the entry arms its deadline and stops after it throws, so the window it measures is
+    /// always a superset of the one the constraint measured; the comparison can only err towards
+    /// tolerating a throw, never towards inventing one.
+    /// </para>
+    /// </summary>
+    private static HostLoopIteration RunOneHostLoopIteration(Action iteration)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            iteration();
+            return new HostLoopIteration(true, stopwatch.Elapsed);
+        }
+        catch (TimeoutException)
+        {
+            var elapsed = stopwatch.Elapsed;
+            elapsed.Should().BeGreaterThanOrEqualTo(
+                HostCallTimeout - AttributionSlack,
+                "the timeout may only fire for an entry that itself outlived the interval; a throw out "
+                + "of a shorter iteration means the deadline carried over from an earlier host call");
+            return new HostLoopIteration(false, elapsed);
+        }
+    }
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct HostLoopIteration(bool Completed, TimeSpan Elapsed);
+
+    /// <summary>
+    /// Pays the JIT cost of the whole call path — the interpreter, the constraint plumbing and the
+    /// delegate wrapper — on an engine carrying no timeout, so that the first <em>timed</em> entry is not
+    /// also the one compiling it. Cold JIT is process-wide, and charging it to an entry whose budget is
+    /// being measured is the one avoidable way to make an entry outlive its deadline.
+    /// </summary>
+    private static void WarmUpTheInterpreter()
+    {
+        var engine = new Engine();
+        engine.SetValue("pause", new Action(() => { }));
+        engine.Execute(PausingFunctionSource);
+        var work = engine.GetValue("pausingWork");
+
+        for (var i = 0; i < 3; i++)
+        {
+            work.Call(i);
+            engine.Constraints.Check();
+        }
     }
 
     /// <summary>
