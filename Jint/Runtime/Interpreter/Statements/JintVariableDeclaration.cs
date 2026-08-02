@@ -91,9 +91,10 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
     /// Tight-loop entry; see <see cref="JintStatement.ExecuteDiscarded"/>. Declarations complete
     /// with an Empty Normal value on every path, so only the Execute wrapper ceremony is skipped;
     /// the current node still needs tracking for error locations. Skipping PrepareFor is safe:
-    /// <see cref="EvaluationContext.Completion"/> is written nowhere but PrepareFor (never abrupt)
-    /// and a stale <see cref="EvaluationContext.Target"/> is only consumed under Break/Continue
-    /// completions, which the tight shape excludes.
+    /// <see cref="EvaluationContext.Completion"/> is written nowhere but PrepareFor (never abrupt),
+    /// and a break/continue label rides on the completion that carries it
+    /// (<see cref="Jint.Runtime.Completion.Target"/>), so no jump state survives on the context for
+    /// PrepareFor to reset or for this lane to leave stale.
     /// </summary>
     internal override void ExecuteDiscarded(EvaluationContext context)
     {

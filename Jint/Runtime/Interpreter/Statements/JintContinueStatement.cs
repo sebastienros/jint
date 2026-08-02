@@ -13,7 +13,7 @@ internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        context.Target = _statement.Label?.Name;
+        // The label travels on the completion, read back from _statement by Completion.Target.
         return new Completion(CompletionType.Continue, JsEmpty.Instance, _statement);
     }
 }
