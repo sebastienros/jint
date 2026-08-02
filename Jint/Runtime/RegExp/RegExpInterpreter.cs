@@ -248,11 +248,7 @@ internal static class RegExpInterpreter
 
             if (end > offset)
             {
-#if NETFRAMEWORK || NETSTANDARD2_0
-                names[i] = Encoding.UTF8.GetString(bytecode.Slice(offset, end - offset).ToArray());
-#else
                 names[i] = Encoding.UTF8.GetString(bytecode.Slice(offset, end - offset));
-#endif
             }
 
             // Skip past NUL terminator + 1 byte scope trailer (LRE_GROUP_NAME_TRAILER_LEN = 2 total)

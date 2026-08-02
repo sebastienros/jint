@@ -697,13 +697,8 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         public override int GetHashCode()
         {
-#if !NET8_0_OR_GREATER
-            // netstandard2.1 lacks the (ReadOnlySpan<char>, StringComparison) overload
-            return StringComparer.Ordinal.GetHashCode(ToString());
-#else
             // same hash as the equivalent flat string instance
             return string.GetHashCode(AsSpan(), StringComparison.Ordinal);
-#endif
         }
     }
 }
