@@ -16,6 +16,17 @@ namespace Jint.Native.Intl;
 internal static class IntlUtilities
 {
     /// <summary>
+    /// The primary language subtag of a BCP 47 tag, so "es" from "es-ES", and the tag itself when it
+    /// carries no subtags. Equivalent to <c>tag.Split('-')[0]</c> without the string[] that allocates
+    /// to read one element -- including for a leading separator, where Split yields an empty string.
+    /// </summary>
+    internal static string GetLanguageSubtag(string tag)
+    {
+        var dashIndex = tag.IndexOf('-');
+        return dashIndex >= 0 ? tag.Substring(0, dashIndex) : tag;
+    }
+
+    /// <summary>
     /// Implements the normative-optional legacy-constructor chaining behaviour shared by
     /// Intl.Collator, Intl.DateTimeFormat and Intl.NumberFormat (ChainCollator / ChainDateTimeFormat /
     /// ChainNumberFormat). When the constructor is invoked as a plain function (NewTarget is undefined)

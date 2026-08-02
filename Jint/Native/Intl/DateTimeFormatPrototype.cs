@@ -739,7 +739,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     internal static string GetDefaultHourCycle(string locale)
     {
         // Most English-speaking locales use 12-hour format
-        var lang = locale.Split('-')[0].ToLowerInvariant();
+        var lang = IntlUtilities.GetLanguageSubtag(locale).ToLowerInvariant();
 
         // 24-hour format locales
         if (lang is "de" or "fr" or "it" or "es" or "pt" or "nl" or "ru" or "pl" or "sv" or "da" or "nb" or "fi")
