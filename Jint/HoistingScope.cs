@@ -351,13 +351,26 @@ internal sealed class HoistingScope
                 }
                 else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
                 {
+                    var classDeclaration = (ClassDeclaration) childNode;
                     _lexicalDeclarations ??= [];
-                    _lexicalDeclarations.Add((Declaration) childNode);
+                    _lexicalDeclarations.Add(classDeclaration);
+
+                    // A class name is a lexically declared name of this scope just as a let/const one is, and
+                    // B.3.2.1 skips the var-hoisting of a block-level function whose name is lexically declared.
+                    // The Id is null for `export default class {}`, which binds *default* rather than a name.
+                    if (_collectLexicalNames && classDeclaration.Id is not null)
+                    {
+                        _lexicalNames ??= [];
+                        _lexicalNames.Add(classDeclaration.Id.Name);
+                    }
                 }
 
+                // A class static block is its own var scope — ClassStaticBlockDefinitionEvaluation hoists it as a
+                // function body of its own — so its `var` and `function` declarations must not reach this one.
                 if (childType != NodeType.FunctionDeclaration
                     && childType != NodeType.ArrowFunctionExpression
                     && childType != NodeType.FunctionExpression
+                    && childType != NodeType.StaticBlock
                     && !childNode.ChildNodes.IsEmpty())
                 {
                     Visit(childNode, node, effectiveLexicalNames);
