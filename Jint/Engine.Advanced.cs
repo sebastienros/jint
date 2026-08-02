@@ -402,9 +402,10 @@ public partial class Engine
         /// <b>Interaction with <see cref="CaptureGlobalSnapshot"/>.</b> A restore returns the binding to its
         /// state at capture, which cuts both ways: a global installed after the capture is gone after the
         /// restore, and one installed before it whose factory had <em>not</em> yet run at capture time is
-        /// returned to that unmaterialized state — so the factory may run again on the next read. That is
-        /// the point rather than an artifact: it is what lets a pooled engine keep the laziness across
-        /// evaluations. A factory whose result must survive a restore has to be installed after it.
+        /// returned to that unmaterialized state, so the factory <b>runs again</b> on the next read. That is
+        /// a contract rather than an artifact — it is what lets a pooled engine keep the laziness across
+        /// evaluations, and a host that reuses engines depends on it to stop one request's value being
+        /// served to the next. A factory whose result must survive a restore has to be installed after it.
         /// </para>
         /// </remarks>
         /// <example>

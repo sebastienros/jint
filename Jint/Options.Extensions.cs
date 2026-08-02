@@ -526,6 +526,26 @@ public static class OptionsExtensions
     /// it is not.
     /// </para>
     /// <para>
+    /// <b>A restore re-arms an unread global, and this is a contract.</b> If
+    /// <see cref="Engine.AdvancedOperations.CaptureGlobalSnapshot"/> is taken while this global has not yet
+    /// been read, <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> returns it to that
+    /// unmaterialized state, and <paramref name="valueFactory"/> <b>runs again</b> on the next read. It is
+    /// not merely permitted to — a host pooling engines across requests depends on it, since the value the
+    /// factory produced belongs to the request that read it. Capture before the first evaluation and the
+    /// globals of every later one are rebuilt rather than inherited.
+    /// <para>
+    /// The failure this rules out is silent, which is why it is stated rather than left to the
+    /// implementation: were the descriptor reinstated with its materialized value intact, a reused engine
+    /// would serve the next request a value closed over the previous one's state, with nothing to observe
+    /// but the wrong answer.
+    /// </para>
+    /// <para>
+    /// The guarantee covers a global whose factory had <em>not</em> run at capture time. One already read by
+    /// then is part of the captured surface and is restored to that value, which is the same rule seen from
+    /// the other side.
+    /// </para>
+    /// </para>
+    /// <para>
     /// <b>Flags differ from <see cref="Engine.SetValue(string, Delegate)"/>.</b> The default here matches
     /// <see cref="Engine.SetValue(string, JsValue)"/> — configurable, enumerable and writable — whereas
     /// registering a delegate global installs it as <see cref="PropertyFlag.NonEnumerable"/> (configurable
