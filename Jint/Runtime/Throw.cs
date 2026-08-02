@@ -218,6 +218,15 @@ internal static class Throw
     public static void FromClrException(Engine engine, Exception clrException)
     {
         var error = engine.Realm.Intrinsics.Error.Construct(clrException.Message);
+
+        // The error value survives the interpreter's throw-completion reconstruction (the .NET exception
+        // instance does not), so the only place the originating exception can be recorded and still reach
+        // the host is the error object itself. Attached before the decorator runs, so a decorator can read it.
+        if (error is ErrorInstance errorInstance)
+        {
+            errorInstance.SetClrException(clrException);
+        }
+
         engine.Options.Interop.ClrExceptionErrorDecorator?.Invoke(engine, error, clrException);
 
         var jsException = new JavaScriptException(error);

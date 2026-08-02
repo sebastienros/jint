@@ -8,7 +8,7 @@ namespace Jint.Native.Error;
 /// rather than as one field per fact. Errors that came out of CLR interop are a small minority of the errors
 /// an engine builds, so a field per fact would have every error object carrying the ones it never fills.
 /// </summary>
-internal sealed record ClrErrorContext(Type? ResolutionType, string? ResolutionMemberName);
+internal sealed record ClrErrorContext(Type? ResolutionType, string? ResolutionMemberName, Exception? ClrException);
 
 public class ErrorInstance : ObjectInstance
 {
@@ -32,9 +32,20 @@ public class ErrorInstance : ObjectInstance
 
     internal string? ClrResolutionMemberName => _clrContext?.ResolutionMemberName;
 
+    /// <summary>
+    /// When this error stands in for a CLR exception thrown out of host code — a delegate, a reflected member,
+    /// a proxy trap — the exception itself. Read host-side via <see cref="JintException.TryGetClrException"/>.
+    /// </summary>
+    internal Exception? ClrException => _clrContext?.ClrException;
+
     internal void SetClrResolutionInfo(Type clrType, string? memberName)
     {
-        _clrContext = new ClrErrorContext(clrType, memberName);
+        _clrContext = new ClrErrorContext(clrType, memberName, ClrException: null);
+    }
+
+    internal void SetClrException(Exception clrException)
+    {
+        _clrContext = new ClrErrorContext(ResolutionType: null, ResolutionMemberName: null, clrException);
     }
 
     /// <summary>
@@ -42,10 +53,10 @@ public class ErrorInstance : ObjectInstance
     /// </summary>
     internal void InstallErrorCause(JsValue options)
     {
-        if (options is ObjectInstance oi && oi.HasProperty("cause"))
+        if (options is ObjectInstance oi && oi.HasProperty(CommonProperties.Cause))
         {
-            var cause = oi.Get("cause");
-            CreateNonEnumerableDataPropertyOrThrow("cause", cause);
+            var cause = oi.Get(CommonProperties.Cause);
+            CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Cause, cause);
         }
     }
 
