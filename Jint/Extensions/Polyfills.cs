@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -388,6 +389,89 @@ internal static class BigIntegerPolyfills
         {
             return BigInteger.TryParse(value.ToString(), style, provider, out result);
         }
+#endif
+    }
+}
+
+internal static class RuntimeHelpersPolyfills
+{
+    extension(RuntimeHelpers)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // RuntimeHelpers.TryEnsureSufficientExecutionStack arrived in .NET Core 2.0 / netstandard2.1. The
+        // older frameworks only have the throwing form, so this is the try/catch the call site was
+        // writing itself -- an exception per failed probe, which is why the real API exists.
+        public static bool TryEnsureSufficientExecutionStack()
+        {
+            try
+            {
+                RuntimeHelpers.EnsureSufficientExecutionStack();
+                return true;
+            }
+            catch (InsufficientExecutionStackException)
+            {
+                return false;
+            }
+        }
+#endif
+    }
+}
+
+internal static class MathPolyfills
+{
+    extension(Math)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // Math.Clamp arrived in .NET Core 2.0 / netstandard2.1.
+        public static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
+#endif
+    }
+}
+
+internal static class GCPolyfills
+{
+    extension(GC)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // GC.GetAllocatedBytesForCurrentThread became public in .NET Core 3.0 / netstandard2.1. It exists
+        // on .NET Framework as a non-public method, so reflection reaches it there; where even that fails
+        // the caller has no way to measure allocation and says so.
+        public static long GetAllocatedBytesForCurrentThread()
+        {
+            var getter = AllocatedBytesForCurrentThread;
+            if (getter is null)
+            {
+                Jint.Runtime.Throw.PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+            }
+
+            return getter();
+        }
+#endif
+    }
+
+#if NETFRAMEWORK || NETSTANDARD2_0
+    private static readonly Func<long>? AllocatedBytesForCurrentThread = ResolveAllocatedBytesForCurrentThread();
+
+    private static Func<long>? ResolveAllocatedBytesForCurrentThread()
+    {
+        var methodInfo = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
+        return methodInfo is null ? null : (Func<long>) Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+    }
+#endif
+}
+
+internal static class CharUnicodeInfoPolyfills
+{
+    extension(CharUnicodeInfo)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // CharUnicodeInfo.GetUnicodeCategory(int) arrived in .NET Core 3.0 / netstandard2.1. Below that a
+        // supplementary code point has to be materialized as a surrogate pair first, which is the
+        // allocation this overload exists to avoid; BMP code points still avoid it.
+        public static UnicodeCategory GetUnicodeCategory(int codePoint)
+            => codePoint <= 0xFFFF
+                ? CharUnicodeInfo.GetUnicodeCategory((char) codePoint)
+                : CharUnicodeInfo.GetUnicodeCategory(char.ConvertFromUtf32(codePoint), 0);
 #endif
     }
 }

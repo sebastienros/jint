@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // https://github.com/dotnet/runtime/blob/a0964f9e3793cb36cc01d66c14a61e89ada5e7da/src/libraries/Microsoft.Extensions.DependencyInjection/src/ServiceLookup/StackGuard.cs
@@ -35,21 +35,10 @@ internal sealed class StackGuard
             return true;
         }
 
-#if NETFRAMEWORK || NETSTANDARD2_0
-        try
-        {
-            RuntimeHelpers.EnsureSufficientExecutionStack();
-            return true;
-        }
-        catch (InsufficientExecutionStackException)
-        {
-        }
-#else
         if (RuntimeHelpers.TryEnsureSufficientExecutionStack())
         {
             return true;
         }
-#endif
 
         if (_engine.CallStack.Count > _maxExecutionStackCount)
         {
@@ -61,7 +50,7 @@ internal sealed class StackGuard
 
     public static TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
     {
-#if NETFRAMEWORK || NETSTANDARD2_0
+#if NETFRAMEWORK
         return RunOnEmptyStackCore(static s =>
         {
             var t = (Tuple<Func<T1, TR>, T1>) s;

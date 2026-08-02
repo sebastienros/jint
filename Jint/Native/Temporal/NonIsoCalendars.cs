@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace Jint.Native.Temporal;
@@ -152,7 +152,7 @@ internal static class NonIsoCalendars
                 : (monthCode is not null
                     ? int.Parse(monthCode.AsSpan(1, 2), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture)
                     : 1);
-            return TemporalHelpers.RegulateIsoDate(year, Clamp(isoMonth, 1, 12), day, overflow);
+            return TemporalHelpers.RegulateIsoDate(year, System.Math.Clamp(isoMonth, 1, 12), day, overflow);
         }
 
         return result;
@@ -771,7 +771,7 @@ internal static class NonIsoCalendars
             var maxMonths = GetMonthsInYear(calendar, cal, year);
             if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
             {
-                return Clamp(month, 1, maxMonths);
+                return System.Math.Clamp(month, 1, maxMonths);
             }
 
             if (month < 1 || month > maxMonths)
@@ -952,11 +952,6 @@ internal static class NonIsoCalendars
     }
 
     #region Private Helpers
-
-    private static int Clamp(int value, int min, int max)
-    {
-        return value < min ? min : value > max ? max : value;
-    }
 
     /// <summary>
     /// Determines if a Hebrew year is a leap year using the 19-year Metonic cycle.
@@ -1437,7 +1432,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, maxMonths);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, maxMonths);
         }
         else if (ordinalMonth < 1 || ordinalMonth > maxMonths)
         {
@@ -1457,7 +1452,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {
@@ -1636,7 +1631,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, maxMonths);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, maxMonths);
         }
         else if (ordinalMonth < 1 || ordinalMonth > maxMonths)
         {
@@ -1658,7 +1653,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {
@@ -1822,7 +1817,7 @@ internal static class NonIsoCalendars
         // Constrain month
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, 12);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, 12);
         }
         else if (ordinalMonth < 1 || ordinalMonth > 12)
         {
@@ -1843,7 +1838,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {
@@ -2061,7 +2056,7 @@ internal static class NonIsoCalendars
                         return null;
                     }
 
-                    ordinalMonth = Clamp(displayMonth, 1, maxMonth);
+                    ordinalMonth = System.Math.Clamp(displayMonth, 1, maxMonth);
                 }
                 else
                 {
@@ -2081,7 +2076,7 @@ internal static class NonIsoCalendars
         // Constrain month
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, maxMonth);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, maxMonth);
         }
         else if (ordinalMonth < 1 || ordinalMonth > maxMonth)
         {
@@ -2093,7 +2088,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {
@@ -2356,7 +2351,7 @@ internal static class NonIsoCalendars
         // Constrain month
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, 12);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, 12);
         }
         else if (ordinalMonth < 1 || ordinalMonth > 12)
         {
@@ -2368,7 +2363,7 @@ internal static class NonIsoCalendars
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {
@@ -2686,7 +2681,7 @@ internal static class NonIsoCalendars
         // Constrain month
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, 12);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, 12);
         }
         else if (ordinalMonth < 1 || ordinalMonth > 12)
         {
@@ -2706,7 +2701,7 @@ internal static class NonIsoCalendars
                 var maxDay = cal.GetDaysInMonth(year, ordinalMonth);
                 if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
                 {
-                    day = Clamp(day, 1, maxDay);
+                    day = System.Math.Clamp(day, 1, maxDay);
                 }
                 else if (day < 1 || day > maxDay)
                 {
@@ -2726,7 +2721,7 @@ internal static class NonIsoCalendars
         var maxDayCivil = IslamicCivilDaysInMonth(year, ordinalMonth);
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDayCivil);
+            day = System.Math.Clamp(day, 1, maxDayCivil);
         }
         else if (day < 1 || day > maxDayCivil)
         {
@@ -2836,7 +2831,7 @@ internal static class NonIsoCalendars
         // Constrain month
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            ordinalMonth = Clamp(ordinalMonth, 1, 12);
+            ordinalMonth = System.Math.Clamp(ordinalMonth, 1, 12);
         }
         else if (ordinalMonth < 1 || ordinalMonth > 12)
         {
@@ -2847,7 +2842,7 @@ internal static class NonIsoCalendars
         var maxDay = IslamicCivilDaysInMonth(year, ordinalMonth);
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
-            day = Clamp(day, 1, maxDay);
+            day = System.Math.Clamp(day, 1, maxDay);
         }
         else if (day < 1 || day > maxDay)
         {

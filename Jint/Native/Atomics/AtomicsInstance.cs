@@ -1344,8 +1344,10 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         buffer[byteIndex + 7] = (byte) (value >> 56);
     }
 
-    // Interlocked.And/Or/Xor are only available in .NET 5.0+
-    // For older frameworks, we use CompareExchange loops
+    // Interlocked.And/Or are only available in .NET 5.0+; for older frameworks these use
+    // CompareExchange loops. Deliberately kept as local helpers rather than routed through
+    // extension-member backfills of Interlocked: Interlocked.Xor has no BCL equivalent on any
+    // framework, so backfilling only two of the three would split a trio that reads as one unit.
 #if NET8_0_OR_GREATER
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int InterlockedAnd(ref int location, int value)
