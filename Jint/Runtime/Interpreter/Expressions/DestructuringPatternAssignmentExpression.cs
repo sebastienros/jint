@@ -20,17 +20,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var rightValue = _right.GetValue(context);
-        if (context.IsAbrupt())
-        {
-            return rightValue;
-        }
-
-        var completion = ProcessPatterns(context, _pattern, rightValue, null);
-        if (context.IsAbrupt())
-        {
-            return completion;
-        }
-
+        ProcessPatterns(context, _pattern, rightValue, null);
         return rightValue;
     }
 
@@ -501,10 +491,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 {
                     var keyExpression = Build(p.Key);
                     var value = keyExpression.GetValue(context);
-                    if (context.IsAbrupt())
-                    {
-                        return value;
-                    }
                     sourceKey = TypeConverter.ToPropertyKey(value);
                 }
                 else
@@ -539,10 +525,6 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     {
                         var jintExpression = Build(assignmentPattern.Right);
                         var completion = jintExpression.GetValue(context);
-                        if (context.IsAbrupt())
-                        {
-                            return completion;
-                        }
                         // Check for async/generator suspension after evaluating default value
                         if (context.IsSuspended())
                         {

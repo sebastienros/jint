@@ -18,11 +18,6 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         var env = engine.ExecutionContext.LexicalEnvironment;
         var value = _classDefinition.BuildConstructor(context, env);
 
-        if (context.IsAbrupt())
-        {
-            return new Completion(context.Completion, value, _statement);
-        }
-
         var classBinding = _classDefinition._className;
         if (classBinding != null)
         {

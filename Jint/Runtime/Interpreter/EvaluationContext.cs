@@ -100,9 +100,6 @@ internal sealed class EvaluationContext
     /// </summary>
     public bool CompletionValuesObservable = true;
 
-    // completion record information
-    public CompletionType Completion;
-
     public void RunBeforeExecuteStatementChecks(StatementOrExpression statement)
     {
         if (_shouldRunPerStatementChecks)
@@ -158,13 +155,13 @@ internal sealed class EvaluationContext
         }
     }
 
+    /// <summary>
+    /// Establishes <paramref name="node"/> as the node an error would be reported against. This is
+    /// the whole of the per-node ceremony: abrupt completions travel out of band (as a
+    /// <see cref="JavaScriptException"/> or through <see cref="Engine._error"/>) and a break or
+    /// continue label travels on the <see cref="Completion"/> it belongs to, so there is no
+    /// completion state on the context left to reset.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void PrepareFor(Node node)
-    {
-        LastSyntaxElement = node;
-        Completion = CompletionType.Normal;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsAbrupt() => Completion != CompletionType.Normal;
+    public void PrepareFor(Node node) => LastSyntaxElement = node;
 }
