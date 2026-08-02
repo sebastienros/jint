@@ -196,6 +196,29 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal readonly MaxStatementsConstraint? _inlineStatementCounter;
 
+    /// <summary>
+    /// Statements remaining before the next amortized constraint check. Driven by
+    /// <see cref="EvaluationContext.RunAmortizedConstraintChecks"/>.
+    /// <para>
+    /// It lives on the engine rather than on the evaluation context because a top-level entry into the
+    /// engine creates a fresh <see cref="EvaluationContext"/>, so a per-context countdown restarted at
+    /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> for every entry — and a callee
+    /// shorter than that interval then never reached a check at all, however many times a host loop
+    /// invoked it. That silently defeated <see cref="Constraints.CancellationConstraint"/>, whose
+    /// <see cref="Constraint.Reset"/> is deliberately a no-op precisely so cancellation <em>can</em> span
+    /// host calls. A cadence is not a budget: the amortized constraints only observe external state, so
+    /// carrying the countdown across entries (and across nested re-entries, which share it rather than
+    /// restarting it) is what makes the documented bound — at most
+    /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> statements of detection latency —
+    /// hold for the engine as a whole instead of only within one entry.
+    /// </para>
+    /// <para>
+    /// Deliberately <em>not</em> rewound by <see cref="ResetConstraints"/>: that runs on every non-nested
+    /// entry and rewinding here would restore exactly the behaviour above.
+    /// </para>
+    /// </summary>
+    internal int _amortizedConstraintCountdown = EvaluationContext.AmortizedConstraintCheckInterval;
+
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 

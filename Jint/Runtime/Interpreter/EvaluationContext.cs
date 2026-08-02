@@ -24,7 +24,6 @@ internal sealed class EvaluationContext
     private readonly bool _shouldRunPerStatementChecks;
     private readonly bool _hasAmortizedConstraints;
     private readonly MaxStatementsConstraint? _statementCounter;
-    private int _amortizedConstraintCountdown;
 
     public EvaluationContext(Engine engine)
     {
@@ -39,7 +38,6 @@ internal sealed class EvaluationContext
         _shouldRunPerStatementChecks = (engine._exactConstraints.Length > 0 || engine._isDebugMode)
                                        && _statementCounter is null;
         _hasAmortizedConstraints = engine._amortizedConstraints.Length > 0;
-        _amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
     }
 
     // for fast evaluation checks only
@@ -141,16 +139,22 @@ internal sealed class EvaluationContext
     /// <summary>
     /// The amortized slice of the before-statement checks: with only observation-only constraints
     /// registered (e.g. a timeout — the common embedder configuration) this is the whole
-    /// per-statement cost, a countdown decrement and branch. The countdown is per-context state,
-    /// so detection latency stays bounded at <see cref="AmortizedConstraintCheckInterval"/>
-    /// statements regardless of which call sites drive it.
+    /// per-statement cost, a countdown decrement and branch. The countdown is
+    /// <em>per-engine</em> state (<see cref="Engine._amortizedConstraintCountdown"/>, which explains
+    /// why), so detection latency stays bounded at <see cref="AmortizedConstraintCheckInterval"/>
+    /// statements regardless of which call sites drive it, of how many top-level entries the host
+    /// makes, and of how short each of them is.
+    /// <para>
+    /// The <see cref="_hasAmortizedConstraints"/> test must stay first: the parameterless
+    /// constructor leaves <see cref="Engine"/> null and relies on it short-circuiting.
+    /// </para>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void RunAmortizedConstraintChecks()
     {
-        if (_hasAmortizedConstraints && --_amortizedConstraintCountdown == 0)
+        if (_hasAmortizedConstraints && --Engine._amortizedConstraintCountdown <= 0)
         {
-            _amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
+            Engine._amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
             Engine.CheckAmortizedConstraints();
         }
     }
