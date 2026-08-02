@@ -920,14 +920,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     return new Completion(CompletionType.Return, returnValue, _statement!);
                 }
 
-                if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type == CompletionType.Break && (result.Target == null || string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = CompletionType.Normal;
                     suspendable?.Data.Clear(this);
                     return new Completion(CompletionType.Normal, v, _statement!);
                 }
 
-                if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type != CompletionType.Continue || (result.Target != null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     completionType = result.Type;
                     if (result.IsAbrupt())
@@ -1327,7 +1327,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         }
 
         if (result.Type == CompletionType.Break
-            && (context.Target is null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+            && (result.Target is null || string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
         {
             suspendable.Data.Clear(this);
             TryCloseIterator(iteratorRecord, CompletionType.Normal);

@@ -17,7 +17,7 @@ internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
         // containing label and could keep a table per program with all the labels
         // labeledStatement.Body.LabelSet = labeledStatement.Label;
         var result = _body.Execute(context);
-        if (result.Type == CompletionType.Break && string.Equals(context.Target, _labelName, StringComparison.Ordinal))
+        if (result.Type == CompletionType.Break && string.Equals(result.Target, _labelName, StringComparison.Ordinal))
         {
             var value = result.Value;
             return new Completion(CompletionType.Normal, value, _statement);

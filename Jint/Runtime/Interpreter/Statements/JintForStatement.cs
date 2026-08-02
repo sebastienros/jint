@@ -644,13 +644,13 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                     return new Completion(CompletionType.Return, suspendedValue, ((JintStatement) this)._statement);
                 }
 
-                if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type == CompletionType.Break && (result.Target == null || string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     suspendable?.Data.Clear(this);
                     return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
                 }
 
-                if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
+                if (result.Type != CompletionType.Continue || (result.Target != null && !string.Equals(result.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
                     if (result.Type != CompletionType.Normal)
                     {

@@ -101,7 +101,6 @@ internal sealed class EvaluationContext
     public bool CompletionValuesObservable = true;
 
     // completion record information
-    public string? Target;
     public CompletionType Completion;
 
     public void RunBeforeExecuteStatementChecks(StatementOrExpression statement)
@@ -163,7 +162,6 @@ internal sealed class EvaluationContext
     public void PrepareFor(Node node)
     {
         LastSyntaxElement = node;
-        Target = null;
         Completion = CompletionType.Normal;
     }
 

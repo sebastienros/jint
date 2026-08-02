@@ -13,7 +13,7 @@ internal sealed class JintBreakStatement : JintStatement<BreakStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        context.Target = _statement.Label?.Name;
+        // The label travels on the completion, read back from _statement by Completion.Target.
         return new Completion(CompletionType.Break, JsEmpty.Instance, _statement);
     }
 }
