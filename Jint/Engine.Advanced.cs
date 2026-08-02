@@ -525,6 +525,84 @@ public partial class Engine
         }
 
         /// <summary>
+        /// The <c>[[HostDefined]]</c> field of this engine's principal Realm Record — the realm
+        /// <c>InitializeHostDefinedRealm</c> created when the engine was constructed. The specification
+        /// reserves it for "hosts that need to associate additional information with a Realm Record", and the
+        /// engine never reads or interprets what is put there.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The motivating case.</b> Every host-facing factory in this API receives the engine and nothing
+        /// else. <see cref="AddLazyGlobal(string, Func{Engine, JsValue}, PropertyFlag)"/> can close over
+        /// per-request state because it runs on a live engine, but its
+        /// <see cref="OptionsExtensions.AddLazyGlobal(Options, string, Func{Engine, JsValue}, PropertyFlag)"/>
+        /// counterpart cannot: one <see cref="Options"/> instance is shared by every engine built from it, so a
+        /// factory recorded there must not capture anything engine-affine. A host can sidestep that by building
+        /// a fresh <see cref="Options"/> per scope and letting its factories close over it, which is supported
+        /// and cheap — but it costs an <see cref="Options"/> per request and gives up the process-wide instance
+        /// most embedders actually have. Keeping the shared instance used to leave only an out-of-band side
+        /// table keyed by engine: real embedders keep a
+        /// <c>static ConditionalWeakTable&lt;Engine, IServiceProvider&gt;</c> for precisely this, and pay its
+        /// internal write lock on every evaluation of every tenant in the process.
+        /// </para>
+        /// <para>
+        /// <b>Which realm.</b> The <em>principal</em> one, not the current one. <see cref="Engine.Intrinsics"/>
+        /// and <see cref="Engine.Global"/> follow the running execution context's realm and therefore change
+        /// identity inside a <c>ShadowRealm</c> evaluation, which is correct for them — they name the current
+        /// Realm Record. This does not move: it answers the same value from inside a shadow-realm callback as
+        /// outside, which is what a host attaching "the request this engine is serving" means.
+        /// </para>
+        /// <para>
+        /// A shadow realm is a distinct Realm Record and gets its own <c>[[HostDefined]]</c>, empty by
+        /// specification — <c>ShadowRealm</c> step 4 performs <c>InitializeHostDefinedRealm()</c>, whose new
+        /// record defaults the field to <c>undefined</c>. That is deliberate isolation rather than an
+        /// oversight: propagating the outer request's services into sandboxed code would be exactly the
+        /// ambient authority a shadow realm exists to withhold. A host that does want to populate it has the
+        /// hook the specification provides for it, <see cref="Runtime.Host.InitializeShadowRealm"/>.
+        /// </para>
+        /// <para>
+        /// <b>Lifetime.</b> The principal realm is reachable only from the base execution context, which is
+        /// pushed once and never popped, so the value dies with the engine — the difference from a
+        /// process-wide side table, which keeps whatever bookkeeping its own entries need. Nothing in the
+        /// engine clears it: <see cref="RestoreGlobalSnapshot"/> reverts global bindings, lexical declarations
+        /// and transient per-evaluation state, and does not touch it, so an engine pooled across requests keeps
+        /// its state through a restore and the host decides when to replace it — typically right after
+        /// restoring. <see cref="Engine.Dispose"/> does not clear it either; it releases interop caches the
+        /// engine built, not state the host attached.
+        /// </para>
+        /// <para>
+        /// An <see cref="Engine"/> is not thread-safe and this is an ordinary reference field: set it from the
+        /// thread that owns the engine, like everything else.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// The shape the options-time registration cannot otherwise express — a process-wide
+        /// <see cref="Options"/> whose factories capture nothing, with the per-request part supplied per engine:
+        /// <code>
+        /// // once per process
+        /// var options = new Options().AddLazyGlobal("db", static e =>
+        ///     JsValue.FromObject(e, ((IServiceProvider) e.Advanced.HostDefined!).GetRequiredService&lt;IDb&gt;()));
+        ///
+        /// // once per request
+        /// var engine = new Engine(options);
+        /// engine.Advanced.HostDefined = scope.ServiceProvider;
+        /// </code>
+        /// The ordering works because the factory is lazy: it runs on the first script read of <c>db</c>, which
+        /// is necessarily after the constructor returned and the state was attached. An
+        /// <see cref="OptionsExtensions.Configure"/> callback runs <em>during</em> construction, and can set
+        /// this but must not expect a later request's value to be visible to it.
+        /// <para>
+        /// The engine stores the value verbatim, so the natural retrieval is a type pattern:
+        /// <c>if (engine.Advanced.HostDefined is RequestContext ctx)</c>.
+        /// </para>
+        /// </example>
+        public object? HostDefined
+        {
+            get => _engine._mainRealm.HostDefined;
+            set => _engine._mainRealm.HostDefined = value;
+        }
+
+        /// <summary>
         /// Event raised when a promise is rejected without a handler (operation = Reject),
         /// or when a handler is added to a previously unhandled rejected promise (operation = Handle).
         /// This implements the HostPromiseRejectionTracker abstract operation from the TC39 spec.
