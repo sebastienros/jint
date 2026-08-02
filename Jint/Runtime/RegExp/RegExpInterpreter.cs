@@ -839,7 +839,6 @@ internal static class RegExpInterpreter
             }
         }
 
-#if NET8_0_OR_GREATER
         // Single-pair character range: [a-z], \d, etc.
         // Use IndexOfAnyInRange for SIMD-accelerated scanning.
         if (firstOp == (byte) RegExpOpcode.Range && bc.Length >= 20)
@@ -858,7 +857,6 @@ internal static class RegExpInterpreter
                 }
             }
         }
-#endif
 
         return default;
     }
@@ -879,13 +877,11 @@ internal static class RegExpInterpreter
             return input.IndexOf(info.ScanLiteral, startIndex, comparison);
         }
 
-#if NET8_0_OR_GREATER
         if (info.IsRange)
         {
             var idx = input.AsSpan(startIndex).IndexOfAnyInRange(info.RangeLow, info.RangeHigh);
             return idx < 0 ? -1 : idx + startIndex;
         }
-#endif
 
         if (info.ScanCharAlt == '\0' || info.ScanCharAlt == info.ScanChar)
         {
@@ -1191,22 +1187,8 @@ internal static class RegExpInterpreter
                                     char low = (char) ReadU16(bc, gotoTarget + 3);
                                     char high = (char) ReadU16(bc, gotoTarget + 5);
 
-                                    int scanEnd;
-#if NET8_0_OR_GREATER
-                                    int skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
-                                    scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
-#else
-                                    scanEnd = cindex;
-                                    while (scanEnd < inputEnd)
-                                    {
-                                        char ch = input[scanEnd];
-                                        if (ch < low || ch > high)
-                                        {
-                                            break;
-                                        }
-                                        scanEnd++;
-                                    }
-#endif
+                                    var skipLen = input.AsSpan(cindex).IndexOfAnyExceptInRange(low, high);
+                                    var scanEnd = skipLen < 0 ? inputEnd : cindex + skipLen;
                                     PushFrame(ref stackBuf, ref stackPooled, ref sp, ref bp,
                                         capture, allocCount, pc1, scanEnd, ExecStateType.Split);
                                     cindex = scanEnd;

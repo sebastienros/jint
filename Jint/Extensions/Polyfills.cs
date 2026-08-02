@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Buffers;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
@@ -88,6 +89,64 @@ internal static class Polyfills
 #if NETFRAMEWORK
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;
+#endif
+
+#if !NET8_0_OR_GREATER
+    // The vectorized MemoryExtensions searches below arrived in .NET 8 and are not in netstandard2.1.
+    // Each fallback is the character-at-a-time scan the call site used to spell out in its own #else,
+    // so behaviour is identical everywhere and only the throughput differs -- which is exactly the
+    // trade these call sites were already making, just written once instead of at every site.
+    //
+    // ContainsAny is the odd one out: MemoryExtensions.IndexOfAny(span, T, T) exists on every target
+    // framework, so this one is vectorized downlevel too.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal static bool ContainsAny(this ReadOnlySpan<char> span, char value0, char value1)
+        => span.IndexOfAny(value0, value1) >= 0;
+
+    internal static int IndexOfAnyInRange(this ReadOnlySpan<char> span, char lowInclusive, char highInclusive)
+    {
+        for (var i = 0; i < span.Length; i++)
+        {
+            if ((uint) (span[i] - lowInclusive) <= (uint) (highInclusive - lowInclusive))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int IndexOfAnyExceptInRange(this ReadOnlySpan<char> span, char lowInclusive, char highInclusive)
+    {
+        for (var i = 0; i < span.Length; i++)
+        {
+            if ((uint) (span[i] - lowInclusive) > (uint) (highInclusive - lowInclusive))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static bool ContainsAnyInRange(this ReadOnlySpan<char> span, char lowInclusive, char highInclusive)
+        => span.IndexOfAnyInRange(lowInclusive, highInclusive) >= 0;
+
+    internal static bool ContainsAnyExceptInRange(this ReadOnlySpan<char> span, char lowInclusive, char highInclusive)
+        => span.IndexOfAnyExceptInRange(lowInclusive, highInclusive) >= 0;
+
+    internal static int IndexOfAnyExcept(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (!values.Contains(span[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 #endif
 }
 

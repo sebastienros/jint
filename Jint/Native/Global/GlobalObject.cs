@@ -403,25 +403,13 @@ uriError:
 
     /// <summary>
     /// Index of the first character <paramref name="allowed"/> does not cover, or -1 when it covers every
-    /// one of them. Vectorized where the runtime provides it; the fallback is the character-at-a-time scan
-    /// this replaced.
+    /// one of them. Vectorized where the runtime provides it, and a character-at-a-time scan through the
+    /// polyfill everywhere else.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int IndexOfFirstDisallowed(ReadOnlySpan<char> value, SearchValues<char> allowed)
     {
-#if NET8_0_OR_GREATER
         return value.IndexOfAnyExcept(allowed);
-#else
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (!allowed.Contains(value[i]))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-#endif
     }
 
     [JsFunction(Name = "decodeURI")]

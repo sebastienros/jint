@@ -284,7 +284,6 @@ internal sealed partial class StringPrototype : StringInstance
 
     private static bool NeedsUpperSpecialCasing(string s)
     {
-#if NET8_0_OR_GREATER
         // No SpecialCasing.txt expansion exists below U+00DF — exactly the short-circuit
         // GetSpecialUpperCasing already performs per character. Asking that question once with a
         // vectorized range scan rejects any string made only of such characters (ASCII text being
@@ -294,7 +293,6 @@ internal sealed partial class StringPrototype : StringInstance
         {
             return false;
         }
-#endif
 
         foreach (var c in s)
         {
@@ -592,19 +590,8 @@ internal sealed partial class StringPrototype : StringInstance
     /// </summary>
     private static bool NeedsSpecialCasing(string s)
     {
-#if NET8_0_OR_GREATER
         // GREEK CAPITAL LETTER SIGMA (Final_Sigma) and LATIN CAPITAL LETTER I WITH DOT ABOVE.
         return s.AsSpan().ContainsAny('\u03A3', '\u0130');
-#else
-        foreach (var c in s)
-        {
-            if (c == '\u03A3' || c == '\u0130')
-            {
-                return true;
-            }
-        }
-        return false;
-#endif
     }
 
     /// <summary>
@@ -2078,14 +2065,12 @@ internal sealed partial class StringPrototype : StringInstance
 
     private static bool IsStringWellFormedUnicode(string s)
     {
-#if NET8_0_OR_GREATER
         // Only a surrogate code unit can make a string ill-formed, and most strings contain none.
         // One vectorized range scan settles those, leaving the pairing walk below for the rest.
         if (!s.AsSpan().ContainsAnyInRange('\uD800', '\uDFFF'))
         {
             return true;
         }
-#endif
 
         for (var i = 0; i < s.Length; ++i)
         {
