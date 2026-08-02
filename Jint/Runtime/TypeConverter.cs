@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -714,11 +714,7 @@ public static class TypeConverter
             if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
                 // we get better precision if we don't hit floating point parsing that is performed by Esprima
-#if SUPPORTS_SPAN_PARSE
                 var source = str.AsSpan(2);
-#else
-                var source = str.Substring(2);
-#endif
 
                 var c = source[0];
                 if (c > 7 && Character.IsHexDigit(c))

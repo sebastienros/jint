@@ -225,11 +225,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
         // we should now have proper input part
 
-#if SUPPORTS_SPAN_PARSE
         var substring = trimmedString.AsSpan(0, i);
-#else
-        var substring = trimmedString.Substring(0, i);
-#endif
 
         const NumberStyles Styles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent | NumberStyles.AllowLeadingSign;
         if (double.TryParse(substring, Styles, CultureInfo.InvariantCulture, out var d))
@@ -738,11 +734,7 @@ uriError:
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static char ParseHexString(ReadOnlySpan<char> input)
         {
-#if NET8_0_OR_GREATER
             return (char) int.Parse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
-#else
-            return (char) int.Parse(input.ToString(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
-#endif
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Globalization;
 using Jint.Extensions;
 using Jint.Native.Object;
@@ -328,11 +328,7 @@ public sealed partial class Uint8ArrayConstructor : TypedArrayConstructor
                 return new FromEncodingResult(bytes.AsSpan(0, byteIndex).ToArray(), Throw.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
             }
 
-#if SUPPORTS_SPAN_PARSE
             var b = byte.Parse(hexits, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-#else
-            var b = byte.Parse(hexits.ToString(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-#endif
             bytes[byteIndex++] = b;
             read += 2;
         }
