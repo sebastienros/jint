@@ -2390,7 +2390,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         try
         {
-            return array.OrderBy(x => x, comparer).ToArray();
+            // Order, not OrderBy: the sort must be stable (spec, since ES2019) and must terminate even
+            // when the script's comparison function is inconsistent. See Polyfills.Order.
+            return array.Order(comparer).ToArray();
         }
         catch (InvalidOperationException e)
         {
