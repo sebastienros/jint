@@ -448,7 +448,7 @@ internal sealed partial class NumberFormatConstructor : Constructor
 
         foreach (var c in numberingSystem)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')))
+            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c))
             {
                 return false;
             }
@@ -849,14 +849,9 @@ internal sealed partial class NumberFormatConstructor : Constructor
     {
         // Per spec: currency code must be exactly 3 ASCII letters (A-Z, a-z)
         return currency.Length == 3 &&
-               IsAsciiLetter(currency[0]) &&
-               IsAsciiLetter(currency[1]) &&
-               IsAsciiLetter(currency[2]);
-    }
-
-    private static bool IsAsciiLetter(char c)
-    {
-        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+               char.IsAsciiLetter(currency[0]) &&
+               char.IsAsciiLetter(currency[1]) &&
+               char.IsAsciiLetter(currency[2]);
     }
 
     private static readonly StringSearchValues SanctionedUnits = new(

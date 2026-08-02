@@ -651,7 +651,7 @@ internal static class TemporalHelpers
         for (var i = 0; i < key.Length; i++)
         {
             var c = key[i];
-            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'))
+            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c) && c != '-' && c != '_')
             {
                 return false;
             }
@@ -2635,7 +2635,7 @@ internal static class TemporalHelpers
         {
             var c = input[i];
             // Only convert ASCII uppercase A-Z to lowercase a-z
-            if (c >= 'A' && c <= 'Z')
+            if (char.IsAsciiLetterUpper(c))
                 result[i] = (char) (c + 32);
             else
                 result[i] = c;

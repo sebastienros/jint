@@ -460,6 +460,35 @@ internal static class GCPolyfills
 #endif
 }
 
+internal static class CharPolyfills
+{
+    extension(char)
+    {
+#if !NET8_0_OR_GREATER
+        // The char.IsAscii* family arrived in .NET 7 and is not in netstandard2.1, so net462,
+        // netstandard2.0 and netstandard2.1 all need it. Each body is the BCL's own shape: a single
+        // unsigned-cast range test, and for the letter predicates an OR with 0x20 that folds the two
+        // cases together before the one comparison.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsAsciiDigit(char c) => (uint) (c - '0') <= '9' - '0';
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsAsciiLetter(char c) => (uint) ((c | 0x20) - 'a') <= 'z' - 'a';
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsAsciiLetterLower(char c) => (uint) (c - 'a') <= 'z' - 'a';
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsAsciiLetterUpper(char c) => (uint) (c - 'A') <= 'Z' - 'A';
+
+        // Non-short-circuiting `|` on purpose, as the BCL has it: both operands are branchless, so
+        // evaluating them unconditionally is cheaper than the branch a `||` would introduce.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static bool IsAsciiLetterOrDigit(char c) => char.IsAsciiLetter(c) | ((uint) (c - '0') <= '9' - '0');
+#endif
+    }
+}
+
 internal static class CharUnicodeInfoPolyfills
 {
     extension(CharUnicodeInfo)

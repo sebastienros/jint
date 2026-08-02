@@ -126,7 +126,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
         // Must contain only valid characters
         foreach (var c in code)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'))
+            if (!char.IsAsciiLetterOrDigit(c) && c != '-')
             {
                 return false;
             }
@@ -362,7 +362,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
             // Each segment must be ASCII alphanumeric only
             foreach (var c in segment)
             {
-                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+                if (!char.IsAsciiLetterOrDigit(c))
                 {
                     return false;
                 }

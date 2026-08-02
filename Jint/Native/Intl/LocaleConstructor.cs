@@ -336,7 +336,7 @@ internal sealed class LocaleConstructor : Constructor
         // Must be all ASCII letters (no hyphens, digits, etc.)
         foreach (var c in value)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+            if (!char.IsAsciiLetter(c))
             {
                 return false;
             }
@@ -364,16 +364,13 @@ internal sealed class LocaleConstructor : Constructor
         // 2 letters
         if (value.Length == 2)
         {
-            return ((value[0] >= 'a' && value[0] <= 'z') || (value[0] >= 'A' && value[0] <= 'Z')) &&
-                   ((value[1] >= 'a' && value[1] <= 'z') || (value[1] >= 'A' && value[1] <= 'Z'));
+            return char.IsAsciiLetter(value[0]) && char.IsAsciiLetter(value[1]);
         }
 
         // 3 digits
         if (value.Length == 3)
         {
-            return value[0] >= '0' && value[0] <= '9' &&
-                   value[1] >= '0' && value[1] <= '9' &&
-                   value[2] >= '0' && value[2] <= '9';
+            return char.IsAsciiDigit(value[0]) && char.IsAsciiDigit(value[1]) && char.IsAsciiDigit(value[2]);
         }
 
         return false;
@@ -391,7 +388,7 @@ internal sealed class LocaleConstructor : Constructor
 
         foreach (var c in value)
         {
-            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+            if (!char.IsAsciiLetter(c))
             {
                 return false;
             }

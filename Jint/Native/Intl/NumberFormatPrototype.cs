@@ -130,7 +130,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
                 if (dotPos != -1) return false;
                 dotPos = j;
             }
-            else if (s[j] < '0' || s[j] > '9')
+            else if (!char.IsAsciiDigit(s[j]))
             {
                 return false;
             }
@@ -182,7 +182,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
 
         for (var j = i; j < s.Length; j++)
         {
-            if (s[j] < '0' || s[j] > '9')
+            if (!char.IsAsciiDigit(s[j]))
                 return false;
         }
 
