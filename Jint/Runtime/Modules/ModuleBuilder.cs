@@ -126,7 +126,12 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    internal Prepared<AstModule> Parse()
+    /// <summary>
+    /// Parses the accumulated source, naming the module <paramref name="location"/>. That is the key the loader
+    /// resolved the registration to rather than the name it was registered under, since it is what the module's
+    /// own relative imports are resolved against; the two are the same string unless the loader canonicalized.
+    /// </summary>
+    internal Prepared<AstModule> Parse(string location)
     {
         if (_module != null) return _module.Value;
 
@@ -143,12 +148,13 @@ public sealed class ModuleBuilder
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return new Prepared<AstModule>(parser.ParseModule(source, _specifier), parserOptions);
+            return new Prepared<AstModule>(parser.ParseModule(source, location), parserOptions);
         }
         catch (ParseErrorException ex)
         {
-            var location = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
-            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", in location);
+            // The diagnostic names the module the way the host knows it, which is the registration name.
+            var errorLocation = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
+            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", in errorLocation);
             return default;
         }
     }

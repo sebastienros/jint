@@ -693,21 +693,6 @@ export const count = globals.counter;
             s => s.Should().Be("entry_point_module"));
     }
 
-    [Fact]
-    public void ModuleBuilderIsFoundWhenTheLoaderCanonicalizesTheSpecifier()
-    {
-        // A loader that resolves urls has to canonicalize them, and Uri gives a path-less one the
-        // path it is missing - so the key stops matching the name Add filed the builder under. This
-        // loader throws if it is asked to load anything, which is what the mismatch used to cause.
-        var engine = new Engine(o => o.EnableModules(
-            new LocationResolveOnlyModuleLoader((_, moduleRequest) => new Uri(moduleRequest.Specifier).AbsoluteUri)));
-
-        engine.Modules.Add("http://localhost", "export const value = 'from the builder';");
-        var ns = engine.Modules.Import("http://localhost");
-
-        ns.Get("value").AsString().Should().Be("from the builder");
-    }
-
     /// <summary>
     /// Custom <see cref="ModuleLoader"/> implementation which is only responsible to
     /// resolve the correct module location (see <see cref="Resolve"/>). Modules

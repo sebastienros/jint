@@ -653,6 +653,28 @@ var id = ns.Get("result").AsInteger();
 
 Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
 
+A registered module is identified by its specifier **as the module loader resolves it**, not by the string
+itself, because the resolved key is what the engine identifies every module by. Two consequences worth knowing
+when you register modules alongside a custom `ModuleLoader`:
+
+```c#
+// A loader that canonicalizes urls resolves both spellings to "http://localhost/",
+// so either import finds the registration - and finds the same module instance.
+engine.Modules.Add("http://localhost", "export const value = 1;");
+engine.Modules.Import("http://localhost/");
+
+// A relative specifier is resolved the way Modules.Import resolves it, against no
+// referrer. So this registers the module at <base>/dep.js - it is NOT handed to every
+// import that merely spells './dep.js', which in sub/entry.js means sub/dep.js.
+engine.Modules.Add("./dep.js", "export const value = 1;");
+```
+
+Resolution happens on first use rather than in `Add`, so registering a module never requires `EnableModules`
+and never fails for a specifier the loader would reject. A registration the loader refuses to resolve — a
+directory import under `DefaultModuleLoader`, for instance — stays reachable only under the exact string it was
+registered with. A registration is consumed the first time it is loaded, and the same specifier may be
+registered again afterwards.
+
 ## Asynchronous Execution
 
 Jint supports non-blocking execution of JavaScript that involves `async`/`await` and Promises. This is important in ASP.NET Core and other environments where blocking a thread while waiting for I/O can cause thread-pool exhaustion.
