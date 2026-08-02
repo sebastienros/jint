@@ -1810,7 +1810,9 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var operations = ArrayOperations.For(obj, forWrite: false);
         try
         {
-            return operations.OrderBy(x => x, comparer).ToArray();
+            // Order, not OrderBy: the sort must be stable (spec, since ES2019) and must terminate even
+            // when the script's comparison function is inconsistent. See Polyfills.Order.
+            return operations.Order(comparer).ToArray();
         }
         catch (InvalidOperationException e)
         {

@@ -1108,6 +1108,22 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate(Script).AsString().Should().Be(string.Join(",", Enumerable.Range(0, 32)));
     }
 
+    [Theory]
+    [InlineData("[5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18].sort(cmp).length")]
+    [InlineData("[5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18].toSorted(cmp).length")]
+    [InlineData("new Int32Array([5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18]).sort(cmp).length")]
+    public void SortTerminatesWithAnInconsistentComparator(string expression)
+    {
+        // A comparison function that never returns 0 and is not antisymmetric is legal JavaScript: the
+        // resulting order is implementation-defined, but the sort still has to finish. LINQ's sort on
+        // .NET Framework is a quicksort with no depth limit and no fallback, so delegating to it here
+        // spins forever instead.
+        var engine = new Engine();
+        engine.Execute("function cmp(a, b) { return a === 1 ? -1 : 1; }");
+
+        engine.Evaluate(expression).AsNumber().Should().Be(20);
+    }
+
     [Fact]
     public void PopWrappedGenericList()
     {
