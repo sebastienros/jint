@@ -331,6 +331,18 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Chains the CLR exception behind a caught interop error into the <see cref="Exception.InnerException"/> of
+    /// the <see cref="JavaScriptException"/> the host catches, so that logging which walks the inner-exception
+    /// chain surfaces it. Off by default, because it puts host .NET stack traces into whatever consumes the
+    /// exception's string form. Only meaningful together with <see cref="CatchClrExceptions(Options)"/>.
+    /// </summary>
+    public static Options ChainClrExceptions(this Options options, bool chain = true)
+    {
+        options.Interop.ChainClrExceptionAsInnerException = chain;
+        return options;
+    }
+
+    /// <summary>
     /// Sets a decorator function that is called after a JavaScript error object is created from a CLR exception.
     /// The decorator can add custom properties, modify the error message, or enrich the error with additional context.
     /// This is only called when <see cref="CatchClrExceptions(Options)"/> is enabled and the exception is caught.

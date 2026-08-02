@@ -246,6 +246,74 @@ public class HostClrExceptionTests
     }
 
     [Fact]
+    public void ChainingIsOffByDefault()
+    {
+        var engine = CreateEngine();
+
+        var exception = Invoking(() => engine.Evaluate("boom()")).Should().Throw<JavaScriptException>().Which;
+
+        // The inner exception is the private wrapper carrying the JavaScript stack, and nothing beyond it.
+        exception.InnerException.Should().NotBeNull();
+        exception.InnerException!.InnerException.Should().BeNull();
+        exception.ToString().Should().NotContain("HostFailure");
+        exception.ToString().Should().NotContain("--- End of inner exception stack trace ---\r\n   --- End of");
+    }
+
+    [Fact]
+    public void ChainingSurfacesTheExceptionToInnerExceptionWalkers()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.ChainClrExceptions();
+        });
+        engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up", new InvalidOperationException("root cause"))));
+
+        var exception = Invoking(() => engine.Evaluate("boom()")).Should().Throw<JavaScriptException>().Which;
+
+        // JavaScriptException -> wrapper (JavaScript stack) -> the host exception -> its own inner chain.
+        var chained = exception.InnerException!.InnerException.Should().BeOfType<HostFailure>().Which;
+        chained.InnerException.Should().BeOfType<InvalidOperationException>();
+
+        var rendered = exception.ToString();
+        rendered.Should().Contain("host blew up");
+        rendered.Should().Contain(nameof(HostFailure));
+        rendered.Should().Contain("root cause");
+    }
+
+    [Fact]
+    public void ChainingLeavesGetBaseExceptionAlone()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.ChainClrExceptions();
+        });
+        engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
+
+        var exception = Invoking(() => engine.Evaluate("boom()")).Should().Throw<JavaScriptException>().Which;
+
+        exception.GetBaseException().Should().BeSameAs(exception);
+    }
+
+    [Fact]
+    public void ChainingDoesNotChangeWhatTheScriptSees()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.ChainClrExceptions();
+        });
+        engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
+
+        engine.Evaluate("let caught; try { boom(); } catch (e) { caught = e; }");
+
+        engine.Evaluate("caught instanceof Error").AsBoolean().Should().BeTrue();
+        engine.Evaluate("caught.message").AsString().Should().Be("host blew up");
+        engine.Evaluate("JSON.stringify(caught)").AsString().Should().Be("{}");
+    }
+
+    [Fact]
     public void AThrownNonErrorValueReportsNothing()
     {
         var engine = new Engine();

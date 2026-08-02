@@ -78,9 +78,25 @@ public class JavaScriptException : JintException
     }
 
     public JavaScriptException(JsValue error)
-        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error)))
+        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error), GetChainedClrException(error)))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
+    }
+
+    /// <summary>
+    /// The CLR exception to hang under the wrapper, or null when the error carries none or the engine was not
+    /// asked to chain it. Read off the error <em>value</em> here rather than carried on the exception instance,
+    /// because this constructor is what every reconstruction of a thrown error passes through — the interpreter
+    /// keeps only the error value across a throw completion, and the exception the host finally catches is built
+    /// here. Reading it here is therefore what makes the chain appear at all of those sites rather than only
+    /// where the error was originally built.
+    /// </summary>
+    private static Exception? GetChainedClrException(JsValue? error)
+    {
+        return error is ErrorInstance { ClrException: { } clrException } errorInstance
+               && errorInstance.Engine.Options.Interop.ChainClrExceptionAsInnerException
+            ? clrException
+            : null;
     }
 
     public string GetJavaScriptErrorString() => _jsErrorException.ToString();
@@ -108,8 +124,8 @@ public class JavaScriptException : JintException
         private string? _callStack;
         private SourceLocation _location;
 
-        internal JavaScriptErrorWrapperException(JsValue error, string? message = null)
-            : base(message ?? GetMessage(error))
+        internal JavaScriptErrorWrapperException(JsValue error, string? message = null, Exception? clrException = null)
+            : base(message ?? GetMessage(error), clrException)
         {
             Error = error;
         }
@@ -190,6 +206,17 @@ public class JavaScriptException : JintException
             {
                 sb.Append(": ");
                 sb.Append(message);
+            }
+
+            // Exception.ToString() renders an inner exception between the message and the frames. This override
+            // replaces that rendering wholesale, so a chained CLR exception has to be spelled out here or it
+            // would be reachable through InnerException and yet invisible in every log line.
+            if (InnerException is { } innerException)
+            {
+                sb.Append(" ---> ");
+                sb.Append(innerException.ToString());
+                sb.Append(Environment.NewLine);
+                sb.Append("   --- End of inner exception stack trace ---");
             }
 
             var stackTrace = StackTrace;
