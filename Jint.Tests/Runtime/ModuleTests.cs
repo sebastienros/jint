@@ -1208,6 +1208,20 @@ export const count = globals.counter;
     }
 
     [Fact]
+    public void ShouldGiveANestedBlockItsOwnBindingAtModuleLevel()
+    {
+        // The sibling test above pins that a module-level `var` is not left in the temporal dead zone, but neither of
+        // its observations separates the fix from the equally wrong outcome where the block's `let a = 1` initializes
+        // the module-level binding: `inner` reads 1 and the later `var a = 2` leaves 2 behind under both. Ordering the
+        // `var` first is what separates them, because the outer binding then already holds a different value while the
+        // block runs - 2 when the block has a binding of its own, 1 when it does not.
+        _engine.Modules.Add("my-module", "var a = 2; { let a = 1; } export const value = a;");
+        var ns = _engine.Modules.Import("my-module");
+
+        ns.Get("value").AsInteger().Should().Be(2);
+    }
+
+    [Fact]
     public void ShouldNotBindAForHeadDeclarationAtModuleLevel()
     {
         // The `let` of a for head is scoped to the loop, so nothing it binds reaches module scope, and a module-level

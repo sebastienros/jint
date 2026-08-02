@@ -38,7 +38,11 @@ internal sealed class HoistingScope
         bool collectVarNames = false,
         bool collectLexicalNames = false)
     {
-        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
+        // A module root is a Program too, and AstAnalyzer builds a CachedHoistingScope through here for a
+        // prepared module, so the flag has to be derived from the node rather than defaulted - otherwise the
+        // same AST answers differently depending on which factory was called, and the module's own exported
+        // lexical declarations go missing from the cached scope.
+        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: script is AstModule);
         treeWalker.Visit(script, null);
 
         return new HoistingScope(
@@ -52,7 +56,8 @@ internal sealed class HoistingScope
 
     public static HoistingScope GetFunctionLevelDeclarations(bool strict, IFunction node)
     {
-        var treeWalker = new ScriptWalker(collectVarNames: true, collectLexicalNames: true);
+        // A function body is never module scope, whatever encloses it: an export declaration cannot appear inside one.
+        var treeWalker = new ScriptWalker(collectVarNames: true, collectLexicalNames: true, module: false);
         treeWalker.Visit(node.Body, null);
 
         return new HoistingScope(
@@ -187,7 +192,8 @@ internal sealed class HoistingScope
 
         /// <summary>
         /// Whether the walk started at an <see cref="AstModule"/>. Only there can an export declaration wrap a
-        /// module-level lexical declaration, so a script or function body walk stops at the root test.
+        /// module-level lexical declaration, so a script or function body walk stops at the root test. It has no
+        /// default: every entry point must state it, because getting it wrong silently drops declarations.
         /// </summary>
         private readonly bool _module;
 
@@ -199,7 +205,7 @@ internal sealed class HoistingScope
         private int _depth;
         private const int MaxDepth = 256;
 
-        public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module = false)
+        public ScriptWalker(bool collectVarNames, bool collectLexicalNames, bool module)
         {
             _collectVarNames = collectVarNames;
             _collectLexicalNames = collectLexicalNames;

@@ -126,4 +126,21 @@ public class DeclarationScopeTests
             .Should().Throw<JavaScriptException>()
             .WithMessage("Unexpected eval or arguments in strict mode*");
     }
+
+    [Fact]
+    public void APreparedModulesCachedScopeAgreesWithTheModuleWalk()
+    {
+        // An Acornima Module reports NodeType.Program, so preparing one builds a CachedHoistingScope through
+        // GetProgramLevelDeclarations as well - two walks over one AST. Nothing reads the cached one for a module
+        // today, because SourceTextModule.InitializeEnvironment re-walks and every reader of the cached scope is
+        // Script-typed. The two answers must still agree: the moment they do not, the obvious cleanup - having the
+        // module consume the scope prepare time already built - silently drops every exported lexical declaration.
+        var program = Engine.PrepareModule("export const a = 1; export class B {} const c = 2;").Program;
+
+        var moduleWalk = HoistingScope.GetModuleLevelDeclarations((Acornima.Ast.Module) program);
+        var programWalk = HoistingScope.GetProgramLevelDeclarations(program, collectVarNames: true);
+
+        moduleWalk._lexicalDeclarations.Should().NotBeNull().And.HaveCount(3);
+        programWalk._lexicalDeclarations.Should().NotBeNull().And.HaveCount(3);
+    }
 }
