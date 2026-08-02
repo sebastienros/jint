@@ -447,10 +447,6 @@ public partial class Engine
 
             var engine = _engine;
 
-            // Resolved once per registration, not per read: LazyPropertyDescriptor treats a null value as
-            // "not materialized yet", so a factory returning null would silently re-run on every read.
-            Func<Engine, JsValue> resolver = e => valueFactory(e) ?? JsValue.Undefined;
-
             // SetProperty, exactly as the options-time registration uses, and for a reason that only bites
             // here: unlike a registration applied during construction, this one lands on an engine whose
             // handler trees may already hold a resolved binding for this very name. Every storage path
@@ -459,7 +455,73 @@ public partial class Engine
             // _propertiesVersion, which is the sole thing the global-identifier and member-read inline
             // caches revalidate against. Installing through anything that skipped that bump would leave a
             // warmed read site serving the previous binding forever.
-            engine.Realm.GlobalObject.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, resolver, flags));
+            engine.Realm.GlobalObject.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags));
+        }
+
+        /// <summary>
+        /// Declares a lazy global whose factory is handed a value the caller supplies, so that the factory can
+        /// be a <see langword="static"/> lambda instead of a closure. Behaves in every other way exactly like
+        /// <see cref="AddLazyGlobal(string, Func{Engine, JsValue}, PropertyFlag)"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This overload exists for allocation, not for expressiveness — anything it can express, a closure
+        /// could. The case it serves is a host that installs its globals <em>per engine</em>, which is the
+        /// whole reason the per-engine API exists: the values depend on request state, so the registration
+        /// cannot be hoisted onto <see cref="Options"/> and runs again for every engine. A capturing lambda
+        /// then costs a display class and a delegate per global per engine, which for a host exposing a few
+        /// dozen globals is a per-request cost with nothing to show for it. Passing the state through instead
+        /// leaves the descriptor as the only allocation.
+        /// </para>
+        /// <para>
+        /// Use a value tuple to pass more than one thing:
+        /// <c>AddLazyGlobal("db", (services, key), static (e, s) =&gt; Wrap(e, s.services, s.key))</c>. Keep
+        /// the factory <see langword="static"/>; a lambda that still captures gives the allocation straight
+        /// back and the overload buys nothing.
+        /// </para>
+        /// <para>
+        /// There is deliberately no <see cref="Options"/> counterpart. A registration made there is recorded
+        /// once and merely replayed per engine, so its closure is a one-off for the process and the
+        /// per-engine cost is already just the descriptor.
+        /// </para>
+        /// </remarks>
+        /// <typeparam name="TState">The type of the value handed back to the factory.</typeparam>
+        /// <param name="name">The global property name.</param>
+        /// <param name="state">Passed to <paramref name="valueFactory"/> unchanged when it runs.</param>
+        /// <param name="valueFactory">
+        /// Produces the value, given this engine and <paramref name="state"/>. Invoked lazily, at most once. A
+        /// <see langword="null"/> return is replaced by <see cref="JsValue.Undefined"/>.
+        /// </param>
+        /// <param name="flags">Property attributes; see the non-generic overload.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="name"/> or
+        /// <paramref name="valueFactory"/> is <see langword="null"/>.</exception>
+        public void AddLazyGlobal<TState>(
+            string name,
+            TState state,
+            Func<Engine, TState, JsValue> valueFactory,
+            PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
+        {
+            if (name is null)
+            {
+                Throw.ArgumentNullException(nameof(name));
+            }
+
+            if (valueFactory is null)
+            {
+                Throw.ArgumentNullException(nameof(valueFactory));
+            }
+
+            var engine = _engine;
+
+            // The resolver is static, so it is cached once per TState instantiation rather than allocated
+            // here, and the state rides inside the descriptor's own field. See the SetProperty note above for
+            // why the installation has to go through it.
+            engine.Realm.GlobalObject.SetProperty(
+                name,
+                new LazyPropertyDescriptor<EngineAndState<TState>>(
+                    new EngineAndState<TState>(engine, state, valueFactory),
+                    static s => s.Factory(s.Engine, s.State),
+                    flags));
         }
 
         /// <summary>

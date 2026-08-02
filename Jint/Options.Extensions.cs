@@ -576,13 +576,9 @@ public static class OptionsExtensions
             Throw.ArgumentNullException(nameof(valueFactory));
         }
 
-        // Resolved once per registration, not per engine: LazyPropertyDescriptor treats a null value as
-        // "not materialized yet", so a factory returning null would silently re-run on every read.
-        Func<Engine, JsValue> resolver = engine => valueFactory(engine) ?? JsValue.Undefined;
-
         options._configurations.Add(engine => engine.Realm.GlobalObject.SetProperty(
             name,
-            new LazyPropertyDescriptor<Engine>(engine, resolver, flags)));
+            new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags)));
 
         return options;
     }
