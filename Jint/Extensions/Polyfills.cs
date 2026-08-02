@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Jint;
@@ -185,12 +186,45 @@ internal static class DoublePolyfills
         {
             return double.Parse(s.ToString(), style, provider);
         }
+
+        public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out double result)
+        {
+            return double.TryParse(s.ToString(), style, provider, out result);
+        }
 #endif
 
 #if !NET8_0_OR_GREATER
         public static double Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
         {
             return double.Parse(s.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, provider);
+        }
+#endif
+    }
+}
+
+internal static class BytePolyfills
+{
+    extension(byte)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // byte.Parse(ReadOnlySpan<char>, ...) arrived in .NET Core 2.1 / netstandard2.1.
+        public static byte Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Integer, IFormatProvider? provider = null)
+        {
+            return byte.Parse(s.ToString(), style, provider);
+        }
+#endif
+    }
+}
+
+internal static class BigIntegerPolyfills
+{
+    extension(BigInteger)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        // BigInteger.TryParse(ReadOnlySpan<char>, ...) arrived in .NET Core 2.1 / netstandard2.1.
+        public static bool TryParse(ReadOnlySpan<char> value, NumberStyles style, IFormatProvider? provider, out BigInteger result)
+        {
+            return BigInteger.TryParse(value.ToString(), style, provider, out result);
         }
 #endif
     }

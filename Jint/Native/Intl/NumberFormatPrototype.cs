@@ -186,13 +186,8 @@ internal sealed partial class NumberFormatPrototype : Prototype
                 return false;
         }
 
-#if NET8_0_OR_GREATER
         if (!BigInteger.TryParse(s.AsSpan(i), NumberStyles.None, CultureInfo.InvariantCulture, out value))
             return false;
-#else
-        if (!BigInteger.TryParse(i == 0 ? s : s.Substring(i), NumberStyles.None, CultureInfo.InvariantCulture, out value))
-            return false;
-#endif
 
         if (negative)
             value = -value;

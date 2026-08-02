@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Globalization;
@@ -762,11 +762,7 @@ public sealed class TypeResolver
 
             if (equals && x.Length > 1)
             {
-#if SUPPORTS_SPAN_PARSE
                 equals = x.AsSpan(1).SequenceEqual(y.AsSpan(1));
-#else
-                equals = string.Equals(x.Substring(1), y.Substring(1), StringComparison.Ordinal);
-#endif
             }
 
             return equals;

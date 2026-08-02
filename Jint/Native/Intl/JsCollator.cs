@@ -137,13 +137,8 @@ internal sealed class JsCollator : ObjectInstance
                 while (yi < y.Length && char.IsDigit(y[yi])) yi++;
 
                 // Compare numeric values
-#if NET8_0_OR_GREATER
                 var xNum = long.Parse(x.AsSpan(xStart, xi - xStart), System.Globalization.CultureInfo.InvariantCulture);
                 var yNum = long.Parse(y.AsSpan(yStart, yi - yStart), System.Globalization.CultureInfo.InvariantCulture);
-#else
-                var xNum = long.Parse(x.Substring(xStart, xi - xStart), System.Globalization.CultureInfo.InvariantCulture);
-                var yNum = long.Parse(y.Substring(yStart, yi - yStart), System.Globalization.CultureInfo.InvariantCulture);
-#endif
 
                 int numCompare = xNum.CompareTo(yNum);
                 if (numCompare != 0) return numCompare < 0 ? -1 : 1;
