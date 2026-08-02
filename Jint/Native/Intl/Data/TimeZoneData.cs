@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 
 namespace Jint.Native.Intl.Data;
 
@@ -355,7 +355,7 @@ internal static class TimeZoneData
     public static string? FindCanonical(string timeZone)
     {
         EnsureLookupInitialized();
-        return _caseInsensitiveLookup!.TryGetValue(timeZone.ToLowerInvariant(), out var canonical)
+        return _caseInsensitiveLookup!.TryGetValue(timeZone, out var canonical)
             ? canonical
             : null;
     }
@@ -366,7 +366,7 @@ internal static class TimeZoneData
     public static bool IsSupported(string timeZone)
     {
         EnsureLookupInitialized();
-        return _caseInsensitiveLookup!.ContainsKey(timeZone.ToLowerInvariant());
+        return _caseInsensitiveLookup!.ContainsKey(timeZone);
     }
 
     private static void EnsureLookupInitialized()
@@ -377,10 +377,13 @@ internal static class TimeZoneData
         {
             if (_caseInsensitiveLookup != null) return;
 
-            var lookup = new Dictionary<string, string>(AllTimeZones.Length, StringComparer.Ordinal);
+            // Keyed case-insensitively rather than pre-lowered, so a lookup no longer has to allocate a
+            // lowercased copy of the caller's identifier. IANA identifiers are ASCII, where
+            // OrdinalIgnoreCase and ToLowerInvariant agree exactly.
+            var lookup = new Dictionary<string, string>(AllTimeZones.Length, StringComparer.OrdinalIgnoreCase);
             foreach (var tz in AllTimeZones)
             {
-                lookup[tz.ToLowerInvariant()] = tz;
+                lookup[tz] = tz;
             }
             _caseInsensitiveLookup = lookup;
         }

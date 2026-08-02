@@ -97,6 +97,21 @@ internal static class Polyfills
     // pointer-based overload that net462 and netstandard2.0 do have, so none of them allocates -- the
     // obvious `Append(value.ToString())` shape would, on paths that exist to avoid exactly that.
 
+    // Dictionary<,>.TryAdd arrived in .NET Core 2.0 / netstandard2.1. Jint's own HybridDictionary and
+    // StringDictionarySlim already expose TryAdd unconditionally, so without this the codebase
+    // contradicts itself about whether the method exists.
+    internal static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        where TKey : notnull
+    {
+        if (dictionary.ContainsKey(key))
+        {
+            return false;
+        }
+
+        dictionary.Add(key, value);
+        return true;
+    }
+
     internal static unsafe StringBuilder Append(this StringBuilder builder, ReadOnlySpan<char> value)
     {
         // Pinning an empty span yields a null pointer, and Append(char*, int) rejects null even for a
