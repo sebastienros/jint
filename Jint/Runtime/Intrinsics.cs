@@ -127,8 +127,16 @@ public sealed partial class Intrinsics
         _realm = realm;
 
         // we need to transfer state currently to some initialization, would otherwise require quite the
-        // ClrFunctionInstance constructor refactoring
-        _engine._originalIntrinsics = this;
+        // ClrFunctionInstance constructor refactoring.
+        //
+        // Only the first intrinsics built for an engine are its own: that set belongs to the realm
+        // InitializeHostDefinedRealm creates, which is the engine's principal one and the realm a host means
+        // when it builds a ClrFunction against the engine. Every later Intrinsics is a *second* realm's —
+        // ShadowRealm's, or $262.createRealm's — and assigning unconditionally handed the public
+        // ClrFunction(Engine, ...) constructor that realm's Function.prototype for every function built
+        // afterwards, so a global materialized after `new ShadowRealm()` came back wearing a prototype from
+        // a realm the script cannot even reach.
+        _engine._originalIntrinsics ??= this;
 
         Object = new ObjectConstructor(engine, realm);
         Function = new FunctionConstructor(engine, realm, Object.PrototypeObject);
