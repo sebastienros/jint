@@ -8,6 +8,7 @@ internal static class CommonProperties
     internal static readonly JsString Async = JsString.CachedCreate("async");
     internal static readonly JsString Callee = JsString.CachedCreate("callee");
     internal static readonly JsString Caller = JsString.CachedCreate("caller");
+    internal static readonly JsString Cause = JsString.CachedCreate("cause");
     internal static readonly JsString Configurable = JsString.CachedCreate("configurable");
     internal static readonly JsString Constructor = JsString.CachedCreate("constructor");
     internal static readonly JsString Done = JsString.CachedCreate("done");

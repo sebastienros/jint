@@ -45,6 +45,38 @@ public class JavaScriptException : JintException
         Native.Function.LeafCallGuard.AssertNotInLeafCall("JavaScript error construction");
     }
 
+    /// <summary>
+    /// Creates an exception carrying a JavaScript error that stands in for <paramref name="clrException"/>.
+    /// Throw this from host code — a <see cref="Jint.Runtime.Interop.ClrFunction"/> delegate, a module export —
+    /// to raise an error the script can catch while the originating CLR exception still reaches the host, read
+    /// there with <see cref="JintException.TryGetClrException"/>. A null <paramref name="message"/> takes the
+    /// exception's own message.
+    /// <para>
+    /// Prefer this over projecting the exception into the script
+    /// (<c>new JavaScriptException(JsValue.FromObject(engine, ex))</c>). That value is not an <c>Error</c> — it
+    /// has no <c>stack</c> and fails <c>instanceof Error</c> — and it hands the running script the exception's
+    /// members, including its .NET stack trace and its inner exceptions.
+    /// </para>
+    /// </summary>
+    public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception clrException)
+        : this(errorConstructor, ResolveClrMessage(message, clrException))
+    {
+        if (Error is ErrorInstance errorInstance)
+        {
+            errorInstance.SetClrException(clrException);
+        }
+    }
+
+    private static string? ResolveClrMessage(string? message, Exception clrException)
+    {
+        if (clrException is null)
+        {
+            Throw.ArgumentNullException(nameof(clrException));
+        }
+
+        return message ?? clrException.Message;
+    }
+
     public JavaScriptException(JsValue error)
         : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error)))
     {

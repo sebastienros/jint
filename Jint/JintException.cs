@@ -107,4 +107,54 @@ public abstract class JintException : Exception
         memberName = null;
         return false;
     }
+
+    /// <summary>
+    /// How far <see cref="TryGetClrException"/> follows <c>cause</c>. The chain is script-controlled, so it can
+    /// be arbitrarily deep or cyclic; the bound is what makes both cases terminate.
+    /// </summary>
+    private const int MaxCauseDepth = 8;
+
+    /// <summary>
+    /// If <paramref name="exception"/> stands in for a CLR exception that was thrown out of host code — a
+    /// delegate, a reflected member, a proxy trap — and turned into a JavaScript error because
+    /// <see cref="Jint.Options.InteropOptions.ExceptionHandler"/> asked for it to be catchable by the script,
+    /// returns that exception, with its message, .NET stack trace and inner chain intact.
+    /// <para>
+    /// The exception is host-only: it is CLR state on the error object rather than a JavaScript property, so a
+    /// running script can neither read it nor strip it. It survives a script catching the error and rethrowing
+    /// the same value, and a script rewrapping with <c>throw new Error(msg, { cause: err })</c>, which this
+    /// method follows. A script that throws an unrelated error instead keeps nothing, which is correct — it
+    /// discarded the original.
+    /// </para>
+    /// <para>
+    /// Note that the error object holds the exception, and so everything the exception's object graph reaches,
+    /// for as long as the script keeps the error reachable.
+    /// </para>
+    /// </summary>
+    public static bool TryGetClrException(Exception? exception, [NotNullWhen(true)] out Exception? clrException)
+    {
+        var value = exception switch
+        {
+            JavaScriptException javaScriptException => javaScriptException.Error,
+            PromiseRejectedException promiseRejectedException => promiseRejectedException.RejectedValue,
+            _ => null
+        };
+
+        for (var depth = 0; depth < MaxCauseDepth && value is ErrorInstance error; depth++)
+        {
+            if (error.ClrException is { } found)
+            {
+                clrException = found;
+                return true;
+            }
+
+            // Own data property only, never Get: following the chain must not run a script getter while the
+            // host is unwinding. An accessor-valued cause simply ends the walk.
+            var cause = error.GetOwnProperty(CommonProperties.Cause);
+            value = cause.IsDataDescriptor() ? cause.Value : null;
+        }
+
+        clrException = null;
+        return false;
+    }
 }
