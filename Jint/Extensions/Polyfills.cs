@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
@@ -87,63 +87,71 @@ internal static class Polyfills
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;
 #endif
+
 }
 
-public static class Int32Extensions
+// One container per receiver type is required, not stylistic. A static extension member lowers into
+// its containing class with the receiver type erased from the signature, so int.Parse, long.Parse and
+// double.Parse -- identical parameters, differing only in return type -- collide with CS0111 if they
+// share one class. Same reason applies to any future static polyfill whose signature is shared across
+// receivers.
+//
+// Each member mirrors its BCL counterpart exactly, defaults included: an extra optional parameter the
+// real API does not have would change overload resolution on the frameworks that do have it, which is
+// how a polyfill silently stops being a polyfill. The span-taking numeric overloads arrived in two
+// waves -- the NumberStyles ones in .NET Core 2.1 / netstandard2.1, the IFormatProvider ones with
+// IParsable<T> in .NET 7 -- hence the two different guards.
+internal static class Int32Polyfills
 {
     extension(int)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
-        public static bool TryParse(ReadOnlySpan<char> span, NumberStyles style, IFormatProvider provider, out int value)
+        public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out int result)
         {
-            return int.TryParse(span.ToString(), style, provider, out value);
+            return int.TryParse(s.ToString(), style, provider, out result);
+        }
+
+        public static int Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Integer, IFormatProvider? provider = null)
+        {
+            return int.Parse(s.ToString(), style, provider);
         }
 #endif
 
-#if NETFRAMEWORK || NETSTANDARD
-        public static int Parse(ReadOnlySpan<char> span, IFormatProvider? provider = null)
+#if !NET8_0_OR_GREATER
+        public static int Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
         {
-            return int.Parse(span.ToString(), NumberStyles.Integer, provider);
-        }
-#endif
-
-#if NETFRAMEWORK || NETSTANDARD2_0
-        public static int Parse(ReadOnlySpan<char> span, NumberStyles style = NumberStyles.Integer, IFormatProvider? provider = null)
-        {
-            return int.Parse(span.ToString(), style, provider);
+            return int.Parse(s.ToString(), NumberStyles.Integer, provider);
         }
 #endif
     }
 }
 
-public static class Int64Extensions
+internal static class Int64Polyfills
 {
     extension(long)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
-        public static bool TryParse(ReadOnlySpan<char> span, NumberStyles style, IFormatProvider formatProvider, out long value)
+        public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out long result)
         {
-            return long.TryParse(span.ToString(), style, formatProvider, out value);
+            return long.TryParse(s.ToString(), style, provider, out result);
+        }
+
+        public static long Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Integer, IFormatProvider? provider = null)
+        {
+            return long.Parse(s.ToString(), style, provider);
         }
 #endif
 
-#if NETFRAMEWORK || NETSTANDARD
-        public static long Parse(ReadOnlySpan<char> span, IFormatProvider? provider = null)
+#if !NET8_0_OR_GREATER
+        public static long Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
         {
-            return long.Parse(span.ToString(), NumberStyles.Integer, provider);
-        }
-#endif
-
-#if NETFRAMEWORK || NETSTANDARD2_0
-        public static long Parse(ReadOnlySpan<char> span, NumberStyles style = NumberStyles.Integer, IFormatProvider? provider = null)
-        {
-            return long.Parse(span.ToString(), style, provider);
+            return long.Parse(s.ToString(), NumberStyles.Integer, provider);
         }
 #endif
     }
 }
 
-public static class DoubleExtensions
+internal static class DoublePolyfills
 {
     extension(double)
     {
@@ -152,19 +160,17 @@ public static class DoubleExtensions
         // phrased as "if x is finite" read the same on every target framework.
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
-#endif
 
-#if NETFRAMEWORK || NETSTANDARD
-        public static double Parse(ReadOnlySpan<char> span, IFormatProvider? provider = null)
+        public static double Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Float | NumberStyles.AllowThousands, IFormatProvider? provider = null)
         {
-            return double.Parse(span.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, provider);
+            return double.Parse(s.ToString(), style, provider);
         }
 #endif
 
-#if NETFRAMEWORK || NETSTANDARD2_0
-        public static double Parse(ReadOnlySpan<char> span, NumberStyles style = NumberStyles.Float | NumberStyles.AllowThousands, IFormatProvider? provider = null)
+#if !NET8_0_OR_GREATER
+        public static double Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
         {
-            return double.Parse(span.ToString(), style, provider);
+            return double.Parse(s.ToString(), NumberStyles.Float | NumberStyles.AllowThousands, provider);
         }
 #endif
     }
