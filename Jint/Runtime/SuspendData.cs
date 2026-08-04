@@ -91,11 +91,6 @@ internal sealed class ForOfSuspendData : SuspendData
 internal sealed class ForLoopSuspendData : SuspendData
 {
     /// <summary>
-    /// The saved values of loop variables (let bindings in for loop init).
-    /// </summary>
-    public Dictionary<Key, JsValue>? BoundValues { get; set; }
-
-    /// <summary>
     /// The accumulated completion value from previous iterations.
     /// </summary>
     public JsValue AccumulatedValue { get; set; } = JsValue.Undefined;
@@ -107,16 +102,31 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// It cannot be re-read from the execution context on resume. An async function captures
     /// <c>_savedContext</c> afresh at <em>every</em> await
     /// (<see cref="Interpreter.Expressions.JintAwaitExpression"/>), so the environment current at
-    /// the top of a replayed body is the one that was live at the await — the body block's
-    /// environment when the body declares let/const, not the loop's outer environment. Restoring
-    /// that instead would leave a block environment current after the loop, which both leaks the
-    /// block's bindings past it and — once the block parks and detaches that environment — leaves
-    /// the chain no longer terminating in the global environment.
+    /// the top of a replayed body is the one that was live at the await, never the loop's outer
+    /// environment. Which wrong environment that is depends on where the loop is resumed:
+    /// </para>
+    /// <para>
+    /// Resuming into the <em>body</em> it is the body block's environment when the body declares
+    /// let/const. Restoring that would leave a block environment current after the loop, which both
+    /// leaks the block's bindings past it and — once the block parks and detaches that environment
+    /// — leaves the chain no longer terminating in the global environment.
+    /// </para>
+    /// <para>
+    /// Resuming into the <em>init</em> it is the abandoned first-attempt loop environment, whose
+    /// header bindings never got past TDZ (the init suspended part-way through initializing them).
+    /// Restoring that leaves a dead environment current after the loop, so reading an outer binding
+    /// the header shadows throws ReferenceError — including through <c>typeof</c>, which must never
+    /// throw for an out-of-scope name. It is also self-compounding: the value restored on exit is
+    /// the same one written back here, so each further suspension chains another dead loop
+    /// environment onto the next one's outer link.
     /// </para>
     /// <para>
     /// <see cref="ForOfSuspendData.OuterEnv"/> exists for exactly this reason and is the direct
-    /// precedent; a generator needs neither, because it captures its context once at
-    /// GeneratorStart and re-enters that same function-level context on every resume.
+    /// precedent. A generator does not need <em>this</em> field — it captures its context once at
+    /// GeneratorStart and re-enters that same function-level context on every resume, so the
+    /// environment it resumes with really is the loop's outer one. That argument is about the outer
+    /// environment only, and emphatically does not extend to <see cref="IterationEnv"/>, which a
+    /// generator needs exactly as much as an async function does; see the note there.
     /// </para>
     /// </summary>
     public Environments.Environment? OuterEnv { get; set; }
@@ -125,15 +135,27 @@ internal sealed class ForLoopSuspendData : SuspendData
     /// The loop's live iteration environment at the moment of suspension, resumed into rather
     /// than rebuilt.
     /// <para>
-    /// Rebuilding it and copying <see cref="BoundValues"/> across is not equivalent. A closure
-    /// created in the body before the await has already captured the original environment, so a
-    /// rebuild strands it: assignments to the loop variable after the await land in the new
-    /// environment while the closure — and the loop's own test and update — go on reading the old
-    /// one. That silently loses writes and can change a loop's trip count.
+    /// Rebuilding it and copying the binding values across is not equivalent. A closure created
+    /// before the await has already captured the original environment, so a rebuild strands
+    /// <em>the closure</em>, and only it: the loop's own test and update run in the environment the
+    /// loop just installed — the new one — and go on agreeing with each other, while the closure
+    /// alone keeps reading the abandoned one. So the loop appears to work and the captured
+    /// function silently reports a stale value.
     /// </para>
     /// <para>
-    /// <see cref="ForOfSuspendData.IterationEnv"/> is the direct precedent. <see cref="BoundValues"/>
-    /// remains the fallback for a resume that has no saved environment.
+    /// This is needed for a generator just as much as for an async function, which is easy to miss
+    /// because the argument on <see cref="OuterEnv"/> above ("a generator re-enters one
+    /// function-level context") does not carry over. That context is the function's, not the
+    /// loop's; the per-iteration environment is rebuilt on a generator's replay exactly as on an
+    /// async function's, and
+    /// <c>function* g() { let get; for (let i = 0; i &lt; 1; i++) { get = () =&gt; i; yield i; i = 42; } return get(); }</c>
+    /// returns 42 with this field — the write after the yield lands in the environment the closure
+    /// captured, as the spec requires — and 0 without it, the closure left reading an abandoned
+    /// environment that never saw the write. Do not guard the save on the suspendable being an
+    /// async function.
+    /// </para>
+    /// <para>
+    /// <see cref="ForOfSuspendData.IterationEnv"/> is the direct precedent.
     /// </para>
     /// </summary>
     public DeclarativeEnvironment? IterationEnv { get; set; }
@@ -394,6 +416,33 @@ internal sealed class BlockSuspendData : SuspendData
     /// to advance the dispose state machine.
     /// </summary>
     public bool DisposeInProgress { get; set; }
+}
+
+/// <summary>
+/// Stores the object environment of a <c>with</c> statement when execution suspends inside its
+/// body, so a replay resumes into that same environment instead of building a fresh one.
+/// <para>
+/// Unlike a block's, this environment is not merely an optimization to preserve: any statement
+/// inside the body that saves its own outer environment across a suspension — every loop, block,
+/// switch and catch clause does — saves <em>this</em> object environment, and restores it when it
+/// exits. Rebuilding it on replay left those saves pointing at an environment no longer on the
+/// chain, so restoring one detached the lexical chain from the global environment and the next
+/// identifier walk failed its <c>GlobalEnvironment</c> cast with an
+/// <see cref="InvalidCastException"/> — a .NET exception, so neither a script <c>try</c>/<c>catch</c>
+/// nor an embedder catching <see cref="JavaScriptException"/> could see it.
+/// </para>
+/// </summary>
+internal sealed class WithSuspendData : SuspendData
+{
+    /// <summary>
+    /// The object environment created for the <c>with</c> body.
+    /// </summary>
+    public ObjectEnvironment? WithEnvironment { get; set; }
+
+    /// <summary>
+    /// The environment to restore once the body completes.
+    /// </summary>
+    public Environments.Environment? OuterEnvironment { get; set; }
 }
 
 /// <summary>
