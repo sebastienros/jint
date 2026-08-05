@@ -27,7 +27,7 @@ public class EngineLimitTests
         // is deliberately generous: StackOverflowException is uncatchable and would kill the whole test
         // process, so this is a functional smoke test of deep call chains, not a per-frame native-stack
         // budget test (platforms differ too much in frame size for a tight budget to be safe).
-        RunOnDedicatedThread(static () =>
+        DedicatedThread.Run(static () =>
         {
             var script = GenerateCallTree(FunctionNestingCount);
 
@@ -36,25 +36,6 @@ public class EngineLimitTests
             engine.Evaluate("func1(123);").AsNumber().Should().Be(123);
             engine.Evaluate("x").AsNumber().Should().Be(FunctionNestingCount);
         });
-    }
-
-    private static void RunOnDedicatedThread(Action action)
-    {
-        ExceptionDispatchInfo? exception = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception e)
-            {
-                exception = ExceptionDispatchInfo.Capture(e);
-            }
-        }, maxStackSize: 16 * 1024 * 1024);
-        thread.Start();
-        thread.Join();
-        exception?.Throw();
     }
 
     [Fact]
