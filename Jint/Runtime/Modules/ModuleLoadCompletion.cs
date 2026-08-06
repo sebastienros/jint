@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
 
@@ -44,6 +45,17 @@ public sealed class ModuleLoadCompletion
     /// </summary>
     private readonly int _generation;
 
+    /// <summary>
+    /// The realm the load was started in, captured at registration for the same reason as the generation. A
+    /// ShadowRealm import enters the shadow realm's execution context only around the synchronous
+    /// <c>HostLoadImportedModule</c> call, so a settle arriving on a later event-loop turn runs under
+    /// whatever realm is ambient then — the principal realm — and would build the module record, and mint
+    /// error objects, against the wrong realm's intrinsics and globals. The deferred halves below re-enter
+    /// this realm before doing either, so an asynchronously loaded module lands in the same realm a
+    /// synchronously loaded one always has.
+    /// </summary>
+    private readonly Realm _realm;
+
     private readonly List<Waiter> _waiters = new();
     private int _settled;
 
@@ -65,6 +77,7 @@ public sealed class ModuleLoadCompletion
         Resolved = resolved;
         Engine = modules.Engine;
         _generation = Engine.EventLoopGeneration;
+        _realm = Engine.Realm;
     }
 
     /// <summary>The engine the module is being loaded for.</summary>
@@ -137,11 +150,11 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(exception));
         }
 
-        // A JavaScriptException already carries the error value the host wants raised; anything else is a CLR
+        // A JavaScriptException already carries the error value the host wants raised — and travels along so
+        // a blocking importer can rethrow it with its location and stack intact; anything else is a CLR
         // failure whose message is the only part meaningful to script.
-        Settle(() => Fail(exception is JavaScriptException javaScriptException
-            ? javaScriptException.Error
-            : CreateError(exception.Message)));
+        var javaScriptException = exception as JavaScriptException;
+        Settle(() => Fail(javaScriptException, javaScriptException?.Error, exception.Message));
     }
 
     /// <summary>
@@ -149,7 +162,7 @@ public sealed class ModuleLoadCompletion
     /// </summary>
     public void SetError(string message)
     {
-        Settle(() => Fail(CreateError(message ?? "Could not load module")));
+        Settle(() => Fail(exception: null, error: null, message ?? "Could not load module"));
     }
 
     internal void AddWaiter(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleLoadPayload payload)
@@ -184,55 +197,158 @@ public sealed class ModuleLoadCompletion
 
     private void Build(Func<Module> build)
     {
-        Module module;
+        var enteredRealm = EnterLoadRealm();
         try
         {
-            module = build();
-
-            // Attach the host-defined [[ModuleSource]] used by source-phase imports, so a module reached
-            // asynchronously supports them exactly as far as a synchronously loaded one does.
-            if (_modules.ModuleLoader is ModuleLoader moduleLoader)
+            // A module may have been registered for this key while the fetch was in flight — Modules.Add of
+            // the same name followed by a synchronous lookup that consumed the builder. The registry is never
+            // evicted and every synchronous path already answers with that record, so the waiters get it too:
+            // registering the fetched record over it would leave two live modules for one key, each with its
+            // own top-level state.
+            if (_modules.TryGetRegisteredModule(_cacheKey, out var registered))
             {
-                module.ModuleSource ??= moduleLoader.GetModuleSourceForAsyncLoad(Engine, Resolved);
+                _modules.RemovePendingLoad(_cacheKey);
+                FinishWaiters(registered, error: null, exception: null);
+                return;
             }
+
+            Module module;
+            try
+            {
+                module = build();
+
+                // Attach the host-defined [[ModuleSource]] used by source-phase imports, so a module reached
+                // asynchronously supports them exactly as far as a synchronously loaded one does.
+                if (_modules.ModuleLoader is ModuleLoader moduleLoader)
+                {
+                    module.ModuleSource ??= moduleLoader.GetModuleSourceForAsyncLoad(Engine, Resolved);
+                }
+
+                // Registration is inside the try so a throwing debugger callback cannot leave the waiters
+                // stranded below with the module half-registered above them.
+                _modules.RemovePendingLoad(_cacheKey);
+                _modules.RegisterModule(_cacheKey, module);
+            }
+            catch (JavaScriptException ex)
+            {
+                // Parsing the source the host handed over is engine work, so a syntax error in it belongs to
+                // the importer as a rejection rather than to whichever turn of the event loop ran the build.
+                Fail(ex, ex.Error, ex.Message);
+                return;
+            }
+            catch (Exception ex) when (Engine.EventLoop.IsRunningJob && !MustPropagate(ex))
+            {
+                // On a queued event-loop turn there is no caller left to throw to: escaping would erupt out
+                // of ProcessTasks with every waiter permanently pending. The failure becomes the load's
+                // failure instead — and carries the original exception, so a blocking importer driving the
+                // loop still catches what a synchronous stack would have thrown.
+                Fail(ex, error: null, ex.Message);
+                return;
+            }
+            catch
+            {
+                // A constraint exception, or a failure on a synchronous stack that still has a caller: it
+                // keeps propagating — but the load must not stay registered as in flight, or a later import
+                // of the same specifier would attach to a completion that can never settle.
+                _modules.RemovePendingLoad(_cacheKey);
+                throw;
+            }
+
+            FinishWaiters(module, error: null, exception: null);
         }
-        catch (JavaScriptException ex)
+        finally
         {
-            // Parsing the source the host handed over is engine work, so a syntax error in it belongs to the
-            // importer as a rejection rather than to whichever turn of the event loop ran the build.
-            Fail(ex.Error);
-            return;
+            LeaveLoadRealm(enteredRealm);
         }
-        catch
+    }
+
+    private void Fail(Exception? exception, JsValue? error, string message)
+    {
+        var enteredRealm = EnterLoadRealm();
+        try
         {
-            // Not a failure to interpret as a module-loading error, so it keeps propagating — but the load must
-            // not stay registered as in flight, or a later import of the same specifier would attach to a
-            // completion that can never settle.
             _modules.RemovePendingLoad(_cacheKey);
-            throw;
+            FinishWaiters(module: null, error ?? CreateError(message), exception);
+        }
+        finally
+        {
+            LeaveLoadRealm(enteredRealm);
+        }
+    }
+
+    private void FinishWaiters(Module? module, JsValue? error, Exception? exception)
+    {
+        if (error is not null && exception is not null)
+        {
+            // Keeps the original exception reachable for the blocking import paths, which otherwise can only
+            // rebuild a JavaScriptException from the error value — losing its location, stack and Data.
+            _modules.RememberLoadFailure(error, exception);
         }
 
-        _modules.RemovePendingLoad(_cacheKey);
-        _modules.RegisterModule(_cacheKey, module);
-        FinishWaiters(module, error: null);
-    }
-
-    private void Fail(JsValue error)
-    {
-        _modules.RemovePendingLoad(_cacheKey);
-        FinishWaiters(module: null, error);
-    }
-
-    private void FinishWaiters(Module? module, JsValue? error)
-    {
         // A waiter's continuation can import further modules and so append to this list; iterate by index so
-        // that is not a concurrent-modification error, and so anything appended is served too.
+        // that is not a concurrent-modification error, and so anything appended is served too. One waiter's
+        // continuation throwing — a constraint firing inside Link, say — must not leave the waiters after it
+        // permanently pending: the pending-load entry is already gone and the module registered, so nothing
+        // would ever finish them. Serve everyone, then let the first failure propagate.
+        ExceptionDispatchInfo? failure = null;
         for (var i = 0; i < _waiters.Count; i++)
         {
             var waiter = _waiters[i];
-            Engine._host.FinishLoadingImportedModule(waiter.Referrer, waiter.ReferrerLocation, waiter.Request, waiter.Payload, module, error);
+            try
+            {
+                Engine._host.FinishLoadingImportedModule(waiter.Referrer, waiter.ReferrerLocation, waiter.Request, waiter.Payload, module, error);
+            }
+            catch (Exception ex)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(ex);
+            }
+        }
+
+        // A settled completion is what a host naturally retains to correlate with its transport callbacks;
+        // the served waiters must not keep their referrer modules and promise-capability graphs alive
+        // through it.
+        _waiters.Clear();
+
+        failure?.Throw();
+    }
+
+    /// <summary>
+    /// Enters the captured load realm when it is not already the ambient one, so everything a deferred
+    /// settle does — building the module record, minting an error, running the waiters' continuations —
+    /// observes the realm the import was started in, exactly as the synchronous loader path does by running
+    /// inside the importer's own stack.
+    /// </summary>
+    private bool EnterLoadRealm()
+    {
+        if (ReferenceEquals(Engine.Realm, _realm))
+        {
+            return false;
+        }
+
+        Engine.EnterExecutionContext(_realm.GlobalEnv, _realm.GlobalEnv, _realm, privateEnvironment: null, strict: Engine.Options.Strict);
+        return true;
+    }
+
+    private void LeaveLoadRealm(bool entered)
+    {
+        if (entered)
+        {
+            Engine.LeaveExecutionContext();
         }
     }
+
+    /// <summary>
+    /// The failures that must keep propagating rather than become a module-load rejection: each one exists to
+    /// bound or abort execution, and a constraint that turns into a rejection no longer bounds anything —
+    /// script observes it as an ordinary failed import and carries on.
+    /// </summary>
+    internal static bool MustPropagate(Exception exception) => exception
+        is ExecutionCanceledException
+        or MemoryLimitExceededException
+        or StatementsCountOverflowException
+        or TimeoutException
+        or OperationCanceledException
+        or OutOfMemoryException;
 
     private Native.Object.ObjectInstance CreateError(string message) => Engine.Realm.Intrinsics.Error.Construct(message);
 

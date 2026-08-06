@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
@@ -100,6 +101,18 @@ public partial class Engine
         private int _buildersVersion;
         private int _indexedBuildersVersion;
 
+        /// <summary>
+        /// The most recent exception a module-load failure was reduced from, kept alongside the error value
+        /// it was reduced to. The load pipeline hands failures around as <see cref="JsValue"/>s — a promise
+        /// rejection can carry nothing else — but the blocking import paths turn the rejection back into a
+        /// throw, and rebuilding a <see cref="JavaScriptException"/> from the value alone loses the original
+        /// location (a syntax error's file/line/column), the .NET stack and <see cref="Exception.Data"/>.
+        /// Matched strictly by the error value's reference identity, so a stale entry can never fire for an
+        /// unrelated failure; it is simply overwritten by the next one.
+        /// </summary>
+        private JsValue? _lastLoadFailureError;
+        private ExceptionDispatchInfo? _lastLoadFailure;
+
         public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
             ModuleLoader = moduleLoader;
@@ -167,7 +180,19 @@ public partial class Engine
             }
             catch (JavaScriptException ex)
             {
-                Finish(module: null, ex.Error);
+                Finish(module: null, ex.Error, ex);
+                return;
+            }
+            catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
+            {
+                // A loader signals refusal with whatever exception it likes — DefaultModuleLoader throws
+                // ModuleResolutionException, a sibling of JavaScriptException that the catch above does not
+                // see. On a synchronous stack it propagates as it always has, but on a queued event-loop turn
+                // — a static import discovered inside an asynchronously fetched module — there is no caller
+                // left: escaping would erupt out of ProcessTasks with the graph state's pending count never
+                // decremented, stranding the import promise forever. The refusal becomes the load's failure,
+                // and the original exception travels along for the blocking importer to rethrow.
+                Finish(module: null, _engine.Realm.Intrinsics.Error.Construct(ex.Message), ex);
                 return;
             }
 
@@ -176,6 +201,15 @@ public partial class Engine
             if (_modules.TryGetValue(cacheKey, out var module))
             {
                 Finish(module, error: null);
+                return;
+            }
+
+            // An in-flight fetch outranks a builder registered for the same key while it was airborne: the
+            // importers already waiting on the fetch and this one must agree on which record the key denotes,
+            // and consulting the builder here would hand this importer a second live module for the key.
+            if (_pendingLoads is not null && _pendingLoads.TryGetValue(cacheKey, out var inFlight))
+            {
+                inFlight.AddWaiter(referrer, referrerLocation, request, payload);
                 return;
             }
 
@@ -189,6 +223,7 @@ public partial class Engine
                 // load forever, so the error becomes the load's failure instead.
                 Module? builderModule = null;
                 JsValue? builderError = null;
+                Exception? builderException = null;
                 try
                 {
                     builderModule = LoadFromBuilder(builderSpecifier, moduleBuilder, cacheKey);
@@ -196,15 +231,15 @@ public partial class Engine
                 catch (JavaScriptException ex) when (_engine._eventLoop.IsRunningJob)
                 {
                     builderError = ex.Error;
+                    builderException = ex;
+                }
+                catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
+                {
+                    builderError = _engine.Realm.Intrinsics.Error.Construct(ex.Message);
+                    builderException = ex;
                 }
 
-                Finish(builderModule, builderError);
-                return;
-            }
-
-            if (_pendingLoads is not null && _pendingLoads.TryGetValue(cacheKey, out var inFlight))
-            {
-                inFlight.AddWaiter(referrer, referrerLocation, request, payload);
+                Finish(builderModule, builderError, builderException);
                 return;
             }
 
@@ -227,6 +262,16 @@ public partial class Engine
                     // a rejection rather than an exception on whatever thread happened to be evaluating. The
                     // filter is what keeps an exception thrown *after* an inline settle propagating: SetError
                     // on a settled completion is a no-op, and Build deliberately rethrows non-module failures.
+                    if (ModuleLoadCompletion.MustPropagate(ex))
+                    {
+                        // A constraint that becomes a rejection no longer bounds anything: the same cancelled
+                        // engine with a synchronous loader surfaces ExecutionCanceledException, and a host's
+                        // shutdown handling is written against exactly that. The unsettled completion must
+                        // not stay registered, or a later import of the specifier would wait on it forever.
+                        RemovePendingLoad(cacheKey);
+                        throw;
+                    }
+
                     completion.SetError(ex);
                 }
                 finally
@@ -239,6 +284,7 @@ public partial class Engine
 
             Module? loadedModule = null;
             JsValue? loadError = null;
+            Exception? loadException = null;
             try
             {
                 loadedModule = LoadFromModuleLoader(moduleResolution, cacheKey);
@@ -246,15 +292,23 @@ public partial class Engine
             catch (JavaScriptException ex)
             {
                 loadError = ex.Error;
+                loadException = ex;
             }
 
             // Dispatched outside the try: the spec hands FinishLoadingImportedModule one completion, once, and
             // a try around the dispatch itself would re-finish the payload if user code reached through
             // Continue ever threw after a successful load.
-            Finish(loadedModule, loadError);
+            Finish(loadedModule, loadError, loadException);
 
-            void Finish(Module? module, JsValue? error)
-                => _engine._host.FinishLoadingImportedModule(referrer, referrerLocation, request, payload, module, error);
+            void Finish(Module? module, JsValue? error, Exception? exception = null)
+            {
+                if (error is not null && exception is not null)
+                {
+                    RememberLoadFailure(error, exception);
+                }
+
+                _engine._host.FinishLoadingImportedModule(referrer, referrerLocation, request, payload, module, error);
+            }
         }
 
         /// <summary>
@@ -305,11 +359,42 @@ public partial class Engine
         /// </summary>
         internal void RegisterModule(ModuleCacheKey cacheKey, Module module)
         {
-            _modules[cacheKey] = module;
-
+            // The debugger callback runs before the registry commit so that a callback that throws leaves no
+            // half-registered record behind — the failed load can then be retried cleanly.
             if (module is SourceTextModule sourceTextModule)
             {
                 _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
+            }
+
+            _modules[cacheKey] = module;
+        }
+
+        /// <summary>
+        /// Whether the registry already holds a module for <paramref name="cacheKey"/>. Consulted by an
+        /// asynchronous load's deferred build, which must not overwrite a record that was registered while
+        /// its fetch was in flight.
+        /// </summary>
+        internal bool TryGetRegisteredModule(ModuleCacheKey cacheKey, [NotNullWhen(true)] out Module? module)
+            => _modules.TryGetValue(cacheKey, out module);
+
+        internal void RememberLoadFailure(JsValue error, Exception exception)
+        {
+            _lastLoadFailureError = error;
+            _lastLoadFailure = ExceptionDispatchInfo.Capture(exception);
+        }
+
+        /// <summary>
+        /// Rethrows the original exception <paramref name="error"/> was reduced from, stack intact, when it
+        /// is still at hand; otherwise returns and the caller raises what it can build from the value alone.
+        /// </summary>
+        internal void RethrowLoadFailure(JsValue error)
+        {
+            if (ReferenceEquals(_lastLoadFailureError, error))
+            {
+                var failure = _lastLoadFailure!;
+                _lastLoadFailureError = null;
+                _lastLoadFailure = null;
+                failure.Throw();
             }
         }
 
@@ -577,8 +662,16 @@ public partial class Engine
             // The specification's load phase. Everything the module imports has to be present before it can
             // be linked, and with an asynchronous loader "present" is not something the engine can arrange by
             // itself: the load promise settles on some later turn of the event loop, so the caller of a
-            // synchronous Import is the thread that has to run those turns.
-            RunLoadPhaseBlocking(module);
+            // synchronous Import is the thread that has to run those turns. Only a module still in
+            // [[Status]] new can have anything left to load — every later status is only reachable once its
+            // transitive dependencies are present — so the warm re-import of an already-evaluated graph, the
+            // Import-per-request embedding shape, skips the walk and its allocations entirely. A module
+            // record with no dependencies of its own (anything that is not a CyclicModule) has nothing to
+            // load either way.
+            if (module is CyclicModule { Status: ModuleStatus.New })
+            {
+                RunLoadPhaseBlocking(module);
+            }
 
             if (module is not CyclicModule cyclicModule)
             {
@@ -642,6 +735,15 @@ public partial class Engine
             {
                 capability.Reject(ex.Error);
             }
+            catch (Exception ex) when (!ModuleLoadCompletion.MustPropagate(ex))
+            {
+                // Resolution refusals arrive as ModuleResolutionException — not JavaScriptException — and the
+                // same failure delivered through the loader's asynchronous settle would arrive as the
+                // operation's Error. One failure must not have two delivery channels depending on where it
+                // happened, and host code written to the poll-then-GetResult pattern must not crash at the
+                // start call.
+                capability.Reject(_engine.Realm.Intrinsics.Error.Construct(ex.Message));
+            }
 
             var operation = new ModuleImportOperation(capability.PromiseInstance);
 
@@ -698,6 +800,8 @@ public partial class Engine
 
             if (!payload.IsCompleted)
             {
+                ThrowIfBlockedInsideJob(request.Specifier);
+
                 var timeout = _engine.Options.Constraints.PromiseTimeout;
                 if (!_engine.DrainEventLoopUntil(static state => ((RootModuleLoadPayload) state).IsCompleted, payload, completedEvent: null, timeout))
                 {
@@ -707,10 +811,27 @@ public partial class Engine
 
             if (payload.Error is not null)
             {
+                RethrowLoadFailure(payload.Error);
                 Throw.JavaScriptException(_engine, payload.Error, in AstExtensions.DefaultLocation);
             }
 
             return payload.Module!;
+        }
+
+        /// <summary>
+        /// Fails a blocking import that cannot possibly make progress. Inside an event-loop job the
+        /// re-entrancy guard makes queued work unrunnable from a nested drain, so a load still in flight here
+        /// would sit out the whole <c>PromiseTimeout</c> and then report the loader as too slow — ten seconds
+        /// of stall and a misleading message for a structurally impossible wait. Failing now, with the actual
+        /// reason, is what a UI or game-loop host can act on.
+        /// </summary>
+        private void ThrowIfBlockedInsideJob(string specifier)
+        {
+            if (_engine._eventLoop.IsRunningJob)
+            {
+                Throw.InvalidOperationException(
+                    $"The asynchronous load of module '{specifier}' cannot be driven to completion from inside an event-loop job: queued work cannot run while another job is running, so the blocking import would only time out. Import the module with Engine.Modules.StartImport or ImportAsync before entering the job, or settle the load inside IAsyncModuleLoader.LoadModuleAsync so it completes synchronously.");
+            }
         }
 
         /// <summary>
@@ -726,12 +847,14 @@ public partial class Engine
 
             if (loadPromise.State == PromiseState.Pending)
             {
+                ThrowIfBlockedInsideJob(module.Location ?? "(null)");
                 _engine.DrainEventLoopUntilSettled(loadPromise, _engine.Options.Constraints.PromiseTimeout);
             }
 
             switch (loadPromise.State)
             {
                 case PromiseState.Rejected:
+                    RethrowLoadFailure(loadPromise.Value);
                     Throw.JavaScriptException(_engine, loadPromise.Value, in AstExtensions.DefaultLocation);
                     break;
                 case PromiseState.Pending:

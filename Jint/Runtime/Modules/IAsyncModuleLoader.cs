@@ -14,9 +14,11 @@ namespace Jint.Runtime.Modules;
 /// over <em>fetching</em> a module, not over deciding which module a specifier denotes.
 /// </para>
 /// <para>
-/// The engine calls <see cref="LoadModuleAsync"/> at most once per resolved specifier per engine, even when
-/// several referrers import the same file, and never for a specifier it can already answer from its own
-/// registry or from a module registered through <c>Engine.Modules.Add</c>.
+/// The engine keeps at most one load in flight per resolved specifier per engine: several referrers importing
+/// the same file while a fetch is airborne attach to that fetch, and a specifier already answerable from the
+/// engine's registry or from a module registered through <c>Engine.Modules.Add</c> is never asked at all. A
+/// <em>failed</em> load is not recorded, and <c>Engine.Advanced.RestoreGlobalSnapshot</c> discards pending
+/// loads, so the loader is asked again after either.
 /// </para>
 /// <para>
 /// A load that must be driven to completion is driven by the engine's event loop, so the host has to give the

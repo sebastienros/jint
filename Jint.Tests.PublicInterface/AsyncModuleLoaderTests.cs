@@ -32,8 +32,21 @@ public class AsyncModuleLoaderTests
         /// <summary>How many times the loader was asked for each specifier.</summary>
         public int AskedFor(string specifier) => _asked.TryGetValue(specifier, out var count) ? count : 0;
 
+        /// <summary>
+        /// Specifiers <see cref="Resolve"/> refuses, the way <see cref="DefaultModuleLoader"/> refuses a path
+        /// outside its root — with a <see cref="ModuleResolutionException"/>, not a JavaScriptException.
+        /// </summary>
+        public HashSet<string> RefuseToResolve { get; } = new(StringComparer.Ordinal);
+
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
-            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+        {
+            if (RefuseToResolve.Contains(moduleRequest.Specifier))
+            {
+                throw new ModuleResolutionException("Specifier is not allowed", moduleRequest.Specifier, referencingModuleLocation, filePath: null);
+            }
+
+            return new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+        }
 
         public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
@@ -812,6 +825,7 @@ public class AsyncModuleLoaderTests
         {
             "./main.js" => "import { one } from './dep.js'; export const value = one + 2;",
             "./dep.js" => "export const one = 1;",
+            "./imports-missing.js" => "import './missing.js';",
             _ => throw new FileNotFoundException(resolved.ModuleRequest.Specifier),
         };
     }
@@ -849,6 +863,316 @@ public class AsyncModuleLoaderTests
         engine.Advanced.ProcessTasks();
 
         Module.GetModuleNamespace(module).Get("value").AsNumber().Should().Be(11);
+    }
+
+    [Fact]
+    public void AShadowRealmModuleDeliveredAsynchronouslyEvaluatesInTheShadowRealm()
+    {
+        // ShadowRealm.importValue enters the shadow realm's execution context only around the synchronous
+        // start of the load. The settle arrives on a later event-loop turn, so the module record has to be
+        // built against the realm captured when the load started — otherwise the sandboxed module's top-level
+        // code runs against the principal realm's globals, which is precisely what a ShadowRealm exists to
+        // prevent.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        engine.Execute("""
+            globalThis.imported = null;
+            globalThis.sandbox = new ShadowRealm();
+            sandbox.importValue('./sandboxed.js', 'value').then(v => { imported = v; });
+            """);
+
+        loader.Deliver("./sandboxed.js", "globalThis.leak = 'from-module'; export const value = 'ok';");
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("imported").AsString().Should().Be("ok");
+        engine.Evaluate("typeof globalThis.leak").AsString().Should().Be("undefined", "the module's top-level code must not have run against the principal realm's globals");
+        engine.Evaluate("sandbox.evaluate(\"typeof globalThis.leak\")").AsString().Should().Be("string", "the module's top-level code belongs to the shadow realm");
+    }
+
+    [Fact]
+    public void AResolutionFailureInsideAnAsyncGraphRejectsEveryWaitingImportInsteadOfStrandingThem()
+    {
+        // ModuleLoader.Resolve is allowed to refuse a specifier with ModuleResolutionException — a sibling of
+        // JavaScriptException the load pipeline's JavaScriptException-only handling did not see. Thrown while
+        // walking a graph inside a queued load-completion job, it has no caller to erupt to: it must become
+        // the load's failure, for every importer waiting on it, or their promises hang forever.
+        var loader = new DeferredModuleLoader();
+        loader.RefuseToResolve.Add("./forbidden.js");
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var first = engine.Modules.StartImport("./a.js");
+        loader.Deliver("./a.js", "import './shared.js';");
+        engine.Advanced.ProcessTasks();
+
+        var second = engine.Modules.StartImport("./b.js");
+        loader.Deliver("./b.js", "import './shared.js';");
+        engine.Advanced.ProcessTasks();
+
+        // Both graphs now wait on one in-flight load of './shared.js', whose own import is refused by Resolve.
+        loader.Deliver("./shared.js", "import './forbidden.js';");
+        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+
+        first.IsCompleted.Should().BeTrue("the resolution failure must settle the import rather than strand it");
+        first.IsFaulted.Should().BeTrue();
+        first.Error!.Get("message").AsString().Should().Contain("not allowed");
+
+        second.IsCompleted.Should().BeTrue("every waiter attached to the shared load must be finished, not only the first");
+        second.IsFaulted.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AConstraintExceptionFromTheLoaderPropagatesAndLeavesNoPoisonedLoadBehind()
+    {
+        // Constraint exceptions exist to bound execution; flattened into a rejection they no longer bound
+        // anything, and a host's catch (ExecutionCanceledException) shutdown handling never runs. The failed
+        // attempt must also not stay registered as in flight, or the next import of the same specifier would
+        // attach to a completion that can never settle.
+        var loader = new ConstraintThrowingLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        Invoking(() => engine.Modules.Import("./guarded.js")).Should().Throw<ExecutionCanceledException>();
+
+        engine.Modules.Import("./guarded.js").Get("value").AsString().Should().Be("second-attempt");
+        loader.Asked.Should().Be(2, "the cancelled attempt must not have been recorded as an in-flight load");
+    }
+
+    private sealed class ConstraintThrowingLoader : IAsyncModuleLoader
+    {
+        public int Asked;
+
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+        {
+            if (++Asked == 1)
+            {
+                // The shape of a loader observing the engine's cancellation before starting its fetch.
+                throw new ExecutionCanceledException();
+            }
+
+            completion.SetSource("export const value = 'second-attempt';");
+        }
+    }
+
+    [Fact]
+    public void AThrowingModuleSourceHookRejectsTheImportInsteadOfStrandingIt()
+    {
+        // GetModuleSource is a host hook that runs inside the queued build of an asynchronously delivered
+        // module. A failure there has no caller to erupt to; escaping would leave every waiter permanently
+        // pending behind a half-finished load.
+        var loader = new ThrowingModuleSourceLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./hooked.js");
+
+        var frames = 0;
+        while (!import.IsCompleted && frames < 2000)
+        {
+            frames++;
+            Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+            Thread.Sleep(1);
+        }
+
+        import.IsCompleted.Should().BeTrue("the hook failure must settle the import rather than strand it");
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("message").AsString().Should().Contain("source hook failed");
+    }
+
+    private sealed class ThrowingModuleSourceLoader : AsyncModuleLoader
+    {
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        protected override async Task<string> LoadModuleContentsAsync(Engine engine, ResolvedSpecifier resolved, CancellationToken cancellationToken)
+        {
+            // The delay matters: the settle must arrive on a queued event-loop turn, where no caller is left.
+            await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+            return "export const value = 1;";
+        }
+
+        protected override Jint.Native.Object.ObjectInstance? GetModuleSource(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("source hook failed");
+    }
+
+    [Fact]
+    public void ABuilderRegisteredWhileAFetchOfTheSameKeyIsInFlightDoesNotForkTheModule()
+    {
+        // Modules.Add of a key whose fetch is already airborne must not produce two live module records —
+        // one from the builder, one from the fetch — each with its own top-level state. Every importer of
+        // the key gets the same record: the fetch that was started first.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var first = engine.Modules.StartImport("lib");
+        engine.Modules.Add("lib", "export const who = 'builder';");
+        var second = engine.Modules.StartImport("lib");
+
+        loader.Deliver("lib", "export const who = 'fetched';");
+        engine.Advanced.ProcessTasks();
+
+        first.GetResult().Get("who").AsString().Should().Be("fetched");
+        second.GetResult().Should().BeSameAs(first.GetResult(), "one key must denote one module record");
+        loader.AskedFor("lib").Should().Be(1);
+    }
+
+    [Fact]
+    public void ASyntaxErrorReachesTheBlockingImportWithItsOriginalLocation()
+    {
+        // The failure travels from the queued build to the blocking importer as a promise rejection, which
+        // can carry only the error value — but an error UI reads JavaScriptException.Location, and the parse
+        // error knows its file, line and column. The original exception must survive the crossing.
+        var engine = new Engine(options => options.EnableModules(new BackgroundDictionaryLoader(new Dictionary<string, string>
+        {
+            ["./broken.js"] = "export const ok = 1;\nexport const = broken;",
+        })));
+
+        var ex = Invoking(() => engine.Modules.Import("./broken.js"))
+            .Should().Throw<JavaScriptException>().Which;
+
+        ex.Location.Start.Line.Should().Be(2, "the parse error's location must not be reduced to (0, 0)");
+        ex.Location.SourceFile.Should().Be("./broken.js");
+    }
+
+    [Fact]
+    public void AResolutionFailureReachesTheBlockingImportAsTheOriginalException()
+    {
+        // With a synchronous loader, Resolve throwing ModuleResolutionException propagates out of Import as
+        // itself. The asynchronous pipeline reduces it to a rejection on the way through the event loop — the
+        // refusal here happens inside the queued build of './mid.js', two loads deep — and the blocking
+        // importer must still catch what the synchronous stack would have thrown.
+        var loader = new BackgroundDictionaryLoader(new Dictionary<string, string>
+        {
+            ["./root.js"] = "import './mid.js';",
+            ["./mid.js"] = "import './forbidden.js';",
+        });
+        loader.RefuseToResolve.Add("./forbidden.js");
+
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        Invoking(() => engine.Modules.Import("./root.js"))
+            .Should().Throw<ModuleResolutionException>()
+            .Which.Specifier.Should().Be("./forbidden.js");
+    }
+
+    /// <summary>
+    /// Serves from a dictionary, always from a background thread — the shape of a real fetch, and the only
+    /// shape whose settles run as queued event-loop jobs. <see cref="RefuseToResolve"/> makes
+    /// <see cref="Resolve"/> refuse a specifier with <see cref="ModuleResolutionException"/>.
+    /// </summary>
+    private sealed class BackgroundDictionaryLoader : IAsyncModuleLoader
+    {
+        private readonly IReadOnlyDictionary<string, string> _sources;
+
+        public BackgroundDictionaryLoader(IReadOnlyDictionary<string, string> sources)
+        {
+            _sources = sources;
+        }
+
+        public HashSet<string> RefuseToResolve { get; } = new(StringComparer.Ordinal);
+
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            if (RefuseToResolve.Contains(moduleRequest.Specifier))
+            {
+                throw new ModuleResolutionException("Specifier is not allowed", moduleRequest.Specifier, referencingModuleLocation, filePath: null);
+            }
+
+            return new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+        }
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+        {
+            var thread = new Thread(() =>
+            {
+                Thread.Sleep(10);
+                if (_sources.TryGetValue(resolved.ModuleRequest.Specifier, out var code))
+                {
+                    completion.SetSource(code);
+                }
+                else
+                {
+                    completion.SetError($"404 {resolved.ModuleRequest.Specifier}");
+                }
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+    }
+
+    [Fact]
+    public void AFailedBlockingImportRaisesNoUnhandledRejectionEvent()
+    {
+        // The load-phase promise is engine-internal plumbing the host never sees; its rejection is delivered
+        // to the blocking caller as an exception. Unhandled-rejection telemetry must not alarm about it.
+        var engine = new Engine(options => options.EnableModules(new SynchronousLoader()));
+
+        var events = new List<PromiseRejectionTrackerEventArgs>();
+        engine.Advanced.PromiseRejectionTracker += (_, args) => events.Add(args);
+
+        Invoking(() => engine.Modules.Import("./imports-missing.js")).Should().Throw<JavaScriptException>();
+
+        events.Should().BeEmpty("the failure was delivered as an exception, and no host-observable promise was involved");
+    }
+
+    [Fact]
+    public void StartImportDeliversAResolutionFailureThroughTheOperation()
+    {
+        // The single most common failure — the loader refusing to resolve — must arrive through the
+        // operation's IsFaulted/Error channel like every other failure, not erupt from the start call: host
+        // code is written to the documented poll-then-GetResult pattern, and where resolution happens (the
+        // synchronous start or an asynchronous settle) is not the host's business.
+        var loader = new DeferredModuleLoader();
+        loader.RefuseToResolve.Add("./forbidden.js");
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        ModuleImportOperation import = null!;
+        Invoking(() => import = engine.Modules.StartImport("./forbidden.js")).Should().NotThrow();
+        engine.Advanced.ProcessTasks();
+
+        import.IsCompleted.Should().BeTrue();
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("message").AsString().Should().Contain("not allowed");
+    }
+
+    [Fact]
+    public void ABlockingImportThatCannotProgressInsideAJobFailsFastWithTheActualReason()
+    {
+        // Inside an event-loop job the re-entrancy guard makes queued work unrunnable, so a blocking import
+        // of a load that needs even one turn is structurally unable to finish. It used to sit out the whole
+        // PromiseTimeout and then blame the loader for being slow; the host should instead learn immediately
+        // what is wrong and what to do.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        engine.SetValue("hostImport", new Action(() => engine.Modules.Import("./never.js")));
+
+        // The reaction job runs during Execute's own end-of-script drain, and the import inside it fails
+        // there and then — not ten seconds later with a TimeoutException blaming the loader.
+        Invoking(() => engine.Execute("Promise.resolve().then(() => hostImport());"))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*event-loop job*StartImport*");
+    }
+
+    [Fact]
+    public void TheSynchronousEntryOfAnAsyncLoaderExplainsTheMisuseInsteadOfClaimingAMissingModule()
+    {
+        // AsyncModuleLoader.LoadModuleContents throws NotSupportedException with guidance on how to reach the
+        // loader correctly; the generic could-not-load wrapping used to replace it with what reads as a
+        // missing file.
+        var loader = new DelayedModuleLoader(new Dictionary<string, string>(), TimeSpan.Zero);
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        Invoking(() => ((IModuleLoader) loader).LoadModule(engine, loader.Resolve(null, new ModuleRequest("./x.js", []))))
+            .Should().Throw<NotSupportedException>()
+            .WithMessage("*ImportAsync*");
     }
 
     /// <summary>

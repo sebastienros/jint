@@ -9,6 +9,9 @@ public abstract class ModuleLoader : IModuleLoader
 
     public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
+        // A NotSupportedException is API-misuse guidance, not a failed load: AsyncModuleLoader's synchronous
+        // entry throws one saying how to reach the loader correctly, and reducing it to the generic message
+        // below made it read as a missing file. It propagates as itself.
         Module moduleRecord;
         if (resolved.ModuleRequest.IsBytesModule())
         {
@@ -17,7 +20,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 bytes = LoadModuleContentsAsBytes(engine, resolved);
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not NotSupportedException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
@@ -32,7 +35,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 code = LoadModuleContents(engine, resolved);
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not NotSupportedException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;

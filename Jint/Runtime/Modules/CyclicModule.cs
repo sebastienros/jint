@@ -53,6 +53,13 @@ public abstract class CyclicModule : Module
     public override JsValue LoadRequestedModules()
     {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+
+        // The load-phase promise is engine-internal plumbing: the blocking Import consumes its rejection by
+        // rethrowing it without ever attaching a reaction, and every failure it carries is also delivered
+        // through whichever import produced it. Left trackable, each such rejection would fire a phantom
+        // unhandled-rejection event for a promise the host never created and cannot observe.
+        ((JsPromise) capability.PromiseInstance).PromiseIsHandled = true;
+
         var state = new GraphLoadingState(capability);
         InnerModuleLoading(state, this);
         return capability.PromiseInstance;
@@ -143,6 +150,7 @@ public abstract class CyclicModule : Module
 
                 if (loadPromise.State == PromiseState.Rejected)
                 {
+                    _engine.Modules.RethrowLoadFailure(loadPromise.Value);
                     Throw.JavaScriptException(_engine, loadPromise.Value, in AstExtensions.DefaultLocation);
                 }
             }
