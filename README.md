@@ -712,6 +712,8 @@ if (import.IsCompleted)
 
 The synchronous `Engine.Modules.Import` still works with an async loader, but the calling thread is what drives the event loop while the loads are in flight — so it deadlocks if the loader's own completions need that same thread. Prefer `ImportAsync` or `StartImport` there. Existing synchronous `IModuleLoader` implementations are unaffected; async loading is opt-in.
 
+A completion settled *before* `LoadModuleAsync` returns — a cache hit, source already in hand — is the exception to all of the above: the load finishes on the calling stack, no event loop involved, so a graph made entirely of such answers keeps the blocking `Import` fully synchronous, exactly as if a synchronous `IModuleLoader` had served it. `AsyncModuleLoader` does this automatically whenever `LoadModuleContentsAsync` returns an already-completed task.
+
 ## Asynchronous Execution
 
 Jint supports non-blocking execution of JavaScript that involves `async`/`await` and Promises. This is important in ASP.NET Core and other environments where blocking a thread while waiting for I/O can cause thread-pool exhaustion.

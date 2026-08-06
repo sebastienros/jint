@@ -33,6 +33,13 @@ namespace Jint.Runtime.Modules;
 /// the deadlock this class exists to avoid. The synchronous path therefore throws unless a subclass overrides
 /// it, and reaching it at all means something asked for a module outside the load phase — see
 /// <c>Host.GetImportedModule</c>.
+/// <para>
+/// The reverse composition costs nothing, though: a <see cref="LoadModuleContentsAsync"/> that returns an
+/// already-completed task — a cache hit, source already in hand — finishes the load on the engine's own
+/// stack, before the call returns. A graph made entirely of such answers keeps the blocking
+/// <c>Engine.Modules.Import</c> fully synchronous, exactly as if a synchronous <see cref="IModuleLoader"/>
+/// had served it.
+/// </para>
 /// </remarks>
 public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
 {
@@ -96,8 +103,8 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
         }
 
         // An already-completed task is settled inline rather than through a continuation: a loader with a warm
-        // cache is a common case, and one less hop through the thread pool lets the engine finish the load on
-        // the very turn that started it.
+        // cache is a common case, and settling before LoadModuleAsync returns is what lets the engine finish
+        // the load on this very stack — synchronously, with no event-loop turn at all.
         if (task.IsCompleted)
         {
             SettleText(task, completion);

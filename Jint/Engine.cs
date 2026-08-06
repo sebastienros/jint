@@ -1026,10 +1026,11 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Synchronously drives the event loop until <paramref name="promise"/> leaves the pending state
-    /// or <paramref name="timeout"/> elapses. Between drains it waits on the promise's completion event
-    /// with a short poll interval so that continuations enqueued from a background thread — a .NET
-    /// <see cref="System.Threading.Tasks.Task"/> awaited at a module's top level via task interop, or a
-    /// <c>setTimeout</c> callback — get a chance to settle the promise.
+    /// or <paramref name="timeout"/> elapses. Between drains it blocks until either the promise's
+    /// completion event or the event loop's work-arrived signal fires, so a continuation enqueued from a
+    /// background thread — a .NET <see cref="System.Threading.Tasks.Task"/> awaited at a module's top
+    /// level via task interop, a <c>setTimeout</c> callback, an asynchronous module load settling — is
+    /// run promptly rather than after an idle poll slice.
     /// </summary>
     /// <remarks>
     /// A tight spin loop gives up in microseconds and never observes a Task that only completes
@@ -1053,7 +1054,8 @@ public sealed partial class Engine : IDisposable
     /// <param name="state">Passed to <paramref name="isSettled"/>, so the predicate need not be a closure.</param>
     /// <param name="completedEvent">
     /// Signalled when the awaited thing settles, so the idle waits end promptly instead of running out the
-    /// poll interval. May be null, in which case the loop polls.
+    /// poll interval. May be null; either way the wait also ends as soon as new work is enqueued, since
+    /// running that work on this thread is the only way the condition can advance.
     /// </param>
     /// <param name="timeout">Non-positive means wait indefinitely.</param>
     /// <returns>Whether the condition held when the drain ended, i.e. false on timeout.</returns>
@@ -1104,19 +1106,11 @@ public sealed partial class Engine : IDisposable
 
                 try
                 {
-                    if (completedEvent is not null)
-                    {
-                        completedEvent.Wait(waitInterval, cancellationToken);
-                    }
-                    else if (cancellationToken.CanBeCanceled)
-                    {
-                        cancellationToken.WaitHandle.WaitOne(waitInterval);
-                        cancellationToken.ThrowIfCancellationRequested();
-                    }
-                    else
-                    {
-                        System.Threading.Thread.Sleep(waitInterval);
-                    }
+                    // Waking on enqueue is what keeps the interval a backstop rather than a latency floor: a
+                    // settle arriving from a background thread only enqueues, and this thread is the one that
+                    // has to run it — before the wake it idled out the rest of the poll slice first, which a
+                    // chain of sequential asynchronous loads paid on every hop.
+                    _eventLoop.WaitForWork(completedEvent, waitInterval, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {

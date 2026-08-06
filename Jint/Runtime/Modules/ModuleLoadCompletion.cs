@@ -19,6 +19,13 @@ namespace Jint.Runtime.Modules;
 /// engine.
 /// </para>
 /// <para>
+/// The one exception is a settle that happens before <see cref="IAsyncModuleLoader.LoadModuleAsync"/> has
+/// returned: the calling stack there is the engine's own, waiting for exactly this answer, so the load is
+/// finished on it directly — no queue, no turn. A loader whose answer is already at hand therefore behaves
+/// exactly like a synchronous <see cref="IModuleLoader"/>, and a graph of such answers makes the blocking
+/// <c>Engine.Modules.Import</c> fully synchronous.
+/// </para>
+/// <para>
 /// A settle arriving after the engine has ended the evaluation cycle it was registered in — see
 /// <c>Engine.Advanced.RestoreGlobalSnapshot</c> — is discarded rather than applied to the restored engine,
 /// the same fence every other cross-thread completion in Jint sits behind. The importing promise from that
@@ -39,6 +46,17 @@ public sealed class ModuleLoadCompletion
 
     private readonly List<Waiter> _waiters = new();
     private int _settled;
+
+    /// <summary>
+    /// The id of the thread whose settle may run inline instead of being queued, or -1. Non-negative exactly
+    /// while the engine is inside its own call to <see cref="IAsyncModuleLoader.LoadModuleAsync"/>: the engine
+    /// is at a known-safe point then — it initiated the call and is waiting for it to return — so a loader
+    /// that can answer without waiting continues the load on the caller's stack, the way a synchronous
+    /// <see cref="IModuleLoader"/>'s answer always has. A settle from any other thread, or from this thread
+    /// once the call has returned, is queued: "the engine thread" is not an identity the engine tracks, and a
+    /// late settle can arrive while that very thread is mid-evaluation somewhere else entirely.
+    /// </summary>
+    private volatile int _inlineSettleThreadId = -1;
 
     internal ModuleLoadCompletion(Engine.ModuleOperations modules, ResolvedSpecifier resolved, Engine.ModuleCacheKey cacheKey)
     {
@@ -139,10 +157,25 @@ public sealed class ModuleLoadCompletion
         _waiters.Add(new Waiter(referrer, referrerLocation, request, payload));
     }
 
+    internal void OpenInlineSettleWindow() => _inlineSettleThreadId = Environment.CurrentManagedThreadId;
+
+    internal void CloseInlineSettleWindow() => _inlineSettleThreadId = -1;
+
     private void Settle(Action onEngineThread)
     {
         if (Interlocked.CompareExchange(ref _settled, 1, 0) != 0)
         {
+            return;
+        }
+
+        // A settle from inside the engine's own LoadModuleAsync call runs here and now, so a loader that can
+        // answer without waiting — a cache in front of the network, source already in hand — finishes the
+        // load on this very stack and a synchronous Import over such answers never touches the event loop.
+        // The generation check keeps the restore fence airtight even for the pathological loader that
+        // restores a snapshot from inside LoadModuleAsync before settling.
+        if (_inlineSettleThreadId == Environment.CurrentManagedThreadId && _generation == Engine.EventLoopGeneration)
+        {
+            onEngineThread();
             return;
         }
 

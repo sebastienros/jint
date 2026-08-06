@@ -216,13 +216,22 @@ public partial class Engine
 
                 try
                 {
+                    // The window lets a loader whose answer is already at hand settle on this very stack, the
+                    // way a synchronous loader's answer arrives — see ModuleLoadCompletion.Settle.
+                    completion.OpenInlineSettleWindow();
                     AsyncModuleLoader.LoadModuleAsync(_engine, moduleResolution, completion);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!completion.IsCompleted)
                 {
                     // A loader that throws instead of reporting through the completion still has to end up as
-                    // a rejection rather than an exception on whatever thread happened to be evaluating.
+                    // a rejection rather than an exception on whatever thread happened to be evaluating. The
+                    // filter is what keeps an exception thrown *after* an inline settle propagating: SetError
+                    // on a settled completion is a no-op, and Build deliberately rethrows non-module failures.
                     completion.SetError(ex);
+                }
+                finally
+                {
+                    completion.CloseInlineSettleWindow();
                 }
 
                 return;

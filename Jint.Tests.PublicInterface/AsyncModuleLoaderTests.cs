@@ -592,6 +592,121 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
+    public void AWarmAnswerServesTheBlockingImportSynchronously()
+    {
+        // A loader whose answer is already at hand settles the completion before LoadModuleAsync returns,
+        // and the engine finishes the load on that very stack - the blocking Import over such answers never
+        // touches the event loop, exactly as if the loader were a synchronous IModuleLoader.
+        var loader = new WarmModuleLoader(new Dictionary<string, string>
+        {
+            ["./root.js"] = "import { dep } from './dep.js'; export const value = 'root+' + dep;",
+            ["./dep.js"] = "export const dep = 'dep';",
+        });
+
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+dep");
+    }
+
+    [Fact]
+    public void AWarmAnswerServesTheBlockingImportEvenWhereDrainingIsImpossible()
+    {
+        // The strongest form of "continues synchronously": inside an event-loop job the re-entrancy guard
+        // makes draining impossible, so an import needing even one event-loop turn sits out the whole
+        // PromiseTimeout and fails. An inline-settling loader completes the graph on the calling stack and
+        // never notices.
+        var loader = new WarmModuleLoader(new Dictionary<string, string>
+        {
+            ["./root.js"] = "import { dep } from './dep.js'; export const value = 'root+' + dep;",
+            ["./dep.js"] = "export const dep = 'dep';",
+        });
+
+        var engine = new Engine(options =>
+        {
+            options.EnableModules(loader);
+            // Small so a regression fails the test in half a second rather than the default ten.
+            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500);
+        });
+
+        engine.SetValue("hostImport", new Func<string>(() => engine.Modules.Import("./root.js").Get("value").AsString()));
+        engine.Execute("globalThis.result = null; Promise.resolve().then(() => { result = hostImport(); });");
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("result").AsString().Should().Be("root+dep");
+    }
+
+    [Fact]
+    public void AnInlineFailureStillReachesTheBlockingImportAsAnError()
+    {
+        var loader = new InlineFailingLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        Invoking(() => engine.Modules.Import("./missing.js"))
+            .Should().Throw<JavaScriptException>().WithMessage("*not in the bundle*");
+    }
+
+    [Fact]
+    public void AGraphMixingWarmAndTrulyAsynchronousAnswersStillLoadsThroughTheBlockingImport()
+    {
+        // The root settles inline on the import's own stack; its dependency arrives from the thread pool
+        // later. The blocking Import has to switch from the synchronous continuation to draining the event
+        // loop mid-graph.
+        var loader = new WarmModuleLoader(new Dictionary<string, string>
+        {
+            ["./root.js"] = "import { dep } from './slow.js'; export const value = 'root+' + dep;",
+            ["./slow.js"] = "export const dep = 'slow';",
+        }, coldSpecifiers: ["./slow.js"]);
+
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+slow");
+    }
+
+    /// <summary>
+    /// Answers from an in-memory dictionary with an already-completed task — the cache-hit shape — except
+    /// for <paramref name="coldSpecifiers"/>, which take the thread-pool round trip a real fetch takes.
+    /// </summary>
+    private sealed class WarmModuleLoader : AsyncModuleLoader
+    {
+        private readonly IReadOnlyDictionary<string, string> _sources;
+        private readonly HashSet<string> _coldSpecifiers;
+
+        public WarmModuleLoader(IReadOnlyDictionary<string, string> sources, IEnumerable<string>? coldSpecifiers = null)
+        {
+            _sources = sources;
+            _coldSpecifiers = new HashSet<string>(coldSpecifiers ?? [], StringComparer.Ordinal);
+        }
+
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        protected override async Task<string> LoadModuleContentsAsync(Engine engine, ResolvedSpecifier resolved, CancellationToken cancellationToken)
+        {
+            var specifier = resolved.ModuleRequest.Specifier;
+            if (_coldSpecifiers.Contains(specifier))
+            {
+                await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+            }
+
+            return _sources.TryGetValue(specifier, out var code)
+                ? code
+                : throw new FileNotFoundException($"404 {specifier}");
+        }
+    }
+
+    private sealed class InlineFailingLoader : IAsyncModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+            => completion.SetError($"'{resolved.ModuleRequest.Specifier}' is not in the bundle.");
+    }
+
+    [Fact]
     public async Task ResolutionStillSeesTheReferringModulesLocation()
     {
         // The shape a dev server needs: specifiers inside a fetched module are relative to where that module
