@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -66,6 +67,22 @@ public partial class Engine
         private readonly Dictionary<ModuleCacheKey, Module> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Resolved key to the registration name it was filed under, for the registrations whose two names
+        /// differ. Built lazily by <see cref="IndexBuilderKeys"/>; null while no registration needed an entry,
+        /// which is every engine that registers under names its loader leaves alone.
+        /// </summary>
+        private Dictionary<string, string>? _builderKeys;
+
+        /// <summary>
+        /// Registration names already put through the loader, including the ones it refused, so neither is
+        /// resolved twice.
+        /// </summary>
+        private HashSet<string>? _indexedBuilders;
+
+        private int _buildersVersion;
+        private int _indexedBuildersVersion;
+
         public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
             ModuleLoader = moduleLoader;
@@ -84,9 +101,9 @@ public partial class Engine
                 return module;
             }
 
-            if (_builders.TryGetValue(moduleResolution.Key, out var moduleBuilder))
+            if (TryGetBuilder(moduleResolution, out var builderSpecifier, out var moduleBuilder))
             {
-                module = LoadFromBuilder(moduleResolution.Key, moduleBuilder, moduleResolution, cacheKey);
+                module = LoadFromBuilder(builderSpecifier, moduleBuilder, moduleResolution, cacheKey);
             }
             else
             {
@@ -101,9 +118,157 @@ public partial class Engine
             return module;
         }
 
+        /// <summary>
+        /// Finds the builder registered for a module. <see cref="Add(string,ModuleBuilder)"/> files one under
+        /// whatever name the host passed it, which is not necessarily the key the module loader resolves that
+        /// name to - any loader that canonicalizes urls spells <c>http://host</c> as <c>http://host/</c> - and
+        /// the resolved key is what the engine identifies a module by everywhere else. Consulting only the
+        /// resolved key silently replaced the source the host supplied with a load from disk or the network.
+        /// </summary>
+        /// <remarks>
+        /// The registration is therefore put through the loader once and indexed under the key it resolves to,
+        /// so a builder has exactly one identity. Matching the raw <see cref="ModuleRequest.Specifier"/>
+        /// instead would not work: that text is the import as written, which for a relative specifier is
+        /// relative to the <em>referencing</em> module and so names no module at all. Two files importing
+        /// <c>'./shared.js'</c> from different directories would both match one registration, and since
+        /// <see cref="LoadFromBuilder"/> consumes it, whichever the graph walk reached first would win and the
+        /// other would fail to resolve.
+        /// </remarks>
+        private bool TryGetBuilder(
+            ResolvedSpecifier moduleResolution,
+            [NotNullWhen(true)] out string? specifier,
+            [NotNullWhen(true)] out ModuleBuilder? moduleBuilder)
+        {
+            var key = moduleResolution.Key;
+            if (_builders.TryGetValue(key, out moduleBuilder))
+            {
+                // Registered under the name the loader resolves to, so there is nothing to index.
+                specifier = key;
+                return true;
+            }
+
+            IndexBuilderKeys();
+
+            if (_builderKeys is not null
+                && _builderKeys.TryGetValue(key, out var registered)
+                && _builders.TryGetValue(registered, out moduleBuilder))
+            {
+                specifier = registered;
+                return true;
+            }
+
+            specifier = null;
+            moduleBuilder = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Resolves each registration that has not been resolved yet and indexes it under the resulting key.
+        /// Lazy rather than done in <see cref="Add(string,ModuleBuilder)"/> so that registering a module stays
+        /// independent of the loader: <c>Add</c> keeps working before <c>EnableModules</c>, and cannot start
+        /// throwing for a specifier the loader refuses.
+        /// </summary>
+        private void IndexBuilderKeys()
+        {
+            if (_builders.Count == 0 || _indexedBuildersVersion == _buildersVersion)
+            {
+                return;
+            }
+
+            // Stamped before the loop rather than after, so a loader whose Resolve re-enters the engine sees
+            // the pass as already running and cannot start a second one over the same registrations. The
+            // trade-off is that such a re-entrant call consults the index before this pass has finished
+            // filling it and may miss a still-unindexed registration.
+            _indexedBuildersVersion = _buildersVersion;
+
+            List<string>? pending = null;
+            foreach (var specifier in _builders.Keys)
+            {
+                if (_indexedBuilders?.Contains(specifier) != true)
+                {
+                    (pending ??= []).Add(specifier);
+                }
+            }
+
+            if (pending is null)
+            {
+                return;
+            }
+
+            foreach (var specifier in pending)
+            {
+                // Marked before resolving, so a specifier the loader refuses is attempted once rather than on
+                // every load.
+                (_indexedBuilders ??= new HashSet<string>(StringComparer.Ordinal)).Add(specifier);
+
+                string? resolvedKey;
+                try
+                {
+                    // A registration is a top-level name, so it is resolved the way Modules.Import resolves
+                    // one: against no referrer.
+                    resolvedKey = ModuleLoader.Resolve(referencingModuleLocation: null, new ModuleRequest(specifier, [])).Key;
+                }
+#pragma warning disable CA1031 // a loader may signal "I will not resolve that" with any exception it likes
+                catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
+                {
+                    // A loader is free to reject a specifier outright - DefaultModuleLoader throws for a
+                    // directory import, an unauthorized path or an invalid specifier. Such a registration is
+                    // simply left unindexed, leaving it exactly as reachable as it was before this index
+                    // existed, and the attempt is not repeated. Letting the exception out would instead fail
+                    // an unrelated import that merely happened to run the indexing pass. Cancellation is
+                    // different: it is the host calling off the whole operation, not the loader refusing one
+                    // name, so it propagates.
+                    continue;
+                }
+
+                if (resolvedKey is null)
+                {
+                    // A loader compiled without nullable annotations can hand back a null key instead of
+                    // throwing; treat it as the refusal it is rather than failing the triggering import.
+                    continue;
+                }
+
+                if (string.Equals(resolvedKey, specifier, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string? collidingRegistration = null;
+                if (_builders.ContainsKey(resolvedKey))
+                {
+                    collidingRegistration = resolvedKey;
+                }
+                else if (_builderKeys is not null
+                    && _builderKeys.TryGetValue(resolvedKey, out var other)
+                    && !string.Equals(other, specifier, StringComparison.Ordinal)
+                    && _builders.ContainsKey(other))
+                {
+                    collidingRegistration = other;
+                }
+
+                if (collidingRegistration is not null)
+                {
+                    // Two live registrations sharing one resolved identity: whichever lost would be silently
+                    // unreachable under every name - its own raw name resolves to the shared key too - which
+                    // is the exact failure this index exists to eliminate. So it fails as loudly as
+                    // registering the same spelling twice fails in Add.
+                    Throw.InvalidOperationException(
+                        $"Module '{specifier}' resolves to '{resolvedKey}', which already identifies the registration '{collidingRegistration}'. Two registrations must not resolve to the same specifier.");
+                }
+
+                (_builderKeys ??= new Dictionary<string, string>(StringComparer.Ordinal))[resolvedKey] = specifier;
+            }
+        }
+
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
-            var parsedModule = moduleBuilder.Parse();
+            // The module is named by the key it resolved to rather than by the name it was registered under.
+            // Those differ exactly when the loader canonicalized, and the location is what the module's own
+            // relative imports are resolved against - so keeping the registration name would leave a builder
+            // module reached through the index resolving its nested imports against a name the loader never
+            // produced. A module supplied pre-compiled keeps its prepare-time name instead; see AddModule.
+            var parsedModule = moduleBuilder.Parse(moduleResolution.Key);
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
             var module = new BuilderModule(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
             _modules[cacheKey] = module;
@@ -119,6 +284,10 @@ public partial class Engine
             return module;
         }
 
+        /// <summary>
+        /// Registers a module built from <paramref name="code"/> under <paramref name="specifier"/>.
+        /// </summary>
+        /// <inheritdoc cref="Add(string,ModuleBuilder)" path="/remarks"/>
         public void Add(string specifier, string code)
         {
             var moduleBuilder = new ModuleBuilder(_engine, specifier);
@@ -126,6 +295,10 @@ public partial class Engine
             Add(specifier, moduleBuilder);
         }
 
+        /// <summary>
+        /// Registers a module assembled by <paramref name="buildModule"/> under <paramref name="specifier"/>.
+        /// </summary>
+        /// <inheritdoc cref="Add(string,ModuleBuilder)" path="/remarks"/>
         public void Add(string specifier, Action<ModuleBuilder> buildModule)
         {
             var moduleBuilder = new ModuleBuilder(_engine, specifier);
@@ -133,9 +306,42 @@ public partial class Engine
             Add(specifier, moduleBuilder);
         }
 
+        /// <summary>
+        /// Registers <paramref name="moduleBuilder"/> under <paramref name="specifier"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A registration is identified by <paramref name="specifier"/> <em>as the module loader resolves it</em>,
+        /// not by the string itself, because that resolved key is what the engine identifies every module by. So
+        /// a module registered as <c>http://localhost</c> against a loader that canonicalizes urls is also found
+        /// by <c>import 'http://localhost/'</c>, and a module registered as <c>./config.js</c> is found by the
+        /// imports that resolve to the same file - not by every import that merely spells <c>'./config.js'</c>,
+        /// which for a relative specifier means a different file in each importing directory.
+        /// </para>
+        /// <para>
+        /// Resolution happens on first use rather than here, so registering a module neither requires
+        /// <see cref="OptionsExtensions.EnableModules(Options,string,bool)"/> nor fails for a specifier the
+        /// loader would reject. The first import after a registration puts every not-yet-resolved registration
+        /// through <see cref="IModuleLoader.Resolve"/>, so a loader observes resolve calls for names no script
+        /// has imported. Each registration is resolved at most once: a resolution that fails - whether the
+        /// loader refused the name deliberately or failed transiently - is not retried, and the registration
+        /// stays unindexed. That makes it no <em>less</em> reachable than before this index existed, since
+        /// importing the name puts the same string through the same loader and surfaces the same refusal. Two
+        /// registrations must not resolve to the same key; the import that discovers such a pair throws
+        /// <see cref="InvalidOperationException"/>, because whichever registration lost would be silently
+        /// unreachable under every name.
+        /// </para>
+        /// <para>
+        /// A registration is consumed the first time it is loaded and the resulting module is cached under its
+        /// resolved key. The freed name may be registered again, but the cache - which is never evicted - keeps
+        /// answering every later import that resolves to that key, so the new registration is only consulted by
+        /// a request that misses the cache: one carrying different import attributes.
+        /// </para>
+        /// </remarks>
         public void Add(string specifier, ModuleBuilder moduleBuilder)
         {
             _builders.Add(specifier, moduleBuilder);
+            _buildersVersion++;
         }
 
         public ObjectInstance Import(string specifier)
