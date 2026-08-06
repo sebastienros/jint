@@ -181,7 +181,24 @@ public partial class Engine
 
             if (TryGetBuilder(moduleResolution, out var builderSpecifier, out var moduleBuilder))
             {
-                Finish(LoadFromBuilder(builderSpecifier, moduleBuilder, cacheKey), error: null);
+                // Parsing the registered source can throw. On a synchronous stack the exception propagates as
+                // it always has - the original JavaScriptException, message and location intact, out of
+                // Modules.Import. But this branch also runs from inside a ModuleLoadCompletion job - an
+                // asynchronously fetched module statically importing a builder module - where no caller is
+                // left to catch anything: escaping there erupts out of ProcessTasks and strands the graph
+                // load forever, so the error becomes the load's failure instead.
+                Module? builderModule = null;
+                JsValue? builderError = null;
+                try
+                {
+                    builderModule = LoadFromBuilder(builderSpecifier, moduleBuilder, cacheKey);
+                }
+                catch (JavaScriptException ex) when (_engine._eventLoop.IsRunningJob)
+                {
+                    builderError = ex.Error;
+                }
+
+                Finish(builderModule, builderError);
                 return;
             }
 
@@ -211,14 +228,21 @@ public partial class Engine
                 return;
             }
 
+            Module? loadedModule = null;
+            JsValue? loadError = null;
             try
             {
-                Finish(LoadFromModuleLoader(moduleResolution, cacheKey), error: null);
+                loadedModule = LoadFromModuleLoader(moduleResolution, cacheKey);
             }
             catch (JavaScriptException ex)
             {
-                Finish(module: null, ex.Error);
+                loadError = ex.Error;
             }
+
+            // Dispatched outside the try: the spec hands FinishLoadingImportedModule one completion, once, and
+            // a try around the dispatch itself would re-finish the payload if user code reached through
+            // Continue ever threw after a successful load.
+            Finish(loadedModule, loadError);
 
             void Finish(Module? module, JsValue? error)
                 => _engine._host.FinishLoadingImportedModule(referrer, referrerLocation, request, payload, module, error);

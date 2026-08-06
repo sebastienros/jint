@@ -376,6 +376,45 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
+    public void ASyntaxErrorInARegisteredModuleReachedThroughAnAsyncGraphRejectsInsteadOfStrandingTheLoad()
+    {
+        // The builder branch of LoadImportedModule can run from inside a load-completion job - an
+        // asynchronously fetched module statically importing a module registered with Add - where no caller is
+        // left to catch a parse error. The error must become the load's failure: escaping instead would erupt
+        // out of ProcessTasks and leave the import pending forever.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+        engine.Modules.Add("lib", "export const = broken;");
+
+        var import = engine.Modules.StartImport("./root.js");
+        loader.Deliver("./root.js", "import './mid.js';");
+        engine.Advanced.ProcessTasks();
+        loader.Deliver("./mid.js", "import 'lib';");
+
+        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+
+        import.IsCompleted.Should().BeTrue("the parse failure must settle the import rather than strand it");
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("name").AsString().Should().Be("SyntaxError");
+    }
+
+    [Fact]
+    public void ASyntaxErrorInAsynchronouslyDeliveredSourceRejectsTheImport()
+    {
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./broken.js");
+        loader.Deliver("./broken.js", "export const = ;");
+
+        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+
+        import.IsCompleted.Should().BeTrue();
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("name").AsString().Should().Be("SyntaxError");
+    }
+
+    [Fact]
     public async Task ResolutionStillSeesTheReferringModulesLocation()
     {
         // The shape a dev server needs: specifiers inside a fetched module are relative to where that module

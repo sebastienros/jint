@@ -83,7 +83,7 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
     {
         Throw.NotSupportedException(
-            $"'{GetType().Name}' loads modules asynchronously and cannot answer a synchronous load of '{resolved.ModuleRequest.Specifier}'. Import through Engine.Modules.ImportAsync or Engine.Modules.ImportAsPromise, or override LoadModuleContents for the specifiers this loader can resolve without I/O.");
+            $"'{GetType().Name}' loads modules asynchronously and cannot answer a synchronous load of '{resolved.ModuleRequest.Specifier}'. Import through Engine.Modules.ImportAsync or Engine.Modules.StartImport, or override LoadModuleContents for the specifiers this loader can resolve without I/O.");
         return default!;
     }
 

@@ -65,6 +65,14 @@ internal sealed record EventLoop
     private int _isProcessing;
 
     /// <summary>
+    /// Whether a dequeued job is currently executing. While one is, an exception escaping it has no
+    /// caller left to catch it — it erupts out of whatever host call happened to be draining the loop —
+    /// so code that can fail from inside a job consults this to decide between throwing to its caller
+    /// and settling the failure into the operation it belongs to.
+    /// </summary>
+    internal bool IsRunningJob => Volatile.Read(ref _isProcessing) == 1;
+
+    /// <summary>
     /// Tracks the thread ID of the thread that is currently waiting on a promise.
     /// Only this thread (or any thread if -1) is allowed to process continuations.
     /// This prevents background threads (e.g., Task.ContinueWith callbacks) from

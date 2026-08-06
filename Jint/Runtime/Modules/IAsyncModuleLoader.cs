@@ -21,7 +21,7 @@ namespace Jint.Runtime.Modules;
 /// <para>
 /// A load that must be driven to completion is driven by the engine's event loop, so the host has to give the
 /// engine turns: <c>Engine.Modules.ImportAsync</c> awaits them for you,
-/// <c>Engine.Modules.ImportAsPromise</c> leaves them to a per-frame <c>engine.Advanced.ProcessTasks()</c>,
+/// <c>Engine.Modules.StartImport</c> leaves them to a per-frame <c>engine.Advanced.ProcessTasks()</c>,
 /// and the synchronous <c>Engine.Modules.Import</c> blocks the calling thread until the graph arrives — which
 /// deadlocks if the loader's own completion needs that same thread.
 /// </para>
