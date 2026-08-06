@@ -38,10 +38,9 @@ internal sealed class HoistingScope
         bool collectVarNames = false,
         bool collectLexicalNames = false)
     {
-        // A module root is a Program too, and AstAnalyzer builds a CachedHoistingScope through here for a
-        // prepared module, so the flag has to be derived from the node rather than defaulted - otherwise the
-        // same AST answers differently depending on which factory was called, and the module's own exported
-        // lexical declarations go missing from the cached scope.
+        // A module root is a Program too, so the flag has to be derived from the node rather than defaulted -
+        // otherwise the same AST answers differently depending on which factory was called, and the module's
+        // own exported lexical declarations go missing from the scope this returns.
         var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: script is AstModule);
         treeWalker.Visit(script, null);
 

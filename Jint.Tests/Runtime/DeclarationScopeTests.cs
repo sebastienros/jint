@@ -130,12 +130,14 @@ public class DeclarationScopeTests
     [Fact]
     public void APreparedModulesCachedScopeAgreesWithTheModuleWalk()
     {
-        // An Acornima Module reports NodeType.Program, so preparing one builds a CachedHoistingScope through
-        // GetProgramLevelDeclarations as well - two walks over one AST. Nothing reads the cached one for a module
-        // today, because SourceTextModule.InitializeEnvironment re-walks and every reader of the cached scope is
-        // Script-typed. The two answers must still agree: the moment they do not, the obvious cleanup - having the
-        // module consume the scope prepare time already built - silently drops every exported lexical declaration.
+        // An Acornima Module reports NodeType.Program, but preparing one no longer caches a scope on the root at
+        // all: every reader of a cached scope is Script-typed and SourceTextModule.InitializeEnvironment re-walks,
+        // so the walk prepare time used to do was thrown away. The two walks must still agree: the moment they do
+        // not, the obvious cleanup - having the module consume a scope built at prepare time - silently drops every
+        // exported lexical declaration.
         var program = Engine.PrepareModule("export const a = 1; export class B {} const c = 2;").Program;
+
+        program.UserData.Should().BeNull();
 
         var moduleWalk = HoistingScope.GetModuleLevelDeclarations((Acornima.Ast.Module) program);
         var programWalk = HoistingScope.GetProgramLevelDeclarations(program, collectVarNames: true);
