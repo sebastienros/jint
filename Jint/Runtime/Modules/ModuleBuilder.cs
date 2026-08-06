@@ -32,6 +32,16 @@ public sealed class ModuleBuilder
         return this;
     }
 
+    /// <summary>
+    /// Uses a module the host prepared with <see cref="Engine.PrepareModule"/> instead of source text.
+    /// </summary>
+    /// <remarks>
+    /// A prepared module keeps the name it was given at prepare time: the AST is the host's, already parsed,
+    /// so loading it under a registration cannot rename it the way a module built from source is named by its
+    /// resolved key. Its own relative imports therefore resolve against that prepare-time name - a module with
+    /// relative imports should be prepared with <c>PrepareModule</c>'s <c>source</c> argument set to the key
+    /// the loader resolves the registration to.
+    /// </remarks>
     public ModuleBuilder AddModule(in Prepared<AstModule> preparedModule)
     {
         if (!preparedModule.IsValid)
@@ -130,6 +140,8 @@ public sealed class ModuleBuilder
     /// Parses the accumulated source, naming the module <paramref name="location"/>. That is the key the loader
     /// resolved the registration to rather than the name it was registered under, since it is what the module's
     /// own relative imports are resolved against; the two are the same string unless the loader canonicalized.
+    /// A module supplied pre-compiled through <see cref="AddModule"/> is the exception - it keeps the name it
+    /// was prepared with, as its doc explains.
     /// </summary>
     internal Prepared<AstModule> Parse(string location)
     {
@@ -141,7 +153,13 @@ public sealed class ModuleBuilder
 
         if (_sourceRaw.Count <= 0)
         {
-            return new Prepared<AstModule>(new AstModule(NodeList.From(Array.Empty<Statement>())), parserOptions);
+            // No source means nothing to parse and no relative imports to resolve, but the module is still
+            // named so that an exports-only registration identifies itself the way every other module does.
+            var exportsOnly = new AstModule(NodeList.From(Array.Empty<Statement>()))
+            {
+                Location = default(SourceLocation).WithSourceFile(location),
+            };
+            return new Prepared<AstModule>(exportsOnly, parserOptions);
         }
 
         var parser = new Parser(parserOptions);

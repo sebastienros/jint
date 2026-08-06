@@ -1,11 +1,6 @@
 #nullable enable
 
-using System.Collections.Generic;
-using System.IO;
-using Jint.Runtime;
 using Jint.Runtime.Modules;
-
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -126,8 +121,8 @@ public class HostModuleBuilderIdentityTests
         Invoking(() => engine.Modules.Add("http://localhost", "export const value = 'second';"))
             .Should().NotThrow("the registration was consumed by the load, so the name is free again");
 
-        // The re-registration is reachable through the index too, and the already-cached module still wins for
-        // the key it was cached under - a load consumes the builder, it does not evict the module.
+        // The already-cached module keeps answering imports of the name - a load consumes the builder, it
+        // does not evict the module - so the re-registration is never consulted for this key.
         engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("first");
     }
 
@@ -236,5 +231,124 @@ public class HostModuleBuilderIdentityTests
 
         engine.Modules.Add("http://elsewhere", "export const value = 'second';");
         engine.Modules.Import("http://elsewhere").Get("value").AsString().Should().Be("second");
+    }
+
+    [Fact]
+    public void TwoRegistrationsResolvingToTheSameKeyFailLoudly()
+    {
+        // Both spellings canonicalize to http://localhost/, so whichever registration lost would be silently
+        // unreachable under every name - its own name resolves to the shared key too, which now belongs to the
+        // winner. That is host-supplied source being discarded, the failure this identity scheme exists to
+        // eliminate, so the import that discovers the pair throws instead of picking a winner.
+        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+
+        engine.Modules.Add("http://localhost", "export const value = 'first';");
+        engine.Modules.Add("HTTP://localhost", "export const value = 'second';");
+
+        Invoking(() => engine.Modules.Import("http://localhost"))
+            .Should().Throw<InvalidOperationException>().WithMessage("*resolve to the same specifier*");
+    }
+
+    [Fact]
+    public void ARegistrationCollidingWithOneFiledUnderTheCanonicalNameFailsLoudlyToo()
+    {
+        // The other collision shape: the earlier registration already carries the canonical spelling, so it is
+        // matched without ever being indexed, and only the later registration's resolution reveals the clash.
+        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+
+        engine.Modules.Add("http://localhost/", "export const value = 'canonical';");
+        engine.Modules.Add("http://localhost", "export const value = 'short';");
+
+        Invoking(() => engine.Modules.Import("http://elsewhere"))
+            .Should().Throw<InvalidOperationException>().WithMessage("*resolve to the same specifier*");
+    }
+
+    [Fact]
+    public void CancellationInsideTheIndexingPassIsNotSwallowed()
+    {
+        // A refusal is the loader rejecting one name; cancellation is the host calling off the whole
+        // operation, and it must reach whoever cancelled rather than be treated as "leave that registration
+        // unindexed" while the triggering import carries on loading and evaluating.
+        var engine = new Engine(options => options.EnableModules(new CancellingResolveLoader()));
+
+        engine.Modules.Add("cancelled", "export const value = 1;");
+        engine.Modules.Add("http://localhost", "export const value = 2;");
+
+        Invoking(() => engine.Modules.Import("http://localhost"))
+            .Should().Throw<OperationCanceledException>();
+    }
+
+    /// <summary>
+    /// Canonicalizes like <see cref="CanonicalizingModuleLoader"/>, except that one specifier makes it throw
+    /// <see cref="OperationCanceledException"/> — the shape of a loader honoring a <c>CancellationToken</c>
+    /// mid-resolve.
+    /// </summary>
+    private sealed class CancellingResolveLoader : ModuleLoader
+    {
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            if (string.Equals(moduleRequest.Specifier, "cancelled", StringComparison.Ordinal))
+            {
+                throw new OperationCanceledException();
+            }
+
+            var uri = new Uri(moduleRequest.Specifier, UriKind.Absolute);
+            return new ResolvedSpecifier(moduleRequest, uri.AbsoluteUri, uri, SpecifierType.RelativeOrAbsolute);
+        }
+
+        protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("the loader was asked to load " + resolved.Key);
+    }
+
+    [Fact]
+    public void ALoaderHandingBackANullKeyDoesNotBreakAnUnrelatedImport()
+    {
+        // A loader compiled without nullable annotations can hand back a null key instead of throwing. That is
+        // a refusal in a different costume, and like the thrown kind it must not surface on the import that
+        // merely triggered the indexing pass.
+        var engine = new Engine(options => options.EnableModules(new NullKeyResolveLoader()));
+
+        engine.Modules.Add("broken", "export const value = 'unreachable';");
+        engine.Modules.Add("http://localhost", "export const value = 'fine';");
+
+        engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("fine");
+    }
+
+    /// <summary>
+    /// Canonicalizes like <see cref="CanonicalizingModuleLoader"/>, except that one specifier resolves to a
+    /// <c>null</c> key — which the annotations forbid, but a loader compiled without them can produce.
+    /// </summary>
+    private sealed class NullKeyResolveLoader : ModuleLoader
+    {
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            if (string.Equals(moduleRequest.Specifier, "broken", StringComparison.Ordinal))
+            {
+                return new ResolvedSpecifier(moduleRequest, Key: null!, Uri: null, SpecifierType.Bare);
+            }
+
+            var uri = new Uri(moduleRequest.Specifier, UriKind.Absolute);
+            return new ResolvedSpecifier(moduleRequest, uri.AbsoluteUri, uri, SpecifierType.RelativeOrAbsolute);
+        }
+
+        protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("the loader was asked to load " + resolved.Key);
+    }
+
+    [Fact]
+    public void APreCompiledModuleResolvesItsRelativeImportsAgainstItsPrepareTimeName()
+    {
+        // A pre-compiled module cannot be renamed by the registration - the AST is the host's - so its
+        // relative imports resolve against the name it was prepared with. Preparing it under the key the
+        // loader resolves the registration to, as the AddModule doc says, is what makes the two agree.
+        var engine = new Engine(options => options.EnableModules(new VirtualTreeLoader(new Dictionary<string, string>
+        {
+            ["/vfs/util.js"] = "export const value = 'from the virtual sibling';",
+        })));
+
+        var prepared = Engine.PrepareModule("export { value } from './util.js';", "/vfs/lib.js");
+        engine.Modules.Add("lib", builder => builder.AddModule(prepared));
+
+        engine.Modules.Import("lib").Get("value").AsString().Should().Be("from the virtual sibling");
     }
 }
