@@ -123,128 +123,202 @@ public class Host
     /// <summary>
     /// https://tc39.es/ecma262/#sec-GetImportedModule
     /// </summary>
+    /// <remarks>
+    /// The spec asserts the referrer's <c>[[LoadedModules]]</c> holds an entry for the request: everything
+    /// that asks has already been through the load phase. The fallback covers the paths that predate it — a
+    /// host calling <see cref="Module.Link"/> or <see cref="Module.Evaluate"/> on a module it built itself —
+    /// and is a plain synchronous load, exactly what those paths used to do.
+    /// </remarks>
     internal virtual Module GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
     {
+        if (Engine.Modules.TryGetLoadedModule(referrer, request, out var module))
+        {
+            return module;
+        }
+
         return Engine.Modules.Load(referrer?.Location, request);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-HostLoadImportedModule
     /// </summary>
-    internal virtual void LoadImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, PromiseCapability payload)
+    /// <remarks>
+    /// May complete asynchronously: a host whose <see cref="IModuleLoader"/> also implements
+    /// <see cref="IAsyncModuleLoader"/> starts the load and returns, and the engine calls
+    /// <see cref="FinishLoadingImportedModule"/> once the host settles the
+    /// <see cref="ModuleLoadCompletion"/> it was handed. A synchronous loader is finished inline, which is
+    /// what keeps every existing <see cref="IModuleLoader"/> behaving exactly as before.
+    /// </remarks>
+    internal virtual void LoadImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, ModuleLoadPayload payload)
     {
-        var promise = Engine.RegisterPromise();
+        Engine.Modules.LoadImportedModule(referrer, referrer?.Location, moduleRequest, payload);
+    }
 
-        try
-        {
-            // Just load the module - don't link/evaluate yet
-            // Link and evaluate happens in FinishLoadingImportedModule to properly handle async modules
-            Engine.Modules.Load(referrer?.Location, moduleRequest);
-            promise.Resolve(JsValue.Undefined);
-        }
-        catch (JavaScriptException ex)
-        {
-            promise.Reject(ex.Error);
-        }
-
-        FinishLoadingImportedModule(referrer, moduleRequest, payload, (JsPromise) promise.Promise);
+    /// <summary>
+    /// <see cref="LoadImportedModule(IScriptOrModule?,ModuleRequest,ModuleLoadPayload)"/> for a load the host
+    /// started itself through <c>Engine.Modules.Import</c>, which resolves against a location without having a
+    /// referrer record to take it from.
+    /// </summary>
+    internal virtual void LoadImportedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest moduleRequest, ModuleLoadPayload payload)
+    {
+        Engine.Modules.LoadImportedModule(referrer, referrerLocation, moduleRequest, payload);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-FinishLoadingImportedModule
     /// </summary>
-    internal virtual void FinishLoadingImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, PromiseCapability payload, JsPromise result)
+    /// <param name="referrer">The script or module the request came from, or null.</param>
+    /// <param name="referrerLocation">
+    /// The location resolution was performed against. Equal to <c>referrer.Location</c> except for a load the
+    /// host started itself through <c>Engine.Modules.Import</c>, which has a location but no referrer record.
+    /// </param>
+    /// <param name="moduleRequest">The request that was loaded.</param>
+    /// <param name="payload">The state the load was started for; consumes the completion.</param>
+    /// <param name="module">The loaded module on a normal completion, otherwise null.</param>
+    /// <param name="error">The error value on a throw completion, otherwise null.</param>
+    internal virtual void FinishLoadingImportedModule(
+        IScriptOrModule? referrer,
+        string? referrerLocation,
+        ModuleRequest moduleRequest,
+        ModuleLoadPayload payload,
+        Module? module,
+        JsValue? error)
     {
-        var onFulfilled = new ClrFunction(Engine, "", (thisObj, args) =>
+        if (error is null)
         {
-            var moduleRecord = GetImportedModule(referrer, moduleRequest);
-            try
-            {
-                // Source phase: SourceTextModules don't support source phase imports
-                if (moduleRequest.Phase == ModuleImportPhase.Source)
-                {
-                    var error = Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for JavaScript modules");
-                    payload.Reject(error);
-                    return JsValue.Undefined;
-                }
+            // Step 1: record the answer against the referrer, so this referrer/specifier pair is never
+            // handed to the loader a second time and can never be answered differently.
+            Engine.Modules.RecordLoadedModule(referrer, referrerLocation, moduleRequest, module!);
+        }
 
-                // Link the module if not already linked/linking/evaluating
-                if (moduleRecord is CyclicModule cyclicModule)
-                {
-                    if (cyclicModule.Status == ModuleStatus.Unlinked)
-                    {
-                        moduleRecord.Link();
-                    }
-                }
-                else
-                {
-                    // Non-cyclic modules - safe to call Link
-                    moduleRecord.Link();
-                }
+        payload.Continue(module, error);
+    }
 
-                // Defer phase: link but don't fully evaluate, only evaluate async transitive deps.
-                // See https://tc39.es/proposal-defer-import-eval/#sec-ContinueDynamicImport
-                if (moduleRequest.Phase == ModuleImportPhase.Defer)
-                {
-                    HandleDeferredImport(moduleRecord, payload);
-                    return JsValue.Undefined;
-                }
-
-                // Evaluate returns a promise for async (TLA) modules
-                var evaluateResult = moduleRecord.Evaluate();
-                if (evaluateResult is not JsPromise evaluatePromise)
-                {
-                    // Non-cyclic module - shouldn't happen but handle gracefully
-                    var ns = Module.GetModuleNamespace(moduleRecord);
-                    payload.Resolve(ns);
-                    return JsValue.Undefined;
-                }
-
-                if (evaluatePromise.State == PromiseState.Fulfilled)
-                {
-                    // Sync completion - resolve immediately with namespace
-                    var ns = Module.GetModuleNamespace(moduleRecord);
-                    payload.Resolve(ns);
-                }
-                else if (evaluatePromise.State == PromiseState.Rejected)
-                {
-                    payload.Reject(evaluatePromise.Value);
-                }
-                else
-                {
-                    // Pending - chain on the evaluation promise
-                    var onEvalFulfilled = new ClrFunction(Engine, "", (_, evalArgs) =>
-                    {
-                        var ns = Module.GetModuleNamespace(moduleRecord);
-                        payload.Resolve(ns);
-                        return JsValue.Undefined;
-                    }, 0, PropertyFlag.Configurable);
-
-                    var onEvalRejected = new ClrFunction(Engine, "", (_, evalArgs) =>
-                    {
-                        payload.Reject(evalArgs.At(0));
-                        return JsValue.Undefined;
-                    }, 1, PropertyFlag.Configurable);
-
-                    PromiseOperations.PerformPromiseThen(Engine, evaluatePromise,
-                        onEvalFulfilled, onEvalRejected, resultCapability: null!);
-                }
-            }
-            catch (JavaScriptException ex)
-            {
-                payload.Reject(ex.Error);
-            }
-            return JsValue.Undefined;
-        }, 0, PropertyFlag.Configurable);
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ContinueDynamicImport
+    /// </summary>
+    /// <remarks>
+    /// The rest of a dynamic <c>import()</c> once its root module has loaded: load the requested modules,
+    /// then link, then evaluate, then resolve with the namespace. Nothing here blocks — each stage is chained
+    /// onto the previous stage's promise, so a load that is still in flight simply means the next stage runs
+    /// on a later event-loop turn.
+    /// </remarks>
+    internal virtual void ContinueDynamicImport(Module module, ModuleRequest moduleRequest, PromiseCapability payload)
+    {
+        // Source phase: SourceTextModules don't support source phase imports.
+        if (moduleRequest.Phase == ModuleImportPhase.Source)
+        {
+            var error = Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for JavaScript modules");
+            payload.Reject(error);
+            return;
+        }
 
         var onRejected = new ClrFunction(Engine, "", (thisObj, args) =>
         {
-            var error = args.At(0);
-            payload.Reject(error);
+            payload.Reject(args.At(0));
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(Engine, result, onFulfilled, onRejected, resultCapability: null!);
+        var linkAndEvaluate = new ClrFunction(Engine, "", (thisObj, args) =>
+        {
+            LinkAndEvaluateForDynamicImport(module, moduleRequest, payload);
+            return JsValue.Undefined;
+        }, 0, PropertyFlag.Configurable);
+
+        JsValue loadResult;
+        try
+        {
+            loadResult = module.LoadRequestedModules();
+        }
+        catch (JavaScriptException ex)
+        {
+            payload.Reject(ex.Error);
+            return;
+        }
+
+        if (loadResult is not JsPromise loadPromise)
+        {
+            LinkAndEvaluateForDynamicImport(module, moduleRequest, payload);
+            return;
+        }
+
+        PromiseOperations.PerformPromiseThen(Engine, loadPromise, linkAndEvaluate, onRejected, resultCapability: null!);
+    }
+
+    /// <summary>
+    /// The <c>linkAndEvaluateClosure</c> of
+    /// <see href="https://tc39.es/ecma262/#sec-ContinueDynamicImport">ContinueDynamicImport</see>.
+    /// </summary>
+    private void LinkAndEvaluateForDynamicImport(Module moduleRecord, ModuleRequest moduleRequest, PromiseCapability payload)
+    {
+        try
+        {
+            // Link the module if not already linked/linking/evaluating
+            if (moduleRecord is CyclicModule cyclicModule)
+            {
+                if (cyclicModule.Status == ModuleStatus.Unlinked)
+                {
+                    moduleRecord.Link();
+                }
+            }
+            else
+            {
+                // Non-cyclic modules - safe to call Link
+                moduleRecord.Link();
+            }
+
+            // Defer phase: link but don't fully evaluate, only evaluate async transitive deps.
+            // See https://tc39.es/proposal-defer-import-eval/#sec-ContinueDynamicImport
+            if (moduleRequest.Phase == ModuleImportPhase.Defer)
+            {
+                HandleDeferredImport(moduleRecord, payload);
+                return;
+            }
+
+            // Evaluate returns a promise for async (TLA) modules
+            var evaluateResult = moduleRecord.Evaluate();
+            if (evaluateResult is not JsPromise evaluatePromise)
+            {
+                // Non-cyclic module - shouldn't happen but handle gracefully
+                var ns = Module.GetModuleNamespace(moduleRecord);
+                payload.Resolve(ns);
+                return;
+            }
+
+            if (evaluatePromise.State == PromiseState.Fulfilled)
+            {
+                // Sync completion - resolve immediately with namespace
+                var ns = Module.GetModuleNamespace(moduleRecord);
+                payload.Resolve(ns);
+            }
+            else if (evaluatePromise.State == PromiseState.Rejected)
+            {
+                payload.Reject(evaluatePromise.Value);
+            }
+            else
+            {
+                // Pending - chain on the evaluation promise
+                var onEvalFulfilled = new ClrFunction(Engine, "", (_, evalArgs) =>
+                {
+                    var ns = Module.GetModuleNamespace(moduleRecord);
+                    payload.Resolve(ns);
+                    return JsValue.Undefined;
+                }, 0, PropertyFlag.Configurable);
+
+                var onEvalRejected = new ClrFunction(Engine, "", (_, evalArgs) =>
+                {
+                    payload.Reject(evalArgs.At(0));
+                    return JsValue.Undefined;
+                }, 1, PropertyFlag.Configurable);
+
+                PromiseOperations.PerformPromiseThen(Engine, evaluatePromise,
+                    onEvalFulfilled, onEvalRejected, resultCapability: null!);
+            }
+        }
+        catch (JavaScriptException ex)
+        {
+            payload.Reject(ex.Error);
+        }
     }
 
     /// <summary>

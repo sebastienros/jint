@@ -160,6 +160,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    public static void TimeoutException(string message)
+    {
+        throw new TimeoutException(message);
+    }
+
+    [DoesNotReturn]
     public static void StatementsCountOverflowException()
     {
         throw new StatementsCountOverflowException();

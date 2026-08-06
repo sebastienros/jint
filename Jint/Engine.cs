@@ -989,6 +989,23 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
+    /// The cycle a piece of work registered now belongs to. Read at registration time and carried by the
+    /// work, so that a completion arriving from a background thread after the cycle ended is discarded
+    /// rather than applied — see <see cref="EventLoop.Generation"/>.
+    /// </summary>
+    internal int EventLoopGeneration => _eventLoop.Generation;
+
+    /// <summary>
+    /// Queues the engine-thread half of an asynchronous module load. Separate from
+    /// <see cref="AddToEventLoop(Action, int)"/> only in name, to keep the module loader's one cross-thread
+    /// entry point findable.
+    /// </summary>
+    internal void EnqueueModuleLoadCompletion(Action continuation, int generation)
+    {
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation));
+    }
+
+    /// <summary>
     /// Called by the host when a promise rejection is tracked/untracked.
     /// Raises the <see cref="AdvancedOperations.PromiseRejectionTracker"/> event.
     /// </summary>
@@ -1009,10 +1026,11 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Synchronously drives the event loop until <paramref name="promise"/> leaves the pending state
-    /// or <paramref name="timeout"/> elapses. Between drains it waits on the promise's completion event
-    /// with a short poll interval so that continuations enqueued from a background thread — a .NET
-    /// <see cref="System.Threading.Tasks.Task"/> awaited at a module's top level via task interop, or a
-    /// <c>setTimeout</c> callback — get a chance to settle the promise.
+    /// or <paramref name="timeout"/> elapses. Between drains it blocks until either the promise's
+    /// completion event or the event loop's work-arrived signal fires, so a continuation enqueued from a
+    /// background thread — a .NET <see cref="System.Threading.Tasks.Task"/> awaited at a module's top
+    /// level via task interop, a <c>setTimeout</c> callback, an asynchronous module load settling — is
+    /// run promptly rather than after an idle poll slice.
     /// </summary>
     /// <remarks>
     /// A tight spin loop gives up in microseconds and never observes a Task that only completes
@@ -1025,6 +1043,23 @@ public sealed partial class Engine : IDisposable
     /// timeout while awaiting a never-settling Task.
     /// </remarks>
     internal void DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout)
+        => DrainEventLoopUntil(static state => ((JsPromise) state).State != PromiseState.Pending, promise, promise.CompletedEvent, timeout);
+
+    /// <summary>
+    /// The general form of <see cref="DrainEventLoopUntilSettled"/>: drives the event loop until
+    /// <paramref name="isSettled"/> holds for <paramref name="state"/>. Used by the module load phase, where
+    /// what is being waited for is a host load finishing rather than a promise.
+    /// </summary>
+    /// <param name="isSettled">The condition to wait for, evaluated on this thread between drains.</param>
+    /// <param name="state">Passed to <paramref name="isSettled"/>, so the predicate need not be a closure.</param>
+    /// <param name="completedEvent">
+    /// Signalled when the awaited thing settles, so the idle waits end promptly instead of running out the
+    /// poll interval. May be null; either way the wait also ends as soon as new work is enqueued, since
+    /// running that work on this thread is the only way the condition can advance.
+    /// </param>
+    /// <param name="timeout">Non-positive means wait indefinitely.</param>
+    /// <returns>Whether the condition held when the drain ended, i.e. false on timeout.</returns>
+    internal bool DrainEventLoopUntil(Func<object, bool> isSettled, object state, System.Threading.ManualResetEventSlim? completedEvent, TimeSpan timeout)
     {
         // Claim this thread as the one draining the loop so background threads (Task completions)
         // don't race to execute JavaScript continuations on the engine. Save/restore to support
@@ -1044,13 +1079,12 @@ public sealed partial class Engine : IDisposable
             var hasTimeout = timeout > TimeSpan.Zero;
             var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
             var pollInterval = TimeSpan.FromMilliseconds(10);
-            var completedEvent = promise.CompletedEvent;
 
-            while (promise.State == PromiseState.Pending)
+            while (!isSettled(state))
             {
                 RunAvailableContinuations();
 
-                if (promise.State != PromiseState.Pending)
+                if (isSettled(state))
                 {
                     break;
                 }
@@ -1072,7 +1106,11 @@ public sealed partial class Engine : IDisposable
 
                 try
                 {
-                    completedEvent.Wait(waitInterval, cancellationToken);
+                    // Waking on enqueue is what keeps the interval a backstop rather than a latency floor: a
+                    // settle arriving from a background thread only enqueues, and this thread is the one that
+                    // has to run it — before the wake it idled out the rest of the poll slice first, which a
+                    // chain of sequential asynchronous loads paid on every hop.
+                    _eventLoop.WaitForWork(completedEvent, waitInterval, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -1082,6 +1120,8 @@ public sealed partial class Engine : IDisposable
                     Throw.ExecutionCanceledException();
                 }
             }
+
+            return isSettled(state);
         }
         finally
         {

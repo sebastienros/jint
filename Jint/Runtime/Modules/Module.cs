@@ -2,6 +2,7 @@
 
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Modules;
@@ -21,6 +22,15 @@ public abstract class Module : JsValue, IScriptOrModule
     protected internal readonly Engine _engine;
     protected internal readonly Realm _realm;
     internal ModuleEnvironment _environment;
+
+    /// <summary>
+    /// [[LoadedModules]] — the module records this one has already resolved a specifier to. Per
+    /// <see href="https://tc39.es/ecma262/#sec-HostLoadImportedModule">HostLoadImportedModule</see> the host
+    /// must be asked at most once for a given referrer/specifier pair and must answer consistently, so this
+    /// is the memo that makes both true: once a request has an entry here, no loader call and not even a
+    /// <see cref="IModuleLoader.Resolve"/> call is made for it again.
+    /// </summary>
+    private Dictionary<ModuleRequest, Module> _loadedModules;
 
     /// <summary>
     /// The module's [[ModuleSource]] internal slot — an %AbstractModuleSource% instance for module types
@@ -43,6 +53,62 @@ public abstract class Module : JsValue, IScriptOrModule
     internal abstract ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null);
     public abstract void Link();
     public abstract JsValue Evaluate();
+
+    /// <summary>
+    /// The spec's asynchronous load phase,
+    /// <see href="https://tc39.es/ecma262/#sec-LoadRequestedModules">LoadRequestedModules</see>: transitively
+    /// loads everything this module imports and returns a promise that fulfils once the whole graph is
+    /// present, or rejects with the first loading failure. Must run to fulfilment before
+    /// <see cref="Link"/>.
+    /// </summary>
+    /// <remarks>
+    /// A module record with no dependencies of its own — anything that is not a
+    /// <see cref="CyclicModule"/> — has nothing to load, so the base implementation hands back an
+    /// already-fulfilled promise.
+    /// </remarks>
+    public virtual JsValue LoadRequestedModules()
+    {
+        var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        capability.Resolve(Undefined);
+        return capability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// Looks a request up in this module's <c>[[LoadedModules]]</c>.
+    /// </summary>
+    internal bool TryGetLoadedModule(ModuleRequest request, out Module module)
+    {
+        if (_loadedModules is null)
+        {
+            module = null;
+            return false;
+        }
+
+        return _loadedModules.TryGetValue(request, out module);
+    }
+
+    /// <summary>
+    /// Step 1 of <see href="https://tc39.es/ecma262/#sec-FinishLoadingImportedModule">FinishLoadingImportedModule</see>:
+    /// records the module the host produced for a request, and asserts the host's consistency requirement if
+    /// an entry is already there.
+    /// </summary>
+    internal void RecordLoadedModule(ModuleRequest request, Module module)
+    {
+        _loadedModules ??= new Dictionary<ModuleRequest, Module>(LoadedModuleRequestComparer.Instance);
+
+        if (_loadedModules.TryGetValue(request, out var existing))
+        {
+            if (!ReferenceEquals(existing, module))
+            {
+                Throw.InvalidOperationException(
+                    $"Error while loading module: the module loader returned two different modules for specifier '{request.Specifier}' in '{Location ?? "(null)"}'. HostLoadImportedModule must be consistent for a given referrer and specifier.");
+            }
+
+            return;
+        }
+
+        _loadedModules[request] = module;
+    }
 
     protected internal abstract int InnerModuleLinking(Stack<CyclicModule> stack, int index);
     protected internal abstract Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder);

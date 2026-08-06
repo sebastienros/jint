@@ -283,7 +283,8 @@ public sealed class ShadowRealm : ObjectInstance
         _engine.EnterExecutionContext(in _executionContext);
         try
         {
-            _engine._host.LoadImportedModule(null, new ModuleRequest(specifierString, []), innerCapability);
+            var moduleRequest = new ModuleRequest(specifierString, []);
+            _engine._host.LoadImportedModule(null, moduleRequest, new DynamicImportPayload(_engine, moduleRequest, innerCapability));
         }
         finally
         {

@@ -65,6 +65,14 @@ internal sealed record EventLoop
     private int _isProcessing;
 
     /// <summary>
+    /// Whether a dequeued job is currently executing. While one is, an exception escaping it has no
+    /// caller left to catch it — it erupts out of whatever host call happened to be draining the loop —
+    /// so code that can fail from inside a job consults this to decide between throwing to its caller
+    /// and settling the failure into the operation it belongs to.
+    /// </summary>
+    internal bool IsRunningJob => Volatile.Read(ref _isProcessing) == 1;
+
+    /// <summary>
     /// Tracks the thread ID of the thread that is currently waiting on a promise.
     /// Only this thread (or any thread if -1) is allowed to process continuations.
     /// This prevents background threads (e.g., Task.ContinueWith callbacks) from
@@ -83,6 +91,37 @@ internal sealed record EventLoop
     /// </summary>
     private readonly Lock _waitersLock = new();
     private List<TaskCompletionSource<bool>>? _waiters;
+
+    /// <summary>
+    /// The synchronous counterpart of the async waiters above: set on every <see cref="Enqueue(in EventLoopJob)"/>
+    /// so a thread blocked in <see cref="WaitForWork"/> — the drain behind a synchronous
+    /// <c>Engine.Modules.Import</c> waiting out an asynchronous load — wakes when the settle arrives instead
+    /// of running out its poll interval. Lazily allocated exactly like <see cref="JsPromise.CompletedEvent"/>,
+    /// and for the same reason: most engines never block-drain, so they never pay for the primitive. Reset
+    /// only by the single draining thread, inside <see cref="WaitForWork"/>.
+    /// </summary>
+    private ManualResetEventSlim? _workArrived;
+
+    private ManualResetEventSlim WorkArrivedEvent
+    {
+        get
+        {
+            if (_workArrived is not null)
+            {
+                return _workArrived;
+            }
+
+            var newEvent = new ManualResetEventSlim(false);
+            var existing = Interlocked.CompareExchange(ref _workArrived, newEvent, null);
+            if (existing is not null)
+            {
+                newEvent.Dispose();
+                return existing;
+            }
+
+            return newEvent;
+        }
+    }
 
     /// <summary>
     /// The current evaluation cycle. Every job carries the generation that was current when the work was
@@ -112,6 +151,11 @@ internal sealed record EventLoop
     {
         _events.Enqueue(job);
 
+        // Null means no thread has ever block-drained this engine, so there is nobody to wake. The enqueue
+        // above and WaitForWork's event-creation are both full fences, so whichever of the two raced ahead,
+        // either this read sees the event or the waiter's queue check sees the job.
+        Volatile.Read(ref _workArrived)?.Set();
+
         // Wake every registered async waiter. Each one re-checks its own promise
         // state on resume, so spurious wakes loop harmlessly back to WaitForEventAsync.
         List<TaskCompletionSource<bool>>? toSignal = null;
@@ -131,6 +175,39 @@ internal sealed record EventLoop
                 toSignal[i].TrySetResult(true);
             }
         }
+    }
+
+    /// <summary>
+    /// Blocks until new work is enqueued, <paramref name="completedEvent"/> is signaled, cancellation is
+    /// requested, or <paramref name="timeout"/> elapses — whichever comes first. The synchronous sibling of
+    /// <see cref="WaitForEventAsync"/>, used by the drain loops that hold the calling thread. Only the single
+    /// draining thread may call this, because it resets <see cref="_workArrived"/>.
+    /// </summary>
+    /// <remarks>
+    /// The reset-then-check order closes the race with a producer: an enqueue before the reset is seen by the
+    /// queue check, an enqueue after it sets the event the wait is about to block on. A caller must treat a
+    /// return as a hint and re-check its own condition — like the async waiters, spurious wakes are expected.
+    /// </remarks>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    internal void WaitForWork(ManualResetEventSlim? completedEvent, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var workArrived = WorkArrivedEvent;
+
+        workArrived.Reset();
+
+        // A non-empty queue only ends the wait when this thread can actually drain it. Nested inside a job
+        // (IsRunningJob), the re-entrancy guard makes queued jobs unrunnable from here, and returning early
+        // for them would turn this bounded wait into a hot spin for the caller's whole timeout.
+        if ((!_events.IsEmpty && !IsRunningJob) || completedEvent?.IsSet == true)
+        {
+            return;
+        }
+
+        // Waiting on the work signal alone is deliberate: with this thread registered as the drainer,
+        // nothing but a job it runs can advance the condition, and every settle path — a Task continuation,
+        // a module load completion, a setTimeout — announces itself through Enqueue. The bounded timeout
+        // keeps the old poll cadence as the backstop for anything that does not.
+        workArrived.Wait(timeout, cancellationToken);
     }
 
     /// <summary>
