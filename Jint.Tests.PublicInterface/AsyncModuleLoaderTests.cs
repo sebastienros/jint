@@ -415,6 +415,183 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
+    public void ALoaderThrowingInsteadOfSettlingRejectsTheImport()
+    {
+        // IAsyncModuleLoader.LoadModuleAsync is supposed to settle the completion, but a loader that throws
+        // on the way out - a broken transport constructor, say - must produce the same rejection SetError
+        // would have, not an exception on whatever thread was evaluating.
+        var loader = new ThrowingLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./unreachable.js");
+        engine.Advanced.ProcessTasks();
+
+        import.IsCompleted.Should().BeTrue();
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("message").AsString().Should().Be("transport exploded");
+    }
+
+    private sealed class ThrowingLoader : IAsyncModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+            => throw new InvalidOperationException("transport exploded");
+    }
+
+    [Fact]
+    public void TheEnginesCancellationTokenReachesTheLoadersFetch()
+    {
+        // A host that registered options.CancellationToken(token) means it for the loader's I/O too:
+        // AsyncModuleLoader hands LoadModuleContentsAsync the same token the interpreter's cancellation
+        // constraint observes, so one token stops both the script and the fetches it started.
+        using var cts = new CancellationTokenSource();
+        var loader = new TokenCapturingLoader();
+        var engine = new Engine(options => options.EnableModules(loader).CancellationToken(cts.Token));
+
+        engine.Modules.StartImport("./fetch.js");
+
+        loader.CapturedToken.Should().Be(cts.Token);
+    }
+
+    [Fact]
+    public void ACanceledFetchRejectsTheImportAsCanceled()
+    {
+        // Task.IsCanceled is not Task.IsFaulted - there is no exception object to take a message from - so
+        // the base class has to say what happened itself.
+        var loader = new TokenCapturingLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./doomed.js");
+        loader.CancelPendingFetch();
+
+        // The cancellation reaches the completion through task continuations on another thread, so the
+        // settle is not necessarily enqueued by the time Cancel returns - pump until it lands.
+        var frames = 0;
+        while (!import.IsCompleted && frames < 2000)
+        {
+            frames++;
+            engine.Advanced.ProcessTasks();
+            Thread.Sleep(1);
+        }
+
+        import.IsCompleted.Should().BeTrue();
+        import.IsFaulted.Should().BeTrue();
+        import.Error!.Get("message").AsString().Should().Be("Loading module './doomed.js' was canceled.");
+    }
+
+    /// <summary>
+    /// Records the cancellation token the engine hands the fetch, and never finishes on its own: the fetch
+    /// task only settles when the test cancels it.
+    /// </summary>
+    private sealed class TokenCapturingLoader : AsyncModuleLoader
+    {
+        private readonly CancellationTokenSource _fetch = new();
+
+        public CancellationToken? CapturedToken { get; private set; }
+
+        public void CancelPendingFetch() => _fetch.Cancel();
+
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        protected override async Task<string> LoadModuleContentsAsync(Engine engine, ResolvedSpecifier resolved, CancellationToken cancellationToken)
+        {
+            CapturedToken = cancellationToken;
+            await Task.Delay(System.Threading.Timeout.InfiniteTimeSpan, _fetch.Token).ConfigureAwait(false);
+            return string.Empty;
+        }
+    }
+
+    [Fact]
+    public async Task ImportAsyncHonoursItsCancellationToken()
+    {
+        // The loader never answers; the await must still be escapable. This is the caller abandoning the
+        // wait, not the engine failing the load - the load stays pending, there is just nobody waiting.
+        using var cts = new CancellationTokenSource();
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var importTask = engine.Modules.ImportAsync("./never.js", cts.Token);
+        cts.Cancel();
+
+        await Invoking(() => importTask).Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public void AJsonModuleImportedFromAnAsynchronouslyLoadedModuleIsBuiltAsJson()
+    {
+        // Import attributes travel with the request through the asynchronous path, so the source the host
+        // delivers is built into the module kind the attribute asks for - the same dispatch the synchronous
+        // loader performs.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./main.js");
+        loader.Deliver("./main.js", "import data from './config.json' with { type: 'json' }; export const message = data.message;");
+        engine.Advanced.ProcessTasks();
+        loader.Deliver("./config.json", """{ "message": "hello" }""");
+        engine.Advanced.ProcessTasks();
+
+        import.IsCompleted.Should().BeTrue();
+        import.GetResult().Get("message").AsString().Should().Be("hello");
+    }
+
+    [Fact]
+    public void BytesDeliveredForABytesImportStayBytes()
+    {
+        // SetSource(byte[]) hands raw content over; with { type: 'bytes' } must receive it untouched rather
+        // than round-tripped through a string decode.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        engine.Execute("globalThis.result = null; import('./blob.bin', { with: { type: 'bytes' } }).then(ns => { result = ns.default.length + ':' + ns.default[0] + ',' + ns.default[1]; });");
+
+        loader.Take("./blob.bin").SetSource(new byte[] { 200, 7 });
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("result").AsString().Should().Be("2:200,7");
+    }
+
+    [Fact]
+    public void TheSynchronousImportIsWokenByASettleFromABackgroundThread()
+    {
+        // The blocking Import drains the event loop while the load is in flight; a settle arriving from
+        // another thread - the shape every real fetch has - only enqueues, and the drain on this thread has
+        // to notice it. Every other sync-Import test settles inline on the engine thread, which never
+        // exercises that wait.
+        var engine = new Engine(options => options.EnableModules(new BackgroundThreadLoader()));
+
+        var ns = engine.Modules.Import("./bg.js");
+
+        ns.Get("value").AsString().Should().Be("from-background");
+    }
+
+    private sealed class BackgroundThreadLoader : IAsyncModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+        {
+            var thread = new Thread(() =>
+            {
+                Thread.Sleep(30);
+                completion.SetSource("export const value = 'from-background';");
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+    }
+
+    [Fact]
     public async Task ResolutionStillSeesTheReferringModulesLocation()
     {
         // The shape a dev server needs: specifiers inside a fetched module are relative to where that module
