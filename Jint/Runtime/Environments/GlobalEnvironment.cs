@@ -43,6 +43,10 @@ internal sealed class GlobalEnvironment : Environment
 
     public ObjectInstance GlobalThisValue => _global;
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-global-environment-records-hasbinding-n — routes through
+    /// [[HasProperty]] on the global, so names inherited from its prototype chain bind too.
+    /// </summary>
     internal override bool HasBinding(Key name)
     {
         if (_declarativeRecord.HasBinding(name))
@@ -52,12 +56,13 @@ internal sealed class GlobalEnvironment : Environment
 
         if (_globalObject is not null)
         {
-            return _globalObject.HasProperty(name);
+            return _globalObject.HasOwnProperty(name) || HasBindingOnGlobalPrototype(JsString.Create(name.Name));
         }
 
         return _global.HasProperty(new JsString(name));
     }
 
+    /// <inheritdoc cref="HasBinding(Key)" />
     internal override bool HasBinding(BindingName name)
     {
         if (_declarativeRecord.HasBinding(name))
@@ -67,10 +72,37 @@ internal sealed class GlobalEnvironment : Environment
 
         if (_globalObject is not null)
         {
-            return _globalObject.HasProperty(name.Key);
+            return _globalObject.HasOwnProperty(name.Key) || HasBindingOnGlobalPrototype(name.Value);
         }
 
         return _global.HasProperty(name.Value);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool HasBindingOnGlobalPrototype(JsValue name)
+    {
+        return _global._prototype?.HasProperty(name) == true;
+    }
+
+    /// <summary>
+    /// The AnnexB block-function copy check re-derives "GlobalDeclarationInstantiation created a
+    /// global var binding for F" (https://tc39.es/ecma262/#sec-web-compat-globaldeclarationinstantiation),
+    /// which is an own-property fact; <see cref="HasBinding(Key)"/> is spec-shaped and also sees
+    /// names inherited from the global's prototype, which must not trigger the copy.
+    /// </summary>
+    internal bool HasOwnBinding(Key name)
+    {
+        if (_declarativeRecord.HasBinding(name))
+        {
+            return true;
+        }
+
+        if (_globalObject is not null)
+        {
+            return _globalObject.HasOwnProperty(name);
+        }
+
+        return _global.HasOwnProperty(JsString.Create(name.Name));
     }
 
     internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
@@ -106,15 +138,15 @@ internal sealed class GlobalEnvironment : Environment
 
         if (_global._prototype is not null)
         {
-            return TryGetBindingForGlobalParent(name, out value);
+            return TryGetFromGlobalPrototype(name.Value, out value);
         }
 
         return false;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private bool TryGetBindingForGlobalParent(
-        BindingName name,
+    private bool TryGetFromGlobalPrototype(
+        JsValue name,
         [NotNullWhen(true)] out JsValue? value)
     {
         // TryGetOwnPropertyValue's base body is exactly what this used to spell out — GetOwnProperty,
@@ -122,7 +154,24 @@ internal sealed class GlobalEnvironment : Environment
         // in-box prototype the two are the same call. Asking through the hook additionally lets a host
         // object installed as the global's prototype answer from its own state without building a
         // descriptor it would only throw away.
-        return _global._prototype!.TryGetOwnPropertyValue(name.Value, _global, out value);
+        var prototype = _global._prototype!;
+        if (prototype.TryGetOwnPropertyValue(name, _global, out var found))
+        {
+            value = found;
+            return true;
+        }
+
+        // deeper levels are colder: spec-shaped [[HasProperty]] + [[Get]] with the global as
+        // receiver, so a Proxy or exotic object below the direct prototype sees its real traps
+        var parent = prototype.GetPrototypeOf();
+        if (parent is not null && parent.HasProperty(name))
+        {
+            value = parent.Get(name, _global);
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     /// <summary>
@@ -234,6 +283,11 @@ internal sealed class GlobalEnvironment : Environment
         _global.Set(jsString, value);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-object-environment-records-getbindingvalue-n-s — resolves
+    /// through the global's whole prototype chain; only a name absent everywhere is a
+    /// ReferenceError in strict mode.
+    /// </summary>
     internal override JsValue GetBindingValue(Key name, bool strict)
     {
         if (_declarativeRecord.HasBinding(name))
@@ -241,7 +295,6 @@ internal sealed class GlobalEnvironment : Environment
             return _declarativeRecord.GetBindingValue(name, strict);
         }
 
-        // see ObjectEnvironmentRecord.GetBindingValue
         PropertyDescriptor desc;
         if (_globalObject is not null)
         {
@@ -253,12 +306,28 @@ internal sealed class GlobalEnvironment : Environment
             desc = _global.GetOwnProperty(name.Name);
         }
 
-        if (strict && desc == PropertyDescriptor.Undefined)
+        if (desc == PropertyDescriptor.Undefined)
+        {
+            return GetBindingValueUnlikely(name, strict);
+        }
+
+        return ObjectInstance.UnwrapJsValue(desc, _global);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private JsValue GetBindingValueUnlikely(Key name, bool strict)
+    {
+        if (_global._prototype is not null && TryGetFromGlobalPrototype(JsString.Create(name.Name), out var value))
+        {
+            return value;
+        }
+
+        if (strict)
         {
             Throw.ReferenceNameError(_engine.Realm, name);
         }
 
-        return ObjectInstance.UnwrapJsValue(desc, _global);
+        return Undefined;
     }
 
     internal override bool DeleteBinding(Key name)
@@ -321,7 +390,7 @@ internal sealed class GlobalEnvironment : Environment
     private bool HasShapedGlobalOwnProperty(Key name)
     {
         return _globalObject is not null
-            ? _globalObject.HasProperty(name)
+            ? _globalObject.HasOwnProperty(name)
             : _global.HasOwnProperty(name.Name);
     }
 

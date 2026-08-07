@@ -138,7 +138,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
             }
             else if (varEnv is GlobalEnvironment globalEnv)
             {
-                shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasBinding(fn);
+                shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasOwnBinding(fn);
             }
             else
             {

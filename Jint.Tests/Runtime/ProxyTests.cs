@@ -671,8 +671,8 @@ public class ProxyTests
                  const name = p.Name;  // works
                  const s = p.GetX();   // works because method does NOT exist on clr object
 
-                 p.SayHello();          // throws System.Reflection.TargetException: 'Object does not match target type.'
-                 const t = p.Add(5,3);  // throws System.Reflection.TargetException: 'Object does not match target type.'
+                 p.SayHello();          // once threw a raw TargetException; the proxy receiver unwraps to the CLR instance
+                 const t = p.Add(5,3);  // ditto
              """);
 
     }

@@ -5,6 +5,7 @@ using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 
 #pragma warning disable IL2067
 #pragma warning disable IL2072
@@ -154,7 +155,7 @@ internal sealed class MethodInfoFunction : Function
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
         var converter = Engine.TypeConverter;
-        var thisObj = thisObject.ToObject() ?? _target;
+        var thisObj = ResolveThisObject(thisObject);
         var state = new MethodResolverState(_engine, thisObject, jsArguments);
 
         if (_methods.Length == 1)
@@ -180,7 +181,7 @@ internal sealed class MethodInfoFunction : Function
                 // when a custom ITypeConverter is installed because the slow path consults it for some
                 // exact-type conversions (e.g. bool) that the compiled lane performs directly. A
                 // wrong-typed receiver (extracted method invoked via .call on a foreign this) also
-                // declines so the reflection path surfaces the same TargetException it always did.
+                // declines so the reflection path can surface the receiver mismatch as a TypeError.
                 var converterTypeFilter = _engine._objectConverterTypeFilter;
                 if ((converterTypeFilter is null
                         || method.ReturnValueIsInvisibleToObjectConverters
@@ -240,6 +241,53 @@ internal sealed class MethodInfoFunction : Function
             : "No public methods with the specified arguments were found.";
         Throw.InteropResolutionError(_engine.Realm, message, _targetType, _name, jsArguments, _methods);
         return null;
+    }
+
+    /// <summary>
+    /// Derives the CLR instance the reflected method is invoked on. A receiver wrapping a real CLR
+    /// object (<see cref="ObjectWrapper"/>, any <see cref="IObjectWrapper"/>, a Proxy over one)
+    /// unwraps to it; a plain JS receiver — e.g. an object whose prototype chain contains the
+    /// wrapper — has no CLR identity of its own (ToObject would synthesize a stand-in such as an
+    /// ExpandoObject), so the method operates on the instance it was resolved from, exactly as
+    /// <see cref="Descriptors.Specialized.ReflectionDescriptor"/> ignores the JS receiver for property reads.
+    /// </summary>
+    private object? ResolveThisObject(JsValue thisObject)
+    {
+        // hot path: a member call on the wrapper itself
+        if (thisObject is ObjectWrapper wrapper)
+        {
+            return wrapper.Target;
+        }
+
+        var receiver = thisObject;
+        while (receiver is JsProxy proxy)
+        {
+            if (proxy.IsRevoked)
+            {
+                Throw.TypeError(_engine.Realm, $"Cannot perform '{_name}' on a proxy that has been revoked");
+            }
+
+            receiver = proxy._target;
+        }
+
+        if (receiver is ObjectInstance objectInstance)
+        {
+            if (objectInstance is IObjectWrapper hostWrapper)
+            {
+                return hostWrapper.Target;
+            }
+
+            return _target ?? objectInstance.ToObject();
+        }
+
+        // undefined/null unwrap to null and fall back to the owning instance; primitives keep converting
+        return receiver.ToObject() ?? _target;
+    }
+
+    [DoesNotReturn]
+    private void ThrowIncompatibleReceiver()
+    {
+        Throw.TypeError(_engine.Realm, $"Method '{_name}' called on incompatible receiver");
     }
 
     private static JsCallArguments ArgumentProvider(MethodDescriptor method, in MethodResolverState state)
@@ -387,9 +435,23 @@ internal sealed class MethodInfoFunction : Function
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return true;
         }
+        catch (TargetException)
+        {
+            // receiver mismatch: netfx MethodBase.Invoke and the generic-definition path above throw
+            // it unwrapped; surface a catchable TypeError instead of a raw CLR crash
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            ThrowIncompatibleReceiver();
+            return false;
+        }
         catch (TargetInvocationException exception)
         {
             _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (exception.InnerException is TargetException)
+            {
+                // net8+: MethodDescriptor.Invoke normalizes the sibling TargetException into the
+                // TargetInvocationException shape; still a receiver mismatch, not the method throwing
+                ThrowIncompatibleReceiver();
+            }
             Throw.MeaningfulException(_engine, exception);
             return false;
         }

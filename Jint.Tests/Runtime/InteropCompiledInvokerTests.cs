@@ -449,17 +449,20 @@ public class InteropCompiledInvokerTests
     }
 
     [Fact]
-    public void WrongTypedThisSurfacesReflectionPathException()
+    public void WrongTypedThisSurfacesCatchableTypeError()
     {
-        // an extracted method invoked with a foreign receiver must decline the fast lane so the
-        // host observes the same TargetException the reflection path always produced (not the
-        // compiled cast's InvalidCastException) — ExceptionHandler predicates key on the type
+        // an extracted method invoked with a foreign CLR receiver must decline the fast lane so the
+        // reflection path can classify the receiver mismatch — surfaced as a JavaScript TypeError,
+        // catchable by script, never a raw TargetException (or the compiled cast's
+        // InvalidCastException); Interop.ExceptionHandler is not consulted for this binding failure
         var engine = new Engine(options => options.Interop.ExceptionHandler = _ => false);
         engine.SetValue("host", new Host());
         engine.SetValue("other", new OtherHost());
 
-        var ex = Invoking(() => engine.Evaluate("var f = host.TimesTwo; f.call(other, 21)")).Should().Throw<Exception>().Which;
-        ex.Should().BeAssignableTo<System.Reflection.TargetException>();
+        var ex = Invoking(() => engine.Evaluate("var f = host.TimesTwo; f.call(other, 21)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Be("Method 'TimesTwo' called on incompatible receiver");
+
+        engine.Evaluate("var f2 = host.TimesTwo; try { f2.call(other, 21); 'no error' } catch (e) { e instanceof TypeError }").AsBoolean().Should().BeTrue();
 
         // a correctly-typed extracted call still uses the fast lane and works
         engine.Evaluate("var g = host.TimesTwo; g.call(host, 21)").AsNumber().Should().Be(42);
@@ -848,15 +851,15 @@ public class InteropCompiledInvokerTests
     }
 
     [Fact]
-    public void ExtractedInstanceMethodWithWrongReceiverKeepsSurfacingTargetException()
+    public void ExtractedInstanceMethodWithWrongReceiverSurfacesCatchableTypeError()
     {
-        // same guarantee as WrongTypedThisSurfacesReflectionPathException, but for a method whose
-        // receiver check now reads the cached DeclaringType instead of the reflection property
+        // same guarantee as WrongTypedThisSurfacesCatchableTypeError, but for a method whose
+        // receiver check reads the cached DeclaringType instead of the reflection property
         var engine = new Engine(options => options.Interop.ExceptionHandler = _ => false);
         engine.SetValue("host", new Host());
         engine.SetValue("other", new OtherHost());
 
-        var ex = Invoking(() => engine.Evaluate("var f = host.IdentityInt; f.call(other, 3)")).Should().Throw<Exception>().Which;
-        ex.Should().BeAssignableTo<System.Reflection.TargetException>();
+        var ex = Invoking(() => engine.Evaluate("var f = host.IdentityInt; f.call(other, 3)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        ex.Message.Should().Be("Method 'IdentityInt' called on incompatible receiver");
     }
 }
