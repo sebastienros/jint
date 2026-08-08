@@ -728,7 +728,7 @@ uriError:
 
     // optimized versions with string parameter and without virtual dispatch for global environment usage
 
-    internal bool HasProperty(Key property)
+    internal bool HasOwnProperty(Key property)
     {
         return GetOwnProperty(property) != PropertyDescriptor.Undefined;
     }
@@ -808,6 +808,10 @@ uriError:
 
         if (existingDescriptor is null)
         {
+            if (_prototype is not null && TrySetThroughPrototype(property, value, out var setResult))
+            {
+                return setResult;
+            }
             if (strict)
             {
                 Throw.ReferenceNameError(_realm, property.Name);
@@ -849,6 +853,26 @@ uriError:
 
         setter.Call(this, value);
 
+        return true;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-object-environment-records-setmutablebinding-n-v-s — a name
+    /// that exists on the global's prototype chain assigns through [[Set]] with the global as
+    /// receiver (running inherited setters, respecting inherited non-writable data) instead of
+    /// blindly creating an own property.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool TrySetThroughPrototype(Key property, JsValue value, out bool result)
+    {
+        var jsName = JsString.Create(property.Name);
+        if (!_prototype!.HasProperty(jsName))
+        {
+            result = false;
+            return false;
+        }
+
+        result = Set(jsName, value, this);
         return true;
     }
 }

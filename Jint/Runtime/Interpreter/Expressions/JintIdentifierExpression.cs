@@ -397,6 +397,9 @@ internal sealed class JintIdentifierExpression : JintExpression
     /// may then use the descriptor directly while the versions hold; writers must re-check
     /// <see cref="Runtime.Descriptors.PropertyDescriptor.Writable"/> through the cached
     /// reference because defineProperty flips flags in place without bumping the versions.
+    /// Re-probing the global's own storage here is also what keeps a name resolved from the
+    /// global's prototype chain out of the cache: a prototype mutation bumps no global version,
+    /// so caching such a descriptor would serve stale values.
     /// </summary>
     internal void TryRememberGlobalBinding(GlobalEnvironment globalEnv)
     {

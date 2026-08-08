@@ -356,7 +356,7 @@ internal sealed class JintStatementList
                         else if (varEnv is GlobalEnvironment globalEnv)
                         {
                             // Global/eval scope: copy if not a lexical declaration
-                            shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasBinding(fn);
+                            shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasOwnBinding(fn);
                         }
                         else
                         {
