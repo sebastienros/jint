@@ -69,6 +69,50 @@ public class ScriptModulePreparationTests
     }
 
     [Fact]
+    public void ScriptPreparationCachesTheHoistingScopeOfAScriptRootOnly()
+    {
+        // A script root's cached scope is what GlobalDeclarationInstantiation, direct eval and ShadowRealm read.
+        Engine.PrepareScript("var a = 1; const b = 2;").Program.UserData.Should().BeOfType<CachedHoistingScope>();
+
+        // A module root reports the same node type but has no reader: SourceTextModule walks its own
+        // declarations, so caching a scope for it was a whole-AST walk nothing consumed.
+        Engine.PrepareModule("export const a = 1; const b = 2;").Program.UserData.Should().BeNull();
+    }
+
+    [Fact]
+    public void ScriptPreparationBuildsNoBlockStateForFunctionBodies()
+    {
+        // A function body is a BlockStatement by node type, but the only reader of a block's UserData takes a
+        // NestedBlockStatement - the statement list wraps a function body without consulting UserData at all.
+        // Retained function source text rides the function node, never its body, so the body stays clean.
+        var preparedScript = Engine.PrepareScript("function f() { let a = 1; return a; } f();");
+        var declaration = preparedScript.Program.Body[0].Should().BeOfType<FunctionDeclaration>().Which;
+        var body = declaration.Body.Should().BeOfType<FunctionBody>().Which;
+
+        body.UserData.Should().BeNull();
+
+        // and executing the body does not lazily fill it in either - the cost is gone, not deferred
+        new Engine().Evaluate(preparedScript).AsNumber().Should().Be(1);
+        body.UserData.Should().BeNull();
+    }
+
+    [Fact]
+    public void ScriptPreparationBuildsBlockStateForNestedBlocks()
+    {
+        var preparedScript = Engine.PrepareScript("{ let outer = 1; } function f() { { let inner = 2; return inner; } } f();");
+
+        var topLevelBlock = preparedScript.Program.Body[0].Should().BeOfType<NestedBlockStatement>().Which;
+        topLevelBlock.UserData.Should().BeOfType<JintBlockStatement.BlockState>();
+
+        var declaration = preparedScript.Program.Body[1].Should().BeOfType<FunctionDeclaration>().Which;
+        var body = declaration.Body.Should().BeOfType<FunctionBody>().Which;
+        var blockInFunction = body.Body[0].Should().BeOfType<NestedBlockStatement>().Which;
+        blockInFunction.UserData.Should().BeOfType<JintBlockStatement.BlockState>();
+
+        new Engine().Evaluate(preparedScript).AsNumber().Should().Be(2);
+    }
+
+    [Fact]
     public void CompiledRegexShouldProduceSameResultAsNonCompiled()
     {
         const string Script = """JSON.stringify(/(.*?)a(?!(a+)b\2c)\2(.*)/.exec("baaabaac"))""";

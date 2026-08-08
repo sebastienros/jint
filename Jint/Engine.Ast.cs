@@ -135,7 +135,13 @@ public partial class Engine
                     break;
 
                 case NodeType.Program:
-                    node.UserData = new CachedHoistingScope((Program) node);
+                    // A module root is a Program by node type, but nothing reads a module's cached scope —
+                    // every reader of it is Script-typed and SourceTextModule walks its own declarations —
+                    // so caching one for a module was a second full walk of the AST that never got consumed.
+                    if (node is Script script)
+                    {
+                        node.UserData = new CachedHoistingScope(script);
+                    }
                     break;
 
                 case NodeType.UnaryExpression:
@@ -183,7 +189,14 @@ public partial class Engine
                     break;
 
                 case NodeType.BlockStatement:
-                    node.UserData = JintBlockStatement.BuildState((BlockStatement) node);
+                    // A function body is a BlockStatement by node type, but nothing reads a function body's
+                    // BlockState — the statement list wraps it without consulting UserData, and the only
+                    // reader, JintBlockStatement, takes a NestedBlockStatement — so building one per function
+                    // bought nothing. A class static block reports NodeType.StaticBlock and never lands here.
+                    if (node is NestedBlockStatement nestedBlockStatement)
+                    {
+                        node.UserData = JintBlockStatement.BuildState(nestedBlockStatement);
+                    }
                     break;
             }
         }
@@ -192,11 +205,13 @@ public partial class Engine
 
 internal sealed class CachedHoistingScope
 {
-    public CachedHoistingScope(Program program)
+    // Script, not Program: a module's cached scope has no reader, so the analyzer only builds
+    // one for a script root, and the parameter type is what keeps it that way.
+    public CachedHoistingScope(Script script)
     {
         // Collecting during the walk makes the walker produce the bound-name list the
         // separate GatherVarNames re-walk used to build; null means the program has no vars.
-        Scope = HoistingScope.GetProgramLevelDeclarations(program, collectVarNames: true);
+        Scope = HoistingScope.GetProgramLevelDeclarations(script, collectVarNames: true);
         VarNames = Scope._varNames ?? [];
 
         LexNames = DeclarationCacheBuilder.Build(Scope._lexicalDeclarations);
