@@ -35,9 +35,24 @@ public interface IAsyncModuleLoader : IModuleLoader
     /// the load — now or on any thread, later — by settling <paramref name="completion"/>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Called on the engine thread. Failing to settle <paramref name="completion"/> leaves the importing
     /// promise pending forever; throwing instead of settling it is caught by the engine and turned into the
     /// same rejection <see cref="ModuleLoadCompletion.SetError(Exception)"/> would produce.
+    /// </para>
+    /// <para>
+    /// One class of exception is exempt from that catch, and a host has to know which: the ones that exist to
+    /// bound or abort execution — <see cref="ExecutionCanceledException"/>,
+    /// <see cref="MemoryLimitExceededException"/>, <see cref="StatementsCountOverflowException"/>,
+    /// <see cref="TimeoutException"/>, <see cref="OperationCanceledException"/> and
+    /// <see cref="OutOfMemoryException"/> — keep propagating, because a constraint that becomes an ordinary
+    /// failed import no longer bounds anything. Note what that means for a host cancelling its own fetch:
+    /// <see cref="OperationCanceledException"/> (and so <see cref="System.Threading.Tasks.TaskCanceledException"/>)
+    /// thrown from here is read as the engine aborting, not as a failed load, and on a queued event-loop turn
+    /// it escapes with the importers of that specifier left pending. Report a cancelled fetch through
+    /// <see cref="ModuleLoadCompletion.SetError(Exception)"/> or a faulted task instead — which is what
+    /// <see cref="AsyncModuleLoader"/> does for you.
+    /// </para>
     /// </remarks>
     void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion);
 }

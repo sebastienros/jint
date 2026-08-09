@@ -46,9 +46,18 @@ public abstract class CyclicModule : Module
     /// https://tc39.es/ecma262/#sec-LoadRequestedModules
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The <c>hostDefined</c> parameter of the spec's signature is not modelled: Jint's
     /// <see cref="IModuleLoader"/> receives the <see cref="ResolvedSpecifier"/> and the engine, and has no
     /// second channel that would carry an opaque host value through the graph.
+    /// </para>
+    /// <para>
+    /// The returned promise is created already marked as handled, so a rejection of it never reaches
+    /// <c>HostPromiseRejectionTracker</c>. That is what stops a failed <c>Engine.Modules.Import</c> — which
+    /// consumes the rejection by rethrowing it, without attaching a reaction — from firing an
+    /// unhandled-rejection event for engine-internal plumbing. A host driving the load phase itself and
+    /// relying on that tracker to notice a rejected load phase has to observe this promise directly instead.
+    /// </para>
     /// </remarks>
     public override JsValue LoadRequestedModules()
     {

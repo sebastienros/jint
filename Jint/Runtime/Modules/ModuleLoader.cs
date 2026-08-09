@@ -69,6 +69,13 @@ public abstract class ModuleLoader : IModuleLoader
     internal Jint.Native.Object.ObjectInstance? GetModuleSourceForAsyncLoad(Engine engine, ResolvedSpecifier resolved)
         => GetModuleSource(engine, resolved);
 
+    /// <summary>
+    /// Loads the module's source text. Anything this throws is a failed load, reported to script as
+    /// <c>Could not load module {specifier}</c> — with one exception:
+    /// <see cref="NotSupportedException"/> propagates as itself, reserved for telling a host that it reached
+    /// this loader the wrong way rather than that a module is missing.
+    /// <see cref="AsyncModuleLoader.LoadModuleContents"/> is the in-box use of it.
+    /// </summary>
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
 
     /// <summary>
@@ -81,7 +88,9 @@ public abstract class ModuleLoader : IModuleLoader
     protected virtual Jint.Native.Object.ObjectInstance? GetModuleSource(Engine engine, ResolvedSpecifier resolved) => null;
 
     /// <summary>
-    /// Loads module contents as raw bytes. Override in derived classes for efficient binary loading.
+    /// Loads module contents as raw bytes. Override in derived classes for efficient binary loading. Failure
+    /// is reported exactly as for <see cref="LoadModuleContents"/>, <see cref="NotSupportedException"/>
+    /// included.
     /// </summary>
     protected virtual byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
     {

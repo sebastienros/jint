@@ -549,7 +549,17 @@ public partial class Engine
         /// load is already fenced off by the event loop's generation and will be discarded, so leaving the
         /// entry behind would let the next cycle attach to a load that can never finish.
         /// </summary>
-        internal void DiscardPendingLoads() => _pendingLoads?.Clear();
+        internal void DiscardPendingLoads()
+        {
+            _pendingLoads?.Clear();
+
+            // The failure memo goes with them. It is only ever consulted by the blocking importer of the very
+            // failure that filled it, and that importer has long returned by the time a cycle ends — so what
+            // survives here is never read again, and on a pooled engine it would pin one error object, and
+            // the whole exception it was captured from, for the rest of the engine's life.
+            _lastLoadFailureError = null;
+            _lastLoadFailure = null;
+        }
 
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ModuleCacheKey cacheKey)
         {
