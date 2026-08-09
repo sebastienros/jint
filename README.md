@@ -266,6 +266,60 @@ engine per operation never reaches them by design. Note the mirror image if you 
 warmed call site holds a reference to the last receiver it served until it caches a different one, so pooled
 engines can keep host objects alive between runs.
 
+**Sharing a module graph across pooled engines.** A host whose templates or plugins are ES modules pays for
+that graph per engine: `IModuleLoader.LoadModule` is called by every engine that imports a module, so the
+obvious loader re-reads and re-parses the whole graph for every engine in the pool. Prepare each module once
+per *build* instead — cache the `Prepared<AstModule>` (`AstModule` being Acornima's `Module`, which an alias
+keeps apart from Jint's runtime `Module`) keyed by module location, and hand it to the overload that takes an
+already prepared AST, `ModuleFactory.BuildSourceTextModule(engine, in prepared)`. Name the prepared module
+exactly as the engine would: `Engine.PrepareModule(code, source)` takes the name up front, and it becomes
+`Module.Location` and therefore the `referencingModuleLocation` echoed back into `IModuleLoader.Resolve` for
+that module's own imports — so a name derived by hand that differs from the engine's breaks relative-import
+resolution with nothing to point at. `ModuleFactory.LocationOf(resolved)` *is* that rule; call it rather than
+reimplementing it.
+
+Single-flight the cache. `ConcurrentDictionary.GetOrAdd` does not run its factory under a lock, so N engines
+filling a pool concurrently each prepare the same module and N-1 results are prepared only to be discarded.
+Wrapping the value in a `Lazy<T>` — whose default thread-safety mode is exactly "one factory run, everyone
+else waits" — is enough:
+
+```c#
+using AstModule = Acornima.Ast.Module; // Jint.Runtime.Modules.Module is a different type
+
+private readonly ConcurrentDictionary<string, Lazy<Prepared<AstModule>>> _prepared
+    = new(StringComparer.Ordinal);
+
+public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+{
+    var location = ModuleFactory.LocationOf(resolved);
+    var prepared = _prepared.GetOrAdd(location,
+        static key => new Lazy<Prepared<AstModule>>(() => Engine.PrepareModule(ReadSource(key), key))).Value;
+
+    return ModuleFactory.BuildSourceTextModule(engine, in prepared);
+}
+```
+
+Invalidate by build, not by file. The prepared ASTs are derived from a compilation, so key the cache to the
+same identity the rest of your host already uses for that compilation and let a rebuild drop the whole set at
+once, rather than expiring entries per file and serving a graph half of which is stale.
+
+Be clear about what the thread-safety of `Prepared<T>` buys. It is safe to share and safe to run concurrently,
+which is what lets one cache serve the pool — it does not make the *engines* shareable (one engine, one
+thread) and it does not make the module registry shared: every engine still builds, links and evaluates its
+own module records from the shared ASTs, and `engine.Modules` is per engine. That per-engine cost is real, and
+it is what the pool pays no matter how much preparation is shared.
+
+`StaticAnalysis` is a trade with a break-even, not a speed-up. Preparing with
+`new ModulePreparationOptions { StaticAnalysis = false }` skips the pass that pre-publishes interpreter state
+onto the parsed tree, leaving preparation at roughly the cost of a plain parse; each engine then rebuilds
+lazily what the pass would have published once for all of them. Measured on `ModuleGraphEmbeddingBenchmark`'s
+ten-module graph, preparation cost -47.6% time and -27.5% allocation, while each engine materializing that
+graph from the shared cache paid +4.8% time and +9.5% allocation — break-even, on that graph, at about ten
+engines on time and about two on allocation. A long-lived pool should therefore keep the default (`true`);
+the option is for preparation that sits on a latency-critical path — a cold start, a rebuild in a dev loop —
+or for a host whose prepared programs outnumber the engines that ever run them.
+`ScriptPreparationOptions.StaticAnalysis` is the same option for scripts.
+
 **Registering only what a script uses.** When the ambient API is large and scripts touch little of it,
 prepare with `ScriptPreparationOptions.CollectReferencedGlobals` and read `Prepared<T>.ReferencedGlobals`:
 the free identifiers the program actually references, resolved per binding site, as an immutable set you can
@@ -689,6 +743,10 @@ var id = ns.Get("result").AsInteger();
 ```
 
 Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
+
+If you serve the same modules from a pool of engines, see **Sharing a module graph across pooled engines**
+under [Embedding performance](#embedding-performance): a loader that caches prepared modules keeps every
+engine but the first from parsing them again.
 
 ### Loading modules asynchronously
 
