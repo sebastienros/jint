@@ -170,4 +170,44 @@ public static class ModuleFactory
     {
         return new SyntheticModule(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
     }
+
+    /// <summary>
+    /// Picks the module kind the request's import attributes ask for and builds it from loaded text. Shared by
+    /// the synchronous <see cref="ModuleLoader.LoadModule"/> and the asynchronous
+    /// <see cref="ModuleLoadCompletion.SetSource(string)"/>, so both answer a given
+    /// <c>with { type: … }</c> the same way.
+    /// </summary>
+    internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, string code)
+    {
+        if (resolved.ModuleRequest.IsBytesModule())
+        {
+            return BuildBytesModule(engine, resolved, System.Text.Encoding.UTF8.GetBytes(code));
+        }
+
+        if (resolved.ModuleRequest.IsTextModule())
+        {
+            return BuildTextModule(engine, resolved, code);
+        }
+
+        if (resolved.ModuleRequest.IsJsonModule())
+        {
+            return BuildJsonModule(engine, resolved, code);
+        }
+
+        return BuildSourceTextModule(engine, resolved, code);
+    }
+
+    /// <summary>
+    /// The <see cref="BuildFromContents(Engine,ResolvedSpecifier,string)"/> counterpart for a loader that
+    /// produced raw bytes.
+    /// </summary>
+    internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
+    {
+        if (resolved.ModuleRequest.IsBytesModule())
+        {
+            return BuildBytesModule(engine, resolved, bytes);
+        }
+
+        return BuildFromContents(engine, resolved, System.Text.Encoding.UTF8.GetString(bytes));
+    }
 }

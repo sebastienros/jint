@@ -9,6 +9,9 @@ public abstract class ModuleLoader : IModuleLoader
 
     public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
+        // A NotSupportedException is API-misuse guidance, not a failed load: AsyncModuleLoader's synchronous
+        // entry throws one saying how to reach the loader correctly, and reducing it to the generic message
+        // below made it read as a missing file. It propagates as itself.
         Module moduleRecord;
         if (resolved.ModuleRequest.IsBytesModule())
         {
@@ -17,7 +20,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 bytes = LoadModuleContentsAsBytes(engine, resolved);
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not NotSupportedException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
@@ -32,7 +35,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 code = LoadModuleContents(engine, resolved);
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not NotSupportedException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
@@ -59,6 +62,20 @@ public abstract class ModuleLoader : IModuleLoader
         return moduleRecord;
     }
 
+    /// <summary>
+    /// Reaches <see cref="GetModuleSource"/> from the asynchronous load path, which builds the module record
+    /// outside this class and must still attach the same host-defined <c>[[ModuleSource]]</c>.
+    /// </summary>
+    internal Jint.Native.Object.ObjectInstance? GetModuleSourceForAsyncLoad(Engine engine, ResolvedSpecifier resolved)
+        => GetModuleSource(engine, resolved);
+
+    /// <summary>
+    /// Loads the module's source text. Anything this throws is a failed load, reported to script as
+    /// <c>Could not load module {specifier}</c> — with one exception:
+    /// <see cref="NotSupportedException"/> propagates as itself, reserved for telling a host that it reached
+    /// this loader the wrong way rather than that a module is missing.
+    /// <see cref="AsyncModuleLoader.LoadModuleContents"/> is the in-box use of it.
+    /// </summary>
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
 
     /// <summary>
@@ -71,7 +88,9 @@ public abstract class ModuleLoader : IModuleLoader
     protected virtual Jint.Native.Object.ObjectInstance? GetModuleSource(Engine engine, ResolvedSpecifier resolved) => null;
 
     /// <summary>
-    /// Loads module contents as raw bytes. Override in derived classes for efficient binary loading.
+    /// Loads module contents as raw bytes. Override in derived classes for efficient binary loading. Failure
+    /// is reported exactly as for <see cref="LoadModuleContents"/>, <see cref="NotSupportedException"/>
+    /// included.
     /// </summary>
     protected virtual byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
     {

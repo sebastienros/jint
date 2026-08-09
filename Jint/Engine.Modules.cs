@@ -1,8 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
 using Module = Jint.Runtime.Modules.Module;
@@ -32,24 +36,8 @@ public partial class Engine
 
         public bool Equals(ModuleCacheKey other)
         {
-            if (!string.Equals(Key, other.Key, StringComparison.Ordinal))
-            {
-                return false;
-            }
-            var a = Attributes;
-            var b = other.Attributes;
-            if (a.Length != b.Length)
-            {
-                return false;
-            }
-            for (var i = 0; i < a.Length; i++)
-            {
-                if (Array.IndexOf(b, a[i]) < 0)
-                {
-                    return false;
-                }
-            }
-            return true;
+            return string.Equals(Key, other.Key, StringComparison.Ordinal)
+                   && ModuleRequest.AttributesEqual(Attributes, other.Attributes);
         }
 
         public override int GetHashCode()
@@ -61,11 +49,41 @@ public partial class Engine
         }
     }
 
+    /// <summary>
+    /// Keys the <c>[[LoadedModules]]</c> list of a referrer that is not itself a module — a script, or the
+    /// host calling <see cref="ModuleOperations.Import(string)"/>. Such a referrer has nowhere to keep the
+    /// list, so the engine keeps it, and the location is part of the key because two scripts at different
+    /// locations may resolve one specifier to two different modules.
+    /// </summary>
+    internal readonly record struct ScriptLoadedModuleKey(string? ReferrerLocation, ModuleRequest Request)
+    {
+        public bool Equals(ScriptLoadedModuleKey other)
+            => string.Equals(ReferrerLocation, other.ReferrerLocation, StringComparison.Ordinal)
+               && LoadedModuleRequestComparer.Instance.Equals(Request, other.Request);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var locationHash = ReferrerLocation is null ? 0 : StringComparer.Ordinal.GetHashCode(ReferrerLocation);
+                return (locationHash * 397) ^ LoadedModuleRequestComparer.Instance.GetHashCode(Request);
+            }
+        }
+    }
+
     public class ModuleOperations
     {
         private readonly Engine _engine;
         private readonly Dictionary<ModuleCacheKey, Module> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
+        private readonly Dictionary<ScriptLoadedModuleKey, Module> _scriptLoadedModules = new();
+
+        /// <summary>
+        /// The loads an asynchronous loader has started but not finished, keyed by resolved specifier. Two
+        /// referrers importing the same file — the ordinary diamond — must not become two fetches, so the
+        /// second one attaches to the first load's completion instead of asking the loader again.
+        /// </summary>
+        private Dictionary<ModuleCacheKey, ModuleLoadCompletion>? _pendingLoads;
 
         /// <summary>
         /// Resolved key to the registration name it was filed under, for the registrations whose two names
@@ -83,13 +101,34 @@ public partial class Engine
         private int _buildersVersion;
         private int _indexedBuildersVersion;
 
+        /// <summary>
+        /// The most recent exception a module-load failure was reduced from, kept alongside the error value
+        /// it was reduced to. The load pipeline hands failures around as <see cref="JsValue"/>s — a promise
+        /// rejection can carry nothing else — but the blocking import paths turn the rejection back into a
+        /// throw, and rebuilding a <see cref="JavaScriptException"/> from the value alone loses the original
+        /// location (a syntax error's file/line/column), the .NET stack and <see cref="Exception.Data"/>.
+        /// Matched strictly by the error value's reference identity, so a stale entry can never fire for an
+        /// unrelated failure; it is simply overwritten by the next one.
+        /// </summary>
+        private JsValue? _lastLoadFailureError;
+        private ExceptionDispatchInfo? _lastLoadFailure;
+
         public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
             ModuleLoader = moduleLoader;
+            AsyncModuleLoader = moduleLoader as IAsyncModuleLoader;
             _engine = engine;
         }
 
         internal IModuleLoader ModuleLoader { get; }
+
+        /// <summary>
+        /// The registered loader's asynchronous face, or null when it only loads synchronously. Non-null is
+        /// what switches the engine onto the asynchronous load path.
+        /// </summary>
+        internal IAsyncModuleLoader? AsyncModuleLoader { get; }
+
+        internal Engine Engine => _engine;
 
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
@@ -103,19 +142,260 @@ public partial class Engine
 
             if (TryGetBuilder(moduleResolution, out var builderSpecifier, out var moduleBuilder))
             {
-                module = LoadFromBuilder(builderSpecifier, moduleBuilder, moduleResolution, cacheKey);
+                module = LoadFromBuilder(builderSpecifier, moduleBuilder, cacheKey);
             }
             else
             {
                 module = LoadFromModuleLoader(moduleResolution, cacheKey);
             }
 
+            return module;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-HostLoadImportedModule
+        /// </summary>
+        /// <remarks>
+        /// Resolution is synchronous even for an asynchronous loader — the spec's HostLoadImportedModule maps
+        /// a referrer/specifier pair to a module record, and only the fetching of an unseen one is allowed to
+        /// take time. Everything already known is therefore finished inline: an entry in the referrer's
+        /// <c>[[LoadedModules]]</c>, a module already in this engine's registry, or a
+        /// <see cref="Add(string,string)"/>ed builder.
+        /// </remarks>
+        internal void LoadImportedModule(IScriptOrModule? referrer, ModuleRequest request, ModuleLoadPayload payload)
+            => LoadImportedModule(referrer, referrer?.Location, request, payload);
+
+        internal void LoadImportedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleLoadPayload payload)
+        {
+            if (TryGetLoadedModule(referrer, referrerLocation, request, out var loaded))
+            {
+                Finish(loaded, error: null);
+                return;
+            }
+
+            ResolvedSpecifier moduleResolution;
+            try
+            {
+                moduleResolution = ModuleLoader.Resolve(referrerLocation, request);
+            }
+            catch (JavaScriptException ex)
+            {
+                Finish(module: null, ex.Error, ex);
+                return;
+            }
+            catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
+            {
+                // A loader signals refusal with whatever exception it likes — DefaultModuleLoader throws
+                // ModuleResolutionException, a sibling of JavaScriptException that the catch above does not
+                // see. On a synchronous stack it propagates as it always has, but on a queued event-loop turn
+                // — a static import discovered inside an asynchronously fetched module — there is no caller
+                // left: escaping would erupt out of ProcessTasks with the graph state's pending count never
+                // decremented, stranding the import promise forever. The refusal becomes the load's failure,
+                // and the original exception travels along for the blocking importer to rethrow.
+                Finish(module: null, _engine.Realm.Intrinsics.Error.Construct(ex.Message), ex);
+                return;
+            }
+
+            var cacheKey = ModuleCacheKey.From(moduleResolution);
+
+            if (_modules.TryGetValue(cacheKey, out var module))
+            {
+                Finish(module, error: null);
+                return;
+            }
+
+            // An in-flight fetch outranks a builder registered for the same key while it was airborne: the
+            // importers already waiting on the fetch and this one must agree on which record the key denotes,
+            // and consulting the builder here would hand this importer a second live module for the key.
+            if (_pendingLoads is not null && _pendingLoads.TryGetValue(cacheKey, out var inFlight))
+            {
+                inFlight.AddWaiter(referrer, referrerLocation, request, payload);
+                return;
+            }
+
+            if (TryGetBuilder(moduleResolution, out var builderSpecifier, out var moduleBuilder))
+            {
+                // Parsing the registered source can throw. On a synchronous stack the exception propagates as
+                // it always has - the original JavaScriptException, message and location intact, out of
+                // Modules.Import. But this branch also runs from inside a ModuleLoadCompletion job - an
+                // asynchronously fetched module statically importing a builder module - where no caller is
+                // left to catch anything: escaping there erupts out of ProcessTasks and strands the graph
+                // load forever, so the error becomes the load's failure instead.
+                Module? builderModule = null;
+                JsValue? builderError = null;
+                Exception? builderException = null;
+                try
+                {
+                    builderModule = LoadFromBuilder(builderSpecifier, moduleBuilder, cacheKey);
+                }
+                catch (JavaScriptException ex) when (_engine._eventLoop.IsRunningJob)
+                {
+                    builderError = ex.Error;
+                    builderException = ex;
+                }
+                catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
+                {
+                    builderError = _engine.Realm.Intrinsics.Error.Construct(ex.Message);
+                    builderException = ex;
+                }
+
+                Finish(builderModule, builderError, builderException);
+                return;
+            }
+
+            if (AsyncModuleLoader is not null)
+            {
+                var completion = new ModuleLoadCompletion(this, moduleResolution, cacheKey);
+                completion.AddWaiter(referrer, referrerLocation, request, payload);
+                (_pendingLoads ??= new Dictionary<ModuleCacheKey, ModuleLoadCompletion>())[cacheKey] = completion;
+
+                try
+                {
+                    // The window lets a loader whose answer is already at hand settle on this very stack, the
+                    // way a synchronous loader's answer arrives — see ModuleLoadCompletion.Settle.
+                    completion.OpenInlineSettleWindow();
+                    AsyncModuleLoader.LoadModuleAsync(_engine, moduleResolution, completion);
+                }
+                catch (Exception ex) when (!completion.IsCompleted)
+                {
+                    // A loader that throws instead of reporting through the completion still has to end up as
+                    // a rejection rather than an exception on whatever thread happened to be evaluating. The
+                    // filter is what keeps an exception thrown *after* an inline settle propagating: SetError
+                    // on a settled completion is a no-op, and Build deliberately rethrows non-module failures.
+                    if (ModuleLoadCompletion.MustPropagate(ex))
+                    {
+                        // A constraint that becomes a rejection no longer bounds anything: the same cancelled
+                        // engine with a synchronous loader surfaces ExecutionCanceledException, and a host's
+                        // shutdown handling is written against exactly that. The unsettled completion must
+                        // not stay registered, or a later import of the specifier would wait on it forever.
+                        RemovePendingLoad(cacheKey);
+                        throw;
+                    }
+
+                    completion.SetError(ex);
+                }
+                finally
+                {
+                    completion.CloseInlineSettleWindow();
+                }
+
+                return;
+            }
+
+            Module? loadedModule = null;
+            JsValue? loadError = null;
+            Exception? loadException = null;
+            try
+            {
+                loadedModule = LoadFromModuleLoader(moduleResolution, cacheKey);
+            }
+            catch (JavaScriptException ex)
+            {
+                loadError = ex.Error;
+                loadException = ex;
+            }
+
+            // Dispatched outside the try: the spec hands FinishLoadingImportedModule one completion, once, and
+            // a try around the dispatch itself would re-finish the payload if user code reached through
+            // Continue ever threw after a successful load.
+            Finish(loadedModule, loadError, loadException);
+
+            void Finish(Module? module, JsValue? error, Exception? exception = null)
+            {
+                if (error is not null && exception is not null)
+                {
+                    RememberLoadFailure(error, exception);
+                }
+
+                _engine._host.FinishLoadingImportedModule(referrer, referrerLocation, request, payload, module, error);
+            }
+        }
+
+        /// <summary>
+        /// Looks a request up in the referrer's <c>[[LoadedModules]]</c>.
+        /// </summary>
+        internal bool TryGetLoadedModule(IScriptOrModule? referrer, ModuleRequest request, out Module module)
+            => TryGetLoadedModule(referrer, referrer?.Location, request, out module);
+
+        internal bool TryGetLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, out Module module)
+        {
+            if (referrer is Module referrerModule)
+            {
+                return referrerModule.TryGetLoadedModule(request, out module);
+            }
+
+            return _scriptLoadedModules.TryGetValue(new ScriptLoadedModuleKey(referrerLocation, request), out module!);
+        }
+
+        /// <summary>
+        /// Step 1 of <see href="https://tc39.es/ecma262/#sec-FinishLoadingImportedModule">FinishLoadingImportedModule</see>.
+        /// </summary>
+        internal void RecordLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, Module module)
+        {
+            if (referrer is Module referrerModule)
+            {
+                referrerModule.RecordLoadedModule(request, module);
+                return;
+            }
+
+            var key = new ScriptLoadedModuleKey(referrerLocation, request);
+            if (_scriptLoadedModules.TryGetValue(key, out var existing))
+            {
+                if (!ReferenceEquals(existing, module))
+                {
+                    Throw.InvalidOperationException(
+                        $"Error while loading module: the module loader returned two different modules for specifier '{request.Specifier}'. HostLoadImportedModule must be consistent for a given referrer and specifier.");
+                }
+
+                return;
+            }
+
+            _scriptLoadedModules[key] = module;
+        }
+
+        /// <summary>
+        /// Registers a module the engine has just obtained, under the resolved specifier every referrer that
+        /// resolves to it will look it up by.
+        /// </summary>
+        internal void RegisterModule(ModuleCacheKey cacheKey, Module module)
+        {
+            // The debugger callback runs before the registry commit so that a callback that throws leaves no
+            // half-registered record behind — the failed load can then be retried cleanly.
             if (module is SourceTextModule sourceTextModule)
             {
                 _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
             }
 
-            return module;
+            _modules[cacheKey] = module;
+        }
+
+        /// <summary>
+        /// Whether the registry already holds a module for <paramref name="cacheKey"/>. Consulted by an
+        /// asynchronous load's deferred build, which must not overwrite a record that was registered while
+        /// its fetch was in flight.
+        /// </summary>
+        internal bool TryGetRegisteredModule(ModuleCacheKey cacheKey, [NotNullWhen(true)] out Module? module)
+            => _modules.TryGetValue(cacheKey, out module);
+
+        internal void RememberLoadFailure(JsValue error, Exception exception)
+        {
+            _lastLoadFailureError = error;
+            _lastLoadFailure = ExceptionDispatchInfo.Capture(exception);
+        }
+
+        /// <summary>
+        /// Rethrows the original exception <paramref name="error"/> was reduced from, stack intact, when it
+        /// is still at hand; otherwise returns and the caller raises what it can build from the value alone.
+        /// </summary>
+        internal void RethrowLoadFailure(JsValue error)
+        {
+            if (ReferenceEquals(_lastLoadFailureError, error))
+            {
+                var failure = _lastLoadFailure!;
+                _lastLoadFailureError = null;
+                _lastLoadFailure = null;
+                failure.Throw();
+            }
         }
 
         /// <summary>
@@ -261,17 +541,38 @@ public partial class Engine
             }
         }
 
-        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
+        internal void RemovePendingLoad(ModuleCacheKey cacheKey) => _pendingLoads?.Remove(cacheKey);
+
+        /// <summary>
+        /// Forgets every load an asynchronous loader has not finished. Called when the engine ends an
+        /// evaluation cycle (<see cref="AdvancedOperations.RestoreGlobalSnapshot"/>): the completion of such a
+        /// load is already fenced off by the event loop's generation and will be discarded, so leaving the
+        /// entry behind would let the next cycle attach to a load that can never finish.
+        /// </summary>
+        internal void DiscardPendingLoads()
         {
-            // The module is named by the key it resolved to rather than by the name it was registered under.
-            // Those differ exactly when the loader canonicalized, and the location is what the module's own
-            // relative imports are resolved against - so keeping the registration name would leave a builder
-            // module reached through the index resolving its nested imports against a name the loader never
-            // produced. A module supplied pre-compiled keeps its prepare-time name instead; see AddModule.
-            var parsedModule = moduleBuilder.Parse(moduleResolution.Key);
+            _pendingLoads?.Clear();
+
+            // The failure memo goes with them. It is only ever consulted by the blocking importer of the very
+            // failure that filled it, and that importer has long returned by the time a cycle ends — so what
+            // survives here is never read again, and on a pooled engine it would pin one error object, and
+            // the whole exception it was captured from, for the rest of the engine's life.
+            _lastLoadFailureError = null;
+            _lastLoadFailure = null;
+        }
+
+        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ModuleCacheKey cacheKey)
+        {
+            // The module is named by the key it resolved to - which is what the cache key carries - rather than
+            // by the name it was registered under. Those differ exactly when the loader canonicalized, and the
+            // location is what the module's own relative imports are resolved against, so keeping the
+            // registration name would leave a builder module reached through the index resolving its nested
+            // imports against a name the loader never produced. A module supplied pre-compiled keeps its
+            // prepare-time name instead; see ModuleBuilder.AddModule.
+            var parsedModule = moduleBuilder.Parse(cacheKey.Key);
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
             var module = new BuilderModule(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
-            _modules[cacheKey] = module;
+            RegisterModule(cacheKey, module);
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
@@ -280,7 +581,7 @@ public partial class Engine
         private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
             var module = ModuleLoader.LoadModule(_engine, moduleResolution);
-            _modules[cacheKey] = module;
+            RegisterModule(cacheKey, module);
             return module;
         }
 
@@ -344,6 +645,16 @@ public partial class Engine
             _buildersVersion++;
         }
 
+        /// <summary>
+        /// Imports a module and returns its namespace, blocking until the whole graph has loaded, linked and
+        /// evaluated.
+        /// </summary>
+        /// <remarks>
+        /// With an <see cref="IAsyncModuleLoader"/> the calling thread is what drives the engine's event loop
+        /// while the loads are in flight, so this deadlocks if the loader's own completions need that same
+        /// thread — a Unity main thread delivering web requests through a coroutine, for instance. Use
+        /// <see cref="ImportAsync(string,CancellationToken)"/> or <see cref="StartImport(string)"/> there.
+        /// </remarks>
         public ObjectInstance Import(string specifier)
         {
             return Import(specifier, referencingModuleLocation: null);
@@ -356,11 +667,20 @@ public partial class Engine
 
         internal ObjectInstance Import(ModuleRequest request, string? referencingModuleLocation)
         {
-            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
+            var module = LoadRootModule(request, referencingModuleLocation);
 
-            if (!_modules.TryGetValue(ModuleCacheKey.From(moduleResolution), out var module))
+            // The specification's load phase. Everything the module imports has to be present before it can
+            // be linked, and with an asynchronous loader "present" is not something the engine can arrange by
+            // itself: the load promise settles on some later turn of the event loop, so the caller of a
+            // synchronous Import is the thread that has to run those turns. Only a module still in
+            // [[Status]] new can have anything left to load — every later status is only reachable once its
+            // transitive dependencies are present — so the warm re-import of an already-evaluated graph, the
+            // Import-per-request embedding shape, skips the walk and its allocations entirely. A module
+            // record with no dependencies of its own (anything that is not a CyclicModule) has nothing to
+            // load either way.
+            if (module is CyclicModule { Status: ModuleStatus.New })
             {
-                module = Load(referencingModuleLocation, request);
+                RunLoadPhaseBlocking(module);
             }
 
             if (module is not CyclicModule cyclicModule)
@@ -396,6 +716,161 @@ public partial class Engine
             _engine.RunAvailableContinuations();
 
             return Module.GetModuleNamespace(module);
+        }
+
+        /// <summary>
+        /// Starts an import and returns at once, without blocking and without needing a thread of its own. The
+        /// engine only makes progress on it when it is given turns, so the host drives it by calling
+        /// <see cref="AdvancedOperations.ProcessTasks"/> — from a game loop or a UI message pump, say — until
+        /// the returned operation reports <see cref="ModuleImportOperation.IsCompleted"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is the same pipeline a dynamic <c>import()</c> inside script goes through, and
+        /// <see cref="ModuleImportOperation.Promise"/> is the promise it settles into.
+        /// </remarks>
+        public ModuleImportOperation StartImport(string specifier) => StartImport(specifier, referencingModuleLocation: null);
+
+        /// <inheritdoc cref="StartImport(string)" />
+        public ModuleImportOperation StartImport(string specifier, string? referencingModuleLocation)
+        {
+            var request = new ModuleRequest(specifier, []);
+            var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
+            var payload = new DynamicImportPayload(_engine, request, capability);
+
+            try
+            {
+                _engine._host.LoadImportedModule(referrer: null, referencingModuleLocation, request, payload);
+            }
+            catch (JavaScriptException ex)
+            {
+                capability.Reject(ex.Error);
+            }
+            catch (Exception ex) when (!ModuleLoadCompletion.MustPropagate(ex))
+            {
+                // Resolution refusals arrive as ModuleResolutionException — not JavaScriptException — and the
+                // same failure delivered through the loader's asynchronous settle would arrive as the
+                // operation's Error. One failure must not have two delivery channels depending on where it
+                // happened, and host code written to the poll-then-GetResult pattern must not crash at the
+                // start call.
+                capability.Reject(_engine.Realm.Intrinsics.Error.Construct(ex.Message));
+            }
+
+            var operation = new ModuleImportOperation(capability.PromiseInstance);
+
+            // Reactions rather than polling, so that the operation is also what marks the rejection handled and
+            // a failed import does not read as an unhandled promise rejection to a host watching for those.
+            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+            {
+                operation.Fulfil(args.At(0));
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            var onRejected = new ClrFunction(_engine, "", (_, args) =>
+            {
+                operation.Fail(args.At(0));
+                return JsValue.Undefined;
+            }, 1, PropertyFlag.Configurable);
+
+            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) capability.PromiseInstance, onFulfilled, onRejected, resultCapability: null!);
+
+            return operation;
+        }
+
+        /// <summary>
+        /// Imports a module and returns its namespace, without blocking a thread while the module graph loads
+        /// or while a top-level <c>await</c> is outstanding. The natural entry point for an
+        /// <see cref="IAsyncModuleLoader"/>.
+        /// </summary>
+        /// <remarks>
+        /// The engine is single-threaded and this method does not change that: continuations run one at a time,
+        /// on whichever thread resumes the await. A host with a thread affinity — a game loop, a UI thread —
+        /// wants <see cref="StartImport(string)"/> and its own pump instead, so that every turn runs where the
+        /// host needs it to.
+        /// </remarks>
+        /// <exception cref="PromiseRejectedException">The module failed to load or its evaluation threw.</exception>
+        public Task<ObjectInstance> ImportAsync(string specifier, CancellationToken cancellationToken = default)
+            => ImportAsync(specifier, referencingModuleLocation: null, cancellationToken);
+
+        /// <inheritdoc cref="ImportAsync(string,CancellationToken)" />
+        public async Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
+        {
+            var promise = StartImport(specifier, referencingModuleLocation).Promise;
+            var result = await _engine.UnwrapResultAsync(promise, cancellationToken).ConfigureAwait(false);
+            return (ObjectInstance) result;
+        }
+
+        /// <summary>
+        /// Loads the root of a module graph: a <c>HostLoadImportedModule</c> call like any other, so with an
+        /// asynchronous loader it may only finish on a later turn of the event loop.
+        /// </summary>
+        private Module LoadRootModule(ModuleRequest request, string? referencingModuleLocation)
+        {
+            var payload = new RootModuleLoadPayload();
+            _engine._host.LoadImportedModule(referrer: null, referencingModuleLocation, request, payload);
+
+            if (!payload.IsCompleted)
+            {
+                ThrowIfBlockedInsideJob(request.Specifier);
+
+                var timeout = _engine.Options.Constraints.PromiseTimeout;
+                if (!_engine.DrainEventLoopUntil(static state => ((RootModuleLoadPayload) state).IsCompleted, payload, completedEvent: null, timeout))
+                {
+                    Throw.TimeoutException($"Timeout of {timeout} reached while loading module '{request.Specifier}'. An asynchronous module loader did not finish the load in time.");
+                }
+            }
+
+            if (payload.Error is not null)
+            {
+                RethrowLoadFailure(payload.Error);
+                Throw.JavaScriptException(_engine, payload.Error, in AstExtensions.DefaultLocation);
+            }
+
+            return payload.Module!;
+        }
+
+        /// <summary>
+        /// Fails a blocking import that cannot possibly make progress. Inside an event-loop job the
+        /// re-entrancy guard makes queued work unrunnable from a nested drain, so a load still in flight here
+        /// would sit out the whole <c>PromiseTimeout</c> and then report the loader as too slow — ten seconds
+        /// of stall and a misleading message for a structurally impossible wait. Failing now, with the actual
+        /// reason, is what a UI or game-loop host can act on.
+        /// </summary>
+        private void ThrowIfBlockedInsideJob(string specifier)
+        {
+            if (_engine._eventLoop.IsRunningJob)
+            {
+                Throw.InvalidOperationException(
+                    $"The asynchronous load of module '{specifier}' cannot be driven to completion from inside an event-loop job: queued work cannot run while another job is running, so the blocking import would only time out. Import the module with Engine.Modules.StartImport or ImportAsync before entering the job, or settle the load inside IAsyncModuleLoader.LoadModuleAsync so it completes synchronously.");
+            }
+        }
+
+        /// <summary>
+        /// Runs <see cref="Module.LoadRequestedModules"/> and, for an asynchronous loader, drives the event
+        /// loop until the graph is in. Throws whatever the load failed with.
+        /// </summary>
+        private void RunLoadPhaseBlocking(Module module)
+        {
+            if (module.LoadRequestedModules() is not JsPromise loadPromise)
+            {
+                return;
+            }
+
+            if (loadPromise.State == PromiseState.Pending)
+            {
+                ThrowIfBlockedInsideJob(module.Location ?? "(null)");
+                _engine.DrainEventLoopUntilSettled(loadPromise, _engine.Options.Constraints.PromiseTimeout);
+            }
+
+            switch (loadPromise.State)
+            {
+                case PromiseState.Rejected:
+                    RethrowLoadFailure(loadPromise.Value);
+                    Throw.JavaScriptException(_engine, loadPromise.Value, in AstExtensions.DefaultLocation);
+                    break;
+                case PromiseState.Pending:
+                    Throw.TimeoutException($"Timeout of {_engine.Options.Constraints.PromiseTimeout} reached while loading the module graph. An asynchronous module loader did not finish the load in time.");
+                    break;
+            }
         }
 
         private static void LinkModule(string specifier, Module module)

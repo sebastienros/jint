@@ -42,20 +42,30 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
             return false;
         }
 
-        if (this.Attributes.Length != other.Attributes.Length)
+        return AttributesEqual(Attributes, other.Attributes);
+    }
+
+    /// <summary>
+    /// Attribute-list comparison as spelled out by
+    /// <see href="https://tc39.es/proposal-import-attributes/#sec-ModuleRequestsEqual">ModuleRequestsEqual</see>:
+    /// same length and same members, order-insensitive.
+    /// </summary>
+    internal static bool AttributesEqual(ModuleImportAttribute[] a, ModuleImportAttribute[] b)
+    {
+        if (a.Length != b.Length)
         {
             return false;
         }
 
-        if (Attributes.Length == 0
-            || (Attributes.Length == 1 && Attributes[0].Equals(other.Attributes[0])))
+        if (a.Length == 0
+            || (a.Length == 1 && a[0].Equals(b[0])))
         {
             return true;
         }
 
-        foreach (var pair in Attributes)
+        foreach (var pair in a)
         {
-            if (Array.IndexOf(other.Attributes, pair) == -1)
+            if (Array.IndexOf(b, pair) == -1)
             {
                 return false;
             }
@@ -74,4 +84,24 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
             return (StringComparer.Ordinal.GetHashCode(Specifier) * 397) ^ (int) Phase;
         }
     }
+}
+
+/// <summary>
+/// Keys a <c>[[LoadedModules]]</c> list: specifier and attributes only, deliberately ignoring the import
+/// phase that <see cref="ModuleRequest.Equals(ModuleRequest)"/> counts. A module record's
+/// <see href="https://tc39.es/ecma262/#table-module-record-fields">[[LoadedModules]]</see> field is keyed on
+/// the specifier/attributes pair, and the defer/source-phase proposals do not change that: <c>import x</c>
+/// and <c>import defer x</c> of one specifier denote the same module record. Keying on the phase as well
+/// would ask the host twice for the same referrer/specifier pair, which
+/// <see href="https://tc39.es/ecma262/#sec-HostLoadImportedModule">HostLoadImportedModule</see> forbids.
+/// </summary>
+internal sealed class LoadedModuleRequestComparer : IEqualityComparer<ModuleRequest>
+{
+    internal static readonly LoadedModuleRequestComparer Instance = new();
+
+    public bool Equals(ModuleRequest x, ModuleRequest y)
+        => string.Equals(x.Specifier, y.Specifier, StringComparison.Ordinal)
+           && ModuleRequest.AttributesEqual(x.Attributes, y.Attributes);
+
+    public int GetHashCode(ModuleRequest obj) => StringComparer.Ordinal.GetHashCode(obj.Specifier);
 }
