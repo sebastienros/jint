@@ -90,18 +90,6 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     internal CompletionType _resumeCompletionType;
 
     /// <summary>
-    /// Tracks a pending completion (throw/return) that needs to be processed after a finally block
-    /// that yielded. When a finally block yields, we need to remember any pending completion
-    /// so we can restore it after the finally block completes.
-    /// </summary>
-    internal CompletionType _pendingCompletionType;
-
-    /// <summary>
-    /// The value associated with the pending completion (the thrown error or return value).
-    /// </summary>
-    internal JsValue? _pendingCompletionValue;
-
-    /// <summary>
     /// Tracks which try statement's finally block we're currently inside.
     /// Used to properly restore pending completion after finally completes.
     /// </summary>
@@ -123,18 +111,6 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
     object? ISuspendable.LastSuspensionNode => _lastYieldNode;
 
     bool ISuspendable.ReturnRequested => _returnRequested;
-
-    CompletionType ISuspendable.PendingCompletionType
-    {
-        get => _pendingCompletionType;
-        set => _pendingCompletionType = value;
-    }
-
-    JsValue? ISuspendable.PendingCompletionValue
-    {
-        get => _pendingCompletionValue;
-        set => _pendingCompletionValue = value;
-    }
 
     object? ISuspendable.CurrentFinallyStatement
     {

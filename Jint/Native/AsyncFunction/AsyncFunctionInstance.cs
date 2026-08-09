@@ -85,16 +85,6 @@ internal sealed class AsyncFunctionInstance : ISuspendable, IPromiseContinuation
     bool ISuspendable.ReturnRequested => false; // Async functions don't have return() like generators
 
     /// <summary>
-    /// Tracks the pending completion type when suspended in a finally block.
-    /// </summary>
-    CompletionType ISuspendable.PendingCompletionType { get; set; }
-
-    /// <summary>
-    /// Tracks the pending completion value when suspended in a finally block.
-    /// </summary>
-    JsValue? ISuspendable.PendingCompletionValue { get; set; }
-
-    /// <summary>
     /// The try statement whose finally block we're currently executing.
     /// Used to properly resume execution in finally blocks.
     /// </summary>

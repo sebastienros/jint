@@ -186,14 +186,34 @@ internal sealed class LeftOperandSuspendData : SuspendData
 }
 
 /// <summary>
-/// Stores the outer lexical environment for a catch clause when execution suspends
-/// inside the catch body.
+/// Stores what one try statement has to remember across a suspension: the environments of a catch
+/// clause suspended inside its body, and the completion a finalizer suspended inside <em>its</em>
+/// body interrupted.
 /// </summary>
-internal sealed class CatchSuspendData : SuspendData
+internal sealed class TrySuspendData : SuspendData
 {
     public DeclarativeEnvironment? CatchEnvironment { get; set; }
 
     public Environments.Environment? OuterEnvironment { get; set; }
+
+    /// <summary>
+    /// The <c>blockResult</c> of https://tc39.es/ecma262/#sec-try-statement-runtime-semantics-evaluation,
+    /// parked while the finalizer is suspended and reinstated by step 3 when it resumes and completes
+    /// normally.
+    /// <para>
+    /// The whole record is parked rather than a type and a value, because a Break or Continue keeps
+    /// its [[Target]] in <see cref="Completion.Target"/>, which reads the label back out of the jump
+    /// statement the record carries as its source. A type-and-value pair can neither express that
+    /// target nor be turned back into such a completion at all — the constructor requires the
+    /// matching jump statement.
+    /// </para>
+    /// <para>
+    /// It lives here, per try statement, and not in one slot on the suspendable, because a finalizer
+    /// may contain another try statement that parks a completion of its own before suspending; a
+    /// single slot let the inner one consume the outer's.
+    /// </para>
+    /// </summary>
+    public Completion? PendingCompletion { get; set; }
 }
 
 /// <summary>

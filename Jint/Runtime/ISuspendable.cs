@@ -41,19 +41,14 @@ internal interface ISuspendable
     bool ReturnRequested { get; }
 
     /// <summary>
-    /// Tracks the pending completion type when suspended in a finally block.
-    /// </summary>
-    CompletionType PendingCompletionType { get; set; }
-
-    /// <summary>
-    /// Tracks the pending completion value when suspended in a finally block.
-    /// </summary>
-    JsValue? PendingCompletionValue { get; set; }
-
-    /// <summary>
     /// The try statement whose finally block we're currently executing.
     /// Used to properly resume execution in finally blocks.
     /// </summary>
+    /// <remarks>
+    /// This is a dispatch hint only, and one slot is enough for it: the completion a finalizer
+    /// interrupted is parked per try statement, in <see cref="Data"/>, because nested finalizers can
+    /// each have one in flight. See <see cref="TrySuspendData.PendingCompletion"/>.
+    /// </remarks>
     object? CurrentFinallyStatement { get; set; }
 
     /// <summary>
