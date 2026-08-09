@@ -1,7 +1,6 @@
 ﻿using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -11,67 +10,6 @@ namespace Jint;
 
 internal static class Polyfills
 {
-#if !NET8_0_OR_GREATER
-    // Enumerable.Order arrived in .NET 7 and is not in netstandard2.1, so net462, netstandard2.0 and
-    // netstandard2.1 all need it.
-    //
-    // It deliberately does NOT delegate to OrderBy. .NET Framework's LINQ sorts with a plain quicksort
-    // that has neither a recursion-depth limit nor a fallback, so an inconsistent comparer makes it spin
-    // forever rather than terminate. A JavaScript comparison function is free to be inconsistent — the
-    // spec leaves the resulting order implementation-defined but still requires the sort to finish — so
-    // that is a reachable hang, not a theoretical one. .NET Core's introsort escapes to heapsort and is
-    // why the modern targets are fine. A bottom-up merge sort is stable, always O(n log n), and
-    // terminates for any comparer whatsoever, which is the behaviour being backfilled.
-    internal static IEnumerable<T> Order<T>(this IEnumerable<T> source, IComparer<T>? comparer)
-    {
-        // Copy rather than sort a caller-visible array in place; Enumerable.Order never mutates its source.
-        var items = source.ToArray();
-        if (items.Length > 1)
-        {
-            MergeSort(items, new T[items.Length], 0, items.Length, comparer ?? Comparer<T>.Default);
-        }
-
-        return items;
-    }
-
-    private static void MergeSort<T>(T[] items, T[] buffer, int start, int end, IComparer<T> comparer)
-    {
-        if (end - start <= 1)
-        {
-            return;
-        }
-
-        var middle = start + ((end - start) >> 1);
-        MergeSort(items, buffer, start, middle, comparer);
-        MergeSort(items, buffer, middle, end, comparer);
-
-        if (comparer.Compare(items[middle - 1], items[middle]) <= 0)
-        {
-            // Already in order, so the merge would only copy the range back onto itself.
-            return;
-        }
-
-        int left = start, right = middle, index = start;
-        while (left < middle && right < end)
-        {
-            // Taking the left element on a tie is what makes the sort stable.
-            buffer[index++] = comparer.Compare(items[left], items[right]) <= 0 ? items[left++] : items[right++];
-        }
-
-        while (left < middle)
-        {
-            buffer[index++] = items[left++];
-        }
-
-        while (right < end)
-        {
-            buffer[index++] = items[right++];
-        }
-
-        System.Array.Copy(buffer, start, items, start, end - start);
-    }
-#endif
-
 #if NETFRAMEWORK || NETSTANDARD2_0
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this string source, char c) => source.IndexOf(c) != -1;
