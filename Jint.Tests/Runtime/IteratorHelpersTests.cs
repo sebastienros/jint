@@ -791,4 +791,67 @@ public class IteratorHelpersTests
 
         result.Should().Be("[true,false,true]");
     }
+
+    // An early exit runs `Return ? IteratorClose(iterated, NormalCompletion(...))` as its final step,
+    // which sits *outside* the IfAbruptCloseIterator guard covering the predicate call. "return" is
+    // therefore invoked exactly once and whatever it raises is the error the caller sees - it must not
+    // be re-entered by the close that guards the abrupt predicate.
+    private const string EarlyExitReceiver = """
+        let calls = 0;
+        const it = {
+            __proto__: Iterator.prototype,
+            i: 0,
+            next() { return this.i++ === 0 ? { done: false, value: 42 } : { done: true }; },
+            return() { calls++; return RETURN_RESULT; }
+        };
+        let outcome = 'no throw';
+        try { CALL; } catch (e) { outcome = e.constructor.name + ': ' + e.message; }
+        JSON.stringify([calls, outcome]);
+        """;
+
+    private static string EarlyExitScript(string call, string returnResult) =>
+        EarlyExitReceiver.Replace("RETURN_RESULT", returnResult).Replace("CALL", call);
+
+    [Theory]
+    [InlineData("it.includes(42)")]
+    [InlineData("it.some(() => true)")]
+    [InlineData("it.every(() => false)")]
+    [InlineData("it.find(() => true)")]
+    [InlineData("it.take(0).next()")]
+    public void AnEarlyExitCallsReturnExactlyOnce(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(EarlyExitScript(call, "{ done: true }")).AsString();
+
+        result.Should().Be("""[1,"no throw"]""");
+    }
+
+    [Theory]
+    [InlineData("it.includes(42)")]
+    [InlineData("it.some(() => true)")]
+    [InlineData("it.every(() => false)")]
+    [InlineData("it.find(() => true)")]
+    [InlineData("it.take(0).next()")]
+    public void AnEarlyExitDoesNotReenterAThrowingReturn(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(EarlyExitScript(call, "(() => { throw new Error('boom'); })()")).AsString();
+
+        result.Should().Be("""[1,"Error: boom"]""");
+    }
+
+    [Theory]
+    [InlineData("it.includes(42)")]
+    [InlineData("it.some(() => true)")]
+    [InlineData("it.every(() => false)")]
+    [InlineData("it.find(() => true)")]
+    [InlineData("it.take(0).next()")]
+    public void AnEarlyExitDoesNotReenterAReturnThatYieldsANonObject(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(EarlyExitScript(call, "7")).AsString();
+
+        // IteratorClose step 6 raises the TypeError itself, so the close is still a single call.
+        result.Should().Be("""[1,"TypeError: Iterator returned non-object"]""");
+    }
 }

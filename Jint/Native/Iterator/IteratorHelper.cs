@@ -61,7 +61,18 @@ internal abstract class IteratorHelper : ObjectInstance
         catch
         {
             State = GeneratorState.Completed;
-            CloseIterator(CompletionType.Throw);
+
+            // IfAbruptCloseIterator only applies while the underlying record is still open. Exhausted
+            // says it is not - either the step reported DONE, or the helper already ran an
+            // IteratorClose of its own, which is take's `Return ? IteratorClose(iterated,
+            // ReturnCompletion(undefined))` for a spent limit. Closing again would invoke "return" a
+            // second time and swallow whatever the first invocation raised.
+            if (!Exhausted)
+            {
+                Exhausted = true;
+                CloseIterator(CompletionType.Throw);
+            }
+
             throw;
         }
     }
