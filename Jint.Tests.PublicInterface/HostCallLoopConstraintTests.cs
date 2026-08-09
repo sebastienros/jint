@@ -428,6 +428,249 @@ public class HostCallLoopConstraintTests
         calls.Should().BeLessThanOrEqualTo(64);
     }
 
+    // ================================================================================================
+    // OperationDeadlineConstraint — the in-box answer to the gap everything above pins.
+    //
+    // The tests above are about the unit the engine bounds: one entry, budget refunded on the way in
+    // and on the way out. OperationDeadlineConstraint exists for hosts whose unit is something else —
+    // a render, a request, a rule evaluation — made of several entries. Its Reset() is a no-op, so the
+    // engine's per-entry rewind cannot touch it, and the host opens and closes the window itself with
+    // Begin/End. Nothing above changes; this is an addition to the surface, not a change to it.
+    // ================================================================================================
+
+    /// <summary>
+    /// The budget a whole host operation gets in the deadline tests below.
+    /// </summary>
+    private static readonly TimeSpan OperationBudget = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// What one call of that operation spends inside the engine. Deliberately a small fraction of
+    /// <see cref="OperationBudget"/>: it takes several calls to exhaust the budget, which is exactly the
+    /// claim under test, since a budget refunded per entry could never be exhausted by calls this short.
+    /// </summary>
+    private static readonly TimeSpan DeadlinePausePerCall = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>
+    /// A budget no operation can reach, for the tests that need the constraint armed but never firing.
+    /// </summary>
+    private static readonly TimeSpan UnreachableBudget = TimeSpan.FromMinutes(10);
+
+    [Fact]
+    public void ADeadlineSpansAHostLoopOfShortCallsAndFailsItOnceTheBudgetIsGone()
+    {
+        // The scenario the per-entry reset defeats, and the one this constraint exists for: every call
+        // is far shorter than the budget, so the built-in timeout above never fires however long the
+        // loop runs. Here the budget belongs to the loop.
+        WarmUpTheInterpreter();
+
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreatePausingDeadlineEngine(deadline, DeadlinePausePerCall);
+        var work = engine.GetValue("pausingWork");
+
+        var calls = 0;
+        var stopwatch = Stopwatch.StartNew();
+        deadline.Begin(OperationBudget);
+        try
+        {
+            Invoking(() =>
+            {
+                for (var i = 0; i < HostCalls; i++)
+                {
+                    calls++;
+                    work.Call(i);
+                }
+            }).Should().Throw<TimeoutException>(
+                "the budget covers the whole operation, so the engine's per-entry reset cannot refund it");
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        // The one-sided direction: the stopwatch starts before the budget is armed and is read after the
+        // throw, so the window it measures is always a superset of the constraint's. A throw can only
+        // ever come from a budget that really had elapsed; a stall cannot invent one.
+        stopwatch.Elapsed.Should().BeGreaterThanOrEqualTo(
+            OperationBudget - AttributionSlack,
+            "the deadline may only fire once the budget has actually elapsed");
+
+        calls.Should().BeGreaterThan(
+            1,
+            "each call spends a tenth of the budget, so exhausting it takes several of them — a throw "
+            + "inside the first call would mean the budget was mis-armed rather than accumulated");
+
+        // A generous upper bound only: Thread.Sleep never returns early, so the budget is gone within a
+        // dozen calls, and a loaded machine only makes that number smaller.
+        calls.Should().BeLessThanOrEqualTo(60, "the deadline must be noticed promptly, not eventually");
+    }
+
+    [Fact]
+    public void EndingAnOperationDisarmsTheInstanceAndAFreshBeginArmsItAgain()
+    {
+        // The pooled shape: one engine and one constraint serve operation after operation. Deterministic
+        // on purpose — an exhausted budget is expressed as one that had already elapsed when it was
+        // handed over, so nothing here depends on how fast the machine is.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        // operation 1: comfortably inside its budget
+        deadline.Begin(UnreachableBudget);
+        try
+        {
+            Invoking(() => work.Call(1)).Should().NotThrow();
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        // between operations the engine is unbounded again
+        Invoking(() => work.Call(1)).Should().NotThrow("End() disarmed the constraint");
+
+        // operation 2: no time left at all, and the same instance reports it
+        deadline.Begin(TimeSpan.Zero);
+        try
+        {
+            Invoking(() => work.Call(1)).Should().Throw<TimeoutException>();
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        // operation 3: a fresh budget on the same instance, unaffected by the operation that failed
+        deadline.Begin(UnreachableBudget);
+        try
+        {
+            Invoking(() => work.Call(1)).Should().NotThrow("Begin() re-arms rather than resuming");
+        }
+        finally
+        {
+            deadline.End();
+        }
+    }
+
+    [Fact]
+    public void ACancelledTokenSurfacesAsAnOperationCanceledExceptionCarryingThatToken()
+    {
+        // Cancellation the host asked for must be distinguishable from a script failure. Jint's own
+        // ExecutionCanceledException is a JintException and NOT an OperationCanceledException, so a host
+        // filtering `catch (Exception e) when (e is not OperationCanceledException)` — the standard shape
+        // for "log every failure except the ones I requested" — would log its own cancellation as a bug.
+        // This constraint throws the real thing, unwrapped, carrying the token that was cancelled.
+        using var cts = new CancellationTokenSource();
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        var calls = 0;
+
+        deadline.Begin(UnreachableBudget, cts.Token);
+        try
+        {
+            var thrown = Invoking(() =>
+            {
+                for (var i = 0; i < HostCalls; i++)
+                {
+                    calls++;
+                    if (calls == 5)
+                    {
+                        cts.Cancel();
+                    }
+
+                    work.Call(i);
+                }
+            }).Should().ThrowExactly<OperationCanceledException>(
+                "the exception reaches the host as-is, neither wrapped in a JavaScriptException nor "
+                + "translated into a Jint-specific type").Which;
+
+            thrown.CancellationToken.Should().Be(cts.Token);
+            thrown.Should().NotBeAssignableTo<TimeoutException>("the budget had not elapsed");
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        calls.Should().BeLessThan(HostCalls, "cancellation stops the loop rather than being noticed after it");
+    }
+
+    [Fact]
+    public void AConstraintThatWasNeverArmedBoundsNothing()
+    {
+        // The disarmed state has to be genuinely inert, because a pooled engine carries the constraint
+        // between operations: the zero sentinel must never be read as a deadline in the distant past.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        Invoking(() => engine.Constraints.Check()).Should().NotThrow();
+
+        Invoking(() =>
+        {
+            for (var i = 0; i < HostCalls; i++)
+            {
+                work.Call(i);
+            }
+        }).Should().NotThrow("a constraint nobody armed has nothing to enforce");
+
+        // Prove it was registered and consulted all along, rather than silently absent.
+        engine.Constraints.Find<OperationDeadlineConstraint>().Should().BeSameAs(deadline);
+    }
+
+    [Fact]
+    public void AnEnormousBudgetIsClampedInsteadOfOverflowingIntoThePast()
+    {
+        // The bug this class exists to stop an embedder writing themselves: converting the budget to
+        // Stopwatch ticks without a clamp overflows long for a large TimeSpan, and the deadline lands in
+        // the past — so the widest possible budget becomes the narrowest and every operation fails at once.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        deadline.Begin(TimeSpan.MaxValue);
+        try
+        {
+            Invoking(() => engine.Constraints.Check()).Should().NotThrow();
+
+            Invoking(() =>
+            {
+                for (var i = 0; i < HostCalls; i++)
+                {
+                    work.Call(i);
+                }
+            }).Should().NotThrow("a budget of TimeSpan.MaxValue is effectively unlimited, not already spent");
+        }
+        finally
+        {
+            deadline.End();
+        }
+    }
+
+    /// <summary>
+    /// An engine running <see cref="FunctionSource"/> whose only constraint is <paramref name="deadline"/>,
+    /// registered as an instance because the host has to keep the reference to bracket its operation.
+    /// </summary>
+    private static Engine CreateDeadlineEngine(OperationDeadlineConstraint deadline)
+    {
+        var engine = new Engine(new Options().Constraint(deadline));
+        engine.Execute(FunctionSource);
+        return engine;
+    }
+
+    /// <summary>
+    /// The same, running <see cref="PausingFunctionSource"/>, so each call spends a known slice of the
+    /// operation's budget however fast the machine is.
+    /// </summary>
+    private static Engine CreatePausingDeadlineEngine(OperationDeadlineConstraint deadline, TimeSpan pause)
+    {
+        var engine = new Engine(new Options().Constraint(deadline));
+        engine.SetValue("pause", new Action(() => Thread.Sleep(pause)));
+        engine.Execute(PausingFunctionSource);
+        return engine;
+    }
+
     /// <summary>
     /// An engine running <see cref="PausingFunctionSource"/> under <see cref="HostCallTimeout"/>, whose
     /// <c>pause()</c> spends <paramref name="pause"/> of the current entry's budget.
