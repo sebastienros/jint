@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Threading;
 using Jint.Runtime;
 
@@ -64,8 +64,11 @@ namespace Jint.Constraints;
 /// </remarks>
 public sealed class OperationDeadlineConstraint : Constraint
 {
-    // Stopwatch timestamp the current operation must not pass; 0 means "no operation is in flight", in
-    // which case Check never fails. Mirrors TimeConstraint's not-started sentinel.
+    // No operation is in flight, so the deadline half of Check never fails. Mirrors TimeConstraint's
+    // not-started sentinel, and is also what a non-positive budget arms.
+    private const long Disarmed = 0;
+
+    // Stopwatch timestamp the current operation must not pass, or Disarmed.
     private long _deadline;
 
     private CancellationToken _cancellationToken;
@@ -85,10 +88,12 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// <see cref="End"/> — however many top-level entries that is — shares this one budget.
     /// </summary>
     /// <param name="budget">
-    /// How long the whole operation may run. A budget that has already elapsed by the time it is handed
-    /// over (<see cref="TimeSpan.Zero"/> or negative, which is what a host computing "time left" produces
-    /// when there is none) arms a deadline that has passed, so the next check fails. Very large budgets are
-    /// clamped rather than allowed to overflow the timestamp arithmetic.
+    /// How long the whole operation may run. A non-positive budget - <see cref="TimeSpan.Zero"/>, a negative
+    /// value, or <see cref="Timeout.InfiniteTimeSpan"/> - asks for no time limit at all, the same thing it
+    /// means to <c>TimeoutInterval</c> and to the rest of .NET; the cancellation token is still observed, so
+    /// that is the cancellation-only shape. A host that has computed "time left" and found none should decline
+    /// to enter the engine rather than arm a zero budget. Very large budgets are clamped rather than allowed
+    /// to overflow the timestamp arithmetic.
     /// </param>
     /// <param name="cancellationToken">
     /// An optional token observed for the same window. The default token observes nothing.
@@ -99,11 +104,23 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// </remarks>
     public void Begin(TimeSpan budget, CancellationToken cancellationToken = default)
     {
+        _cancellationToken = cancellationToken;
+
+        if (budget <= TimeSpan.Zero)
+        {
+            // A non-positive budget is how the rest of .NET, and this engine's own TimeoutInterval,
+            // spell "no time limit" - Timeout.InfiniteTimeSpan is -1ms. Arming it arithmetically
+            // would put the deadline at or before the operation's own start and end every operation
+            // the moment it began, which is the opposite of what the caller asked for. The token is
+            // still observed, so Begin(Timeout.InfiniteTimeSpan, token) is the cancellation-only shape.
+            _deadline = Disarmed;
+            return;
+        }
+
         var deadline = Stopwatch.GetTimestamp() + ToStopwatchTicks(budget);
 
-        // 0 is the not-armed sentinel, so never store it as a real deadline
-        _deadline = deadline == 0 ? 1 : deadline;
-        _cancellationToken = cancellationToken;
+        // Disarmed is the not-armed sentinel, so never store it as a real deadline
+        _deadline = deadline == Disarmed ? Disarmed + 1 : deadline;
     }
 
     /// <summary>
@@ -116,7 +133,7 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// </remarks>
     public void End()
     {
-        _deadline = 0;
+        _deadline = Disarmed;
         _cancellationToken = default;
     }
 
@@ -173,12 +190,6 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// </summary>
     private static long ToStopwatchTicks(TimeSpan budget)
     {
-        if (budget <= TimeSpan.Zero)
-        {
-            // no time left: the deadline is now, and the next check fails
-            return 0;
-        }
-
         var ticks = budget.Ticks * ((double) Stopwatch.Frequency / TimeSpan.TicksPerSecond);
         return ticks >= long.MaxValue / 2.0 ? long.MaxValue / 2 : (long) ticks;
     }
