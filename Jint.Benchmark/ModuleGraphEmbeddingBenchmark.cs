@@ -168,14 +168,46 @@ public class ModuleGraphEmbeddingBenchmark
         """,
         "app:///data.js");
 
+    /// <summary>
+    /// Preparation with <see cref="ModulePreparationOptions.StaticAnalysis"/> declined: the parse, without the
+    /// second walk that pre-publishes interpreter state onto the tree the parse produced.
+    /// <para>
+    /// One shared instance, never a fresh one per call. A preparation-options record allocated inside
+    /// <see cref="PrepareModuleGraph_ParseOnly"/> would land in that row's <c>Allocated</c> column and in the
+    /// eager row's not at all, which is noise inside the only column that separates the two.
+    /// </para>
+    /// <para>
+    /// Keeping the default <see cref="ModuleParsingOptions"/> is what makes the two lanes comparable. Each
+    /// derives its <c>ParserOptions</c> exactly once for the whole run — the eager lane because
+    /// <c>GetParserOptions()</c> short-circuits on <c>ReferenceEquals(this, ModulePreparationOptions.Default)</c>,
+    /// this one because the same method memoizes its derivation in a weak-keyed table per
+    /// <see cref="ModuleParsingOptions"/> instance, and this instance's parsing options <i>are</i>
+    /// <c>ModuleParsingOptions.Default</c>. The two derived objects are not the same instance (only
+    /// <c>ModulePreparationOptions.Default</c> reaches the short-circuit) but they carry the same base options,
+    /// the same eagerly compiling regexp handler, no source-text retention and no tolerant parsing — so no lane
+    /// derives options per call, and the gap between the paired rows is the analysis pass rather than
+    /// options-derivation overhead.
+    /// </para>
+    /// </summary>
+    private static readonly ModulePreparationOptions ParseOnlyOptions = new() { StaticAnalysis = false };
+
     /// <summary>The one warm shared cache the two sharing rows draw from.</summary>
     private SharedPreparedLoader _sharedLoader = null!;
+
+    /// <summary>
+    /// The parse-only twin of <see cref="_sharedLoader"/>: same cache shape, same ten modules, prepared under
+    /// <see cref="ParseOnlyOptions"/>. The two parse-only sharing rows draw from it.
+    /// </summary>
+    private SharedPreparedLoader _parseOnlySharedLoader = null!;
 
     /// <summary>
     /// Hoisted so the shared rows do not allocate a configuration closure per engine — the pool row's
     /// <c>Allocated</c> column is a gate, and a closure per engine would be noise inside it.
     /// </summary>
     private Action<Options> _configureShared = null!;
+
+    /// <summary>Hoisted for the same reason <see cref="_configureShared"/> is.</summary>
+    private Action<Options> _configureParseOnlyShared = null!;
 
     private Action<Options> _configureSourcePerEngine = null!;
 
@@ -189,6 +221,9 @@ public class ModuleGraphEmbeddingBenchmark
         _sharedLoader = new SharedPreparedLoader();
         _configureShared = options => options.EnableModules(_sharedLoader);
 
+        _parseOnlySharedLoader = new SharedPreparedLoader(ParseOnlyOptions);
+        _configureParseOnlyShared = options => options.EnableModules(_parseOnlySharedLoader);
+
         // Stateless, so one instance serves every engine — which is also what a host registers.
         var sourceLoader = new SourcePerEngineLoader();
         _configureSourcePerEngine = options => options.EnableModules(sourceLoader);
@@ -196,11 +231,21 @@ public class ModuleGraphEmbeddingBenchmark
         // Prove the shared lane before it is measured. The first throwaway engine populates the cache;
         // the second must find all ten entries already there, which is the actual claim the two sharing
         // rows rest on — not merely "the cache was written to", but "a second engine reused it".
-        ImportAndRender(new Engine(_configureShared));
+        var eagerHtml = ImportAndRender(new Engine(_configureShared));
         AssertParsed(_sharedLoader, "shared prepared cache, first engine");
 
         ImportAndRender(new Engine(_configureShared));
         AssertParsed(_sharedLoader, "shared prepared cache, second engine");
+
+        // The parse-only lane, proven the same way and against the same count: declining the analysis pass
+        // changes what preparation publishes, never how many modules the loader has to parse.
+        var parseOnlyHtml = ImportAndRender(new Engine(_configureParseOnlyShared));
+        AssertParsed(_parseOnlySharedLoader, "parse-only shared prepared cache, first engine");
+
+        ImportAndRender(new Engine(_configureParseOnlyShared));
+        AssertParsed(_parseOnlySharedLoader, "parse-only shared prepared cache, second engine");
+
+        AssertSameRender(eagerHtml, parseOnlyHtml);
 
         // The steady-state row's engine gets its own loader and is warmed with exactly this row's workload
         // and nothing else: one import, one export lookup, one data object, one render. Warming it with any
@@ -232,6 +277,24 @@ public class ModuleGraphEmbeddingBenchmark
     }
 
     /// <summary>
+    /// The same ten preparations with the static-analysis pass declined, so the only walk of the source is the
+    /// parse. Against <see cref="PrepareModuleGraph"/> this row is the entire price of that pass — what a host
+    /// warming a graph at start-up stops paying — and the credit side of the trade whose debit side is
+    /// <see cref="ColdImport_ParseOnlyShared"/> and <see cref="PoolFill_ParseOnlyShared"/>.
+    /// </summary>
+    [Benchmark]
+    public List<Prepared<AstModule>> PrepareModuleGraph_ParseOnly()
+    {
+        var prepared = new List<Prepared<AstModule>>(ModuleCount);
+        foreach (var key in Keys)
+        {
+            prepared.Add(Engine.PrepareModule(Sources[key], key, ParseOnlyOptions));
+        }
+
+        return prepared;
+    }
+
+    /// <summary>
     /// Solitary cold start with no cross-engine sharing at all: a fresh engine parses all ten modules itself,
     /// links, evaluates and renders once. The baseline an embedder starts from before writing a caching
     /// loader.
@@ -246,6 +309,15 @@ public class ModuleGraphEmbeddingBenchmark
     /// </summary>
     [Benchmark]
     public JsValue ColdImport_PreparedShared() => ImportAndRender(new Engine(_configureShared));
+
+    /// <summary>
+    /// The same cold start against a shared cache prepared without the analysis pass. Against
+    /// <see cref="ColdImport_PreparedShared"/> it is what a single engine pays to rebuild for itself what the
+    /// pass would have published once onto the shared tree — the point at which one engine alone stops earning
+    /// back what <see cref="PrepareModuleGraph_ParseOnly"/> saved.
+    /// </summary>
+    [Benchmark]
+    public JsValue ColdImport_ParseOnlyShared() => ImportAndRender(new Engine(_configureParseOnlyShared));
 
     /// <summary>
     /// Diagnostic arm: the same prepared trees, built fresh inside the operation and never shared. Separates
@@ -281,6 +353,25 @@ public class ModuleGraphEmbeddingBenchmark
     }
 
     /// <summary>
+    /// The same pool refill from the parse-only cache. This is the row the option exists for: against
+    /// <see cref="PoolFill_PreparedShared"/> it says what <see cref="PoolSize"/> engines pay in total to rebuild
+    /// lazily what one analysis pass would have published for all of them, and how much of that lands in
+    /// <c>Allocated</c> per engine — the two halves a host weighs against the saving
+    /// <see cref="PrepareModuleGraph_ParseOnly"/> shows. Sequential by design; see the class remarks.
+    /// </summary>
+    [Benchmark]
+    public JsValue PoolFill_ParseOnlyShared()
+    {
+        JsValue result = JsValue.Undefined;
+        for (var i = 0; i < PoolSize; i++)
+        {
+            result = ImportAndRender(new Engine(_configureParseOnlyShared));
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Steady state on a long-lived engine whose graph is already linked and evaluated: one call into the
     /// entry module's <c>render</c>. No module machinery is on this path at all, which is the point — it is
     /// the canary that says whether a change aimed at the cold rows moved the warm one.
@@ -303,6 +394,27 @@ public class ModuleGraphEmbeddingBenchmark
             throw new InvalidOperationException(
                 $"Module-graph fixture is broken: {what} parsed {loader.ModulesParsed} modules, expected {ModuleCount}. " +
                 "Every row that draws on a prepared cache would be measuring something other than sharing.");
+        }
+    }
+
+    /// <summary>
+    /// The parse-only lane must render exactly what the eager one renders. Declining the analysis pass forfeits
+    /// the pre-publication of interpreter state, never the state itself — each engine rebuilds lazily what the
+    /// pass would have published — so a divergence here would mean the parse-only rows are cheaper because they
+    /// are doing something else, and every comparison against their eager counterparts would be void.
+    /// </summary>
+    private static void AssertSameRender(JsValue eager, JsValue parseOnly)
+    {
+        var eagerHtml = eager.AsString();
+        var parseOnlyHtml = parseOnly.AsString();
+
+        if (!string.Equals(eagerHtml, parseOnlyHtml, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Parse-only preparation rendered different HTML than the eagerly analyzed preparation, so the two " +
+                $"lanes are not running the same program.{Environment.NewLine}" +
+                $"  analyzed:   {eagerHtml}{Environment.NewLine}" +
+                $"  parse-only: {parseOnlyHtml}");
         }
     }
 
@@ -359,9 +471,15 @@ public class ModuleGraphEmbeddingBenchmark
     /// <c>Jint.Tests.PublicInterface/ModuleLoaderTests.cs</c>, which is the documented example of this
     /// pattern.
     /// </summary>
-    private sealed class SharedPreparedLoader : IModuleLoader
+    /// <param name="options">
+    /// How this loader prepares. <see langword="null"/> means <see cref="ModulePreparationOptions.Default"/>,
+    /// which is exactly what <see cref="Engine.PrepareModule"/> substitutes for a null argument of its own, so
+    /// the callers that pass nothing prepare precisely as they did before the parameter existed.
+    /// </param>
+    private sealed class SharedPreparedLoader(ModulePreparationOptions? options = null) : IModuleLoader
     {
         private readonly ConcurrentDictionary<string, Prepared<AstModule>> _prepared = new(StringComparer.Ordinal);
+        private readonly ModulePreparationOptions _options = options ?? ModulePreparationOptions.Default;
         private int _modulesParsed;
 
         /// <summary>
@@ -393,7 +511,7 @@ public class ModuleGraphEmbeddingBenchmark
 
         private Prepared<AstModule> Prepare(string key)
         {
-            var prepared = Engine.PrepareModule(SourceFor(key), key);
+            var prepared = Engine.PrepareModule(SourceFor(key), key, _options);
             Interlocked.Increment(ref _modulesParsed);
             return prepared;
         }

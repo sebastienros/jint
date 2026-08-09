@@ -111,6 +111,26 @@ public class GarbageCollectionTests
         }
     }
 
+    /// <summary>
+    /// The script the two shared-prepared-script retention tests run. It covers every cache shape: an ordinary
+    /// function (single-slot env cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block
+    /// (block env cache), a for-let loop (loop env cache), for-of/for-in with let head (per-iteration env cache on
+    /// the JintForInForOfStatement handler) and a Function-constructor function (definition-level env parked on
+    /// the realm-cached dynamic State, which must die with the realm).
+    /// </summary>
+    private const string RetentionScript = """
+        function f(x) { var y = x + 1; return y; }
+        function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+        function b(x) { { let y = x + 1; const z = y * 2; f(y + z); } }
+        function l(x) { var sum = 0; for (let i = 0; i < 3; i++) { sum += i; } return sum; }
+        function fo(arr) { var sum = 0; for (let v of arr) { sum += v; } return sum; }
+        function fi(obj) { var keys = ''; for (let k in obj) { keys += k; } return keys; }
+        var dyn = new Function('a', 'return a + 1');
+        f(1); f(2); fib(8); b(1); b(2); l(1); l(2);
+        fo([1, 2, 3]); fo([4, 5]); fi({ a: 1, b: 2 }); fi({ c: 3 });
+        dyn(1); dyn(2);
+        """;
+
     [Fact]
     public void SharedPreparedScriptDoesNotRetainEngines()
     {
@@ -119,25 +139,70 @@ public class GarbageCollectionTests
         // ScriptFunction instance and block environments on the JintBlockStatement handler instance (both
         // per engine) rather than on state shared through the AST, so once an engine is dropped its cached
         // environments — and the engine/realm they reference — become collectable even while the prepared
-        // script stays cached. The script covers every cache shape: an ordinary function (single-slot env
-        // cache), a direct-recursive one (bounded RecursiveEnvPool), a let/const block (block env cache),
-        // a for-let loop (loop env cache), for-of/for-in with let head (per-iteration env cache on the
-        // JintForInForOfStatement handler) and a Function-constructor function (definition-level env parked
-        // on the realm-cached dynamic State, which must die with the realm).
+        // script stays cached.
 
-        var prepared = Engine.PrepareScript("""
-            function f(x) { var y = x + 1; return y; }
-            function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
-            function b(x) { { let y = x + 1; const z = y * 2; f(y + z); } }
-            function l(x) { var sum = 0; for (let i = 0; i < 3; i++) { sum += i; } return sum; }
-            function fo(arr) { var sum = 0; for (let v of arr) { sum += v; } return sum; }
-            function fi(obj) { var keys = ''; for (let k in obj) { keys += k; } return keys; }
-            var dyn = new Function('a', 'return a + 1');
-            f(1); f(2); fib(8); b(1); b(2); l(1); l(2);
-            fo([1, 2, 3]); fo([4, 5]); fi({ a: 1, b: 2 }); fi({ c: 3 });
-            dyn(1); dyn(2);
-            """);
+        var prepared = Engine.PrepareScript(RetentionScript);
 
+        AssertNoEngineRetained(prepared);
+    }
+
+    [Fact]
+    public void SharedParseOnlyPreparedScriptDoesNotRetainEngines()
+    {
+        // Same claim, made where it is harder to keep: with StaticAnalysis off nothing is on the AST when the
+        // first engine starts, so the function and block state the sibling test finds pre-published is instead
+        // published onto the shared tree by the engines themselves, one node at a time, while they run. That is
+        // exactly the shape #2560 was about — engine-owned state reaching cross-engine shared storage — so the
+        // engine-neutrality of what gets published has to hold node for node, not merely by construction at
+        // preparation time.
+
+        var prepared = Engine.PrepareScript(RetentionScript, options: new ScriptPreparationOptions { StaticAnalysis = false });
+        prepared.Program.ShouldCarryNothing();
+
+        AssertNoEngineRetained(prepared);
+    }
+
+    [Fact]
+    public void SharedParseOnlyPreparedModuleDoesNotRetainEngines()
+    {
+        // The module half of the same claim: a module's bindings live in a module environment rather than the
+        // global one, and its evaluation runs through the module record, but the tree it publishes onto is the
+        // same shared tree.
+        var prepared = Engine.PrepareModule(
+            RetentionScript.Replace("var dyn", "export const dyn"),
+            options: new ModulePreparationOptions { StaticAnalysis = false });
+
+        prepared.Program.ShouldCarryNothing();
+
+        const int count = 20;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            references.Add(ImportOnceAndForget(prepared));
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        prepared.Program.ShouldCarryPublishedInterpreterState();
+
+        aliveCount.Should().Be(0, $"{aliveCount} of {count} engines were not collected — the shared prepared module still pins engines.");
+
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference ImportOnceAndForget(Prepared<Module> prepared)
+        {
+            var engine = new Engine();
+            engine.Modules.Add("main", x => x.AddModule(prepared));
+            engine.Modules.Import("main");
+            return new WeakReference(engine);
+        }
+    }
+
+    private static void AssertNoEngineRetained(Prepared<Script> prepared)
+    {
         const int count = 20;
         var references = new List<WeakReference>(count);
         for (var i = 0; i < count; i++)
@@ -151,7 +216,11 @@ public class GarbageCollectionTests
         GC.Collect(2, GCCollectionMode.Forced, blocking: true);
 
         var aliveCount = references.Count(static r => r.IsAlive);
-        GC.KeepAlive(prepared);
+
+        // Doubles as the keep-alive for the prepared script, and as the assertion that there was ever anything
+        // shared to leak: a run that published nothing onto the tree would satisfy the collection check for the
+        // wrong reason.
+        prepared.Program.ShouldCarryPublishedInterpreterState();
 
         aliveCount.Should().Be(0, $"{aliveCount} of {count} engines were not collected — the shared prepared script still pins engines.");
 
