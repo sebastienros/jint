@@ -190,7 +190,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         if (double.IsFinite(numLimit) && numLimit > NumberConstructor.MaxSafeInteger)
         {
             IteratorClose(o, CompletionType.Throw);
-            Throw.RangeError(_realm, $"{numLimit} exceeds the maximum safe integer");
+            Throw.RangeError(_realm, $"{TypeConverter.ToString(numLimit)} exceeds the maximum safe integer");
             limit = 0;
             return null!;
         }
@@ -200,7 +200,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
         if (integerLimit < 0)
         {
             IteratorClose(o, CompletionType.Throw);
-            Throw.RangeError(_realm, $"{integerLimit} must be positive");
+            Throw.RangeError(_realm, $"{TypeConverter.ToString(integerLimit)} must be positive");
             limit = 0;
             return null!;
         }
