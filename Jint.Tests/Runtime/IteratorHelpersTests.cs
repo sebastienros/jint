@@ -1014,4 +1014,84 @@ public class IteratorHelpersTests
     {
         OutOfRangeLimitMessage(expression).Should().Be(expected);
     }
+
+    [Fact]
+    public void EveryHelperObjectIsTaggedIteratorHelper()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const tag = v => Object.prototype.toString.call(v);
+            JSON.stringify([
+                tag([1].values().map(x => x)),
+                tag([1].values().filter(() => true)),
+                tag([1].values().take(1)),
+                tag([1].values().drop(0)),
+                tag([1].values().flatMap(x => [x])),
+                tag([1].values().chunks(1)),
+                tag([1].values().windows(1)),
+                // concat and zip share %IteratorHelperPrototype%, so they are tagged with it too
+                tag(Iterator.concat([1].values())),
+                tag(Iterator.zip([[1].values()])),
+                tag(Iterator.zipKeyed({ a: [1].values() }))
+            ]);
+            """).AsString();
+
+        result.Should().Be(
+            """["[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]"]""");
+    }
+
+    [Fact]
+    public void AnAsyncHelperObjectIsTaggedAsyncIteratorHelper()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const asyncIter = { __proto__: AsyncIterator.prototype, next() { return Promise.resolve({ done: true }); } };
+            const tag = v => Object.prototype.toString.call(v);
+            const of = method => tag(AsyncIterator.prototype[method].call(asyncIter, x => x));
+            JSON.stringify([of('map'), of('filter'), of('flatMap'), tag(AsyncIterator.prototype.take.call(asyncIter, 1))]);
+            """).AsString();
+
+        result.Should().Be(
+            """["[object Async Iterator Helper]","[object Async Iterator Helper]","[object Async Iterator Helper]","[object Async Iterator Helper]"]""");
+    }
+
+    [Theory]
+    // The tag is a data property on the helper prototype, shadowing the accessor pair that
+    // %Iterator.prototype% and %AsyncIterator.prototype% carry, with the usual toStringTag
+    // attributes: { [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }.
+    [InlineData("Object.getPrototypeOf([1].values().map(x => x))", "Iterator Helper")]
+    [InlineData("Object.getPrototypeOf(AsyncIterator.prototype.map.call(asyncIter, x => x))", "Async Iterator Helper")]
+    public void TheHelperToStringTagIsANonWritableConfigurableDataProperty(string prototype, string tag)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            const asyncIter = { __proto__: AsyncIterator.prototype, next() { return Promise.resolve({ done: true }); } };
+            const proto = {{prototype}};
+            const d = Object.getOwnPropertyDescriptor(proto, Symbol.toStringTag);
+            JSON.stringify([
+                Object.getOwnPropertySymbols(proto).length,
+                d.value,
+                d.writable,
+                d.enumerable,
+                d.configurable,
+                typeof d.get,
+                typeof d.set
+            ]);
+            """).AsString();
+
+        result.Should().Be($$"""[1,"{{tag}}",false,false,true,"undefined","undefined"]""");
+    }
+
+    [Fact]
+    public void TheReceiverOfAHelperKeepsItsOwnToStringTag()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const tag = v => Object.prototype.toString.call(v);
+            function* gen() { yield 1; }
+            JSON.stringify([tag(Iterator.prototype), tag([1].values()), tag(gen()), tag(AsyncIterator.prototype)]);
+            """).AsString();
+
+        result.Should().Be("""["[object Iterator]","[object Array Iterator]","[object Generator]","[object AsyncIterator]"]""");
+    }
 }
