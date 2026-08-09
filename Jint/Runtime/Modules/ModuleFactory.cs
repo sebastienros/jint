@@ -62,7 +62,7 @@ public static class ModuleFactory
     /// for the module's own imports.
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
-    /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
+    /// <exception cref="JavaScriptException">Is thrown if an error occurred when parsing <paramref name="code"/>.</exception>
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = LocationOf(resolved);
@@ -101,7 +101,7 @@ public static class ModuleFactory
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null, where before it was null for a loader returning no uri.
     /// </remarks>
-    /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="jsonString"/>.</exception>
+    /// <exception cref="JavaScriptException">Is thrown if an error occurred when parsing <paramref name="jsonString"/>.</exception>
     public static Module BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string jsonString)
     {
         var source = LocationOf(resolved);
