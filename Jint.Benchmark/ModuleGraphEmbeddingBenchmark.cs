@@ -112,6 +112,35 @@ namespace Jint.Benchmark;
 /// lifecycle, not about how the cost scales with graph size, and a slope in module count is already visible by
 /// dividing <see cref="PrepareModuleGraph"/> by ten.
 /// </para>
+///
+/// <para><b>How to read a delta from this class: allocation is the signal, time needs medians.</b></para>
+/// <para>
+/// Every row here builds engines and walks a module graph, so its time is far noisier between processes than
+/// BenchmarkDotNet's own <c>StdDev</c> column suggests — that column measures one warm process, which these
+/// rows are not. Thirty consecutive default-job runs of one unmodified binary, serial on an idle machine,
+/// gave this envelope, where <i>p95 pairwise</i> is the 95th percentile of the absolute difference between
+/// two runs of <b>identical code</b> — i.e. what a single before/after pair can report from nothing at all:
+/// </para>
+/// <list type="table">
+/// <listheader><term>Row</term><description>p95 pairwise / full spread (time)</description></listheader>
+/// <item><term><see cref="WarmRedraw_ReusedEngine"/></term><description>6.8% / 9.2%</description></item>
+/// <item><term><see cref="PrepareModuleGraph"/></term><description>5.3% / 6.7%</description></item>
+/// <item><term><see cref="ColdImport_PreparedPerOp"/></term><description>5.3% / 7.4%</description></item>
+/// <item><term><see cref="ColdImport_PreparedShared"/></term><description>3.3% / 5.0%</description></item>
+/// <item><term><see cref="ColdImport_SourcePerEngine"/></term><description>3.3% / 5.2%</description></item>
+/// <item><term><see cref="PoolFill_PreparedShared"/></term><description>2.5% / 3.6%</description></item>
+/// </list>
+/// <para>
+/// So a single pair's time delta below those numbers carries no information, and a gate threshold under them
+/// fires on noise. Two controls make the point concretely: adding a semantically inert internal class to the
+/// engine, and adding an unused method to <c>Throw</c>, each moved <see cref="WarmRedraw_ReusedEngine"/> by
+/// about 3% without changing a single executed instruction. To see a smaller effect than the envelope, compare
+/// the <b>median of five runs per side</b> rather than one pair.
+/// </para>
+/// <para>
+/// The <c>Allocated</c> column has no such problem: it was byte-identical across all thirty runs, on every
+/// row. Where a change should show up in allocation, that column is the one to gate on and the one to quote.
+/// </para>
 /// </summary>
 [MemoryDiagnoser]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
