@@ -361,6 +361,11 @@ public class Options
         /// <summary>
         /// Whether operator overloading resolution is allowed, defaults to false.
         /// </summary>
+        /// <remarks>
+        /// Read once per engine, at the end of construction and so after any callback registered with
+        /// <c>Options.Configure</c> has run. Setting it on an <see cref="Options"/> instance an engine
+        /// has already been built from does not reach that engine — only engines built afterwards.
+        /// </remarks>
         public bool AllowOperatorOverloading { get; set; }
 
         /// <summary>

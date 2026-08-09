@@ -28,7 +28,6 @@ internal sealed class EvaluationContext
     public EvaluationContext(Engine engine)
     {
         Engine = engine;
-        OperatorOverloadingAllowed = engine.Options.Interop.AllowOperatorOverloading;
 
         // A lone statement counter does not have to disarm the statement fast paths: it is charged
         // inline instead (see ChargeStatement), once per executed statement, at the same points
@@ -44,7 +43,6 @@ internal sealed class EvaluationContext
     public EvaluationContext()
     {
         Engine = null!;
-        OperatorOverloadingAllowed = false;
         _shouldRunPerStatementChecks = false;
         _hasAmortizedConstraints = false;
         _statementCounter = null;
@@ -89,7 +87,20 @@ internal sealed class EvaluationContext
         set => Engine._lastSyntaxElement = value;
     }
 
-    public readonly bool OperatorOverloadingAllowed;
+    /// <summary>
+    /// Whether an operand may have a CLR operator behind it
+    /// (<c>Options.Interop.AllowOperatorOverloading</c>). Read from the engine rather than
+    /// snapshotted here: this context is built before <c>Options.Apply</c> runs the host's
+    /// configuration callbacks, and one of those may still enable the option — the same reason
+    /// <see cref="Engine._maxRecursionDepth"/> is read after Apply. The engine's field is the
+    /// snapshot, fixed for its lifetime, so this stays a per-engine constant the way the call sites
+    /// assume.
+    /// <para>
+    /// The null test is for the engine-less context above, which constant folding builds at
+    /// preparation time and which has to answer <see langword="false"/> rather than throw.
+    /// </para>
+    /// </summary>
+    public bool OperatorOverloadingAllowed => Engine is { _operatorOverloadingAllowed: true };
 
     /// <summary>
     /// Whether Normal-completion values of statements are observable in the current frame.
