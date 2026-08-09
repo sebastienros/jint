@@ -247,7 +247,37 @@ already exists — which is what you need when the value comes from the request 
 than from process-wide configuration. Both install the property eagerly, so `in`, `hasOwnProperty` and
 `Object.keys(globalThis)` see the name without building anything; only reading the value runs the factory,
 once. The per-engine overload receives its engine, so unlike an `Options`-registered factory it may capture
-engine-affine state.
+engine-affine state — and where it would do nothing but capture, the overload taking the state,
+`engine.Advanced.AddLazyGlobal(name, state, static (e, s) => ...)`, hands it to a `static` factory instead.
+That matters only because this registration is per engine: a capturing factory costs a display class and a
+delegate for every global on every engine you build, which on `FreshEngineGlobalsBenchmark`'s forty-global
+row is 32 bytes per global. There is deliberately no `Options` counterpart — a registration made there is
+recorded once for the process and replayed per engine, so its closure is already a one-off.
+
+**Per-request state behind an engine.** Every host-facing factory in this API receives the engine and nothing
+else, which is a problem when the value depends on the request rather than on process-wide configuration.
+`engine.Advanced.HostDefined` closes that gap: an opaque `object?` the engine never reads or interprets — the
+`[[HostDefined]]` field the specification reserves on a Realm Record — so a factory that captures nothing can
+still reach the scope it is running in. The alternative embedders reach for is a
+`static ConditionalWeakTable<Engine, IServiceProvider>`, which takes its internal write lock every time a
+host associates state with an engine, across every tenant in the process.
+
+```c#
+// once per process — the factory captures nothing, so one Options serves every engine
+var options = new Options()
+    .AddLazyGlobal("user", static engine =>
+        JsValue.FromObject(engine, ((RequestContext) engine.Advanced.HostDefined!).User));
+
+// per request, before you run anything
+engine.Advanced.HostDefined = requestContext;
+```
+
+It is the *principal* realm's field, not the current one, so it answers the same value inside a `ShadowRealm`
+callback as outside. A shadow realm is a distinct realm and gets its own, empty by specification — deliberate,
+since propagating the outer request's services into sandboxed code is exactly the ambient authority a shadow
+realm exists to withhold; `Host.InitializeShadowRealm` is the hook if you do want to populate it. The value
+dies with the engine, and nothing in the engine clears it: a restore (below) does not touch it, so a pooled
+engine keeps it across one and you replace it yourself, typically right after restoring.
 
 **Sparse data.** Hosts that read deep chains off optional data — `input.Address.City.length`, where any link
 may be absent — usually install an `IReferenceResolver` so a nullish base yields a value instead of throwing.
@@ -747,6 +777,40 @@ Note that you don't need to `EnableModules` if you only use modules created usin
 If you serve the same modules from a pool of engines, see **Sharing a module graph across pooled engines**
 under [Embedding performance](#embedding-performance): a loader that caches prepared modules keeps every
 engine but the first from parsing them again.
+
+### How a module is named
+
+Every module has a location — the string it knows itself by, `Module.Location` — and for a module a loader
+produced, that string is `ModuleFactory.LocationOf(resolved)`: the `LocalPath` of an absolute `file:` uri, and
+otherwise `ResolvedSpecifier.Key`, exactly as your `Resolve` wrote it. It is never null.
+
+It is worth getting right because four things read it:
+
+- your own `ModuleLoader.Resolve`, as `referencingModuleLocation`, whenever that module imports something
+  relative;
+- `error.stack`, and any `SyntaxError` a malformed module raises, through `SourceLocation.SourceFile`;
+- the debugger, which keys breakpoints on it — `new BreakPoint(location, line, column)`;
+- `import.meta.url`, if you report it. Jint leaves `import.meta` to the host, so it is your
+  `Host.GetImportMetaProperties` override that puts the location there.
+
+So a loader serving modules over a transport should key them by the whole url rather than by a path. A module
+that knows itself as `/lib/entry.js` has no origin left for its own `./dep.js` to resolve against; one that
+knows itself as `http://localhost/lib/entry.js` resolves it the way a browser would. The key is used verbatim
+rather than `Uri.AbsoluteUri`, which canonicalizes — strips a default port, lowercases the host, collapses
+dot segments, percent-encodes — and whose .NET Framework and .NET Core parsers disagree on parts of that, so
+a canonicalized name would differ per target framework and could drift from the key the module map is cached
+under. Loading from disk is unaffected: a `file:` uri keeps its path, which is what `DefaultModuleLoader`
+resolves against a filesystem base path.
+
+One consequence to weigh if the url carries anything sensitive. This string reaches script through
+`new Error().stack`, so a loader keying modules by `https://svc:s3cr3t@internal.corp/lib/a.js?apikey=...`
+hands untrusted script the credential and the api key. A browser's `import.meta.url` carries the query too,
+so this follows from naming a module by its url at all; keep secrets out of the key, or out of the url.
+
+If you name modules yourself — preparing each one once and sharing the `Prepared<AstModule>` across pooled
+engines, per **Sharing a module graph across pooled engines** — call `ModuleFactory.LocationOf` for the name
+rather than deriving it by hand. A name that differs from the engine's own answer breaks relative-import
+resolution with nothing to point at.
 
 ### Loading modules asynchronously
 
