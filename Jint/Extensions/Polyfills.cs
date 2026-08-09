@@ -423,7 +423,21 @@ internal static class MathPolyfills
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
         // Math.Clamp arrived in .NET Core 2.0 / netstandard2.1.
-        public static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
+        //
+        // The bounds check is not decoration: the real Math.Clamp throws for min > max rather than
+        // silently preferring one of them, and the message it throws with is reproduced verbatim. Without
+        // it, net462 and netstandard2.0 would answer an inverted-bounds call with a number while
+        // netstandard2.1 and up threw -- and no target framework this repository executes tests on could
+        // ever see the split, since netstandard2.1 binds the real member.
+        public static int Clamp(int value, int min, int max)
+        {
+            if (min > max)
+            {
+                Jint.Runtime.Throw.ArgumentException($"'{min}' cannot be greater than {max}.");
+            }
+
+            return value < min ? min : value > max ? max : value;
+        }
 #endif
     }
 }

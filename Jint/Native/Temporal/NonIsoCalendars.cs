@@ -1067,7 +1067,14 @@ internal static class NonIsoCalendars
                 case 12: return 29; // Elul
             }
         }
-        return 0;
+
+        // Unreachable while .NET's HebrewCalendar and IsHebrewLeapYearAlgorithmic agree about a year:
+        // every caller has already clamped or rejected the ordinal against 13-if-leap-else-12, and
+        // ordinal 13 exists only in a leap year. The fallback is nevertheless the shortest Hebrew month
+        // rather than 0, because this value becomes the max of Math.Clamp(day, 1, maxDay) -- and a max
+        // of 0 is inverted bounds, which is an ArgumentException escaping engine.Evaluate rather than a
+        // constrained date. 29 never lengthens a month, so a day is still constrained, never admitted.
+        return 29;
     }
 
     private static int HebrewMonthCodeToOrdinal(int year, string monthCode)
