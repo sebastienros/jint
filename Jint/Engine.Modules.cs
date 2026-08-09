@@ -702,16 +702,32 @@ public partial class Engine
                     Throw.NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{cyclicModule.Status}'");
                 }
             }
-            else if (cyclicModule.Status == ModuleStatus.Evaluated)
+            else if (cyclicModule.Status is ModuleStatus.Linked or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
             {
-                // The module has already been evaluated - either as its own entry point or as a
-                // dependency of some other graph. https://tc39.es/ecma262/#sec-ContinueDynamicImport
-                // evaluates it again regardless, and https://tc39.es/ecma262/#sec-moduleevaluation
-                // makes that a no-op that hands back the already settled promise, with one exception:
-                // a module whose evaluation threw replays its recorded [[EvaluationError]]. Skipping
-                // the call returned a namespace over bindings the failed evaluation never initialized.
+                // The three states https://tc39.es/ecma262/#sec-moduleevaluation step 2 accepts as input, and
+                // https://tc39.es/ecma262/#sec-ContinueDynamicImport hands the record to Evaluate() for every
+                // one of them. A host import is the host's spelling of a dynamic import, so it does too.
+                //
+                // Linked is what some other operation on the graph left behind: an `import defer` elsewhere
+                // loads and links its target without evaluating it, so importing that target for real is what
+                // has to evaluate it. EvaluatingAsync is a graph still suspended on a top-level await, started
+                // by an earlier StartImport; Evaluate() hands back its pending [[TopLevelCapability]] promise
+                // and EvaluateModule waits that out. Both used to fall past this chain and be returned as a
+                // namespace over uninitialized bindings - a read threw "Cannot access 'v' before
+                // initialization" for the first and silently observed a half-run module for the second.
+                //
+                // Evaluated re-enters deliberately: ModuleEvaluation makes the call a no-op that hands back
+                // the already settled promise, with one exception - a module whose evaluation threw replays
+                // its recorded [[EvaluationError]]. Skipping the call returned a namespace over bindings the
+                // failed evaluation never initialized.
                 _engine.ExecuteWithConstraints(true, () => EvaluateModule(request.Specifier, cyclicModule));
             }
+
+            // Linking and Evaluating are deliberately not handled: the module is being worked on further up
+            // this very stack, by a host callback or a loader that re-entered Import, and the spec's own
+            // answer to a self-import mid-evaluation is the pending top-level promise - which this thread
+            // cannot wait for without deadlocking against itself. The namespace is handed back as it stands,
+            // which is what a circular import observes anyway.
 
             _engine.RunAvailableContinuations();
 
