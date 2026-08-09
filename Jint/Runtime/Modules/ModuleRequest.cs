@@ -91,10 +91,20 @@ public readonly record struct ModuleRequest(string Specifier, ModuleImportAttrib
 /// phase that <see cref="ModuleRequest.Equals(ModuleRequest)"/> counts. A module record's
 /// <see href="https://tc39.es/ecma262/#table-module-record-fields">[[LoadedModules]]</see> field is keyed on
 /// the specifier/attributes pair, and the defer/source-phase proposals do not change that: <c>import x</c>
-/// and <c>import defer x</c> of one specifier denote the same module record. Keying on the phase as well
-/// would ask the host twice for the same referrer/specifier pair, which
-/// <see href="https://tc39.es/ecma262/#sec-HostLoadImportedModule">HostLoadImportedModule</see> forbids.
+/// and <c>import defer x</c> of one specifier denote the same module record, so a
+/// <c>LoadedModuleRequest</c> Record carries no phase to compare.
 /// </summary>
+/// <remarks>
+/// Keying on the phase as well would file the two as separate answers and put a second fetch through the
+/// loader for a pair already answered.
+/// <see href="https://tc39.es/ecma262/#sec-HostLoadImportedModule">HostLoadImportedModule</see> does not
+/// forbid being asked twice — it requires the host to "perform FinishLoadingImportedModule … with the same
+/// result each time" — but a second fetch for one record is pure duplicate work, and the list the spec keeps
+/// would then say two things where the spec says one. Note that the loader can still see the same pair
+/// twice: <see href="https://tc39.es/ecma262/#sec-InnerModuleLoading">InnerModuleLoading</see> dispatches
+/// every requested module before any of them has been recorded, so a two-phase pair against an asynchronous
+/// loader is resolved twice and then coalesced onto one in-flight load.
+/// </remarks>
 internal sealed class LoadedModuleRequestComparer : IEqualityComparer<ModuleRequest>
 {
     internal static readonly LoadedModuleRequestComparer Instance = new();
