@@ -342,11 +342,11 @@ public class PropertyDescriptor
                 nameof(flags));
         }
 
-        // Resolved once here, not per read: the descriptor treats a null value as "not materialized yet", so
-        // a factory returning null would silently re-run on every read instead of memoizing.
-        Func<TState, JsValue> resolver = s => valueFactory!(s) ?? JsValue.Undefined;
-
-        return new LazyPropertyDescriptor<TState>(state, resolver, flags);
+        // Handed over unwrapped. The descriptor treats a null value as "not materialized yet", so the null
+        // return documented above has to become Undefined somewhere - but that substitution lives in
+        // LazyPropertyDescriptor.CustomValue, which every route into the descriptor passes through, so
+        // guarding here too would only add a display class and a delegate per call on a public factory.
+        return new LazyPropertyDescriptor<TState>(state, valueFactory, flags);
     }
 
     /// <summary>

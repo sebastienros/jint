@@ -214,6 +214,33 @@ public class LazyPropertyDescriptorTests
         calls.Should().Be(1);
     }
 
+    /// <summary>
+    /// The same guarantee for the state overload, which is the one the factory reaches unwrapped: nothing
+    /// stands between a host's delegate and the descriptor, so it is the descriptor that has to read a
+    /// <see langword="null"/> return as <c>undefined</c> rather than as "not resolved yet".
+    /// </summary>
+    [Fact]
+    public void NullFactoryResultFromTheStateOverloadBecomesUndefinedRatherThanReRunning()
+    {
+        var calls = 0;
+        var engine = new Engine();
+        var host = new DescriptorBackedHost(engine);
+        host.Add("nothing", PropertyDescriptor.CreateLazy<string?>("ignored", _ =>
+        {
+            calls++;
+            return null!;
+        }));
+        engine.SetValue("host", host);
+
+        engine.Evaluate("typeof host.nothing").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof host.nothing").AsString().Should().Be("undefined");
+        calls.Should().Be(1);
+
+        // and it is a real own property holding undefined, not an absent one
+        engine.Evaluate("'nothing' in host").AsBoolean().Should().BeTrue();
+        calls.Should().Be(1);
+    }
+
     [Fact]
     public void AThrowingFactoryPropagatesAndLeavesThePropertyUnmaterialized()
     {
