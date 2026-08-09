@@ -9,14 +9,28 @@ namespace Jint.Runtime.Modules;
 public static class ModuleFactory
 {
     /// <summary>
-    /// The name a module knows itself by: <see cref="ResolvedSpecifier.Key"/>, the string the loader
-    /// itself chose, with one exception for a <c>file:</c> uri. Reducing a url to <see cref="Uri.LocalPath"/>
-    /// drops its scheme, host and query, so a module that knows itself as <c>/lib/a.js</c> has no origin
-    /// left for a relative import of its own to resolve against - and this name is exactly what comes
-    /// back as <c>referencingModuleLocation</c> on the next <see cref="ModuleLoader.Resolve"/> - nor one
-    /// to report through <c>import.meta.url</c>.
+    /// The name a module resolved to <paramref name="resolved"/> knows itself by: <see cref="ResolvedSpecifier.Key"/>,
+    /// the string the loader itself chose, with one exception for a <c>file:</c> uri. This is the
+    /// <see cref="Module.Location"/> every <c>Build*Module</c> overload taking a <see cref="ResolvedSpecifier"/>
+    /// gives the module it builds, and it is never null.
     /// </summary>
+    /// <param name="resolved">The specifier a <see cref="ModuleLoader"/> resolved a module request to.</param>
+    /// <returns>The location the engine names a module built from <paramref name="resolved"/> by.</returns>
     /// <remarks>
+    /// <para>
+    /// A host that shares one prepared module across pooled engines has to name the module before any module
+    /// exists, and the name has to be exactly the one the engine would have derived - it becomes
+    /// <see cref="Module.Location"/> and therefore the <c>referencingModuleLocation</c> echoed back into
+    /// <see cref="ModuleLoader.Resolve"/> for the module's own imports, so a mismatch breaks relative-import
+    /// resolution with no error to point at. Pass this as the <c>source</c> argument of
+    /// <see cref="Engine.PrepareModule"/> and a shared prepared AST carries the same identity the
+    /// string-loading overloads of this factory would have produced.
+    /// </para>
+    /// <para>
+    /// Reducing a url to <see cref="Uri.LocalPath"/> drops its scheme, host and query, so a module that knows
+    /// itself as <c>/lib/a.js</c> has no origin left for a relative import of its own to resolve against, nor
+    /// one to report through <c>import.meta.url</c>. Hence the key, except for <c>file:</c>.
+    /// </para>
     /// <para>
     /// The key is deliberately preferred over <see cref="Uri.AbsoluteUri"/>, which is not the url the host
     /// gave us: it strips a default port, lowercases the host, collapses dot segments and percent-encodes,
@@ -38,8 +52,15 @@ public static class ModuleFactory
     /// <see cref="InvalidOperationException"/> on one. It now builds a module named by its key, which is
     /// the same shape a loader returning no uri at all has always produced.
     /// </para>
+    /// <para>
+    /// This rule governs the loader path only. A module registered through <c>Engine.Modules.Add</c> and a
+    /// <see cref="ModuleBuilder"/> is named by its resolved <see cref="ResolvedSpecifier.Key"/> alone, with
+    /// no <c>file:</c> reduction - deliberately, since such a module has no loaded url behind it - and that
+    /// difference is documented behavior of the registration path rather than something this method smooths
+    /// over.
+    /// </para>
     /// </remarks>
-    private static string LocationOf(ResolvedSpecifier resolved)
+    public static string LocationOf(ResolvedSpecifier resolved)
     {
         var uri = resolved.Uri;
         if (uri is not null && uri.IsAbsoluteUri && uri.IsFile)

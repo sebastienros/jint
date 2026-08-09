@@ -277,4 +277,157 @@ public class ModuleLoaderTests
 
         ns.Get("answer").AsNumber().Should().Be(42);
     }
+
+    /// <summary>
+    /// A <c>file:</c> uri is the one case where the module's name is not the loader's key: it is reduced to
+    /// <see cref="Uri.LocalPath"/>, which is exactly the rule a host preparing modules itself has to match.
+    /// </summary>
+    [Fact]
+    public void LocationOfNamesTheBuiltModuleForAnAbsoluteFileUri()
+    {
+        var uri = new Uri("file:///lib/a.js");
+        var resolved = new ResolvedSpecifier(new ModuleRequest("a.js", []), uri.ToString(), uri, SpecifierType.RelativeOrAbsolute);
+
+        var location = ModuleFactory.LocationOf(resolved);
+
+        location.Should().Be(uri.LocalPath).And.NotBe(resolved.Key);
+        LocationOfShouldNameTheBuiltModule(resolved);
+    }
+
+    /// <summary>
+    /// Every other scheme leaves the loader's key alone, uri or no uri - the uri is consulted for nothing but
+    /// the "is this a file?" question.
+    /// </summary>
+    [Fact]
+    public void LocationOfNamesTheBuiltModuleByItsKeyForANonFileUri()
+    {
+        var uri = new Uri("app:///x.js");
+        var resolved = new ResolvedSpecifier(new ModuleRequest("x.js", []), uri.ToString(), uri, SpecifierType.RelativeOrAbsolute);
+
+        ModuleFactory.LocationOf(resolved).Should().Be(resolved.Key);
+        LocationOfShouldNameTheBuiltModule(resolved);
+
+        // The key is taken verbatim rather than derived from the uri, so a loader whose key is not the uri's
+        // own string still names the module by the key.
+        var divergent = new ResolvedSpecifier(new ModuleRequest("x.js", []), "app:the-x-module", uri, SpecifierType.Bare);
+
+        ModuleFactory.LocationOf(divergent).Should().Be("app:the-x-module");
+        LocationOfShouldNameTheBuiltModule(divergent);
+    }
+
+    [Fact]
+    public void LocationOfNamesTheBuiltModuleByItsKeyWhenTheLoaderReturnsNoUri()
+    {
+        var resolved = new ResolvedSpecifier(new ModuleRequest("____main____", []), "____main____", null, SpecifierType.Bare);
+
+        ModuleFactory.LocationOf(resolved).Should().Be("____main____");
+        LocationOfShouldNameTheBuiltModule(resolved);
+    }
+
+    private static void LocationOfShouldNameTheBuiltModule(ResolvedSpecifier resolved)
+    {
+        var engine = new Engine();
+        var module = ModuleFactory.BuildSourceTextModule(engine, resolved, "export const value = 1;");
+
+        module.Location.Should().Be(ModuleFactory.LocationOf(resolved));
+    }
+
+    /// <summary>
+    /// The use case <see cref="ModuleFactory.LocationOf"/> is public for: a loader that prepares each module
+    /// once and shares the prepared AST across engines has to name the module before any module exists, and
+    /// the name has to be the one the engine would have derived - it is what the module's own relative
+    /// imports are resolved against.
+    /// </summary>
+    [Fact]
+    public void PreparedModulesNamedByLocationOfResolveTheirRelativeImports()
+    {
+        var loader = new SharedPreparedModuleLoader(new Dictionary<string, string>
+        {
+            ["file:///modules/main.js"] = "import { value } from './lib/dep.js'; export const result = value + '!';",
+            ["file:///modules/lib/dep.js"] = "export const value = 'shared';",
+        });
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var engine = new Engine(options => options.EnableModules(loader));
+
+            var ns = engine.Modules.Import("file:///modules/main.js");
+
+            ns.Get("result").AsString().Should().Be("shared!");
+        }
+
+        // One prepared AST per module, reused by all three engines.
+        loader.PreparedLocations.Should().HaveCount(2);
+
+        // The nested import was resolved against the very name PrepareModule was handed, and for a file: uri
+        // that name is the reduced path rather than the url the source is keyed under.
+        var mainLocation = loader.PreparedLocations[0];
+        mainLocation.Should().NotBe("file:///modules/main.js");
+        loader.Resolutions.Should().Contain(r => r.Specifier == "./lib/dep.js" && r.Referencing == mainLocation);
+    }
+
+    /// <summary>
+    /// Prepares every module once and shares the prepared <see cref="AstModule"/> across engines, naming each
+    /// one with <see cref="ModuleFactory.LocationOf"/> so it carries the identity the string-loading overloads
+    /// of <see cref="ModuleFactory"/> would have produced. The same string is the cache key, so a module and
+    /// its cache entry cannot drift apart.
+    /// </summary>
+    private sealed class SharedPreparedModuleLoader : IModuleLoader
+    {
+        private static readonly Uri Root = new("file:///modules/");
+
+        private readonly IReadOnlyDictionary<string, string> _sources;
+        private readonly Dictionary<string, Prepared<AstModule>> _prepared = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Uri> _urisByLocation = new(StringComparer.Ordinal);
+        private readonly List<(string? Referencing, string Specifier)> _resolutions = new();
+        private readonly List<string> _preparedLocations = new();
+
+        public SharedPreparedModuleLoader(IReadOnlyDictionary<string, string> sources)
+        {
+            _sources = sources;
+        }
+
+        public IReadOnlyList<(string? Referencing, string Specifier)> Resolutions => _resolutions;
+
+        public IReadOnlyList<string> PreparedLocations => _preparedLocations;
+
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            _resolutions.Add((referencingModuleLocation, moduleRequest.Specifier));
+
+            Uri uri;
+            if (Uri.TryCreate(moduleRequest.Specifier, UriKind.Absolute, out var absolute))
+            {
+                uri = absolute;
+            }
+            else
+            {
+                // A module loaded from a file: uri knows itself by a path with no scheme left to resolve a
+                // relative import against, so the loader reconstructs the origin - here from the uri it
+                // handed out for that location.
+                var origin = referencingModuleLocation is not null && _urisByLocation.TryGetValue(referencingModuleLocation, out var known)
+                    ? known
+                    : Root;
+                uri = new Uri(origin, moduleRequest.Specifier);
+            }
+
+            var resolved = new ResolvedSpecifier(moduleRequest, uri.ToString(), uri, SpecifierType.RelativeOrAbsolute);
+            _urisByLocation[ModuleFactory.LocationOf(resolved)] = uri;
+            return resolved;
+        }
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        {
+            // Both the cache key and the prepared module's name are the location the engine derives itself.
+            var location = ModuleFactory.LocationOf(resolved);
+            if (!_prepared.TryGetValue(location, out var prepared))
+            {
+                prepared = Engine.PrepareModule(_sources[resolved.Key], location);
+                _prepared[location] = prepared;
+                _preparedLocations.Add(location);
+            }
+
+            return ModuleFactory.BuildSourceTextModule(engine, prepared);
+        }
+    }
 }
