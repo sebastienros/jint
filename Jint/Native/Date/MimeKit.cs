@@ -525,9 +525,10 @@ internal static class DateUtils
                 int endIndex = tokens[i].Start + tokens[i].Length;
                 int index = tokens[i].Start;
 
-#pragma warning disable CA1806
-                ParseUtils.TryParseInt32(text, ref index, endIndex, out value);
-#pragma warning restore CA1806
+                // The result is discarded deliberately: the token is numeric (every byte is a digit) and
+                // one or two bytes long, so the parse can neither run out of digits nor overflow. Even
+                // if it could, it would leave value at 0, which falls through every range check below.
+                _ = ParseUtils.TryParseInt32(text, ref index, endIndex, out value);
 
                 if (month == null && value > 0 && value <= 12)
                 {
