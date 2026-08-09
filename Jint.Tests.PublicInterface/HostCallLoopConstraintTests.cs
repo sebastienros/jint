@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Jint.Constraints;
 using Jint.Runtime;
@@ -455,6 +455,9 @@ public class HostCallLoopConstraintTests
     /// </summary>
     private static readonly TimeSpan UnreachableBudget = TimeSpan.FromMinutes(10);
 
+    /// <summary>The smallest budget that still arms a deadline: positive, and gone by the first check.</summary>
+    private static readonly TimeSpan ExhaustedBudget = TimeSpan.FromTicks(1);
+
     [Fact]
     public void ADeadlineSpansAHostLoopOfShortCallsAndFailsItOnceTheBudgetIsGone()
     {
@@ -508,8 +511,9 @@ public class HostCallLoopConstraintTests
     public void EndingAnOperationDisarmsTheInstanceAndAFreshBeginArmsItAgain()
     {
         // The pooled shape: one engine and one constraint serve operation after operation. Deterministic
-        // on purpose — an exhausted budget is expressed as one that had already elapsed when it was
-        // handed over, so nothing here depends on how fast the machine is.
+        // on purpose — an exhausted budget is expressed as the smallest positive one there is, which a
+        // single call cannot fit inside, so nothing here depends on how fast the machine is. It cannot be
+        // TimeSpan.Zero: non-positive asks for no deadline at all.
         var deadline = new OperationDeadlineConstraint();
         var engine = CreateDeadlineEngine(deadline);
         var work = engine.GetValue("work");
@@ -529,7 +533,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => work.Call(1)).Should().NotThrow("End() disarmed the constraint");
 
         // operation 2: no time left at all, and the same instance reports it
-        deadline.Begin(TimeSpan.Zero);
+        deadline.Begin(ExhaustedBudget);
         try
         {
             Invoking(() => work.Call(1)).Should().Throw<TimeoutException>();
@@ -641,6 +645,66 @@ public class HostCallLoopConstraintTests
                     work.Call(i);
                 }
             }).Should().NotThrow("a budget of TimeSpan.MaxValue is effectively unlimited, not already spent");
+        }
+        finally
+        {
+            deadline.End();
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(BudgetsMeaningNoTimeLimit))]
+    public void ANonPositiveBudgetAsksForNoTimeLimitRatherThanOneAlreadySpent(TimeSpan budget)
+    {
+        // Timeout.InfiniteTimeSpan is -1ms, and TimeoutInterval registers no constraint at all for a
+        // non-positive interval, so a host spelling "no time limit" either way must not get the opposite.
+        // A host that computed "time left" and found none declines to enter the engine instead.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        deadline.Begin(budget);
+        try
+        {
+            Invoking(() =>
+            {
+                for (var i = 0; i < HostCalls; i++)
+                {
+                    work.Call(i);
+                }
+            }).Should().NotThrow("a non-positive budget asks for no deadline, not for one that has passed");
+        }
+        finally
+        {
+            deadline.End();
+        }
+    }
+
+    public static TheoryData<TimeSpan> BudgetsMeaningNoTimeLimit() =>
+        [Timeout.InfiniteTimeSpan, TimeSpan.Zero, TimeSpan.FromSeconds(-5)];
+
+    [Fact]
+    public void ANonPositiveBudgetStillObservesTheOperationsToken()
+    {
+        // The cancellation-only shape: no wall-clock bound, but the request can still be abandoned.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+        using var cts = new CancellationTokenSource();
+
+        deadline.Begin(Timeout.InfiniteTimeSpan, cts.Token);
+        try
+        {
+            work.Call(0);
+            cts.Cancel();
+
+            Invoking(() =>
+            {
+                for (var i = 0; i < HostCalls; i++)
+                {
+                    work.Call(i);
+                }
+            }).Should().Throw<OperationCanceledException>("the token is observed whether or not a budget is");
         }
         finally
         {
