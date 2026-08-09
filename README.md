@@ -355,8 +355,12 @@ back in: invoking a function a previous evaluation handed you runs it against th
 **It is a configuration-reuse primitive, not an isolation boundary** — mutations of `Object.prototype` and
 other intrinsics, of object graphs behind restored bindings, of host CLR state, plus `Symbol.for`
 registrations and registered modules, all survive a restore, so mutually distrusting scripts still need
-separate engines. A snapshot also keeps its engine and every captured value strongly reachable, so do not
-cache one past that engine's lifetime.
+separate engines. Note that surviving intrinsic pollution is a surviving *binding*, not just a surviving
+property: bare identifiers resolve through the global's prototype chain, so `Object.prototype.leaked = 1` in
+one evaluation makes `leaked` a name the next one can read with no qualifier. (The global's own
+`[[Prototype]]` is captured and restored, so a `setPrototypeOf(globalThis, …)` is reverted.) A snapshot also
+keeps its engine and every captured value strongly reachable, so do not cache one past that engine's
+lifetime.
 
 **Constraints and options.** An `Options` instance is meant to be shared across engines, including concurrent
 ones — the built-in constraint helpers register a *factory*, so each engine gets its own counter and its own
