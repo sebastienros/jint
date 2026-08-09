@@ -14,6 +14,11 @@ public partial class Engine
     /// </summary>
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
+    /// <para>
+    /// Setting <see cref="ScriptPreparationOptions.StaticAnalysis"/> to <see langword="false"/> skips the analysis
+    /// and leaves preparation at roughly the cost of a parse; the result stays reusable and thread-safe, and every
+    /// engine running it rebuilds lazily what the analysis would have precomputed.
+    /// </para>
     /// </remarks>
     public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPreparationOptions? options = null)
     {
@@ -25,9 +30,8 @@ public partial class Engine
         var paddedCode = padding.Length > 0 ? padding + code : code;
 
         var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
-        var astAnalyzer = new AstAnalyzer(options, referencedGlobals);
         var parserOptions = options.GetParserOptions();
-        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.GetNodeVisitor() });
+        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions);
 
         try
         {
@@ -46,6 +50,11 @@ public partial class Engine
     /// </summary>
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
+    /// <para>
+    /// Setting <see cref="ModulePreparationOptions.StaticAnalysis"/> to <see langword="false"/> skips the analysis
+    /// and leaves preparation at roughly the cost of a parse; the result stays reusable and thread-safe, and every
+    /// engine running it rebuilds lazily what the analysis would have precomputed.
+    /// </para>
     /// </remarks>
     public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePreparationOptions? options = null)
     {
@@ -53,9 +62,8 @@ public partial class Engine
         options ??= ModulePreparationOptions.Default;
 
         var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
-        var astAnalyzer = new AstAnalyzer(options, referencedGlobals);
         var parserOptions = options.GetParserOptions();
-        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.GetNodeVisitor() });
+        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions);
 
         try
         {
@@ -66,6 +74,58 @@ public partial class Engine
         catch (Exception e)
         {
             throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
+    }
+
+    /// <summary>
+    /// Builds the parser a preparation runs under, which is entirely a question of which node visitor — if any —
+    /// gets installed on top of <paramref name="parserOptions"/>.
+    /// <para>
+    /// When the analysis runs it owns the visitor slot outright: it folds the referenced-globals collector into its
+    /// own visitor and reads retained source text from the parse context itself, so nothing it displaces is lost.
+    /// When it does not run, the two remaining reasons to visit a node have to be composed by hand, and the case
+    /// that matters is the one where there is no reason at all: the parser options are then handed to the parser
+    /// untouched, which is both one <see cref="ParserOptions"/> clone saved and what keeps the source-text
+    /// retention handler that <c>ParsingOptions.ApplyTo</c> installed in effect.
+    /// </para>
+    /// </summary>
+    private static Parser CreatePreparationParser(
+        IPreparationOptions<IParsingOptions> options,
+        bool staticAnalysis,
+        ReferencedGlobalsCollector? referencedGlobals,
+        ParserOptions parserOptions)
+    {
+        if (staticAnalysis)
+        {
+            return new Parser(parserOptions with { OnNode = new AstAnalyzer(options, referencedGlobals).GetNodeVisitor() });
+        }
+
+        if (referencedGlobals is null)
+        {
+            return new Parser(parserOptions);
+        }
+
+        // Collecting without analyzing. The collector never writes UserData, so ordering against the retention
+        // handler is free, but displacing it is not: retained source text is the retention handler's only chance
+        // to be recorded, and Function.prototype.toString() reads what it left behind.
+        var retainSourceText = parserOptions.OnNode;
+        OnNodeHandler onNode = retainSourceText is null
+            ? referencedGlobals.OnNode
+            : new CompositeNodeVisitor(retainSourceText, referencedGlobals.OnNode).Visit;
+
+        return new Parser(parserOptions with { OnNode = onNode });
+    }
+
+    /// <summary>
+    /// Runs two node handlers in turn. Only the parse-only path ever needs one: with the analysis on, the single
+    /// visitor it installs already does everything that would otherwise be composed here.
+    /// </summary>
+    private sealed class CompositeNodeVisitor(OnNodeHandler first, OnNodeHandler second)
+    {
+        public void Visit(Node node, in OnNodeContext ctx)
+        {
+            first(node, in ctx);
+            second(node, in ctx);
         }
     }
 

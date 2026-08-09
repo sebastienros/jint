@@ -6,7 +6,7 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Tests.Runtime;
 
-public class ScriptModulePreparationTests
+public partial class ScriptModulePreparationTests
 {
     [Fact]
     public void ScriptPreparationAcceptsReturnOutsideOfFunctions()
