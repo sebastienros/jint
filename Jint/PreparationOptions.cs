@@ -87,8 +87,11 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
     /// engine-neutral, which is the same property that lets a prepared program be shared at all. Identifier binding
     /// names, the member-access fast-path value and a script root's hoisting scope are not published that way and
     /// are rebuilt per engine; constant folding of unary and binary expressions likewise happens per engine, since
-    /// the interpreter performs it on its own when it finds nothing prepared. Measured on a module graph: about 8%
-    /// more allocation per engine to materialize the tree, with execution time inside noise.
+    /// the interpreter performs it on its own when it finds nothing prepared. Measured on
+    /// <c>ModuleGraphEmbeddingBenchmark</c>'s ten-module graph, medians of five runs: preparation cost 47.6%
+    /// less time and 27.5% less allocation, while each engine materializing that graph from a shared cache
+    /// paid 4.8% more time and 9.5% more allocation - break-even at about ten engines on time, two on
+    /// allocation, so a long-lived pool should leave this alone.
     /// </para>
     /// <para>
     /// Composes with <see cref="CollectReferencedGlobals"/>, which is gathered by a visitor of its own and is
@@ -163,8 +166,10 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
     /// engine-neutral, which is the same property that lets a prepared program be shared at all. Identifier binding
     /// names and the member-access fast-path value are not published that way and are rebuilt per engine; constant
     /// folding of unary and binary expressions likewise happens per engine, since the interpreter performs it on
-    /// its own when it finds nothing prepared. Measured on a module graph: about 8% more allocation per engine to
-    /// materialize the tree, with execution time inside noise.
+    /// its own when it finds nothing prepared. Measured on <c>ModuleGraphEmbeddingBenchmark</c>'s ten-module graph,
+    /// medians of five runs: preparation cost 47.6% less time and 27.5% less allocation, while each engine
+    /// materializing that graph from a shared cache paid 4.8% more time and 9.5% more allocation - break-even
+    /// at about ten engines on time, two on allocation, so a long-lived pool should leave this alone.
     /// </para>
     /// <para>
     /// Composes with <see cref="CollectReferencedGlobals"/>, which is gathered by a visitor of its own and is
