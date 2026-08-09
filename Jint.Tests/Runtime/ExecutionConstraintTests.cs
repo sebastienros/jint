@@ -86,6 +86,56 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.LimitMemory(2048)).Evaluate("a=[]; while(true){ a.push(0); }")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
+    private sealed class ThrowOnResetAfterCheckConstraint : Constraint
+    {
+        private bool _checked;
+
+        public override void Check() => _checked = true;
+
+        public override void Reset()
+        {
+            if (_checked)
+            {
+                throw new PlatformNotSupportedException("the constraint's own reset failed");
+            }
+        }
+    }
+
+    [Fact]
+    public void AConstraintResetThatThrowsOnTheWayOutReplacesTheScriptsOwnError()
+    {
+        // This is why a Reset() has to be total. ExecuteWithConstraints resets the constraints from a
+        // finally, so an exception raised there unwinds in place of the one the run was already carrying:
+        // the script's error never reaches the host, and what does reach it names the reset instead.
+        var engine = new Engine(cfg => cfg.Constraint(new ThrowOnResetAfterCheckConstraint()));
+
+        Invoking(() => engine.Evaluate("throw new Error('the script error');"))
+            .Should().ThrowExactly<PlatformNotSupportedException>();
+    }
+
+    [Fact]
+    public void MemoryLimitConstraintResetIsTotal()
+    {
+        // MemoryLimitConstraint.Reset() reads the thread's allocation counter, which is reachable only
+        // through reflection below netstandard2.1 and can come back missing. Establishing the baseline
+        // must not throw for that; reporting the platform is Check()'s job, and Check() still does it.
+        var constraint = new MemoryLimitConstraint(4_000_000);
+
+        Invoking(constraint.Reset).Should().NotThrow();
+        Invoking(constraint.Reset).Should().NotThrow();
+        Invoking(constraint.Check).Should().NotThrow();
+    }
+
+    [Fact]
+    public void AllocatedBytesForCurrentThreadIsReachableOnEveryExecutingTargetFramework()
+    {
+        // net472 resolves GC.GetAllocatedBytesForCurrentThread by reflection with the default binding
+        // flags, which see public members only; net10.0 calls it outright. Both have to answer, or
+        // LimitMemory is a no-op that reports itself as an unsupported platform.
+        GCPolyfills.TryGetAllocatedBytesForCurrentThread(out var allocatedBytes).Should().BeTrue();
+        allocatedBytes.Should().BePositive();
+    }
+
     [Fact]
     public void ShouldThrowTimeout()
     {
