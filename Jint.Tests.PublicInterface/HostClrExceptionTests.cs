@@ -282,6 +282,54 @@ public class HostClrExceptionTests
     }
 
     [Fact]
+    public void ChainingKeepsTheClrStackOutOfTheJavaScriptErrorString()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.ChainClrExceptions();
+        });
+        engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up", new InvalidOperationException("root cause"))));
+
+        var exception = Invoking(() => engine.Evaluate("function inner() { boom(); } inner();"))
+            .Should().Throw<JavaScriptException>().Which;
+
+        // GetJavaScriptErrorString is what a host shows a script author: the JavaScript error and its
+        // JavaScript frames, never the host's .NET stack
+        var errorString = exception.GetJavaScriptErrorString();
+        errorString.Should().StartWith("Error: host blew up");
+        errorString.Should().Contain("at inner", "the JavaScript frames are what this accessor is for");
+        errorString.Should().NotContain(nameof(HostFailure));
+        errorString.Should().NotContain("root cause");
+        errorString.Should().NotContain("End of inner exception stack trace");
+
+        // and everything the option promises is untouched
+        exception.ToString().Should().Contain(nameof(HostFailure));
+        exception.InnerException!.InnerException.Should().BeOfType<HostFailure>();
+        JintException.TryGetClrException(exception, out var clrException).Should().BeTrue();
+        clrException.Should().BeOfType<HostFailure>();
+    }
+
+    [Fact]
+    public void TheJavaScriptErrorStringIsTheSameWhetherChainingIsOnOrOff()
+    {
+        static string Render(bool chain)
+        {
+            var engine = new Engine(options =>
+            {
+                options.CatchClrExceptions();
+                options.ChainClrExceptions(chain);
+            });
+            engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
+
+            return Invoking(() => engine.Evaluate("function inner() { boom(); } inner();"))
+                .Should().Throw<JavaScriptException>().Which.GetJavaScriptErrorString();
+        }
+
+        Render(chain: true).Should().Be(Render(chain: false));
+    }
+
+    [Fact]
     public void ChainingLeavesGetBaseExceptionAlone()
     {
         var engine = new Engine(options =>
