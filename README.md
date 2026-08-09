@@ -579,6 +579,43 @@ var engine = new Engine(options =>
 });
 ```
 
+### Bounding an operation that makes several calls into the engine
+
+Every call into the engine — `Execute`, `Evaluate`, `Invoke`, `Call` — is a complete run, and the engine
+resets the constraints around each one. `TimeoutInterval` therefore bounds *one* call, not a sequence of
+them: a loop such as `foreach (var row in rows) engine.Invoke("render", row);` gives every row the full
+interval to itself, so the loop as a whole is unbounded.
+
+When the thing you need to bound is your own operation — a whole render, a whole request — rather than one
+call, use `OperationDeadlineConstraint`. Its budget is started and stopped by you, and the engine's
+per-call reset leaves it alone:
+
+```c#
+// one instance per engine, and you keep the reference
+var deadline = new OperationDeadlineConstraint();
+var engine = new Engine(options => options.Constraint(deadline));
+
+deadline.Begin(TimeSpan.FromSeconds(2), cancellationToken);
+try
+{
+    foreach (var row in rows)
+    {
+        engine.Invoke("render", row);
+    }
+}
+finally
+{
+    deadline.End();
+}
+```
+
+The whole loop shares the two seconds. When it runs out, the next call fails with a `TimeoutException` —
+the same exception the built-in timeout throws. If the token is cancelled, the call fails with a real
+`OperationCanceledException` carrying that token, so cancellation you asked for stays distinguishable from
+a script failure. Outside a `Begin`/`End` pair the constraint is inert, which makes it safe to leave
+registered on a pooled engine between operations. The two constraints are independent, so you can keep a
+`TimeoutInterval` as a per-call ceiling alongside it.
+
 When you reuse the engine and want to use cancellation tokens you have to reset the token before each call of `Execute`:
 
 ```c#

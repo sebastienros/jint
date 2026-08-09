@@ -160,6 +160,33 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void OperationDeadlineConstraintIsRegisteredAsAnInstanceAndSurvivesThePerEntryReset()
+    {
+        // Unlike the built-in timeout there is no options extension method for this one: the host has to
+        // keep the reference, because only the host knows where its operation begins and ends. The engine
+        // still resets it before and after every entry — and it declines, which is the point.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = new Engine(cfg => cfg.Constraint(deadline));
+
+        engine.Constraints.Find<OperationDeadlineConstraint>().Should().BeSameAs(deadline);
+
+        // disarmed: bounds nothing
+        engine.Evaluate("var x = 1 + 1;");
+
+        deadline.Begin(TimeSpan.FromMilliseconds(200));
+        try
+        {
+            Invoking(() => engine.Evaluate("while (true);")).Should().ThrowExactly<TimeoutException>();
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        Invoking(() => engine.Evaluate("var y = 1 + 1;")).Should().NotThrow("End() disarms the constraint again");
+    }
+
+    [Fact]
     public void ShouldThrowExecutionCanceled()
     {
         Invoking(() =>

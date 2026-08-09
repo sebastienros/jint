@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;
@@ -163,6 +164,12 @@ internal static class Throw
     public static void TimeoutException(string message)
     {
         throw new TimeoutException(message);
+    }
+
+    [DoesNotReturn]
+    public static void OperationCanceledException(CancellationToken cancellationToken)
+    {
+        throw new OperationCanceledException(cancellationToken);
     }
 
     [DoesNotReturn]
