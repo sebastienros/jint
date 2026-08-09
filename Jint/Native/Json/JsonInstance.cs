@@ -203,9 +203,19 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
             // where the reviver's third argument is the context object, and InternalizeJSONProperty
             // constructs and passes one unconditionally (only its "source" property is conditional).
             var invoker = CallbackInvoker.Rent(_engine, (ICallable) reviver, 3);
-            var result = InternalizeJSONProperty(root, rootName, in invoker, parseResult.Node, jsonString);
-            invoker.Return();
-            return result;
+            try
+            {
+                // A reviver throwing is ordinary JavaScript, and so is a Delete on a frozen holder, so
+                // the walk exits this way often enough to bracket the rent: the array would otherwise be
+                // forfeited to the pool and re-created for the next document, losing exactly the
+                // allocation Rent exists to avoid. The finally is affordable here because it wraps one
+                // recursive call rather than a per-element loop.
+                return InternalizeJSONProperty(root, rootName, in invoker, parseResult.Node, jsonString);
+            }
+            finally
+            {
+                invoker.Return();
+            }
         }
         else
         {
