@@ -524,11 +524,13 @@ internal partial class IteratorPrototype : Prototype
         // 7. Repeat,
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            // a. Let value be ? IteratorStepValue(iterated). A throwing "value" getter marks the
+            //    record done and propagates; the step is not inside the IfAbruptCloseIterator below.
+            // b. If value is done, return accumulator.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
-                // a. Let value be ? IteratorStepValue(iterated).
-                // b. If value is done, return accumulator.
                 // c. Set accumulator to ? Call(reducer, undefined, « accumulator, value, 𝔽(counter) »).
                 accumulator = reducer.Call(Undefined, [accumulator, value, counter]);
                 // d. Set counter to counter + 1.
@@ -563,6 +565,10 @@ internal partial class IteratorPrototype : Prototype
             var iterations = 0;
             while (iterated.TryIteratorStep(out var iteratorResult))
             {
+                // `? IteratorStepValue(iterated)`: a throwing "value" getter marks the record done and
+                // propagates, so the read stays outside the closing try.
+                var value = iteratorResult.Get(CommonProperties.Value);
+
                 try
                 {
                     // Check constraints periodically so a huge (or native-backed) iterator
@@ -572,7 +578,6 @@ internal partial class IteratorPrototype : Prototype
                         _engine.Constraints.Check();
                     }
 
-                    var value = iteratorResult.Get(CommonProperties.Value);
                     builder.Add(value);
                 }
                 catch
@@ -620,9 +625,12 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            // `? IteratorStepValue(iterated)`: a throwing "value" getter marks the record done and
+            // propagates, so the read stays outside the closing try.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
                 procedureCallable.Call(Undefined, [value, counter]);
                 counter++;
             }
@@ -666,10 +674,13 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            // `? IteratorStepValue(iterated)`: a throwing "value" getter marks the record done and
+            // propagates, so the read stays outside the closing try.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             bool matched;
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
                 matched = TypeConverter.ToBoolean(result);
             }
@@ -759,11 +770,13 @@ internal partial class IteratorPrototype : Prototype
         var iterations = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            // a. Let value be ? IteratorStepValue(iterated). A throwing "value" getter marks the record
+            //    done and propagates: the step is not inside the IfAbruptCloseIterator below.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             bool found;
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
-
                 if (skipped < toSkip)
                 {
                     skipped++;
@@ -834,10 +847,13 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            // `? IteratorStepValue(iterated)`: a throwing "value" getter marks the record done and
+            // propagates, so the read stays outside the closing try.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             bool satisfied;
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
                 satisfied = TypeConverter.ToBoolean(result);
             }
@@ -891,11 +907,13 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
-            JsValue value;
+            // `? IteratorStepValue(iterated)`: a throwing "value" getter marks the record done and
+            // propagates, so the read stays outside the closing try.
+            var value = iteratorResult.Get(CommonProperties.Value);
+
             bool matched;
             try
             {
-                value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
                 matched = TypeConverter.ToBoolean(result);
             }
