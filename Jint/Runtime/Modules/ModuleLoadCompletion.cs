@@ -340,12 +340,20 @@ public sealed class ModuleLoadCompletion
     /// <summary>
     /// The failures that must keep propagating rather than become a module-load rejection: each one exists to
     /// bound or abort execution, and a constraint that turns into a rejection no longer bounds anything —
-    /// script observes it as an ordinary failed import and carries on.
+    /// script observes it as an ordinary failed import and carries on, in a loop if it likes.
     /// </summary>
+    /// <remarks>
+    /// <see cref="RecursionDepthOverflowException"/> belongs here for the same reason as the rest, and reaches
+    /// these paths whenever the loader itself re-enters the engine — a resolve hook or a virtual file system
+    /// written in script, which is a shape hosts really do use. It is not raised by anything the load pipeline
+    /// does on its own; a module <em>body</em> that recurses too deeply fails outside every one of these
+    /// catches.
+    /// </remarks>
     internal static bool MustPropagate(Exception exception) => exception
         is ExecutionCanceledException
         or MemoryLimitExceededException
         or StatementsCountOverflowException
+        or RecursionDepthOverflowException
         or TimeoutException
         or OperationCanceledException
         or OutOfMemoryException;
