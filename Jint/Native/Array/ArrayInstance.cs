@@ -1910,8 +1910,11 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     public sealed override string ToString()
     {
-        // debugger can make things hard when evaluates computed values
-        return "(" + GetJsNumberLength()._value + ")[]";
+        // debugger can make things hard when evaluates computed values.
+        // Render the JsNumber rather than its raw double: that routes through TypeConverter.ToString,
+        // which is Jint's own number-to-string and independent of the host's ambient culture, where
+        // double.ToString() would take both the format and the negative sign from CultureInfo.CurrentCulture.
+        return "(" + GetJsNumberLength() + ")[]";
     }
 
     internal static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
