@@ -136,7 +136,15 @@ internal readonly struct CallbackInvoker
 
         if (_registerTarget is not null)
         {
-            return _registerTarget.CallFromRegisters(thisArgument, argument0, _lastArgument, JsValue.Undefined, JsValue.Undefined, _argumentCount, _registerState!);
+            return _registerTarget.CallFromRegisters(
+                thisArgument,
+                argument0,
+                _lastArgument,
+                JsValue.Undefined,
+                JsValue.Undefined,
+                _argumentCount,
+                _registerState!,
+                ownsFrame: false);
         }
 
         var arguments = _arguments;
@@ -155,7 +163,15 @@ internal readonly struct CallbackInvoker
 
         if (_registerTarget is not null)
         {
-            return _registerTarget.CallFromRegisters(thisArgument, argument0, argument1, _lastArgument, JsValue.Undefined, _argumentCount, _registerState!);
+            return _registerTarget.CallFromRegisters(
+                thisArgument,
+                argument0,
+                argument1,
+                _lastArgument,
+                JsValue.Undefined,
+                _argumentCount,
+                _registerState!,
+                ownsFrame: false);
         }
 
         var arguments = _arguments;
@@ -175,7 +191,15 @@ internal readonly struct CallbackInvoker
 
         if (_registerTarget is not null)
         {
-            return _registerTarget.CallFromRegisters(thisArgument, argument0, argument1, argument2, _lastArgument, _argumentCount, _registerState!);
+            return _registerTarget.CallFromRegisters(
+                thisArgument,
+                argument0,
+                argument1,
+                argument2,
+                _lastArgument,
+                _argumentCount,
+                _registerState!,
+                ownsFrame: false);
         }
 
         var arguments = _arguments;

@@ -61,6 +61,11 @@ internal sealed class JintCallStack
         Native.Function.LeafCallGuard.AssertNotInLeafCall("a nested call (JintCallStack.Push)");
 
         var item = new CallStackElement(function, expression, new CallStackExecutionContext(in executionContext));
+        return Push(in item);
+    }
+
+    private int Push(in CallStackElement item)
+    {
         _stack.Push(in item);
         if (_statistics is not null)
         {
@@ -82,6 +87,11 @@ internal sealed class JintCallStack
         return -1;
     }
 
+    internal void RestoreTop(in CallStackElement item)
+    {
+        Push(in item);
+    }
+
     public CallStackElement Pop()
     {
         var item = _stack.Pop();
@@ -98,6 +108,13 @@ internal sealed class JintCallStack
         }
 
         return item;
+    }
+
+    public int ReplaceTop(Function function, JintExpression? expression)
+    {
+        var previous = Pop();
+        var replacement = new CallStackElement(function, expression, in previous.CallingExecutionContext);
+        return Push(in replacement);
     }
 
     public bool TryPeek([NotNullWhen(true)] out CallStackElement item)

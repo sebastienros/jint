@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -11,11 +12,13 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 
     private readonly JintExpression _tagIdentifier;
     private readonly JintTemplateLiteralExpression _quasi;
+    private readonly bool _isTailPosition;
 
     public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
     {
         _tagIdentifier = Build(expression.Tag);
         _quasi = new JintTemplateLiteralExpression(expression.Quasi);
+        _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -101,12 +104,30 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
             }
         }
 
-        var result = tagger.Call(thisObject, args);
-
-        engine._jsValueArrayPool.ReturnArray(args);
         suspendable?.Data.Clear(this);
 
-        return result;
+        if (_isTailPosition
+            && engine.ExecutionContext.Strict
+            && suspendable is null
+            && !engine._isDebugMode
+            && tagger is ScriptFunction tailTarget)
+        {
+            return TailCallRequestPool.Rent(
+                tailTarget,
+                thisObject,
+                args,
+                argumentsRented: true,
+                _tagIdentifier);
+        }
+
+        try
+        {
+            return tagger.Call(thisObject, args);
+        }
+        finally
+        {
+            engine._jsValueArrayPool.ReturnArray(args);
+        }
     }
 
     /// <summary>
