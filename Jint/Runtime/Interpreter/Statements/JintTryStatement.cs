@@ -98,7 +98,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
         var engine = context.Engine;
         var suspendable = engine.ExecutionContext.Suspendable;
-        var suspendData = GetCatchSuspendData(suspendable);
+        var suspendData = GetTrySuspendData(suspendable);
         if (suspendData?.CatchEnvironment is not null)
         {
             engine.UpdateLexicalEnvironment(suspendData.CatchEnvironment);
@@ -131,26 +131,23 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return f;
         }
 
-        // After finally completes normally, restore the pending completion
-        if (f.Type == CompletionType.Normal)
+        // "If finallyResult is a normal completion, set finallyResult to blockResult" — the parked
+        // record goes back whatever its type, so a Break or Continue resumes its jump here exactly
+        // as ExecuteFinalizer performs it when nothing suspended. Returning the record itself, and
+        // not a fresh one built from a type and a value, is what carries the jump's [[Target]]:
+        // Completion.Target reads the label out of the jump statement the record carries.
+        var suspendData = GetTrySuspendData(suspendable);
+        var pending = suspendData?.PendingCompletion;
+        if (suspendData is not null)
         {
-            var pendingType = suspendable.PendingCompletionType;
-            var pendingValue = suspendable.PendingCompletionValue;
+            suspendData.PendingCompletion = null;
+        }
 
-            // Clear the pending completion
-            suspendable.PendingCompletionType = CompletionType.Normal;
-            suspendable.PendingCompletionValue = null;
-            suspendable.CurrentFinallyStatement = null;
+        ReleaseFinallyDispatchHint(suspendable);
 
-            if (pendingType == CompletionType.Throw)
-            {
-                return new Completion(CompletionType.Throw, pendingValue ?? JsValue.Undefined, _statement);
-            }
-
-            if (pendingType == CompletionType.Return)
-            {
-                return new Completion(CompletionType.Return, pendingValue ?? JsValue.Undefined, _statement);
-            }
+        if (f.Type == CompletionType.Normal && pending is { } b)
+        {
+            return b.UpdateEmpty(JsValue.Undefined);
         }
 
         return f.UpdateEmpty(JsValue.Undefined);
@@ -221,7 +218,7 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
 
             if (context.IsSuspended() && suspendable is not null)
             {
-                var suspendData = suspendable.Data.GetOrCreate<CatchSuspendData>(this);
+                var suspendData = suspendable.Data.GetOrCreate<TrySuspendData>(this);
                 suspendData.CatchEnvironment = catchEnv;
                 suspendData.OuterEnvironment = oldEnv;
             }
@@ -252,13 +249,17 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return b.UpdateEmpty(JsValue.Undefined);
         }
 
-        // Save the pending completion before running finally. If finally awaits,
-        // ExecuteFinallyResume restores this completion after the await resumes.
-        if (suspendable is not null && (b.Type == CompletionType.Throw || b.Type == CompletionType.Return))
+        // Save the pending completion before running finally. If finally suspends,
+        // ExecuteFinallyResume reinstates this completion after the yield/await resumes.
+        // Every abrupt type is parked, Break and Continue included: step 3 of
+        // https://tc39.es/ecma262/#sec-try-statement-runtime-semantics-evaluation restores
+        // blockResult whatever its type, and a jump dropped here silently lets the enclosing
+        // loops run the iterations it was meant to skip.
+        var parkedOn = suspendable is not null && b.Type != CompletionType.Normal ? suspendable : null;
+        if (parkedOn is not null)
         {
-            suspendable.PendingCompletionType = b.Type;
-            suspendable.PendingCompletionValue = b.Value;
-            suspendable.CurrentFinallyStatement = this;
+            parkedOn.Data.GetOrCreate<TrySuspendData>(this).PendingCompletion = b;
+            parkedOn.CurrentFinallyStatement = this;
         }
 
         // Clear _returnRequested before running finally block.
@@ -285,12 +286,18 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return f;
         }
 
-        // Clear the pending completion tracking if we completed normally
-        if (suspendable is not null && ReferenceEquals(suspendable.CurrentFinallyStatement, this))
+        // Nothing suspended after all, so drop the park. The entry itself stays: it holds nothing
+        // live once the completion is out of it, and the next abrupt completion through this
+        // statement reuses it.
+        if (parkedOn is not null)
         {
-            suspendable.CurrentFinallyStatement = null;
-            suspendable.PendingCompletionType = CompletionType.Normal;
-            suspendable.PendingCompletionValue = null;
+            var parkedData = GetTrySuspendData(parkedOn);
+            if (parkedData is not null)
+            {
+                parkedData.PendingCompletion = null;
+            }
+
+            ReleaseFinallyDispatchHint(parkedOn);
         }
 
         if (f.Type == CompletionType.Normal)
@@ -303,14 +310,27 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         return f.UpdateEmpty(JsValue.Undefined);
     }
 
-    private CatchSuspendData? GetCatchSuspendData(ISuspendable? suspendable)
+    private TrySuspendData? GetTrySuspendData(ISuspendable? suspendable)
     {
-        return suspendable?.Data.TryGet(this, out CatchSuspendData? suspendData) == true
+        return suspendable?.Data.TryGet(this, out TrySuspendData? suspendData) == true
             ? suspendData
             : null;
     }
 
-    private static void RestoreOuterEnvironmentAfterCatchResume(Engine engine, CatchSuspendData? suspendData)
+    /// <summary>
+    /// Drops the resume hint if it still names this statement. A finalizer nested inside this one
+    /// overwrites the single slot with its own, and has already cleared it by the time control gets
+    /// back here — clearing unconditionally would then discard a hint belonging to a third statement.
+    /// </summary>
+    private void ReleaseFinallyDispatchHint(ISuspendable suspendable)
+    {
+        if (ReferenceEquals(suspendable.CurrentFinallyStatement, this))
+        {
+            suspendable.CurrentFinallyStatement = null;
+        }
+    }
+
+    private static void RestoreOuterEnvironmentAfterCatchResume(Engine engine, TrySuspendData? suspendData)
     {
         if (suspendData?.OuterEnvironment is not null)
         {
