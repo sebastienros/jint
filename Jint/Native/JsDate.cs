@@ -6,11 +6,17 @@ namespace Jint.Native;
 
 public sealed class JsDate : ObjectInstance
 {
-    // Maximum allowed value to prevent DateTime overflow
-    internal static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;
+    // Maximum allowed value to prevent DateTime overflow. Counted in ticks rather than read off
+    // TimeSpan.TotalMilliseconds: that property is a double division, and the correctly rounded quotient
+    // for DateTime.MaxValue (9999-12-31T23:59:59.9999999, so 253402300799999.9999 ms) is 253402300800000
+    // exactly - the first millisecond of year 10000, which DateTime cannot represent at all. The bound
+    // therefore used to admit one value that every conversion behind it threw ArgumentOutOfRangeException
+    // on, and a CLR exception escapes engine.Evaluate rather than reaching script as a JavaScriptException.
+    internal static readonly long Max = (DateTime.MaxValue - DateConstructor.Epoch).Ticks / TimeSpan.TicksPerMillisecond;
 
-    // Minimum allowed value to prevent DateTime overflow
-    internal static readonly long Min = (long) -(DateConstructor.Epoch - DateTime.MinValue).TotalMilliseconds;
+    // Minimum allowed value to prevent DateTime overflow. The epoch is a whole number of milliseconds
+    // after DateTime.MinValue, so this one was never off; it is counted the same way for symmetry.
+    internal static readonly long Min = -((DateConstructor.Epoch - DateTime.MinValue).Ticks / TimeSpan.TicksPerMillisecond);
 
     // The clipped time value is decomposed into a long + a DateFlags byte rather than stored as the
     // 16-byte DatePresentation struct: the flag byte rides in the object's existing field padding, so
