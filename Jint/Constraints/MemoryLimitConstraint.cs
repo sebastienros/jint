@@ -48,6 +48,13 @@ public sealed class MemoryLimitConstraint : Constraint
     public override void Reset()
     {
         _initialThreadId = Environment.CurrentManagedThreadId;
-        _initialMemoryUsage = GC.GetAllocatedBytesForCurrentThread();
+
+        // Total on purpose. Engine.ExecuteWithConstraints resets the constraints from a finally, so an
+        // exception raised here unwinds in place of the one the run is already carrying: the script's own
+        // error disappears and the host is told about the platform instead. On a platform where the
+        // allocation counter cannot be reached at all -- netstandard2.0 on a runtime that predates it, or
+        // one whose linker removed it -- the baseline is simply unknown. Check() is where such a platform
+        // gets reported, and it still reports it on the very first check.
+        _initialMemoryUsage = GCPolyfills.TryGetAllocatedBytesForCurrentThread(out var allocatedBytes) ? allocatedBytes : 0;
     }
 }

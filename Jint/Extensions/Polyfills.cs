@@ -371,9 +371,13 @@ internal static class GCPolyfills
     extension(GC)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
-        // GC.GetAllocatedBytesForCurrentThread became public in .NET Core 3.0 / netstandard2.1. It exists
-        // on .NET Framework as a non-public method, so reflection reaches it there; where even that fails
-        // the caller has no way to measure allocation and says so.
+        // GC.GetAllocatedBytesForCurrentThread is absent from the net462 and netstandard2.0 reference
+        // assemblies, so it cannot be called directly here. It is a *public* method of System.GC on
+        // every runtime that has one -- .NET Framework since 4.6, .NET Core since 2.0 -- which is what
+        // makes the lookup below work at all: it uses the default binding flags, and those see public
+        // members only. So this reaches the real method wherever one exists, and answers null where none
+        // does: a runtime older than that, or one whose linker removed it. A caller left with null
+        // cannot measure allocation at all, and says so.
         public static long GetAllocatedBytesForCurrentThread()
         {
             var getter = AllocatedBytesForCurrentThread;
@@ -385,6 +389,29 @@ internal static class GCPolyfills
             return getter();
         }
 #endif
+    }
+
+    /// <summary>
+    /// The total form of the above, for a caller that must not throw -- a Reset() invoked from a finally,
+    /// where an exception would unwind in place of the one already in flight. Deliberately not an
+    /// extension member on <see cref="GC"/>: no BCL ever had a TryGet form, and a polyfill that invents
+    /// API has stopped being a polyfill.
+    /// </summary>
+    internal static bool TryGetAllocatedBytesForCurrentThread(out long allocatedBytes)
+    {
+#if NETFRAMEWORK || NETSTANDARD2_0
+        var getter = AllocatedBytesForCurrentThread;
+        if (getter is null)
+        {
+            allocatedBytes = 0;
+            return false;
+        }
+
+        allocatedBytes = getter();
+#else
+        allocatedBytes = GC.GetAllocatedBytesForCurrentThread();
+#endif
+        return true;
     }
 
 #if NETFRAMEWORK || NETSTANDARD2_0
