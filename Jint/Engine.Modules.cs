@@ -755,7 +755,7 @@ public partial class Engine
                 capability.Reject(_engine.Realm.Intrinsics.Error.Construct(ex.Message));
             }
 
-            var operation = new ModuleImportOperation(capability.PromiseInstance);
+            var operation = new ModuleImportOperation(_engine, capability.PromiseInstance);
 
             // Reactions rather than polling, so that the operation is also what marks the rejection handled and
             // a failed import does not read as an unhandled promise rejection to a host watching for those.

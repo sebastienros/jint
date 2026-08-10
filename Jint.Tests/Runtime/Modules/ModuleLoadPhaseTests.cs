@@ -247,10 +247,13 @@ public class ModuleLoadPhaseTests
         var abandoned = engine.Modules.StartImport("late");
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        // The abandoned load's completion is now stale; delivering it does nothing.
+        // The abandoned load's completion is now stale; delivering it does nothing. The operation reports the
+        // abandonment rather than the delivery, which is what makes the fence observable to a host that only
+        // has the operation to poll - the promise behind it stays pending forever.
         loader.Release("late");
         engine.Advanced.ProcessTasks();
-        abandoned.IsCompleted.Should().BeFalse("a promise registered before a restore never settles into the engine afterwards");
+        abandoned.IsFaulted.Should().BeTrue("a promise registered before a restore never settles into the engine afterwards");
+        abandoned.Namespace.Should().BeNull();
 
         // A fresh import asks again rather than waiting on the abandoned load.
         var reimported = engine.Modules.StartImport("late");
