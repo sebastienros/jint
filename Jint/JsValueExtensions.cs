@@ -748,71 +748,32 @@ public static class JsValueExtensions
     {
         if (value is JsPromise promise)
         {
-            var engine = promise.Engine;
-            var completedEvent = promise.CompletedEvent;
-            var eventLoop = engine.EventLoop;
-
-            // Mark this thread as the one waiting on the promise. This prevents
-            // background threads (from Task completions) from executing JavaScript
-            // continuations - only this waiting thread is allowed to process them.
-            var previousWaitingThreadId = eventLoop._waitingThreadId;
-            eventLoop._waitingThreadId = System.Environment.CurrentManagedThreadId;
-
-            try
+            // Delegate to the engine's own drain rather than polling here. This used to be a
+            // near-duplicate of it that predated EventLoop's work-arrived signal: it woke only on the
+            // promise's own completion event, which a settle enqueued from a background thread never
+            // sets, so every hop of an asynchronous chain idled out the full poll slice before this
+            // thread ran the continuation that could advance it. DrainEventLoopUntilSettled waits on the
+            // enqueue signal too - running that work on this thread is the only way the promise can
+            // settle - and already carries the _waitingThreadId save/restore, its nesting, and the
+            // engine's cancellation constraint.
+            if (!promise.Engine.DrainEventLoopUntilSettled(promise, timeout, cancellationToken))
             {
-                // Process continuations and poll with short intervals to handle
-                // continuations added by background tasks (like setTimeout callbacks)
-                var hasTimeout = timeout > TimeSpan.Zero;
-                var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
-                var pollInterval = TimeSpan.FromMilliseconds(10);
-
-                while (promise.State == PromiseState.Pending)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    engine.RunAvailableContinuations();
-
-                    if (promise.State != PromiseState.Pending)
-                    {
-                        break;
-                    }
-
-                    if (hasTimeout)
-                    {
-                        var remaining = deadline - DateTime.UtcNow;
-                        if (remaining <= TimeSpan.Zero)
-                        {
-                            Throw.PromiseRejectedException($"Timeout of {timeout} reached");
-                        }
-
-                        var waitTime = remaining < pollInterval ? remaining : pollInterval;
-                        completedEvent.Wait(waitTime, cancellationToken);
-                    }
-                    else
-                    {
-                        // No timeout - just poll
-                        completedEvent.Wait(pollInterval, cancellationToken);
-                    }
-                }
-
-                switch (promise.State)
-                {
-                    case PromiseState.Pending:
-                        Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
-                        return null;
-                    case PromiseState.Fulfilled:
-                        return promise.Value;
-                    case PromiseState.Rejected:
-                        Throw.PromiseRejectedException(promise.Value);
-                        return null;
-                    default:
-                        Throw.ArgumentOutOfRangeException();
-                        return null;
-                }
+                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
             }
-            finally
+
+            switch (promise.State)
             {
-                eventLoop._waitingThreadId = previousWaitingThreadId;
+                case PromiseState.Pending:
+                    Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                    return null;
+                case PromiseState.Fulfilled:
+                    return promise.Value;
+                case PromiseState.Rejected:
+                    Throw.PromiseRejectedException(promise.Value);
+                    return null;
+                default:
+                    Throw.ArgumentOutOfRangeException();
+                    return null;
             }
         }
 

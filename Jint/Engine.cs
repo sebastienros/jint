@@ -1055,8 +1055,15 @@ public sealed partial class Engine : IDisposable
     /// same way per-statement execution surfaces cancellation) instead of blocking up to the full
     /// timeout while awaiting a never-settling Task.
     /// </remarks>
-    internal void DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout)
-        => DrainEventLoopUntil(static state => ((JsPromise) state).State != PromiseState.Pending, promise, promise.CompletedEvent, timeout);
+    /// <param name="promise">The promise to wait for.</param>
+    /// <param name="timeout">Non-positive means wait indefinitely.</param>
+    /// <param name="cancellationToken">
+    /// A token supplied by the caller, distinct from the engine's own cancellation constraint; see
+    /// <see cref="DrainEventLoopUntil"/>.
+    /// </param>
+    /// <returns>Whether the promise had settled when the drain ended, i.e. false on timeout.</returns>
+    internal bool DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default)
+        => DrainEventLoopUntil(static state => ((JsPromise) state).State != PromiseState.Pending, promise, promise.CompletedEvent, timeout, cancellationToken);
 
     /// <summary>
     /// The general form of <see cref="DrainEventLoopUntilSettled"/>: drives the event loop until
@@ -1071,8 +1078,22 @@ public sealed partial class Engine : IDisposable
     /// running that work on this thread is the only way the condition can advance.
     /// </param>
     /// <param name="timeout">Non-positive means wait indefinitely.</param>
+    /// <param name="cancellationToken">
+    /// A token supplied by the caller, kept deliberately separate from the engine's own
+    /// <see cref="Constraints.CancellationConstraint"/> because the two carry different contracts: this one
+    /// belongs to whoever asked for the wait and is reported back to them as an
+    /// <see cref="OperationCanceledException"/>, while the constraint means the engine itself was cancelled
+    /// and surfaces as <see cref="ExecutionCanceledException"/>, exactly as per-statement execution reports
+    /// it. Both end the wait; the catch below decides which contract applies. The two are linked only when
+    /// both can actually fire, so every caller that passes nothing allocates nothing.
+    /// </param>
     /// <returns>Whether the condition held when the drain ended, i.e. false on timeout.</returns>
-    internal bool DrainEventLoopUntil(Func<object, bool> isSettled, object state, System.Threading.ManualResetEventSlim? completedEvent, TimeSpan timeout)
+    internal bool DrainEventLoopUntil(
+        Func<object, bool> isSettled,
+        object state,
+        System.Threading.ManualResetEventSlim? completedEvent,
+        TimeSpan timeout,
+        System.Threading.CancellationToken cancellationToken = default)
     {
         // Claim this thread as the one draining the loop so background threads (Task completions)
         // don't race to execute JavaScript continuations on the engine. Save/restore to support
@@ -1085,7 +1106,22 @@ public sealed partial class Engine : IDisposable
         // fire; without this, cancelling the engine while a top-level await hangs on a never-settling
         // Task would go unnoticed until PromiseTimeout. Defaults to CancellationToken.None when no
         // such constraint is registered, which leaves the wait behavior unchanged.
-        var cancellationToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
+        var constraintToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
+
+        System.Threading.CancellationTokenSource? linkedTokenSource = null;
+        var waitToken = constraintToken;
+        if (cancellationToken.CanBeCanceled)
+        {
+            if (constraintToken.CanBeCanceled)
+            {
+                linkedTokenSource = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, constraintToken);
+                waitToken = linkedTokenSource.Token;
+            }
+            else
+            {
+                waitToken = cancellationToken;
+            }
+        }
 
         try
         {
@@ -1095,6 +1131,11 @@ public sealed partial class Engine : IDisposable
 
             while (!isSettled(state))
             {
+                // The caller's token is checked before any work is run, so an already-cancelled token
+                // fails the wait rather than being masked by a drain that happens to settle the
+                // condition on its first turn.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 RunAvailableContinuations();
 
                 if (isSettled(state))
@@ -1123,12 +1164,20 @@ public sealed partial class Engine : IDisposable
                     // settle arriving from a background thread only enqueues, and this thread is the one that
                     // has to run it — before the wake it idled out the rest of the poll slice first, which a
                     // chain of sequential asynchronous loads paid on every hop.
-                    _eventLoop.WaitForWork(completedEvent, waitInterval, cancellationToken);
+                    _eventLoop.WaitForWork(completedEvent, waitInterval, waitToken);
                 }
                 catch (OperationCanceledException)
                 {
-                    // The registered CancellationConstraint's token was cancelled during the idle wait.
-                    // Surface it exactly as per-statement execution does (CancellationConstraint.Check),
+                    // The caller's own token keeps its own contract: whoever asked for the wait gets an
+                    // OperationCanceledException back, which is what the public UnwrapIfPromise overload
+                    // taking a token documents.
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+
+                    // Otherwise the registered CancellationConstraint's token was cancelled during the idle
+                    // wait. Surface it exactly as per-statement execution does (CancellationConstraint.Check),
                     // rather than swallowing it and letting the drain fall through to a silent timeout.
                     Throw.ExecutionCanceledException();
                 }
@@ -1138,6 +1187,7 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
+            linkedTokenSource?.Dispose();
             _eventLoop._waitingThreadId = previousWaitingThreadId;
         }
     }
