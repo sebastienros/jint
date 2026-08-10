@@ -19,7 +19,6 @@ public sealed class JsArguments : ObjectInstance
     private DeclarativeEnvironment _env = null!;
     private Realm _realm = null!;
     private bool _canReturnToPool;
-    private bool _hasRestParameter;
     private bool _materialized;
 
     // Virtual read mode: while set, in-range index reads, length, @@iterator and (mapped) callee
@@ -50,14 +49,12 @@ public sealed class JsArguments : ObjectInstance
         Function.Function func,
         Key[] names,
         JsValue[] args,
-        DeclarativeEnvironment env,
-        bool hasRestParameter)
+        DeclarativeEnvironment env)
     {
         _func = func;
         _names = names;
         _args = args;
         _env = env;
-        _hasRestParameter = hasRestParameter;
         _canReturnToPool = true;
         _virtualMode = true;
         _mapDetached = false;
@@ -285,26 +282,16 @@ public sealed class JsArguments : ObjectInstance
     /// <c>[0, _args.Length)</c> (ConfigurableEnumerableWritable, in both the mapped and the unmapped
     /// shape), <c>length</c> (NonEnumerable), <c>callee</c> (the function or the %ThrowTypeError% accessor
     /// pair, non-enumerable either way) and <c>@@iterator</c> (Writable | Configurable), and nothing else.
-    /// Both premises of "and nothing else" are checked rather than assumed:
+    /// The premise of "and nothing else" is checked rather than assumed: the property bag must still be
+    /// empty, because every property-adding path routes through <c>EnsureInitialized</c> first but
+    /// <c>FastSetProperty</c> is public and does not, and this object is reachable from a host as a plain
+    /// <c>ObjectInstance</c>. A non-empty bag falls through to the materializing path, i.e. to the previous
+    /// behaviour.
     /// </para>
-    /// <list type="bullet">
-    /// <item>the property bag must still be empty — every property-adding path routes through
-    /// <c>EnsureInitialized</c> first, but <c>FastSetProperty</c> is public and does not, and this object
-    /// is reachable from a host as a plain <c>ObjectInstance</c>;</item>
-    /// <item><c>_hasRestParameter</c> must be false — <see cref="DefineOwnProperty"/> short-circuits to
-    /// <c>true</c> without defining anything when it is set, which would make the
-    /// <c>DefinePropertyOrThrow</c>/<c>CreateDataProperty</c> calls in <c>InitializeCore</c> no-ops and the
-    /// materialized set something other than the set described above. It cannot currently be set — the flag
-    /// is only ever passed by <c>CreateMappedArgumentsObject</c>, reached only for a <em>simple</em>
-    /// parameter list, which by definition has no rest parameter — but the lane does not depend on that
-    /// staying true.</item>
-    /// </list>
-    /// <para>Either premise failing falls through to the materializing path, i.e. to the previous behaviour.</para>
     /// </remarks>
     protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
     {
         if (_virtualMode
-            && !_hasRestParameter
             && _properties is null or { Count: 0 }
             && _symbols is null or { Count: 0 })
         {
@@ -397,12 +384,6 @@ public sealed class JsArguments : ObjectInstance
 
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (_hasRestParameter)
-        {
-            // immutable
-            return true;
-        }
-
         EnsureInitialized();
 
         if (ParameterMap is not null)

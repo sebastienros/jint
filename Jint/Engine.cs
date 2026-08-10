@@ -2028,8 +2028,9 @@ public sealed partial class Engine : IDisposable
             else
             {
                 // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
-                // any parameter default value initializers, or any destructured parameters.
-                ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env, configuration.HasRestParameter);
+                // any parameter default value initializers, or any destructured parameters — all three make the
+                // parameter list non-simple, which is what the arm above already selected on.
+                ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env);
             }
 
             if (strict)
@@ -2217,10 +2218,9 @@ public sealed partial class Engine : IDisposable
         Function func,
         Key[] formals,
         JsCallArguments argumentsList,
-        DeclarativeEnvironment envRec,
-        bool hasRestParameter)
+        DeclarativeEnvironment envRec)
     {
-        return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
+        return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec);
     }
 
     private JsArguments CreateUnmappedArgumentsObject(JsCallArguments argumentsList)
