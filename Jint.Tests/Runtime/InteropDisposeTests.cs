@@ -251,7 +251,7 @@ public class InteropDisposeTests
     /// SourceTextModule's TLA execution path.
     /// </summary>
     [Fact]
-    public void ShouldAsyncDisposeInTopLevelAwaitModule()
+    public Task ShouldAsyncDisposeInTopLevelAwaitModule() => DedicatedThread.RunAsync(() =>
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         var disposable = new AsyncDisposable();
@@ -261,7 +261,7 @@ public class InteropDisposeTests
         engine.Modules.Import("tla-dispose");
 
         disposable.Disposed.Should().BeTrue();
-    }
+    });
 
     /// <summary>
     /// TLA module with a genuinely-async dispose (Task.Delay). Confirms the module's
@@ -270,7 +270,7 @@ public class InteropDisposeTests
     /// engine stack.
     /// </summary>
     [Fact]
-    public void ShouldAsyncDisposeInTopLevelAwaitModuleWithGenuinelyAsyncTask()
+    public Task ShouldAsyncDisposeInTopLevelAwaitModuleWithGenuinelyAsyncTask() => DedicatedThread.RunAsync(() =>
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         var disposable = new DelayedAsyncDisposable();
@@ -280,7 +280,7 @@ public class InteropDisposeTests
         engine.Modules.Import("tla-dispose-delayed");
 
         disposable.Disposed.Should().BeTrue();
-    }
+    });
 
     /// <summary>
     /// `for (await using x of arr)` inside an async function with a genuinely-async
