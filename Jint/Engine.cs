@@ -307,6 +307,13 @@ public sealed partial class Engine : IDisposable
     // track depth at all from the same value (see the JintCallStack construction below).
     internal readonly int _maxRecursionDepth;
 
+    // Snapshot of Options.Interop.AllowOperatorOverloading, consulted by the arithmetic, comparison,
+    // update and assignment expressions to decide whether an operand may have a CLR operator behind
+    // it. Like _maxRecursionDepth it is read after Options.Apply, so a Configure callback can still
+    // set it; unlike the Options property it is fixed for the engine's lifetime, which is what lets
+    // one Options instance be shared by engines that are already running.
+    internal readonly bool _operatorOverloadingAllowed;
+
     internal readonly ReferencePool _referencePool;
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -432,9 +439,10 @@ public sealed partial class Engine : IDisposable
         _amortizedConstraints = partitionedConstraints.Amortized;
         _inlineStatementCounter = partitionedConstraints.InlineStatementCounter;
 
-        // Everything the context snapshots is settled by now (debug mode, the constraint partition,
-        // operator overloading), and it must exist before Options.Apply below, whose configuration
-        // callbacks may execute script.
+        // Everything the context snapshots is settled by now (debug mode, the constraint partition),
+        // and it must exist before Options.Apply below, whose configuration callbacks may execute
+        // script. That is also why the context does not snapshot operator overloading itself: the
+        // engine takes that reading after Apply and the context reads it from there.
         _evaluationContext = new EvaluationContext(this);
 
         _referenceResolver = Options.ReferenceResolver;
@@ -465,6 +473,11 @@ public sealed partial class Engine : IDisposable
         // Read after Options.Apply so the snapshot observes the same value JintCallStack does
         // (Apply runs the user's configuration callbacks, which can still touch Constraints).
         _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
+
+        // Likewise after Apply: a configuration callback registered with Options.Configure is a
+        // documented place to finish configuring an engine, and enabling operator overloading from
+        // one has to reach the expressions that consult it.
+        _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
         // likewise after Apply, which is where a custom ITypeConverter gets installed
         _interopResolutionProfile = new InteropResolutionProfile(
