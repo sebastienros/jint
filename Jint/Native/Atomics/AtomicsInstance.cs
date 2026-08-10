@@ -188,12 +188,23 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
     {
         private readonly PromiseCapability _promiseCapability;
         private readonly Engine _engine;
+
+        /// <summary>
+        /// The evaluation cycle the wait was registered in, read here on the engine thread. Neither of the
+        /// two ways a wait ends runs on that thread: the timeout fires on a timer thread, and a wake arrives
+        /// from whichever agent calls <c>Atomics.notify</c> on the shared buffer. Reading the generation at
+        /// settle time would therefore read whatever cycle the engine is in by then, and a wait registered
+        /// before a <c>RestoreGlobalSnapshot</c> would resolve its promise into the restored engine.
+        /// </summary>
+        private readonly int _generation;
+
         private int _resolved;
 
         public AsyncWaiter(Engine engine, PromiseCapability promiseCapability)
         {
             _engine = engine;
             _promiseCapability = promiseCapability;
+            _generation = engine.EventLoopGeneration;
         }
 
         public bool Resolved => _resolved != 0;
@@ -206,7 +217,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
                 _engine.AddToEventLoop(() =>
                 {
                     _promiseCapability.Resolve(new JsString(result));
-                });
+                }, _generation);
             }
         }
     }
