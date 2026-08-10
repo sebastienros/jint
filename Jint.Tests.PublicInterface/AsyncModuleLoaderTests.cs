@@ -245,7 +245,10 @@ public class AsyncModuleLoaderTests
     {
         // https://tc39.es/ecma262/#sec-HostLoadImportedModule: "each time this operation is called with a
         // specific referrer, specifier, ... it must perform FinishLoadingImportedModule with the same
-        // module". Jint keeps that promise by never asking twice.
+        // module". Jint keeps that promise by answering a recorded pair from [[LoadedModules]] instead of
+        // asking again. The record is written when the load finishes, so a pair can still be dispatched
+        // twice while its first load is in flight - see the two-phase case below, which the spec both
+        // produces and permits.
         var loader = new DeferredModuleLoader();
         var engine = new Engine(options => options.EnableModules(loader));
 
@@ -258,6 +261,30 @@ public class AsyncModuleLoaderTests
 
         engine.Evaluate("results.join(',')").AsString().Should().Be("first,first");
         loader.AskedFor("./twice.js").Should().Be(1);
+    }
+
+    [Fact]
+    public void OneSpecifierImportedAtTwoPhasesIsStillOneRecordAndOneFetch()
+    {
+        // https://tc39.es/ecma262/#sec-InnerModuleLoading dispatches HostLoadImportedModule for every entry
+        // of [[RequestedModules]] before any of them has been recorded, and `import defer x` and `import x`
+        // of one specifier are two entries. Against an asynchronous loader both are therefore dispatched,
+        // and the second is resolved a second time - which HostLoadImportedModule permits, requiring only
+        // that the answer be the same. What must hold is the outcome: the two denote one module record, so
+        // there is one fetch and one evaluation, not two.
+        var loader = new DeferredModuleLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.StartImport("./main.js");
+        loader.Deliver("./main.js", "import defer * as d from './dep.js'; import { v } from './dep.js'; export const a = v;");
+        engine.Advanced.ProcessTasks();
+
+        loader.Deliver("./dep.js", "globalThis.depEvaluations = (globalThis.depEvaluations ?? 0) + 1; export const v = 3;");
+        engine.Advanced.ProcessTasks();
+
+        import.GetResult().Get("a").AsNumber().Should().Be(3);
+        loader.AskedFor("./dep.js").Should().Be(1, "the two phases denote one module record, so the second request coalesces onto the first load");
+        engine.Evaluate("globalThis.depEvaluations").AsNumber().Should().Be(1);
     }
 
     [Fact]
