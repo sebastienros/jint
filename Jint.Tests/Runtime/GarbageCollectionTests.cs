@@ -311,6 +311,90 @@ public class GarbageCollectionTests
     }
 
     /// <summary>
+    /// A warmed call site keeping its last callee is a documented, bounded cost of the two monomorphic
+    /// call caches — one live callee per site, and a <c>ScriptFunction</c> drags its closure environment
+    /// along. It has to stay bounded to the sites those caches can actually serve. Five arguments is more
+    /// than <c>CallFromRegisters</c> has registers for and more than the built-in lane's two, so neither
+    /// can ever arm here, and remembering the callee would buy a pooled engine nothing but one retained
+    /// closure graph per such site, for its whole life.
+    /// </summary>
+    [Fact]
+    public void AFiveArgumentCallSiteRetainsNoCallee()
+    {
+        AssertCalleeRetention("f(1, 2, 3, 4, 5);", expectRetained: false);
+    }
+
+    /// <summary>
+    /// The same for a spread, which makes the argument count a runtime quantity neither lane can express,
+    /// regardless of how few arguments the spread happens to produce.
+    /// </summary>
+    [Fact]
+    public void ASpreadCallSiteRetainsNoCallee()
+    {
+        AssertCalleeRetention("f(...[1, 2]);", expectRetained: false);
+    }
+
+    /// <summary>
+    /// The control, and the reason the two above can be trusted: a site the lanes <em>do</em> serve still
+    /// retains its callee, which is the documented one-entry-per-site cost. Without it, a harness that
+    /// simply failed to warm anything would satisfy those assertions for the wrong reason — as one written
+    /// against <c>Execute(string)</c> does, since a re-parsed script gets a fresh handler tree every time
+    /// and so never reaches the caches at all.
+    /// </summary>
+    [Fact]
+    public void ATwoArgumentCallSiteStillRetainsItsCallee()
+    {
+        AssertCalleeRetention("f(1, 2);", expectRetained: true);
+    }
+
+    private static void AssertCalleeRetention(string callSite, bool expectRetained)
+    {
+        var engine = new Engine();
+
+        // A factory, so each call produces a distinct closure rather than one hoisted declaration the
+        // global binding would keep alive on its own. The body reads no identifier, because a warmed
+        // identifier site inside the callee caches the environment it resolved in — a separate retention,
+        // of the function's own call environment and so of the function, that would mask this one.
+        engine.Execute("function make() { return function (a, b, c, d, e) { return 1; }; }");
+
+        // Prepared once and run twice: the handler-tree caches are keyed on the AST node and engage only
+        // on a second evaluation of the same program on the same engine.
+        var prepared = Engine.PrepareScript(callSite);
+
+        var reference = WarmTheSiteAndForget(engine, prepared);
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        reference.IsAlive.Should().Be(expectRetained, expectRetained
+            ? $"`{callSite}` arms a monomorphic call cache, whose one-entry-per-site retention is by design"
+            : $"`{callSite}` can arm neither call lane, so it must not remember the callee it dispatched");
+
+        // The engine owns the handler tree under test and the prepared script owns the node it is keyed
+        // on, so both have to outlive the collection.
+        GC.KeepAlive(engine);
+        GC.KeepAlive(prepared);
+
+        // NoInlining so the callee cannot stay stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference WarmTheSiteAndForget(Engine engine, Prepared<Script> prepared)
+        {
+            engine.Execute("var f = make();");
+            var reference = new WeakReference(engine.GetValue("f"));
+
+            // Dispatching through the site is what runs the probe; the second run is what makes the
+            // handler tree, and so anything it cached, outlive the evaluation.
+            engine.Execute(prepared);
+            engine.Execute(prepared);
+
+            // Now nothing script-visible holds the callee, so only an interpreter cache can.
+            engine.Execute("f = undefined;");
+            return reference;
+        }
+    }
+
+    /// <summary>
     /// Only ever used by <see cref="NestedTypeAccessDoesNotRetainEngines"/>: the accessor cache is
     /// process-wide, so a type another test also resolves would let that test's engine take the blame.
     /// </summary>

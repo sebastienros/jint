@@ -37,6 +37,18 @@ internal sealed class JintCallExpression : JintExpression
     private readonly int _argCount;
     private readonly bool _fastArgsEligible;
 
+    /// <summary>
+    /// Whether this site's argument shape is one <see cref="ScriptFunction.CallFromRegisters"/> can carry,
+    /// which is the half of the register lane's gate that is decidable here rather than per callee.
+    /// </summary>
+    /// <remarks>
+    /// A zero-argument site is deliberately excluded: it rents nothing today (<see cref="ExpressionCache"/>
+    /// hands back a cached empty array without renting), so there is no allocation for the lane to avoid.
+    /// Spreads make the arity a runtime quantity, which the register form cannot express, however few
+    /// arguments a particular spread produces.
+    /// </remarks>
+    private readonly bool _regLaneEligible;
+
     // Monomorphic register-call cache for interpreted callees, deliberately NOT merged with
     // _fastCallee/_fastShape above. The built-in lane's fixed-arity shapes report Supported without
     // consulting the site's arity (the emitter writes ShapeExpression(only, arity: null)), which is
@@ -50,7 +62,9 @@ internal sealed class JintCallExpression : JintExpression
     // reference compare, and a site that never sees an eligible callee (every built-in call, every
     // zero-argument call) compares against a field that stays null and pays nothing else.
     // _regProbedCallee is whatever callee this site last examined, accepted or not, so such a site
-    // remembers the rejection instead of re-probing on every dispatch.
+    // remembers the rejection instead of re-probing on every dispatch. Only a site _regLaneEligible
+    // admits ever examines one: the rest cannot arm the lane whatever they are handed, so they are
+    // spared both the probe and the reference they would otherwise hold for the engine's lifetime.
     //
     // NOTE: these are engine-affine, like _fastCallee. Handler trees are engine-owned for exactly
     // this reason (Engine._functionDefinitions / _scriptStatementLists) and must never be stashed on
@@ -76,6 +90,7 @@ internal sealed class JintCallExpression : JintExpression
 
         _argCount = expression.Arguments.Count;
         _fastArgsEligible = !_arguments.HasSpreads && _argCount <= 2;
+        _regLaneEligible = !_arguments.HasSpreads && _argCount is >= 1 and <= MaxRegisterArguments;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -339,7 +354,13 @@ internal sealed class JintCallExpression : JintExpression
             // Same deal for the register lane, in its own slots. Recorded against _regProbedCallee
             // rather than _regCallee so a callee the probe rejects is remembered as rejected —
             // otherwise a site whose callee never qualifies would re-probe on every dispatch.
-            if (!ReferenceEquals(functionInstance, _regProbedCallee))
+            //
+            // The build-time half of the gate is tested first, so a site the lane could never arm
+            // neither probes nor remembers. Remembering is not free there: _regProbedCallee is a
+            // strong reference, and a ScriptFunction drags its closure environment along, so a site
+            // with five arguments or a spread would pin one such graph for the engine's lifetime in
+            // exchange for a lane it can never take.
+            if (_regLaneEligible && !ReferenceEquals(functionInstance, _regProbedCallee))
             {
                 ProbeRegisterCallee(engine, functionInstance);
             }
@@ -371,10 +392,11 @@ internal sealed class JintCallExpression : JintExpression
     /// and because everything it settles here is one reference compare at dispatch time.
     /// </summary>
     /// <remarks>
-    /// Two halves of the gate are settled here rather than per dispatch. This site's argument shape
-    /// is a build-time constant, and <c>Engine._isDebugMode</c> is <c>readonly</c> on an engine whose
-    /// handler trees are its own — so an engine that debugs simply never arms the lane, which is the
-    /// same answer a per-dispatch test would give, reached once instead of per call.
+    /// Only reached for a site whose argument shape can arm the lane at all — see
+    /// <see cref="_regLaneEligible"/>, which the caller tests first — so what is left to settle is
+    /// the callee, plus <c>Engine._isDebugMode</c>. That one is <c>readonly</c> on an engine whose
+    /// handler trees are its own, so an engine that debugs simply never arms the lane: the same
+    /// answer a per-dispatch test would give, reached once per callee instead of per call.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ProbeRegisterCallee(Engine engine, Function functionInstance)
@@ -383,13 +405,7 @@ internal sealed class JintCallExpression : JintExpression
         _regCallee = null;
         _regState = null;
 
-        // A zero-argument site is deliberately excluded: it rents nothing today (ExpressionCache
-        // hands back a cached empty array without renting), so there is no allocation for the lane
-        // to avoid and arming would only buy the site a retained callee and an extra dispatch test.
-        // Spreads make the arity a runtime quantity, which the register form cannot carry.
-        if (_argCount is not (>= 1 and <= MaxRegisterArguments)
-            || _arguments.HasSpreads
-            || engine._isDebugMode)
+        if (engine._isDebugMode)
         {
             return;
         }
