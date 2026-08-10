@@ -149,12 +149,25 @@ internal sealed class GlobalEnvironment : Environment
         JsValue name,
         [NotNullWhen(true)] out JsValue? value)
     {
+        var prototype = _global._prototype!;
+
+        // An own-property question is not a read for an object whose [[Get]] deviates from the ordinary
+        // one — PropertyAccessSemantics.Exotic, which the engine derives per type and the exotic built-ins
+        // state outright. A Proxy answers [[GetOwnProperty]] from its getOwnPropertyDescriptor trap and
+        // never its get trap, and a host object that synthesises a value in Get owns no descriptor for it
+        // at all, so either would resolve to nothing here while HasBinding — a real [[HasProperty]] chain
+        // walk — has already said the binding exists. Hand those the same spec-shaped pair the deeper
+        // levels get, one level higher up.
+        if ((prototype._type & InternalTypes.ExoticGet) != InternalTypes.Empty)
+        {
+            return TryGetFromPrototypeChain(prototype, name, out value);
+        }
+
         // TryGetOwnPropertyValue's base body is exactly what this used to spell out — GetOwnProperty,
         // Undefined means no, otherwise UnwrapJsValue against the global as receiver — so for every
         // in-box prototype the two are the same call. Asking through the hook additionally lets a host
         // object installed as the global's prototype answer from its own state without building a
         // descriptor it would only throw away.
-        var prototype = _global._prototype!;
         if (prototype.TryGetOwnPropertyValue(name, _global, out var found))
         {
             value = found;
@@ -163,10 +176,22 @@ internal sealed class GlobalEnvironment : Environment
 
         // deeper levels are colder: spec-shaped [[HasProperty]] + [[Get]] with the global as
         // receiver, so a Proxy or exotic object below the direct prototype sees its real traps
-        var parent = prototype.GetPrototypeOf();
-        if (parent is not null && parent.HasProperty(name))
+        return TryGetFromPrototypeChain(prototype.GetPrototypeOf(), name, out value);
+    }
+
+    /// <summary>
+    /// [[HasProperty]] to decide whether the name resolves at all, then [[Get]] with the global as the
+    /// receiver — the spec's GlobalEnvironmentRecord.GetBindingValue shape, which the shortcut above can
+    /// only stand in for when the object it asks has ordinary read semantics.
+    /// </summary>
+    private bool TryGetFromPrototypeChain(
+        ObjectInstance? start,
+        JsValue name,
+        [NotNullWhen(true)] out JsValue? value)
+    {
+        if (start is not null && start.HasProperty(name))
         {
-            value = parent.Get(name, _global);
+            value = start.Get(name, _global);
             return true;
         }
 
