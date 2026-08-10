@@ -97,14 +97,14 @@ public class HostCultureInvarianceTests
             AssertEvaluates(engine, "new Date(Date.UTC(2020,0,1,2,3,4,5)).toISOString()", "2020-01-01T02:03:04.005Z");
 
             // A negative year is the only hole in this format that can carry a sign.
-            AssertEvaluates(engine, "new Date(Date.UTC(-1,0,1)).toISOString()", "-0001-01-01T00:00:00.000Z");
+            AssertEvaluates(engine, "new Date(Date.UTC(-1,0,1)).toISOString()", "-000001-01-01T00:00:00.000Z");
             AssertEvaluates(engine, "new Date(-8639999999999999).toISOString()", "-271821-04-20T00:00:00.001Z");
 
             // And the expanded year above 9999, whose sign this code writes itself.
             AssertEvaluates(engine, "new Date(8639999999999999).toISOString()", "+275760-09-12T23:59:59.999Z");
 
             // toJSON and JSON.stringify both go through toISOString.
-            AssertEvaluates(engine, "JSON.stringify(new Date(Date.UTC(-1,0,1)))", "\"-0001-01-01T00:00:00.000Z\"");
+            AssertEvaluates(engine, "JSON.stringify(new Date(Date.UTC(-1,0,1)))", "\"-000001-01-01T00:00:00.000Z\"");
         });
     }
 

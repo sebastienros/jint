@@ -64,6 +64,75 @@ public class DateTests
         result.ToString().Should().Be("{\"date\":null}");
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date-time-string-format says YYYY is "four decimal digits from 0000
+    /// to 9999, or as an expanded year of "+" or "-" followed by six decimal digits", and
+    /// https://tc39.es/ecma262/#sec-expanded-years fixes the boundary: a year outside 0000-9999 gets the
+    /// expanded form and nothing else does. Only years whose absolute value already runs to six digits
+    /// used to come out right, which is why the two rows test262 pins by string - the ±8.64e15 extremes
+    /// in built-ins/Date/parse/time-value-maximum-range.js - never caught it.
+    /// </summary>
+    [Theory]
+    // Unchanged: six digits either way.
+    [InlineData(-8640000000000000, "-271821-04-20T00:00:00.000Z")]
+    [InlineData(-3217862419200000, "-100000-01-01T00:00:00.000Z")]
+    // Five digits before, six now.
+    [InlineData(-377736739200000, "-010000-01-01T00:00:00.000Z")]
+    // Four digits before, six now. A negative year is always expanded, however small.
+    [InlineData(-62198755200000, "-000001-01-01T00:00:00.000Z")]
+    [InlineData(-62167219200001, "-000001-12-31T23:59:59.999Z")]
+    // Year 0 is inside 0000-9999, so it keeps the plain four-digit form and takes no sign at all.
+    [InlineData(-62167219200000, "0000-01-01T00:00:00.000Z")]
+    [InlineData(-62135596800000, "0001-01-01T00:00:00.000Z")]
+    [InlineData(0, "1970-01-01T00:00:00.000Z")]
+    [InlineData(253402300799999, "9999-12-31T23:59:59.999Z")]
+    // One millisecond earlier is the first instant of year 10000, which a separate defect makes throw a
+    // CLR exception; this row shows the expanded year without depending on that one.
+    [InlineData(253402300800001, "+010000-01-01T00:00:00.001Z")]
+    [InlineData(3093527980800000, "+100000-01-01T00:00:00.000Z")]
+    [InlineData(8640000000000000, "+275760-09-13T00:00:00.000Z")]
+    public void ToIsoStringExpandsYearsOutsideFourDigits(long timeValue, string expected)
+    {
+        _engine.Evaluate($"new Date({timeValue}).toISOString()").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// toJSON has no year formatting of its own - https://tc39.es/ecma262/#sec-date.prototype.tojson
+    /// invokes toISOString - so the fix has to reach JSON.stringify too, which is where an embedder
+    /// serializing a Date actually meets it.
+    /// </summary>
+    [Fact]
+    public void ToJsonExpandsYearsOutsideFourDigits()
+    {
+        _engine.Evaluate("new Date(-62198755200000).toJSON()").AsString().Should().Be("-000001-01-01T00:00:00.000Z");
+        _engine.Evaluate("JSON.stringify(new Date(-62198755200000))").AsString().Should().Be("\"-000001-01-01T00:00:00.000Z\"");
+        _engine.Evaluate("JSON.stringify({ d: new Date(253402300800001) })").AsString().Should().Be("{\"d\":\"+010000-01-01T00:00:00.001Z\"}");
+    }
+
+    /// <summary>
+    /// The practical damage: Jint's own parser implements the format correctly, so the four- and
+    /// five-digit strings the formatter used to emit came back as NaN from Date.parse.
+    /// </summary>
+    [Fact]
+    public void ToIsoStringOfAnExpandedYearParsesBack()
+    {
+        _engine.Evaluate("Date.parse(new Date(-62198755200000).toISOString())").AsNumber().Should().Be(-62198755200000);
+        _engine.Evaluate("Date.parse(new Date(253402300800001).toISOString())").AsNumber().Should().Be(253402300800001);
+    }
+
+    /// <summary>
+    /// The neighbouring formatters deliberately do not expand. https://tc39.es/ecma262/#sec-datestring
+    /// and https://tc39.es/ecma262/#sec-date.prototype.toutcstring both write a sign followed by
+    /// ToZeroPaddedDecimalString(abs(yv), 4), where four is a minimum and not a width, so -0001 and
+    /// 10000 are the correct answers there and must stay put.
+    /// </summary>
+    [Fact]
+    public void ToUtcStringDoesNotExpandTheYear()
+    {
+        _engine.Evaluate("new Date(-62198755200000).toUTCString()").AsString().Should().Be("Fri, 01 Jan -0001 00:00:00 GMT");
+        _engine.Evaluate("new Date(253402300800001).toUTCString()").AsString().Should().Be("Sat, 01 Jan 10000 00:00:00 GMT");
+    }
+
     [Fact]
     public void ValuePrecisionIsIntegral()
     {

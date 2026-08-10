@@ -8,6 +8,7 @@ using Jint.Native.Intl;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Native.Temporal;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -954,21 +955,12 @@ internal sealed partial class DatePrototype : Prototype
         var (year, month, day) = YearMonthDayFromTime(t);
         month++;
 
-        // Step 6 writes the sign itself and zero-pads abs(y), so the digits never carry one. Letting
-        // the year's own formatting produce it would take the sign from the ambient culture, which is
-        // U+2212 MINUS SIGN in sv-SE and friends - not something a date parser accepts. Every other
-        // hole here is non-negative by construction and formats to ASCII digits under any culture.
-        var yearSign = "";
-        if (year < 0)
-        {
-            yearSign = "-";
-        }
-        else if (year > 9999)
-        {
-            yearSign = "+";
-        }
-
-        return $"{yearSign}{System.Math.Abs(year):0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
+        // https://tc39.es/ecma262/#sec-expanded-years: a year outside 0000-9999 is written as a sign
+        // followed by six digits, so -1 is "-000001" and 10000 is "+010000", and the four-digit form
+        // takes no sign at all. Sharing Temporal's implementation of that rule is what stops the two
+        // disagreeing: this used to emit whatever `0000` padded the year to, which is right only once
+        // the year has six digits of its own.
+        return $"{TemporalHelpers.PadIsoYear(year)}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
     }
 
     [JsFunction(Length = 1, Name = "toJSON")]

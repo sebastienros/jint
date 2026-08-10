@@ -15,7 +15,12 @@ namespace Jint.Native.Temporal;
 internal static class TemporalHelpers
 {
     /// <summary>
-    /// Formats an ISO year as 4-digit (0000-9999) or 6-digit with sign prefix.
+    /// Formats an ISO year as 4-digit (0000-9999) or 6-digit with sign prefix. This is the one
+    /// implementation of https://tc39.es/ecma262/#sec-expanded-years, which Temporal's ISO strings and
+    /// <c>Date.prototype.toISOString</c> both write, so it lives here rather than once per caller - the
+    /// two used to disagree, and Date was the one that was wrong. The sign is a character literal and
+    /// only a non-negative number is ever formatted, so nothing here can pick up a culture's own
+    /// negative sign.
     /// </summary>
     internal static string PadIsoYear(int year)
     {
