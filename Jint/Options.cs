@@ -470,6 +470,11 @@ public class Options
         /// presents itself to the host; the originating exception is recorded either way and can always be read
         /// with <see cref="JintException.TryGetClrException"/>, and a running script sees neither.
         /// </para>
+        /// <para>
+        /// <see cref="JavaScriptException.GetJavaScriptErrorString"/> is exempt and renders the same string
+        /// either way. It is the accessor a host uses to show a <em>script author</em> what went wrong, so the
+        /// chain would put the host's .NET frames in front of the JavaScript ones there.
+        /// </para>
         /// </summary>
         public bool ChainClrExceptionAsInnerException { get; set; }
 

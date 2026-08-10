@@ -99,7 +99,17 @@ public class JavaScriptException : JintException
             : null;
     }
 
-    public string GetJavaScriptErrorString() => _jsErrorException.ToString();
+    /// <summary>
+    /// The JavaScript error and its JavaScript stack, as a script author would read it.
+    /// <para>
+    /// Deliberately never the CLR side of the story: a chained CLR exception
+    /// (<see cref="Options.InteropOptions.ChainClrExceptionAsInnerException"/>) is rendered by
+    /// <see cref="object.ToString"/> on this exception, which is the host-facing string form, and is reachable
+    /// through <see cref="Exception.InnerException"/> and <see cref="JintException.TryGetClrException"/>. This
+    /// accessor renders the same thing whether that option is on or off.
+    /// </para>
+    /// </summary>
+    public string GetJavaScriptErrorString() => _jsErrorException.Render(includeChainedClrException: false);
 
     /// <summary>
     /// Returns this exception as the base exception.
@@ -196,7 +206,14 @@ public class JavaScriptException : JintException
             }
         }
 
-        public override string ToString()
+        public override string ToString() => Render(includeChainedClrException: true);
+
+        /// <summary>
+        /// <paramref name="includeChainedClrException"/> is false for
+        /// <see cref="JavaScriptException.GetJavaScriptErrorString"/>, which promises the JavaScript error and
+        /// nothing else; the string form of the exception itself keeps the chain.
+        /// </summary>
+        internal string Render(bool includeChainedClrException)
         {
             var sb = new ValueStringBuilder();
 
@@ -211,7 +228,7 @@ public class JavaScriptException : JintException
             // Exception.ToString() renders an inner exception between the message and the frames. This override
             // replaces that rendering wholesale, so a chained CLR exception has to be spelled out here or it
             // would be reachable through InnerException and yet invisible in every log line.
-            if (InnerException is { } innerException)
+            if (includeChainedClrException && InnerException is { } innerException)
             {
                 sb.Append(" ---> ");
                 sb.Append(innerException.ToString());
