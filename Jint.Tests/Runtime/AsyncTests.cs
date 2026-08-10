@@ -14,6 +14,12 @@ public class AsyncTests
     // BEHAVIOR of the task-interop / async-wake path — not latency — use this budget so they
     // cannot lose that race; tests that assert a timeout FIRES keep tight budgets (starvation
     // only helps the timeout fire).
+    //
+    // The budget is the second line of defence, not the first. What causes that starvation is that a
+    // blocking wait here runs on a .NET TP Worker while the continuation it waits for needs one too,
+    // so every test in this file that blocks on wall-clock asynchronous work hands its body to
+    // DedicatedThread.RunAsync and returns the task: the pool keeps its worker for the whole wait.
+    // Raising a budget only buys time against a shortage the test was itself contributing to.
     private static readonly TimeSpan GenerousPromiseTimeout = TimeSpan.FromMinutes(2);
 
     [Fact]
@@ -812,7 +818,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldTaskConvertedToPromiseInJS()
+    public Task ShouldTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
         engine.SetValue("callable", Callable);
@@ -826,7 +832,7 @@ public class AsyncTests
             true.Should().BeTrue();
             return 1;
         }
-    }
+    });
 
     private static string EvaluateAsyncJson(string body)
     {
@@ -839,14 +845,14 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldReturnedTaskConvertedToPromiseInJS()
+    public Task ShouldReturnedTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
         result.Should().Be(AsyncTestClass.TestString);
-    }
+    });
 
     [Fact]
     public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
@@ -862,7 +868,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldAwaitUnwrapPromiseWithCustomTimeout()
+    public Task ShouldAwaitUnwrapPromiseWithCustomTimeout() => DedicatedThread.RunAsync(() =>
     {
         // the custom budget must be generous: this asserts the SUCCESS path, and a tight budget
         // races the delayed task's continuation scheduling under CI load
@@ -875,7 +881,7 @@ public class AsyncTests
         """);
         var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
         result.Should().Be(AsyncTestClass.TestString);
-    }
+    });
 
     [Fact]
     public void ShouldReturnedCompletedTaskConvertedToPromiseInJS()
@@ -925,7 +931,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldTaskCatchWhenThrowError()
+    public Task ShouldTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
 
@@ -941,10 +947,10 @@ public class AsyncTests
             await Task.Delay(10);
             throw new Exception();
         }
-    }
+    });
 
     [Fact]
-    public void ShouldReturnedTaskCatchWhenThrowError()
+    public Task ShouldReturnedTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
 
@@ -953,10 +959,10 @@ public class AsyncTests
 
         engine.Evaluate("asyncTestClass.ThrowAfterDelayAsync().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
-    }
+    });
 
     [Fact]
-    public void ShouldTaskAwaitCurrentStack()
+    public Task ShouldTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -976,10 +982,10 @@ public class AsyncTests
         engine.Evaluate("async function hello() {await myAsyncMethod();mySyncMethod2();await asyncTestClass.AddToStringDelayedAsync(\"3\")} hello();").UnwrapIfPromise();
 
         asyncTestClass.StringToAppend.Should().Be("123");
-    }
+    });
 
     [Fact]
-    public void ShouldCompleteWithAsyncTaskCallbacks()
+    public Task ShouldCompleteWithAsyncTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
         {
@@ -993,10 +999,10 @@ public class AsyncTests
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         result.Should().Be("Hello World");
-    }
+    });
 
     [Fact]
-    public void ShouldFromAsyncTaskCallbacks()
+    public Task ShouldFromAsyncTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
         {
@@ -1010,7 +1016,7 @@ public class AsyncTests
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
 
         result.Should().Be("Hello World");
-    }
+    });
 
     [Fact]
     public void ShouldAllowLetReassignmentInsideAsyncLoop()
@@ -1043,7 +1049,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldResolveTopLevelAwaitOfDelayedTaskInModule()
+    public Task ShouldResolveTopLevelAwaitOfDelayedTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // #2663: top-level await of a .NET Task<T> in a module must block Modules.Import until the
         // Task completes on a ThreadPool thread, instead of giving up in a tight microsecond loop
@@ -1069,10 +1075,10 @@ public class AsyncTests
         var ns = engine.Modules.Import("main");
 
         ns.Get("answer").AsInteger().Should().Be(42);
-    }
+    });
 
     [Fact]
-    public void ShouldPropagateRejectionOfTopLevelAwaitedTaskInModule()
+    public Task ShouldPropagateRejectionOfTopLevelAwaitedTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // The rejection path of the same #2663 flow: a faulted top-level awaited Task must surface
         // as a JavaScript error out of Modules.Import, not hang or report a spurious pending state.
@@ -1094,10 +1100,10 @@ public class AsyncTests
             """);
 
         Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>();
-    }
+    });
 
     [Fact]
-    public void ShouldObserveCancellationDuringTopLevelAwaitOfNeverCompletingTaskInModule()
+    public Task ShouldObserveCancellationDuringTopLevelAwaitOfNeverCompletingTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // Robustness gap in the #2663 drain: when an embedder registers a cancellation-based
         // constraint (options.CancellationToken) and cancels it while a module's top-level await is
@@ -1133,10 +1139,10 @@ public class AsyncTests
         sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), $"Cancellation was not observed promptly: took {sw.Elapsed}.");
 
         neverCompletes.TrySetCanceled();
-    }
+    });
 
     [Fact]
-    public void ShouldTimeOutTopLevelAwaitOfNeverCompletingTaskInModuleWithoutCancellation()
+    public Task ShouldTimeOutTopLevelAwaitOfNeverCompletingTaskInModuleWithoutCancellation() => DedicatedThread.RunAsync(() =>
     {
         // Invariant: with NO cancellation registered, a genuinely never-settling top-level await must
         // still be BOUNDED by PromiseTimeout (not hang), surfacing as an error out of Modules.Import.
@@ -1163,12 +1169,12 @@ public class AsyncTests
         sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(30), $"Never-settling await was not bounded: took {sw.Elapsed}.");
 
         neverCompletes.TrySetCanceled();
-    }
+    });
 
 #if !NETFRAMEWORK
 
     [Fact]
-    public void ShouldCompleteWithAsyncValueTaskCallbacks()
+    public Task ShouldCompleteWithAsyncValueTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
         {
@@ -1181,10 +1187,10 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         result.Should().Be("Hello World");
-    }
+    });
 
     [Fact]
-    public void ShouldFromAsyncValueTaskCallbacks()
+    public Task ShouldFromAsyncValueTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
         {
@@ -1197,10 +1203,10 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
         result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
         result.Should().Be("Hello World");
-    }
+    });
 
     [Fact]
-    public void ShouldValueTaskConvertedToPromiseInJS()
+    public Task ShouldValueTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
         engine.SetValue("callable", Callable);
@@ -1214,7 +1220,7 @@ public class AsyncTests
             true.Should().BeTrue();
             return 1;
         }
-    }
+    });
 
     [Fact]
     public void ShouldValueTaskCatchWhenCancelled()
@@ -1236,7 +1242,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldValueTaskCatchWhenThrowError()
+    public Task ShouldValueTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
 
@@ -1251,10 +1257,10 @@ public class AsyncTests
             await Task.Delay(10);
             throw new Exception();
         }
-    }
+    });
 
     [Fact]
-    public void ShouldValueTaskAwaitCurrentStack()
+    public Task ShouldValueTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
         Engine engine = new();
@@ -1271,17 +1277,17 @@ public class AsyncTests
         var result = engine.Evaluate("async function hello() {await myAsyncMethod();myAsyncMethod2();} hello();");
         result.UnwrapIfPromise();
         log.Should().Be("12");
-    }
+    });
 
     [Fact]
-    public void ShouldReturnedValueTaskOfTConvertedToPromiseInJS()
+    public Task ShouldReturnedValueTaskOfTConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedValueTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
         result.Should().Be(AsyncTestClass.TestString);
-    }
+    });
 
     [Fact]
     public void ShouldReturnedCompletedValueTaskOfTConvertedToPromiseInJS()
@@ -1310,7 +1316,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldReturnedValueTaskOfTCatchWhenThrowError()
+    public Task ShouldReturnedValueTaskOfTCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
 
@@ -1319,10 +1325,10 @@ public class AsyncTests
 
         engine.Evaluate("asyncTestClass.ThrowAfterDelayValueTaskAsync().then(_ => cancelled = false).catch(_ => cancelled = true)").UnwrapIfPromise();
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
-    }
+    });
 
     [Fact]
-    public void ShouldAwaitUnwrapValueTaskOfTPromiseWithCustomTimeout()
+    public Task ShouldAwaitUnwrapValueTaskOfTPromiseWithCustomTimeout() => DedicatedThread.RunAsync(() =>
     {
         // see ShouldAwaitUnwrapPromiseWithCustomTimeout — success path must not race CI load
         Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
@@ -1334,10 +1340,10 @@ public class AsyncTests
         """);
         var result = engine.Invoke("test").UnwrapIfPromise(GenerousPromiseTimeout);
         result.Should().Be(AsyncTestClass.TestString);
-    }
+    });
 
     [Fact]
-    public void ShouldIterateOverAsyncEnumeratorConvertedToPromiseInJS()
+    public Task ShouldIterateOverAsyncEnumeratorConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
@@ -1353,7 +1359,7 @@ public class AsyncTests
         """);
         var result = engine.Invoke("test").UnwrapIfPromise();
         result.Should().Be(AsyncTestClass.TestString);
-    }
+    });
 #endif
 
     [Fact]
@@ -1417,7 +1423,7 @@ public class AsyncTests
     }
 
     [Fact]
-    public void ShouldPromiseBeResolved2()
+    public Task ShouldPromiseBeResolved2() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
         engine.SetValue("setTimeout",
@@ -1436,7 +1442,7 @@ public class AsyncTests
         var result = engine.Execute(Script);
         var val = result.GetValue("main").Call();
         val.UnwrapIfPromise().AsInteger().Should().Be(1);
-    }
+    });
 
 #if !NETFRAMEWORK // we are having trouble with timeouts on .NET Framework CI runs
     [Fact]

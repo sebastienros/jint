@@ -38,6 +38,12 @@
       AppContext switch can still be observed.
     -->
     <Compile Include="..\Jint.Tests\HostContractVerificationSwitch.cs" Link="HostContractVerificationSwitch.cs" />
+    <!--
+      Shared so that both suites keep a blocking wait on wall-clock asynchronous work off the thread pool
+      the same way. See DedicatedThread.RunAsync for why blocking a pool worker to wait for a continuation
+      that itself needs one is the shortage to avoid.
+    -->
+    <Compile Include="..\Jint.Tests\DedicatedThread.cs" Link="DedicatedThread.cs" />
   </ItemGroup>
 
   <ItemGroup>

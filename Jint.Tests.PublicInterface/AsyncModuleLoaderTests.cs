@@ -220,7 +220,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void AHostCanFinishALoadFromAnotherThread()
+    public Task AHostCanFinishALoadFromAnotherThread() => DedicatedThread.RunAsync(() =>
     {
         var loader = new DeferredModuleLoader();
         var engine = new Engine(options => options.EnableModules(loader));
@@ -238,7 +238,7 @@ public class AsyncModuleLoaderTests
 
         engine.Advanced.ProcessTasks();
         engine.Evaluate("value").AsNumber().Should().Be(99);
-    }
+    });
 
     [Fact]
     public void TheLoaderIsAskedOncePerReferrerAndSpecifier()
@@ -325,7 +325,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void StartImportIsDrivenByTheHostsOwnPump()
+    public Task StartImportIsDrivenByTheHostsOwnPump() => DedicatedThread.RunAsync(() =>
     {
         // The game-loop shape: start the import, then hand the engine a turn per frame and watch the operation.
         // Nothing here blocks, and no engine work happens on any thread but this one.
@@ -352,7 +352,7 @@ public class AsyncModuleLoaderTests
         import.IsFaulted.Should().BeFalse();
         import.GetResult().Get("value").AsString().Should().Be("ready");
         frames.Should().BeGreaterThan(1, "the load should not have completed on the turn that started it");
-    }
+    });
 
     [Fact]
     public void AFailedPumpedImportReportsTheErrorRatherThanThrowingOutOfThePump()
@@ -499,7 +499,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void ACanceledFetchRejectsTheImportAsCanceled()
+    public Task ACanceledFetchRejectsTheImportAsCanceled() => DedicatedThread.RunAsync(() =>
     {
         // Task.IsCanceled is not Task.IsFaulted - there is no exception object to take a message from - so
         // the base class has to say what happened itself.
@@ -522,7 +522,7 @@ public class AsyncModuleLoaderTests
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
         import.Error!.Get("message").AsString().Should().Be("Loading module './doomed.js' was canceled.");
-    }
+    });
 
     /// <summary>
     /// Records the cancellation token the engine hands the fetch, and never finishes on its own: the fetch
@@ -598,7 +598,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void TheSynchronousImportIsWokenByASettleFromABackgroundThread()
+    public Task TheSynchronousImportIsWokenByASettleFromABackgroundThread() => DedicatedThread.RunAsync(() =>
     {
         // The blocking Import drains the event loop while the load is in flight; a settle arriving from
         // another thread - the shape every real fetch has - only enqueues, and the drain on this thread has
@@ -609,7 +609,7 @@ public class AsyncModuleLoaderTests
         var ns = engine.Modules.Import("./bg.js");
 
         ns.Get("value").AsString().Should().Be("from-background");
-    }
+    });
 
     private sealed class BackgroundThreadLoader : IAsyncModuleLoader
     {
@@ -686,7 +686,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void AGraphMixingWarmAndTrulyAsynchronousAnswersStillLoadsThroughTheBlockingImport()
+    public Task AGraphMixingWarmAndTrulyAsynchronousAnswersStillLoadsThroughTheBlockingImport() => DedicatedThread.RunAsync(() =>
     {
         // The root settles inline on the import's own stack; its dependency arrives from the thread pool
         // later. The blocking Import has to switch from the synchronous continuation to draining the event
@@ -700,7 +700,7 @@ public class AsyncModuleLoaderTests
         var engine = new Engine(options => options.EnableModules(loader));
 
         engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+slow");
-    }
+    });
 
     /// <summary>
     /// Answers from an in-memory dictionary with an already-completed task — the cache-hit shape — except
@@ -987,7 +987,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void AThrowingModuleSourceHookRejectsTheImportInsteadOfStrandingIt()
+    public Task AThrowingModuleSourceHookRejectsTheImportInsteadOfStrandingIt() => DedicatedThread.RunAsync(() =>
     {
         // GetModuleSource is a host hook that runs inside the queued build of an asynchronously delivered
         // module. A failure there has no caller to erupt to; escaping would leave every waiter permanently
@@ -1008,7 +1008,7 @@ public class AsyncModuleLoaderTests
         import.IsCompleted.Should().BeTrue("the hook failure must settle the import rather than strand it");
         import.IsFaulted.Should().BeTrue();
         import.Error!.Get("message").AsString().Should().Contain("source hook failed");
-    }
+    });
 
     private sealed class ThrowingModuleSourceLoader : AsyncModuleLoader
     {
@@ -1066,7 +1066,7 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public void AResolutionFailureReachesTheBlockingImportAsTheOriginalException()
+    public Task AResolutionFailureReachesTheBlockingImportAsTheOriginalException() => DedicatedThread.RunAsync(() =>
     {
         // With a synchronous loader, Resolve throwing ModuleResolutionException propagates out of Import as
         // itself. The asynchronous pipeline reduces it to a rejection on the way through the event loop — the
@@ -1084,7 +1084,7 @@ public class AsyncModuleLoaderTests
         Invoking(() => engine.Modules.Import("./root.js"))
             .Should().Throw<ModuleResolutionException>()
             .Which.Specifier.Should().Be("./forbidden.js");
-    }
+    });
 
     /// <summary>
     /// Serves from a dictionary, always from a background thread — the shape of a real fetch, and the only

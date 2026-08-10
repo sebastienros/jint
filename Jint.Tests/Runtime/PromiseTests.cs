@@ -573,7 +573,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     }
 
     [Fact]
-    public void UnwrapIfPromise_WithCancellationToken_ThrowsOperationCanceledException()
+    public Task UnwrapIfPromise_WithCancellationToken_ThrowsOperationCanceledException() => DedicatedThread.RunAsync(() =>
     {
         var engine = new Engine();
         engine.SetValue("f", new Func<JsValue>(() =>
@@ -588,7 +588,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         cts.CancelAfter(TimeSpan.FromMilliseconds(50));
 
         Invoking(() => promise.UnwrapIfPromise(cts.Token)).Should().ThrowExactly<OperationCanceledException>();
-    }
+    });
 
     [Fact]
     public void UnwrapIfPromise_WithCancellationToken_NonPromiseReturnsValue()
