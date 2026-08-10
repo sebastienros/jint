@@ -418,6 +418,19 @@ internal sealed class MethodInfoFunction : Function
             }
         }
 
+        // Classify the receiver here, not from whatever the invoke raises. A TargetException coming out of
+        // MethodBase.Invoke says nothing about who produced it: the host method's own body may have used
+        // reflection and got a target wrong, and on net8+ MethodDescriptor.Invoke normalizes that into the
+        // same TargetInvocationException shape a receiver mismatch takes. Rewriting either into a TypeError
+        // discards the host's exception and defeats JintException.TryGetClrException. This is the predicate
+        // the compiled-invoker lane already gates on; a null DeclaringType (a module-level global method,
+        // which reflection over a Type never yields) is left for the invoke to judge as before.
+        if (!method.IsStatic && method.DeclaringType is { } declaringType && !declaringType.IsInstanceOfType(thisObj))
+        {
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            ThrowIncompatibleReceiver();
+        }
+
         try
         {
             if (isGenericDefinition)
@@ -435,23 +448,9 @@ internal sealed class MethodInfoFunction : Function
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return true;
         }
-        catch (TargetException)
-        {
-            // receiver mismatch: netfx MethodBase.Invoke and the generic-definition path above throw
-            // it unwrapped; surface a catchable TypeError instead of a raw CLR crash
-            _engine.CheckAmortizedConstraintsAtHostBoundary();
-            ThrowIncompatibleReceiver();
-            return false;
-        }
         catch (TargetInvocationException exception)
         {
             _engine.CheckAmortizedConstraintsAtHostBoundary();
-            if (exception.InnerException is TargetException)
-            {
-                // net8+: MethodDescriptor.Invoke normalizes the sibling TargetException into the
-                // TargetInvocationException shape; still a receiver mismatch, not the method throwing
-                ThrowIncompatibleReceiver();
-            }
             Throw.MeaningfulException(_engine, exception);
             return false;
         }

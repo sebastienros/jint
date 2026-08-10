@@ -1,9 +1,127 @@
 #nullable enable
 
+using System.Reflection;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
+
+/// <summary>
+/// A host method that itself uses reflection and gets a target wrong raises <see cref="TargetException"/> from
+/// inside its own body. Once <c>MethodBase.Invoke</c> has been entered that is indistinguishable from the
+/// <see cref="TargetException"/> the invoke raises when <em>Jint's</em> receiver is wrong, so classifying it
+/// from the exception rewrote the host's own failure into a TypeError and threw the CLR exception away — the
+/// exact thing <see cref="JintException.TryGetClrException"/> exists to preserve. Receiver compatibility is
+/// therefore decided before the invoke, and everything coming out of it is the host's.
+/// </summary>
+public class HostReflectingMethodTests
+{
+    private sealed class ReflectingHost
+    {
+        /// <summary>
+        /// Two overloads keep the call on the reflection invoke lane on every target framework: the
+        /// compiled-invoker fast lane is single-candidate only, and net472 has no such lane at all.
+        /// </summary>
+        public string Reflect() => Misdirect();
+
+        public string Reflect(int unused) => Misdirect();
+
+        private string Misdirect()
+        {
+            var method = typeof(string).GetMethod(nameof(string.ToUpperInvariant), Type.EmptyTypes)!;
+            // deliberately the wrong target — the TargetException raises inside this method, not in Jint
+            return (string) method.Invoke(this, null)!;
+        }
+    }
+
+    private sealed class SingleMethodReflectingHost
+    {
+        public string Reflect()
+        {
+            var method = typeof(string).GetMethod(nameof(string.ToUpperInvariant), Type.EmptyTypes)!;
+            return (string) method.Invoke(this, null)!;
+        }
+    }
+
+    private sealed class UnrelatedHost
+    {
+        public int Unrelated => 1;
+    }
+
+    /// <summary>
+    /// Behaves exactly like the default one, but is not it — enough for the engine to decline the compiled
+    /// invoker lane, which is the configuration a host with any custom converter is in.
+    /// </summary>
+    private sealed class CustomTypeConverter(Engine engine) : DefaultTypeConverter(engine);
+
+    [Fact]
+    public void AHostMethodsOwnTargetExceptionIsNotMistakenForAReceiverMismatch()
+    {
+        var engine = new Engine(options => options.CatchClrExceptions());
+        engine.SetValue("host", new ReflectingHost());
+
+        var exception = Invoking(() => engine.Evaluate("host.Reflect()")).Should().Throw<JavaScriptException>().Which;
+
+        exception.Message.Should().NotBe("Method 'Reflect' called on incompatible receiver");
+        JintException.TryGetClrException(exception, out var clrException).Should().BeTrue();
+        clrException.Should().BeAssignableTo<TargetException>();
+    }
+
+    [Fact]
+    public void TheSameHoldsWhenACustomTypeConverterDeclinesTheCompiledInvokerLane()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.SetTypeConverter(e => new CustomTypeConverter(e));
+        });
+        engine.SetValue("host", new SingleMethodReflectingHost());
+
+        var exception = Invoking(() => engine.Evaluate("host.Reflect()")).Should().Throw<JavaScriptException>().Which;
+
+        exception.Message.Should().NotBe("Method 'Reflect' called on incompatible receiver");
+        JintException.TryGetClrException(exception, out var clrException).Should().BeTrue();
+        clrException.Should().BeAssignableTo<TargetException>();
+    }
+
+    [Fact]
+    public void TheHostExceptionAlsoReachesAScriptCatchUnchanged()
+    {
+        var engine = new Engine(options => options.CatchClrExceptions());
+        engine.SetValue("host", new ReflectingHost());
+
+        engine.Evaluate("try { host.Reflect(); 'no error' } catch (e) { e instanceof TypeError }")
+            .AsBoolean().Should().BeFalse("the host's own failure is not a receiver mismatch");
+    }
+
+    [Fact]
+    public void AForeignReceiverStillSurfacesACatchableTypeErrorOnTheReflectionLane()
+    {
+        var engine = new Engine(options => options.CatchClrExceptions());
+        engine.SetValue("host", new ReflectingHost());
+        engine.SetValue("other", new UnrelatedHost());
+
+        var exception = Invoking(() => engine.Evaluate("var f = host.Reflect; f.call(other)"))
+            .Should().ThrowExactly<JavaScriptException>().Which;
+        exception.Message.Should().Be("Method 'Reflect' called on incompatible receiver");
+
+        engine.Evaluate("var g = host.Reflect; try { g.call(other); 'no error' } catch (e) { e instanceof TypeError }")
+            .AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void AForeignReceiverIsATypeErrorForASingleCandidateMethodToo()
+    {
+        var engine = new Engine(options => options.CatchClrExceptions());
+        engine.SetValue("host", new SingleMethodReflectingHost());
+        engine.SetValue("other", new UnrelatedHost());
+
+        var exception = Invoking(() => engine.Evaluate("var f = host.Reflect; f.call(other)"))
+            .Should().ThrowExactly<JavaScriptException>().Which;
+        exception.Message.Should().Be("Method 'Reflect' called on incompatible receiver");
+    }
+}
 
 /// <summary>
 /// Behaviour contract for the originating CLR exception behind a JavaScript error. When
