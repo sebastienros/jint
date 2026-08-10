@@ -390,7 +390,6 @@ internal sealed class JintFunctionDefinition
 
     internal sealed class State
     {
-        public bool HasRestParameter;
         public int Length;
         public Key[] ParameterNames = null!;
         public bool HasDuplicates;
@@ -1052,7 +1051,6 @@ internal sealed class JintFunctionDefinition
     private static void GetBoundNames(
         Node parameter,
         List<Key> target,
-        ref bool hasRestParameter,
         ref bool hasParameterExpressions,
         ref bool hasDuplicates,
         ref bool hasArguments)
@@ -1071,7 +1069,6 @@ Start:
         {
             if (parameter.Type == NodeType.RestElement)
             {
-                hasRestParameter = true;
                 parameter = ((RestElement) parameter).Argument;
                 continue;
             }
@@ -1087,7 +1084,6 @@ Start:
 
                     if (element.Type == NodeType.RestElement)
                     {
-                        hasRestParameter = true;
                         parameter = ((RestElement) element).Argument;
                         goto Start;
                     }
@@ -1095,7 +1091,6 @@ Start:
                     GetBoundNames(
                         element,
                         target,
-                        ref hasRestParameter,
                         ref hasParameterExpressions,
                         ref hasDuplicates,
                         ref hasArguments);
@@ -1107,7 +1102,6 @@ Start:
                 {
                     if (property.Type == NodeType.RestElement)
                     {
-                        hasRestParameter = true;
                         parameter = ((RestElement) property).Argument;
                         goto Start;
                     }
@@ -1115,7 +1109,6 @@ Start:
                     GetBoundNames(
                         ((AssignmentProperty) property).Value,
                         target,
-                        ref hasRestParameter,
                         ref hasParameterExpressions,
                         ref hasDuplicates,
                         ref hasArguments);
@@ -1165,7 +1158,6 @@ Start:
                 GetBoundNames(
                     parameter,
                     parameterNames,
-                    ref state.HasRestParameter,
                     ref state.HasParameterExpressions,
                     ref state.HasDuplicates,
                     ref hasArguments);

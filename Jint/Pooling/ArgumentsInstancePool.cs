@@ -27,17 +27,16 @@ internal sealed class ArgumentsInstancePool
         };
     }
 
-    public JsArguments Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
+    public JsArguments Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null);
 
     public JsArguments Rent(
         Function? func,
         Key[]? formals,
         JsValue[] argumentsList,
-        DeclarativeEnvironment? env,
-        bool hasRestParameter)
+        DeclarativeEnvironment? env)
     {
         var obj = _pool.Allocate();
-        obj.Prepare(func!, formals!, argumentsList, env!, hasRestParameter);
+        obj.Prepare(func!, formals!, argumentsList, env!);
         return obj;
     }
 
