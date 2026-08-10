@@ -154,6 +154,7 @@ public class FastCallLaneTests
     [InlineData("\"abc\".substring(0, p)", "substring")]
     [InlineData("\"abc\".slice(p)", "slice")]
     [InlineData("\"abc\".slice(0, p)", "slice")]
+    [InlineData("parseInt(\"10\", p)", "parseInt")]
     public void AWarmedSiteKeepsTheBuiltinFrameWhenAnArgumentCoercesThroughUserCode(string call, string builtin)
     {
         var engine = new Engine();
@@ -162,6 +163,31 @@ public class FastCallLaneTests
             f(1); f(1);
             let captured = "";
             try { f({ valueOf: function () { throw new Error("x"); } }); } catch (e) { captured = e.stack; }
+            captured;
+            """).AsString();
+
+        stack.Should().Contain("at " + builtin, "the built-in frame must survive at a warmed site too");
+    }
+
+    /// <summary>
+    /// The same invariant for the argument these two coerce with <c>ToString</c> rather than
+    /// <c>ToNumber</c>, which the theory above cannot express: an object carrying only a throwing
+    /// <c>valueOf</c> is coerced through <c>Object.prototype.toString</c> and never throws, so the
+    /// thrower has to be the <c>toString</c>. Their first argument's guard is String, and a warmed
+    /// site handed anything else must keep the frame the user code can read off <c>error.stack</c>.
+    /// </summary>
+    [Theory]
+    [InlineData("parseInt(p)", "parseInt")]
+    [InlineData("parseInt(p, 16)", "parseInt")]
+    [InlineData("parseFloat(p)", "parseFloat")]
+    public void AWarmedSiteKeepsTheBuiltinFrameWhenTheStringArgumentCoercesThroughUserCode(string call, string builtin)
+    {
+        var engine = new Engine();
+        var stack = engine.Evaluate($$"""
+            function f(p) { return {{call}}; }
+            f("1"); f("1");
+            let captured = "";
+            try { f({ toString: function () { throw new Error("x"); } }); } catch (e) { captured = e.stack; }
             captured;
             """).AsString();
 
@@ -222,6 +248,13 @@ public class FastCallLaneTests
     [InlineData("\"abc\".charAt()", "a")]
     [InlineData("\"abc\".charAt(undefined)", "a")]
     [InlineData("\"abc\".charAt(NaN)", "a")]
+    [InlineData("String(parseInt(\"0x10\"))", "16")]
+    [InlineData("String(parseInt(\"0x10\", undefined))", "16")]
+    [InlineData("String(parseInt(\"0x10\", NaN))", "16")]
+    [InlineData("String(parseInt(\"10\", 2))", "2")]
+    [InlineData("String(parseInt(\"10\", 1))", "NaN")]
+    [InlineData("String(parseFloat(\"1.5e2x\"))", "150")]
+    [InlineData("String(parseFloat(\"1.5\", 16))", "1.5")]
     public void AbsentNumericArgumentsKeepTheirSpecDefinedMeaning(string expression, string expected)
     {
         var engine = new Engine();

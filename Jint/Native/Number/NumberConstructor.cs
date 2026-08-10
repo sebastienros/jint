@@ -1,28 +1,23 @@
 using Jint.Native.Function;
-using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Number;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-number-constructor
 /// </summary>
+// Number.parseInt / parseFloat must be the very function objects globalThis.parseInt /
+// globalThis.parseFloat are (https://tc39.es/ecma262/#sec-number.parseint), so both owners install
+// the realm intrinsic rather than each building its own. See NumberParseFunction for what that
+// replaced and why sharing the object is what lets these two reach the fast-call lane.
+[JsIntrinsicReference("parseFloat", IntrinsicMember = "ParseFloat")]
+[JsIntrinsicReference("parseInt", IntrinsicMember = "ParseInt")]
 [JsObject(UseShape = true)]
 internal sealed partial class NumberConstructor : Constructor
 {
     private static readonly JsString _functionName = new JsString("Number");
-
-    // Number.parseInt / parseFloat are the same functions as global parseInt / parseFloat (Jint's
-    // ClrFunction equality compares the underlying delegate). They wrap static delegates with no realm
-    // dependency, so they're per-realm instance slots created in the constructor (like RegExp exec).
-    [JsProperty(Name = "parseInt", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
-    private readonly ClrFunction _parseInt;
-
-    [JsProperty(Name = "parseFloat", Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
-    private readonly ClrFunction _parseFloat;
 
     private const long MinSafeInteger = -9007199254740991;
     internal const long MaxSafeInteger = 9007199254740991;
@@ -47,8 +42,6 @@ internal sealed partial class NumberConstructor : Constructor
         PrototypeObject = new NumberPrototype(engine, realm, this, objectPrototype);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
-        _parseInt = new ClrFunction(engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable);
-        _parseFloat = new ClrFunction(engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable);
     }
 
     protected override void Initialize()

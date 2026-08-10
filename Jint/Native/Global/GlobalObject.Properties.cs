@@ -1,17 +1,16 @@
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global;
 
-// 56 lazy realm-intrinsic constructor properties on globalThis. Each emits a LazyPropertyDescriptor
-// whose factory body is `host => host._realm.Intrinsics.<IntrinsicMember>` — the constructor object
-// allocates only on first read. Sorted by JsName to match the generator's emit order. Casing
-// overrides via IntrinsicMember:
+// 58 lazy realm-intrinsic properties on globalThis. Each emits a LazyPropertyDescriptor whose factory
+// body is `host => host._realm.Intrinsics.<IntrinsicMember>` — the object allocates only on first
+// read. Sorted by JsName to match the generator's emit order. Casing overrides via IntrinsicMember:
 //   "JSON"     → Intrinsics.Json
 //   "URIError" → Intrinsics.UriError
 //   "Generator" → Intrinsics.GeneratorFunction
 //   "eval"     → Intrinsics.Eval
+//   "parseInt" / "parseFloat" → Intrinsics.ParseInt / ParseFloat, the same two function objects
+//   NumberConstructor installs (see NumberParseFunction)
 [JsIntrinsicReference("AggregateError")]
 [JsIntrinsicReference("Array")]
 [JsIntrinsicReference("ArrayBuffer")]
@@ -68,8 +67,8 @@ namespace Jint.Native.Global;
 [JsIntrinsicReference("WeakRef")]
 [JsIntrinsicReference("WeakSet")]
 [JsIntrinsicReference("eval", IntrinsicMember = "Eval")]
-[JsInstanceSlot("parseInt")]
-[JsInstanceSlot("parseFloat")]
+[JsIntrinsicReference("parseFloat", IntrinsicMember = "ParseFloat")]
+[JsIntrinsicReference("parseInt", IntrinsicMember = "ParseInt")]
 [JsInstanceSlot("globalThis")]
 public partial class GlobalObject
 {
@@ -85,21 +84,12 @@ public partial class GlobalObject
     protected override void Initialize()
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        const PropertyFlag LengthFlags = PropertyFlag.Configurable;
 
         CreateProperties_Generated();
 
-        // The three entries that can't be expressed declaratively fill reserved [JsInstanceSlot]s.
-        // parseInt / parseFloat are kept hand-rolled because spec requires
-        // Number.parseInt === parseInt (and Number.parseFloat === parseFloat). Pre-source-gen Jint
-        // satisfied that via ClrFunction.Equals comparing the underlying delegate; both globalThis
-        // and NumberConstructor wrap the same GlobalObject.ParseInt/ParseFloat static method.
-        // Migrating to [JsFunction] would emit a distinct __GlobalObjectFunction dispatcher and
-        // break the strict-equality test. NumberConstructor.cs:50 documents the reciprocal half.
-        // globalThis is a self-reference (the GlobalObject instance itself), which can't be
-        // expressed as a static [JsProperty] field or as an intrinsic.
-        SetBuiltinSlotByName("parseInt", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
-        SetBuiltinSlotByName("parseFloat", new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
+        // The one entry that can't be expressed declaratively fills the reserved [JsInstanceSlot]:
+        // globalThis is a self-reference (the GlobalObject instance itself), which is neither a
+        // static [JsProperty] field nor an intrinsic.
         SetBuiltinSlotByName("globalThis", new PropertyDescriptor(this, PropertyFlags));
     }
 }

@@ -33,9 +33,9 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-parseint-string-radix
     /// </summary>
-    internal static JsValue ParseInt(JsValue thisObject, JsCallArguments arguments)
+    internal static JsValue ParseInt(JsValue value, JsValue radixValue)
     {
-        var inputString = TypeConverter.ToString(arguments.At(0));
+        var inputString = TypeConverter.ToString(value);
         var trimmed = StringPrototype.TrimEx(inputString);
         var s = trimmed.AsSpan();
 
@@ -58,8 +58,9 @@ public sealed partial class GlobalObject : ObjectInstance
 
         // Steps 2-3 and 10. stripPrefix captures step 9's "radixMV is 0 or 16" before step 10
         // defaults it to 10; the spec validates the range at step 3, before trimming, which is a
-        // reordering nothing can observe because no user code runs in between.
-        var radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
+        // reordering nothing can observe because no user code runs in between. An omitted radix
+        // arrives as undefined, whose ToInt32 is the 0 the absent case produced.
+        var radix = TypeConverter.ToInt32(radixValue);
         var stripPrefix = true;
         if (radix == 0)
         {
@@ -134,9 +135,9 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-parsefloat-string
     /// </summary>
-    internal static JsValue ParseFloat(JsValue thisObject, JsCallArguments arguments)
+    internal static JsValue ParseFloat(JsValue value)
     {
-        var inputString = TypeConverter.ToString(arguments.At(0));
+        var inputString = TypeConverter.ToString(value);
         var trimmedString = StringPrototype.TrimStartEx(inputString);
 
         if (string.IsNullOrWhiteSpace(trimmedString))
