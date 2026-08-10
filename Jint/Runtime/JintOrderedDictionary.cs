@@ -359,7 +359,7 @@ internal sealed class JintOrderedDictionary<TKey, TValue>
         }
         if (arrayIndex < 0)
         {
-            Throw.ArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.CurrentCulture, TooSmall, 0));
+            Throw.ArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.InvariantCulture, TooSmall, 0));
         }
         if (dictionary.Count > array.Length - arrayIndex)
         {

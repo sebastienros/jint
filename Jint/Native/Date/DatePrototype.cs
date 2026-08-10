@@ -954,13 +954,21 @@ internal sealed partial class DatePrototype : Prototype
         var (year, month, day) = YearMonthDayFromTime(t);
         month++;
 
-        var formatted = $"{year:0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
-        if (year > 9999)
+        // Step 6 writes the sign itself and zero-pads abs(y), so the digits never carry one. Letting
+        // the year's own formatting produce it would take the sign from the ambient culture, which is
+        // U+2212 MINUS SIGN in sv-SE and friends - not something a date parser accepts. Every other
+        // hole here is non-negative by construction and formats to ASCII digits under any culture.
+        var yearSign = "";
+        if (year < 0)
         {
-            formatted = "+" + formatted;
+            yearSign = "-";
+        }
+        else if (year > 9999)
+        {
+            yearSign = "+";
         }
 
-        return formatted;
+        return $"{yearSign}{System.Math.Abs(year):0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
     }
 
     [JsFunction(Length = 1, Name = "toJSON")]

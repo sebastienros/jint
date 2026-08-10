@@ -3,6 +3,7 @@
 
 using System.Buffers;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -221,29 +222,38 @@ internal ref struct ValueStringBuilder
     }
 
 #if NET8_0_OR_GREATER
+    /// <summary>
+    /// Appends a formattable value using the invariant culture, which every caller of this builder
+    /// wants: what it produces is machine-readable output — JSON, ISO 8601 dates, stack traces —
+    /// not text for a user to read. A null provider would mean <see cref="NumberFormatInfo.CurrentInfo"/>,
+    /// i.e. the host's ambient <see cref="CultureInfo.CurrentCulture"/>, whose <c>NegativeSign</c> is
+    /// U+2212 MINUS SIGN in sv-SE, fi-FI, nb-NO and others, and carries a U+061C ARABIC LETTER MARK
+    /// in ar-SA. Both routes are cultured, and both are taken: the <c>TryFormat</c> attempt fails on
+    /// an empty or nearly full buffer, which is exactly the state of a freshly constructed builder.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append<T>(T value) where T : ISpanFormattable
     {
-        if (value.TryFormat(_chars.Slice(_pos), out var charsWritten, format: default, provider: null))
+        if (value.TryFormat(_chars.Slice(_pos), out var charsWritten, format: default, provider: CultureInfo.InvariantCulture))
         {
             _pos += charsWritten;
         }
         else
         {
-            Append(value.ToString());
+            Append(value.ToString(format: null, CultureInfo.InvariantCulture));
         }
     }
 #else
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append(int value)
     {
-        Append(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(value.ToString(CultureInfo.InvariantCulture));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append(long value)
     {
-        Append(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(value.ToString(CultureInfo.InvariantCulture));
     }
 #endif
 

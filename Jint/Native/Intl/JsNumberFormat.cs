@@ -226,8 +226,11 @@ internal sealed class JsNumberFormat : ObjectInstance
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
 
-        // Format exponent (no plus sign for positive exponents per spec)
-        return $"{mantissaStr}E{exponent}";
+        // Format exponent (no plus sign for positive exponents per spec). PartitionNotationSubPattern
+        // takes the exponent's minus sign from the resolved locale's data, so it comes from this
+        // object's own NumberFormatInfo - as the mantissa above does - and never from the host's
+        // ambient culture. https://tc39.es/ecma402/#sec-partitionnotationsubpattern
+        return $"{mantissaStr}E{exponent.ToString(NumberFormatInfo)}";
     }
 
     private string FormatEngineering(double value)
@@ -251,8 +254,9 @@ internal sealed class JsNumberFormat : ObjectInstance
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
 
-        // Format exponent (no plus sign for positive exponents per spec)
-        return $"{mantissaStr}E{engineeringExponent}";
+        // Format exponent (no plus sign for positive exponents per spec). See FormatScientific for why
+        // the exponent's sign comes from this object's NumberFormatInfo rather than the ambient culture.
+        return $"{mantissaStr}E{engineeringExponent.ToString(NumberFormatInfo)}";
     }
 
     private string FormatCompact(double value)
