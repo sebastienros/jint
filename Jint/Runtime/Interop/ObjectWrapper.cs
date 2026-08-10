@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -747,6 +747,60 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Existence and enumerability of a string-keyed generic dictionary's key, answered by the target's own
+    /// <c>ContainsKey</c> instead of by building the descriptor <see cref="GetOwnProperty(JsValue)"/> would.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A dictionary member is the one kind this wrapper never caches: <see cref="GetOwnProperty(JsValue)"/> stores the
+    /// descriptor it resolves for a reflected member in <c>_properties</c>, so a second question about that
+    /// name is a bag lookup, but it deliberately does not for a dictionary key — the dictionary can change
+    /// under the wrapper. So every existence question re-ran the whole read: <c>TryGetValue</c>, then
+    /// <c>FromObject</c> on the value — which for an object value builds a whole <see cref="ObjectWrapper"/>
+    /// of its own — then a <see cref="PropertyDescriptor"/> around it, and then discarded both, purely to
+    /// learn that the key is there. <c>Object.keys</c> over a wrapped document paid that once per key, and
+    /// <c>for..in</c>, <c>in</c>, <c>hasOwnProperty</c>, <c>Object.assign</c>, spread and
+    /// <c>JSON.stringify</c> all reach it through the same probe.
+    /// </para>
+    /// <para>
+    /// The lane only ever <em>answers</em>; it never decides a key is missing. A <see langword="false"/> from
+    /// <c>ContainsKey</c> falls through to the descriptor path, because a dictionary wrapper still resolves
+    /// CLR members (<c>Count</c> and friends) for names the dictionary does not carry, and that arm is not
+    /// this method's to reproduce. So the only way the probe and <see cref="GetOwnProperty(JsValue)"/> can disagree is
+    /// a target whose <c>ContainsKey</c> and <c>TryGetValue</c> disagree with each other, which the compiled
+    /// dictionary lanes already trust everywhere else.
+    /// </para>
+    /// <para>
+    /// The three things that outrank a dictionary key are checked in <see cref="GetOwnProperty(JsValue)"/>'s own
+    /// order: a stored descriptor (<c>Object.freeze</c>, <c>Object.defineProperty</c>, a host
+    /// <c>SetOwnProperty</c>, or the memoized descriptor an immutability promise put in <c>_properties</c>'
+    /// place), the pending <c>length</c> forwarder, and a symbol key. The crossing memo needs no check of its
+    /// own — it holds descriptors for keys the dictionary has, with the flags
+    /// <see cref="DictionaryMemberFlags"/> gives every dictionary member, so it can only agree with this
+    /// answer.
+    /// </para>
+    /// </remarks>
+    protected internal override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+    {
+        if (property is JsString jsString
+            && _typeDescriptor.IsStringKeyedGenericDictionary
+            && _typeDescriptor.CanTestDictionaryKey
+            && !(_lengthPropertyPending && CommonProperties.Length.Equals(property))
+            && !TryGetProperty(property, out _))
+        {
+            var contains = _typeDescriptor.ContainsDictionaryKey(Target, jsString.ToString());
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            if (contains)
+            {
+                // DictionaryMemberFlags is Enumerable for every key; only configurability varies.
+                return OwnPropertyProbe.Enumerable;
+            }
+        }
+
+        return base.ProbeOwnProperty(property);
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)

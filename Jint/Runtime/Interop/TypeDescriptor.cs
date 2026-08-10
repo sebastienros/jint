@@ -100,6 +100,15 @@ internal sealed class TypeDescriptor
     public PropertyInfo? IntegerIndexerProperty { get; }
 
     public bool IsDictionary { get; }
+
+    /// <summary>
+    /// Whether <see cref="ContainsDictionaryKey"/> can actually answer. <c>ContainsKey</c> is declared on
+    /// both <see cref="IDictionary{TKey,TValue}"/> and <see cref="IReadOnlyDictionary{TKey,TValue}"/>, so it
+    /// is found whenever <c>TryGetValue</c> is — but a caller that reads a <see langword="false"/> as
+    /// "the key is absent" has to know the difference between that and "there was nothing to ask".
+    /// </summary>
+    public bool CanTestDictionaryKey => _genericContainsKeyMethod is not null;
+
     public bool IsStringKeyedGenericDictionary { get; }
     public bool IsGenericDictionary { get; }
     public bool IsNonStringKeyedGenericDictionary { get; }
