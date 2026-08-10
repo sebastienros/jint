@@ -1810,9 +1810,10 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var operations = ArrayOperations.For(obj, forWrite: false);
         try
         {
-            // Order, not OrderBy: the sort must be stable (spec, since ES2019) and must terminate even
-            // when the script's comparison function is inconsistent. See Polyfills.Order.
-            return operations.Order(comparer).ToArray();
+            // StableOrder, not a BCL sort: the sort must be stable (spec, since ES2019) and must
+            // terminate even when the script's comparison function is inconsistent. See
+            // SortExtensions.StableOrder.
+            return operations.StableOrder(comparer);
         }
         catch (InvalidOperationException e)
         {

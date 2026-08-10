@@ -1494,8 +1494,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             else
             {
                 var comparer = ArrayComparer.WithFunction(_engine, compareFn);
-                // Order is stable; List<T>.Sort is not. Stability is required by the spec since ES2019.
-                items = items.Order(comparer).ToList();
+                // StableOrder, not List<T>.Sort: the spec has required stability since ES2019, and the
+                // sort must terminate however inconsistent the script's comparison function is. See
+                // SortExtensions.StableOrder.
+                items = items.StableOrder(comparer).ToList();
             }
 
             for (uint j = 0; j < itemCount; j++)
@@ -2390,9 +2392,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         try
         {
-            // Order, not OrderBy: the sort must be stable (spec, since ES2019) and must terminate even
-            // when the script's comparison function is inconsistent. See Polyfills.Order.
-            return array.Order(comparer).ToArray();
+            // StableOrder, not a BCL sort: the sort must be stable (spec, since ES2019) and must
+            // terminate even when the script's comparison function is inconsistent. See
+            // SortExtensions.StableOrder.
+            return array.StableOrder(comparer);
         }
         catch (InvalidOperationException e)
         {

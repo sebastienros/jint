@@ -1109,17 +1109,27 @@ return get + '' === ""length,0,1,2,3"";";
     }
 
     [Theory]
-    [InlineData("[5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18].sort(cmp).length")]
-    [InlineData("[5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18].toSorted(cmp).length")]
-    [InlineData("new Int32Array([5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18]).sort(cmp).length")]
-    public void SortTerminatesWithAnInconsistentComparator(string expression)
+    [InlineData("items.sort(cmp).length", "a === 1 ? -1 : 1")]
+    [InlineData("items.toSorted(cmp).length", "a === 1 ? -1 : 1")]
+    [InlineData("new Int32Array(items).sort(cmp).length", "a === 1 ? -1 : 1")]
+    [InlineData("items.sort(cmp).length", "-1")]
+    [InlineData("items.toSorted(cmp).length", "-1")]
+    [InlineData("new Int32Array(items).sort(cmp).length", "-1")]
+    public void SortTerminatesWithAnInconsistentComparator(string expression, string comparisonResult)
     {
         // A comparison function that never returns 0 and is not antisymmetric is legal JavaScript: the
-        // resulting order is implementation-defined, but the sort still has to finish. LINQ's sort on
-        // .NET Framework is a quicksort with no depth limit and no fallback, so delegating to it here
-        // spins forever instead.
+        // resulting order is implementation-defined, but the sort still has to finish
+        // (https://tc39.es/ecma262/#sec-sortcompare). Both framework families used to get that wrong,
+        // each in its own way, and neither failure was anything a script could catch. LINQ's sort on
+        // .NET Framework is a quicksort with no depth limit and no fallback, so it spins forever;
+        // .NET Core's introsort detects the inconsistency and throws ArgumentException instead.
+        //
+        // The element count and the bluntness of the comparator both matter. .NET Core insertion-sorts
+        // 16 elements or fewer without ever noticing, and `a === 1 ? -1 : 1` happens not to trip the
+        // detector even above that, so the array has 20 elements and `return -1` is one of the cases.
         var engine = new Engine();
-        engine.Execute("function cmp(a, b) { return a === 1 ? -1 : 1; }");
+        engine.Execute("var items = [5,3,8,1,9,2,7,4,6,0,15,11,13,10,14,12,17,16,19,18];");
+        engine.Execute($"function cmp(a, b) {{ return {comparisonResult}; }}");
 
         engine.Evaluate(expression).AsNumber().Should().Be(20);
     }
