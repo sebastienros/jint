@@ -279,10 +279,12 @@ public sealed class JsonSerializer
         {
             // Built once here rather than per key: the replacer is invoked for every key of the whole
             // graph, and how it must be invoked depends only on the callback — which no key, and no
-            // mutation a replacer performs, can change. Create() rather than Rent() because the
-            // invoker lives for the whole recursive walk, which can exit by exception (a cycle, a
-            // BigInt, an execution constraint) from any depth, so there is no one place that could
-            // reliably hand a pooled array back. On the register lane there is no array at all.
+            // mutation a replacer performs, can change. Create() rather than Rent() because this
+            // invoker is a field of a public type a host may hold across calls, assigned here in the
+            // prologue and read by the recursive walk: its lifetime is the serializer's, not one
+            // scope's, so there is no bracket to return it from — not even on the path that succeeds.
+            // Where a scope does exist, JsonInstance.Parse rents and returns in a finally. On the
+            // register lane there is no array either way.
             _replacerInvoker = CallbackInvoker.Create(_engine, (ICallable) oi, 2);
             _hasReplacerFunction = true;
         }
