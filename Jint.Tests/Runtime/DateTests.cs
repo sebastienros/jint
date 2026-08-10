@@ -228,6 +228,68 @@ public class DateTests
         jsDate._dateValue.Flags.Should().Be(DateFlags.None);
     }
 
+    /// <summary>
+    /// 253402300800000 is the first millisecond of year 10000 — one past the last instant
+    /// <see cref="DateTime"/> can represent, and far inside the legal Date range of
+    /// https://tc39.es/ecma262/#sec-timeclip, so every one of these must produce a string. The bound
+    /// deciding whether a time value could take the DateTime shortcut was rounded up onto this value,
+    /// so the shortcut was taken for a value the conversion behind it then threw
+    /// ArgumentOutOfRangeException on. That is a CLR exception rather than a JavaScriptException, so it
+    /// escaped engine.Evaluate and script try/catch could not see it.
+    /// </summary>
+    [Fact]
+    public void FormattingTheFirstInstantOfYear10000DoesNotThrowAClrException()
+    {
+        // How many digits the expanded year gets is a separate defect; what this asserts is that a
+        // string comes back at all.
+        _engine.Evaluate("new Date(253402300800000).toISOString()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
+        _engine.Evaluate("new Date(253402300800000).toJSON()").AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
+        _engine.Evaluate("JSON.stringify({ d: new Date(253402300800000) })").AsString().Should().EndWith("10000-01-01T00:00:00.000Z\"}");
+        _engine.Evaluate("new Date(253402300800000).getUTCFullYear()").AsNumber().Should().Be(10000);
+
+        // toUTCString reached the same value through DateTimeOffset.FromUnixTimeMilliseconds, whose own
+        // message names 253402300799999 as the largest it accepts. toString renders in local time, so
+        // only the year is worth asserting there.
+        _engine.Evaluate("new Date(253402300800000).toUTCString()").AsString().Should().Be("Sat, 01 Jan 10000 00:00:00 GMT");
+        _engine.Evaluate("new Date(253402300800000).toString()").AsString().Should().Contain("10000");
+
+        // The escape itself: a CLR exception is invisible to script, so this used to throw out of
+        // Evaluate rather than run the catch clause or return a value.
+        _engine.Evaluate("(function () { try { return new Date(253402300800000).toISOString(); } catch (e) { return 'caught'; } })()")
+            .AsString().Should().EndWith("10000-01-01T00:00:00.000Z");
+    }
+
+    /// <summary>
+    /// The neighbours on both sides always worked, which is what made the failing band exactly one
+    /// millisecond wide and easy to miss.
+    /// </summary>
+    [Fact]
+    public void ToIsoStringWorksOnBothSidesOfTheDateTimeUpperBound()
+    {
+        _engine.Evaluate("new Date(253402300799998).toISOString()").AsString().Should().Be("9999-12-31T23:59:59.998Z");
+        _engine.Evaluate("new Date(253402300799999).toISOString()").AsString().Should().Be("9999-12-31T23:59:59.999Z");
+        _engine.Evaluate("new Date(253402300800001).toISOString()").AsString().Should().EndWith("10000-01-01T00:00:00.001Z");
+    }
+
+    /// <summary>
+    /// The bound itself. DateTime.MaxValue is 9999-12-31T23:59:59.9999999, so the last millisecond it
+    /// can represent is 253402300799999, and rounding that up is what handed a host passing
+    /// DateTime.MaxValue a Date sitting in year 10000. The low end never had the problem: the epoch is
+    /// a whole number of milliseconds after DateTime.MinValue, so that division comes out exact.
+    /// </summary>
+    [Fact]
+    public void DateTimeMaxValueBecomesTheLastMillisecondItCanRepresent()
+    {
+        var jsDate = new JsDate(_engine, DateTime.MaxValue);
+        jsDate.DateValue.Should().Be(253402300799999d);
+        jsDate.ToDateTime().Should().Be(DateTime.MaxValue);
+
+        _engine.SetValue("d", jsDate);
+        _engine.Evaluate("d.toISOString()").AsString().Should().Be("9999-12-31T23:59:59.999Z");
+
+        new JsDate(_engine, DateTime.MinValue).DateValue.Should().Be(-62135596800000d);
+    }
+
     [Fact]
     public void DstTransitionShouldUseCorrectOffset()
     {
