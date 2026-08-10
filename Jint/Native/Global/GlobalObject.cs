@@ -39,29 +39,8 @@ public sealed partial class GlobalObject : ObjectInstance
         var trimmed = StringPrototype.TrimEx(inputString);
         var s = trimmed.AsSpan();
 
-        var radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
-        var hexStart = s.Length > 1 && trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
-
-        var stripPrefix = true;
-        if (radix == 0)
-        {
-            radix = hexStart ? 16 : 10;
-        }
-        else if (radix < 2 || radix > 36)
-        {
-            return JsNumber.DoubleNaN;
-        }
-        else if (radix != 16)
-        {
-            stripPrefix = false;
-        }
-
-        // check fast case
-        if (radix == 10 && int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
-        {
-            return JsNumber.Create(number);
-        }
-
+        // Steps 6-8: the sign is recorded and removed before anything else reads the string, because
+        // the "0x" test in step 9 is against the string the sign has already left.
         var sign = 1;
         if (s.Length > 0)
         {
@@ -77,16 +56,48 @@ public sealed partial class GlobalObject : ObjectInstance
             }
         }
 
-        if (stripPrefix && hexStart)
+        // Steps 2-3 and 10. stripPrefix captures step 9's "radixMV is 0 or 16" before step 10
+        // defaults it to 10; the spec validates the range at step 3, before trimming, which is a
+        // reordering nothing can observe because no user code runs in between.
+        var radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
+        var stripPrefix = true;
+        if (radix == 0)
+        {
+            radix = 10;
+        }
+        else if (radix < 2 || radix > 36)
+        {
+            return JsNumber.DoubleNaN;
+        }
+        else if (radix != 16)
+        {
+            stripPrefix = false;
+        }
+
+        // Step 9. Only 'x' and 'X' fold onto each other under bit 0x20, so the two comparisons are
+        // the whole of the spec's "0x" or "0X" test.
+        if (stripPrefix && s.Length > 1 && s[0] == '0' && (s[1] | 0x20) == 'x')
         {
             s = s.Slice(2);
+            radix = 16;
         }
 
+        // check fast case
+        if (radix == 10 && int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+        {
+            // Step 15: zero keeps a recorded minus sign, and the cached integers are all positive.
+            return number == 0 && sign == -1 ? JsNumber.NegativeZero : JsNumber.Create(number);
+        }
+
+        // Step 5, deferred to here: an input that is empty, or empty once the sign and prefix are
+        // gone, has no digits to read.
         if (s.Length == 0)
         {
-            return double.NaN;
+            return JsNumber.DoubleNaN;
         }
 
+        // Steps 11-14: numberString is the longest radix-R digit prefix. Accumulating from the end
+        // and resetting on every non-digit leaves exactly that prefix standing at index 0.
         var hasResult = false;
         double result = 0;
         double pow = 1;
@@ -116,6 +127,7 @@ public sealed partial class GlobalObject : ObjectInstance
             pow *= radix;
         }
 
+        // Steps 15-16: sign * 0 is already -0 in IEEE 754, and JsNumber.Create keeps that sign.
         return hasResult ? JsNumber.Create(sign * result) : JsNumber.DoubleNaN;
     }
 
