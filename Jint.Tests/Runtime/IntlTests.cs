@@ -774,4 +774,132 @@ public class IntlTests
             """);
         result.AsBoolean().Should().BeTrue();
     }
+
+    [Fact]
+    public void CollatorAcceptsEveryCollationGetCollationsReports()
+    {
+        // ECMA-402 gives a locale one [[co]] list: CollationsOfLocale (15.5.10 step 3.c) reports it,
+        // and ResolveLocale (9.2.7 step 10) — reached from Intl.Collator (10.1.1) through
+        // ResolveOptions — resolves a requested "co" against the same list. So everything
+        // getCollations() advertises has to construct, through the options bag and through the
+        // -u-co- extension alike, and resolve back to itself.
+        var result = _engine.Evaluate("""
+            const tags = ['ar', 'da', 'de', 'en', 'es', 'hi', 'ja', 'ko', 'ln', 'si', 'sv', 'zh', 'tr', 'fr', 'und'];
+            const mismatches = [];
+            for (const tag of tags) {
+                for (const collation of new Intl.Locale(tag).getCollations()) {
+                    const viaOption = new Intl.Collator(tag, { collation }).resolvedOptions().collation;
+                    const viaExtension = new Intl.Collator(`${tag}-u-co-${collation}`).resolvedOptions().collation;
+                    if (viaOption !== collation || viaExtension !== collation) {
+                        mismatches.push(`${tag}/${collation}: option=${viaOption} extension=${viaExtension}`);
+                    }
+                }
+            }
+            JSON.stringify(mismatches);
+            """);
+        result.AsString().Should().Be("[]");
+    }
+
+    [Theory]
+    // The thirteen locales whose getCollations() advertised the root "emoji" collation while
+    // Intl.Collator refused it: the eleven carrying a collation table of their own besides "en",
+    // plus "tr" and "fr", which carry none.
+    [InlineData("ar")]
+    [InlineData("da")]
+    [InlineData("de")]
+    [InlineData("es")]
+    [InlineData("hi")]
+    [InlineData("ja")]
+    [InlineData("ko")]
+    [InlineData("ln")]
+    [InlineData("si")]
+    [InlineData("sv")]
+    [InlineData("zh")]
+    [InlineData("tr")]
+    [InlineData("fr")]
+    // ...plus the two that were already consistent, so the row keeps watching them too.
+    [InlineData("en")]
+    [InlineData("und")]
+    public void CollatorAcceptsTheRootCollationsForEveryLocale(string tag)
+    {
+        var result = _engine.Evaluate($$"""
+            ['emoji', 'eor'].map(collation => [
+                new Intl.Collator('{{tag}}', { collation }).resolvedOptions().collation,
+                new Intl.Collator(`{{tag}}-u-co-${collation}`).resolvedOptions().collation,
+            ].join('/')).join(' ');
+            """);
+        result.AsString().Should().Be("emoji/emoji eor/eor");
+    }
+
+    [Theory]
+    [InlineData("de", "phonebk")]
+    [InlineData("es", "trad")]
+    [InlineData("ko", "searchjl")]
+    [InlineData("zh", "pinyin")]
+    public void CollatorStillAcceptsLocaleSpecificCollations(string tag, string collation)
+    {
+        _engine.Evaluate($"new Intl.Collator('{tag}', {{ collation: '{collation}' }}).resolvedOptions().collation")
+            .AsString().Should().Be(collation);
+        _engine.Evaluate($"new Intl.Collator('{tag}-u-co-{collation}').resolvedOptions().collation")
+            .AsString().Should().Be(collation);
+    }
+
+    [Fact]
+    public void CollatorRefusesACollationTheLocaleDoesNotReport()
+    {
+        // The acceptance set is the reported list, not the union of every collation identifier that
+        // exists: "phonebk" is German data and Turkish never advertises it.
+        _engine.Evaluate("new Intl.Locale('tr').getCollations().includes('phonebk')")
+            .AsBoolean().Should().BeFalse();
+        _engine.Evaluate("new Intl.Collator('tr', { collation: 'phonebk' }).resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate("new Intl.Collator('tr-u-co-phonebk').resolvedOptions().collation")
+            .AsString().Should().Be("default");
+    }
+
+    [Fact]
+    public void CollatorAcceptsDefaultAsARequestThatNoLocaleEverReports()
+    {
+        // "default" is how Intl.Collator (10.1.1) spells a null resolved [[co]], so it stays a
+        // usable request — but it is not an element of any [[co]] list, so 15.5.10 never reports it
+        // and it never reaches the resolved locale.
+        _engine.Evaluate("new Intl.Collator('de', { collation: 'default' }).resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate("new Intl.Collator('de-u-co-default').resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate("new Intl.Collator('de-u-co-default').resolvedOptions().locale")
+            .AsString().Should().Be("de");
+        _engine.Evaluate("['de', 'en', 'zh', 'und'].some(tag => new Intl.Locale(tag).getCollations().includes('default'))")
+            .AsBoolean().Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("standard")]
+    [InlineData("search")]
+    public void CollatorRejectsTheCollationsNoLocaleDataMayContain(string collation)
+    {
+        // ECMA-402 10.2.3: "standard" and "search" must not be used as elements in any
+        // [[SortLocaleData]].[[<locale>]].[[co]] or [[SearchLocaleData]].[[<locale>]].[[co]] List,
+        // which is what makes them unreportable and unrequestable by the same act.
+        _engine.Evaluate($"new Intl.Collator('de', {{ collation: '{collation}' }}).resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate($"new Intl.Collator('de-u-co-{collation}').resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate($"new Intl.Collator('de-u-co-{collation}').resolvedOptions().locale")
+            .AsString().Should().Be("de");
+    }
+
+    [Fact]
+    public void CollatorReflectsAResolvedCollationExtensionInTheResolvedLocale()
+    {
+        // ResolveLocale (9.2.7 step 10) inserts the keyword back into the locale only when it came
+        // from the requested Unicode extension sequence; a value supplied through the options bag
+        // sets supportedKeyword to empty and so is never inserted.
+        _engine.Evaluate("new Intl.Collator('de-u-co-emoji').resolvedOptions().locale")
+            .AsString().Should().Be("de-u-co-emoji");
+        _engine.Evaluate("new Intl.Collator('de-u-co-phonebk').resolvedOptions().locale")
+            .AsString().Should().Be("de-u-co-phonebk");
+        _engine.Evaluate("new Intl.Collator('de', { collation: 'emoji' }).resolvedOptions().locale")
+            .AsString().Should().Be("de");
+    }
 }

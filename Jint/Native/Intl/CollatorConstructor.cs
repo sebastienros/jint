@@ -20,13 +20,6 @@ internal sealed partial class CollatorConstructor : Constructor
     private static readonly StringSearchValues SensitivityValues = new(["base", "accent", "case", "variant"], StringComparison.Ordinal);
     private static readonly StringSearchValues CaseFirstValues = new(["upper", "lower", "false"], StringComparison.Ordinal);
 
-    // Valid collation types per CLDR (excluding "standard" and "search" which are special)
-    private static readonly StringSearchValues ValidCollationTypes = new([
-        "big5han", "compat", "dict", "direct", "ducet", "emoji", "eor",
-        "gb2312", "phonebk", "phonebook", "phonetic", "pinyin", "reformed",
-        "searchjl", "stroke", "trad", "unihan", "zhuyin", "default"
-    ], StringComparison.Ordinal);
-
     // Locale-specific supported collation types (from CLDR)
     // Only locales with non-default collation support are listed
     private static readonly Dictionary<string, HashSet<string>> LocaleCollationSupport = new(StringComparer.OrdinalIgnoreCase)
@@ -44,6 +37,63 @@ internal sealed partial class CollatorConstructor : Constructor
         ["sv"] = new(StringComparer.Ordinal) { "default", "reformed", "eor" },
         ["zh"] = new(StringComparer.Ordinal) { "default", "big5han", "gb2312", "pinyin", "stroke", "unihan", "zhuyin", "eor" },
     };
+
+    // The collations CLDR's root locale contributes to every locale. "standard" and "search" are
+    // deliberately absent, for the reason IsReportableCollation gives.
+    private static readonly string[] RootCollations = ["emoji", "eor"];
+
+    // Each language's [[co]] list minus its leading null, in the lexicographic code unit order
+    // https://tc39.es/ecma402/#sec-collationsoflocale reports it in. ECMA-402 gives a locale exactly
+    // one such list: 15.5.10 step 3.c reports it and 9.2.7 step 10 — reached from 10.1.1 through
+    // ResolveOptions — resolves a requested "co" against it, so deriving both views from this one
+    // table is what keeps Intl.Locale.prototype.getCollations and Intl.Collator from disagreeing
+    // about what a locale supports.
+    private static readonly Dictionary<string, string[]> LocaleCollations = BuildLocaleCollations();
+
+    private static Dictionary<string, string[]> BuildLocaleCollations()
+    {
+        var result = new Dictionary<string, string[]>(LocaleCollationSupport.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in LocaleCollationSupport)
+        {
+            var list = new List<string>(pair.Value.Count + RootCollations.Length);
+            foreach (var collation in pair.Value)
+            {
+                if (IsReportableCollation(collation))
+                {
+                    list.Add(collation);
+                }
+            }
+
+            foreach (var rootCollation in RootCollations)
+            {
+                if (!list.Contains(rootCollation))
+                {
+                    list.Add(rootCollation);
+                }
+            }
+
+            list.Sort(StringComparer.Ordinal);
+            result[pair.Key] = list.ToArray();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Whether an identifier may appear in a locale's [[co]] list. "standard" and "search" may not:
+    /// https://tc39.es/ecma402/#sec-intl-collator-internal-slots (10.2.3) forbids either from being
+    /// an element of any [[SortLocaleData]].[[&lt;locale&gt;]].[[co]] or
+    /// [[SearchLocaleData]].[[&lt;locale&gt;]].[[co]] List. Keeping them out of the list itself —
+    /// rather than special-casing them where a request is resolved — is what makes them unreportable
+    /// and unrequestable by the same act. "default" is Jint's placeholder for a null resolved [[co]]
+    /// and is not an identifier a locale can report either.
+    /// </summary>
+    private static bool IsReportableCollation(string collation)
+    {
+        return !string.Equals(collation, "default", StringComparison.Ordinal)
+            && !string.Equals(collation, "standard", StringComparison.Ordinal)
+            && !string.Equals(collation, "search", StringComparison.Ordinal);
+    }
 
     public CollatorConstructor(
         Engine engine,
@@ -298,41 +348,29 @@ internal sealed partial class CollatorConstructor : Constructor
             langCode = resolvedLocale.Substring(0, dashIdx);
         }
 
+        // Both requests are matched against the locale's [[co]] list, and the options value wins
+        // when both resolve — https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 10. "standard"
+        // and "search" need no guard of their own: 10.2.3 keeps them out of every [[co]] list, and
+        // IsReportableCollation is where Jint honours that.
         var value = options.Get("collation");
         if (!value.IsUndefined())
         {
             var collation = TypeConverter.ToString(value);
-
-            // Per ECMA-402: "standard" and "search" collations are explicitly disallowed
-            if (string.Equals(collation, "standard", StringComparison.Ordinal) ||
-                string.Equals(collation, "search", StringComparison.Ordinal))
-            {
-                // Fall through to check unicode extension
-            }
-            // Validate against known collation types AND locale-specific support
-            else if (ValidCollationTypes.Contains(collation) && IsCollationSupportedForLocale(langCode, collation))
+            if (IsCollationSupportedForLocale(langCode, collation))
             {
                 return collation;
             }
+
             // Options value is not supported - fall through to check unicode extension
         }
 
-        // Check unicode extension, but disallow "standard", "search", and invalid values
-        if (unicodeExtension != null &&
-            !string.Equals(unicodeExtension, "standard", StringComparison.Ordinal) &&
-            !string.Equals(unicodeExtension, "search", StringComparison.Ordinal) &&
-            ValidCollationTypes.Contains(unicodeExtension) &&
-            IsCollationSupportedForLocale(langCode, unicodeExtension))
+        if (unicodeExtension != null && IsCollationSupportedForLocale(langCode, unicodeExtension))
         {
             return unicodeExtension;
         }
 
         return "default";
     }
-
-    // The collations CLDR's root locale contributes to every locale. "standard" and "search" are
-    // deliberately absent: ECMA-402 forbids either from appearing in a reported collation list.
-    private static readonly string[] RootCollations = ["emoji", "eor"];
 
     /// <summary>
     /// The collation identifiers reported for <paramref name="language"/> by
@@ -343,34 +381,23 @@ internal sealed partial class CollatorConstructor : Constructor
     /// </summary>
     internal static string[] GetCollationsForLanguage(string? language)
     {
-        if (language is null || !LocaleCollationSupport.TryGetValue(language, out var supported))
+        if (language is null || !LocaleCollations.TryGetValue(language, out var collations))
         {
             return RootCollations;
         }
 
-        var list = new List<string>(supported.Count + RootCollations.Length);
-        foreach (var collation in supported)
-        {
-            // "default" is Jint's placeholder for "no explicit collation was requested", not an
-            // identifier a locale can report.
-            if (!string.Equals(collation, "default", StringComparison.Ordinal))
-            {
-                list.Add(collation);
-            }
-        }
-
-        foreach (var rootCollation in RootCollations)
-        {
-            if (!list.Contains(rootCollation))
-            {
-                list.Add(rootCollation);
-            }
-        }
-
-        list.Sort(StringComparer.Ordinal);
-        return list.ToArray();
+        return collations;
     }
 
+    /// <summary>
+    /// Whether <paramref name="collation"/> can be resolved as the "co" value for
+    /// <paramref name="language"/>. This is the acceptance side of the one [[co]] list a locale has,
+    /// so it answers for exactly what <see cref="GetCollationsForLanguage"/> reports — anything else
+    /// leaves Intl.Collator refusing a collation Intl.Locale.prototype.getCollations advertises.
+    /// "default" is accepted on top of that list as a request and never appears in it: it is how
+    /// Jint spells the null [[co]] that https://tc39.es/ecma402/#sec-intl.collator (10.1.1) turns
+    /// into a resolved collation of "default" anyway.
+    /// </summary>
     private static bool IsCollationSupportedForLocale(string language, string collation)
     {
         if (string.Equals(collation, "default", StringComparison.Ordinal))
@@ -378,14 +405,15 @@ internal sealed partial class CollatorConstructor : Constructor
             return true;
         }
 
-        // If we have explicit locale data, check against it
-        if (LocaleCollationSupport.TryGetValue(language, out var supported))
+        foreach (var reported in GetCollationsForLanguage(language))
         {
-            return supported.Contains(collation);
+            if (string.Equals(reported, collation, StringComparison.Ordinal))
+            {
+                return true;
+            }
         }
 
-        // For unlisted locales, only "default" and "eor" are universally supported
-        return string.Equals(collation, "eor", StringComparison.Ordinal);
+        return false;
     }
 
     private static bool GetNumericOption(ObjectInstance options, bool? unicodeExtension)
