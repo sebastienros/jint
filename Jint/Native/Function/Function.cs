@@ -614,6 +614,24 @@ public abstract partial class Function : ObjectInstance, ICallable
             }
         }
 
+        var name = GetOwnFunctionName().TrimStart(_functionNameTrimStartChars);
+
+        return $"function {name}() {{ [native code] }}";
+    }
+
+    /// <summary>
+    /// The function's own <c>name</c> as a string, or the empty string when it has none. Resolved off the
+    /// descriptor field rather than through <c>Get</c> so the answer is the function's
+    /// own name and not something inherited, and a pending descriptor stands for the definition's
+    /// own name (see <see cref="_pendingDescriptor"/>).
+    /// <para>
+    /// This is where a name reaches a function object however it was acquired — a declaration's binding, an
+    /// expression's own identifier, or the target NamedEvaluation gave an anonymous one — which makes it the
+    /// only source a diagnostic can quote and be right for all three.
+    /// </para>
+    /// </summary>
+    internal string GetOwnFunctionName()
+    {
         var nameDescriptor = _nameDescriptor;
         JsValue nameValue;
         if (nameDescriptor is null)
@@ -629,15 +647,7 @@ public abstract partial class Function : ObjectInstance, ICallable
             nameValue = UnwrapJsValue(nameDescriptor);
         }
 
-        var name = "";
-        if (!nameValue.IsUndefined())
-        {
-            name = TypeConverter.ToString(nameValue);
-        }
-
-        name = name.TrimStart(_functionNameTrimStartChars);
-
-        return $"function {name}() {{ [native code] }}";
+        return nameValue.IsUndefined() ? "" : TypeConverter.ToString(nameValue);
     }
 
     /// <summary>
