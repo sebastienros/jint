@@ -106,13 +106,10 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 
         suspendable?.Data.Clear(this);
 
-        if (_isTailPosition
-            && engine.ExecutionContext.Strict
-            && suspendable is null
-            && !engine._isDebugMode
+        if (ScriptFunction.CanPrepareTailCall(context, _isTailPosition)
             && tagger is ScriptFunction tailTarget)
         {
-            return TailCallRequestPool.Rent(
+            return engine.RentTailCallRequest(
                 tailTarget,
                 thisObject,
                 args,

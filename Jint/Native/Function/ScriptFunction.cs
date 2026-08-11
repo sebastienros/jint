@@ -166,6 +166,7 @@ public sealed class ScriptFunction : Function, IConstructor
     {
         var state = _functionDefinition!.Initialize();
         var strict = _strict;
+        _functionDefinition.EnsureTailCallMarkers(state, strict);
 
         // Env-less leaf call: no bindings to create, no this/arguments/new.target route, no
         // closures — the callee FunctionEnvironment would exist only as a chain pointer, so the
@@ -404,8 +405,19 @@ public sealed class ScriptFunction : Function, IConstructor
         JintFunctionDefinition.State state,
         bool ownsFrame)
     {
+        _functionDefinition!.EnsureTailCallMarkers(state, _strict);
         var result = CallCore(thisObject, new RegisterArguments(arg0, arg1, arg2, arg3, argCount), state);
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame) : result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool CanPrepareTailCall(EvaluationContext context, bool isTailPosition)
+    {
+        var engine = context.Engine;
+        return isTailPosition
+               && engine.ExecutionContext.Strict
+               && engine.ExecutionContext.Suspendable is null
+               && !engine._isDebugMode;
     }
 
     /// <summary>
@@ -419,6 +431,18 @@ public sealed class ScriptFunction : Function, IConstructor
         var callStack = engine.CallStack;
         var pushedFrame = false;
         Function? currentFrame = ownsFrame ? this : null;
+        JintFunctionDefinition? depthDefinition0 = null;
+        JintFunctionDefinition? depthDefinition1 = null;
+        var depth0 = 0;
+        var depth1 = 0;
+        Dictionary<JintFunctionDefinition, int>? tailDepths = null;
+        if (engine._maxRecursionDepth >= 0)
+        {
+            depthDefinition0 = _functionDefinition!;
+            depth0 = ownsFrame
+                ? callStack.GetRecursionDepth(this)
+                : callStack.GetNextRecursionDepth(this);
+        }
 
         try
         {
@@ -429,33 +453,77 @@ public sealed class ScriptFunction : Function, IConstructor
                 var arguments = request.Arguments;
                 var argumentsRented = request.ArgumentsRented;
                 var expression = request.Expression;
-                TailCallRequestPool.Return(request);
+                var registerState = request.RegisterState;
+                var arg0 = request.Arg0;
+                var arg1 = request.Arg1;
+                var arg2 = request.Arg2;
+                var arg3 = request.Arg3;
+                var argCount = request.ArgCount;
+                engine.ReturnTailCallRequest(request);
 
                 try
                 {
-                    int recursionDepth;
                     if (currentFrame is not null
                         && callStack.TryPeek(out var topFrame)
                         && ReferenceEquals(topFrame.Function, currentFrame))
                     {
-                        recursionDepth = callStack.ReplaceTop(target, expression);
+                        callStack.ReplaceTop(target, expression);
+                    }
+                    else
+                    {
+                        callStack.Push(target, expression, engine.ExecutionContext);
+                        pushedFrame = true;
+                    }
+
+                    currentFrame = target;
+                    if (depthDefinition0 is not null)
+                    {
+                        var definition = target._functionDefinition!;
+                        int recursionDepth;
+                        if (ReferenceEquals(definition, depthDefinition0))
+                        {
+                            recursionDepth = ++depth0;
+                        }
+                        else if (ReferenceEquals(definition, depthDefinition1))
+                        {
+                            recursionDepth = ++depth1;
+                        }
+                        else if (depthDefinition1 is null)
+                        {
+                            depthDefinition1 = definition;
+                            recursionDepth = depth1 = callStack.GetRecursionDepth(target);
+                        }
+                        else
+                        {
+                            tailDepths ??= new Dictionary<JintFunctionDefinition, int>
+                            {
+                                [depthDefinition0] = depth0,
+                                [depthDefinition1] = depth1
+                            };
+
+                            if (tailDepths.TryGetValue(definition, out var previousDepth))
+                            {
+                                recursionDepth = previousDepth + 1;
+                            }
+                            else
+                            {
+                                recursionDepth = callStack.GetRecursionDepth(target);
+                            }
+                            tailDepths[definition] = recursionDepth;
+                        }
+
                         if (recursionDepth > engine._maxRecursionDepth)
                         {
                             Throw.RecursionDepthOverflowException(callStack, preserveTop: true);
                         }
                     }
-                    else
-                    {
-                        recursionDepth = callStack.Push(target, expression, engine.ExecutionContext);
-                        if (recursionDepth > engine._maxRecursionDepth)
-                        {
-                            Throw.RecursionDepthOverflowException(callStack);
-                        }
-                        pushedFrame = true;
-                    }
 
-                    currentFrame = target;
-                    result = target.CallOnce(thisObject, arguments);
+                    result = registerState is null
+                        ? target.CallOnce(thisObject, arguments)
+                        : target.CallCore(
+                            thisObject,
+                            new RegisterArguments(arg0, arg1, arg2, arg3, argCount),
+                            registerState);
                 }
                 finally
                 {
@@ -470,9 +538,9 @@ public sealed class ScriptFunction : Function, IConstructor
         }
         finally
         {
-            if (pushedFrame && callStack.Count > 0)
+            if (pushedFrame)
             {
-                callStack.Pop();
+                callStack.TryPop(out _);
             }
         }
     }
@@ -538,6 +606,7 @@ public sealed class ScriptFunction : Function, IConstructor
     private ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget, bool ownsFrame)
     {
         var state = _functionDefinition!.Initialize();
+        _functionDefinition.EnsureTailCallMarkers(state, _strict);
         var callerContext = _engine.ExecutionContext;
         var kind = _constructorKind;
 
@@ -626,19 +695,9 @@ public sealed class ScriptFunction : Function, IConstructor
             }
             else if (result.Type == CompletionType.Return)
             {
-                if (result.Value is ObjectInstance oi)
+                if (ResolveConstructorReturn(result.Value, kind, thisArgument, callerContext.Realm) is { } returnObject)
                 {
-                    return oi;
-                }
-
-                if (kind == ConstructorKind.Base)
-                {
-                    return (ObjectInstance) thisArgument;
-                }
-
-                if (!result.Value.IsUndefined())
-                {
-                    Throw.TypeError(callerContext.Realm);
+                    return returnObject;
                 }
             }
             else if (result.Type == CompletionType.Throw)
@@ -654,23 +713,37 @@ public sealed class ScriptFunction : Function, IConstructor
         if (tailCallRequest is not null)
         {
             var value = ContinueTailCalls(tailCallRequest, ownsFrame);
-            if (value is ObjectInstance oi)
+            if (ResolveConstructorReturn(value, kind, thisArgument, callerContext.Realm) is { } returnObject)
             {
-                return oi;
-            }
-
-            if (kind == ConstructorKind.Base)
-            {
-                return (ObjectInstance) thisArgument;
-            }
-
-            if (!value.IsUndefined())
-            {
-                Throw.TypeError(callerContext.Realm);
+                return returnObject;
             }
         }
 
         return (ObjectInstance) constructorEnv.GetThisBinding();
+    }
+
+    private static ObjectInstance? ResolveConstructorReturn(
+        JsValue value,
+        ConstructorKind kind,
+        JsValue thisArgument,
+        Realm callerRealm)
+    {
+        if (value is ObjectInstance objectValue)
+        {
+            return objectValue;
+        }
+
+        if (kind == ConstructorKind.Base)
+        {
+            return (ObjectInstance) thisArgument;
+        }
+
+        if (!value.IsUndefined())
+        {
+            Throw.TypeError(callerRealm);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -777,7 +850,7 @@ public sealed class ScriptFunction : Function, IConstructor
 internal sealed class TailCallRequest : JsValue
 {
     internal TailCallRequest()
-        : base(Types.Undefined)
+        : base(InternalTypes.TailCall)
     {
     }
 
@@ -792,6 +865,32 @@ internal sealed class TailCallRequest : JsValue
         ThisObject = thisObject;
         Arguments = arguments;
         ArgumentsRented = argumentsRented;
+        RegisterState = null;
+        Expression = expression;
+        return this;
+    }
+
+    internal TailCallRequest Reassign(
+        ScriptFunction target,
+        JsValue thisObject,
+        JsValue arg0,
+        JsValue arg1,
+        JsValue arg2,
+        JsValue arg3,
+        int argCount,
+        JintFunctionDefinition.State state,
+        JintExpression expression)
+    {
+        Target = target;
+        ThisObject = thisObject;
+        Arguments = null!;
+        ArgumentsRented = false;
+        Arg0 = arg0;
+        Arg1 = arg1;
+        Arg2 = arg2;
+        Arg3 = arg3;
+        ArgCount = argCount;
+        RegisterState = state;
         Expression = expression;
         return this;
     }
@@ -800,37 +899,74 @@ internal sealed class TailCallRequest : JsValue
     internal JsValue ThisObject = null!;
     internal JsValue[] Arguments = null!;
     internal bool ArgumentsRented;
+    internal JsValue Arg0 = null!;
+    internal JsValue Arg1 = null!;
+    internal JsValue Arg2 = null!;
+    internal JsValue Arg3 = null!;
+    internal int ArgCount;
+    internal JintFunctionDefinition.State? RegisterState;
     internal JintExpression Expression = null!;
 
-    public override object? ToObject() => null;
+    public override object? ToObject() => throw new InvalidOperationException("A tail-call request escaped the interpreter trampoline.");
 }
 
-/// <summary>
-/// Process-wide because a returned request has all engine-affine references cleared before reuse.
-/// </summary>
-internal static class TailCallRequestPool
+internal static class TailCallRequestReuse
 {
-    private static readonly ConcurrentObjectPool<TailCallRequest> _pool = new(static () => new TailCallRequest(), 4);
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static TailCallRequest Rent(
+    internal static TailCallRequest RentTailCallRequest(
+        this Engine engine,
         ScriptFunction target,
         JsValue thisObject,
         JsValue[] arguments,
         bool argumentsRented,
         JintExpression expression)
     {
-        return _pool.Allocate().Reassign(target, thisObject, arguments, argumentsRented, expression);
+        var request = engine._tailCallRequest;
+        engine._tailCallRequest = null;
+        return (request ?? new TailCallRequest()).Reassign(target, thisObject, arguments, argumentsRented, expression);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Return(TailCallRequest request)
+    internal static TailCallRequest RentTailCallRequest(
+        this Engine engine,
+        ScriptFunction target,
+        JsValue thisObject,
+        JsValue arg0,
+        JsValue arg1,
+        JsValue arg2,
+        JsValue arg3,
+        int argCount,
+        JintFunctionDefinition.State state,
+        JintExpression expression)
+    {
+        var request = engine._tailCallRequest;
+        engine._tailCallRequest = null;
+        return (request ?? new TailCallRequest()).Reassign(
+            target,
+            thisObject,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            argCount,
+            state,
+            expression);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ReturnTailCallRequest(this Engine engine, TailCallRequest request)
     {
         request.Target = null!;
         request.ThisObject = null!;
         request.Arguments = null!;
         request.ArgumentsRented = false;
+        request.Arg0 = null!;
+        request.Arg1 = null!;
+        request.Arg2 = null!;
+        request.Arg3 = null!;
+        request.ArgCount = 0;
+        request.RegisterState = null;
         request.Expression = null!;
-        _pool.Free(request);
+        engine._tailCallRequest = request;
     }
 }

@@ -45,10 +45,13 @@ and many more.
 - ✔ Reflect
 - ✔ Proxies
 - ✔ Symbols
-- ❌ Tail calls
+- ✔ Proper tail calls in strict functions
 - ✔ Typed arrays
 - ✔ Unicode
 - ✔ Weakmap and Weakset
+
+Proper tail calls replace the calling strict-function frame, as required by ECMAScript. Consequently,
+intermediate tail callers are intentionally absent from `error.stack` and host stack telemetry.
 
 #### ECMAScript 2016
 

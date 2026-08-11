@@ -318,6 +318,7 @@ public sealed partial class Engine : IDisposable
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
     internal readonly ObjectTraverseStackPool _objectTraverseStackPool;
+    internal TailCallRequest? _tailCallRequest;
     internal readonly ExtensionMethodCache _extensionMethods;
 
     private ITypeConverter _typeConverter = null!;
@@ -1585,10 +1586,7 @@ public sealed partial class Engine : IDisposable
                 finally
                 {
                     // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    if (callStack.Count > 0)
-                    {
-                        callStack.Pop();
-                    }
+                    callStack.TryPop(out _);
                 }
             }
             else
@@ -2626,10 +2624,7 @@ public sealed partial class Engine : IDisposable
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (CallStack.Count > 0)
-            {
-                CallStack.Pop();
-            }
+            CallStack.TryPop(out _);
         }
 
         return result;
@@ -2661,10 +2656,7 @@ public sealed partial class Engine : IDisposable
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (CallStack.Count > 0)
-            {
-                CallStack.Pop();
-            }
+            CallStack.TryPop(out _);
         }
 
         return result;

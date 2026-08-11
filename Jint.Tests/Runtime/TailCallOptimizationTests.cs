@@ -1,4 +1,5 @@
 using Jint.Runtime;
+using Jint.Native.Function;
 
 namespace Jint.Tests.Runtime;
 
@@ -7,7 +8,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void OptimizesStrictDirectTailRecursion()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine();
 
         var result = engine.Evaluate("""
             "use strict";
@@ -23,7 +24,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void OptimizesStrictMutualTailRecursion()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine();
 
         var result = engine.Evaluate("""
             "use strict";
@@ -42,7 +43,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void OptimizesStrictConciseArrowTailRecursion()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine();
 
         var result = engine.Evaluate("""
             "use strict";
@@ -57,7 +58,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void OptimizesTailRecursionInvokedByHost()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine();
         engine.Execute("""
             "use strict";
             function count(n) {
@@ -71,7 +72,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void OptimizesTailRecursionFromWarmedRegisterCallSite()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine();
 
         var result = engine.Evaluate("""
             "use strict";
@@ -181,6 +182,30 @@ public class TailCallOptimizationTests
             """);
 
         result.Should().Be("target,dispose");
+    }
+
+    [Fact]
+    public void UsingDeclarationOnlyBlocksFollowingReturns()
+    {
+        var stack = new Engine().Evaluate("""
+            "use strict";
+            function target() {
+                return new Error("expected").stack;
+            }
+            function invoke(returnEarly) {
+                if (returnEarly) {
+                    return target();
+                }
+                using resource = {
+                    [Symbol.dispose]() {}
+                };
+                return "late";
+            }
+            invoke(true);
+            """).AsString();
+
+        stack.Should().Contain("at target");
+        stack.Should().NotContain("at invoke");
     }
 
     [Fact]
@@ -426,5 +451,121 @@ public class TailCallOptimizationTests
             """)).Should().ThrowExactly<RecursionDepthOverflowException>();
 
         engine.CallStack.Count.Should().Be(0);
+    }
+
+    [Fact]
+    public void InfiniteStrictTailRecursionHonorsRecursionLimit()
+    {
+        var engine = new Engine(options => options.LimitRecursion(8));
+
+        Invoking(() => engine.Evaluate("""
+            "use strict";
+            function recurse() {
+                return recurse();
+            }
+            recurse();
+            """)).Should().ThrowExactly<RecursionDepthOverflowException>();
+
+        engine.CallStack.Count.Should().Be(0);
+    }
+
+    [Fact]
+    public void MultiFunctionTailCycleHonorsRecursionLimit()
+    {
+        var engine = new Engine(options => options.LimitRecursion(1));
+
+        Invoking(() => engine.Evaluate("""
+            "use strict";
+            function first() {
+                return second();
+            }
+            function second() {
+                return third();
+            }
+            function third() {
+                return first();
+            }
+            first();
+            """)).Should().ThrowExactly<RecursionDepthOverflowException>();
+
+        engine.CallStack.Count.Should().Be(0);
+    }
+
+    [Fact]
+    public void DebugModeKeepsTailCallerFrame()
+    {
+        var stack = new Engine(options => options.DebugMode()).Evaluate("""
+            "use strict";
+            function target() {
+                return new Error("expected").stack;
+            }
+            function invoke() {
+                return target();
+            }
+            invoke();
+            """).AsString();
+
+        stack.Should().Contain("at target");
+        stack.Should().Contain("at invoke");
+    }
+
+    [Fact]
+    public void GeneratorDoesNotReceiveTailCallRequest()
+    {
+        var result = new Engine().Evaluate("""
+            function target() {
+                return 42;
+            }
+            function* invoke() {
+                "use strict";
+                return target();
+            }
+            invoke().next().value;
+            """);
+
+        result.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task AsyncFunctionDoesNotReceiveTailCallRequest()
+    {
+        var result = await new Engine().EvaluateAsync("""
+            function target() {
+                return 42;
+            }
+            async function invoke() {
+                "use strict";
+                return target();
+            }
+            invoke();
+            """);
+
+        result.Should().Be(42);
+    }
+
+    [Fact]
+    public void SharedPreparedTailCallMarkersArePublishedBeforeHandlerConstruction()
+    {
+        var prepared = Engine.PrepareScript("""
+            "use strict";
+            function sum(n, total) {
+                return n === 0 ? total : sum(n - 1, total + n);
+            }
+            sum(2_000, 0);
+            """);
+        var results = new double[16];
+
+        Parallel.For(0, results.Length, i => results[i] = new Engine().Evaluate(prepared).AsNumber());
+
+        results.Should().AllSatisfy(result => result.Should().Be(2_001_000));
+    }
+
+    [Fact]
+    public void TailCallRequestCannotMasqueradeAsUndefined()
+    {
+        var request = new TailCallRequest();
+
+        request.IsUndefined().Should().BeFalse();
+        Invoking(request.ToObject).Should().ThrowExactly<InvalidOperationException>();
     }
 }

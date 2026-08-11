@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.AsyncFunction;
@@ -383,8 +384,22 @@ internal sealed class JintFunctionDefinition
         var stateOrFullSourceText = node.UserData;
         if (stateOrFullSourceText is not State state)
         {
-            node.UserData = state = BuildState(Function, stateOrFullSourceText as string);
+            lock (node)
+            {
+                stateOrFullSourceText = node.UserData;
+                if (stateOrFullSourceText is not State initializedState)
+                {
+                    initializedState = BuildState(Function, stateOrFullSourceText as string);
+                    Thread.MemoryBarrier();
+                    node.UserData = initializedState;
+                }
+
+                state = initializedState;
+            }
         }
+
+        // Pair with the release barrier above so a shared AST never exposes a partially built State.
+        Thread.MemoryBarrier();
         return state;
     }
 
@@ -495,6 +510,9 @@ internal sealed class JintFunctionDefinition
         /// </summary>
         public bool SupportsRegisterCall;
 
+        // Release/acquire publication for the tail markers stored on child AST nodes.
+        public int TailCallMarkersInitialized;
+
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
         // (e.g. fib/ack/tak) keeps several frames live at once, which a single-slot per-call reuse cache
@@ -548,7 +566,6 @@ internal sealed class JintFunctionDefinition
     {
         var state = new State();
 
-        TailCallAstVisitor.Mark(function.Body);
         ProcessParameters(function, state, out var hasArguments);
 
         var strict = function.IsStrict();
@@ -887,6 +904,26 @@ internal sealed class JintFunctionDefinition
         return state;
     }
 
+    internal void EnsureTailCallMarkers(State state, bool strict)
+    {
+        if (!strict
+            || Function.Generator
+            || Function.Async
+            || Volatile.Read(ref state.TailCallMarkersInitialized) != 0)
+        {
+            return;
+        }
+
+        lock ((Node) Function)
+        {
+            if (state.TailCallMarkersInitialized == 0)
+            {
+                TailCallAstVisitor.Mark(Function.Body);
+                Volatile.Write(ref state.TailCallMarkersInitialized, 1);
+            }
+        }
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-isintailposition
     /// <para>
@@ -923,7 +960,19 @@ internal sealed class JintFunctionDefinition
                 return;
             }
 
-            blockedByCleanup |= HasUsingDeclaration(node);
+            if (node is BlockStatement block)
+            {
+                var precedingUsing = blockedByCleanup;
+                foreach (var statement in block.Body)
+                {
+                    MarkReturns(statement, precedingUsing);
+                    precedingUsing |= statement is VariableDeclaration
+                    {
+                        Kind: VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing
+                    };
+                }
+                return;
+            }
 
             if (node is TryStatement tryStatement)
             {
@@ -949,19 +998,6 @@ internal sealed class JintFunctionDefinition
             {
                 MarkReturns(child, blockedByCleanup);
             }
-        }
-
-        private static bool HasUsingDeclaration(Node node)
-        {
-            foreach (var child in node.ChildNodes)
-            {
-                if (child is VariableDeclaration { Kind: VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing })
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void MarkTailExpression(Expression expression)

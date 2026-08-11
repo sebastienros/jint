@@ -116,10 +116,7 @@ internal sealed class JintCallExpression : JintExpression
         // balance their context push/pop), so capture it once and probe the reference instead
         // of re-reading the execution context after every sub-expression.
         var suspendable = engine.ExecutionContext.Suspendable;
-        var tailPosition = _isTailPosition
-            && engine.ExecutionContext.Strict
-            && suspendable is null
-            && !engine._isDebugMode;
+        var tailPosition = ScriptFunction.CanPrepareTailCall(context, _isTailPosition);
 
         object reference;
         Reference? referenceRecord;
@@ -245,7 +242,6 @@ internal sealed class JintCallExpression : JintExpression
         // are excluded because argument evaluation there must go through ExpressionCache's resume
         // buffer rather than straight into locals.
         if (_fastArgsEligible
-            && !tailCall
             && suspendable is null
             && ReferenceEquals(func, _fastCallee)
             && _fastShape.Supported
@@ -280,9 +276,9 @@ internal sealed class JintCallExpression : JintExpression
         // still differ between two evaluations of the same node (argument evaluation there must go
         // through ExpressionCache's resume buffer rather than straight into locals), so they stay a
         // runtime test — second, because it can only exclude a site the compare already accepted.
-        if (!tailCall && ReferenceEquals(func, _regCallee) && suspendable is null)
+        if (ReferenceEquals(func, _regCallee) && suspendable is null)
         {
-            return RegisterLaneCall(context, engine, Unsafe.As<ScriptFunction>(func), thisObject, referenceRecord);
+            return RegisterLaneCall(context, engine, Unsafe.As<ScriptFunction>(func), thisObject, referenceRecord, tailCall);
         }
 
         var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
@@ -320,7 +316,7 @@ internal sealed class JintCallExpression : JintExpression
                 engine._referencePool.Return(referenceRecord);
             }
 
-            return TailCallRequestPool.Rent(
+            return engine.RentTailCallRequest(
                 (ScriptFunction) func,
                 thisObject,
                 arguments,
@@ -354,10 +350,7 @@ internal sealed class JintCallExpression : JintExpression
             finally
             {
                 // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                if (callStack.Count > 0)
-                {
-                    callStack.Pop();
-                }
+                callStack.TryPop(out _);
             }
 
             // Populate the fast-call cache after a successful dispatch, so the *next* evaluation of
@@ -467,7 +460,8 @@ internal sealed class JintCallExpression : JintExpression
         Engine engine,
         ScriptFunction target,
         JsValue thisObject,
-        Reference? referenceRecord)
+        Reference? referenceRecord,
+        bool tailCall)
     {
         var state = _regState!;
 
@@ -482,6 +476,20 @@ internal sealed class JintCallExpression : JintExpression
         if (referenceRecord is not null)
         {
             engine._referencePool.Return(referenceRecord);
+        }
+
+        if (tailCall)
+        {
+            return engine.RentTailCallRequest(
+                target,
+                thisObject,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                _argCount,
+                state,
+                _calleeExpression);
         }
 
         var callStack = engine.CallStack;
@@ -508,10 +516,7 @@ internal sealed class JintCallExpression : JintExpression
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
@@ -603,10 +608,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
@@ -711,10 +713,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
