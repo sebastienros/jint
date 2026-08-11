@@ -666,23 +666,30 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            bool matched;
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
-                if (TypeConverter.ToBoolean(result))
-                {
-                    iterated.Close(CompletionType.Normal);
-                    return JsBoolean.True;
-                }
-
-                counter++;
+                matched = TypeConverter.ToBoolean(result);
             }
             catch
             {
                 iterated.Close(CompletionType.Throw);
                 throw;
             }
+
+            if (matched)
+            {
+                // The closing step is `Return ? IteratorClose(iterated, NormalCompletion(true))`, which
+                // sits outside the IfAbruptCloseIterator guarding the predicate call above: "return" is
+                // invoked once and whatever it raises stands. Closing from inside that guard would call
+                // it a second time.
+                iterated.Close(CompletionType.Normal);
+                return JsBoolean.True;
+            }
+
+            counter++;
         }
 
         return JsBoolean.False;
@@ -752,6 +759,7 @@ internal partial class IteratorPrototype : Prototype
         var iterations = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            bool found;
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
@@ -759,25 +767,37 @@ internal partial class IteratorPrototype : Prototype
                 if (skipped < toSkip)
                 {
                     skipped++;
+                    found = false;
                 }
-                else if (SameValueZeroComparer.Equals(value, searchElement))
+                else
                 {
-                    // A match closes the iterator; natural exhaustion below deliberately does not.
-                    iterated.Close(CompletionType.Normal);
-                    return JsBoolean.True;
+                    found = SameValueZeroComparer.Equals(value, searchElement);
                 }
 
-                // skippedElements may be +Infinity, so this loop is unbounded even for a well
-                // behaved iterator; keep the engine interruptible.
-                if (++iterations % Engine.ConstraintCheckInterval == 0)
+                if (!found)
                 {
-                    _engine.Constraints.Check();
+                    // skippedElements may be +Infinity, so this loop is unbounded even for a well
+                    // behaved iterator; keep the engine interruptible.
+                    if (++iterations % Engine.ConstraintCheckInterval == 0)
+                    {
+                        _engine.Constraints.Check();
+                    }
                 }
             }
             catch
             {
                 iterated.Close(CompletionType.Throw);
                 throw;
+            }
+
+            if (found)
+            {
+                // A match closes the iterator; natural exhaustion below deliberately does not. The
+                // Repeat's last step is `Return ? IteratorClose(iterated, NormalCompletion(true))`,
+                // outside the IfAbruptCloseIterator above, so "return" is invoked exactly once and a
+                // throwing one is reported rather than swallowed by a second close.
+                iterated.Close(CompletionType.Normal);
+                return JsBoolean.True;
             }
         }
 
@@ -814,23 +834,28 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            bool satisfied;
             try
             {
                 var value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
-                if (!TypeConverter.ToBoolean(result))
-                {
-                    iterated.Close(CompletionType.Normal);
-                    return JsBoolean.False;
-                }
-
-                counter++;
+                satisfied = TypeConverter.ToBoolean(result);
             }
             catch
             {
                 iterated.Close(CompletionType.Throw);
                 throw;
             }
+
+            if (!satisfied)
+            {
+                // See Some: `Return ? IteratorClose(iterated, NormalCompletion(false))` is outside the
+                // IfAbruptCloseIterator guard, so "return" runs exactly once.
+                iterated.Close(CompletionType.Normal);
+                return JsBoolean.False;
+            }
+
+            counter++;
         }
 
         return JsBoolean.True;
@@ -866,23 +891,29 @@ internal partial class IteratorPrototype : Prototype
         var counter = 0;
         while (iterated.TryIteratorStep(out var iteratorResult))
         {
+            JsValue value;
+            bool matched;
             try
             {
-                var value = iteratorResult.Get(CommonProperties.Value);
+                value = iteratorResult.Get(CommonProperties.Value);
                 var result = predicateCallable.Call(Undefined, [value, counter]);
-                if (TypeConverter.ToBoolean(result))
-                {
-                    iterated.Close(CompletionType.Normal);
-                    return value;
-                }
-
-                counter++;
+                matched = TypeConverter.ToBoolean(result);
             }
             catch
             {
                 iterated.Close(CompletionType.Throw);
                 throw;
             }
+
+            if (matched)
+            {
+                // See Some: `Return ? IteratorClose(iterated, NormalCompletion(value))` is outside the
+                // IfAbruptCloseIterator guard, so "return" runs exactly once.
+                iterated.Close(CompletionType.Normal);
+                return value;
+            }
+
+            counter++;
         }
 
         return Undefined;
