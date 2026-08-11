@@ -245,7 +245,13 @@ internal sealed partial class DataViewPrototype : Prototype
             return Undefined;
         }
 
-        var getIndex = (int) TypeConverter.ToIndex(_realm, requestIndex);
+        // long, not int, and not the uint ToIndex hands back either. The spec's getIndex is a
+        // mathematical integer, and it is the "getIndex + elementSize > viewSize" test below - not the
+        // conversion - that decides whether the request is in range. Truncating to int turned a getIndex
+        // of 2147483648 into a negative offset, and uint arithmetic wraps getIndex + elementSize at the
+        // top of the range; either way an out-of-range request slipped past the check and indexed the
+        // buffer, which surfaced as a CLR IndexOutOfRangeException instead of a RangeError.
+        long getIndex = TypeConverter.ToIndex(_realm, requestIndex);
         var isLittleEndianBoolean = TypeConverter.ToBoolean(isLittleEndian);
         var buffer = dataView._viewedArrayBuffer!;
 
@@ -370,7 +376,10 @@ internal sealed partial class DataViewPrototype : Prototype
             Throw.TypeError(_realm, "Cannot modify an immutable ArrayBuffer");
         }
 
-        var getIndex = TypeConverter.ToIndex(_realm, requestIndex);
+        // long for the same reason as in GetViewValue: ToIndex answers a uint, and
+        // "getIndex + elementSize" in uint arithmetic wraps at the top of that range - a getIndex of
+        // uint.MaxValue plus a one-byte element came out as 0 and slipped past the bounds check below.
+        long getIndex = TypeConverter.ToIndex(_realm, requestIndex);
 
         TypedArrayValue numberValue;
         if (type.IsBigIntElementType())
