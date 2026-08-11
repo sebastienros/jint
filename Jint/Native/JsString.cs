@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 
 namespace Jint.Native;
@@ -405,16 +406,66 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return ToString().Substring(startIndex);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getiterator — the @@iterator lookup for a primitive string receiver,
+    /// with the fast lane that iterates the text directly instead of driving %StringIteratorPrototype%.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Exactly one read of @@iterator, and its result is what picks the lane.</b> The lane used to be
+    /// chosen by <c>StringPrototype.HasOriginalIterator</c>, which performed a read of its own and then let
+    /// the general path read again, so an accessor installed on <c>String.prototype[Symbol.iterator]</c> saw
+    /// two gets for one <c>Array.from("hello")</c> where the specification and every other engine produce one.
+    /// </para>
+    /// <para>
+    /// The read resolves off <c>String.prototype</c> with this string as the receiver, which is what
+    /// <c>GetV(V, @@iterator)</c> asks for: the wrapper <c>ToObject(V)</c> would build is fresh and carries no
+    /// own @@iterator, so the property resolves at the same place either way — and a getter observes the
+    /// primitive as its <c>this</c>, as it does in V8, rather than a wrapper this lane never needed to build.
+    /// </para>
+    /// <para>
+    /// A caller that has already resolved the method — <c>Array.from</c> and <c>Iterator.from</c> both perform
+    /// <c>GetMethod</c> first — hands it in, and classifying it by identity costs no read at all. That is the
+    /// second half of the fix: re-reading to answer "is this still the original?" was the extra get.
+    /// </para>
+    /// </remarks>
     internal override bool TryGetIterator(
         Realm realm,
         [NotNullWhen(true)] out IteratorInstance? iterator,
         GeneratorKind hint = GeneratorKind.Sync,
         ICallable? method = null)
     {
-        if (realm.Intrinsics.String.PrototypeObject.HasOriginalIterator)
+        // The async hint looks up @@asyncIterator first and has no string fast lane of its own.
+        if (hint == GeneratorKind.Sync)
         {
-            iterator = new IteratorInstance.StringIterator(realm.GlobalEnv._engine, ToString());
-            return true;
+            var stringPrototype = realm.Intrinsics.String.PrototypeObject;
+
+            if (method is null)
+            {
+                var iteratorMethod = stringPrototype.Get(GlobalSymbolRegistry.Iterator, this);
+                if (ReferenceEquals(iteratorMethod, stringPrototype._originalIteratorFunction))
+                {
+                    iterator = new IteratorInstance.StringIterator(stringPrototype.Engine, ToString());
+                    return true;
+                }
+
+                if (iteratorMethod.IsNullOrUndefined())
+                {
+                    iterator = null;
+                    return false;
+                }
+
+                method = iteratorMethod as ICallable;
+                if (method is null)
+                {
+                    Throw.TypeError(realm, $"Value returned for property '{GlobalSymbolRegistry.Iterator}' of object is not a function");
+                }
+            }
+            else if (ReferenceEquals(method, stringPrototype._originalIteratorFunction))
+            {
+                iterator = new IteratorInstance.StringIterator(stringPrototype.Engine, ToString());
+                return true;
+            }
         }
 
         return base.TryGetIterator(realm, out iterator, hint, method);
