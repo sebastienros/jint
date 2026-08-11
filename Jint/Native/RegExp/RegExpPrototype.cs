@@ -362,8 +362,13 @@ internal sealed partial class RegExpPrototype : Prototype
             nCaptures = System.Math.Max(nCaptures - 1, 0);
             var matched = TypeConverter.ToString(result.Get(0));
             var matchLength = matched.Length;
-            var position = (int) TypeConverter.ToInteger(result.Get(PropertyIndex));
-            position = System.Math.Max(System.Math.Min(position, lengthS), 0);
+            // Step 14.e: clamp the reported index between 0 and lengthS. The clamp is what establishes
+            // GetSubstitution's "position <= stringLength" assertion, so it has to happen while the value
+            // is still a double: narrowing first loses the magnitude, and an out-of-range double-to-int
+            // conversion saturates on .NET but is unspecified on .NET Framework, where it yields
+            // int.MinValue and would turn a far-right index into 0.
+            var reportedIndex = TypeConverter.ToInteger(result.Get(PropertyIndex));
+            var position = (int) System.Math.Max(System.Math.Min(reportedIndex, lengthS), 0);
             uint n = 1;
 
             captures.Clear();
@@ -479,7 +484,13 @@ internal sealed partial class RegExpPrototype : Prototype
                         sb.Append(str.AsSpan(0, position));
                         break;
                     case '\'':
-                        sb.Append(str.AsSpan(position + matched.Length));
+                        // Step 5.e: tailPos is position + the length of matched, and the replacement is
+                        // the substring of str from min(tailPos, stringLength) -- so a match running to
+                        // or past the end contributes nothing. tailPos can only exceed stringLength when
+                        // @@replace ran against an object whose "exec" is not the intrinsic one and which
+                        // reported a matched string longer than what is left of str; the sum is taken as
+                        // a long so a pair of near-int.MaxValue lengths cannot wrap into a negative index.
+                        sb.Append(str.AsSpan((int) System.Math.Min((long) position + matched.Length, str.Length)));
                         break;
                     case '<':
                         var gtPos = replacement.IndexOf('>', i + 1);
