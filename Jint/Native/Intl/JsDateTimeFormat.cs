@@ -188,8 +188,22 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
             dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
 
-            // Apply the offset
-            return dateTime.Add(offset.Value);
+            // Apply the offset, saturating rather than throwing. The last instant DateTime can hold has no
+            // DateTime to land on once a positive offset is added, and Add answers that with an
+            // ArgumentOutOfRangeException — a CLR exception, which leaves engine.Evaluate without ever
+            // reaching a script try/catch. TimeZoneInfo.ConvertTimeFromUtc, the named-zone branch below,
+            // clamps at MinValue/MaxValue in exactly this situation, so the two branches now agree.
+            var shiftedTicks = dateTime.Ticks + offset.Value.Ticks;
+            if (shiftedTicks < DateTime.MinValue.Ticks)
+            {
+                shiftedTicks = DateTime.MinValue.Ticks;
+            }
+            else if (shiftedTicks > DateTime.MaxValue.Ticks)
+            {
+                shiftedTicks = DateTime.MaxValue.Ticks;
+            }
+
+            return new DateTime(shiftedTicks, DateTimeKind.Utc);
         }
 
         try
