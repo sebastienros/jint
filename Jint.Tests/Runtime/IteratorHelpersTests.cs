@@ -1082,6 +1082,151 @@ public class IteratorHelpersTests
         result.Should().Be($$"""[1,"{{tag}}",false,false,true,"undefined","undefined"]""");
     }
 
+    // %IteratorHelperPrototype%.return is a state machine over [[GeneratorState]]
+    // (https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.return), and the four tests below cover the
+    // states it can be called in. Every expectation was taken from node (V8) running the same script.
+
+    [Theory]
+    [InlineData("map", "x")]
+    [InlineData("filter", "true")]
+    [InlineData("flatMap", "[x]")]
+    public void ReturnWhileExecutingIsATypeErrorAndClosesNothing(string method, string mapped)
+    {
+        // Step 6 hands an executing helper to GeneratorResumeAbrupt, whose GeneratorValidate rejects it.
+        // Closing the underlying iterator instead would invoke "return" where the spec invokes nothing —
+        // and leave the helper yielding from an iterator it had already closed.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            const trace = [];
+            let i = 0;
+            const src = {
+                __proto__: Iterator.prototype,
+                next() { trace.push('next'); return { value: ++i, done: false }; },
+                return(v) { trace.push('return'); return { value: v, done: true }; }
+            };
+            let h;
+            h = src.{{method}}(x => {
+                try { h.return(); trace.push('inner-return-ok'); }
+                catch (e) { trace.push('inner-' + e.constructor.name); }
+                return {{mapped}};
+            });
+            trace.push('next1=' + JSON.stringify(h.next()));
+            JSON.stringify(trace);
+            """).AsString();
+
+        result.Should().Be("""["next","inner-TypeError","next1={\"value\":1,\"done\":false}"]""");
+    }
+
+    [Fact]
+    public void ReturnWhileExecutingRejectsTheHelperBeingStepped()
+    {
+        // A helper stacked on another only makes the executing one observable from further away.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const trace = [];
+            let i = 0;
+            const src = {
+                __proto__: Iterator.prototype,
+                next() { trace.push('next'); return { value: ++i, done: false }; },
+                return(v) { trace.push('return'); return { value: v, done: true }; }
+            };
+            let inner;
+            inner = src.map(x => {
+                try { inner.return(); trace.push('inner-return-ok'); }
+                catch (e) { trace.push('inner-' + e.constructor.name); }
+                return x;
+            });
+            const outer = inner.map(x => x);
+            trace.push('outer-next=' + JSON.stringify(outer.next()));
+            JSON.stringify(trace);
+            """).AsString();
+
+        result.Should().Be("""["next","inner-TypeError","outer-next={\"value\":1,\"done\":false}"]""");
+    }
+
+    [Fact]
+    public void ReturnOnACompletedHelperClosesNothing()
+    {
+        // GeneratorResumeAbrupt answers a completed generator with a done result and resumes no body, so
+        // nothing is left to close. flatMap is where that is observable: an inner iterator whose step threw
+        // is already done — IteratorStepValue marked it so and closed nothing — and the abrupt step closed
+        // the outer on its way out. A return afterwards must touch neither.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const trace = [];
+            let innerCount = 0;
+            const inner = {
+                next() { trace.push('inner-next'); if (++innerCount > 1) { throw new RangeError('inner boom'); } return { value: 'a', done: false }; },
+                return(v) { trace.push('inner-return'); return { value: v, done: true }; },
+                [Symbol.iterator]() { return this; }
+            };
+            const outer = {
+                __proto__: Iterator.prototype,
+                next() { trace.push('outer-next'); return { value: inner, done: false }; },
+                return(v) { trace.push('outer-return'); return { value: v, done: true }; }
+            };
+            const h = outer.flatMap(x => x);
+            trace.push('next1=' + JSON.stringify(h.next()));
+            try { h.next(); } catch (e) { trace.push('next2-' + e.constructor.name); }
+            trace.push('return=' + JSON.stringify(h.return()));
+            trace.push('return2=' + JSON.stringify(h.return()));
+            JSON.stringify(trace);
+            """).AsString();
+
+        result.Should().Be("""["outer-next","inner-next","next1={\"value\":\"a\",\"done\":false}","inner-next","outer-return","next2-RangeError","return={\"done\":true}","return2={\"done\":true}"]""");
+    }
+
+    [Fact]
+    public void ReturnBeforeTheFirstNextClosesTheUnderlyingIterator()
+    {
+        // Step 4's suspended-start branch: the body never ran, so the close is the whole of the work.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const trace = [];
+            const src = {
+                __proto__: Iterator.prototype,
+                next() { trace.push('next'); return { value: 1, done: false }; },
+                return(v) { trace.push('return'); return { value: v, done: true }; }
+            };
+            const h = src.map(x => x);
+            trace.push('return=' + JSON.stringify(h.return()));
+            trace.push('next=' + JSON.stringify(h.next()));
+            trace.push('return2=' + JSON.stringify(h.return()));
+            JSON.stringify(trace);
+            """).AsString();
+
+        result.Should().Be("""["return","return={\"done\":true}","next={\"done\":true}","return2={\"done\":true}"]""");
+    }
+
+    [Fact]
+    public void ReturnFromInsideTheUnderlyingCloseSeesACompletedHelper()
+    {
+        // The state moves to completed *before* the close runs, so a "return" that re-enters the helper
+        // from inside the underlying iterator's own "return" is answered rather than rejected. This is what
+        // stops the executing check above from turning an ordinary close into a TypeError.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const trace = [];
+            let h;
+            const src = {
+                __proto__: Iterator.prototype,
+                next() { trace.push('next'); return { value: 1, done: false }; },
+                return(v) {
+                    trace.push('src-return');
+                    try { trace.push('nested=' + JSON.stringify(h.return())); }
+                    catch (e) { trace.push('nested-' + e.constructor.name); }
+                    return { value: v, done: true };
+                }
+            };
+            h = src.map(x => x);
+            trace.push('next1=' + JSON.stringify(h.next()));
+            trace.push('outer-return=' + JSON.stringify(h.return()));
+            JSON.stringify(trace);
+            """).AsString();
+
+        result.Should().Be("""["next","next1={\"value\":1,\"done\":false}","src-return","nested={\"done\":true}","outer-return={\"done\":true}"]""");
+    }
+
     [Fact]
     public void TheReceiverOfAHelperKeepsItsOwnToStringTag()
     {

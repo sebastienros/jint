@@ -81,23 +81,55 @@ internal abstract class IteratorHelper : ObjectInstance
 
     /// <summary>
     /// Called by IteratorHelperPrototype.return() to close the helper.
+    /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.return
     /// </summary>
-    public virtual ObjectInstance Return()
+    /// <remarks>
+    /// The three reachable [[GeneratorState]]s answer differently, and each difference is observable:
+    /// <list type="bullet">
+    /// <item>executing - step 6 hands the helper to GeneratorResumeAbrupt, whose GeneratorValidate rejects a
+    /// running generator. That is a return re-entering the helper from inside its own mapper or predicate;
+    /// closing the underlying iterator there would invoke "return" where the spec invokes nothing, and would
+    /// leave the helper going on to yield from an iterator it had just closed.</item>
+    /// <item>completed - GeneratorResumeAbrupt answers a return completion with a done result and resumes no
+    /// body, so nothing is left to close. This is not the same question as <see cref="Exhausted"/>, which is
+    /// about the underlying record: a flatMap whose inner iterator stepped abruptly is completed while still
+    /// holding that inner iterator, and closing it here is precisely what the spec does not do.</item>
+    /// <item>suspended-start / suspended-yield - close, which is step 4c for the former and the body's own
+    /// IfAbruptCloseIterator for the latter. Both are an IteratorClose with a non-throw completion, so the
+    /// difference between the spec's normal and return completions is not observable here.</item>
+    /// </list>
+    /// The state moves to completed <em>before</em> the close, so a return that re-enters from inside the
+    /// underlying iterator's own "return" lands in the completed arm rather than the executing one.
+    /// </remarks>
+    public ObjectInstance Return()
     {
-        // 3. Assert: O has an [[UnderlyingIterator]] internal slot.
-        // 4. Let iterator be O.[[UnderlyingIterator]].[[Iterator]].
-        // 5. Set O.[[GeneratorState]] to completed.
-        State = GeneratorState.Completed;
+        if (State == GeneratorState.Executing)
+        {
+            Throw.TypeError(_engine.Realm, "Generator is already executing");
+        }
 
-        // 6. Let innerIterator be O.[[UnderlyingIterator]].
-        // 7. Return ? IteratorClose(innerIterator, NormalCompletion(undefined)).
-        // Only close if not already exhausted
+        if (State != GeneratorState.Completed)
+        {
+            State = GeneratorState.Completed;
+            CloseOnReturn();
+        }
+
+        return CreateIteratorResult(Undefined, done: true);
+    }
+
+    /// <summary>
+    /// Closes whatever this helper still holds open, for a <see cref="Return"/> that reached a suspended
+    /// helper. <see cref="Exhausted"/> is what says the underlying record is already done - the step reported
+    /// DONE, the step itself completed abruptly, or the helper ran an IteratorClose of its own - and closing
+    /// again would invoke "return" a second time.
+    /// </summary>
+    protected virtual void CloseOnReturn()
+    {
         if (!Exhausted)
         {
-            Exhausted = true; // Prevent subsequent calls from forwarding
+            Exhausted = true;
             CloseIterator(CompletionType.Return);
         }
-        return CreateIteratorResult(Undefined, done: true);
     }
 
     /// <summary>
@@ -462,28 +494,18 @@ internal sealed class FlatMapIterator : IteratorHelper
     }
 
     /// <summary>
-    /// Override Return to also close the inner iterator if present.
+    /// A flatMap suspended inside an inner iterator holds two open records, and the body's
+    /// IfAbruptCloseIterator closes the inner one before the outer.
     /// </summary>
-    public override ObjectInstance Return()
+    protected override void CloseOnReturn()
     {
-        // Set state to completed first
-        State = GeneratorState.Completed;
-
-        // Close the inner iterator if there is one and it hasn't been closed yet
         if (_innerIterator is not null && !_innerIteratorClosed)
         {
             _innerIteratorClosed = true;
             _innerIterator.Close(CompletionType.Return);
         }
 
-        // Close the outer iterator
-        if (!Exhausted)
-        {
-            Exhausted = true;
-            CloseIterator(CompletionType.Return);
-        }
-
-        return CreateIteratorResult(Undefined, done: true);
+        base.CloseOnReturn();
     }
 
     protected override StepResult ExecuteStep()
