@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Text;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Native.Object;
@@ -117,6 +118,15 @@ public class JsonTests
     [InlineData(".1", "Unexpected token '.' in JSON at position 0")]
     [InlineData("\"\\u", "Expected hexadecimal digit in JSON at position 3")] // truncated \u escape at end of input
     [InlineData("\"\\u1\"", "Expected hexadecimal digit in JSON at position 4")] // \u with only 1 hex digit
+    // The JSON grammar has no trailing comma: a ',' must be followed by another element or member.
+    [InlineData("[1,]", "Unexpected token ']' in JSON at position 3")]
+    [InlineData("[1,2,]", "Unexpected token ']' in JSON at position 5")]
+    [InlineData("[1, ]", "Unexpected token ']' in JSON at position 4")] // whitespace does not excuse it
+    [InlineData("[[1,],2]", "Unexpected token ']' in JSON at position 4")] // nested array
+    [InlineData("{\"a\":1,}", "Unexpected token '}' in JSON at position 7")]
+    [InlineData("{\"a\":1,\"b\":2,}", "Unexpected token '}' in JSON at position 13")]
+    [InlineData("{\"a\":{\"b\":1,}}", "Unexpected token '}' in JSON at position 12")] // nested object
+    [InlineData("[{\"a\":1,}]", "Unexpected token '}' in JSON at position 8")] // object nested in an array
     public void ShouldReportHelpfulSyntaxErrorForInvalidJson(string json, string expectedMessage)
     {
         var engine = new Engine();
@@ -131,6 +141,46 @@ public class JsonTests
         var error = ex.Error as Native.Error.ErrorInstance;
         error.Should().NotBeNull();
         error.Get("name").Should().Be("SyntaxError");
+    }
+
+    [Fact]
+    public void EveryParseEntryPointRejectsATrailingCommaIdentically()
+    {
+        const string TrailingCommaArray = "[1,]";
+        const string TrailingCommaObject = "{\"a\":1,}";
+        const string ArrayMessage = "Unexpected token ']' in JSON at position 3";
+        const string ObjectMessage = "Unexpected token '}' in JSON at position 7";
+
+        var engine = new Engine();
+        var parser = new JsonParser(engine);
+
+        // The three host-facing overloads read one grammar: string, UTF-16 span, UTF-8 bytes.
+        SyntaxErrorMessage(() => parser.Parse(TrailingCommaArray)).Should().Be(ArrayMessage);
+        SyntaxErrorMessage(() => parser.Parse(TrailingCommaArray.AsSpan())).Should().Be(ArrayMessage);
+        SyntaxErrorMessage(() => parser.Parse(Encoding.UTF8.GetBytes(TrailingCommaArray))).Should().Be(ArrayMessage);
+
+        SyntaxErrorMessage(() => parser.Parse(TrailingCommaObject)).Should().Be(ObjectMessage);
+        SyntaxErrorMessage(() => parser.Parse(TrailingCommaObject.AsSpan())).Should().Be(ObjectMessage);
+        SyntaxErrorMessage(() => parser.Parse(Encoding.UTF8.GetBytes(TrailingCommaObject))).Should().Be(ObjectMessage);
+
+        // And so does script-visible JSON.parse, with and without a reviver -- a reviver switches the
+        // parser to the source-tracking descent used by the json-parse-with-source proposal, which walks
+        // its own element and member loops.
+        SyntaxErrorMessage(() => engine.Evaluate("JSON.parse('[1,]')")).Should().Be(ArrayMessage);
+        SyntaxErrorMessage(() => engine.Evaluate("JSON.parse('[1,]', function (k, v) { return v; })")).Should().Be(ArrayMessage);
+        SyntaxErrorMessage(() => engine.Evaluate("JSON.parse('{\"a\":1,}')")).Should().Be(ObjectMessage);
+        SyntaxErrorMessage(() => engine.Evaluate("JSON.parse('{\"a\":1,}', function (k, v) { return v; })")).Should().Be(ObjectMessage);
+
+        // The reviver descent also has to keep accepting what the grammar allows.
+        engine.Evaluate("JSON.stringify(JSON.parse('[1,{\"a\":2}]', function (k, v) { return v; }))")
+            .AsString().Should().Be("[1,{\"a\":2}]");
+
+        static string SyntaxErrorMessage(Func<JsValue> parse)
+        {
+            var ex = Invoking(parse).Should().Throw<JavaScriptException>().Which;
+            (ex.Error as ObjectInstance)!.Get("name").Should().Be("SyntaxError");
+            return ex.Message;
+        }
     }
 
     [Theory]

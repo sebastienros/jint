@@ -857,6 +857,23 @@ public sealed class JsonParser
         ThrowError(token, Messages.UnexpectedToken, TokenText(source, token));
     }
 
+    /// <summary>
+    /// Reports the closing punctuator sitting right after a ',' as the syntax error it is. The JSON
+    /// grammar has no trailing comma — <c>JSONElementList : JSONElementList , JSONValue</c> and
+    /// <c>JSONMemberList : JSONMemberList , JSONMember</c>
+    /// (https://tc39.es/ecma262/#sec-json.parse) both require another element or member after the
+    /// separator — so <c>[1,]</c> and <c>{"a":1,}</c> are as malformed as <c>[,]</c> already was. The
+    /// element and member loops re-test for the closing punctuator at the top, which would otherwise
+    /// read the ',' as harmless and finish the value.
+    /// </summary>
+    private void ThrowOnTrailingComma(ref State state, char closing)
+    {
+        if (Match(closing))
+        {
+            ThrowUnexpected(state.Source, _lookahead);
+        }
+    }
+
     // Expect the next token to match the specified punctuator.
     // If not, an exception will be thrown.
     private void Expect(ref State state, char value)
@@ -902,6 +919,7 @@ public sealed class JsonParser
                 if (!Match(']'))
                 {
                     Expect(ref state, ',');
+                    ThrowOnTrailingComma(ref state, ']');
                 }
             }
 
@@ -957,6 +975,7 @@ public sealed class JsonParser
                 // The token right after ',' is the next key.
                 _expectKey = true;
                 Expect(ref state, ',');
+                ThrowOnTrailingComma(ref state, '}');
             }
         }
 
@@ -1324,6 +1343,7 @@ public sealed class JsonParser
                 if (!Match(']'))
                 {
                     Expect(ref state, ',');
+                    ThrowOnTrailingComma(ref state, ']');
                 }
             }
 
@@ -1397,6 +1417,7 @@ public sealed class JsonParser
                 // The token right after ',' is the next key.
                 _expectKey = true;
                 Expect(ref state, ',');
+                ThrowOnTrailingComma(ref state, '}');
             }
         }
 
