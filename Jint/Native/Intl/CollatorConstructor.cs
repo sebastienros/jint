@@ -93,6 +93,33 @@ internal sealed partial class CollatorConstructor : Constructor
         return result;
     }
 
+    // https://tc39.es/ecma402/#sec-availablecanonicalcollations - the collations "for which the
+    // implementation provides the functionality of Intl.Collator objects", unique and in
+    // lexicographic code unit order. That is the union of the one [[co]] list every locale has, so
+    // it is read off LocaleCollations rather than written out a second time: a hand-kept copy can
+    // list a collation no locale resolves, which is what
+    // intl402/Intl/supportedValuesOf/collations-accepted-by-Collator.js fails on, or omit one some
+    // locale reports, which nothing in test262 would notice. Both are the drift #2974 removed from
+    // the two views this makes a third of. "standard", "search" and "default" need no exclusion of
+    // their own: IsReportableCollation already kept them out of every list this unions.
+    internal static readonly string[] AvailableCanonicalCollations = BuildAvailableCanonicalCollations();
+
+    private static string[] BuildAvailableCanonicalCollations()
+    {
+        var all = new HashSet<string>(RootCollations, StringComparer.Ordinal);
+        foreach (var collations in LocaleCollations.Values)
+        {
+            foreach (var collation in collations)
+            {
+                all.Add(collation);
+            }
+        }
+
+        var result = new List<string>(all);
+        result.Sort(StringComparer.Ordinal);
+        return result.ToArray();
+    }
+
     /// <summary>
     /// Whether an identifier may appear in a locale's [[co]] list. "standard" and "search" may not:
     /// https://tc39.es/ecma402/#sec-intl-collator-internal-slots (10.2.3) forbids either from being
