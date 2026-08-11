@@ -37,11 +37,14 @@ internal sealed partial class MapPrototype : Prototype
         CreateSymbols_Generated();
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-map.prototype.size
+    /// </summary>
     [JsAccessor("size")]
     private JsValue Size(JsValue thisObject)
     {
-        AssertMapInstance(thisObject);
-        return JsNumber.Create(0);
+        var map = AssertMapInstance(thisObject);
+        return JsNumber.Create(map.Size);
     }
 
     [JsFunction(Name = "get", FastCall = true)]
