@@ -38,14 +38,29 @@ public class ErrorInstance : ObjectInstance
     /// </summary>
     internal Exception? ClrException => _clrContext?.ClrException;
 
+    /// <summary>
+    /// Records where a failed CLR resolution came from, keeping any exception already recorded.
+    /// </summary>
+    /// <remarks>
+    /// The facts behind <see cref="ClrErrorContext"/> are independent, and each setter owns only its own.
+    /// No in-box path reaches both on one error — the three call sites each construct the error they
+    /// annotate — so this is defensive; it is the record that made it worth stating, because folding one
+    /// field per fact behind a single reference turned "set the other fact" into "replace every fact",
+    /// where before the fields were separate and one setter could not reach the other's.
+    /// </remarks>
     internal void SetClrResolutionInfo(Type clrType, string? memberName)
     {
-        _clrContext = new ClrErrorContext(clrType, memberName, ClrException: null);
+        _clrContext = new ClrErrorContext(clrType, memberName, _clrContext?.ClrException);
     }
 
+    /// <summary>
+    /// Records the CLR exception this error stands in for, keeping any resolution origin already recorded.
+    /// See <see cref="SetClrResolutionInfo"/> for why the two must not clobber each other.
+    /// </summary>
     internal void SetClrException(Exception clrException)
     {
-        _clrContext = new ClrErrorContext(ResolutionType: null, ResolutionMemberName: null, clrException);
+        var existing = _clrContext;
+        _clrContext = new ClrErrorContext(existing?.ResolutionType, existing?.ResolutionMemberName, clrException);
     }
 
     /// <summary>
