@@ -886,6 +886,42 @@ uriError:
         }
 
         result = Set(jsName, value, this);
+
+        if (result)
+        {
+            MarkBindingPropertyCreatedByShadowing(property);
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Where the inherited property is writable data, [[Set]] shadows it by creating an own property on
+    /// the receiver through CreateDataProperty. That gives the right attributes but not
+    /// <see cref="PropertyFlag.MutableBinding"/>, which is the marker telling the two stores above they
+    /// may write the descriptor's value in place. So a property the binding machinery had itself just
+    /// created sent every later write of that name down the validate-and-apply path instead — allocating
+    /// a descriptor and a key each time, and for the rest of the engine's life, since nothing ever puts
+    /// the marker on afterwards. Both of the record's other ways of creating a global property mark it:
+    /// CreateGlobalVarBinding for a <c>var</c> declaration, and the branch just above for a binding that
+    /// resolves to nothing on the prototype either.
+    /// </summary>
+    /// <remarks>
+    /// <para>Only the exact descriptor CreateDataProperty leaves behind is marked. The caller has already
+    /// established that the global had no own property of this name before the [[Set]], so whatever is
+    /// there now was created by it — but an inherited setter is free to have defined something of its
+    /// own shape during the call, and that is left alone.</para>
+    /// <para>A sloppy assignment to a name that resolves nowhere at all is a different route with the
+    /// same shortfall, and is deliberately not covered here: the reference is unresolvable, so PutValue
+    /// never reaches this record and assigns through the global object's plain [[Set]] instead.</para>
+    /// </remarks>
+    private void MarkBindingPropertyCreatedByShadowing(Key property)
+    {
+        var created = GetOwnProperty(property);
+        if (created != PropertyDescriptor.Undefined
+            && created._flags == PropertyFlag.ConfigurableEnumerableWritable)
+        {
+            created._flags |= PropertyFlag.MutableBinding;
+        }
     }
 }
