@@ -14,6 +14,7 @@ using Jint.Native.Error;
 using Jint.Native.FinalizationRegistry;
 using Jint.Native.Function;
 using Jint.Native.Generator;
+using Jint.Native.Global;
 using Jint.Native.Iterator;
 using Jint.Native.Json;
 using Jint.Native.Map;
@@ -68,6 +69,8 @@ public sealed partial class Intrinsics
     private ProxyConstructor? _proxy;
     private ReflectInstance? _reflect;
     private EvalFunction? _eval;
+    private NumberParseFunction? _parseInt;
+    private NumberParseFunction? _parseFloat;
     private DateConstructor? _date;
     private IteratorConstructor? _iteratorConstructor;
     private IteratorHelperPrototype? _iteratorHelperPrototype;
@@ -324,6 +327,18 @@ public sealed partial class Intrinsics
 
     public EvalFunction Eval =>
         _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);
+
+    /// <summary>
+    /// %parseInt%. A realm intrinsic rather than a property built by either owner, because
+    /// https://tc39.es/ecma262/#sec-number.parseint requires <c>Number.parseInt</c> to be the very
+    /// function object <c>globalThis.parseInt</c> is — both install this one.
+    /// </summary>
+    internal NumberParseFunction ParseInt =>
+        _parseInt ??= new NumberParseFunction(_engine, _realm, Function.PrototypeObject, isParseInt: true);
+
+    /// <summary>%parseFloat%; the <see cref="ParseInt"/> note applies verbatim.</summary>
+    internal NumberParseFunction ParseFloat =>
+        _parseFloat ??= new NumberParseFunction(_engine, _realm, Function.PrototypeObject, isParseInt: false);
 
     public ErrorConstructor Error =>
         _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName, static intrinsics => intrinsics.Error.PrototypeObject);

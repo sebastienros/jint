@@ -91,6 +91,44 @@ public class GlobalTests
         IsNegativeZero(value).Should().BeFalse();
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number.parseint — "the same built-in function object that is the
+    /// value of the parseInt property of the global object". Reference equality, not merely a true
+    /// <c>===</c>: the two used to be distinct ClrFunctions over one delegate, which answered the
+    /// strict-equality test while disagreeing about <c>length</c>.
+    /// </summary>
+    [Fact]
+    public void NumbersParseIntAndParseFloatAreTheGlobalFunctionObjectsThemselves()
+    {
+        var engine = new Engine();
+
+        ReferenceEquals(engine.Evaluate("Number.parseInt"), engine.Evaluate("parseInt")).Should().BeTrue();
+        ReferenceEquals(engine.Evaluate("Number.parseFloat"), engine.Evaluate("parseFloat")).Should().BeTrue();
+
+        engine.Evaluate("[parseInt.length, Number.parseInt.length, parseFloat.length, Number.parseFloat.length].join()")
+            .AsString().Should().Be("2,2,1,1");
+    }
+
+    /// <summary>
+    /// They are realm intrinsics, so a second engine — and a ShadowRealm inside one engine — gets its
+    /// own pair, prototyped on its own %Function.prototype%. The global one used to be built through
+    /// the realm-reading <c>ClrFunction</c> constructor from a lazy factory, so which realm it
+    /// belonged to depended on which one happened to be running when it was first read.
+    /// </summary>
+    [Fact]
+    public void EachRealmHasItsOwnParseIntAndParseFloat()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("Object.getPrototypeOf(parseInt) === Function.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("""
+            const r = new ShadowRealm();
+            r.evaluate("Object.getPrototypeOf(parseInt) === Function.prototype && Number.parseInt === parseInt");
+            """).AsBoolean().Should().BeTrue();
+
+        ReferenceEquals(engine.Evaluate("parseInt"), new Engine().Evaluate("parseInt")).Should().BeFalse();
+    }
+
     private static bool IsNegativeZero(double value)
         => BitConverter.DoubleToInt64Bits(value) == BitConverter.DoubleToInt64Bits(-0d);
 }
