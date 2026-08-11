@@ -704,6 +704,93 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/, 2))""").AsString().Should().Be("""["a","b"]""");
     }
 
+    [Fact]
+    public void SubstitutionTailIsEmptyWhenTheMatchRunsPastTheEndOfTheString()
+    {
+        // GetSubstitution step 5.e (https://tc39.es/ecma262/#sec-getsubstitution): tailPos is
+        // position + the length of matched, and $' is the substring of str from
+        // min(tailPos, stringLength) -- so a tailPos at or past the end yields the empty string.
+        // tailPos can only exceed stringLength when @@replace ran against an object whose "exec"
+        // is not the intrinsic one, which is exactly what these lying execs are.
+        _engine.Execute("var evil = new RegExp();");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "1234567", length: 1, index: 0 });""");
+        _engine.Evaluate("""'abc'.replace(evil, "$'")""").AsString().Should().Be("");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "x", length: 1, index: 3 });""");
+        _engine.Evaluate("""'abc'.replace(evil, "$'")""").AsString().Should().Be("abc");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "x", length: 1, index: 2 });""");
+        _engine.Evaluate("""'abc'.replace(evil, "$'")""").AsString().Should().Be("ab");
+        _engine.Evaluate("""'abcd'.replace(evil, "$'")""").AsString().Should().Be("abdd");
+        _engine.Evaluate("""'abcde'.replace(evil, "$'")""").AsString().Should().Be("abdede");
+    }
+
+    [Fact]
+    public void SubstitutionClampsAMatchIndexTheExecLiedAbout()
+    {
+        // @@replace step 14.e (https://tc39.es/ecma262/#sec-regexp.prototype-@@replace) clamps
+        // ToIntegerOrInfinity(result.index) between 0 and the length of the string, which is what
+        // establishes GetSubstitution's "position <= stringLength" assertion. The clamp has to happen
+        // before the value is narrowed to an index: an out-of-range double-to-int conversion saturates
+        // on .NET but is unspecified on .NET Framework, where it yields int.MinValue and would turn a
+        // far-right index into 0.
+        _engine.Execute("var evil = new RegExp();");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "x", length: 1, index: 1e300 });""");
+        _engine.Evaluate("""'abc'.replace(evil, "[$`]")""").AsString().Should().Be("abc[abc]");
+        _engine.Evaluate("""'abc'.replace(evil, "[$']")""").AsString().Should().Be("abc[]");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "x", length: 1, index: -5 });""");
+        _engine.Evaluate("""'abc'.replace(evil, "[$`]")""").AsString().Should().Be("[]bc");
+        _engine.Evaluate("""'abc'.replace(evil, "[$']")""").AsString().Should().Be("[bc]bc");
+
+        _engine.Execute("""evil.exec = () => ({ 0: "x", length: 1, index: NaN });""");
+        _engine.Evaluate("""'abc'.replace(evil, "[$`|$']")""").AsString().Should().Be("[|bc]bc");
+    }
+
+    [Fact]
+    public void ReplaceAllRunsTheSameSubstitutionClamps()
+    {
+        // replaceAll reaches GetSubstitution through the very same @@replace, so a lying exec has to be
+        // clamped identically there. The regexp must be global for replaceAll to accept it, and its exec
+        // answers once and then reports exhaustion so the accumulation loop terminates.
+        _engine.Execute("""
+            function lying(match, index) {
+                var re = /x/g;
+                var served = false;
+                re.exec = function () {
+                    if (served) { return null; }
+                    served = true;
+                    return { 0: match, length: 1, index: index };
+                };
+                return re;
+            }
+            """);
+
+        _engine.Evaluate("""'abc'.replaceAll(lying('1234567', 0), "$'")""").AsString().Should().Be("");
+        _engine.Evaluate("""'abc'.replaceAll(lying('x', 3), "[$']")""").AsString().Should().Be("abc[]");
+        _engine.Evaluate("""'abc'.replaceAll(lying('x', 1e300), "[$`]")""").AsString().Should().Be("abc[abc]");
+        _engine.Evaluate("""'abc'.replaceAll(lying('x', -5), "[$`|$']")""").AsString().Should().Be("[|bc]bc");
+    }
+
+    [Fact]
+    public void SubstitutionOfAWellBehavedMatchIsUnchanged()
+    {
+        // The control: an honest exec, so position and matched agree with the string and no clamp bites.
+        _engine.Evaluate("""'abcde'.replace(/c/, "[$`|$&|$']")""").AsString().Should().Be("ab[ab|c|de]de");
+        _engine.Evaluate("""'abcde'.replace(/a/, "[$`|$&|$']")""").AsString().Should().Be("[|a|bcde]bcde");
+        _engine.Evaluate("""'abcde'.replace(/e/, "[$`|$&|$']")""").AsString().Should().Be("abcd[abcd|e|]");
+        _engine.Evaluate("""'abcde'.replaceAll(/[bd]/g, "[$`|$&|$']")""").AsString()
+            .Should().Be("a[a|b|cde]c[abc|d|e]e");
+
+        // $n capture references keep resolving against the captures array, and an out-of-range one is
+        // still emitted literally.
+        _engine.Evaluate("""'2026-08-11'.replace(/(\d+)-(\d+)-(\d+)/, "$3.$2.$1")""").AsString()
+            .Should().Be("11.08.2026");
+        _engine.Evaluate("""'abc'.replace(/b/, "$1$&")""").AsString().Should().Be("a$1bc");
+    }
+
     public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
