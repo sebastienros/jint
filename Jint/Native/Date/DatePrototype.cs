@@ -170,6 +170,29 @@ internal sealed partial class DatePrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
+    ///
+    /// ECMA-402's FormatDateTime is defined for every valid time value, but the machinery behind it here
+    /// is <see cref="DateTime"/> and the .NET calendars, which reach from year 1 to year 9999 and no
+    /// further. https://tc39.es/ecma262/#sec-timeclip admits every time value up to 8.64e15 — years
+    /// -271821 through 275760 — so a legal Date can name a year no calendar on the platform can hold.
+    /// Converting one of those threw ArgumentOutOfRangeException out of engine.Evaluate, and a CLR
+    /// exception is not something a script try/catch can see.
+    ///
+    /// What the three toLocale* methods answer with instead is the culture-independent rendering their
+    /// non-locale siblings already give the same value: https://tc39.es/ecma262/#sec-datestring and
+    /// https://tc39.es/ecma262/#sec-timestring are pure integer arithmetic on the time value and render
+    /// year 275760 as readily as year 2026. Two alternatives were weighed and rejected. Clamping the
+    /// DateTime to MinValue/MaxValue and overriding only the year — which is what the format method on
+    /// Intl.DateTimeFormat does today — keeps the locale's shape but takes month, day and time from the
+    /// clamp, so new Date(8640000000000000) renders as December 31 rather than September 13. And
+    /// carrying the real fields in on a substitute year congruent mod 400 would need the whole component
+    /// pipeline to learn about overrides it does not have, for a band of years no non-Gregorian calendar
+    /// can express anyway. Being wrong in the locale's shape is worse than being right in nobody's, and
+    /// the string a caller gets now is the one Date.prototype.toString would have given them.
+    ///
+    /// The formatter is still constructed first: CreateDateTimeFormat reads the locale list and the
+    /// options bag and rejects what the spec says to reject, and none of that may be skipped just
+    /// because the year is out of reach.
     /// </summary>
     [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
@@ -207,12 +230,20 @@ internal sealed partial class DatePrototype : Prototype
         // Use Intl.DateTimeFormat for locale-aware formatting
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+
+        if (!dateInstance.DateTimeRangeValid)
+        {
+            return ToDateString(dateInstance);
+        }
+
         return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocaledatestring
+    /// Out-of-range years fall back to https://tc39.es/ecma262/#sec-datestring; see
+    /// <see cref="ToLocaleString"/> for why.
     /// </summary>
     [JsFunction]
     private JsValue ToLocaleDateString(JsValue thisObject, JsCallArguments arguments)
@@ -247,12 +278,20 @@ internal sealed partial class DatePrototype : Prototype
         // Use Intl.DateTimeFormat for locale-aware formatting
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+
+        if (!dateInstance.DateTimeRangeValid)
+        {
+            return DateString(LocalTime(dateInstance));
+        }
+
         return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
     /// https://tc39.es/ecma402/#sup-date.prototype.tolocaletimestring
+    /// Out-of-range years fall back to https://tc39.es/ecma262/#sec-timestring; see
+    /// <see cref="ToLocaleString"/> for why.
     /// </summary>
     [JsFunction]
     private JsValue ToLocaleTimeString(JsValue thisObject, JsCallArguments arguments)
@@ -287,6 +326,12 @@ internal sealed partial class DatePrototype : Prototype
         // Use Intl.DateTimeFormat for locale-aware formatting
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
+
+        if (!dateInstance.DateTimeRangeValid)
+        {
+            return TimeString(LocalTime(dateInstance)) + TimeZoneString(dateInstance);
+        }
+
         return dateTimeFormat.Format(dateInstance.ToDateTime());
     }
 

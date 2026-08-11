@@ -420,6 +420,94 @@ public class DateTests
         _engine.Evaluate(Script).AsNumber().Should().Be(0);
     }
 
+    /// Every toLocale* method converted the time value with DatePresentation.ToDateTime() before handing
+    /// it to the ECMA-402 formatting path, and that conversion is unguarded.
+    /// <see cref="DateTime"/> spans years 1 through 9999; https://tc39.es/ecma262/#sec-timeclip admits
+    /// every time value up to 8.64e15, which is years -271821 through 275760. Both ends therefore threw
+    /// ArgumentOutOfRangeException straight out of engine.Evaluate — a CLR exception, so script
+    /// try/catch never saw it, the same escape #2954 closed for sort and #2965 for the first instant of
+    /// year 10000.
+    ///
+    /// These years have no representation in any .NET calendar, so there is no locale-aware string to
+    /// produce; each method answers with what its culture-independent sibling renders instead, which is
+    /// the rendering https://tc39.es/ecma262/#sec-datestring already gives these values from toString.
+    /// </summary>
+    [Theory]
+    [InlineData(8640000000000000)] // the maximum time value, year 275760
+    [InlineData(253402300800001)] // one past what DateTime can hold, year 10000
+    [InlineData(-62135596800001)] // one before what DateTime can hold, year 0
+    [InlineData(-8640000000000000)] // the minimum time value, year -271821
+    public void ToLocaleStringOutsideDateTimeRangeRendersTheCultureIndependentString(long timeValue)
+    {
+        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+
+        engine.Evaluate($"new Date({timeValue}).toLocaleString()").AsString()
+            .Should().Be(engine.Evaluate($"new Date({timeValue}).toString()").AsString());
+
+        engine.Evaluate($"new Date({timeValue}).toLocaleDateString()").AsString()
+            .Should().Be(engine.Evaluate($"new Date({timeValue}).toDateString()").AsString());
+
+        engine.Evaluate($"new Date({timeValue}).toLocaleTimeString()").AsString()
+            .Should().Be(engine.Evaluate($"new Date({timeValue}).toTimeString()").AsString());
+
+        // A locale and an options bag are still read and validated; they simply cannot change the answer.
+        engine.Evaluate($"new Date({timeValue}).toLocaleString('de-DE', {{ month: 'long' }})").AsString()
+            .Should().Be(engine.Evaluate($"new Date({timeValue}).toString()").AsString());
+    }
+
+    /// <summary>
+    /// The escape itself. A CLR exception leaves engine.Evaluate without passing through any JavaScript
+    /// catch clause, so the only way to show the difference is from inside script.
+    /// </summary>
+    [Fact]
+    public void ToLocaleStringOutsideDateTimeRangeDoesNotThrowAClrException()
+    {
+        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+
+        engine.Evaluate("(function () { try { return new Date(8640000000000000).toLocaleString(); } catch (e) { return 'caught'; } })()")
+            .AsString().Should().Contain("275760");
+
+        engine.Evaluate("(function () { try { return new Date(-8640000000000000).toLocaleDateString(); } catch (e) { return 'caught'; } })()")
+            .AsString().Should().Contain("-271821");
+    }
+
+    /// <summary>
+    /// An explicit numeric offset shifts the wall clock past the end of <see cref="DateTime"/> for a time
+    /// value that is itself inside it, so the addition applying the offset threw where every other
+    /// conversion on the path succeeded. TimeZoneInfo.ConvertTimeFromUtc — the named-zone branch beside
+    /// it — saturates rather than throwing, and the offset branch now does the same.
+    /// </summary>
+    [Fact]
+    public void ToLocaleStringAtTheDateTimeBoundaryWithAnOffsetTimeZoneDoesNotThrowAClrException()
+    {
+        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+
+        engine.Evaluate("new Date(253402300799999).toLocaleString('en-US', { timeZone: '+03:00' })").AsString()
+            .Should().NotBeEmpty();
+        engine.Evaluate("new Date(-62135596800000).toLocaleString('en-US', { timeZone: '-03:00' })").AsString()
+            .Should().NotBeEmpty();
+    }
+
+    /// <summary>
+    /// The fallback is reached only where the locale path cannot go. A date .NET can represent is still
+    /// formatted by ECMA-402, and the two renderings do not look alike.
+    /// </summary>
+    [Fact]
+    public void ToLocaleStringInsideDateTimeRangeIsStillLocaleFormatted()
+    {
+        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+
+        var localeString = engine.Evaluate("new Date(0).toLocaleString('en-US')").AsString();
+        localeString.Should().NotBe(engine.Evaluate("new Date(0).toString()").AsString());
+        localeString.Should().Contain("1970");
+
+        // The two instants either side of DateTime.MaxValue land on opposite sides of the switch.
+        engine.Evaluate("new Date(253402300799999).toLocaleDateString('en-US')").AsString()
+            .Should().NotBe(engine.Evaluate("new Date(253402300799999).toDateString()").AsString());
+        engine.Evaluate("new Date(253402300800001).toLocaleDateString('en-US')").AsString()
+            .Should().Be(engine.Evaluate("new Date(253402300800001).toDateString()").AsString());
+    }
+
     [Fact]
     public void DstTransitionShouldUseCorrectOffset()
     {
