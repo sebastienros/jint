@@ -179,7 +179,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
             if (_isClassConstructor)
             {
-                Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+                Throw.TypeError(calleeContext.Realm, ClassConstructorWithoutNewMessage());
             }
 
             // Capture funcEnv for end-of-call pool return when bindings can't escape. Direct-recursive
@@ -243,6 +243,22 @@ public sealed class ScriptFunction : Function, IConstructor
         }
 
         return Undefined;
+    }
+
+    /// <summary>
+    /// The message for calling a class constructor as a function. The class's name lives on the constructor's
+    /// own <c>name</c> property and nowhere else: <c>_functionDefinition</c> here is the constructor
+    /// <em>method</em>'s, whose name is empty for every class, named or not. Reading the property instead
+    /// covers all three ways a class acquires a name — a declaration's binding, a class expression's own
+    /// identifier, and the target NamedEvaluation gives an anonymous one — and a class that acquired none
+    /// gets the nameless phrasing rather than a message with a hole in it.
+    /// </summary>
+    private string ClassConstructorWithoutNewMessage()
+    {
+        var name = GetOwnFunctionName();
+        return string.IsNullOrEmpty(name)
+            ? "Class constructors cannot be invoked without 'new'"
+            : $"Class constructor {name} cannot be invoked without 'new'";
     }
 
     /// <summary>
