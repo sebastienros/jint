@@ -47,7 +47,16 @@ internal sealed class GlobalEnvironment : Environment
     /// https://tc39.es/ecma262/#sec-global-environment-records-hasbinding-n — routes through
     /// [[HasProperty]] on the global, so names inherited from its prototype chain bind too.
     /// </summary>
-    internal override bool HasBinding(Key name)
+    internal override bool HasBinding(Key name) => HasBinding(name, nameValue: null);
+
+    /// <summary>
+    /// <see cref="HasBinding(Key)"/> for a caller that already holds the name as a
+    /// <see cref="JsString"/>. Only the paths that leave the global's own properties need one —
+    /// [[HasProperty]] takes a <see cref="JsValue"/> key — so handing the caller's over is what keeps
+    /// a repeated miss from building the same string object again on every probe. A caller without
+    /// one passes <see langword="null"/> and pays exactly what it did before.
+    /// </summary>
+    internal bool HasBinding(Key name, JsString? nameValue)
     {
         if (_declarativeRecord.HasBinding(name))
         {
@@ -56,10 +65,10 @@ internal sealed class GlobalEnvironment : Environment
 
         if (_globalObject is not null)
         {
-            return _globalObject.HasOwnProperty(name) || HasBindingOnGlobalPrototype(JsString.Create(name.Name));
+            return _globalObject.HasOwnProperty(name) || HasBindingOnGlobalPrototype(nameValue ?? JsString.Create(name.Name));
         }
 
-        return _global.HasProperty(new JsString(name));
+        return _global.HasProperty(nameValue ?? JsString.Create(name.Name));
     }
 
     /// <inheritdoc cref="HasBinding(Key)" />
@@ -313,7 +322,17 @@ internal sealed class GlobalEnvironment : Environment
     /// through the global's whole prototype chain; only a name absent everywhere is a
     /// ReferenceError in strict mode.
     /// </summary>
-    internal override JsValue GetBindingValue(Key name, bool strict)
+    internal override JsValue GetBindingValue(Key name, bool strict) => GetBindingValue(name, nameValue: null, strict);
+
+    /// <summary>
+    /// <see cref="GetBindingValue(Key, bool)"/> for a caller that already holds the name as a
+    /// <see cref="JsString"/> — every reference the interpreter builds for an identifier carries one.
+    /// A name that resolves on the global's prototype rather than on the global itself reaches
+    /// [[Get]], which needs a <see cref="JsValue"/> key, on every single read.
+    /// </summary>
+    internal JsValue GetBindingValue(JsString name, bool strict) => GetBindingValue(name.ToString(), name, strict);
+
+    private JsValue GetBindingValue(Key name, JsString? nameValue, bool strict)
     {
         if (_declarativeRecord.HasBinding(name))
         {
@@ -333,16 +352,16 @@ internal sealed class GlobalEnvironment : Environment
 
         if (desc == PropertyDescriptor.Undefined)
         {
-            return GetBindingValueUnlikely(name, strict);
+            return GetBindingValueUnlikely(name, nameValue, strict);
         }
 
         return ObjectInstance.UnwrapJsValue(desc, _global);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsValue GetBindingValueUnlikely(Key name, bool strict)
+    private JsValue GetBindingValueUnlikely(Key name, JsString? nameValue, bool strict)
     {
-        if (_global._prototype is not null && TryGetFromGlobalPrototype(JsString.Create(name.Name), out var value))
+        if (_global._prototype is not null && TryGetFromGlobalPrototype(nameValue ?? JsString.Create(name.Name), out var value))
         {
             return value;
         }

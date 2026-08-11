@@ -240,4 +240,83 @@ public class GlobalPrototypeBindingTests
         engine.Execute("Object.setPrototypeOf(globalThis, { ev: 9 });");
         engine.Evaluate("eval('ev')").AsNumber().Should().Be(9);
     }
+
+#if NET
+    // Asking the global's prototype chain about a name needs the name as a JsValue, but the two entry
+    // points below hand the global environment record a Key. Rebuilding a JsString from it cost one
+    // 32-byte object per operation, and forever: neither shape here ever gains an own property that
+    // would end the miss. The iteration count is high enough that 32 bytes apiece is unmistakable.
+    private const int InheritedNameProbeIterations = 20_000;
+
+    /// <summary>
+    /// Runs <paramref name="source"/> twice to warm the engine's handler trees, then reports what a
+    /// third evaluation allocates per loop iteration.
+    /// </summary>
+    private static double AllocatedBytesPerIteration(Engine engine, string source)
+    {
+        var prepared = Engine.PrepareScript(source);
+        engine.Evaluate(prepared);
+        engine.Evaluate(prepared);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        engine.Evaluate(prepared);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        return (double) allocated / InheritedNameProbeIterations;
+    }
+
+    [Fact]
+    public void ReadingAnInheritedNameDoesNotBuildItsNameStringPerRead()
+    {
+        // typeof and a call both resolve the identifier to a Reference and read it back through
+        // Engine.GetValue, which is where the Key-only GetBindingValue overload is entered; the
+        // reference already carries the name as a JsString. (A plain read never had the problem: it
+        // goes through TryGetBinding, whose BindingName carries the same string.)
+        var engine = new Engine();
+        engine.Execute("Object.setPrototypeOf(globalThis, { pg: 1, pf: function () { return 1; } });");
+
+        var typeOfBytes = AllocatedBytesPerIteration(engine, $$"""
+            (function () {
+                var t;
+                for (var i = 0; i < {{InheritedNameProbeIterations}}; i++) { t = typeof pg; }
+                return t;
+            })();
+            """);
+
+        var callBytes = AllocatedBytesPerIteration(engine, $$"""
+            (function () {
+                var t;
+                for (var i = 0; i < {{InheritedNameProbeIterations}}; i++) { t = pf(); }
+                return t;
+            })();
+            """);
+
+        // Both loops allocate nothing else at all, so the whole 32 bytes was the discarded name.
+        typeOfBytes.Should().BeLessThan(4, $"typeof of an inherited global allocated {typeOfBytes} bytes per read");
+        callBytes.Should().BeLessThan(4, $"calling an inherited global allocated {callBytes} bytes per call");
+    }
+
+    [Fact]
+    public void ProbingAnInheritedNameDoesNotBuildItsNameStringPerProbe()
+    {
+        // A destructuring assignment target goes through ResolveBinding, which walks the chain with a
+        // Key and ends at the global environment; its own-property miss falls through to
+        // [[HasProperty]] on the prototype. An inherited accessor is the shape that keeps missing —
+        // the assignment runs the setter instead of shadowing, so no own property ever appears.
+        var engine = new Engine();
+        engine.Execute("Object.setPrototypeOf(globalThis, { set st(v) { }, get st() { return 1; } });");
+
+        var bytes = AllocatedBytesPerIteration(engine, $$"""
+            var src = [7];
+            (function () {
+                for (var i = 0; i < {{InheritedNameProbeIterations}}; i++) { [st] = src; }
+            })();
+            """);
+
+        // Array destructuring legitimately allocates an iterator and its result objects per iteration
+        // (168 bytes when this was written), so the budget is that plus headroom and still well under
+        // the 200 bytes the extra name cost.
+        bytes.Should().BeLessThan(184, $"destructuring into an inherited accessor allocated {bytes} bytes per assignment");
+    }
+#endif
 }

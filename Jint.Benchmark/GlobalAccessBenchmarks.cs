@@ -27,12 +27,28 @@ public class GlobalAccessBenchmarks
     private IsolatedScript _globalUpdateLoop;
     private IsolatedScript _nestedGlobalReadLoop;
     private IsolatedScript _nestedGlobalWriteLoop;
+    private IsolatedScript _inheritedGlobalReadLoop;
+    private IsolatedScript _inheritedGlobalDestructureLoop;
 
     /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
     private static Engine CreateEngine()
     {
         var engine = new Engine(static options => options.Strict());
         engine.Execute("var gx = 0; var gy = 0; var gz = 0; var gobj = null; var gsum = 0; var gval = 0;");
+        return engine;
+    }
+
+    /// <summary>
+    /// The fixture for the two inherited-name rows, and for them alone: a prototype on the global object
+    /// carrying names that resolve as bare identifiers without being own properties of the global — the
+    /// shape a host gets from projecting an object as the global's [[Prototype]]. Installing it in
+    /// <see cref="CreateEngine"/> instead would change what every other row measures, since their own
+    /// identifier misses would start walking a prototype chain.
+    /// </summary>
+    private static Engine CreateEngineWithGlobalPrototype()
+    {
+        var engine = CreateEngine();
+        engine.Execute("Object.setPrototypeOf(globalThis, { ipg: 1, set ist(v) { }, get ist() { return 1; } });");
         return engine;
     }
 
@@ -105,6 +121,31 @@ public class GlobalAccessBenchmarks
                 return gval;
             })();
             """, strict: true), CreateEngine);
+
+        // The two rows below are the only ones that leave the global object's own properties. Every
+        // other row in this class resolves to a name the global owns, so none of them ever reaches the
+        // prototype-chain lane the global environment record is spec'd around — a gap worth closing,
+        // because that lane is what a host projecting an object as the global's [[Prototype]] runs on.
+
+        // Reads that go out through a Reference — typeof and a call are the two shapes — enter
+        // GetBindingValue with a Key. The name is never shadowed, so the miss repeats on every read.
+        _inheritedGlobalReadLoop = IsolatedScript.Warm(Engine.PrepareScript("""
+            (function () {
+                var t;
+                for (var i = 0; i < 200000; i++) { t = typeof ipg; }
+                return t;
+            })();
+            """, strict: true), CreateEngineWithGlobalPrototype);
+
+        // A destructuring assignment target resolves through ResolveBinding, the other Key-only entry
+        // point into the record. The target is an inherited accessor, so the assignment runs the setter
+        // rather than shadowing the name, and the own-property miss repeats too.
+        _inheritedGlobalDestructureLoop = IsolatedScript.Warm(Engine.PrepareScript("""
+            var isrc = [7];
+            (function () {
+                for (var i = 0; i < 50000; i++) { [ist] = isrc; }
+            })();
+            """, strict: true), CreateEngineWithGlobalPrototype);
     }
 
     [Benchmark]
@@ -121,4 +162,10 @@ public class GlobalAccessBenchmarks
 
     [Benchmark]
     public JsValue NestedGlobalWriteLoop() => _nestedGlobalWriteLoop.Run();
+
+    [Benchmark]
+    public JsValue InheritedGlobalReadLoop() => _inheritedGlobalReadLoop.Run();
+
+    [Benchmark]
+    public JsValue InheritedGlobalDestructureLoop() => _inheritedGlobalDestructureLoop.Run();
 }
