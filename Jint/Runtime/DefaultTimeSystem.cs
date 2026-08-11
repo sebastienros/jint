@@ -93,10 +93,19 @@ public class DefaultTimeSystem : ITimeSystem
                         // fall back to trying with MimeKit
                         if (DateUtils.TryParse(date, out var mimeKitResult))
                         {
-                            var dateAsUtc = mimeKitResult.ToUniversalTime();
-#pragma warning disable MA0132
-                            epochMilliseconds = (long) Math.Floor((dateAsUtc - DateConstructor.Epoch).TotalMilliseconds);
-#pragma warning restore MA0132
+                            // Ticks again, and floored the way Math.Floor on the double used to be: the
+                            // same lossy conversion reached this branch too, so "Sat, 15 Jun 5627
+                            // 12:30:13 PST" — a named zone, which only MimeKit parses — came back a
+                            // millisecond early. Floor and truncation differ only below the epoch, and
+                            // only for a sub-millisecond remainder MimeKit cannot produce, but keeping
+                            // the rounding direction means the fix moves nothing but the precision.
+                            var elapsedTicks = mimeKitResult.UtcTicks - DateConstructor.Epoch.Ticks;
+                            epochMilliseconds = elapsedTicks / TimeSpan.TicksPerMillisecond;
+                            if (elapsedTicks < 0 && epochMilliseconds * TimeSpan.TicksPerMillisecond != elapsedTicks)
+                            {
+                                epochMilliseconds--;
+                            }
+
                             return true;
                         }
 
@@ -112,7 +121,16 @@ public class DefaultTimeSystem : ITimeSystem
             ? result.ToUniversalTime()
             : DateTime.SpecifyKind(result, DateTimeKind.Utc);
 
-        DatePresentation datePresentation = (long) (dateAsUtc1 - DateConstructor.Epoch).TotalMilliseconds;
+        // Counted in ticks rather than read off TimeSpan.TotalMilliseconds. That property converts the
+        // tick count to a double first, and above 2^53 the conversion is already lossy: the last instant
+        // of year 9999 is 253402300799999 ms exactly, but on .NET 8/10 the quotient comes back as
+        // 253402300799998.96875 and the truncating cast then dropped the fraction, so
+        // Date.parse("9999-12-31T23:59:59.999Z") answered one millisecond short of what toISOString had
+        // been given. .NET Framework multiplies by 1e-4 where modern .NET divides by 10000 and happens to
+        // round the other way, so the same string parsed to two different numbers depending on the target
+        // framework. Integer division truncates toward zero exactly as the cast did, so nothing else about
+        // the conversion moves. Same defect as the one #2965 fixed in JsDate.Max, one conversion along.
+        DatePresentation datePresentation = (dateAsUtc1.Ticks - DateConstructor.Epoch.Ticks) / TimeSpan.TicksPerMillisecond;
 
         if (convertToUtcAfter)
         {

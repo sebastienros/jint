@@ -359,6 +359,67 @@ public class DateTests
         new JsDate(_engine, DateTime.MinValue).DateValue.Should().Be(-62135596800000d);
     }
 
+    /// <summary>
+    /// Date.parse("9999-12-31T23:59:59.999Z") answered 253402300799998, one millisecond short of the
+    /// value toISOString had just been given, so the two did not round-trip. The parser read the epoch
+    /// distance off TimeSpan.TotalMilliseconds, which is a double division whose numerator — (double) of
+    /// the tick count — stops being exact once the count passes 2^53. The correctly rounded quotient for
+    /// that instant is 253402300799998.96875, and the truncating cast then dropped the fraction. It is
+    /// the same defect #2965 fixed in JsDate.Max, one conversion further along.
+    ///
+    /// The affected band begins in 2427, which is where the spacing between doubles first stops dividing
+    /// the 10000 ticks in a millisecond; below it every quotient was already exact, so the low rows are
+    /// controls that never moved.
+    /// </summary>
+    [Theory]
+    [InlineData("9999-12-31T23:59:59.999Z", 253402300799999)]
+    [InlineData("9999-12-31T23:59:59.000Z", 253402300799000)]
+    [InlineData("2427-01-01T00:00:00.001Z", 14421542400001)]
+    [InlineData("2500-06-15T12:30:45.678Z", 16739526645678)]
+    // Controls from below the band.
+    [InlineData("1970-01-01T00:00:00.000Z", 0)]
+    [InlineData("2000-01-01T00:00:00.001Z", 946684800001)]
+    [InlineData("2026-08-11T12:34:56.789Z", 1786451696789)]
+    public void ParseIsExactToTheMillisecond(string input, long expected)
+    {
+        _engine.Evaluate($"Date.parse('{input}')").AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The MimeKit fallback in the same method read the same property, so a string only it can parse —
+    /// a named US zone, which DateTime.TryParse does not accept — landed a millisecond early too. It
+    /// floored where the other site truncated, and the fix keeps that difference.
+    /// </summary>
+    [Theory]
+    [InlineData("Sat, 15 Jun 5627 12:30:13 PST", 115418118613000)]
+    [InlineData("Sat, 15 Jun 5634 12:30:13 PST", 115639043413000)]
+    [InlineData("Thu, 30 Jan 2020 08:00:00 PST", 1580400000000)]
+    public void ParseThroughTheMimeKitFallbackIsExactToTheMillisecond(string input, long expected)
+    {
+        _engine.Evaluate($"Date.parse('{input}')").AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The pairing that makes it visible from script: a value the engine formatted itself has to come
+    /// back unchanged. Every millisecond of the last second of year 9999 goes through, because roughly
+    /// one in five of them landed low.
+    /// </summary>
+    [Fact]
+    public void EveryMillisecondOfTheLastSecondOfYear9999RoundTripsThroughParse()
+    {
+        const string Script = """
+            (function () {
+                var mismatched = 0;
+                for (var ms = 253402300799000; ms <= 253402300799999; ms++) {
+                    if (Date.parse(new Date(ms).toISOString()) !== ms) { mismatched++; }
+                }
+                return mismatched;
+            })();
+            """;
+
+        _engine.Evaluate(Script).AsNumber().Should().Be(0);
+    }
+
     [Fact]
     public void DstTransitionShouldUseCorrectOffset()
     {

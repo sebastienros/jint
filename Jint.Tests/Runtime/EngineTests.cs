@@ -1409,13 +1409,12 @@ var prep = function (fn) { fn(); };
         var minValue = engine.Evaluate("new Date('0001-01-01T00:00:00.000Z')").ToObject();
         minValue.Should().Be(new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
+        // The .NET Core arm here used to expect .998. That was never about the framework's date range; it
+        // was the parser losing a millisecond to a double division, and only on the frameworks whose
+        // TotalMilliseconds divides by 10000 rather than multiplying by 1e-4. Counting ticks removes the
+        // split, so both target frameworks now read back the millisecond the string names.
         var maxValue = engine.Evaluate("new Date('9999-12-31T23:59:59.999Z')").ToObject();
-
-#if NETCOREAPP
-            maxValue.Should().Be(new DateTime(9999, 12, 31, 23, 59, 59, 998, DateTimeKind.Utc));
-#else
         maxValue.Should().Be(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc));
-#endif
     }
 
     [Fact]
