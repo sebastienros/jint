@@ -373,7 +373,10 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         ConsumeFromIterator(iterator!, out value, out done);
                     }
 
-                    if (value.IsUndefined())
+                    // Only an initializer the engine actually ran can be the subject of
+                    // NamedEvaluation below; a supplied value is bound exactly as it came in.
+                    var initializerEvaluated = value.IsUndefined();
+                    if (initializerEvaluated)
                     {
                         var jintExpression = Build(assignmentPattern.Right);
                         value = jintExpression.GetValue(context);
@@ -405,9 +408,13 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else if (assignmentPattern.Left is Identifier leftIdentifier)
                     {
-                        if (assignmentPattern.Right.IsFunctionDefinition())
+                        // IteratorDestructuringAssignmentEvaluation / IteratorBindingInitialization
+                        // name the initializer's own closure, so both halves of the spec's condition
+                        // have to hold: the initializer was evaluated, and it is an anonymous
+                        // function definition.
+                        if (initializerEvaluated && assignmentPattern.Right.IsAnonymousFunctionDefinition())
                         {
-                            ((Function) value).SetFunctionName(new JsString(leftIdentifier.Name));
+                            ((Function) value).SetFunctionName(leftIdentifier.Name);
                         }
 
                         AssignToIdentifier(engine, leftIdentifier.Name, value, environment, checkReference);
@@ -521,7 +528,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
 
                     var value = source.Get(sourceKey);
-                    if (value.IsUndefined())
+
+                    // Only an initializer the engine actually ran can be the subject of
+                    // NamedEvaluation below; a supplied value is bound exactly as it came in.
+                    var initializerEvaluated = value.IsUndefined();
+                    if (initializerEvaluated)
                     {
                         var jintExpression = Build(assignmentPattern.Right);
                         var completion = jintExpression.GetValue(context);
@@ -545,7 +556,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     {
                         var target = assignmentPattern.Left as Identifier ?? identifier;
 
-                        if (assignmentPattern.Right.IsFunctionDefinition())
+                        // KeyedDestructuringAssignmentEvaluation / KeyedBindingInitialization name
+                        // the initializer's own closure, so both halves of the spec's condition have
+                        // to hold: the initializer was evaluated, and it is an anonymous function
+                        // definition.
+                        if (initializerEvaluated && assignmentPattern.Right.IsAnonymousFunctionDefinition())
                         {
                             ((Function) value).SetFunctionName(target!.Name);
                         }
