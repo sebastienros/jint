@@ -43,6 +43,8 @@ public class DefaultTimeSystem : ITimeSystem
         "THHK"
     ];
 
+    private const long MillisecondsPerDay = 86_400_000;
+
     private readonly CultureInfo _parsingCulture;
 
     public DefaultTimeSystem(TimeZoneInfo timeZoneInfo, CultureInfo parsingCulture)
@@ -67,11 +69,117 @@ public class DefaultTimeSystem : ITimeSystem
             return false;
         }
 
-        // special check for large years that always require + or - in front and have 6 digit year
-        if ((date[0] == '+' || date[0] == '-') && date.IndexOf('-', 1) == 7)
+        // A year DateTime has no room for is taken off the front and re-applied afterwards.
+        var yearFieldLength = YearFieldBeyondDateTime(date);
+        if (yearFieldLength != 0)
         {
-            return TryParseLargeYear(date, out epochMilliseconds);
+            return TryParseSubstitutingTheYear(date, yearFieldLength, out epochMilliseconds);
         }
+
+        return TryParseThroughDateTime(date, out epochMilliseconds);
+    }
+
+    /// <summary>
+    /// The length of a leading year field <see cref="DateTime"/> cannot hold, or 0 when the string does
+    /// not begin with one. https://tc39.es/ecma262/#sec-date-time-string-format writes the year as four
+    /// digits or — per https://tc39.es/ecma262/#sec-expanded-years — a sign and six digits. DateTime
+    /// covers years 1 through 9999, so what is out of its reach is every expanded year plus the one
+    /// unsigned spelling that names year 0: "0000", which the grammar admits and which means 1 BC.
+    ///
+    /// The character after the field has to be one the grammar puts there, which is what keeps the
+    /// non-standard "0000/01/01" on the loose parser below, where it reads as year 2000 exactly as it
+    /// does in V8.
+    /// </summary>
+    private static int YearFieldBeyondDateTime(string date)
+    {
+        int length;
+        if (date[0] is '+' or '-')
+        {
+            length = 7;
+            if (date.Length < length)
+            {
+                return 0;
+            }
+
+            for (var i = 1; i < length; i++)
+            {
+                if (!char.IsDigit(date[i]))
+                {
+                    return 0;
+                }
+            }
+        }
+        else if (date.StartsWith("0000", StringComparison.Ordinal))
+        {
+            length = 4;
+        }
+        else
+        {
+            return 0;
+        }
+
+        return date.Length == length || date[length] is '-' or 'T' ? length : 0;
+    }
+
+    /// <summary>
+    /// Parses a date whose year is beyond <see cref="DateTime"/> by handing .NET the same string under a
+    /// year it can hold and then moving the answer. The proleptic Gregorian calendar repeats every 400
+    /// years, so a substitute congruent to the real year mod 400 has the same leap status, the same month
+    /// lengths and the same weekdays: February 29 still parses, the substituted string is accepted on
+    /// exactly the terms the original would have been, and the two instants end up a whole number of days
+    /// apart. Landing the substitute in 2000-2399 also keeps it four digits wide, which is what every
+    /// format string here expects.
+    ///
+    /// Deferring to the ordinary path is the point rather than a convenience. What the previous
+    /// implementation got wrong was the UTC rules: it converted its parse to UTC and then read month, day
+    /// and time back out to rebuild the date under the real year, which dropped the date-only-means-UTC
+    /// rule and, when the offset crossed midnight, kept the target year beside the shifted month and day
+    /// — so "+010000-01-01" came back as the last day of year 10000 rather than the first. Here the
+    /// offset and the date-only rule are applied once, by the parser that already implements them, and
+    /// only whole days are added afterwards.
+    /// </summary>
+    private bool TryParseSubstitutingTheYear(string date, int yearFieldLength, out long epochMilliseconds)
+    {
+        epochMilliseconds = long.MinValue;
+
+        if (!int.TryParse(date.AsSpan(0, yearFieldLength), NumberStyles.Integer, CultureInfo.InvariantCulture, out var year))
+        {
+            return false;
+        }
+
+        if (year == 0 && date[0] == '-')
+        {
+            // https://tc39.es/ecma262/#sec-expanded-years: year 0 is considered positive, so "-000000" is
+            // the one expanded year the grammar excludes. It is rejected outright rather than handed on,
+            // because the loose parser below would read it as something else.
+            return false;
+        }
+
+        var substituteYear = 2000 + (year % 400 + 400) % 400;
+#pragma warning disable CA1845
+        var substituteDate = substituteYear.ToString(CultureInfo.InvariantCulture) + date.Substring(yearFieldLength);
+#pragma warning restore CA1845
+
+        if (!TryParseThroughDateTime(substituteDate, out var substituteMilliseconds))
+        {
+            return false;
+        }
+
+        var dayShift = DatePrototype.MakeDay(year, 0, 1) - DatePrototype.MakeDay(substituteYear, 0, 1);
+        if (!double.IsFinite(dayShift))
+        {
+            // MakeDay refuses a year beyond ±1,000,000, which no six-digit field can reach; the guard is
+            // here so a future caller cannot turn NaN into a nonsense number of days.
+            return false;
+        }
+
+        epochMilliseconds = substituteMilliseconds + (long) dayShift * MillisecondsPerDay;
+        return true;
+    }
+
+    private bool TryParseThroughDateTime(string date, out long epochMilliseconds)
+    {
+        epochMilliseconds = long.MinValue;
 
         var startParen = date.IndexOf('(');
         if (startParen != -1)
@@ -141,44 +249,6 @@ public class DefaultTimeSystem : ITimeSystem
             var refinedOffset = GetUtcOffset(estimatedUtc).TotalMilliseconds;
             datePresentation -= refinedOffset;
         }
-
-        epochMilliseconds = datePresentation.Value;
-        return true;
-    }
-
-    /// <summary>
-    /// Supports parsing of large (> 10 000) and negative years, should not be needed that often...
-    /// </summary>
-    private static bool TryParseLargeYear(string date, out long epochMilliseconds)
-    {
-        epochMilliseconds = long.MinValue;
-
-        var yearString = date.Substring(0, 7);
-        if (!int.TryParse(yearString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var year))
-        {
-            return false;
-        }
-
-        if (year == 0 && date[0] == '-')
-        {
-            // cannot be negative zero ever
-            return false;
-        }
-
-        // create replacement string
-#pragma warning disable CA1845
-        var dateToParse = "2000" + date.Substring(7);
-#pragma warning restore CA1845
-        if (!DateTime.TryParse(dateToParse, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed))
-        {
-            return false;
-        }
-
-        var dateTime = parsed.ToUniversalTime();
-        var datePresentation = DatePrototype.MakeDate(
-            DatePrototype.MakeDay(year, dateTime.Month - 1, dateTime.Day),
-            DatePrototype.MakeTime(dateTime.Hour, dateTime.Minute, dateTime.Second, dateTime.Millisecond)
-        );
 
         epochMilliseconds = datePresentation.Value;
         return true;
