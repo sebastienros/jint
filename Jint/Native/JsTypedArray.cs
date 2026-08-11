@@ -217,7 +217,7 @@ public sealed class JsTypedArray : ObjectInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-integer-indexed-exotic-objects-defineownproperty-p-desc
+    /// https://tc39.es/ecma262/#sec-typedarray-defineownproperty
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
@@ -249,7 +249,16 @@ public sealed class JsTypedArray : ObjectInstance
                 return false;
             }
 
-            IntegerIndexedElementSet(numericIndex.Value, desc.Value);
+            // Writing the element is conditional on the descriptor actually having a [[Value]] field.
+            // A descriptor that only restates the attributes an integer index already has -
+            // Object.defineProperty(ta, 0, {}) or { configurable: true } - validates and succeeds
+            // without touching the buffer.
+            var descValue = desc.Value;
+            if (descValue is not null)
+            {
+                IntegerIndexedElementSet(numericIndex.Value, descValue);
+            }
+
             return true;
         }
 
