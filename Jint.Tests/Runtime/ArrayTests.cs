@@ -43,6 +43,76 @@ public class ArrayTests
         result.Should().Be("[[null,false,null,false],[\"ap\",true,\"op\",true]]");
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.join reads each element with <c>Get(O, ToString(k))</c> on
+    /// its own iteration, so a side effect from one element's <c>ToString</c> is visible to every later one.
+    /// The read-only array lane snapshots the backing store, and used to answer a hole from that snapshot as
+    /// <c>undefined</c> without ever asking the array — so an index the prototype chain gained mid-join was
+    /// silently skipped. Expectations read off node 24.
+    /// <para>
+    /// Each case needs its own engine: the first index property written to Array.prototype or Object.prototype
+    /// clears the pristine-prototype invariant for the whole realm, permanently, which routes every later array
+    /// operation down a different lane.
+    /// </para>
+    /// </summary>
+    [Theory]
+    // the reported case: Object.prototype gains index 3 while element 1 is being coerced
+    [InlineData("Object.prototype[3] = 'fnord'", "0funkyfnord")]
+    // Array.prototype is the nearer link of the same chain
+    [InlineData("Array.prototype[3] = 'arr'", "0funkyarr")]
+    // an accessor, not just a data property
+    [InlineData("Object.defineProperty(Object.prototype, '3', { configurable: true, get: function () { return 'G'; } })", "0funkyG")]
+    public void JoinResolvesAHoleAtItsOwnTurn(string sideEffect, string expected)
+    {
+        new Engine().Evaluate($$"""
+            var funky = { toString: function () { {{sideEffect}}; return 'funky'; } };
+            [0, funky, , ,].join('');
+            """).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// <c>Array.prototype.toString</c> is defined as a call to <c>join</c>, so it inherits the same behaviour
+    /// rather than needing its own fix.
+    /// </summary>
+    [Fact]
+    public void ArrayToStringResolvesAHoleAtItsOwnTurn()
+    {
+        new Engine().Evaluate("""
+            var funky = { toString: function () { Object.prototype[3] = 'fnord'; return 'funky'; } };
+            [0, funky, , ,].toString();
+            """).AsString().Should().Be("0,funky,,fnord");
+    }
+
+    /// <summary>
+    /// Nothing changes for an array whose prototype chain stays pristine: a hole is still the empty string and
+    /// the packed lane still answers straight out of the snapshot.
+    /// </summary>
+    [Theory]
+    [InlineData("[0, 'a', , ,].join('-')", "0-a--")]
+    [InlineData("[0, 'a', , ,].toString()", "0,a,,")]
+    [InlineData("[1, 2, 3].join('-')", "1-2-3")]
+    [InlineData("[].join('-')", "")]
+    [InlineData("[7].join('-')", "7")]
+    [InlineData("[null, undefined, 1].join('-')", "--1")]
+    [InlineData("new Array(3).join('-')", "--")]
+    public void JoinWithPristinePrototypesIsUnchanged(string expression, string expected)
+    {
+        new Engine().Evaluate(expression).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A packed array never reaches the hole path at all, so an element's side effect on the prototype chain
+    /// cannot change what it joins to.
+    /// </summary>
+    [Fact]
+    public void JoinOfAPackedArrayIgnoresPrototypePollution()
+    {
+        new Engine().Evaluate("""
+            var funky = { toString: function () { Object.prototype[3] = 'fnord'; return 'funky'; } };
+            [0, funky, 1, 2].join('');
+            """).AsString().Should().Be("0funky12");
+    }
+
     [Fact]
     public void HoleReadHonorsIndexGetterOnArrayItself()
     {
