@@ -270,6 +270,43 @@ public partial class InteropTests
         capturedInfo.Arguments[0].AsString().Should().Be("Hello");
         capturedInfo.Arguments[1].AsString().Should().Be("World");
     }
+
+    /// <summary>
+    /// The two host-facing CLR facts an error can carry — where a failed resolution came from, and the CLR
+    /// exception the error stands in for — are independent, and recording one must not erase the other.
+    /// No in-box path reaches both setters on one error today, because each of the three call sites
+    /// constructs the error it annotates, so the test drives them directly: this is the regression net for
+    /// folding the facts behind one record, whose replace-wholesale shape made them mutually exclusive.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ClrResolutionInfoAndClrExceptionCoexistOnOneError(bool resolutionInfoFirst)
+    {
+        var engine = new Engine();
+        var error = (Jint.Native.Error.ErrorInstance) engine.Realm.Intrinsics.TypeError.Construct("boom");
+        var clrException = new InvalidOperationException("host blew up");
+
+        if (resolutionInfoFirst)
+        {
+            error.SetClrResolutionInfo(typeof(Speaker), "Say");
+            error.SetClrException(clrException);
+        }
+        else
+        {
+            error.SetClrException(clrException);
+            error.SetClrResolutionInfo(typeof(Speaker), "Say");
+        }
+
+        var ex = new JavaScriptException(error);
+
+        JintException.TryGetClrType(ex, out var type).Should().BeTrue();
+        type.Should().Be(typeof(Speaker));
+        JintException.TryGetClrMemberName(ex, out var member).Should().BeTrue();
+        member.Should().Be("Say");
+        JintException.TryGetClrException(ex, out var recovered).Should().BeTrue();
+        recovered.Should().BeSameAs(clrException);
+    }
 }
 
 public class Speaker
