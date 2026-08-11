@@ -4,7 +4,7 @@ using Jint.Native;
 namespace Jint.Benchmark;
 
 /// <summary>
-/// The two fast-call lane extensions, each with the control row that isolates it.
+/// The three fast-call lane extensions, each with the control row that isolates it.
 ///
 /// <para><b>Declared argument guards.</b> <c>String.prototype</c>'s <c>charCodeAt</c>, <c>charAt</c>,
 /// <c>substring</c> and <c>slice</c> take their arguments as plain <c>JsValue</c> and coerce them in
@@ -29,6 +29,27 @@ namespace Jint.Benchmark;
 /// the array the caller already filled, with no copy and no second store, and these rows are what
 /// proves it: an over-arity call must not pay for a lane it declines.</para>
 ///
+/// <para><b>Keyed-collection receiver guards.</b> <c>Map.prototype</c>'s <c>get</c>/<c>has</c>/
+/// <c>set</c>/<c>delete</c> and <c>Set.prototype</c>'s <c>has</c>/<c>add</c>/<c>delete</c> already took
+/// the register half of the lane; what is new is frame elision under a guard proving the brand their
+/// body checks. The <c>Map*</c> and <c>Set*</c> rows below are the guarded happy paths.
+/// <c>MapGet_ObjectKey</c> and <c>SetHas_ObjectValue</c> are not curiosities: the declared argument
+/// guard is <c>AnyValue</c> — a key is hashed and compared and never converted, so no key can reach
+/// user code — and object keys are exactly what that claim buys, where a String|Number guard would
+/// have been equally safe and would have sent them back to the framed path.</para>
+///
+/// <para><b>Why those groups have no wrong-receiver row.</b> The rows above can pass an object where a
+/// number is expected and watch the guard decline, because the built-in then coerces it and returns
+/// normally. A keyed collection has no such value: its arguments are guarded by nothing at all, and
+/// its only guard — the receiver's brand — is the exact condition its body raises a TypeError for. So
+/// every call that fails it is a call that throws, and a loop of those would measure exception
+/// construction rather than the lane. The declining path is pinned for behaviour instead, by
+/// <c>AWarmedKeyedCollectionSiteFramesAWrongBrandReceiver</c> and
+/// <c>AWarmedKeyedCollectionSiteFramesTheOtherCollection</c> in <c>FastCallLaneTests</c>. Their
+/// control is <c>WeakMapHas_Framed</c>/<c>WeakSetHas_Framed</c>: same shape, same register lane,
+/// deliberately never <c>Leaf</c> (their <c>set</c>/<c>add</c> siblings throw for a key that cannot be
+/// held weakly, which no guard expresses), so a move there is environment drift, not a result.</para>
+///
 /// <para><b>The object-argument rows are the accepted cost of the feature, not a defect.</b> A guard
 /// has to be evaluated before the frameless lane can be declined, so a value that fails one pays for
 /// the question and then takes the framed path anyway — a built-in that never claimed <c>Leaf</c>
@@ -44,7 +65,9 @@ namespace Jint.Benchmark;
 /// and the lane is only reachable from a warm site in the first place.
 ///
 /// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with its own script and nothing
-/// else (see <see cref="IsolatedScript"/>). All 18 rows used to be warmed on one engine by a single
+/// else (see <see cref="IsolatedScript"/>) — doubly load-bearing for the keyed-collection rows, which
+/// share global names and several of which mutate the collection they read. The original 18 rows used
+/// to be warmed on one engine by a single
 /// <c>foreach</c> loop, so each was measured on an engine carrying the other 17 rows' globals — they
 /// collide outright on <c>s</c> and <c>i</c>, and the three <c>push</c> rows all declare <c>a</c> and the
 /// two object-argument rows both declare <c>o</c>, so a row inherited whichever sibling wrote last — plus
@@ -79,6 +102,52 @@ public class FastCallLaneBenchmarks
     private IsolatedScript _concat2;
     private IsolatedScript _concatArity3;
 
+    private IsolatedScript _mapGetString;
+    private IsolatedScript _mapGetObject;
+    private IsolatedScript _mapGetMiss;
+    private IsolatedScript _mapHasString;
+    private IsolatedScript _mapSetString;
+    private IsolatedScript _mapDeleteChurn;
+    private IsolatedScript _setHasNumber;
+    private IsolatedScript _setHasObject;
+    private IsolatedScript _setAddChurn;
+    private IsolatedScript _weakMapHas;
+    private IsolatedScript _weakSetHas;
+
+    /// <summary>
+    /// The keyed-collection rows' fixture: 1024 string keys, 1024 object keys and the six collections
+    /// holding them. Sized to the loop so a row indexes with <c>i &amp; 1023</c> and never constructs a
+    /// key inside the measured loop.
+    /// <para>
+    /// Executed on the row's engine by <see cref="CollectionEngine"/> rather than prepended to the
+    /// row's script, because a row's script is what <c>Run()</c> measures — building six 1024-element
+    /// collections there would swamp the 1000 calls the row exists to time. The <c>prelude</c> the
+    /// other rows use stays inside the measured script on purpose: theirs is one object literal.
+    /// </para>
+    /// </summary>
+    private const string CollectionFixture = """
+        var strKeys = [];
+        var objKeys = [];
+        var absentKeys = [];
+        var m = new Map();
+        var om = new Map();
+        var numSet = new Set();
+        var objSet = new Set();
+        var wm = new WeakMap();
+        var ws = new WeakSet();
+        for (var n = 0; n < 1024; n++) {
+            strKeys.push("k" + n);
+            objKeys.push({ id: n });
+            absentKeys.push("miss" + n);
+            m.set(strKeys[n], n);
+            om.set(objKeys[n], n);
+            numSet.add(n);
+            objSet.add(objKeys[n]);
+            wm.set(objKeys[n], n);
+            ws.add(objKeys[n]);
+        }
+        """;
+
     [GlobalSetup]
     public void GlobalSetup()
     {
@@ -106,6 +175,23 @@ public class FastCallLaneBenchmarks
         _concat1 = Loop("s += \"ab\".concat(\"cd\").length");
         _concat2 = Loop("s += \"ab\".concat(\"cd\", \"ef\").length");
         _concatArity3 = Loop("s += \"ab\".concat(\"cd\", \"ef\", \"gh\").length");
+
+        // Keyed-collection receiver guards. The two mutating rows rebuild their own window collection
+        // per evaluation — one empty-collection allocation against 1000 calls — so a row that is
+        // evaluated hundreds of times does not measure an ever-growing table.
+        _mapGetString = CollectionLoop("s += m.get(strKeys[i & 1023])");
+        _mapGetObject = CollectionLoop("s += om.get(objKeys[i & 1023])");
+        _mapGetMiss = CollectionLoop("if (m.get(absentKeys[i & 1023]) !== undefined) { s++; }");
+        _mapHasString = CollectionLoop("if (m.has(strKeys[i & 1023])) { s++; }");
+        _mapSetString = CollectionLoop("w.set(strKeys[i & 1023], i)", prelude: "var w = new Map();");
+        _mapDeleteChurn = CollectionLoop("w.set(i & 1023, i); w.delete((i - 512) & 1023)", prelude: "var w = new Map();");
+        _setHasNumber = CollectionLoop("if (numSet.has(i & 1023)) { s++; }");
+        _setHasObject = CollectionLoop("if (objSet.has(objKeys[i & 1023])) { s++; }");
+        _setAddChurn = CollectionLoop("w.add(i & 1023); w.delete((i - 512) & 1023)", prelude: "var w = new Set();");
+
+        // Controls: same shape and same register lane, frame never elided, untouched by this change.
+        _weakMapHas = CollectionLoop("if (wm.has(objKeys[i & 1023])) { s++; }");
+        _weakSetHas = CollectionLoop("if (ws.has(objKeys[i & 1023])) { s++; }");
     }
 
     /// <summary>
@@ -119,12 +205,28 @@ public class FastCallLaneBenchmarks
     /// </para>
     /// </summary>
     private static IsolatedScript Loop(string body, string prelude = "")
-        => IsolatedScript.Warm(Engine.PrepareScript($$"""
+        => IsolatedScript.Warm(LoopScript(body, prelude));
+
+    /// <summary>
+    /// <see cref="Loop"/> for a row that needs <see cref="CollectionFixture"/>: the fixture is executed
+    /// on the row's own fresh engine before the script is warmed, so it is set up once and stays out of
+    /// what <c>Run()</c> times.
+    /// </summary>
+    private static IsolatedScript CollectionLoop(string body, string prelude = "")
+        => IsolatedScript.Warm(LoopScript(body, prelude), static () =>
+        {
+            var engine = new Engine();
+            engine.Execute(CollectionFixture);
+            return engine;
+        });
+
+    private static Prepared<Script> LoopScript(string body, string prelude)
+        => Engine.PrepareScript($$"""
             {{prelude}}
             var s = 0;
             for (var i = 0; i < {{OperationsPerInvoke}}; i++) { {{body}}; }
             s;
-            """));
+            """);
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Guarded() => _charCodeAtGuarded.Run();
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue CharCodeAt_Object() => _charCodeAtObject.Run();
@@ -145,4 +247,16 @@ public class FastCallLaneBenchmarks
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity1() => _concat1.Run();
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity2() => _concat2.Run();
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringConcat_Arity3() => _concatArity3.Run();
+
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapGet_StringKey() => _mapGetString.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapGet_ObjectKey() => _mapGetObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapGet_Miss() => _mapGetMiss.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapHas_StringKey() => _mapHasString.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapSet_StringKey() => _mapSetString.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue MapDelete_Churn() => _mapDeleteChurn.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue SetHas_NumberValue() => _setHasNumber.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue SetHas_ObjectValue() => _setHasObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue SetAdd_Churn() => _setAddChurn.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue WeakMapHas_Framed() => _weakMapHas.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue WeakSetHas_Framed() => _weakSetHas.Run();
 }

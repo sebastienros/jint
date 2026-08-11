@@ -47,7 +47,31 @@ internal sealed partial class MapPrototype : Prototype
         return JsNumber.Create(map.Size);
     }
 
-    [JsFunction(Name = "get", FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-map.prototype.get
+    /// </summary>
+    /// <remarks>
+    /// The first of the four keyed-collection lookups that claim <c>Leaf</c>. What makes them leaf is
+    /// that a Map key is only ever hashed and compared with SameValueZero, which converts nothing — so
+    /// unlike a <c>String.prototype</c> argument, no key can reach a user <c>valueOf</c> inside the
+    /// frameless window, whatever its type. That is what <c>LeafArg0 = AnyValue</c> declares, and it is
+    /// the whole reason these can be leaf for the object keys a Map exists for.
+    /// <para>
+    /// The one hazard left is the receiver: <see cref="AssertMapInstance"/> raises a TypeError for
+    /// anything that is not a <c>JsMap</c>, and <c>LeafReceiver</c> is what keeps that call framed.
+    /// Note the guard can only ever fail on a call that was going to throw anyway — a warm site's
+    /// callee IS <c>Map.prototype.get</c>, so a receiver failing the brand test has no non-throwing
+    /// outcome to reach.
+    /// </para>
+    /// <para>
+    /// The remaining edge is a wrapped CLR object used as a key, whose <c>Equals</c>/<c>GetHashCode</c>
+    /// the comparer calls: that is host code, not interpreted code, and it runs identically on the
+    /// framed path. A host implementation that re-entered the engine would push its own frames and be
+    /// charged for them; only this built-in's own frame would be missing from the stack it reads.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "get", FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Map, LeafArg0 = FastCallGuard.AnyValue)]
     private JsValue MapGet(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
@@ -79,7 +103,12 @@ internal sealed partial class MapPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-map.prototype.delete
+    /// </summary>
+    /// <remarks>Leaf on the same reasoning as <see cref="MapGet"/>.</remarks>
+    [JsFunction(FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Map, LeafArg0 = FastCallGuard.AnyValue)]
     private JsValue Delete(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);
@@ -88,7 +117,19 @@ internal sealed partial class MapPrototype : Prototype
             : JsBoolean.False;
     }
 
-    [JsFunction(Name = "set", FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-map.prototype.set
+    /// </summary>
+    /// <remarks>
+    /// Leaf on the same reasoning as <see cref="MapGet"/>, and mutating is no obstacle: the frame the
+    /// lane elides carries the recursion charge and the stack a JS error would report, and nothing
+    /// else — no version counter, no iteration state hangs off it. Map iteration walks the ordering
+    /// list by index and <c>size</c> is answered from the live count by the <see cref="Size"/>
+    /// accessor, so an entry added through the frameless path is as visible as one added through the
+    /// framed path. The stored value is never converted either, hence <c>LeafArg1 = AnyValue</c>.
+    /// </remarks>
+    [JsFunction(Name = "set", FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Map, LeafArg0 = FastCallGuard.AnyValue, LeafArg1 = FastCallGuard.AnyValue)]
     private JsValue MapSet(JsValue thisObject, JsValue key, JsValue value)
     {
         var map = AssertMapInstance(thisObject);
@@ -96,7 +137,12 @@ internal sealed partial class MapPrototype : Prototype
         return thisObject;
     }
 
-    [JsFunction(FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-map.prototype.has
+    /// </summary>
+    /// <remarks>Leaf on the same reasoning as <see cref="MapGet"/>.</remarks>
+    [JsFunction(FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Map, LeafArg0 = FastCallGuard.AnyValue)]
     private JsValue Has(JsValue thisObject, JsValue key)
     {
         var map = AssertMapInstance(thisObject);

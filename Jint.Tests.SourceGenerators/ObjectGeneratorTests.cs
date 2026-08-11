@@ -1,4 +1,4 @@
-using static Jint.Tests.SourceGenerators.VerifyHelper;
+﻿using static Jint.Tests.SourceGenerators.VerifyHelper;
 
 namespace Jint.Tests.SourceGenerators;
 
@@ -1302,6 +1302,67 @@ public class ObjectGeneratorTests
 
                 [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.String)]
                 private static JsValue Derived(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(x);
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task FastCallKeyedCollectionGuards()
+    {
+        // The keyed-collection shape: a receiver guard naming the brand the body checks, and arguments
+        // declared AnyValue. AnyValue is the one declaration-only kind — a Map key is hashed and
+        // compared and never converted, so the author's claim is that there is no hazard at all, and a
+        // claim of no hazard publishes no constraint. It must therefore come back out as
+        // FastCallGuard.Any, not as a member the runtime enum would treat as unmatchable, and it must
+        // subsume anything composed with it (Impostor below). What is verified here is that rendering;
+        // that the numbers are the real ones is pinned by FastCallGuardValuesMatchInternalTypes.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Native.Function;
+
+            namespace Jint.Native.Function
+            {
+                [System.Flags]
+                internal enum FastCallGuard
+                {
+                    Any = 0,
+                    Undefined = 1,
+                    String = 8,
+                    Number = 16 | 32,
+                    Array = 16384,
+                    Map = 134217728,
+                    Set = 268435456,
+                    AnyValue = 1 << 29,
+                    Date = 1 << 30,
+                }
+            }
+
+            namespace Sample;
+
+            [JsObject]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.Map, LeafArg0 = FastCallGuard.AnyValue)]
+                private static JsValue MapGet(JsValue thisObject, JsValue key) => key;
+
+                [JsFunction(Length = 2, Leaf = true, LeafReceiver = FastCallGuard.Map,
+                    LeafArg0 = FastCallGuard.AnyValue, LeafArg1 = FastCallGuard.AnyValue)]
+                private static JsValue MapSet(JsValue thisObject, JsValue key, JsValue value) => value;
+
+                [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.Set, LeafArg0 = FastCallGuard.AnyValue)]
+                private static JsValue SetAdd(JsValue thisObject, JsValue value) => value;
+
+                // Rendering only: a composed receiver has to come back out member by member, and a
+                // declaration that composes AnyValue with a narrower kind is still no constraint.
+                [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.Map | FastCallGuard.Set,
+                    LeafArg0 = FastCallGuard.AnyValue | FastCallGuard.String)]
+                private static JsValue Impostor(JsValue thisObject, JsValue key) => key;
 
                 protected override void Initialize() => CreateProperties_Generated();
             }

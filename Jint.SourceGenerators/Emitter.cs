@@ -895,6 +895,8 @@ internal static class Emitter
         FastCallGuardKind.String,
         FastCallGuardKind.Date,
         FastCallGuardKind.Array,
+        FastCallGuardKind.Map,
+        FastCallGuardKind.Set,
         FastCallGuardKind.Undefined,
     ];
 

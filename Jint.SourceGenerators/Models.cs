@@ -535,11 +535,14 @@ internal sealed record class ParameterDefinition(ParameterKind Kind, int Positio
 internal enum FastCallGuardKind
 {
     Any = 0,
-    Undefined = 1,      // InternalTypes.Undefined
-    String = 8,         // InternalTypes.String
-    Number = 16 | 32,   // InternalTypes.Number | InternalTypes.Integer
-    Array = 16384,      // InternalTypes.Array
-    Date = 1 << 30,     // no InternalTypes bit; decided by a type test
+    Undefined = 1,          // InternalTypes.Undefined
+    String = 8,             // InternalTypes.String
+    Number = 16 | 32,       // InternalTypes.Number | InternalTypes.Integer
+    Array = 16384,          // InternalTypes.Array
+    Map = 134217728,        // InternalTypes.Map (1 << 27; 1 << 26 is the runtime's TailCall)
+    Set = 268435456,        // InternalTypes.Set (1 << 28)
+    AnyValue = 1 << 29,     // declaration-only; resolves to Any and is never emitted
+    Date = 1 << 30,         // no InternalTypes bit; decided by a type test
 
     /// <summary>
     /// Every bit this generator knows how to name. A declared guard carrying anything else means the
@@ -547,7 +550,7 @@ internal enum FastCallGuardKind
     /// an unnameable bit would otherwise render as nothing at all and produce code that does not
     /// compile, or worse, a guard weaker than the one declared.
     /// </summary>
-    Known = Undefined | String | Number | Array | Date,
+    Known = Undefined | String | Number | Array | Map | Set | AnyValue | Date,
 }
 
 /// <summary>
@@ -1034,7 +1037,7 @@ internal sealed record class FunctionDefinition(
                             // The declaration is the only thing that can vouch for a raw JsValue the
                             // body coerces itself. It is consulted only where nothing was derived, so
                             // it can add a guard but never weaken one.
-                            argGuard = declared;
+                            argGuard = PublishedGuard(declared);
                         }
 
                         if (argGuard is null)
@@ -1082,7 +1085,7 @@ internal sealed record class FunctionDefinition(
         // never weaken a guard the generator derived itself.
         if (receiver == FastCallGuardKind.Any && declaredLeafReceiver != FastCallGuardKind.Any)
         {
-            receiver = declaredLeafReceiver;
+            receiver = PublishedGuard(declaredLeafReceiver);
         }
 
         // RequireObjectCoercible throws for undefined/null, and "not nullish" is not a guard we can
@@ -1124,6 +1127,16 @@ internal sealed record class FunctionDefinition(
 
         return new FastCallSpec(Leaf: true, variadic, receiver, argGuards[0], argGuards[1]);
     }
+
+    /// <summary>
+    /// Resolves a declared guard to the one a shape may carry. <c>AnyValue</c> is the author vouching
+    /// for a position whose value the body cannot coerce at all — a keyed-collection key, hashed and
+    /// compared by <c>SameValueZero</c> and never converted — so what it publishes is no constraint,
+    /// which is <c>Any</c>. It subsumes anything composed with it, and stripping it here is what keeps
+    /// a declaration-only kind out of every emitted shape. Everything else passes through untouched.
+    /// </summary>
+    private static FastCallGuardKind PublishedGuard(FastCallGuardKind declared)
+        => (declared & FastCallGuardKind.AnyValue) != FastCallGuardKind.Any ? FastCallGuardKind.Any : declared;
 
     /// <summary>
     /// The guard that proves a cast <c>thisObject</c> succeeds. Each mapping must be exact in the

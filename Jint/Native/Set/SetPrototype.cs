@@ -48,7 +48,20 @@ internal sealed partial class SetPrototype : Prototype
         return JsNumber.Create(set.Size);
     }
 
-    [JsFunction(FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.add
+    /// </summary>
+    /// <remarks>
+    /// Leaf for the same reason <c>Map.prototype.get</c> is (see <c>MapPrototype.MapGet</c>): a Set
+    /// element is only hashed and compared with SameValueZero, which converts nothing, so no value can
+    /// reach user code inside the frameless window — <c>LeafArg0 = AnyValue</c>. The receiver guard is
+    /// what keeps <see cref="AssertSetInstance"/>'s TypeError framed, and a Map receiver fails it, so
+    /// <c>Set.prototype.add.call(aMap, v)</c> still throws with its frame. Mutating is no obstacle:
+    /// the elided frame carries the recursion charge and the JS-error stack and nothing an iteration
+    /// or <c>size</c> read depends on.
+    /// </remarks>
+    [JsFunction(FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Set, LeafArg0 = FastCallGuard.AnyValue)]
     private JsValue Add(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -68,7 +81,12 @@ internal sealed partial class SetPrototype : Prototype
         return Undefined;
     }
 
-    [JsFunction(FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.delete
+    /// </summary>
+    /// <remarks>Leaf on the same reasoning as <see cref="Add"/>.</remarks>
+    [JsFunction(FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Set, LeafArg0 = FastCallGuard.AnyValue)]
     private JsBoolean Delete(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
@@ -389,7 +407,12 @@ internal sealed partial class SetPrototype : Prototype
     }
 
 
-    [JsFunction(FastCall = true)]
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.has
+    /// </summary>
+    /// <remarks>Leaf on the same reasoning as <see cref="Add"/>.</remarks>
+    [JsFunction(FastCall = true, Leaf = true,
+        LeafReceiver = FastCallGuard.Set, LeafArg0 = FastCallGuard.AnyValue)]
     private JsBoolean Has(JsValue thisObject, JsValue value)
     {
         var set = AssertSetInstance(thisObject);
