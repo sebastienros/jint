@@ -959,4 +959,59 @@ public class IteratorHelpersTests
 
         result.Should().Be("""[0,"no throw"]""");
     }
+
+    // The number in a range-check message came from script, so the message has to print it the way
+    // JavaScript does. Interpolating the raw double instead formats it with the CLR's shortest
+    // round-trip "G" rules and CultureInfo.CurrentCulture: 9007199254740992 comes out as
+    // "9.007199254740992E+15", Number.MAX_VALUE as "1.7976931348623157E+308", and the separator and
+    // the minus sign move with the ambient culture on top of that.
+    public static TheoryData<string, string> OutOfRangeLimits() =>
+        new()
+        {
+            { "[].values().take(Number.MAX_SAFE_INTEGER + 1)", "9007199254740992 exceeds the maximum safe integer" },
+            { "[].values().drop(Number.MAX_SAFE_INTEGER + 1)", "9007199254740992 exceeds the maximum safe integer" },
+            { "[].values().includes(0, Number.MAX_SAFE_INTEGER + 1)", "9007199254740992 exceeds the maximum safe integer" },
+            { "[].values().take(Number.MAX_VALUE)", "1.7976931348623157e+308 exceeds the maximum safe integer" },
+            { "[].values().drop(Number.MAX_VALUE)", "1.7976931348623157e+308 exceeds the maximum safe integer" },
+            { "[].values().includes(0, Number.MAX_VALUE)", "1.7976931348623157e+308 exceeds the maximum safe integer" },
+            { "[].values().take(-1e21)", "-1e+21 must be positive" },
+            { "[].values().drop(-1e21)", "-1e+21 must be positive" },
+            // Nothing in test262 covers AsyncIterator, so its two validators are pinned here as well.
+            { "AsyncIterator.prototype.take.call(asyncIter, Number.MAX_VALUE)", "1.7976931348623157e+308 exceeds the maximum safe integer" },
+            { "AsyncIterator.prototype.drop.call(asyncIter, Number.MAX_VALUE)", "1.7976931348623157e+308 exceeds the maximum safe integer" },
+            { "AsyncIterator.prototype.take.call(asyncIter, -1e21)", "-1e+21 must be positive" },
+            { "AsyncIterator.prototype.drop.call(asyncIter, -1e21)", "-1e+21 must be positive" },
+        };
+
+    private static string OutOfRangeLimitMessage(string expression)
+    {
+        var engine = new Engine();
+        return engine.Evaluate($$"""
+            const asyncIter = { __proto__: AsyncIterator.prototype, next() { return Promise.resolve({ done: true }); } };
+            (() => { try { {{expression}}; return 'no throw'; } catch (e) { return e.message; } })();
+            """).AsString();
+    }
+
+    [Theory]
+    [MemberData(nameof(OutOfRangeLimits))]
+    public void AnOutOfRangeLimitPrintsTheNumberTheWayJavaScriptDoes(string expression, string expected)
+    {
+        OutOfRangeLimitMessage(expression).Should().Be(expected);
+    }
+
+    [Theory]
+    [MemberData(nameof(OutOfRangeLimits))]
+    [ReplaceCulture("de-DE")]
+    public void AnOutOfRangeLimitIgnoresACommaDecimalSeparatorCulture(string expression, string expected)
+    {
+        OutOfRangeLimitMessage(expression).Should().Be(expected);
+    }
+
+    [Theory]
+    [MemberData(nameof(OutOfRangeLimits))]
+    [ReplaceCulture("sv-SE")]
+    public void AnOutOfRangeLimitIgnoresACultureWithANonAsciiMinusSign(string expression, string expected)
+    {
+        OutOfRangeLimitMessage(expression).Should().Be(expected);
+    }
 }
