@@ -68,6 +68,22 @@ public class GenericMethodTests
         argException.Message.Should().Be("No public methods with the specified arguments were found.");
     }
 
+    [Fact]
+    public void TestGenericConstraintViolationIsACatchableTypeError()
+    {
+        var engine = new Engine();
+        engine.SetValue("testGenericObj", new TestGenericClass());
+
+        // T infers to string, which 'where T : struct' rejects - MakeGenericMethod throws and the candidate
+        // has to be declined rather than letting a CLR ArgumentException escape Evaluate
+        var exception = Invoking(() => engine.Execute("testGenericObj.Constrained('a');"))
+            .Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
+        exception.Message.Should().Be("No public methods with the specified arguments were found.");
+
+        // and the satisfiable instantiation still binds
+        engine.Execute("testGenericObj.Constrained(1);");
+    }
+
     // TPC: TODO: tldr; typescript transpiled to javascript does not include the types in the constructors - JINT should allow you to use generics without specifying type
     // The following doesn't work because JINT currently requires generic classes to be instantiated in a way that doesn't comply with typescript transpile of javascript
     // i.e. we shouldn't have to specify the type of the generic class when we instantiate it.  Since typescript takes the following:
@@ -185,6 +201,10 @@ public class GenericMethodTests
         {
             Console.WriteLine("TestGenericClass: FancyInvoked: t1: " + t1 + "u: " + u + " t2: " + t2);
             FancyInvoked = true;
+        }
+
+        public void Constrained<T>(T value) where T : struct
+        {
         }
     }
 
