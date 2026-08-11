@@ -53,21 +53,6 @@ internal sealed partial class TemporalNow : BuiltinShapeObject
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindatetime
-    /// </summary>
-    [JsFunction(Length = 1)]
-    private JsPlainDateTime PlainDateTime(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
-    {
-        var calendar = ToTemporalCalendarIdentifier(calendarLike);
-        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
-
-        var epochNs = SystemUTCEpochNanoseconds();
-        var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
-
-        return new JsPlainDateTime(_engine, _realm.Intrinsics.TemporalPlainDateTime.PrototypeObject, isoDateTime, calendar);
-    }
-
-    /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindatetimeiso
     /// </summary>
     [JsFunction(Length = 0)]
@@ -82,20 +67,6 @@ internal sealed partial class TemporalNow : BuiltinShapeObject
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.now.zoneddatetime
-    /// </summary>
-    [JsFunction(Length = 1)]
-    private JsZonedDateTime ZonedDateTime(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
-    {
-        var calendar = ToTemporalCalendarIdentifier(calendarLike);
-        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
-
-        var epochNs = SystemUTCEpochNanoseconds();
-
-        return new JsZonedDateTime(_engine, _realm.Intrinsics.TemporalZonedDateTime.PrototypeObject, epochNs, timeZoneId, calendar);
-    }
-
-    /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.now.zoneddatetimeiso
     /// </summary>
     [JsFunction(Length = 0)]
@@ -106,21 +77,6 @@ internal sealed partial class TemporalNow : BuiltinShapeObject
         var epochNs = SystemUTCEpochNanoseconds();
 
         return new JsZonedDateTime(_engine, _realm.Intrinsics.TemporalZonedDateTime.PrototypeObject, epochNs, timeZoneId, "iso8601");
-    }
-
-    /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.now.plaindate
-    /// </summary>
-    [JsFunction(Length = 1)]
-    private JsPlainDate PlainDate(JsValue thisObject, JsValue calendarLike, JsValue temporalTimeZoneLike)
-    {
-        var calendar = ToTemporalCalendarIdentifier(calendarLike);
-        var timeZoneId = ToTemporalTimeZoneIdentifier(temporalTimeZoneLike);
-
-        var epochNs = SystemUTCEpochNanoseconds();
-        var isoDateTime = GetIsoDateTimeFor(timeZoneId, epochNs);
-
-        return new JsPlainDate(_engine, _realm.Intrinsics.TemporalPlainDate.PrototypeObject, isoDateTime.Date, calendar);
     }
 
     /// <summary>
@@ -171,15 +127,6 @@ internal sealed partial class TemporalNow : BuiltinShapeObject
         var localNs = epochNs + offsetNs;
 
         return TemporalHelpers.EpochNanosecondsToIsoDateTime(localNs);
-    }
-
-    /// <summary>
-    /// Validates and canonicalizes a calendar identifier.
-    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalcalendar
-    /// </summary>
-    private string ToTemporalCalendarIdentifier(JsValue calendarLike)
-    {
-        return TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarLike);
     }
 
     /// <summary>
