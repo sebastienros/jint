@@ -386,6 +386,39 @@ public class DateTests
     }
 
     /// <summary>
+    /// Date.parse("0000-01-01T00:00:00.000Z") answered NaN, and that string is exactly what
+    /// Date.prototype.toISOString emits for the instant, so the engine could not read back what it had
+    /// just written. https://tc39.es/ecma262/#sec-date-time-string-format admits 0000 as one of the four
+    /// digit years, and https://tc39.es/ecma262/#sec-expanded-years spells the same year "+000000"; both
+    /// mean year 0, which is 1 BC. <see cref="DateTime"/> has no year 0 at all, and nothing routed the
+    /// four-digit spelling to the path that does its own arithmetic.
+    ///
+    /// NaN was not the worst of it. Falling through to the loose invariant parser, some of these came
+    /// back as year 2000 — "0000-01-01" as 946684800000 and "0000-02-29" as 951782400000 — which is a
+    /// wrong answer where NaN would at least have been an honest one.
+    /// </summary>
+    [Theory]
+    [InlineData("0000-01-01T00:00:00.000Z", -62167219200000)]
+    [InlineData("0000-01-01T00:00:00Z", -62167219200000)]
+    [InlineData("0000-01-01", -62167219200000)]
+    [InlineData("0000-01", -62167219200000)]
+    [InlineData("0000", -62167219200000)]
+    // Year 0 is a leap year, so the substitute year the parser borrows has to be one too.
+    [InlineData("0000-02-29", -62162121600000)]
+    [InlineData("0000-03-01", -62162035200000)]
+    [InlineData("0000-12-31T23:59:59.999Z", -62135596800001)]
+    // An offset in the string still applies, and here it crosses back into the year before.
+    [InlineData("0000-01-01T00:00:00.000+02:00", -62167226400000)]
+    // The expanded spelling of the same year.
+    [InlineData("+000000-01-01T00:00:00.000Z", -62167219200000)]
+    [InlineData("+000000-01-01", -62167219200000)]
+    [InlineData("+000000", -62167219200000)]
+    public void ParseAcceptsYearZeroInEverySpellingTheGrammarAdmits(string input, long expected)
+    {
+        _engine.Evaluate($"Date.parse('{input}')").AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
     /// The MimeKit fallback in the same method read the same property, so a string only it can parse —
     /// a named US zone, which DateTime.TryParse does not accept — landed a millisecond early too. It
     /// floored where the other site truncated, and the fix keeps that difference.
@@ -506,6 +539,66 @@ public class DateTests
             .Should().NotBe(engine.Evaluate("new Date(253402300799999).toDateString()").AsString());
         engine.Evaluate("new Date(253402300800001).toLocaleDateString('en-US')").AsString()
             .Should().Be(engine.Evaluate("new Date(253402300800001).toDateString()").AsString());
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-expanded-years: "The year 0 is considered positive and must be
+    /// prefixed with a + sign. The representation of the year 0 as -000000 is invalid." test262 pins the
+    /// three date-time forms in built-ins/Date/parse/year-zero.js; the bare year obeys the same rule, and
+    /// a rejected year must not fall through to a parser that would read it as something else.
+    /// </summary>
+    [Theory]
+    [InlineData("-000000")]
+    [InlineData("-000000-01-01")]
+    [InlineData("-000000-01-01T00:00:00.000Z")]
+    [InlineData("-000000-03-31T00:45Z")]
+    public void ParseRejectsMinusZeroAsAnExpandedYear(string input)
+    {
+        double.IsNaN(_engine.Evaluate($"Date.parse('{input}')").AsNumber()).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The round trip year 0 could not make, and its neighbour one millisecond below year 1.
+    /// </summary>
+    [Fact]
+    public void ToIsoStringOfYearZeroParsesBack()
+    {
+        _engine.Evaluate("Date.parse(new Date(-62167219200000).toISOString())").AsNumber().Should().Be(-62167219200000);
+        _engine.Evaluate("Date.parse(new Date(-62135596800001).toISOString())").AsNumber().Should().Be(-62135596800001);
+    }
+
+    /// <summary>
+    /// Reaching year 0 meant rebuilding the expanded-year path, which was wrong for every year it already
+    /// handled whenever the string did not carry an explicit offset. It converted the parse to UTC and
+    /// then read the fields back out, so the date-only-means-UTC rule of
+    /// https://tc39.es/ecma262/#sec-date-time-string-format was lost, and where the shift crossed
+    /// midnight the reconstruction kept the target year with the shifted month and day: "+010000-01-01"
+    /// came back as 253433916000000, which is the last day of year 10000 rather than the first. The
+    /// offset-bearing rows are the ones that always worked and have to stay put.
+    /// </summary>
+    [Theory]
+    [InlineData("+010000-01-01T00:00:00.000Z", 253402300800000)]
+    [InlineData("+010000-01-01", 253402300800000)]
+    [InlineData("+000001-01-01", -62135596800000)]
+    [InlineData("-000001-01-01", -62198755200000)]
+    [InlineData("-000001-01-01T00:00:00.000Z", -62198755200000)]
+    [InlineData("+002000-02-29", 951782400000)]
+    [InlineData("+275760-09-13T00:00:00.000Z", 8640000000000000)]
+    [InlineData("-271821-04-20T00:00:00.000Z", -8640000000000000)]
+    public void ParseReadsADateOnlyExpandedYearAsUtc(string input, long expected)
+    {
+        _engine.Evaluate($"Date.parse('{input}')").AsNumber().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A four-digit 0000 followed by anything the grammar does not put there stays on the loose parser,
+    /// where V8 reads it as year 2000 through its own legacy fallback. Routing on the separator is what
+    /// keeps the two engines agreeing about a string neither format defines.
+    /// </summary>
+    [Fact]
+    public void ParseLeavesNonGrammarYearZeroFormsOnTheLooseParser()
+    {
+        _engine.Evaluate("new Date(Date.parse('0000/01/01')).getUTCFullYear()").AsNumber().Should().Be(2000);
     }
 
     [Fact]
