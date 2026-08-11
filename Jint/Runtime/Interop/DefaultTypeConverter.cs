@@ -164,7 +164,18 @@ public class DefaultTypeConverter : ITypeConverter
         if (type.IsGenericType)
         {
             var result = InteropHelper.IsAssignableToGenericType(value.GetType(), type);
-            if (result.IsAssignable)
+
+            // IsAssignableToGenericType matches on the generic type *definition*, so on its own it calls a
+            // List<object> assignable to IEnumerable<string>. Handing such a value straight over would let it
+            // reach a reflection Invoke unconverted and die there as a raw ArgumentException (#2987), so apply
+            // the same rule MethodInfoFunction.IsGenericParameter states: for a fully concrete generic type,
+            // verify the argument really is assignable before assigning it directly. The check is only
+            // skipped for a target that still has open type parameters, where assignability cannot be judged
+            // - the engine's own binding path closes them first, so that is for hosts calling TryConvert
+            // themselves. Note IsInstanceOfType above already accepted everything genuinely assignable,
+            // variance included, which is why nothing legal is lost here.
+            if (result.IsAssignable
+                && (type.ContainsGenericParameters || type.IsAssignableFrom(result.MatchingGivenType)))
             {
                 converted = value;
                 return true;
