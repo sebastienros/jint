@@ -228,6 +228,55 @@ public class OwnPropertyProbeTests
         engine.Evaluate("(function (a) { var seen = 0 in arguments; arguments[0] = 7; return a; })(1)").AsNumber().Should().Be(7);
     }
 
+    /// <summary>
+    /// The wrapped string-keyed dictionary answers existence from the target's <c>ContainsKey</c> instead
+    /// of from the descriptor its read path would build. The spread of keys covers the four things that
+    /// have to keep agreeing: a plain key, a key whose value is an object (the case whose descriptor drags
+    /// a whole nested wrapper along), a key that shadows a CLR member, and names the dictionary does not
+    /// carry — one that resolves as a CLR member anyway and one that resolves as nothing.
+    /// </summary>
+    [Fact]
+    public void WrappedDictionaryProbeAgreesWithDescriptor()
+    {
+        var engine = new Engine();
+        engine.SetValue("doc", new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["plain"] = 1d,
+            ["nested"] = new Dictionary<string, object>(StringComparer.Ordinal) { ["deep"] = 2d },
+            ["Count"] = "shadow",
+        });
+
+        var target = (ObjectInstance) engine.GetValue("doc");
+
+        AssertProbesAgreeWithDescriptors(
+            target,
+            JsString.Create("plain"),
+            JsString.Create("nested"),
+            JsString.Create("Count"),
+            JsString.Create("Keys"),
+            JsString.Create("absent"),
+            JsString.Create("0"),
+            GlobalSymbolRegistry.Iterator);
+    }
+
+    /// <summary>
+    /// Anything stored on the wrapper itself outranks the dictionary, so the probe has to consult that
+    /// store first — a defined non-enumerable descriptor must not be reported as the enumerable key the
+    /// dictionary still carries underneath it.
+    /// </summary>
+    [Fact]
+    public void WrappedDictionaryProbeAgreesWhenAScriptHasRedefinedAKey()
+    {
+        var engine = new Engine();
+        engine.SetValue("doc", new Dictionary<string, object>(StringComparer.Ordinal) { ["a"] = 1d, ["b"] = 2d });
+        engine.Execute("Object.defineProperty(doc, 'a', { value: 9, enumerable: false, configurable: true });");
+
+        var target = (ObjectInstance) engine.GetValue("doc");
+
+        AssertProbesAgreeWithDescriptors(target, JsString.Create("a"), JsString.Create("b"));
+        target.ProbeOwnProperty(JsString.Create("a")).Should().Be(OwnPropertyProbe.NonEnumerable);
+    }
+
     [Fact]
     public void ModuleNamespaceProbeAgreesWithDescriptor()
     {
