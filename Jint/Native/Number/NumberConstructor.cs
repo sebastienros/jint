@@ -1,4 +1,4 @@
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -49,7 +49,14 @@ internal sealed partial class NumberConstructor : Constructor
         CreateProperties_Generated();
     }
 
-    [JsFunction(Length = 1, FastCall = true)]
+    // https://tc39.es/ecma262/#sec-number.isfinite and its three siblings are the whole reason
+    // FastCallGuard.AnyValue exists. Each is a type test and nothing else: a value that is not
+    // already a JsNumber is answered false on the spot — no ToNumber, so no user valueOf — and the
+    // arithmetic the number branch then does raises nothing. The receiver is not read at all. So
+    // every argument is leaf-safe, including the object one, and narrowing the guard to Number
+    // would have cost the frame elision to exactly the calls these four exist for: validating a
+    // value whose type is not yet known.
+    [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.AnyValue)]
     private static JsValue IsFinite(JsValue thisObject, JsValue arg0)
     {
         if (!(arg0 is JsNumber num))
@@ -60,7 +67,7 @@ internal sealed partial class NumberConstructor : Constructor
         return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
     }
 
-    [JsFunction(Length = 1, FastCall = true)]
+    [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.AnyValue)]
     private static JsValue IsInteger(JsValue thisObject, JsValue arg0)
     {
         if (!(arg0 is JsNumber num))
@@ -78,7 +85,7 @@ internal sealed partial class NumberConstructor : Constructor
         return integer == num._value;
     }
 
-    [JsFunction(Length = 1, FastCall = true)]
+    [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.AnyValue)]
     private static JsValue IsNaN(JsValue thisObject, JsValue arg0)
     {
         if (!(arg0 is JsNumber num))
@@ -89,7 +96,7 @@ internal sealed partial class NumberConstructor : Constructor
         return double.IsNaN(num._value);
     }
 
-    [JsFunction(Length = 1, FastCall = true)]
+    [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.AnyValue)]
     private static JsValue IsSafeInteger(JsValue thisObject, JsValue arg0)
     {
         if (!(arg0 is JsNumber num))

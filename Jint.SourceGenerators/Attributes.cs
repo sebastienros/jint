@@ -1,4 +1,4 @@
-namespace Jint.SourceGenerators;
+﻿namespace Jint.SourceGenerators;
 
 internal static class Attributes
 {
@@ -109,7 +109,10 @@ internal static class Attributes
             /// <para>
             /// Include <c>FastCallGuard.Undefined</c> when the body is also safe for an omitted
             /// argument; the call site pads the registers with <c>undefined</c>, so a Number-only
-            /// guard silently costs the lane every call site that omits the argument.
+            /// guard silently costs the lane every call site that omits the argument. Where the body
+            /// only inspects the value and never coerces it — <c>Number.isInteger</c> answers
+            /// <c>false</c> for everything that is not already a number — declare
+            /// <c>FastCallGuard.AnyValue</c>, which vouches for the parameter without narrowing it.
             /// </para>
             /// <para>
             /// Only consulted for a parameter that derives no guard of its own. A declared conversion

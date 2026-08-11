@@ -9,14 +9,16 @@ internal sealed partial class Foo
 {
     private static readonly global::Jint.Key __Key_charCodeAt = "charCodeAt";
     private static readonly global::Jint.Key __Key_derived = "derived";
+    private static readonly global::Jint.Key __Key_inspected = "inspected";
     private static readonly global::Jint.Key __Key_substring = "substring";
 
     /// <summary>Generated property registration. Call from <c>Initialize()</c>.</summary>
     private void CreateProperties_Generated()
     {
-        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(3);
+        var properties = new global::Jint.Collections.StringDictionarySlim<global::Jint.Runtime.Descriptors.PropertyDescriptor>(4);
         properties.AddDangerous(__Key_charCodeAt, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.CharCodeAt), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         properties.AddDangerous(__Key_derived, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Derived), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+        properties.AddDangerous(__Key_inspected, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Inspected), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         properties.AddDangerous(__Key_substring, new global::Jint.Runtime.Descriptors.Specialized.LazyPropertyDescriptor<Foo>(this, static host => new __FooFunction(host, __FooFunction.Slot.Substring), global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
         SetProperties(properties);
     }
@@ -27,6 +29,7 @@ internal sealed partial class Foo
         {
             CharCodeAt,
             Derived,
+            Inspected,
             Substring,
         }
 
@@ -48,6 +51,7 @@ internal sealed partial class Foo
             {
                 case Slot.CharCodeAt: return Foo.CharCodeAt(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0));
                 case Slot.Derived: return Foo.Derived(thisObject, global::Jint.Runtime.TypeConverter.ToNumber(global::Jint.Runtime.Arguments.At(arguments, 0)));
+                case Slot.Inspected: return Foo.Inspected(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0));
                 case Slot.Substring: return Foo.Substring(thisObject, global::Jint.Runtime.Arguments.At(arguments, 0), global::Jint.Runtime.Arguments.At(arguments, 1));
                 default: throw UnknownSlot(_slot);
             }
@@ -59,6 +63,7 @@ internal sealed partial class Foo
             {
                 case Slot.CharCodeAt: return global::Jint.Native.JsString.CachedCreate("charCodeAt");
                 case Slot.Derived: return global::Jint.Native.JsString.CachedCreate("derived");
+                case Slot.Inspected: return global::Jint.Native.JsString.CachedCreate("inspected");
                 case Slot.Substring: return global::Jint.Native.JsString.CachedCreate("substring");
                 default: throw UnknownSlot(slot);
             }
@@ -70,6 +75,7 @@ internal sealed partial class Foo
             {
                 case Slot.CharCodeAt: return 1;
                 case Slot.Derived: return 1;
+                case Slot.Inspected: return 1;
                 case Slot.Substring: return 2;
                 default: throw UnknownSlot(slot);
             }
@@ -84,6 +90,7 @@ internal sealed partial class Foo
             {
                 case Slot.CharCodeAt: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
                 case Slot.Derived: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Number, global::Jint.Native.Function.FastCallGuard.Any);
+                case Slot.Inspected: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any, global::Jint.Native.Function.FastCallGuard.Any);
                 case Slot.Substring: return new global::Jint.Native.Function.FastCallShape(true, true, false, global::Jint.Native.Function.FastCallGuard.String, global::Jint.Native.Function.FastCallGuard.Number | global::Jint.Native.Function.FastCallGuard.Undefined, global::Jint.Native.Function.FastCallGuard.Number | global::Jint.Native.Function.FastCallGuard.Undefined);
                 default: return default;
             }
@@ -95,6 +102,7 @@ internal sealed partial class Foo
             {
                 case Slot.CharCodeAt: return Foo.CharCodeAt(thisObject, arg0);
                 case Slot.Derived: return Foo.Derived(thisObject, global::Jint.Runtime.TypeConverter.ToNumber(arg0));
+                case Slot.Inspected: return Foo.Inspected(thisObject, arg0);
                 case Slot.Substring: return Foo.Substring(thisObject, arg0, arg1);
                 default: return base.CallFast(thisObject, arg0, arg1);
             }

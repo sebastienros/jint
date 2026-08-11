@@ -1259,6 +1259,12 @@ public class ObjectGeneratorTests
         // two-parameter method. A parameter that already derives a guard from its conversion ignores
         // a declared one — an explicit value must never be able to weaken a derived guard.
         //
+        // Unguarded is the declaration for a parameter that needs no precondition at all, because the
+        // body inspects the value instead of coercing it. It is the only guard that is not emitted:
+        // the runtime spells "every value satisfies this" and "there is nothing to test" the same
+        // way, as Any, so Unguarded lowers to Any and the difference survives only where it matters,
+        // in whether the generator accepts Leaf for a raw JsValue at all.
+        //
         // FastCallGuard is internal to Jint and this compilation is not on its InternalsVisibleTo
         // list, so the test declares its own — source wins over an inaccessible imported type, and
         // the values are what the generator reads back. They have to be the real ones: the guard
@@ -1281,6 +1287,7 @@ public class ObjectGeneratorTests
                     String = 8,
                     Number = 16 | 32,
                     Array = 16384,
+                    Unguarded = 1 << 29,
                     Date = 1 << 30,
                 }
             }
@@ -1302,6 +1309,9 @@ public class ObjectGeneratorTests
 
                 [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.String)]
                 private static JsValue Derived(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(x);
+
+                [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.Unguarded)]
+                private static JsValue Inspected(JsValue thisObject, JsValue value) => value is JsNumber ? JsNumber.Create(1) : JsValue.Undefined;
 
                 protected override void Initialize() => CreateProperties_Generated();
             }
