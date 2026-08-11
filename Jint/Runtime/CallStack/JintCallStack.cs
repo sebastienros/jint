@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -124,7 +125,8 @@ internal sealed class JintCallStack
 
     public void ReplaceTop(Function function, JintExpression? expression)
     {
-        var previous = _stack.Pop();
+        ref var top = ref _stack._array[_stack._size - 1];
+        var previous = top;
         var replacement = new CallStackElement(function, expression, in previous.CallingExecutionContext);
 
         if (_statistics is not null && !CallStackElementComparer.Instance.Equals(previous, replacement))
@@ -148,8 +150,12 @@ internal sealed class JintCallStack
             }
         }
 
-        _stack.Push(in replacement);
+        top = replacement;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TopIs(Function function)
+        => _stack._size > 0 && ReferenceEquals(_stack._array[_stack._size - 1].Function, function);
 
     internal int GetRecursionDepth(Function function)
     {

@@ -316,8 +316,14 @@ internal sealed class JintCallExpression : JintExpression
                 engine._referencePool.Return(referenceRecord);
             }
 
+            var tailTarget = (ScriptFunction) func;
+            if (_regLaneEligible && !ReferenceEquals(tailTarget, _regProbedCallee))
+            {
+                ProbeRegisterCallee(engine, tailTarget);
+            }
+
             return engine.RentTailCallRequest(
-                (ScriptFunction) func,
+                tailTarget,
                 thisObject,
                 arguments,
                 rented,

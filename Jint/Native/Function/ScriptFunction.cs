@@ -463,9 +463,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 try
                 {
-                    if (currentFrame is not null
-                        && callStack.TryPeek(out var topFrame)
-                        && ReferenceEquals(topFrame.Function, currentFrame))
+                    if (currentFrame is not null && callStack.TopIs(currentFrame))
                     {
                         callStack.ReplaceTop(target, expression);
                     }
