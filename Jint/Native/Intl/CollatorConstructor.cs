@@ -338,7 +338,7 @@ internal sealed partial class CollatorConstructor : Constructor
         }
     }
 
-    private static string GetCollationOption(ObjectInstance options, string? unicodeExtension, string resolvedLocale)
+    private string GetCollationOption(ObjectInstance options, string? unicodeExtension, string resolvedLocale)
     {
         // Get the language code for locale-specific collation support
         var langCode = resolvedLocale;
@@ -356,6 +356,17 @@ internal sealed partial class CollatorConstructor : Constructor
         if (!value.IsUndefined())
         {
             var collation = TypeConverter.ToString(value);
+
+            // The syntax check https://tc39.es/ecma402/#sec-resolveoptions (9.2.8) step 6.d.ii makes
+            // for every resolution option, here reached because 10.2.3 gives Intl.Collator the
+            // descriptor { [[Key]]: "co", [[Property]]: "collation" }. It is a check on the shape of
+            // the value alone, not on the [[co]] list below: an ill-formed value is a RangeError
+            // whether or not the locale would have accepted a well-formed one.
+            if (!IntlUtilities.IsValidUnicodeExtensionValue(collation))
+            {
+                Throw.RangeError(_realm, $"Invalid value '{collation}' for option 'collation'");
+            }
+
             if (IsCollationSupportedForLocale(langCode, collation))
             {
                 return collation;

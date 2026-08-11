@@ -316,6 +316,73 @@ public class IntlTests
         result.AsString().Should().Be("a,b,c,z");
     }
 
+    [Theory]
+    // Empty, and the two lengths below the three-character minimum.
+    [InlineData("")]
+    [InlineData("a")]
+    [InlineData("ab")]
+    // Nine characters, one past the maximum, alone and as the second subtag.
+    [InlineData("abcdefghi")]
+    [InlineData("abc-abcdefghi")]
+    // Characters outside alphanum, ASCII and not.
+    [InlineData("!invalid!")]
+    [InlineData("de-DE!")]
+    [InlineData("phonebké")]
+    [InlineData("phonebkсорт")]
+    // A separator with nothing on one side of it, so a subtag is empty.
+    [InlineData("-phonebk-")]
+    [InlineData("phonebk-")]
+    [InlineData("phonebk--")]
+    // A two-character subtag among well-formed ones.
+    [InlineData("phonebk-nu")]
+    [InlineData("phonebk-nu-")]
+    [InlineData("phonebk-nu-latn")]
+    public void CollatorRejectsACollationOptionTheTypeNonterminalCannotMatch(string collation)
+    {
+        // ResolveOptions (9.2.8) step 6.d.ii throws a RangeError for a resolution option value that
+        // cannot be matched by the "type" Unicode locale nonterminal, and Intl.Collator's
+        // [[ResolutionOptionDescriptors]] (10.2.3) carries { [[Key]]: "co", [[Property]]: "collation" }
+        // with no [[Values]] field, so "collation" is read through exactly that step. The nonterminal
+        // is alphanum{3,8} (sep alphanum{3,8})* - one or more subtags of three to eight ASCII letters
+        // and digits, separated by "-".
+        _engine.Evaluate($"(() => {{ try {{ new Intl.Collator('de', {{ collation: '{collation}' }}); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
+            .AsString().Should().Be("RangeError");
+    }
+
+    [Theory]
+    // The lengths the nonterminal admits, and the digits it admits alongside letters.
+    [InlineData("abc")]
+    [InlineData("abcdefgh")]
+    [InlineData("12345678")]
+    [InlineData("1234abcd")]
+    [InlineData("1234abcd-abc123")]
+    // Well formed and no locale reports it: a syntax check is not a lookup.
+    [InlineData("zzzzz")]
+    public void CollatorAcceptsACollationOptionTheTypeNonterminalMatches(string collation)
+    {
+        // Only the syntax check of 9.2.8 step 6.d.ii throws. A well-formed value the locale's [[co]]
+        // list does not contain is resolved by ResolveLocale (9.2.7 step 10), which simply leaves
+        // [[co]] null - so Intl.Collator (10.1.1) reports "default" rather than throwing.
+        _engine.Evaluate($"new Intl.Collator('de', {{ collation: '{collation}' }}).resolvedOptions().collation")
+            .AsString().Should().Be("default");
+    }
+
+    [Theory]
+    [InlineData("PHONEBK")]
+    [InlineData("Phonebk")]
+    public void CollatorDoesNotReadCasingInACollationOptionAsASyntaxError(string collation)
+    {
+        // The "type" nonterminal is built from alphanum, [0-9 A-Z a-z], and Unicode locale
+        // identifiers are case-insensitive, so casing cannot make a value unmatchable and 9.2.8
+        // step 6.d.ii cannot fire on it. Which collation such a value then resolves to is
+        // ResolveLocale's business, not this check's: 9.2.7 step 10 runs the option value through
+        // CanonicalizeUValue before comparing it against the [[co]] list, which Jint does not yet
+        // do, so 'PHONEBK' still falls back to "default" where the spec resolves it to "phonebk".
+        // That is a separate defect and is deliberately not pinned here.
+        _engine.Evaluate($"(() => {{ try {{ new Intl.Collator('de', {{ collation: '{collation}' }}); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
+            .AsString().Should().Be("no throw");
+    }
+
     // Intl.NumberFormat tests
     [Fact]
     public void NumberFormatConstructorExists()
