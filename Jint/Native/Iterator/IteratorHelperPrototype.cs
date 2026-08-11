@@ -10,6 +10,12 @@ namespace Jint.Native.Iterator;
 [JsObject(UseShape = true)]
 internal sealed partial class IteratorHelperPrototype : Prototype
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%-%symbol.tostringtag%
+    /// A data property, so it shadows the accessor pair %Iterator.prototype% carries.
+    /// </summary>
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString IteratorHelperToStringTag = new("Iterator Helper");
+
     private readonly IteratorPrototype _iteratorPrototype;
 
     internal IteratorHelperPrototype(
@@ -21,7 +27,11 @@ internal sealed partial class IteratorHelperPrototype : Prototype
         _prototype = iteratorPrototype;
     }
 
-    protected override void Initialize() => CreateProperties_Generated();
+    protected override void Initialize()
+    {
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+    }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.next

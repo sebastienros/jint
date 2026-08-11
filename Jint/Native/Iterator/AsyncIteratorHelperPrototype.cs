@@ -10,6 +10,12 @@ namespace Jint.Native.Iterator;
 [JsObject(UseShape = true)]
 internal sealed partial class AsyncIteratorHelperPrototype : Prototype
 {
+    /// <summary>
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-%asynciteratorhelperprototype%-@@tostringtag
+    /// A data property, so it shadows the accessor pair %AsyncIterator.prototype% carries.
+    /// </summary>
+    [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString AsyncIteratorHelperToStringTag = new("Async Iterator Helper");
+
     internal AsyncIteratorHelperPrototype(
         Engine engine,
         Realm realm,
@@ -18,7 +24,11 @@ internal sealed partial class AsyncIteratorHelperPrototype : Prototype
         _prototype = asyncIteratorPrototype;
     }
 
-    protected override void Initialize() => CreateProperties_Generated();
+    protected override void Initialize()
+    {
+        CreateProperties_Generated();
+        CreateSymbols_Generated();
+    }
 
     /// <summary>
     /// %AsyncIteratorHelperPrototype%.next()
