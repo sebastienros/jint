@@ -38,11 +38,14 @@ internal sealed partial class SetPrototype : Prototype
         CreateSymbols_Generated();
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-set.prototype.size
+    /// </summary>
     [JsAccessor("size")]
     private JsNumber Size(JsValue thisObject)
     {
-        AssertSetInstance(thisObject);
-        return JsNumber.Create(0);
+        var set = AssertSetInstance(thisObject);
+        return JsNumber.Create(set.Size);
     }
 
     [JsFunction(FastCall = true)]

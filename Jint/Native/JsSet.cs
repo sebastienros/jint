@@ -1,8 +1,6 @@
 using System.Collections;
-using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
@@ -20,32 +18,14 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
         _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
     }
 
+    // No `size` here: it is an accessor on Set.prototype (https://tc39.es/ecma262/#sec-get-set.prototype.size)
+    // and an instance has no own property of that name. See the note in JsMap for what synthesizing one cost.
+
     public int Size => _set.Count;
 
     internal JsValue? this[int index]
     {
         get { return index < _set._list.Count ? _set._list[index] : null; }
-    }
-
-    public override PropertyDescriptor GetOwnProperty(JsValue property)
-    {
-        if (CommonProperties.Size.Equals(property))
-        {
-            return new PropertyDescriptor(_set.Count, PropertyFlag.AllForbidden);
-        }
-
-        return base.GetOwnProperty(property);
-    }
-
-    protected override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
-    {
-        if (CommonProperties.Size.Equals(property))
-        {
-            descriptor = new PropertyDescriptor(_set.Count, PropertyFlag.AllForbidden);
-            return true;
-        }
-
-        return base.TryGetProperty(property, out descriptor);
     }
 
     public void Add(JsValue value) => _set.Add(SameValueZeroComparer.ToStableKey(value));

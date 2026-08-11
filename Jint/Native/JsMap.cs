@@ -1,8 +1,6 @@
 using System.Collections;
-using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
@@ -17,26 +15,10 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         _map = new JintOrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
     }
 
-    public override PropertyDescriptor GetOwnProperty(JsValue property)
-    {
-        if (CommonProperties.Size.Equals(property))
-        {
-            return new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
-        }
-
-        return base.GetOwnProperty(property);
-    }
-
-    protected override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
-    {
-        if (CommonProperties.Size.Equals(property))
-        {
-            descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
-            return true;
-        }
-
-        return base.TryGetProperty(property, out descriptor);
-    }
+    // No `size` here: it is an accessor on Map.prototype (https://tc39.es/ecma262/#sec-get-map.prototype.size)
+    // and an instance has no own property of that name. Synthesizing one from GetOwnProperty made the
+    // prototype getter unreachable through `m.size` — which is how it went on returning a hard-coded 0 — and
+    // gave every map a phantom own non-configurable `size` that [[OwnPropertyKeys]] never listed.
 
     public int Size => _map.Count;
 
