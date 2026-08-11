@@ -34,9 +34,10 @@ internal sealed partial class StringPrototype : StringInstance
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
     private readonly StringConstructor _constructor;
 
-    // Captured by CreateSymbols_Generated (via CaptureField below, which makes @@iterator eager);
-    // HasOriginalIterator identity-compares against this snapshot for the fast-path detection used
-    // by string iteration consumers.
+    // Captured by CreateSymbols_Generated (via CaptureField below, which makes @@iterator eager).
+    // JsString.TryGetIterator identity-compares the @@iterator it resolved against this snapshot to
+    // decide between the direct text-iteration lane and driving %StringIteratorPrototype%; comparing
+    // rather than re-reading is what keeps that decision free of a second observable get.
     internal FunctionInstance? _originalIteratorFunction;
 
     internal StringPrototype(
@@ -57,8 +58,6 @@ internal sealed partial class StringPrototype : StringInstance
         CreateProperties_Generated();
         CreateSymbols_Generated();
     }
-
-    internal override bool HasOriginalIterator => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _originalIteratorFunction);
 
     [JsSymbolFunction("Iterator", Flags = PropertyFlag.Configurable | PropertyFlag.Writable, CaptureField = nameof(_originalIteratorFunction))]
     private ObjectInstance Iterator(JsValue thisObject)
