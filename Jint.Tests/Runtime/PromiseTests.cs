@@ -935,6 +935,42 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     }
 
     [Fact]
+    public void PromiseTryWithNoArgumentsRejectsInsteadOfThrowingClrException()
+    {
+        // The fully-cached argument-list lane hands a callee an object[] reinterpreted as JsValue[], so
+        // taking a Span over it throws ArrayTypeMismatchException — which for a zero-argument call escaped
+        // Promise.try() as a raw CLR exception instead of the TypeError rejection the spec calls for.
+        var engine = new Engine();
+        var result = engine.Evaluate("Promise.try().then(function () { return 'resolved'; }, function (e) { return e.constructor.name; });");
+
+        result.UnwrapIfPromise().AsString().Should().Be("TypeError");
+    }
+
+    [Fact]
+    public void PromiseTryReturnsAMatchingPromiseWithoutWrappingIt()
+    {
+        // https://github.com/tc39/ecma262/pull/3883 — the normal path goes through PromiseResolve, so a
+        // promise whose constructor is the receiver is returned as-is.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var sentinel = Promise.resolve('x');
+            var sameForBase = Promise.try(function () { return sentinel; }) === sentinel;
+
+            class SubPromise extends Promise {}
+            var subSentinel = SubPromise.resolve('y');
+            var sameForSubclass = SubPromise.try(function () { return subSentinel; }) === subSentinel;
+
+            // A foreign promise is still wrapped, and the abrupt path still builds from the receiver.
+            var wrapped = SubPromise.try(function () { return sentinel; }) !== sentinel;
+            var rejectedIsSubclass = SubPromise.try(function () { throw new Error('nope'); }) instanceof SubPromise;
+
+            [sameForBase, sameForSubclass, wrapped, rejectedIsSubclass].join(',');
+        """);
+
+        result.AsString().Should().Be("true,true,true,true");
+    }
+
+    [Fact]
     public void LongAwaitLoopAccumulatesCorrectly()
     {
         // Exercises the resolved-promise await fast path at volume (the AwaitResolvedLoop shape).

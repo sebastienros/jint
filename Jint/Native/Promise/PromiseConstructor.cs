@@ -161,8 +161,15 @@ internal sealed partial class PromiseConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-promise-try/
+    /// https://tc39.es/ecma262/#sec-promise.try
     /// </summary>
+    /// <remarks>
+    /// Implements the normative change of https://github.com/tc39/ecma262/pull/3883 ("make Promise.try use
+    /// PromiseResolve in non-error case"), which reached consensus and whose test262 coverage is in the pinned
+    /// suite (built-ins/Promise/try/avoids-wrap*.js). On the normal path the callback's result is handed to
+    /// PromiseResolve, so an already-matching promise is returned as-is instead of being wrapped in a fresh one,
+    /// and the capability is created only on the abrupt path.
+    /// </remarks>
     [JsFunction(Length = 1, Name = "try")]
     private JsValue Try(JsValue thisObject, JsCallArguments arguments)
     {
@@ -172,19 +179,22 @@ internal sealed partial class PromiseConstructor : Constructor
         }
 
         var callbackfn = arguments.At(0);
-        var promiseCapability = NewPromiseCapability(_engine, thisObject);
 
+        JsValue status;
         try
         {
-            var status = callbackfn.Call(Undefined, arguments.AsSpan().Slice(1).ToArray());
-            promiseCapability.Resolve(status);
+            // The spec's Call() throws a TypeError for a non-callable callback, and that throw sits inside
+            // the Completion, so it has to become a rejection rather than escape to the caller.
+            status = GetCallable(callbackfn).Call(Undefined, arguments.Skip(1));
         }
         catch (JavaScriptException e)
         {
+            var promiseCapability = NewPromiseCapability(_engine, thisObject);
             promiseCapability.Reject(e.Error);
+            return promiseCapability.PromiseInstance;
         }
 
-        return promiseCapability.PromiseInstance;
+        return PromiseResolve(thisObject, status);
     }
 
     // https://tc39.es/proposal-await-dictionary/#sec-promise.allkeyed
