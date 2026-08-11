@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -932,6 +933,28 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
         }
+
+        // A member resolving purely to registered extension methods must not shadow a same-named
+        // Array.prototype native on an indexed array-like view (#2976): return Undefined WITHOUT
+        // caching, so the outer Get falls through to the attached prototype and a later mutation of
+        // Array.prototype stays observable. The probe is an exact-case own-property read on the
+        // prototype itself - a chain Get would also see the extension attachments living on
+        // Object.prototype and defer names like Sum that Array.prototype never carried. The type
+        // tests keep non-indexed array-likes (e.g. HashSet<T>), whose elements the index-driven
+        // natives cannot see, and replaced prototypes on today's extension-first behavior.
+        if (!isDictionary
+            && accessor is MethodAccessor { AllExtensionMethods: true }
+            && this is ArrayLikeWrapper
+            && _prototype is ArrayPrototype arrayPrototype)
+        {
+            var protoDesc = arrayPrototype.GetOwnProperty(property);
+            if (!ReferenceEquals(protoDesc, PropertyDescriptor.Undefined)
+                && protoDesc.Value is { IsCallable: true })
+            {
+                return PropertyDescriptor.Undefined;
+            }
+        }
+
         var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
         if (!isDictionary
             && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined)

@@ -153,11 +153,9 @@ public class ExtensionMethodsTest
     [Fact]
     public void LinqExtensionMethodWithMultipleGenericParameters()
     {
-        // Pin Copy: '.ToArray()' returns a CLR string[], and under the LiveView default the resulting
-        // wrapper's target (string[] : IEnumerable<string>) makes the '.join()' call resolve to the CLR
-        // 'Enumerable.Join' extension method attached to the type rather than falling back to native
-        // 'Array.prototype.join'. Copy produces a native JsArray whose 'join' is the prototype method.
-        // (Under LiveView the equivalent works with Options.Interop.PreferJsPrototypeMethods = true.)
+        // Copy produces a native JsArray whose 'join' is the prototype method. The LiveView default
+        // works too since #2976: the wrapper's pure-extension 'Enumerable.Join' candidate defers to
+        // native 'Array.prototype.join' - ExtensionMethodShadowingTests covers that flavor.
         var engine = GetLinqEngine(opts => opts.Interop.ArrayConversion = ArrayConversionMode.Copy);
         var stringList = new List<string>() { "working", "linq" };
         engine.SetValue("stringList", stringList);
