@@ -715,6 +715,82 @@ public class ProxyTests
         res.AsArray().AsEnumerable().Should().Equal(1, 2, 3, 3);
     }
 
+    /// <summary>
+    /// Step 7 of
+    /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-defineownproperty-p-desc
+    /// hands the trap <c>FromPropertyDescriptor(Desc)</c> of the <em>partial</em> descriptor the caller wrote,
+    /// and FromPropertyDescriptor creates an attribute exactly when the descriptor has that field. Jint used to
+    /// derive the shape from <c>IsDataDescriptor()</c> instead, which invented a "get" beside a lone "set", a
+    /// "writable" beside a "value", and a "get"/"set" pair for a descriptor carrying nothing but attributes.
+    /// Every expectation here was read off node 24.
+    /// </summary>
+    [Theory]
+    [InlineData("{ get: function () {} }", "get")]
+    [InlineData("{ set: function () {} }", "set")]
+    [InlineData("{ get: function () {}, set: function () {} }", "get,set")]
+    [InlineData("{ get: undefined }", "get")]
+    [InlineData("{ value: 1 }", "value")]
+    [InlineData("{ value: undefined }", "value")]
+    [InlineData("{ writable: true }", "writable")]
+    [InlineData("{ configurable: true }", "configurable")]
+    [InlineData("{}", "")]
+    [InlineData("{ value: 1, configurable: true, enumerable: true }", "value,enumerable,configurable")]
+    [InlineData("{ configurable: true, set: function () {} }", "set,configurable")]
+    public void DefinePropertyTrapSeesOnlyTheFieldsTheCallerWrote(string descriptor, string expected)
+    {
+        foreach (var define in new[]
+                 {
+                     "Object.defineProperty(p, 'foo', d)",
+                     "Reflect.defineProperty(p, 'foo', d)",
+                     "Object.defineProperties(p, { foo: d })",
+                 })
+        {
+            var seen = new Engine().Evaluate($$"""
+                var seen;
+                var p = new Proxy({}, { defineProperty(t, k, d) { seen = Object.getOwnPropertyNames(d).join(','); return true; } });
+                var d = {{descriptor}};
+                {{define}};
+                seen;
+                """).AsString();
+
+            seen.Should().Be(expected, because: define);
+        }
+    }
+
+    /// <summary>
+    /// Only the trap <em>argument</em> is the partial descriptor: steps 12-15 still validate <c>Desc</c> itself,
+    /// so a non-configurable definition for a property the target does not have is a TypeError even though the
+    /// trap saw only "value"/"writable"/"enumerable"/"configurable" and returned true.
+    /// </summary>
+    [Fact]
+    public void DefinePropertyTrapValidationStillRunsAgainstTheCallersDescriptor()
+    {
+        var engine = new Engine();
+        engine.Execute("var p = new Proxy({}, { defineProperty() { return true; } });");
+
+        Assert.Throws<JavaScriptException>(
+            () => engine.Execute("Object.defineProperty(p, 'foo', { value: 1, writable: false, enumerable: false, configurable: false });"));
+
+        // a configurable definition of the same shape is accepted
+        engine.Execute("Object.defineProperty(p, 'foo', { value: 1, configurable: true });");
+    }
+
+    /// <summary>
+    /// The completing mode of FromPropertyDescriptor is what <c>Object.getOwnPropertyDescriptor</c> uses, and it
+    /// keeps reporting every attribute of a real property.
+    /// </summary>
+    [Fact]
+    public void GetOwnPropertyDescriptorStillReportsACompleteDescriptor()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("Object.getOwnPropertyNames(Object.getOwnPropertyDescriptor({ foo: 1 }, 'foo')).join(',')")
+            .AsString().Should().Be("value,writable,enumerable,configurable");
+
+        engine.Evaluate("Object.getOwnPropertyNames(Object.getOwnPropertyDescriptor({ get foo() { return 1; } }, 'foo')).join(',')")
+            .AsString().Should().Be("get,set,enumerable,configurable");
+    }
+
     [Fact]
     public void ProxyClrObjectMethod()
     {

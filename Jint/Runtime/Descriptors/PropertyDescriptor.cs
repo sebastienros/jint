@@ -507,7 +507,42 @@ public class PropertyDescriptor
         // we should have possibility to leave out the properties in property descriptors as newer tests
         // also assert properties to be undefined
 
-        if (desc.IsDataDescriptor())
+        if (strictUndefined)
+        {
+            // Field-driven, as the specification writes it: an attribute is created exactly when the
+            // descriptor *has* that field. This is the mode a partial descriptor is rendered in — the one
+            // ToPropertyDescriptor built from whatever fields the caller actually wrote, and which the Proxy
+            // "defineProperty" trap is handed. `Object.defineProperty(proxy, k, { configurable: true, set() {} })`
+            // must therefore show the trap exactly "set" and "configurable"; deriving the shape from
+            // IsDataDescriptor() instead (below) invents a "get" beside the "set", a "writable" beside a
+            // "value", and a "get"/"set" pair for a descriptor carrying nothing but attributes.
+            // Only the trap *argument* is shaped this way: the post-trap checks in JsProxy still run against
+            // Desc itself, per steps 12-15 of
+            // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-defineownproperty-p-desc
+            var value = desc.Value;
+            if (value is not null)
+            {
+                properties["value"] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            if (desc.WritableSet)
+            {
+                properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            var get = desc.Get;
+            if (get is not null)
+            {
+                properties["get"] = new PropertyDescriptor(get, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            var set = desc.Set;
+            if (set is not null)
+            {
+                properties["set"] = new PropertyDescriptor(set, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+        }
+        else if (desc.IsDataDescriptor())
         {
             properties["value"] = new PropertyDescriptor(desc.Value ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
             if (desc._flags != PropertyFlag.None || desc.WritableSet)
