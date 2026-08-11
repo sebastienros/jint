@@ -600,17 +600,33 @@ internal sealed class JintFunctionDefinition
             }
         }
 
+        // Whether this function has an arguments object of its own for anything to reach: the steps
+        // above are the spec's, and everything below is Jint declining to build one nothing can name.
+        var argumentsObjectReachable = state.ArgumentsObjectNeeded;
+
         if (state.ArgumentsObjectNeeded)
         {
             // just one extra check...
             state.ArgumentsObjectNeeded = ArgumentsUsageAstVisitor.HasArgumentsReference(function);
         }
 
-        state.NeedsEvalContext = !strict;
-        if (state.NeedsEvalContext)
+        // One walk answers both of the remaining questions, and runs only while one of them is open.
+        // A sloppy function may need the eval context; and a function whose source holds no
+        // `arguments` token can still name the arguments object through a direct eval, which the
+        // scan above cannot see into. `eval("arguments")` resolves lexically, so it reaches this
+        // function's arguments object in strict mode as much as in sloppy mode — the strict eval
+        // gets a variable environment of its own, not a fresh `arguments`.
+        var evalUsage = EvalContextAstVisitor.Usage.None;
+        if (!strict || (argumentsObjectReachable && !state.ArgumentsObjectNeeded))
         {
-            // yet another extra check
-            state.NeedsEvalContext = EvalContextAstVisitor.HasEvalOrDebugger(function);
+            evalUsage = EvalContextAstVisitor.Scan(function);
+        }
+
+        state.NeedsEvalContext = !strict && (evalUsage & EvalContextAstVisitor.Usage.EvalContext) != EvalContextAstVisitor.Usage.None;
+
+        if (argumentsObjectReachable && !state.ArgumentsObjectNeeded)
+        {
+            state.ArgumentsObjectNeeded = (evalUsage & EvalContextAstVisitor.Usage.ArgumentsReachingEval) != EvalContextAstVisitor.Usage.None;
         }
 
         var parameterBindings = new HashSet<Key>(state.ParameterNames);
@@ -1257,45 +1273,95 @@ Start:
         }
     }
 
+    /// <summary>
+    /// Finds the direct eval call sites — and the debugger statements — in a function's parameters
+    /// and body, in one walk, for the two decisions that turn on them.
+    /// </summary>
     private static class EvalContextAstVisitor
     {
-        public static bool HasEvalOrDebugger(IFunction function)
+        [Flags]
+        public enum Usage
         {
-            if (HasEvalOrDebugger(function.Body))
-            {
-                return true;
-            }
+            None = 0,
 
-            return false;
+            /// <summary>
+            /// A direct eval or a debugger statement anywhere: the function's top-level lexical
+            /// declarations want a lexical environment of their own, so that a direct eval can tell
+            /// whether the var declarations it introduces conflict with them.
+            /// </summary>
+            EvalContext = 1,
+
+            /// <summary>
+            /// A direct eval that resolves <c>arguments</c> in <em>this</em> function's scope, so the
+            /// arguments object has to exist even though the token appears nowhere in the source.
+            /// </summary>
+            ArgumentsReachingEval = 2,
+
+            Both = EvalContext | ArgumentsReachingEval,
         }
 
-        private static bool HasEvalOrDebugger(Node node)
+        public static Usage Scan(IFunction function)
+        {
+            var usage = Usage.None;
+
+            // A parameter default is evaluated after the arguments object has been created and bound
+            // (https://tc39.es/ecma262/#sec-functiondeclarationinstantiation, steps 22 and 24), so a
+            // direct eval there reaches it exactly as one in the body does.
+            foreach (var parameter in function.Params.AsSpan())
+            {
+                if (!parameter.ChildNodes.IsEmpty())
+                {
+                    Scan(parameter, sharesArguments: true, ref usage);
+                    if (usage == Usage.Both)
+                    {
+                        return usage;
+                    }
+                }
+            }
+
+            Scan(function.Body, sharesArguments: true, ref usage);
+            return usage;
+        }
+
+        private static void Scan(Node node, bool sharesArguments, ref Usage usage)
         {
             foreach (var childNode in node.ChildNodes)
             {
+                if (usage == Usage.Both)
+                {
+                    return;
+                }
+
                 var childType = childNode.Type;
                 if (childType == NodeType.DebuggerStatement)
                 {
-                    return true;
+                    usage |= Usage.EvalContext;
+                    continue;
                 }
 
-                if (childType == NodeType.CallExpression)
+                if (childType == NodeType.FunctionDeclaration)
                 {
-                    if (((CallExpression) childNode).Callee is Identifier identifier && identifier.Name.Equals("eval", StringComparison.Ordinal))
-                    {
-                        return true;
-                    }
+                    // Its own arguments object, its own eval context, its own State: nothing inside
+                    // a nested declaration is this function's business.
+                    continue;
                 }
-                else if (childType != NodeType.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
+
+                if (childType == NodeType.CallExpression
+                    && ((CallExpression) childNode).Callee is Identifier { Name: "eval" })
                 {
-                    if (HasEvalOrDebugger(childNode))
-                    {
-                        return true;
-                    }
+                    // An over-approximation of the runtime test (JintCallExpression resolves the
+                    // callee and compares it against the eval intrinsic), which is the safe
+                    // direction: a call site that turns out not to be eval costs a fast lane.
+                    usage |= sharesArguments ? Usage.Both : Usage.EvalContext;
+                }
+
+                if (!childNode.ChildNodes.IsEmpty())
+                {
+                    // A nested function has an arguments object of its own, and that is the one its
+                    // direct eval names. An arrow has none, so an eval inside it still names ours.
+                    Scan(childNode, sharesArguments && childType != NodeType.FunctionExpression, ref usage);
                 }
             }
-
-            return false;
         }
     }
 
