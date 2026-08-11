@@ -564,6 +564,11 @@ public class Options
         /// <c>Array.prototype.reverse</c> returns the array. Has no effect when no JS prototype is attached
         /// (i.e. <see cref="AttachArrayPrototype"/> is false or the wrapped type is not array-like). Defaults to false for backward compatibility.
         /// </summary>
+        /// <remarks>
+        /// A member that resolves purely to registered extension methods (see <see cref="OptionsExtensions.AddExtensionMethods"/>)
+        /// already defers to a same-named <c>Array.prototype</c> method on indexed array-like wrappers by default;
+        /// this option additionally makes real CLR instance methods defer.
+        /// </remarks>
         public bool PreferJsPrototypeMethods { get; set; }
 
         /// <summary>

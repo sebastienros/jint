@@ -11,7 +11,25 @@ internal sealed class MethodAccessor : ReflectionAccessor
     {
         _targetType = targetType;
         _methods = methods;
+
+        var allExtensionMethods = methods.Length > 0;
+        foreach (var method in methods)
+        {
+            if (!method.IsExtensionMethod)
+            {
+                allExtensionMethods = false;
+                break;
+            }
+        }
+        AllExtensionMethods = allExtensionMethods;
     }
+
+    /// <summary>
+    /// Whether every candidate is a registered extension method, i.e. the member is not a real
+    /// member of the target type. Derived from the descriptors alone, so instances served from
+    /// the shared accessor cache answer identically for every engine.
+    /// </summary>
+    public bool AllExtensionMethods { get; }
 
     public override bool Writable => false;
 
