@@ -181,4 +181,154 @@ public class DestructuringTests
             """);
         result.AsString().Should().Be("3,4");
     }
+
+    [Fact]
+    public void FunctionShapedDefaultDoesNotClaimASuppliedNonFunction()
+    {
+        // The one-liner from the report: the initializer is syntactically a function, the supplied
+        // value is not, and the initializer is therefore never evaluated. Naming used to be selected
+        // on the initializer's syntax alone and applied to whatever got bound, so the cast to
+        // Function threw an InvalidCastException straight out of Evaluate — past any script catch.
+        new Engine().Evaluate("var { a = () => {} } = { a: 1 }; a").AsNumber().Should().Be(1);
+
+        new Engine().Evaluate("""
+            var caught = 'nothing';
+            try { var { a = () => {} } = { a: 1 }; } catch (e) { caught = 'caught'; }
+            caught;
+            """).AsString().Should().Be("nothing");
+    }
+
+    /// <summary>
+    /// Initializer kinds a destructuring default can be written as, paired with the name the bound
+    /// function ends up carrying when the default *is* taken. Anonymous definitions get the bound
+    /// name (NamedEvaluation); a definition that names itself keeps its own name. Every expectation
+    /// here is node v24's answer.
+    /// </summary>
+    private static readonly (string Initializer, string NameWhenTaken)[] DefaultInitializers =
+    [
+        ("() => {}", "a"),
+        ("function () {}", "a"),
+        ("function foo() {}", "foo"),
+        ("function* () {}", "a"),
+        ("function* gen() {}", "gen"),
+        ("class {}", "a"),
+        ("class Kls {}", "Kls"),
+        ("async () => {}", "a"),
+    ];
+
+    /// <summary>
+    /// The five destructuring shapes that share
+    /// <c>DestructuringPatternAssignmentExpression.ProcessPatterns</c>. <c>#DEFAULT#</c> is the
+    /// element carrying the initializer, <c>#VALUE#</c> the value the pattern is fed.
+    /// </summary>
+    public static TheoryData<string> PatternShapes() =>
+    [
+        "var { #DEFAULT# } = { a: #VALUE# }; describe(a)",
+        "var [ #DEFAULT# ] = [ #VALUE# ]; describe(a)",
+        "var a; ({ #DEFAULT# } = { a: #VALUE# }); describe(a)",
+        "var a; ([ #DEFAULT# ] = [ #VALUE# ]); describe(a)",
+        "var r; for (var { #DEFAULT# } of [{ a: #VALUE# }]) { r = a; } describe(r)",
+    ];
+
+    private const string Describe =
+        "function describe(v) { return typeof v === 'function' ? 'fn:' + v.name : typeof v + ':' + String(v); } ";
+
+    [Theory]
+    [MemberData(nameof(PatternShapes))]
+    public void ADefaultIsOnlyNamedWhenTheDefaultIsWhatGotBound(string shape)
+    {
+        // NamedEvaluation applies when the initializer is an anonymous function definition *and* the
+        // supplied value was undefined, so the initializer is the value being bound. A supplied value
+        // is bound as it stands, whatever the initializer looks like.
+        // https://tc39.es/ecma262/#sec-runtime-semantics-keyedbindinginitialization
+        var supplied = new[]
+        {
+            ("1", "number:1"),
+            ("'s'", "string:s"),
+            ("({})", "object:[object Object]"),
+            ("(function supplied() {})", "fn:supplied"),
+        };
+
+        var expected = new List<string>();
+        var actual = new List<string>();
+
+        foreach (var (initializer, nameWhenTaken) in DefaultInitializers)
+        {
+            foreach (var (source, description) in supplied)
+            {
+                Record(initializer, source, description);
+            }
+
+            // undefined is the one supplied value that lets the initializer run.
+            Record(initializer, "undefined", "fn:" + nameWhenTaken);
+        }
+
+        string.Join("\n", actual).Should().Be(string.Join("\n", expected));
+
+        void Record(string initializer, string suppliedSource, string description)
+        {
+            var script = shape
+                .Replace("#DEFAULT#", "a = " + initializer)
+                .Replace("#VALUE#", suppliedSource);
+
+            expected.Add(script + "  =>  " + description);
+
+            string outcome;
+            try
+            {
+                outcome = new Engine().Evaluate(Describe + script).AsString();
+            }
+            catch (Exception ex)
+            {
+                outcome = ex.GetType().Name + ": " + ex.Message;
+            }
+
+            actual.Add(script + "  =>  " + outcome);
+        }
+    }
+
+    [Fact]
+    public void NamedEvaluationOfADefaultFollowsTheBindingTarget()
+    {
+        // Expectations are node v24's. The bound name — not the source key — is what names the
+        // function, a member-expression target is not an identifier reference so nothing is named,
+        // and only undefined lets the initializer run at all.
+        var engine = new Engine();
+        string Describe(string script) => engine.Evaluate(DestructuringTests.Describe + script).AsString();
+
+        Describe("var { a: b = () => {} } = {}; describe(b)").Should().Be("fn:b");
+        Describe("var { a: b = () => {} } = { a: 1 }; describe(b)").Should().Be("number:1");
+        Describe("var b; ({ a: b = () => {} } = {}); describe(b)").Should().Be("fn:b");
+        Describe("var b; ({ a: b = () => {} } = { a: 1 }); describe(b)").Should().Be("number:1");
+
+        Describe("var k = 'a'; var { [k]: a = () => {} } = {}; describe(a)").Should().Be("fn:a");
+        Describe("var k = 'a'; var { [k]: a = () => {} } = { a: 1 }; describe(a)").Should().Be("number:1");
+
+        // A member-expression target gets no NamedEvaluation, so the arrow stays nameless.
+        Describe("var o = {}; ({ a: o.x = () => {} } = {}); describe(o.x)").Should().Be("fn:");
+        Describe("var o = {}; ([ o.x = () => {} ] = []); describe(o.x)").Should().Be("fn:");
+        Describe("var o = {}; ({ a: o.x = () => {} } = { a: 1 }); describe(o.x)").Should().Be("number:1");
+
+        // Nested pattern with its own default.
+        Describe("var [ { a = () => {} } = {} ] = []; describe(a)").Should().Be("fn:a");
+        Describe("var [ { a = () => {} } = {} ] = [{ a: 1 }]; describe(a)").Should().Be("number:1");
+
+        // null is not undefined — the initializer never runs.
+        Describe("var { a = () => {} } = { a: null }; describe(a)").Should().Be("object:null");
+
+        // An initializer that merely produces a function is not a function *definition*, so it is
+        // never a NamedEvaluation candidate and stays nameless even when taken.
+        Describe("var { a = 0 || (() => {}) } = {}; describe(a)").Should().Be("fn:");
+        Describe("var { a = 0 || (() => {}) } = { a: 1 }; describe(a)").Should().Be("number:1");
+
+        // for-of over an array pattern, both ways round.
+        Describe("var r; for (var [ a = () => {} ] of [[]]) { r = a; } describe(r)").Should().Be("fn:a");
+        Describe("var r; for (var [ a = () => {} ] of [[1]]) { r = a; } describe(r)").Should().Be("number:1");
+
+        // Parameter defaults were already correct; pinned so the two paths cannot drift.
+        Describe("function f(a = () => {}) { return a; } describe(f())").Should().Be("fn:a");
+        Describe("function g(a = () => {}) { return a; } describe(g(1))").Should().Be("number:1");
+        Describe("function h({ a = () => {} } = {}) { return a; } describe(h())").Should().Be("fn:a");
+        Describe("function i({ a = () => {} } = {}) { return a; } describe(i({ a: 1 }))").Should().Be("number:1");
+    }
 }
