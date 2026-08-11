@@ -216,10 +216,8 @@ internal sealed class JintStatementList
                 suspendable?.Data.ClearStatementListPosition(this);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (LeavingOnException(suspendable, ex))
         {
-            suspendable?.Data.ClearStatementListPosition(this);
-
             if (ex is JintException)
             {
                 c = HandleException(context, ex, temp[i].Statement);
@@ -247,6 +245,51 @@ internal sealed class JintStatementList
         return result;
     }
 
+    /// <summary>
+    /// Exception filter for <see cref="Execute"/>. It does the bookkeeping every exception leaving this
+    /// list owes — clearing the resume position, which the old catch-everything handler did — and then
+    /// answers <see cref="ShouldCatch"/>, so that the exceptions this frame would only rethrow are never
+    /// caught here in the first place.
+    /// </summary>
+    private bool LeavingOnException(ISuspendable? suspendable, Exception exception)
+    {
+        // Safe to do from the first pass: nothing between the throw point and this frame reads or writes
+        // this list's saved position — only this method's own suspension path sets it, and that path
+        // cannot be running while an exception is in flight through it.
+        suspendable?.Data.ClearStatementListPosition(this);
+        return ShouldCatch(exception);
+    }
+
+    /// <summary>
+    /// Whether a statement list has anything to do with an exception passing through it, asked from an
+    /// exception filter so that the answer <c>false</c> keeps the frame out of the unwind entirely.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Answering <c>false</c> is the point. A statement list wraps every function body and every block,
+    /// so a deep recursion stacks one of these frames per JavaScript call. Catching an exception the
+    /// handler can only rethrow costs a nested exception dispatch at every one of them — roughly 10 KB
+    /// of stack apiece that the runtime cannot reclaim while the dispatch is live — so the engine's own
+    /// <see cref="RecursionDepthOverflowException"/>, raised at exactly the depth
+    /// <c>Options.LimitRecursion</c> asks for, used to overflow the stack on the way out and take
+    /// the host process with it. A filter that declines is answered in the first pass and leaves nothing
+    /// behind, so the same exception now unwinds as far as a JavaScript <c>throw</c> does.
+    /// </para>
+    /// <para>
+    /// The two <c>true</c> arms are the two things this frame really does, and both have to keep matching
+    /// their handler: the exceptions <see cref="HandleException"/> turns into a Throw completion, and a
+    /// CLR exception that has not been annotated with a JavaScript location yet — the innermost frame
+    /// alone, since the annotation is idempotent and the frames above it would only redo the same test.
+    /// </para>
+    /// </remarks>
+    internal static bool ShouldCatch(Exception exception) => exception switch
+    {
+        // Keep in lock-step with HandleException's switch below.
+        JavaScriptException or TypeErrorException or RangeErrorException or SyntaxErrorException => true,
+        JintException => false,
+        _ => !ExceptionDataHelper.HasJavaScriptLocation(exception),
+    };
+
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
     {
         var completion = exception switch
@@ -255,6 +298,8 @@ internal sealed class JintStatementList
             TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
             RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
             SyntaxErrorException syntaxErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.SyntaxError, syntaxErrorException, s!._statement),
+            // Unreachable through the callers, whose filters decline anything this switch cannot map;
+            // kept so the switch stays total and so a future caller without a filter still behaves.
             _ => throw exception
         };
 
