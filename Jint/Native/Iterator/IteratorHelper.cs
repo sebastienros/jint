@@ -62,11 +62,13 @@ internal abstract class IteratorHelper : ObjectInstance
         {
             State = GeneratorState.Completed;
 
-            // IfAbruptCloseIterator only applies while the underlying record is still open. Exhausted
-            // says it is not - either the step reported DONE, or the helper already ran an
-            // IteratorClose of its own, which is take's `Return ? IteratorClose(iterated,
-            // ReturnCompletion(undefined))` for a spent limit. Closing again would invoke "return" a
-            // second time and swallow whatever the first invocation raised.
+            // IfAbruptCloseIterator covers the mapper/predicate call, not the step that fed it, and
+            // only applies while the underlying record is still open. Exhausted says it is not: the
+            // step reported DONE, the step itself completed abruptly (which marks the record done and
+            // closes nothing), or the helper already ran an IteratorClose of its own - take's
+            // `Return ? IteratorClose(iterated, ReturnCompletion(undefined))` for a spent limit.
+            // Closing again would invoke "return" where the spec invokes nothing, or a second time,
+            // swallowing whatever the first invocation raised.
             if (!Exhausted)
             {
                 Exhausted = true;
@@ -104,18 +106,33 @@ internal abstract class IteratorHelper : ObjectInstance
     protected abstract StepResult ExecuteStep();
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorstepvalue
     /// Gets the next value from the underlying iterator.
     /// Returns (value, false) if a value is available, or (undefined, true) if done.
     /// </summary>
+    /// <remarks>
+    /// Every abrupt completion here - a throwing next(), a result that is not an Object, a throwing
+    /// "done" getter, a throwing "value" getter - sets the record's [[Done]] to true and is returned
+    /// as-is, with no IteratorClose. Every helper spells the step `? IteratorStepValue(iterated)`,
+    /// outside the IfAbruptCloseIterator that guards the call it feeds, so marking the record
+    /// Exhausted is what keeps the close in Next from invoking "return" on it.
+    /// </remarks>
     protected StepResult IteratorStepValue()
     {
-        if (!Iterated.TryIteratorStep(out var result))
+        try
         {
-            return StepResult.DoneResult;
-        }
+            if (!Iterated.TryIteratorStep(out var result))
+            {
+                return StepResult.DoneResult;
+            }
 
-        var value = result.Get(CommonProperties.Value);
-        return new StepResult(value, false);
+            return new StepResult(result.Get(CommonProperties.Value), false);
+        }
+        catch
+        {
+            Exhausted = true;
+            throw;
+        }
     }
 
     /// <summary>
@@ -593,14 +610,31 @@ internal sealed class ConcatIterator : ObjectInstance
                 // If we have an active inner iterator, get next from it
                 if (_currentIterator is not null)
                 {
-                    if (_currentIterator.TryIteratorStep(out var result))
+                    // Per spec, use IteratorStepValue, which reads the value property (may throw) and
+                    // Yield creates a fresh iterator result object. The step is a bare
+                    // `? IteratorStepValue(iteratorRecord)`, so an abrupt one marks the record done
+                    // and propagates without an IteratorClose - hence dropping the record here rather
+                    // than letting the catch below close it.
+                    bool alive;
+                    JsValue innerValue;
+                    try
+                    {
+                        alive = _currentIterator.TryIteratorStep(out var result);
+                        innerValue = alive ? result.Get(CommonProperties.Value) : Undefined;
+                    }
+                    catch
+                    {
+                        _currentIterator = null;
+                        _exhausted = true;
+                        throw;
+                    }
+
+                    if (alive)
                     {
                         _state = GeneratorState.SuspendedYield;
-                        // Per spec, use IteratorStepValue which reads value property (may throw)
-                        // and Yield creates a fresh iterator result object
-                        var innerValue = result.Get(CommonProperties.Value);
                         return CreateIteratorResult(innerValue, done: false);
                     }
+
                     // Current iterator exhausted, move to next
                     _currentIterator = null;
                 }

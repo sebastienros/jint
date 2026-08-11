@@ -854,4 +854,109 @@ public class IteratorHelpersTests
         // IteratorClose step 6 raises the TypeError itself, so the close is still a single call.
         result.Should().Be("""[1,"TypeError: Iterator returned non-object"]""");
     }
+
+    // IteratorStepValue marks the record done on every abrupt completion - a throwing next(), a
+    // non-object result, a throwing "done" getter, a throwing "value" getter - and returns it. Every
+    // helper spells the step as a bare `? IteratorStepValue(iterated)`, outside any
+    // IfAbruptCloseIterator, so none of them may invoke "return".
+    private const string AbruptStepReceiver = """
+        let closed = 0;
+        const it = {
+            __proto__: Iterator.prototype,
+            next() { return NEXT_RESULT; },
+            return() { closed++; return { done: true }; },
+            [Symbol.iterator]() { return this; }
+        };
+        let outcome = 'no throw';
+        try { CALL; } catch (e) { outcome = e.message; }
+        JSON.stringify([closed, outcome]);
+        """;
+
+    private static string AbruptStepScript(string call, string nextResult) =>
+        AbruptStepReceiver.Replace("NEXT_RESULT", nextResult).Replace("CALL", call);
+
+    // Every helper that consumes the underlying iterator, eager and lazy alike, plus Iterator.concat.
+    // join was already right; it is kept as the control the others are brought level with.
+    public static TheoryData<string> ConsumingHelpers() =>
+    [
+        "it.includes(1)",
+        "it.join(',')",
+        "it.some(() => true)",
+        "it.every(() => true)",
+        "it.find(() => true)",
+        "it.forEach(() => {})",
+        "it.reduce((a, b) => a, 0)",
+        "it.toArray()",
+        "it.map(x => x).next()",
+        "it.filter(() => true).next()",
+        "it.take(5).next()",
+        "it.drop(0).next()",
+        "it.flatMap(x => [x]).next()",
+        "it.chunks(2).next()",
+        "it.windows(2).next()",
+        "Iterator.concat(it).next()",
+    ];
+
+    [Theory]
+    [MemberData(nameof(ConsumingHelpers))]
+    public void AThrowingValueGetterDoesNotCloseTheIterator(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            AbruptStepScript(call, "{ done: false, get value() { throw new Error('value getter'); } }")).AsString();
+
+        result.Should().Be("""[0,"value getter"]""");
+    }
+
+    [Theory]
+    [MemberData(nameof(ConsumingHelpers))]
+    public void AThrowingNextDoesNotCloseTheIterator(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            AbruptStepScript(call, "(() => { throw new Error('next'); })()")).AsString();
+
+        result.Should().Be("""[0,"next"]""");
+    }
+
+    [Theory]
+    [MemberData(nameof(ConsumingHelpers))]
+    public void ANonObjectStepResultDoesNotCloseTheIterator(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(AbruptStepScript(call, "7")).AsString();
+
+        result.Should().Be("""[0,"Iterator result 7 is not an object"]""");
+    }
+
+    [Theory]
+    [MemberData(nameof(ConsumingHelpers))]
+    public void AThrowingDoneGetterDoesNotCloseTheIterator(string call)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            AbruptStepScript(call, "{ get done() { throw new Error('done getter'); } }")).AsString();
+
+        result.Should().Be("""[0,"done getter"]""");
+    }
+
+    [Theory]
+    // A step that completed abruptly left the record done and the helper's generator completed, so
+    // %IteratorHelperPrototype%.return resumes nothing and forwards nothing either.
+    [InlineData("it.map(x => x)")]
+    [InlineData("it.filter(() => true)")]
+    [InlineData("it.take(5)")]
+    [InlineData("it.drop(0)")]
+    [InlineData("it.flatMap(x => [x])")]
+    [InlineData("it.chunks(2)")]
+    [InlineData("it.windows(2)")]
+    public void ReturnIsNotForwardedAfterAnAbruptStep(string helper)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(AbruptStepScript(
+            $"const h = {helper}; try {{ h.next(); }} catch (e) {{ }} h.return()",
+            "{ done: false, get value() { throw new Error('value getter'); } }")).AsString();
+
+        result.Should().Be("""[0,"no throw"]""");
+    }
 }
