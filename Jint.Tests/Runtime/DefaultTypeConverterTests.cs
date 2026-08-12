@@ -102,4 +102,73 @@ public class DefaultTypeConverterTests
 
         Invoking(() => engine.Execute("callInt('not a number')")).Should().ThrowExactly<FormatException>();
     }
+
+    /// <summary>
+    /// The generic pass-through matches on the generic type *definition*, so on its own it would call a
+    /// <c>List&lt;object&gt;</c> assignable to <c>IEnumerable&lt;string&gt;</c> and hand it over unconverted -
+    /// which then dies inside a reflection invoke as a raw ArgumentException
+    /// (https://github.com/sebastienros/jint/issues/2987).
+    /// </summary>
+    [Fact]
+    public void ShouldNotPassIncompatibleTypeArgumentsThrough()
+    {
+        var converter = new DefaultTypeConverter(new Engine());
+
+        converter.TryConvert(new List<object> { "a" }, typeof(IEnumerable<string>), CultureInfo.InvariantCulture, out _)
+            .Should().BeFalse();
+        converter.TryConvert(new List<int> { 1 }, typeof(IEnumerable<object>), CultureInfo.InvariantCulture, out _)
+            .Should().BeFalse("boxing is not variance");
+    }
+
+    [Fact]
+    public void ShouldStillPassGenuinelyAssignableValuesThrough()
+    {
+        var converter = new DefaultTypeConverter(new Engine());
+
+        // reference-type covariance is real assignability and short-circuits before the generic check
+        var source = new List<string> { "a" };
+        converter.TryConvert(source, typeof(IEnumerable<object>), CultureInfo.InvariantCulture, out var covariant)
+            .Should().BeTrue();
+        covariant.Should().BeSameAs(source);
+
+        IDictionary<string, object?> expando = new ExpandoObject();
+        converter.TryConvert(expando, typeof(IDictionary<string, object?>), CultureInfo.InvariantCulture, out var same)
+            .Should().BeTrue();
+        same.Should().BeSameAs(expando);
+
+        // a JS array still materializes into the requested collection type, that branch runs first
+        converter.TryConvert(new object?[] { 1d, 2d }, typeof(IList<int>), CultureInfo.InvariantCulture, out var list)
+            .Should().BeTrue();
+        list.Should().BeOfType<List<int>>().Which.Should().Equal(1, 2);
+    }
+
+    /// <summary>
+    /// Accepted consequence of the tightened pass-through: a member the value cannot legally be assigned to
+    /// used to be converted "successfully" and then silently dropped by ReflectionExtensions.SetValue.
+    /// An error is the better answer, but it is a behavior change worth pinning.
+    /// </summary>
+    [Fact]
+    public void ObjectLiteralMemberThatCannotBeAssignedNowErrorsInsteadOfBeingDropped()
+    {
+        var engine = new Engine();
+        engine.SetValue("Holder", typeof(SequenceHolder));
+        engine.SetValue("objects", new List<object> { "a", "b" });
+
+        // a List<object> is not an IEnumerable<string>, and unlike a JS array it has no element-wise
+        // conversion path - it used to be "converted" unchanged and then dropped by the member write
+        Invoking(() => engine.Evaluate("Holder.Describe({ Items: objects })"))
+            .Should().Throw<Exception>();
+
+        // the assignable shapes still map
+        engine.Evaluate("Holder.Describe({ Items: ['a', 'b'] })").AsString().Should().Be("a,b");
+        engine.SetValue("strings", new List<string> { "a", "b" });
+        engine.Evaluate("Holder.Describe({ Items: strings })").AsString().Should().Be("a,b");
+    }
+
+    public class SequenceHolder
+    {
+        public IEnumerable<string>? Items { get; set; }
+
+        public static string Describe(SequenceHolder holder) => string.Join(",", holder.Items ?? []);
+    }
 }

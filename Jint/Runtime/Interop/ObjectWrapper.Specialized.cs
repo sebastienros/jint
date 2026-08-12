@@ -36,6 +36,43 @@ internal sealed class ReadOnlyListWrapperFactory<[DynamicallyAccessedMembers(Dyn
         => new ReadOnlyListWrapper<T>(engine, (IReadOnlyList<T>) target, type);
 }
 
+/// <summary>
+/// Enumerates a sequence that has no count and no indexer into the array-backed view
+/// <see cref="EnumerableConversionMode.Snapshot"/> exposes. Resolved once per exposed type, like
+/// <see cref="ArrayLikeWrapperFactory"/>, and deliberately kept in a cache of its own: that one is consulted
+/// for every crossing whatever the engine's options say, while this one exists only for the engines that
+/// asked for snapshots.
+/// </summary>
+internal abstract class EnumerableSnapshotFactory
+{
+    public abstract ArrayLikeWrapper Create(Engine engine, IEnumerable target);
+}
+
+internal sealed class EnumerableSnapshotFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : EnumerableSnapshotFactory
+{
+    public override ArrayLikeWrapper Create(Engine engine, IEnumerable target)
+        => new ArrayWrapper<T>(engine, new List<T>((IEnumerable<T>) target).ToArray(), typeof(T[]));
+}
+
+/// <summary>
+/// The snapshot of a sequence whose element type is not known — a non-generic <see cref="IEnumerable"/>.
+/// </summary>
+internal sealed class ObjectEnumerableSnapshotFactory : EnumerableSnapshotFactory
+{
+    internal static readonly ObjectEnumerableSnapshotFactory Instance = new();
+
+    public override ArrayLikeWrapper Create(Engine engine, IEnumerable target)
+    {
+        var items = new List<object?>();
+        foreach (var item in target)
+        {
+            items.Add(item);
+        }
+
+        return new ArrayWrapper<object?>(engine, items.ToArray(), typeof(object?[]));
+    }
+}
+
 internal abstract class ArrayLikeWrapper : ObjectWrapper
 {
     /// <summary>

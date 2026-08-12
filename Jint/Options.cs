@@ -431,6 +431,16 @@ public class Options
         public ArrayConversionMode ArrayConversion { get; set; } = ArrayConversionMode.LiveView;
 
         /// <summary>
+        /// How a CLR sequence that is <em>only</em> an <see cref="System.Collections.Generic.IEnumerable{T}"/> — a LINQ
+        /// iterator, a generator method's result, any lazily computed sequence with no <c>Count</c> and no indexer — is
+        /// exposed to script code. Defaults to <see cref="Jint.EnumerableConversionMode.Lazy"/>, which changes nothing.
+        /// Collections that already have a count (<see cref="System.Collections.Generic.ICollection{T}"/>,
+        /// <see cref="System.Collections.Generic.IList{T}"/>, <c>T[]</c>) and dictionaries are unaffected by this
+        /// option; they are exposed exactly as before. See the enum members.
+        /// </summary>
+        public EnumerableConversionMode EnumerableConversion { get; set; } = EnumerableConversionMode.Lazy;
+
+        /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
@@ -911,4 +921,35 @@ public enum ArrayConversionMode
     /// </para>
     /// </summary>
     LiveView,
+}
+
+/// <summary>
+/// Strategy for exposing a CLR sequence that is only an <see cref="System.Collections.Generic.IEnumerable{T}"/> to
+/// script code, see <see cref="Options.InteropOptions.EnumerableConversion"/>.
+/// </summary>
+public enum EnumerableConversionMode
+{
+    /// <summary>
+    /// The sequence is exposed as an opaque wrapper carrying <c>Symbol.iterator</c>. It is enumerated only when
+    /// script asks it to be — <c>for-of</c>, spread, <c>Array.from</c> — and each of those enumerates it again,
+    /// exactly as enumerating the sequence from CLR code would. It is not array-like: it has no <c>length</c>, no
+    /// index access, and no <c>Array.prototype</c>, so the natives every JavaScript author expects on a list are
+    /// absent unless a registered extension method supplies them. This is the default.
+    /// </summary>
+    Lazy,
+
+    /// <summary>
+    /// The sequence is enumerated once, when it crosses into script, and exposed as a fixed-size array-like view
+    /// over that snapshot — <c>length</c>, index reads, <c>Array.prototype</c> and JSON serialization as an array
+    /// all work, while <c>Array.isArray</c> stays <c>false</c> just as for a wrapped <c>T[]</c>.
+    /// <para>
+    /// Two consequences follow from enumerating eagerly, and they are the reason this is not the default. The
+    /// sequence's side effects happen at the crossing rather than when script first looks, and a sequence that
+    /// never ends never returns. Later CLR-side changes are not observed either: the view is a snapshot, and
+    /// writes through it reach only the snapshot. Sequences that already have a count
+    /// (<see cref="System.Collections.Generic.ICollection{T}"/>, <see cref="System.Collections.Generic.IList{T}"/>,
+    /// <c>T[]</c>) and dictionaries are never snapshotted; they keep their existing, live exposure.
+    /// </para>
+    /// </summary>
+    Snapshot,
 }

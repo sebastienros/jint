@@ -65,52 +65,48 @@ internal sealed class MethodInfoFunction : Function
         return false;
     }
 
-    private static void HandleGenericParameter(object? argObj, Type parameterType, Type[] genericArgTypes)
+    /// <summary>
+    /// Records the type arguments a <em>constructed</em> generic parameter (<c>IEnumerable&lt;T&gt;</c>,
+    /// <c>ISelector&lt;TState, TResult&gt;</c>) implies, read off the constructed base/interface the argument
+    /// actually matches. These are <em>pins</em>: the matching argument is handed to the method unconverted
+    /// (see <see cref="IsGenericParameter"/> and the binding loop in <see cref="TryCall"/>), so only this
+    /// exact instantiation can bind and no other parameter may overrule it.
+    /// </summary>
+    /// <remarks>
+    /// When the argument's type implements the same generic interface more than once
+    /// (<c>class Multi : IEnumerable&lt;string&gt;, IEnumerable&lt;int&gt;</c>) the pin follows whichever
+    /// instantiation <c>Type.GetInterfaces()</c> reports first, which is the same arbitrary choice this
+    /// inference has always made for a method whose type arguments come only from such a parameter.
+    /// </remarks>
+    private static void PinGenericArguments(Type argType, Type parameterType, Type[] pinnedArgTypes)
     {
-        if (argObj is null)
-        {
-            return;
-        }
-
-        var result = InteropHelper.IsAssignableToGenericType(argObj.GetType(), parameterType);
+        var result = InteropHelper.IsAssignableToGenericType(argType, parameterType);
         if (result.Score < 0)
         {
+            // e.g. a JS function, whose CLR shape is always JsCallDelegate, probed against Func<T, TResult>:
+            // nothing about T or TResult can be learned from it
             return;
         }
 
-        if (parameterType.IsGenericParameter)
+        // TPC: maybe we can pull the generic parameters from the arguments?
+        var genericArgs = parameterType.GetGenericArguments();
+        var givenTypeGenericArgs = result.MatchingGivenType.GetGenericArguments();
+        for (var j = 0; j < genericArgs.Length && j < givenTypeGenericArgs.Length; ++j)
         {
-            var genericParamPosition = parameterType.GenericParameterPosition;
-            if (genericParamPosition >= 0)
+            var genericArg = genericArgs[j];
+            if (genericArg.IsGenericParameter)
             {
-                genericArgTypes[genericParamPosition] = argObj.GetType();
-            }
-        }
-        else if (parameterType.IsGenericType)
-        {
-            // TPC: maybe we can pull the generic parameters from the arguments?
-            var genericArgs = parameterType.GetGenericArguments();
-            for (int j = 0; j < genericArgs.Length; ++j)
-            {
-                var genericArg = genericArgs[j];
-                if (genericArg.IsGenericParameter)
+                var position = genericArg.GenericParameterPosition;
+                if ((uint) position < (uint) pinnedArgTypes.Length)
                 {
-                    var genericParamPosition = genericArg.GenericParameterPosition;
-                    if (genericParamPosition >= 0)
-                    {
-                        var givenTypeGenericArgs = result.MatchingGivenType.GetGenericArguments();
-                        genericArgTypes[genericParamPosition] = givenTypeGenericArgs[j];
-                    }
+                    // a position belonging to the declaring type rather than to the method is out of range here
+                    pinnedArgTypes[position] = givenTypeGenericArgs[j];
                 }
             }
         }
-        else
-        {
-            return;
-        }
     }
 
-    private static MethodBase ResolveMethod(MethodDescriptor descriptor, ParameterInfo[] methodParameters, JsCallArguments arguments)
+    private static MethodBase? ResolveMethod(MethodDescriptor descriptor, ParameterInfo[] methodParameters, JsCallArguments arguments)
     {
         var method = descriptor.Method;
         if (!descriptor.IsGenericMethod)
@@ -129,25 +125,68 @@ internal sealed class MethodInfoFunction : Function
         var methodGenericArgs = method.GetGenericArguments();
         var genericArgTypes = new Type[methodGenericArgs.Length];
 
+        // A bare "T item" parameter only *hints* at its type argument: that argument still goes through
+        // ITypeConverter on the way in, so it can widen, while a pin cannot - which is why a hint must never
+        // overrule a pin (#2987: "includes<T>(this IEnumerable<T>, T item)" on an IEnumerable<object> used to
+        // be re-inferred as includes<string> from its argument and then failed to bind its own receiver).
+        // Collected separately, and allocated only for the methods that actually have such a parameter.
+        Type[]? hintedArgTypes = null;
+
         for (var i = 0; i < methodParameters.Length; ++i)
         {
-            var methodParameter = methodParameters[i];
-            var parameterType = methodParameter.ParameterType;
-            var argObj = i < arguments.Length ? arguments[i].ToObject() : typeof(object);
-            HandleGenericParameter(argObj, parameterType, genericArgTypes);
-        }
-
-        for (int i = 0; i < genericArgTypes.Length; ++i)
-        {
-            if (genericArgTypes[i] == null)
+            var parameterType = methodParameters[i].ParameterType;
+            var isGenericParameter = parameterType.IsGenericParameter;
+            if (!isGenericParameter && !parameterType.IsGenericType)
             {
-                // this is how we're dealing with things like "void" return types - you can't use "void" as a type:
-                genericArgTypes[i] = typeof(object);
+                // nothing to infer from this parameter - and skipping it also skips its ToObject(), which
+                // for a JS object literal materializes a CLR object and runs the literal's getters
+                continue;
+            }
+
+            // an elided optional argument contributes nothing; it must not be inferred from a sentinel
+            var argObj = i < arguments.Length ? arguments[i].ToObject() : null;
+            if (argObj is null)
+            {
+                continue;
+            }
+
+            if (isGenericParameter)
+            {
+                // IsAssignableToGenericType answers a constant "score 2, matches the given type" for a bare
+                // generic parameter (it is never IsConstructedGenericType), so it is not consulted here
+                var position = parameterType.GenericParameterPosition;
+                if ((uint) position < (uint) genericArgTypes.Length)
+                {
+                    // last hint wins, as before: Fancy<T, U>(T, U, T) infers T from its final argument
+                    (hintedArgTypes ??= new Type[genericArgTypes.Length])[position] = argObj.GetType();
+                }
+            }
+            else
+            {
+                PinGenericArguments(argObj.GetType(), parameterType, genericArgTypes);
             }
         }
 
-        var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
-        return genericMethodInfo;
+        for (var i = 0; i < genericArgTypes.Length; ++i)
+        {
+            // pin, else hint, else object - the last is also how a type argument appearing only in the return
+            // type is closed, since "void" cannot be used as a type argument
+            genericArgTypes[i] ??= hintedArgTypes?[i] ?? typeof(object);
+        }
+
+        try
+        {
+            return methodInfo.MakeGenericMethod(genericArgTypes);
+        }
+        catch (ArgumentException)
+        {
+            // the inferred type arguments violate the method's constraints, so this candidate simply does not
+            // apply. Declining lets overload resolution move on, and an exhausted candidate list becomes a
+            // catchable TypeError instead of a CLR exception escaping Engine.Evaluate. Deliberately not
+            // NotSupportedException, which under NativeAOT means "this instantiation was not rooted" and has
+            // to stay diagnosable.
+            return null;
+        }
     }
 
     private readonly record struct MethodResolverState(Engine Engine, JsValue This, JsCallArguments Arguments);
@@ -340,6 +379,12 @@ internal sealed class MethodInfoFunction : Function
 
         var methodParameters = method.Parameters;
         var resolvedMethod = ResolveMethod(method, methodParameters, arguments);
+        if (resolvedMethod is null)
+        {
+            // the inferred type arguments could not close this generic method - not a candidate
+            return false;
+        }
+
         // We only need to call GetParameters it if this ends up being a generic method (i.e. they will be different in that scenario)
         var isGenericDefinition = false;
         var parameterFlags = method.ParameterFlags;
@@ -436,7 +481,22 @@ internal sealed class MethodInfoFunction : Function
             if (isGenericDefinition)
             {
                 // the resolved generic method differs per call, cannot use the cached invoker
-                var result = resolvedMethod.Invoke(thisObj, parameters);
+                object? result;
+                try
+                {
+                    result = resolvedMethod.Invoke(thisObj, parameters);
+                }
+                catch (ArgumentException)
+                {
+                    // MethodBase.Invoke always wraps what the *body* threw in a TargetInvocationException, so
+                    // a bare ArgumentException out of it can only be the binder rejecting an argument the
+                    // inferred instantiation cannot accept. That is "this candidate does not apply", not a
+                    // host failure - report it as such rather than letting a CLR exception escape Evaluate.
+                    // Only the invoke is guarded; the conversion below has ArgumentException paths of its own.
+                    _engine.CheckAmortizedConstraintsAtHostBoundary();
+                    return false;
+                }
+
                 // conversion before the check so an awaitable result gets its continuation attached
                 callResult = FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
                 _engine.CheckAmortizedConstraintsAtHostBoundary();

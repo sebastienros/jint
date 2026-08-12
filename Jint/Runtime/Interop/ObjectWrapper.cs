@@ -246,8 +246,60 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // least specific
             result = new ListWrapper(engine, list, type);
         }
+        else if (engine.Options.Interop.EnumerableConversion == EnumerableConversionMode.Snapshot
+                 && target is IEnumerable enumerable
+                 && target is not string)
+        {
+            // Everything above had a count and an indexer to build a view from. A sequence that has neither -
+            // a LINQ iterator, a generator method's result - can only be given one by enumerating it, which
+            // the host has to ask for because it is eager and one-shot (#2987). Deliberately narrow: the type
+            // descriptor must report neither array-like nor dictionary, so an ICollection<T> such as
+            // HashSet<T> keeps its live exposure and a Dictionary<K, V> is not mistaken for a sequence of
+            // pairs merely because it enumerates as one.
+            var descriptor = TypeDescriptor.Get(type);
+            if (!descriptor.IsArrayLike && !descriptor.IsDictionary)
+            {
+                result = ResolveEnumerableSnapshotFactory(type).Create(engine, enumerable);
+            }
+        }
 
         return result is not null;
+    }
+
+    private static readonly ConcurrentDictionary<Type, EnumerableSnapshotFactory> _enumerableSnapshotResolution = new();
+
+    private static EnumerableSnapshotFactory ResolveEnumerableSnapshotFactory(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+    {
+        return _enumerableSnapshotResolution.GetOrAdd(type, static t =>
+        {
+#pragma warning disable IL2055
+#pragma warning disable IL2070
+#pragma warning disable IL3050
+            foreach (var i in t.GetInterfaces())
+            {
+                if (i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                {
+                    try
+                    {
+                        var factoryType = typeof(EnumerableSnapshotFactory<>).MakeGenericType(i.GenericTypeArguments[0]);
+                        return (EnumerableSnapshotFactory) Activator.CreateInstance(factoryType)!;
+                    }
+                    catch (MissingMethodException)
+                    {
+                        // trimmed/AOT: the closed factory was removed, snapshot as objects instead
+                        break;
+                    }
+                }
+            }
+#pragma warning restore IL3050
+#pragma warning restore IL2070
+#pragma warning restore IL2055
+
+            // a type implementing IEnumerable<T> more than once takes the first one, the same arbitrary
+            // choice every other interface scan on this path makes
+            return ObjectEnumerableSnapshotFactory.Instance;
+        });
     }
 
     public object Target { get; }
