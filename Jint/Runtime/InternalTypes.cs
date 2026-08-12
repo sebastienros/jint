@@ -105,7 +105,11 @@ internal enum InternalTypes
     // (Function and StringInstance do), which suppresses this flag at derivation. Derived in
     // InitializeBuiltinShape, cleared on deopt, and only meaningful while BuiltinShapeMode is set.
     BuiltinShapeIndexAuthoritative = 33554432,
+    // Internal trampoline payload. Deliberately neither Undefined nor any other ECMAScript type:
+    // if a tail request escapes its completion-only path, ordinary value operations must fail
+    // rather than silently observing a pooled request as `undefined`.
+    TailCall = 67108864,
 
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall
 }

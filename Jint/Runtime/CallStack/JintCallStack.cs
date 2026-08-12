@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -61,6 +62,11 @@ internal sealed class JintCallStack
         Native.Function.LeafCallGuard.AssertNotInLeafCall("a nested call (JintCallStack.Push)");
 
         var item = new CallStackElement(function, expression, new CallStackExecutionContext(in executionContext));
+        return Push(in item);
+    }
+
+    private int Push(in CallStackElement item)
+    {
         _stack.Push(in item);
         if (_statistics is not null)
         {
@@ -82,6 +88,11 @@ internal sealed class JintCallStack
         return -1;
     }
 
+    internal void RestoreTop(in CallStackElement item)
+    {
+        Push(in item);
+    }
+
     public CallStackElement Pop()
     {
         var item = _stack.Pop();
@@ -98,6 +109,69 @@ internal sealed class JintCallStack
         }
 
         return item;
+    }
+
+    public bool TryPop([NotNullWhen(true)] out CallStackElement item)
+    {
+        if (_stack._size == 0)
+        {
+            item = default;
+            return false;
+        }
+
+        item = Pop();
+        return true;
+    }
+
+    public void ReplaceTop(Function function, JintExpression? expression)
+    {
+        ref var top = ref _stack._array[_stack._size - 1];
+        var previous = top;
+        var replacement = new CallStackElement(function, expression, in previous.CallingExecutionContext);
+
+        if (_statistics is not null && !CallStackElementComparer.Instance.Equals(previous, replacement))
+        {
+            if (_statistics[previous] == 0)
+            {
+                _statistics.Remove(previous);
+            }
+            else
+            {
+                _statistics[previous]--;
+            }
+
+            if (_statistics.TryGetValue(replacement, out var depth))
+            {
+                _statistics[replacement] = depth + 1;
+            }
+            else
+            {
+                _statistics.Add(replacement, 0);
+            }
+        }
+
+        top = replacement;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TopIs(Function function)
+        => _stack._size > 0 && ReferenceEquals(_stack._array[_stack._size - 1].Function, function);
+
+    internal int GetRecursionDepth(Function function)
+    {
+        if (_statistics is null)
+        {
+            return -1;
+        }
+
+        var item = new CallStackElement(function, null, default);
+        return _statistics.TryGetValue(item, out var depth) ? depth : -1;
+    }
+
+    internal int GetNextRecursionDepth(Function function)
+    {
+        var depth = GetRecursionDepth(function);
+        return depth < 0 ? 0 : depth + 1;
     }
 
     public bool TryPeek([NotNullWhen(true)] out CallStackElement item)

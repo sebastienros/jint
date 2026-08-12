@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.AsyncFunction;
@@ -383,8 +384,20 @@ internal sealed class JintFunctionDefinition
         var stateOrFullSourceText = node.UserData;
         if (stateOrFullSourceText is not State state)
         {
-            node.UserData = state = BuildState(Function, stateOrFullSourceText as string);
+            lock (node)
+            {
+                stateOrFullSourceText = node.UserData;
+                if (stateOrFullSourceText is not State initializedState)
+                {
+                    initializedState = BuildState(Function, stateOrFullSourceText as string);
+                    Thread.MemoryBarrier();
+                    node.UserData = initializedState;
+                }
+
+                state = initializedState;
+            }
         }
+
         return state;
     }
 
@@ -493,6 +506,9 @@ internal sealed class JintFunctionDefinition
         /// runtime, exactly as <see cref="SupportsLeafCall"/>'s callers do.
         /// </summary>
         public bool SupportsRegisterCall;
+
+        // Release/acquire publication for the tail markers stored on child AST nodes.
+        public int TailCallMarkersInitialized;
 
         public bool EnvironmentMayEscape;
         // True when the function body contains a direct call to itself by name. Tight recursion
@@ -899,6 +915,140 @@ internal sealed class JintFunctionDefinition
         state.SourceText = new SourceText(fullSourceText);
 
         return state;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void EnsureTailCallMarkers(State state, bool strict)
+    {
+        if (state.TailCallMarkersInitialized == 0 && strict)
+        {
+            EnsureTailCallMarkersSlow(state);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void EnsureTailCallMarkersSlow(State state)
+    {
+        lock ((Node) Function)
+        {
+            if (state.TailCallMarkersInitialized == 0)
+            {
+                if (!Function.Generator && !Function.Async)
+                {
+                    TailCallAstVisitor.Mark(Function.Body);
+                }
+
+                Volatile.Write(ref state.TailCallMarkersInitialized, 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-isintailposition
+    /// <para>
+    /// Marks the call expressions for which EvaluateCall performs PrepareForTailCall.
+    /// The marker is immutable AST metadata, so prepared functions can share it across engines.
+    /// </para>
+    /// </summary>
+    private static class TailCallAstVisitor
+    {
+        public static void Mark(Node body)
+        {
+            if (body is Expression expression)
+            {
+                MarkTailExpression(expression);
+                return;
+            }
+
+            MarkReturns(body, blockedByCleanup: false);
+        }
+
+        private static void MarkReturns(Node node, bool blockedByCleanup)
+        {
+            if (node is IFunction)
+            {
+                return;
+            }
+
+            if (node is ReturnStatement returnStatement)
+            {
+                if (!blockedByCleanup && returnStatement.Argument is not null)
+                {
+                    MarkTailExpression(returnStatement.Argument);
+                }
+                return;
+            }
+
+            if (node is BlockStatement block)
+            {
+                var precedingUsing = blockedByCleanup;
+                foreach (var statement in block.Body)
+                {
+                    MarkReturns(statement, precedingUsing);
+                    precedingUsing |= statement is VariableDeclaration
+                    {
+                        Kind: VariableDeclarationKind.Using or VariableDeclarationKind.AwaitUsing
+                    };
+                }
+                return;
+            }
+
+            if (node is TryStatement tryStatement)
+            {
+                var hasFinalizer = tryStatement.Finalizer is not null;
+                MarkReturns(tryStatement.Block, blockedByCleanup || hasFinalizer || tryStatement.Handler is not null);
+                if (tryStatement.Handler is not null)
+                {
+                    MarkReturns(tryStatement.Handler.Body, blockedByCleanup || hasFinalizer);
+                }
+                if (tryStatement.Finalizer is not null)
+                {
+                    MarkReturns(tryStatement.Finalizer, blockedByCleanup);
+                }
+                return;
+            }
+
+            if (node is ForOfStatement)
+            {
+                blockedByCleanup = true;
+            }
+
+            foreach (var child in node.ChildNodes)
+            {
+                MarkReturns(child, blockedByCleanup);
+            }
+        }
+
+        private static void MarkTailExpression(Expression expression)
+        {
+            switch (expression)
+            {
+                case CallExpression call:
+                    call.UserData = TailCallMarker.Instance;
+                    break;
+
+                case TaggedTemplateExpression taggedTemplate:
+                    taggedTemplate.UserData = TailCallMarker.Instance;
+                    break;
+
+                case ChainExpression chain:
+                    MarkTailExpression(chain.Expression);
+                    break;
+
+                case ConditionalExpression conditional:
+                    MarkTailExpression(conditional.Consequent);
+                    MarkTailExpression(conditional.Alternate);
+                    break;
+
+                case LogicalExpression logical:
+                    MarkTailExpression(logical.Right);
+                    break;
+
+                case SequenceExpression sequence when sequence.Expressions.Count > 0:
+                    MarkTailExpression(sequence.Expressions[^1]);
+                    break;
+            }
+        }
     }
 
     /// <summary>

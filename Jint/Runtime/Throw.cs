@@ -254,10 +254,15 @@ internal static class Throw
     }
 
     [DoesNotReturn]
-    public static void RecursionDepthOverflowException(JintCallStack currentStack)
+    public static void RecursionDepthOverflowException(JintCallStack currentStack, bool preserveTop = false)
     {
-        var currentExpressionReference = currentStack.Pop().ToString();
-        throw new RecursionDepthOverflowException(currentStack, currentExpressionReference);
+        var current = currentStack.Pop();
+        var exception = new RecursionDepthOverflowException(currentStack, current.ToString());
+        if (preserveTop)
+        {
+            currentStack.RestoreTop(in current);
+        }
+        throw exception;
     }
 
     [DoesNotReturn]

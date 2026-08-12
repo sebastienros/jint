@@ -199,10 +199,15 @@ public static class OptionsExtensions
     /// disables the check, and with it the call-stack depth tracking that feeds it.
     /// </param>
     /// <remarks>
+    /// Proper tail calls do not consume native or interpreter call-stack frames, but repeated tail
+    /// transfers are still included in this limit so an infinite strict tail-recursive function
+    /// terminates with <see cref="RecursionDepthOverflowException"/>.
+    /// <para>
     /// Unlike the constraint helpers in <see cref="ConstraintsOptionsExtensions"/>, this one does not
     /// treat a saturated value as "no limit": any non-negative depth — <see cref="int.MaxValue"/>
     /// included — turns depth tracking on, so a limit chosen to be unreachable still costs what
     /// enforcement costs while never failing. Pass a negative depth to mean unlimited.
+    /// </para>
     /// </remarks>
     /// <returns>Options instance for fluent syntax</returns>
     public static Options LimitRecursion(this Options options, int maxRecursionDepth = 0)

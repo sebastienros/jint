@@ -21,6 +21,7 @@ internal sealed class JintCallExpression : JintExpression
     // `_calleeMember` doubles as the already-narrowed receiver for the fast member-call lane.
     private readonly bool _calleeIsSuper;
     private readonly JintMemberExpression? _calleeMember;
+    private readonly bool _isTailPosition;
 
     // Monomorphic fast-call cache: the callee seen by the last evaluation plus its verdict for this
     // site's arity. Identity is what makes the verdict safe to reuse — re-assigning the property
@@ -87,6 +88,7 @@ internal sealed class JintCallExpression : JintExpression
         _calleeExpression = Build(expression.Callee);
         _calleeIsSuper = _calleeExpression._expression.Type == NodeType.Super;
         _calleeMember = _calleeExpression as JintMemberExpression;
+        _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
 
         _argCount = expression.Arguments.Count;
         _fastArgsEligible = !_arguments.HasSpreads && _argCount <= 2;
@@ -114,6 +116,7 @@ internal sealed class JintCallExpression : JintExpression
         // balance their context push/pop), so capture it once and probe the reference instead
         // of re-reading the execution context after every sub-expression.
         var suspendable = engine.ExecutionContext.Suspendable;
+        var tailPosition = ScriptFunction.CanPrepareTailCall(context, _isTailPosition);
 
         object reference;
         Reference? referenceRecord;
@@ -231,6 +234,8 @@ internal sealed class JintCallExpression : JintExpression
             reference = calleeReference;
         }
 
+        var tailCall = tailPosition && func is ScriptFunction;
+
         // Fast-call lane. Gated on callee identity, so a re-assigned or shadowed built-in, a different
         // engine's instance, or any non-built-in callee simply misses and takes the path below.
         // Debug mode is excluded because the debugger walks the call stack, and generator/async frames
@@ -273,10 +278,8 @@ internal sealed class JintCallExpression : JintExpression
         // runtime test — second, because it can only exclude a site the compare already accepted.
         if (ReferenceEquals(func, _regCallee) && suspendable is null)
         {
-            return RegisterLaneCall(context, engine, Unsafe.As<ScriptFunction>(func), thisObject, referenceRecord);
+            return RegisterLaneCall(context, engine, Unsafe.As<ScriptFunction>(func), thisObject, referenceRecord, tailCall);
         }
-
-        var tailCall = IsInTailPosition((CallExpression) _expression);
 
         var arguments = this._arguments.ArgumentListEvaluation(context, this, out var rented);
 
@@ -306,13 +309,28 @@ internal sealed class JintCallExpression : JintExpression
             ThrowReferenceNotFunction(referenceRecord, reference, engine);
         }
 
-        var callable = Unsafe.As<ICallable>(func);
-
         if (tailCall)
         {
-            // TODO tail call
-            // PrepareForTailCall();
+            if (referenceRecord is not null)
+            {
+                engine._referencePool.Return(referenceRecord);
+            }
+
+            var tailTarget = (ScriptFunction) func;
+            if (_regLaneEligible && !ReferenceEquals(tailTarget, _regProbedCallee))
+            {
+                ProbeRegisterCallee(engine, tailTarget);
+            }
+
+            return engine.RentTailCallRequest(
+                tailTarget,
+                thisObject,
+                arguments,
+                rented,
+                _calleeExpression);
         }
+
+        var callable = Unsafe.As<ICallable>(func);
 
         // ensure logic is in sync between Call, Construct and JintCallExpression!
 
@@ -331,15 +349,14 @@ internal sealed class JintCallExpression : JintExpression
 
             try
             {
-                result = functionInstance.Call(thisObject, arguments);
+                result = functionInstance is ScriptFunction scriptFunction
+                    ? scriptFunction.CallWithStackFrame(thisObject, arguments)
+                    : functionInstance.Call(thisObject, arguments);
             }
             finally
             {
                 // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                if (callStack.Count > 0)
-                {
-                    callStack.Pop();
-                }
+                callStack.TryPop(out _);
             }
 
             // Populate the fast-call cache after a successful dispatch, so the *next* evaluation of
@@ -449,7 +466,8 @@ internal sealed class JintCallExpression : JintExpression
         Engine engine,
         ScriptFunction target,
         JsValue thisObject,
-        Reference? referenceRecord)
+        Reference? referenceRecord,
+        bool tailCall)
     {
         var state = _regState!;
 
@@ -466,6 +484,20 @@ internal sealed class JintCallExpression : JintExpression
             engine._referencePool.Return(referenceRecord);
         }
 
+        if (tailCall)
+        {
+            return engine.RentTailCallRequest(
+                target,
+                thisObject,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                _argCount,
+                state,
+                _calleeExpression);
+        }
+
         var callStack = engine.CallStack;
         var recursionDepth = callStack.Push(target, _calleeExpression, engine.ExecutionContext);
 
@@ -477,15 +509,20 @@ internal sealed class JintCallExpression : JintExpression
 
         try
         {
-            return target.CallFromRegisters(thisObject, arg0, arg1, arg2, arg3, _argCount, state);
+            return target.CallFromRegisters(
+                thisObject,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                _argCount,
+                state,
+                ownsFrame: true);
         }
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
@@ -577,10 +614,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
@@ -685,10 +719,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         finally
         {
-            if (callStack.Count > 0)
-            {
-                callStack.Pop();
-            }
+            callStack.TryPop(out _);
         }
     }
 
@@ -786,12 +817,13 @@ internal sealed class JintCallExpression : JintExpression
         return superConstructor;
     }
 
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-isintailposition
-    /// </summary>
-    private static bool IsInTailPosition(CallExpression call)
+}
+
+internal sealed class TailCallMarker
+{
+    internal static readonly TailCallMarker Instance = new();
+
+    private TailCallMarker()
     {
-        // TODO tail calls
-        return false;
     }
 }

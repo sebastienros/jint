@@ -318,6 +318,7 @@ public sealed partial class Engine : IDisposable
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
     internal readonly ObjectTraverseStackPool _objectTraverseStackPool;
+    internal TailCallRequest? _tailCallRequest;
     internal readonly ExtensionMethodCache _extensionMethods;
 
     private ITypeConverter _typeConverter = null!;
@@ -1628,15 +1629,14 @@ public sealed partial class Engine : IDisposable
                 callStack.Push(functionInstance, expression: null, ExecutionContext);
                 try
                 {
-                    result = functionInstance.Call(thisObject, items);
+                    result = functionInstance is ScriptFunction scriptFunction
+                        ? scriptFunction.CallWithStackFrame(thisObject, items)
+                        : functionInstance.Call(thisObject, items);
                 }
                 finally
                 {
                     // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    if (callStack.Count > 0)
-                    {
-                        callStack.Pop();
-                    }
+                    callStack.TryPop(out _);
                 }
             }
             else
@@ -2667,15 +2667,14 @@ public sealed partial class Engine : IDisposable
         JsValue result;
         try
         {
-            result = function.Call(thisObject, arguments);
+            result = function is ScriptFunction scriptFunction
+                ? scriptFunction.CallWithStackFrame(thisObject, arguments)
+                : function.Call(thisObject, arguments);
         }
         finally
         {
             // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (CallStack.Count > 0)
-            {
-                CallStack.Pop();
-            }
+            CallStack.TryPop(out _);
         }
 
         return result;
@@ -2700,11 +2699,14 @@ public sealed partial class Engine : IDisposable
         ObjectInstance result;
         try
         {
-            result = ((IConstructor) function).Construct(arguments, newTarget);
+            result = function is ScriptFunction scriptFunction
+                ? scriptFunction.ConstructWithStackFrame(arguments, newTarget)
+                : ((IConstructor) function).Construct(arguments, newTarget);
         }
         finally
         {
-            CallStack.Pop();
+            // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+            CallStack.TryPop(out _);
         }
 
         return result;
