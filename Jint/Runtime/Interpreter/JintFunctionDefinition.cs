@@ -398,8 +398,6 @@ internal sealed class JintFunctionDefinition
             }
         }
 
-        // Pair with the release barrier above so a shared AST never exposes a partially built State.
-        Thread.MemoryBarrier();
         return state;
     }
 
@@ -904,21 +902,27 @@ internal sealed class JintFunctionDefinition
         return state;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void EnsureTailCallMarkers(State state, bool strict)
     {
-        if (!strict
-            || Function.Generator
-            || Function.Async
-            || Volatile.Read(ref state.TailCallMarkersInitialized) != 0)
+        if (state.TailCallMarkersInitialized == 0 && strict)
         {
-            return;
+            EnsureTailCallMarkersSlow(state);
         }
+    }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void EnsureTailCallMarkersSlow(State state)
+    {
         lock ((Node) Function)
         {
             if (state.TailCallMarkersInitialized == 0)
             {
-                TailCallAstVisitor.Mark(Function.Body);
+                if (!Function.Generator && !Function.Async)
+                {
+                    TailCallAstVisitor.Mark(Function.Body);
+                }
+
                 Volatile.Write(ref state.TailCallMarkersInitialized, 1);
             }
         }
