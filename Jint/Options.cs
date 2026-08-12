@@ -677,8 +677,66 @@ public class Options
         /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
         /// Read once, while the engine is being constructed; changing it afterwards has no effect on an
         /// engine that already exists.
+        /// This lane is probed at the call expression only, so a recursion that reaches a function body by
+        /// another route — <c>new</c>, an accessor, a coercion, a Proxy trap — still overflows the native
+        /// stack; <see cref="StackOverflowGuard"/> is the one that covers those, and setting this property
+        /// takes precedence over it.
         /// </remarks>
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
+
+        /// <summary>
+        /// Whether every entry into an interpreted function probes the remaining native stack and throws a
+        /// catchable <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
+        /// <see langword="false"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Turn this on when the engine runs script you did not write. Without it, an unbounded recursion
+        /// ends the host process with a native stack overflow: no <c>catch</c> sees it, no exception is
+        /// raised, nothing is logged, and the process is simply gone. With it, the same script raises an
+        /// ordinary JavaScript error that the script itself can catch and the engine survives to be used
+        /// again. That is the whole trade — a process kill converted into an error value.
+        /// </para>
+        /// <para>
+        /// It measures the stack rather than counting calls, so it covers every route into a function body
+        /// rather than only a call expression: <c>new</c>, a getter or setter, a <c>valueOf</c>/<c>toString</c>
+        /// coercion, a Proxy trap, a callback a built-in invokes, and a host delegate that re-enters the
+        /// engine. Eighteen distinct routes reproduce the overflow, and the engine's older probe sat in the
+        /// call expression, so it saw one of them. Measuring also means the depth follows the stack of the
+        /// thread the engine runs on, instead of a frame count the host had to guess.
+        /// </para>
+        /// <para>
+        /// A proper tail call in a strict function is exempt, and needs to be: it replaces the caller's
+        /// frame rather than stacking one on top, so the recursion runs on a trampoline and consumes no
+        /// native stack at all. The probe sits on the entry points that add a frame, never on the loop the
+        /// trampoline re-enters, so a strict tail recursion neither pays for it nor is stopped by it. What
+        /// remains in scope is everything the trampoline does not carry: sloppy-mode recursion, a call out
+        /// of tail position, and the non-call routes above.
+        /// </para>
+        /// <para>
+        /// It is off by default because it is not free. The probe runs at every entry into an interpreted
+        /// function, and the benchmark gate measured the recursion rows (<c>Fib</c>, <c>DeepSum</c>,
+        /// <c>Tak</c>) 1.7–2.3% slower with it on, agreeing across two order-rotated pairs, with hot shallow
+        /// calls unaffected. The rule fixed before that run was that shipping it on by default needed no
+        /// call row worse than about 1%, so it ships opt-in. A host whose scripts are all its own can bound
+        /// them with <see cref="MaxRecursionDepth"/> and pay nothing; a host sandboxing untrusted input
+        /// generally cannot, and a couple of percent on deep recursion is the price of staying alive.
+        /// </para>
+        /// <para>
+        /// It is a backstop, not a policy. <see cref="MaxRecursionDepth"/> counts frames and is checked
+        /// before the callee is entered, so where both are configured the recursion limit is what fires;
+        /// the probe answers only when no limit was set, or when the limit was set higher than the thread's
+        /// stack can actually hold. <see cref="MaxExecutionStackCount"/> selects the older
+        /// continue-on-a-fresh-thread lane instead, and takes precedence over this flag when both are set,
+        /// because the probe sits a few frames deeper and would reach the condition first — leaving that
+        /// lane nothing to hop with.
+        /// </para>
+        /// <para>
+        /// Read once, while the engine is being constructed; changing it afterwards has no effect on an
+        /// engine that already exists.
+        /// </para>
+        /// </remarks>
+        public bool StackOverflowGuard { get; set; }
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.

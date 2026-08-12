@@ -3,6 +3,7 @@
 
 // https://github.com/dotnet/runtime/blob/a0964f9e3793cb36cc01d66c14a61e89ada5e7da/src/libraries/Microsoft.Extensions.DependencyInjection/src/ServiceLookup/StackGuard.cs
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -21,11 +22,86 @@ internal sealed class StackGuard
     private readonly int _maxExecutionStackCount;
     private readonly bool _enabled;
 
+    // Snapshot of Options.Constraints.StackOverflowGuard, which is opt-in and therefore false on a
+    // default engine. The two lanes are exclusive, and the reason is ordering rather than taste: the
+    // backstop sits inside ScriptFunction, i.e. a few native frames *below* TryEnterOnCurrentStack's
+    // call site, so on a stack low enough for either to fire the backstop reaches the condition first
+    // and would throw where the older lane wanted to hop. MaxExecutionStackCount is the older and more
+    // specific request, so it wins.
+    private readonly bool _backstopEnabled;
+
     public StackGuard(Engine engine)
     {
         _engine = engine;
         _maxExecutionStackCount = engine.Options.Constraints.MaxExecutionStackCount;
         _enabled = _maxExecutionStackCount != Disabled;
+        _backstopEnabled = !_enabled && engine.Options.Constraints.StackOverflowGuard;
+    }
+
+    /// <summary>
+    /// The opt-in backstop against unbounded script recursion
+    /// (<see cref="Options.ConstraintOptions.StackOverflowGuard"/>), run once per entry into an
+    /// interpreted function that adds a native frame — every route into one, not only a call
+    /// expression. Throws a catchable <c>RangeError</c> while there is still stack left to unwind on,
+    /// which is the whole difference between this and the native stack overflow that ends the process.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only the branch on the cached flag is inlined into the caller; the probe and the throw are both
+    /// out of line. So the four <see cref="Native.Function.ScriptFunction"/> entry points that call this
+    /// — <c>Call</c>, <c>CallWithStackFrame</c>, <c>CallFromRegisters</c> and <c>Construct</c> — pay one
+    /// predictable test of a <see langword="bool"/> field per call when the guard is off, which is what
+    /// makes it affordable to have the sites there unconditionally: the placement is what covers the
+    /// routes a call expression never sees, and it is worth keeping whether or not this engine opted in.
+    /// </para>
+    /// <para>
+    /// Those four are exactly the entries that grow the native stack, which is why the probe is not in
+    /// <c>CallOnce</c> or <c>CallCore</c> even though every call funnels through them. Both are re-entered
+    /// from <c>ContinueTailCalls</c>' loop, where a proper tail call has replaced the caller's frame
+    /// rather than stacked one on top: there is no stack to probe for, and probing anyway would charge a
+    /// strict tail recursion once per hop.
+    /// </para>
+    /// <para>
+    /// The probe is <c>RuntimeHelpers.TryEnsureSufficientExecutionStack</c>: it asks the runtime
+    /// whether a fixed reserve is still available below the current frame, so it adapts to the thread the
+    /// engine happens to be on instead of to a frame count the host had to guess. The reserve is what pays
+    /// for the unwind, and it is enough because the error thrown is a <see cref="JavaScriptException"/> —
+    /// <see cref="Interpreter.JintStatementList.HandleException"/> turns one into a throw
+    /// <c>Completion</c> at each interpreter level rather than re-throwing it, and a completion costs no
+    /// stack to return. A CLR exception rethrown frame by frame does not have that property: each rethrow
+    /// happens inside a catch handler whose frames the runtime cannot collapse until the dispatch ends, so
+    /// it *consumes* stack per level. Measured on a 1.5 MB stack, a <c>JavaScriptException</c> unwinds
+    /// 1153 interpreter frames where a rethrown CLR exception manages 158.
+    /// </para>
+    /// <para>
+    /// On <c>net462</c>/<c>netstandard2.0</c> the probe is the throwing form wrapped in a try/catch (see
+    /// <c>RuntimeHelpersPolyfills</c>), i.e. one exception on the failing probe only. That is once per
+    /// stack exhaustion, immediately before an exception is thrown anyway.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void EnsureStackHeadroom()
+    {
+        if (_backstopEnabled)
+        {
+            ProbeStackHeadroom();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ProbeStackHeadroom()
+    {
+        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+        {
+            ThrowMaximumCallStackSizeExceeded();
+        }
+    }
+
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void ThrowMaximumCallStackSizeExceeded()
+    {
+        Throw.RangeError(_engine.Realm, "Maximum call stack size exceeded");
     }
 
     public bool TryEnterOnCurrentStack()
