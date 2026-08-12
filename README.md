@@ -729,6 +729,49 @@ for (var i = 0; i < 10; i++)
 }
 ```
 
+### Surviving an unbounded recursion
+
+A script that recurses without bound does not throw. It exhausts the native stack of the thread it is
+running on, and that ends the host process: no exception, nothing to `catch`, nothing in the log but an
+exit code. Every route into a function body can do it — a call, `new`, a getter or setter, a
+`valueOf`/`toString` coercion, a Proxy trap, a callback a built-in invokes, a host delegate that calls
+back into the engine.
+
+```c#
+var engine = new Engine(options =>
+{
+    options.Constraints.StackOverflowGuard = true;
+});
+```
+
+With the guard on, every entry into a script function first checks that the native stack has not been used
+up, and the same script raises `RangeError: Maximum call stack size exceeded` while there is still room to
+unwind — an ordinary JavaScript error, catchable by the script itself and by your
+`catch (JavaScriptException)`, with the engine still usable afterwards. It measures the remaining stack
+rather than counting calls, so it covers all of those routes and adapts to the thread the engine runs on:
+a host that provisions a larger stack gets proportionally more depth, rather than the frame count someone
+had to guess in advance.
+
+A proper tail call in a strict function is exempt, and does not need the guard: it replaces the caller's
+frame instead of stacking one on top, so the recursion consumes no native stack however deep it runs. The
+check sits on the entries that do add a frame, so a strict tail recursion neither pays for it nor is
+stopped by it. Sloppy-mode recursion, a call out of tail position, and the non-call routes above are what
+remain in scope.
+
+It is off by default because the check runs at every entry into a script function and that is not free.
+The benchmark gate measured recursion-heavy workloads (`Fib`, `DeepSum`, `Tak`) 1.7–2.3% slower with it
+on, with hot shallow calls unaffected. Enable it when the engine runs script you did not write, where a
+couple of percent on deep recursion in exchange for keeping your process is plainly the trade you want.
+Leave it off when every script is yours and you can bound it yourself.
+
+`options.LimitRecursion(n)` answers a different question and composes with it. The recursion limit counts
+frames and is checked before the callee is entered, so where it is configured it is what fires; the guard
+answers only when no limit was set, or when the limit was set higher than the thread's stack can actually
+hold — which is easy to do by accident, since how many frames a stack holds is not something a host can
+see. A third and older setting, `options.Constraints.MaxExecutionStackCount`, continues the call chain on
+a fresh thread instead of throwing; it is checked at call expressions only, so it does not cover the other
+routes above, and it takes precedence over the guard when both are set.
+
 ## Using Modules
 
 You can use modules to `import` and `export` variables from multiple script files:
@@ -1102,6 +1145,8 @@ The following features provide you with a secure, sand-boxed environment to run 
 - Limit number of statements to prevent infinite loops.
 - Limit depth of calls to prevent deep recursion calls.
 - Define a timeout, to prevent scripts from taking too long to finish.
+- Turn an unbounded recursion into a catchable error rather than a stack overflow that ends the process
+  (see [Surviving an unbounded recursion](#surviving-an-unbounded-recursion); off by default).
 
 ## Branches and releases
 
