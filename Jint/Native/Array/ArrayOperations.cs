@@ -473,6 +473,18 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public override void DeletePropertyOrThrow(ulong index) => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Read-only lane over a dense <see cref="JsArray"/>: length and backing store are taken once, so an
+    /// element read is an array index rather than a property lookup.
+    /// <para>
+    /// The snapshot is authoritative only for the elements it <em>contains</em>. A <see langword="null"/> slot
+    /// is a hole — the absence of an own element, not the value <c>undefined</c> — and resolving it is
+    /// <c>Get(O, ToString(k))</c> on the array itself, which is what <c>JsArray.Get(uint)</c> performs. That
+    /// has to happen when the element's turn comes, because a generic that runs user code per element (an
+    /// element's <c>toString</c> under <c>Array.prototype.join</c>, most visibly) can install the index on
+    /// the prototype chain between the snapshot and the read.
+    /// </para>
+    /// </summary>
     private sealed class ArrayReadOperations : ArrayOperations
     {
         private readonly JsArray _target;
@@ -500,7 +512,30 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         {
         }
 
-        public override JsValue Get(ulong index) => (index < (ulong) _data.Length ? _data[(int) index] : JsValue.Undefined) ?? JsValue.Undefined;
+        public override JsValue Get(ulong index)
+        {
+            if (index < (ulong) _data.Length)
+            {
+                var value = _data[(int) index];
+                if (value is not null)
+                {
+                    return value;
+                }
+            }
+
+            // Hole, or past the snapshot: while CanUseFastAccess still holds nothing can shadow the
+            // hole, so the answer is undefined and is given inline - JsArray.Get(uint) would conclude
+            // the same after re-probing the dense store, and its non-inlined call was measured at +55%
+            // on a hole-heavy join. The flag is re-read on every hole because a side effect during this
+            // very join is exactly what can clear it; once it is gone, ask the array for the spec's
+            // real chain-walking read.
+            if (_target.CanUseFastAccess)
+            {
+                return JsValue.Undefined;
+            }
+
+            return index <= uint.MaxValue ? _target.Get((uint) index) : JsValue.Undefined;
+        }
 
         public override bool TryGetValue(ulong index, out JsValue value)
         {
