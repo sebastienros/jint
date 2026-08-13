@@ -1,4 +1,4 @@
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
 
@@ -154,6 +154,15 @@ public class FastCallLaneTests
     [InlineData("\"abc\".substring(0, p)", "substring")]
     [InlineData("\"abc\".slice(p)", "slice")]
     [InlineData("\"abc\".slice(0, p)", "slice")]
+    [InlineData("\"abc\".at(p)", "at")]
+    [InlineData("\"abc\".substr(p)", "substr")]
+    [InlineData("\"abc\".substr(0, p)", "substr")]
+    [InlineData("\"abc\".indexOf(\"b\", p)", "indexOf")]
+    [InlineData("\"abc\".startsWith(\"b\", p)", "startsWith")]
+    [InlineData("\"abc\".endsWith(\"b\", p)", "endsWith")]
+    [InlineData("\"abc\".includes(\"b\", p)", "includes")]
+    [InlineData("isNaN(p)", "isNaN")]
+    [InlineData("isFinite(p)", "isFinite")]
     [InlineData("parseInt(\"10\", p)", "parseInt")]
     public void AWarmedSiteKeepsTheBuiltinFrameWhenAnArgumentCoercesThroughUserCode(string call, string builtin)
     {
@@ -170,16 +179,23 @@ public class FastCallLaneTests
     }
 
     /// <summary>
-    /// The same invariant for the argument these two coerce with <c>ToString</c> rather than
+    /// The same invariant for the arguments these coerce with <c>ToString</c> rather than
     /// <c>ToNumber</c>, which the theory above cannot express: an object carrying only a throwing
     /// <c>valueOf</c> is coerced through <c>Object.prototype.toString</c> and never throws, so the
     /// thrower has to be the <c>toString</c>. Their first argument's guard is String, and a warmed
     /// site handed anything else must keep the frame the user code can read off <c>error.stack</c>.
+    /// The warm-up value conforms, so each of these sites takes the frameless branch twice before the
+    /// call that has to decline it.
     /// </summary>
     [Theory]
     [InlineData("parseInt(p)", "parseInt")]
     [InlineData("parseInt(p, 16)", "parseInt")]
     [InlineData("parseFloat(p)", "parseFloat")]
+    [InlineData("\"abc\".indexOf(p)", "indexOf")]
+    [InlineData("\"abc\".indexOf(p, 0)", "indexOf")]
+    [InlineData("\"abc\".startsWith(p)", "startsWith")]
+    [InlineData("\"abc\".endsWith(p)", "endsWith")]
+    [InlineData("\"abc\".includes(p)", "includes")]
     public void AWarmedSiteKeepsTheBuiltinFrameWhenTheStringArgumentCoercesThroughUserCode(string call, string builtin)
     {
         var engine = new Engine();
@@ -341,7 +357,8 @@ public class FastCallLaneTests
         // Date is the one kind with no bit of its own, so it borrows one above every InternalTypes
         // flag; AnyValue, which the generator resolves away and no shape ever carries, borrows the
         // next one down. If a future flag reached either, every guard naming it would start matching
-        // values carrying that flag instead of being answered the way it is meant to be.
+        // values carrying that flag instead of being answered the way it is meant to be — so both
+        // borrowed bits are checked against the union of every flag the enum declares.
         var everyInternalType = InternalTypes.Empty;
         foreach (InternalTypes value in Enum.GetValues(typeof(InternalTypes)))
         {
@@ -350,6 +367,7 @@ public class FastCallLaneTests
 
         (everyInternalType & (InternalTypes) FastCallGuard.Date).Should().Be(InternalTypes.Empty);
         (everyInternalType & (InternalTypes) FastCallGuard.AnyValue).Should().Be(InternalTypes.Empty);
+        (FastCallGuard.AnyValue & FastCallGuard.Date).Should().Be(FastCallGuard.Any);
     }
 
     /// <summary>
@@ -528,6 +546,187 @@ public class FastCallLaneTests
         result.Should().Be("2,2,!3,true,1");
     }
 
+    private static FastCallShape ShapeOf(Engine engine, string expression, int argumentCount)
+        => ((Function) engine.Evaluate(expression)).GetFastCallShape(argumentCount);
+
+    /// <summary>
+    /// A guard-passing call is, by construction, unable to report that its frame was elided: the
+    /// built-ins annotated <c>Leaf</c> run no user code and raise no error, so there is nothing left
+    /// inside the frameless window for a script to observe. The claims are therefore pinned where
+    /// they are decided — the shape the call site reads, and the per-call guard test it runs against
+    /// the values it is about to pass — with a conforming set that must take the branch and a
+    /// non-conforming one that must not. The behaviour on both sides is pinned by the theories
+    /// around this one; what this adds is that the branch exists and admits what it says it does.
+    /// </summary>
+    [Fact]
+    public void TheDeclaredGuardsAdmitExactlyTheValuesTheirBodiesAreLeafFor()
+    {
+        var engine = new Engine();
+
+        JsValue str = new JsString("abc");
+        JsValue num = JsNumber.Create(1);
+        var undefined = JsValue.Undefined;
+        var coercible = engine.Evaluate("({ valueOf: function () { return 1; }, toString: function () { return \"1\"; } })");
+        var array = engine.Evaluate("[]");
+        var symbol = engine.Evaluate("Symbol()");
+
+        // Number's four predicates inspect the argument and never coerce it, so their guard is the
+        // one that names every value: no argument at all can reach user code through them.
+        foreach (var predicate in new[] { "isFinite", "isInteger", "isNaN", "isSafeInteger" })
+        {
+            var shape = ShapeOf(engine, "Number." + predicate, 1);
+            shape.Leaf.Should().BeTrue("Number.{0} is leaf", predicate);
+            shape.IsLeafFor(undefined, num, undefined).Should().BeTrue();
+            shape.IsLeafFor(undefined, coercible, undefined).Should().BeTrue("Number.{0} never coerces", predicate);
+            shape.IsLeafFor(undefined, symbol, undefined).Should().BeTrue();
+        }
+
+        // The global pair is a single ToNumber, which is a no-op for a number, a parse for a string
+        // and NaN for undefined — and user code or a TypeError for everything else.
+        foreach (var global in new[] { "isNaN", "isFinite" })
+        {
+            var shape = ShapeOf(engine, global, 1);
+            shape.Leaf.Should().BeTrue("{0} is leaf", global);
+            shape.IsLeafFor(undefined, num, undefined).Should().BeTrue();
+            shape.IsLeafFor(undefined, str, undefined).Should().BeTrue();
+            shape.IsLeafFor(undefined, undefined, undefined).Should().BeTrue();
+            shape.IsLeafFor(undefined, coercible, undefined).Should().BeFalse("an object's valueOf is user code");
+            shape.IsLeafFor(undefined, symbol, undefined).Should().BeFalse("ToNumber of a Symbol is a TypeError");
+        }
+
+        // The search-string family: a string receiver, a string needle, a numeric or absent position.
+        foreach (var method in new[] { "indexOf", "startsWith", "endsWith", "includes" })
+        {
+            var shape = ShapeOf(engine, "String.prototype." + method, 2);
+            shape.Leaf.Should().BeTrue("String.prototype.{0} is leaf", method);
+            shape.IsLeafFor(str, str, num).Should().BeTrue();
+            shape.IsLeafFor(str, str, undefined).Should().BeTrue();
+            shape.IsLeafFor(str, num, undefined).Should().BeFalse("only a string needle makes ToString a no-op");
+            shape.IsLeafFor(str, coercible, undefined).Should().BeFalse();
+            shape.IsLeafFor(str, str, coercible).Should().BeFalse();
+            shape.IsLeafFor(coercible, str, num).Should().BeFalse("a hosted receiver coerces through user code");
+        }
+
+        // The index family, which takes numbers where the family above takes a string.
+        foreach (var method in new[] { "at", "substr" })
+        {
+            var shape = ShapeOf(engine, "String.prototype." + method, 2);
+            shape.Leaf.Should().BeTrue("String.prototype.{0} is leaf", method);
+            shape.IsLeafFor(str, num, undefined).Should().BeTrue();
+            shape.IsLeafFor(str, undefined, undefined).Should().BeTrue();
+            shape.IsLeafFor(str, coercible, undefined).Should().BeFalse();
+            shape.IsLeafFor(coercible, num, undefined).Should().BeFalse();
+        }
+
+        // Array.isArray is leaf only where the answer is yes: an ArrayInstance settles it outright,
+        // and everything else — a revoked Proxy above all — is left to the framed path.
+        var isArray = ShapeOf(engine, "Array.isArray", 1);
+        isArray.Leaf.Should().BeTrue();
+        isArray.IsLeafFor(undefined, array, undefined).Should().BeTrue();
+        isArray.IsLeafFor(undefined, coercible, undefined).Should().BeFalse();
+        isArray.IsLeafFor(undefined, str, undefined).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Each newly leaf built-in, called at a warmed site with arguments its guard admits — the state
+    /// and the values the frameless branch is reachable from. Every row is asserted cold as well, so
+    /// the lane cannot change an answer, and in a Debug build the leaf audit brackets each of these
+    /// calls: a body that reached user code or raised a JavaScript error frameless would fail here
+    /// before the value ever got compared.
+    /// </summary>
+    [Theory]
+    [InlineData("\"abcdef\".indexOf(\"cd\")", "2")]
+    [InlineData("\"abcdef\".indexOf(\"cd\", 3)", "-1")]
+    [InlineData("\"abcdef\".indexOf(\"\", 99)", "6")]
+    [InlineData("\"abcdef\".startsWith(\"ab\")", "true")]
+    [InlineData("\"abcdef\".startsWith(\"cd\", 2)", "true")]
+    [InlineData("\"abcdef\".startsWith(\"cd\", -1)", "false")]
+    [InlineData("\"abcdef\".endsWith(\"ef\")", "true")]
+    [InlineData("\"abcdef\".endsWith(\"cd\", 4)", "true")]
+    [InlineData("\"abcdef\".endsWith(\"ef\", 99)", "true")]
+    [InlineData("\"abcdef\".includes(\"cd\")", "true")]
+    [InlineData("\"abcdef\".includes(\"cd\", 3)", "false")]
+    [InlineData("\"abcdef\".includes(\"cd\", 1e10)", "false")]
+    [InlineData("\"abcdef\".at(1)", "b")]
+    [InlineData("\"abcdef\".at(-1)", "f")]
+    [InlineData("\"abcdef\".at()", "a")]
+    [InlineData("\"abcdef\".at(99)", "undefined")]
+    [InlineData("\"abcdef\".substr(1, 2)", "bc")]
+    [InlineData("\"abcdef\".substr(-2)", "ef")]
+    [InlineData("\"abcdef\".substr(2)", "cdef")]
+    [InlineData("Number.isFinite(1)", "true")]
+    [InlineData("Number.isFinite(Infinity)", "false")]
+    [InlineData("Number.isFinite(\"1\")", "false")]
+    [InlineData("Number.isInteger(1.5)", "false")]
+    [InlineData("Number.isInteger(2)", "true")]
+    [InlineData("Number.isNaN(NaN)", "true")]
+    [InlineData("Number.isNaN(\"NaN\")", "false")]
+    [InlineData("Number.isSafeInteger(9007199254740992)", "false")]
+    [InlineData("Number.isSafeInteger(9007199254740991)", "true")]
+    [InlineData("isNaN(NaN)", "true")]
+    [InlineData("isNaN(\"12\")", "false")]
+    [InlineData("isNaN(\"nope\")", "true")]
+    [InlineData("isNaN()", "true")]
+    [InlineData("isFinite(\"12\")", "true")]
+    [InlineData("isFinite(\"1e400\")", "false")]
+    [InlineData("isFinite()", "false")]
+    [InlineData("Array.isArray([])", "true")]
+    [InlineData("Array.isArray(\"[]\")", "false")]
+    public void ANewlyLeafBuiltinGivesTheSameAnswerWarmAsCold(string expression, string expected)
+    {
+        var engine = new Engine();
+
+        engine.Evaluate($"function f() {{ return String({expression}); }} f();").AsString().Should().Be(expected);
+        engine.Evaluate($"function g() {{ return String({expression}); }} g(); g(); g();").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// What <c>FastCallGuard.AnyValue</c> claims about <c>Number</c>'s four predicates, stated as
+    /// behaviour: they inspect the argument and never coerce it, so no value a call site can pass
+    /// reaches user code — which is why they take the frameless branch for every argument, an object
+    /// included. A body that started coercing would show up here as a <c>valueOf</c> that ran, and in
+    /// a Debug build would have tripped the leaf audit first.
+    /// </summary>
+    [Fact]
+    public void TheNumberPredicatesAnswerAnObjectWithoutCoercingIt()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            let calls = 0;
+            const o = { valueOf: function () { calls++; return 1; }, toString: function () { calls++; return "1"; } };
+            function f(p) { return [Number.isFinite(p), Number.isInteger(p), Number.isNaN(p), Number.isSafeInteger(p)].join(","); }
+            f(1); f(1);
+            f(o) + "|" + calls;
+            """).AsString();
+
+        result.Should().Be("false,false,false,false|0");
+    }
+
+    /// <summary>
+    /// <c>Array.isArray</c> is leaf for one shape of argument: one of the engine's own arrays, which
+    /// carries <c>InternalTypes.Array</c> and answers the question without consulting anything. The
+    /// argument its guard exists to turn away is a revoked Proxy, whose TypeError needs the frame —
+    /// and the site is warmed on the leaf branch first, so the declining call is made from the state
+    /// the lane has to get right.
+    /// </summary>
+    [Fact]
+    public void IsArrayKeepsItsFrameForTheRevokedProxyItsGuardTurnsAway()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function f(v) { return Array.isArray(v); }
+            const warm = [f([]), f([]), f([])].join(",");
+            const r = Proxy.revocable([], {});
+            r.revoke();
+            let name = "";
+            let stack = "";
+            try { f(r.proxy); } catch (e) { name = e.constructor.name; stack = e.stack; }
+            [warm, f({}), name, stack.indexOf("at isArray") >= 0].join("|");
+            """).AsString();
+
+        result.Should().Be("true,true,true|false|TypeError|true");
+    }
+
     /// <summary>
     /// A declared argument guard is a claim about values, not about the method, so the receiver guard
     /// still has to hold independently: a boxed or hosted receiver coerces through user code and must
@@ -580,6 +779,13 @@ public class FastCallLaneTests
     [InlineData("\"abc\".slice(0, p)")]
     [InlineData("\"abc\".charCodeAt(p)")]
     [InlineData("\"abc\".charAt(p)")]
+    [InlineData("\"abc\".at(p)")]
+    [InlineData("\"abc\".substr(p)")]
+    [InlineData("\"abc\".indexOf(p)")]
+    [InlineData("\"abc\".startsWith(p)")]
+    [InlineData("\"abc\".includes(\"b\", p)")]
+    [InlineData("isNaN(p)")]
+    [InlineData("isFinite(p)")]
     public void ASymbolArgumentStillRaisesACatchableTypeErrorAtAWarmedSite(string call)
     {
         var engine = new Engine();

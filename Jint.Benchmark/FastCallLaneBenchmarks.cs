@@ -1,4 +1,4 @@
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using Jint.Native;
 
 namespace Jint.Benchmark;
@@ -59,6 +59,18 @@ namespace Jint.Benchmark;
 /// <c>Substring_Object</c> is flat to better. Conforming arguments win roughly −5%, and the variadic
 /// rows −12..−22%. If a future change makes an object argument materially worse than this, that is a
 /// regression; the single-digit standing cost is the trade.</para>
+///
+/// <para><b>Predicates and searches.</b> The third group covers the built-ins whose bodies are a type
+/// test or a search rather than a coercion. <c>Number.isInteger</c> and its siblings inspect the
+/// argument and never coerce it, so they are declared <c>FastCallGuard.AnyValue</c> and take the
+/// frameless branch for every value — which is why <c>NumberIsInteger_Object</c> is the one
+/// <c>*_Object</c> row in this class that is <em>not</em> a control: it is expected to improve with
+/// its guarded sibling, and it is here to show that a body which only inspects its argument costs an
+/// object nothing extra. Every other <c>*_Object</c> row is a control in the usual sense.
+/// <c>IsNaN_String</c> is included because the global pair's guard admits strings, where the
+/// String.prototype rows admit numbers, so it is the only row that exercises that arm.
+/// <c>ArrayIsArray_Object</c> is a true control twice over: the guard names our own arrays, so a
+/// plain object both fails it and is the answer-is-false case the frame still has to cover.</para>
 ///
 /// Every row runs its call 1000 times inside one prepared script on an engine that has already
 /// evaluated it, so what is measured is dispatch plus body rather than parse or first-call warmup —
@@ -148,6 +160,22 @@ public class FastCallLaneBenchmarks
         }
         """;
 
+    private IsolatedScript _numberIsIntegerNumber;
+    private IsolatedScript _numberIsIntegerObject;
+    private IsolatedScript _indexOfGuarded;
+    private IsolatedScript _indexOfObject;
+    private IsolatedScript _startsWithGuarded;
+    private IsolatedScript _includesGuarded;
+    private IsolatedScript _includesObject;
+    private IsolatedScript _atGuarded;
+    private IsolatedScript _substrGuarded;
+    private IsolatedScript _atObject;
+    private IsolatedScript _isNaNNumber;
+    private IsolatedScript _isNaNString;
+    private IsolatedScript _isNaNObject;
+    private IsolatedScript _isArrayArray;
+    private IsolatedScript _isArrayObject;
+
     [GlobalSetup]
     public void GlobalSetup()
     {
@@ -192,6 +220,26 @@ public class FastCallLaneBenchmarks
         // Controls: same shape and same register lane, frame never elided, untouched by this change.
         _weakMapHas = CollectionLoop("if (wm.has(objKeys[i & 1023])) { s++; }");
         _weakSetHas = CollectionLoop("if (ws.has(objKeys[i & 1023])) { s++; }");
+
+        // Predicates and searches. Number's four predicates share one shape, so isInteger stands for
+        // the group; its object row takes the lane too, unlike every other *_Object row here.
+        _numberIsIntegerNumber = Loop("if (Number.isInteger(i)) s++");
+        _numberIsIntegerObject = Loop("if (Number.isInteger(o)) s++", prelude: "var o = { valueOf: function () { return 3; } };");
+        _indexOfGuarded = Loop("s += \"abcdefghij\".indexOf(\"gh\", i % 5)");
+        _indexOfObject = Loop("s += \"abcdefghij\".indexOf(o)", prelude: "var o = { toString: function () { return \"gh\"; } };");
+        // startsWith stands beside includes because it reads the position register unconditionally
+        // where includes tests it for undefined first.
+        _startsWithGuarded = Loop("if (\"abcdefghij\".startsWith(\"cd\", i % 5)) s++");
+        _includesGuarded = Loop("if (\"abcdefghij\".includes(\"gh\", i % 5)) s++");
+        _includesObject = Loop("if (\"abcdefghij\".includes(o)) s++", prelude: "var o = { toString: function () { return \"gh\"; } };");
+        _atGuarded = Loop("s += \"abcdefghij\".at(i % 10).length");
+        _substrGuarded = Loop("s += \"abcdefghij\".substr(i % 5, 3).length");
+        _atObject = Loop("s += \"abcdefghij\".at(o).length", prelude: "var o = { valueOf: function () { return 3; } };");
+        _isNaNNumber = Loop("if (isNaN(i)) s++");
+        _isNaNString = Loop("if (isNaN(\"12\")) s++");
+        _isNaNObject = Loop("if (isNaN(o)) s++", prelude: "var o = { valueOf: function () { return 3; } };");
+        _isArrayArray = Loop("if (Array.isArray(a)) s++", prelude: "var a = [1, 2, 3];");
+        _isArrayObject = Loop("if (Array.isArray(o)) s++", prelude: "var o = { length: 3 };");
     }
 
     /// <summary>
@@ -259,4 +307,20 @@ public class FastCallLaneBenchmarks
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue SetAdd_Churn() => _setAddChurn.Run();
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue WeakMapHas_Framed() => _weakMapHas.Run();
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue WeakSetHas_Framed() => _weakSetHas.Run();
+
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue NumberIsInteger_Number() => _numberIsIntegerNumber.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue NumberIsInteger_Object() => _numberIsIntegerObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringIndexOf_Guarded() => _indexOfGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringIndexOf_Object() => _indexOfObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringStartsWith_Guarded() => _startsWithGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringIncludes_Guarded() => _includesGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringIncludes_Object() => _includesObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringAt_Guarded() => _atGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringSubstr_Guarded() => _substrGuarded.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue StringAt_Object() => _atObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue IsNaN_Number() => _isNaNNumber.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue IsNaN_String() => _isNaNString.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue IsNaN_Object() => _isNaNObject.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayIsArray_Array() => _isArrayArray.Run();
+    [Benchmark(OperationsPerInvoke = OperationsPerInvoke)] public JsValue ArrayIsArray_Object() => _isArrayObject.Run();
 }

@@ -776,10 +776,14 @@ public sealed partial class ArrayConstructor : Constructor
     [JsSymbolAccessor("Species")]
     private static JsValue Species(JsValue thisObject) => thisObject;
 
-    // Lane 1 only, deliberately NOT Leaf: IsArray on a revoked Proxy throws a TypeError
-    // (JsProxy.IsArray -> AssertNotRevoked), and "argument is not a revoked proxy" is not something
-    // a FastCallGuard can express. Skipping the frame would drop this call out of that error's stack.
-    [JsFunction(Length = 1, FastCall = true)]
+    // Leaf for exactly one shape of argument, and framed for every other. IsArray on a revoked Proxy
+    // throws a TypeError (JsProxy.IsArray -> AssertNotRevoked), and "argument is not a revoked proxy"
+    // is not something a FastCallGuard can express — but "argument is one of our own arrays" is, and
+    // it settles the question outright: InternalTypes.Array is set by ArrayInstance's constructors
+    // and nothing else, and ArrayInstance seals IsArray() to true. So a guarded call is a flag test
+    // and a return, while the answer-is-false calls the guard turns away — including the proxy whose
+    // TypeError needs the frame — take the framed path exactly as before.
+    [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.Array)]
     private static JsValue IsArray(JsValue thisObject, JsValue o)
     {
         return IsArray(o);

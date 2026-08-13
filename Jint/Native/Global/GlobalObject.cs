@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Extensions;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
@@ -252,7 +253,12 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
     /// </summary>
-    [JsFunction(FastCall = true)]
+    // The body is one ToNumber, so the guard is the set of values that conversion answers without
+    // asking the value anything: a number is itself, a string is parsed — an unparseable one is NaN,
+    // not a throw — and undefined is NaN. Symbol and BigInt are the two primitives ToNumber raises a
+    // TypeError for and an object reaches user code through valueOf, so both keep the frame. The
+    // receiver is not read.
+    [JsFunction(Leaf = true, LeafArg0 = FastCallGuard.Number | FastCallGuard.String | FastCallGuard.Undefined)]
     private static JsValue IsNaN(JsValue thisObject, JsValue value)
     {
         if (ReferenceEquals(value, JsNumber.DoubleNaN))
@@ -267,7 +273,8 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
     /// </summary>
-    [JsFunction(FastCall = true)]
+    // Same single ToNumber, same guard.
+    [JsFunction(Leaf = true, LeafArg0 = FastCallGuard.Number | FastCallGuard.String | FastCallGuard.Undefined)]
     private static JsValue IsFinite(JsValue thisObject, JsValue value)
     {
         var n = TypeConverter.ToNumber(value);

@@ -953,7 +953,11 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.substr
     /// </summary>
-    [JsFunction(Length = 2, FastCall = true)]
+    // Leaf under declared argument guards — same reasoning as substring, including the second
+    // argument's undefined, which the body reads as "to the end of the string" rather than coercing.
+    [JsFunction(Length = 2, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.Number | FastCallGuard.Undefined,
+        LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private static JsValue Substr(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
@@ -1204,7 +1208,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-string-prototype-additions
     /// </summary>
-    [JsFunction(Length = 1, FastCall = true)]
+    // Leaf under declared argument guards — same reasoning as charAt: the index stays a raw JsValue
+    // so its ToInteger keeps running after step 2's ToString of the receiver, and the declaration
+    // names the values that coercion cannot reach user code for. An out-of-range index is undefined,
+    // not a throw.
+    [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private static JsValue At(JsValue thisObject, JsValue arg0)
     {
@@ -1573,7 +1582,12 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.indexof
     /// </summary>
-    [JsFunction(Length = 1, FastCall = true)]
+    // Three coercions, each a no-op under its guard: ToJsString of a JsString receiver, ToString of
+    // a JsString search value, and ToInteger of a number — with undefined admitted on the position
+    // because the body reads it as "search from 0" and a one-argument site pads the register with it.
+    [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.String,
+        LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private static JsValue IndexOf(JsValue thisObject, JsValue searchArg, JsValue posArg)
     {
@@ -1813,7 +1827,16 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.startswith
     /// </summary>
-    [JsFunction(Length = 1, FastCall = true)]
+    // The TypeError below reads as the thing that blocks Leaf, and it is not: IsRegExp returns false
+    // for anything that is not an ObjectInstance before it looks at a single property, and a
+    // JsString never is one. So under the String guard on arg0 the @@match read never happens — not
+    // even a String.prototype[Symbol.match] could make it happen, because that lookup is on the
+    // argument and the argument is a primitive — and the throw is unreachable. Everything left is
+    // ToString of a JsString and ToInt32 of a number or of the undefined a one-argument site pads
+    // the second register with.
+    [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.String,
+        LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private JsValue StartsWith(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
@@ -1845,7 +1868,10 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.endswith
     /// </summary>
-    [JsFunction(Length = 1, FastCall = true)]
+    // Same guards and the same unreachable TypeError as startsWith.
+    [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.String,
+        LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private JsValue EndsWith(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
@@ -1880,7 +1906,10 @@ internal sealed partial class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.includes
     /// </summary>
-    [JsFunction(Length = 1, FastCall = true)]
+    // Same guards and the same unreachable TypeError as startsWith.
+    [JsFunction(Length = 1, Leaf = true, LeafReceiver = FastCallGuard.String,
+        LeafArg0 = FastCallGuard.String,
+        LeafArg1 = FastCallGuard.Number | FastCallGuard.Undefined)]
     [RequireObjectCoercible]
     private JsValue Includes(JsValue thisObject, JsValue arg0, JsValue arg1)
     {
