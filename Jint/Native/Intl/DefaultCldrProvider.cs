@@ -531,11 +531,15 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     public IReadOnlyCollection<string> GetSupportedCollations()
     {
+        // https://tc39.es/ecma402/#sec-availablecanonicalcollations returns the collations for which
+        // the implementation provides Intl.Collator functionality, so this list has to stay the union
+        // of what CollatorConstructor accepts - "big5han", "direct", "gb2312" and "reformed" are
+        // deprecated in CLDR's common/bcp47/collation.xml and "ducet" is defined by no locale, so no
+        // locale reports any of the five and none belongs here.
         return new[]
         {
-            "big5han", "compat", "dict", "direct", "ducet", "emoji", "eor",
-            "gb2312", "phonebk", "phonetic", "pinyin", "reformed", "searchjl",
-            "stroke", "trad", "unihan", "zhuyin"
+            "compat", "dict", "emoji", "eor", "phonebk", "phonetic",
+            "pinyin", "searchjl", "stroke", "trad", "unihan", "zhuyin"
         };
     }
 

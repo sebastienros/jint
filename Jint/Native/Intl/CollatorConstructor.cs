@@ -20,26 +20,40 @@ internal sealed partial class CollatorConstructor : Constructor
     private static readonly StringSearchValues SensitivityValues = new(["base", "accent", "case", "variant"], StringComparison.Ordinal);
     private static readonly StringSearchValues CaseFirstValues = new(["upper", "lower", "false"], StringComparison.Ordinal);
 
-    // Locale-specific supported collation types (from CLDR)
-    // Only locales with non-default collation support are listed
+    // What each language's own collation file in CLDR's common/collation defines, under the BCP 47
+    // name common/bcp47/collation.xml registers for it - so si's "dictionary" is "dict" and es's,
+    // fi's, sv's and vi's "traditional" is "trad". Left out of a row: the "standard" and "search"
+    // types nearly every such file carries, for the reason IsReportableCollation gives, and the
+    // "private-" types CLDR keeps only to be [import]ed. Left out of the table: a language whose
+    // file defines nothing beyond those - da, en, fr, hi, tr - because RootCollations below is
+    // added to every locale anyway.
+    // https://github.com/unicode-org/cldr/tree/main/common/collation
     private static readonly Dictionary<string, HashSet<string>> LocaleCollationSupport = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["ar"] = new(StringComparer.Ordinal) { "default", "compat", "eor" },
-        ["da"] = new(StringComparer.Ordinal) { "default", "eor" },
-        ["de"] = new(StringComparer.Ordinal) { "default", "phonebk", "eor" },
-        ["en"] = new(StringComparer.Ordinal) { "default", "ducet", "emoji", "eor" },
-        ["es"] = new(StringComparer.Ordinal) { "default", "trad", "eor" },
-        ["hi"] = new(StringComparer.Ordinal) { "default", "direct", "eor" },
-        ["ja"] = new(StringComparer.Ordinal) { "default", "unihan", "eor" },
-        ["ko"] = new(StringComparer.Ordinal) { "default", "searchjl", "unihan", "eor" },
-        ["ln"] = new(StringComparer.Ordinal) { "default", "phonetic", "eor" },
-        ["si"] = new(StringComparer.Ordinal) { "default", "dict", "eor" },
-        ["sv"] = new(StringComparer.Ordinal) { "default", "reformed", "eor" },
-        ["zh"] = new(StringComparer.Ordinal) { "default", "big5han", "gb2312", "pinyin", "stroke", "unihan", "zhuyin", "eor" },
+        ["ar"] = new(StringComparer.Ordinal) { "compat" },
+        ["de"] = new(StringComparer.Ordinal) { "phonebk", "eor" },
+        ["es"] = new(StringComparer.Ordinal) { "trad" },
+        ["fi"] = new(StringComparer.Ordinal) { "trad" },
+        ["ja"] = new(StringComparer.Ordinal) { "unihan" },
+        ["ko"] = new(StringComparer.Ordinal) { "searchjl", "unihan" },
+        ["ln"] = new(StringComparer.Ordinal) { "phonetic" },
+        ["si"] = new(StringComparer.Ordinal) { "dict" },
+        ["sv"] = new(StringComparer.Ordinal) { "trad" },
+        ["vi"] = new(StringComparer.Ordinal) { "trad" },
+        ["zh"] = new(StringComparer.Ordinal) { "pinyin", "stroke", "unihan", "zhuyin" },
+        // Not here: yue, which CLDR does give zh's set - it has no collation file of its own, and
+        // supplementalData.xml's <parentLocales component="collations"> makes zh_Hant its collation
+        // parent, whose file defines only a defaultCollation. A row for it would report a set
+        // Intl.Collator cannot resolve, because "yue" matches no element of
+        // IntlUtilities.GetAvailableLocales() - Intl.Collator.supportedLocalesOf(['yue']) is empty
+        // and new Intl.Collator('yue') resolves to the default locale - so the two views would
+        // disagree again. Reporting it needs "yue" to become an available Collator locale first.
     };
 
-    // The collations CLDR's root locale contributes to every locale. "standard" and "search" are
-    // deliberately absent, for the reason IsReportableCollation gives.
+    // The collations CLDR's root locale contributes to every locale - common/collation/root.xml
+    // defines "standard", "search", "eor", "private-unihan" and "emoji". "standard" and "search" are
+    // deliberately absent here, for the reason IsReportableCollation gives, and "private-unihan" is
+    // one of the types CLDR keeps only to be [import]ed.
     private static readonly string[] RootCollations = ["emoji", "eor"];
 
     // Each language's [[co]] list minus its leading null, in the lexicographic code unit order

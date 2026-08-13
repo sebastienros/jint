@@ -851,7 +851,7 @@ public class IntlTests
         // getCollations() advertises has to construct, through the options bag and through the
         // -u-co- extension alike, and resolve back to itself.
         var result = _engine.Evaluate("""
-            const tags = ['ar', 'da', 'de', 'en', 'es', 'hi', 'ja', 'ko', 'ln', 'si', 'sv', 'zh', 'tr', 'fr', 'und'];
+            const tags = ['ar', 'da', 'de', 'en', 'es', 'fi', 'hi', 'ja', 'ko', 'ln', 'si', 'sv', 'vi', 'yue', 'zh', 'tr', 'fr', 'und'];
             const mismatches = [];
             for (const tag of tags) {
                 for (const collation of new Intl.Locale(tag).getCollations()) {
@@ -887,6 +887,10 @@ public class IntlTests
     // ...plus the two that were already consistent, so the row keeps watching them too.
     [InlineData("en")]
     [InlineData("und")]
+    // ...plus the three languages CLDR gives a collation of their own that the table used to omit.
+    [InlineData("fi")]
+    [InlineData("vi")]
+    [InlineData("yue")]
     public void CollatorAcceptsTheRootCollationsForEveryLocale(string tag)
     {
         var result = _engine.Evaluate($$"""
@@ -903,6 +907,9 @@ public class IntlTests
     [InlineData("es", "trad")]
     [InlineData("ko", "searchjl")]
     [InlineData("zh", "pinyin")]
+    [InlineData("fi", "trad")]
+    [InlineData("sv", "trad")]
+    [InlineData("vi", "trad")]
     public void CollatorStillAcceptsLocaleSpecificCollations(string tag, string collation)
     {
         _engine.Evaluate($"new Intl.Collator('{tag}', {{ collation: '{collation}' }}).resolvedOptions().collation")
@@ -968,5 +975,81 @@ public class IntlTests
             .AsString().Should().Be("de-u-co-phonebk");
         _engine.Evaluate("new Intl.Collator('de', { collation: 'emoji' }).resolvedOptions().locale")
             .AsString().Should().Be("de");
+    }
+
+    [Theory]
+    // Every language CLDR gives a collation of its own, plus four that carry none. The expected list
+    // is what common/collation/<language>.xml defines, minus the "standard" and "search" types those
+    // files carry and the "private-" types CLDR keeps only for [import], plus the "emoji" and "eor"
+    // that common/collation/root.xml contributes to every locale, in code unit order.
+    [InlineData("ar", "compat,emoji,eor")]
+    [InlineData("da", "emoji,eor")]
+    [InlineData("de", "emoji,eor,phonebk")]
+    [InlineData("en", "emoji,eor")]
+    [InlineData("es", "emoji,eor,trad")]
+    [InlineData("fi", "emoji,eor,trad")]
+    [InlineData("fr", "emoji,eor")]
+    [InlineData("hi", "emoji,eor")]
+    [InlineData("ja", "emoji,eor,unihan")]
+    [InlineData("ko", "emoji,eor,searchjl,unihan")]
+    [InlineData("ln", "emoji,eor,phonetic")]
+    [InlineData("si", "dict,emoji,eor")]
+    [InlineData("sv", "emoji,eor,trad")]
+    [InlineData("tr", "emoji,eor")]
+    [InlineData("vi", "emoji,eor,trad")]
+    [InlineData("zh", "emoji,eor,pinyin,stroke,unihan,zhuyin")]
+    public void LocaleReportsTheCollationsCldrDefinesForTheLanguage(string tag, string expected)
+    {
+        _engine.Evaluate($"new Intl.Locale('{tag}').getCollations().join(',')")
+            .AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // Deprecated in common/bcp47/collation.xml, which is what makes them unavailable rather than
+    // merely absent, and defined by no locale in common/collation.
+    [InlineData("zh", "big5han")]
+    [InlineData("hi", "direct")]
+    [InlineData("zh", "gb2312")]
+    [InlineData("sv", "reformed")]
+    // Registered and current in common/bcp47/collation.xml, but no locale defines it and CLDR ships
+    // no data for it, so it is in no locale's [[co]] list either.
+    [InlineData("en", "ducet")]
+    public void CollatorRefusesACollationCldrShipsNoDataFor(string tag, string collation)
+    {
+        _engine.Evaluate($"new Intl.Locale('{tag}').getCollations().includes('{collation}')")
+            .AsBoolean().Should().BeFalse();
+        _engine.Evaluate($"new Intl.Collator('{tag}', {{ collation: '{collation}' }}).resolvedOptions().collation")
+            .AsString().Should().Be("default");
+        _engine.Evaluate($"new Intl.Collator('{tag}-u-co-{collation}').resolvedOptions().collation")
+            .AsString().Should().Be("default");
+
+        // AvailableCanonicalCollations (https://tc39.es/ecma402/#sec-availablecanonicalcollations)
+        // contains the collations the implementation provides Intl.Collator functionality for, so an
+        // identifier no locale resolves may not appear there either - which
+        // intl402/Intl/supportedValuesOf/collations-accepted-by-Collator.js checks from the other
+        // side, against the ten locales it names.
+        _engine.Evaluate($"Intl.supportedValuesOf('collation').includes('{collation}')")
+            .AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void LocaleWithoutACollationRowStaysConsistentWithTheCollator()
+    {
+        // CLDR does give yue zh's collations, through the collation parent zh_Hant that
+        // supplementalData.xml assigns it - but Jint's table deliberately has no yue row, because
+        // whether yue is an available Collator locale depends on the platform's culture source:
+        // ICU (Linux, macOS) surfaces it through CultureInfo.GetCultures, NLS-sourced Windows does
+        // not. Reporting the zh set for a tag the Collator resolves to "default" would recreate the
+        // report-vs-accept disagreement #2974 removed, so what this pins is the invariant itself,
+        // in both directions, on every platform: the report is the rowless root pair, and every
+        // collation it reports is one the Collator actually resolves. Giving yue the zh set waits
+        // on wiring CollationsOfLocale through the collation parent, not just on availability.
+        _engine.Evaluate("new Intl.Locale('yue').getCollations().join(',')").AsString().Should().Be("emoji,eor");
+
+        foreach (var collation in new[] { "emoji", "eor" })
+        {
+            _engine.Evaluate($"new Intl.Collator('yue', {{ collation: '{collation}' }}).resolvedOptions().collation")
+                .AsString().Should().Be(collation, "the Collator must accept every collation getCollations reports");
+        }
     }
 }
