@@ -1444,7 +1444,15 @@ public sealed partial class Engine : IDisposable
         }
 
         var record = (Environment) baseValue;
-        var bindingValue = record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
+
+        // A reference built for an identifier already carries its name as a JsString, and the global
+        // environment is the one record whose miss path needs exactly that — a name resolving on the
+        // global's prototype reaches [[Get]] with a JsValue key on every read. Hand the reference's
+        // own string over instead of letting each read build a second one; everything else keeps the
+        // Key-only entry point it always used.
+        var bindingValue = record is GlobalEnvironment globalEnvironment && reference.ReferencedName is JsString bindingName
+            ? globalEnvironment.GetBindingValue(bindingName, reference.Strict)
+            : record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
 
         if (returnReferenceToPool)
         {
@@ -1775,16 +1783,28 @@ public sealed partial class Engine : IDisposable
     private static Reference GetIdentifierReference(Environment? env, string name, bool strict)
     {
         Key key = name;
+
+        // Every exit from this loop hands the name to a Reference as a JsString, so build it once up
+        // front rather than at each return. The global environment — always the last link of the chain
+        // walked here — then gets it for free on the probe that needs a JsValue key: its own-property
+        // miss falls through to [[HasProperty]] on the global's prototype chain, and a name that lives
+        // there (an inherited accessor or non-writable data property, which assignment never shadows)
+        // is probed again on every single evaluation.
+        var nameValue = JsString.Create(name);
         while (true)
         {
             if (env is null)
             {
-                return new Reference(Reference.Unresolvable, name, strict);
+                return new Reference(Reference.Unresolvable, nameValue, strict);
             }
 
-            if (env.HasBinding(key))
+            var found = env is GlobalEnvironment globalEnvironment
+                ? globalEnvironment.HasBinding(key, nameValue)
+                : env.HasBinding(key);
+
+            if (found)
             {
-                return new Reference(env, name, strict);
+                return new Reference(env, nameValue, strict);
             }
 
             env = env._outerEnv;
