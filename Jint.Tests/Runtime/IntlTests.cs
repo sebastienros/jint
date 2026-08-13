@@ -1052,4 +1052,48 @@ public class IntlTests
                 .AsString().Should().Be(collation, "the Collator must accept every collation getCollations reports");
         }
     }
+
+    [Fact]
+    public void SupportedValuesOfCollationIsTheUnionOfEveryLocalesCollations()
+    {
+        // AvailableCanonicalCollations (https://tc39.es/ecma402/#sec-availablecanonicalcollations)
+        // contains "the collations for which the implementation provides the functionality of
+        // Intl.Collator objects", which is the union of the one [[co]] list every locale has and
+        // nothing besides. Both inclusions matter and each has a way of going wrong on its own: a
+        // value listed here that no locale resolves is what
+        // intl402/Intl/supportedValuesOf/collations-accepted-by-Collator.js fails on, and a
+        // collation some locale reports but this omits is invisible to test262 entirely.
+        var result = _engine.Evaluate("""
+            // Every language Jint carries collation data for, plus five that carry none.
+            const tags = ['ar', 'de', 'es', 'fi', 'ja', 'ko', 'ln', 'si', 'sv', 'vi', 'zh',
+                          'da', 'en', 'fr', 'hi', 'tr', 'und'];
+            const union = new Set();
+            for (const tag of tags) {
+                for (const collation of new Intl.Locale(tag).getCollations()) {
+                    union.add(collation);
+                }
+            }
+            JSON.stringify([...union].sort());
+            """);
+
+        var supported = _engine.Evaluate("JSON.stringify(Intl.supportedValuesOf('collation'))");
+        supported.AsString().Should().Be(result.AsString());
+    }
+
+    [Fact]
+    public void SupportedValuesOfCollationIsSortedUniqueAndFreeOfTheUnrequestableTypes()
+    {
+        // The three properties intl402/Intl/supportedValuesOf/collations.js checks, restated here so
+        // the derivation cannot lose one of them quietly.
+        var result = _engine.Evaluate("""
+            const collations = Intl.supportedValuesOf('collation');
+            const sorted = JSON.stringify(collations) === JSON.stringify([...collations].sort());
+            const unique = new Set(collations).size === collations.length;
+            const clean = !collations.includes('standard') && !collations.includes('search')
+                && !collations.includes('default');
+            [sorted, unique, clean, collations.join(',')].join(' ');
+            """);
+        result.AsString().Should().Be(
+            "true true true compat,dict,emoji,eor,phonebk,phonetic,pinyin,searchjl,stroke,trad,unihan,zhuyin");
+    }
 }
