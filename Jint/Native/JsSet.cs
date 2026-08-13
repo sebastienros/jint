@@ -16,6 +16,11 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
     {
         _set = set;
         _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
+        // Every Set reaches this constructor, subclass instances included, so the bit is exactly the
+        // brand SetPrototype's methods check. It is set here rather than passed through the internal
+        // ObjectInstance constructor because that one skips DeriveAccessSemantics, and this type does
+        // want the OrdinaryGet the derivation gives it. See FastCallGuard.Set.
+        _type |= InternalTypes.Set;
     }
 
     // No `size` here: it is an accessor on Set.prototype (https://tc39.es/ecma262/#sec-get-set.prototype.size)

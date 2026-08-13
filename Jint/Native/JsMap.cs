@@ -13,6 +13,11 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
     {
         _realm = realm;
         _map = new JintOrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
+        // Every Map reaches this constructor, subclass instances included, so the bit is exactly the
+        // brand MapPrototype's methods check. It is set here rather than passed through the internal
+        // ObjectInstance constructor because that one skips DeriveAccessSemantics, and this type does
+        // want the OrdinaryGet the derivation gives it. See FastCallGuard.Map.
+        _type |= InternalTypes.Map;
     }
 
     // No `size` here: it is an accessor on Map.prototype (https://tc39.es/ecma262/#sec-get-map.prototype.size)

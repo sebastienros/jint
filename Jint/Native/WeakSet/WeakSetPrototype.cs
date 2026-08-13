@@ -54,6 +54,13 @@ internal sealed partial class WeakSetPrototype : Prototype
         return set.WeakSetDelete(value) ? JsBoolean.True : JsBoolean.False;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-weakset.prototype.has
+    /// </summary>
+    /// <remarks>
+    /// Register lane only, not <c>Leaf</c> — see <c>WeakMapPrototype.Has</c> for why the weak
+    /// collections declined the receiver guard their strong siblings took.
+    /// </remarks>
     [JsFunction(FastCall = true)]
     private JsValue Has(JsValue thisObject, JsValue value)
     {

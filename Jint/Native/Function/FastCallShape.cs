@@ -20,13 +20,18 @@ namespace Jint.Native.Function;
 /// </para>
 /// </summary>
 /// <remarks>
-/// Every kind but <see cref="Date"/> is spelled as the <see cref="InternalTypes"/> bits that answer
-/// it, so checking a composed guard is one mask test against the value's <c>_type</c> rather than a
-/// walk over the kinds — which matters most for the values that <em>fail</em> a guard, since those
-/// pay the whole walk before falling back to the framed path. <c>JsDate</c> has no <c>_type</c> bit
-/// of its own, so it takes a spare one above the highest <see cref="InternalTypes"/> flag
-/// (<c>OwnValueHook</c>, 1 &lt;&lt; 23) and is the one kind still decided by a type test.
-/// <c>FastCallGuardValuesMatchInternalTypes</c> in <c>FastCallLaneTests</c> pins the correspondence.
+/// Every kind that names actual values is spelled as the <see cref="InternalTypes"/> bits that
+/// answer it, so checking a composed guard is one mask test against the value's <c>_type</c> rather
+/// than a walk over the kinds — which matters most for the values that <em>fail</em> a guard, since
+/// those pay the whole walk before falling back to the framed path. Two kinds sit outside that,
+/// on the two bits above every <see cref="InternalTypes"/> flag: <see cref="Date"/>, because
+/// <c>JsDate</c> has no <c>_type</c> bit of its own and is decided by a type test, and
+/// <see cref="AnyValue"/>, which is resolved away at generation time and never reaches a shape.
+/// <c>JsMap</c> and <c>JsSet</c> could have joined <see cref="Date"/> and deliberately did not: a
+/// keyed-collection receiver guard is asked on a hot lookup, and putting it in the type-test tail
+/// would have lengthened that tail for every kind, including the ones that merely fail.
+/// <c>FastCallGuardValuesMatchInternalTypes</c> in <c>FastCallLaneTests</c> pins the correspondence,
+/// including that no <see cref="InternalTypes"/> flag has grown into the two borrowed bits.
 /// </remarks>
 [Flags]
 internal enum FastCallGuard
@@ -51,12 +56,35 @@ internal enum FastCallGuard
     Array = (int) InternalTypes.Array,
 
     /// <summary>
+    /// A <c>JsMap</c>, which is exactly the brand every <c>Map.prototype</c> method checks. Proves the
+    /// brand and nothing else, so a <c>Set</c> — or any other object — still reaches the TypeError.
+    /// </summary>
+    Map = (int) InternalTypes.Map,
+
+    /// <summary><see cref="Map"/> for <c>JsSet</c>. Deliberately a separate kind, not a shared one.</summary>
+    Set = (int) InternalTypes.Set,
+
+    /// <summary>
     /// Only meaningful on an argument. Coercing <c>undefined</c> runs no user code for any converter
     /// the guards model, but the body can still tell it apart from a number (that is the whole point
     /// of <c>end === undefined</c> meaning "to the end of the string"), so it is never folded into
     /// the other kinds — a declaration has to ask for it.
     /// </summary>
     Undefined = (int) InternalTypes.Undefined,
+
+    /// <summary>
+    /// Every value, <em>declared</em>. <see cref="Any"/> is the absence of a constraint, which is also
+    /// what the generator refuses to infer for a plain <c>JsValue</c> parameter — so <c>Any</c> cannot
+    /// double as the author's positive claim that the body is leaf-safe whatever the value is. A
+    /// keyed-collection lookup is: <c>SameValueZero</c> hashes and compares, and coerces nothing, so
+    /// no key can reach a user <c>valueOf</c> the way a <c>String.prototype</c> argument can.
+    /// <para>
+    /// Declaration-only. The generator resolves it to <see cref="Any"/> — a claim that there is no
+    /// hazard publishes no constraint — so it never appears in an emitted <see cref="FastCallShape"/>
+    /// and <c>Satisfies</c> never sees it. It also subsumes anything composed with it.
+    /// </para>
+    /// </summary>
+    AnyValue = 1 << 29,
 
     /// <summary>Deliberately not an <see cref="InternalTypes"/> bit — see the remarks on this enum.</summary>
     Date = 1 << 30,
@@ -106,6 +134,14 @@ internal readonly record struct FastCallShape(
         {
             return true;
         }
+
+        // In-box invariant, not a host contract: only the generator and the handful of hand-written
+        // shapes build these, and AnyValue is resolved to Any before either can emit it. Reaching
+        // here with it would merely deny every value — the safe direction, and therefore the one that
+        // would go unnoticed without saying so.
+        Debug.Assert(
+            (guard & FastCallGuard.AnyValue) == FastCallGuard.Any,
+            "FastCallGuard.AnyValue is declaration-only; a FastCallShape must never carry it.");
 
         if ((value._type & (InternalTypes) guard) != InternalTypes.Empty)
         {

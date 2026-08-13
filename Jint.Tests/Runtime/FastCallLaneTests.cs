@@ -330,10 +330,18 @@ public class FastCallLaneTests
         ((InternalTypes) FastCallGuard.String).Should().Be(InternalTypes.String);
         ((InternalTypes) FastCallGuard.Undefined).Should().Be(InternalTypes.Undefined);
         ((InternalTypes) FastCallGuard.Array).Should().Be(InternalTypes.Array);
+        ((InternalTypes) FastCallGuard.Map).Should().Be(InternalTypes.Map);
+        ((InternalTypes) FastCallGuard.Set).Should().Be(InternalTypes.Set);
+
+        // Map and Set are distinct bits on purpose: one shared "keyed collection" bit would let
+        // Map.prototype.get take the frameless lane with a Set receiver and raise its TypeError with
+        // no frame. Nothing but the values above enforces that, so it is asserted rather than assumed.
+        ((InternalTypes) (FastCallGuard.Map & FastCallGuard.Set)).Should().Be(InternalTypes.Empty);
 
         // Date is the one kind with no bit of its own, so it borrows one above every InternalTypes
-        // flag. If a future flag reached it, every Date-guarded receiver would start matching values
-        // carrying that flag instead of being sent to the type test.
+        // flag; AnyValue, which the generator resolves away and no shape ever carries, borrows the
+        // next one down. If a future flag reached either, every guard naming it would start matching
+        // values carrying that flag instead of being answered the way it is meant to be.
         var everyInternalType = InternalTypes.Empty;
         foreach (InternalTypes value in Enum.GetValues(typeof(InternalTypes)))
         {
@@ -341,6 +349,183 @@ public class FastCallLaneTests
         }
 
         (everyInternalType & (InternalTypes) FastCallGuard.Date).Should().Be(InternalTypes.Empty);
+        (everyInternalType & (InternalTypes) FastCallGuard.AnyValue).Should().Be(InternalTypes.Empty);
+    }
+
+    /// <summary>
+    /// The <see cref="AWarmedSiteKeepsTheBuiltinFrameWhenAnArgumentCoercesThroughUserCode"/> invariant
+    /// for the keyed collections, from the receiver side — the only side they have, since a Map key is
+    /// hashed and compared and never coerced, which is exactly what lets their arguments go unguarded.
+    /// <para>
+    /// The wrong-brand receiver is <c>Object.create(X.prototype)</c> rather than a bare object so the
+    /// site's callee stays the very same built-in and the site stays warm; a bare object would resolve
+    /// no method at all and raise a different TypeError from a different place.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("Map", "c.get(k)", "get")]
+    [InlineData("Map", "c.has(k)", "has")]
+    [InlineData("Map", "c.delete(k)", "delete")]
+    [InlineData("Map", "c.set(k, 1)", "set")]
+    [InlineData("Set", "c.has(k)", "has")]
+    [InlineData("Set", "c.add(k)", "add")]
+    [InlineData("Set", "c.delete(k)", "delete")]
+    public void AWarmedKeyedCollectionSiteFramesAWrongBrandReceiver(string ctor, string call, string builtin)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function f(c, k) { return {{call}}; }
+            const live = new {{ctor}}();
+            f(live, "a"); f(live, "a");
+            let name = "";
+            let stack = "";
+            try { f(Object.create({{ctor}}.prototype), "a"); }
+            catch (e) { name = e.constructor.name; stack = e.stack; }
+            name + "," + (stack.indexOf("at {{builtin}}") >= 0);
+            """).AsString();
+
+        result.Should().Be("TypeError,true", "the brand TypeError must keep the frame the leaf lane elides");
+    }
+
+    /// <summary>
+    /// Map and Set take one <c>InternalTypes</c> bit each, and this is why: a warmed
+    /// <c>Map.prototype.get</c> site handed a Set — installed as an own property so the callee does not
+    /// change — must fail the receiver guard, keep its frame and throw. A single shared
+    /// "keyed collection" bit would let this exact call through frameless.
+    /// </summary>
+    [Theory]
+    [InlineData("Map", "Set", "get")]
+    [InlineData("Map", "Set", "has")]
+    [InlineData("Set", "Map", "add")]
+    [InlineData("Set", "Map", "has")]
+    public void AWarmedKeyedCollectionSiteFramesTheOtherCollection(string owner, string foreign, string builtin)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            function f(c) { return c.{{builtin}}("a"); }
+            const live = new {{owner}}();
+            f(live); f(live);
+            const impostor = new {{foreign}}();
+            impostor.{{builtin}} = {{owner}}.prototype.{{builtin}};
+            let name = "";
+            let stack = "";
+            try { f(impostor); } catch (e) { name = e.constructor.name; stack = e.stack; }
+            name + "," + (stack.indexOf("at {{builtin}}") >= 0);
+            """).AsString();
+
+        result.Should().Be("TypeError,true");
+    }
+
+    /// <summary>
+    /// <c>LeafArg0 = AnyValue</c> is a claim about every key a Map or Set can be handed, so every kind
+    /// of key is asserted to answer the same warm as cold — objects above all, which are the keys a Map
+    /// exists for and the ones a partial guard would have sent back to the framed path.
+    /// </summary>
+    [Fact]
+    public void KeyedCollectionLookupsAgreeWarmAndColdForEveryKindOfKey()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            function get(c, k) { return c.get(k); }
+            function has(c, k) { return c.has(k); }
+            const obj = {};
+            const sym = Symbol("s");
+            const fn = function () {};
+            const m = new Map();
+            const keys = [obj, sym, fn, "s", 1, 1.5, 10n, true, null, undefined, NaN, -0];
+            for (let i = 0; i < keys.length; i++) { m.set(keys[i], i); }
+
+            // Each entry is the label of a check that FAILED, so a red run names the key kind.
+            const bad = [];
+            for (let i = 0; i < keys.length; i++) {
+                const cold = get(m, keys[i]);
+                get(m, keys[i]);
+                const warm = get(m, keys[i]);
+                if (!(cold === i && warm === i && has(m, keys[i]))) { bad.push(String(typeof keys[i]) + "#" + i); }
+            }
+            // NaN is SameValueZero-equal to itself and -0 is canonicalized to +0, both warm and cold.
+            if (get(m, NaN) !== 10) { bad.push("nan"); }
+            if (get(m, 0) !== 11) { bad.push("negative-zero"); }
+            if (!has(m, 0)) { bad.push("has-zero"); }
+            if (has(m, {})) { bad.push("absent-object"); }
+            bad.join(",");
+            """).AsString();
+
+        result.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The mutating half. Frame elision drops the recursion charge and the stack a JavaScript error
+    /// would report, and nothing else — so an entry written through the frameless lane has to be as
+    /// visible to <c>size</c>, to <c>forEach</c> and to a live iterator as one written through the
+    /// framed path. Each pair below performs its mutation at a warmed site and reads the result back
+    /// through a channel that does not go through the lane at all.
+    /// </summary>
+    [Fact]
+    public void MutationsThroughTheFramelessLaneStayVisibleToIterationAndSize()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            // One function per (collection, method) so every site stays monomorphic and warm — a
+            // shared `drop` would re-cache its callee when handed the other collection and the
+            // frameless branch would never be reached from the second half of this test.
+            function put(c, k, v) { return c.set(k, v); }
+            function add(c, v) { return c.add(v); }
+            function drop(c, k) { return c.delete(k); }
+            function undo(c, v) { return c.delete(v); }
+
+            const m = new Map();
+            // Warm each site before the entries that matter, so the writes below take the leaf branch.
+            put(m, "warm", 0); put(m, "warm", 0);
+            drop(m, "warm"); drop(m, "warm");
+            for (let i = 0; i < 5; i++) { put(m, "k" + i, i); }
+            const seen = [];
+            m.forEach(function (v, k) { seen.push(k + "=" + v); });
+            const chained = put(m, "x", 9) === m;
+
+            // A live iterator must observe an append made through the lane while it is running.
+            const it = m.keys();
+            it.next();
+            put(m, "late", 1);
+            let tail = 0;
+            while (!it.next().done) { tail++; }
+
+            const s = new Set();
+            add(s, 0); add(s, 0);
+            for (let i = 1; i < 5; i++) { add(s, i); }
+            undo(s, 99); undo(s, 99);
+            const dropped = undo(s, 2) && !undo(s, 2);
+            const spread = [...s].join("");
+
+            [m.size, seen.join("|"), chained, tail, s.size, dropped, spread].join(",");
+            """).AsString();
+
+        // 5 "k" entries + "x" + "late"; the iterator started after "k0" and must still reach "late".
+        result.Should().Be("7,k0=0|k1=1|k2=2|k3=3|k4=4,true,6,4,true,0134");
+    }
+
+    /// <summary>
+    /// The brand bit is set by the <c>JsMap</c>/<c>JsSet</c> constructor, which is the one every
+    /// instance reaches — including the <c>OrdinaryCreateFromConstructor</c> path a subclass takes. A
+    /// subclass instance at a warmed site is exactly the case that should stay fast, so it must also
+    /// answer identically; an overriding subclass must not.
+    /// </summary>
+    [Fact]
+    public void SubclassInstancesKeepTheBuiltinsAnswerAtAWarmedSite()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            class MyMap extends Map {}
+            class Shouty extends Map { get(k) { return "!" + super.get(k); } }
+            function f(c, k) { return c.get(k); }
+            const plain = new Map([["a", 1]]);
+            f(plain, "a"); f(plain, "a");
+            const sub = new MyMap([["a", 2]]);
+            const loud = new Shouty([["a", 3]]);
+            [f(sub, "a"), f(sub, "a"), f(loud, "a"), sub instanceof MyMap, sub.size].join(",");
+            """).AsString();
+
+        result.Should().Be("2,2,!3,true,1");
     }
 
     /// <summary>

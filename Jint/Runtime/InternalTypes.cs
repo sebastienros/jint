@@ -110,6 +110,21 @@ internal enum InternalTypes
     // rather than silently observing a pooled request as `undefined`.
     TailCall = 67108864,
 
+    // the object is a JsMap. Set by the JsMap constructor, which every Map goes through — including one
+    // built for a `class MyMap extends Map` through OrdinaryCreateFromConstructor — so the bit means
+    // exactly "MapPrototype.AssertMapInstance would succeed". It exists for FastCallGuard.Map: spelling
+    // that guard as a bit keeps the frameless lane's receiver test one mask test on the already-loaded
+    // _type, for the receivers that pass it AND for the ones that do not, instead of the type-test walk
+    // every failing guard of any kind would then pay.
+    Map = 134217728,
+    // the object is a JsSet. The sibling of Map, and a bit of its own precisely so a guard can tell the
+    // two apart: Map.prototype.get on a Set receiver must still reach its TypeError, with its frame.
+    Set = 268435456,
+    // No int flag bits remain: FastCallGuard borrows the two above this enum's top (1 << 29 for
+    // AnyValue, 1 << 30 for Date) for kinds that have no _type of their own, and Map/Set now hold
+    // 1 << 27 and 1 << 28. The next flag means relocating the borrowed guard kinds;
+    // FastCallGuardValuesMatchInternalTypes fails loudly if anything grows into them.
+
     Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall
+    InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module | IsHTMLDDA | ShapeMode | ShapeBuilding | ExoticGet | BuiltinShapeMode | Callable | Function | OrdinaryGet | OwnValueHook | HasLazySlots | BuiltinShapeIndexAuthoritative | TailCall | Map | Set
 }

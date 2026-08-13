@@ -83,6 +83,18 @@ internal sealed partial class WeakMapPrototype : Prototype
         return thisObject;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-weakmap.prototype.has
+    /// </summary>
+    /// <remarks>
+    /// Register lane only, unlike its <c>Map.prototype</c> namesake, and deliberately so — the same
+    /// goes for <c>WeakSet.prototype</c>. Two things would have to change first. A <c>WeakMap</c>
+    /// receiver has no <c>InternalTypes</c> bit, and giving it one (plus one for <c>WeakSet</c>) would
+    /// spend the enum's remaining headroom on a far colder path than a Map lookup. And it would buy
+    /// only half the family: <c>set</c> and <c>add</c> raise a TypeError for a key that cannot be held
+    /// weakly, which is a property of the argument that no <c>FastCallGuard</c> expresses, so those
+    /// two would stay framed however the receiver were guarded.
+    /// </remarks>
     [JsFunction(FastCall = true)]
     private JsValue Has(JsValue thisObject, JsValue key)
     {
