@@ -376,7 +376,9 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
                 blockValue = JintStatementList.HandleError(context.Engine, _singleStatement);
             }
         }
-        catch (Exception ex)
+        // The filter is what keeps a single-statement block out of the unwind of an exception it could
+        // only rethrow; see JintStatementList.ShouldCatch for why that matters at recursion depth.
+        catch (Exception ex) when (JintStatementList.ShouldCatch(ex))
         {
             if (ex is JintException)
             {

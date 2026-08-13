@@ -483,6 +483,148 @@ myarr[0](0);
         Invoking(() => engine.Evaluate(code)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
+    // A constraint that fires deep in a recursion has to survive its own unwind. Every one of these
+    // runs on a small dedicated stack, because that is the only place the failure shows: an exception
+    // caught and rethrown at each interpreter level costs a nested exception dispatch per level, and
+    // enough of those overflow the stack on the way out and take the host process down with them
+    // (0xC00000FD, uncatchable). The 16 MB DedicatedThread default hides all of it, which is why CI
+    // never saw it. Every depth below sits well above the pre-fix ceiling (~100 JavaScript frames on
+    // a 1 MB stack) and well below the plain forward-recursion ceiling (~700), so a regression fails
+    // the run rather than merely reporting a smaller number.
+    private const int SmallStack = 1024 * 1024;
+
+    [Fact]
+    public void RecursionLimitFiringAtTwoHundredUnwindsToTheHost()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.LimitRecursion(200));
+                Invoking(() => engine.Execute("function f() { return f(); } f();"))
+                    .Should().ThrowExactly<RecursionDepthOverflowException>();
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void RecursionLimitFiringAtAThousandUnwindsToTheHost()
+    {
+        // 4 MB: a thousand frames do not fit forward on 1 MB. The pre-fix unwind ceiling scales with
+        // the stack too (~400 frames here), so a thousand still fails without the fix.
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.LimitRecursion(1000));
+                Invoking(() => engine.Execute("function f() { return f(); } f();"))
+                    .Should().ThrowExactly<RecursionDepthOverflowException>();
+            },
+            maxStackSize: 4 * 1024 * 1024);
+    }
+
+    [Fact]
+    public void EngineStaysUsableAfterARecursionLimitUnwind()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.LimitRecursion(300));
+                engine.Execute("function f() { return f(); }");
+                engine.Execute("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }");
+
+                for (var round = 0; round < 3; round++)
+                {
+                    Invoking(() => engine.Evaluate("f()")).Should().ThrowExactly<RecursionDepthOverflowException>();
+
+                    // The frames the unwind passed through are what these assert: the call stack was
+                    // popped back to nothing, so a 20-deep call is not measured against a stale depth.
+                    engine.CallStack.Count.Should().Be(0);
+                    engine.Evaluate("fib(20)").AsNumber().Should().Be(6765);
+
+                    // A host constraint is not a JavaScript error, so a script-level catch never sees it
+                    // — the same reason the mapping switch has no arm for it. Declining to catch changed
+                    // where the frames go, not that.
+                    Invoking(() => engine.Evaluate("(function () { try { f(); return 'no-throw'; } catch (e) { return 'caught'; } })()"))
+                        .Should().ThrowExactly<RecursionDepthOverflowException>();
+                    engine.CallStack.Count.Should().Be(0);
+                }
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void CancellationRaisedDeepInARecursionUnwindsToTheHost()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                using var cts = new CancellationTokenSource();
+                var engine = new Engine(o => o.CancellationToken(cts.Token));
+                engine.SetValue("stop", new Action(() => cts.Cancel()));
+                engine.Execute("function f(n) { if (n <= 0) { stop(); var s = 0; for (var i = 0; i < 500; i++) { s += i; } return s; } return f(n - 1); }");
+
+                Invoking(() => engine.Evaluate("f(300)")).Should().ThrowExactly<ExecutionCanceledException>();
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void StatementBudgetExhaustedDeepInARecursionUnwindsToTheHost()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.MaxStatements(100_000));
+                engine.Execute("function f(n) { if (n <= 0) { var s = 0; for (var i = 0; i < 200000; i++) { s += i; } return s; } return f(n - 1); }");
+
+                Invoking(() => engine.Evaluate("f(300)")).Should().ThrowExactly<StatementsCountOverflowException>();
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void ClrExceptionFromHostCodeUnwindsADeepRecursionAndKeepsItsJavaScriptLocation()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine();
+                engine.SetValue("bang", new Action(() => throw new InvalidOperationException("bang")));
+                engine.Execute("function f(n) { if (n <= 0) { bang(); } return f(n - 1); }");
+
+                var thrown = Invoking(() => engine.Evaluate("f(300)"))
+                    .Should().ThrowExactly<InvalidOperationException>().Which;
+
+                // The decoration now happens at the innermost interpreter frame only — every frame above
+                // it declines to catch — so what a host reads back has to be unchanged.
+                JintException.TryGetJavaScriptLocation(thrown, out _).Should().BeTrue();
+                JintException.TryGetJavaScriptCallStack(thrown, out var callStack).Should().BeTrue();
+                callStack.Should().Contain("at f");
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void JavaScriptThrowFromADeepRecursionStillBecomesAThrowCompletion()
+    {
+        // The control: a JavaScript throw was never the broken case, and the filter must not change how
+        // it is mapped — at the host boundary or by a script-level catch.
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine();
+                engine.Execute("function f(n) { if (n <= 0) { throw new RangeError('boom'); } return f(n - 1); }");
+
+                var thrown = Invoking(() => engine.Evaluate("f(300)"))
+                    .Should().ThrowExactly<JavaScriptException>().Which;
+                thrown.Message.Should().Be("boom");
+                thrown.Error.Get("name").AsString().Should().Be("RangeError");
+
+                engine.Evaluate("(function () { try { f(300); } catch (e) { return e.name + ': ' + e.message; } })()")
+                    .Should().Be("RangeError: boom");
+            },
+            maxStackSize: SmallStack);
+    }
+
     [Fact]
     public void ShouldLimitArraySizeForConcat()
     {
