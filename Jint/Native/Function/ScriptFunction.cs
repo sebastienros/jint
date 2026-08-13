@@ -151,6 +151,21 @@ public sealed class ScriptFunction : Function, IConstructor
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
+        // Deliberately the first statement, and deliberately here rather than at the call expression.
+        // A call expression is only one of the routes into a function body — `new`, an accessor, a
+        // valueOf/toString coercion, a Proxy trap and a host Invoke all reach one without evaluating a
+        // CallExpression, and every one of those recursions ends as a native stack overflow when the
+        // only probe in the engine is the call expression's. Being first also keeps it outside the
+        // try/finally in CallOnce: a throw from inside it must not reach a finally that pops an
+        // execution context this frame never pushed. Off unless the host asked for it
+        // (Options.Constraints.StackOverflowGuard), in which case what is left here is one branch on a
+        // cached bool — see StackGuard.EnsureStackHeadroom.
+        //
+        // The probe belongs on the entry points that add a native frame, which is why it is here and in
+        // CallWithStackFrame rather than inside CallOnce: ContinueTailCalls re-enters CallOnce and
+        // CallCore from a loop, and a trampolined tail call consumes no stack to probe for.
+        _engine._stackGuard.EnsureStackHeadroom();
+
         var result = CallOnce(thisObject, arguments);
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame: false) : result;
     }
@@ -158,6 +173,8 @@ public sealed class ScriptFunction : Function, IConstructor
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal JsValue CallWithStackFrame(JsValue thisObject, JsCallArguments arguments)
     {
+        _engine._stackGuard.EnsureStackHeadroom();
+
         var result = CallOnce(thisObject, arguments);
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame: true) : result;
     }
@@ -421,6 +438,11 @@ public sealed class ScriptFunction : Function, IConstructor
         JintFunctionDefinition.State state,
         bool ownsFrame)
     {
+        // The register lane is dispatched straight from JintCallExpression, so it never passes through
+        // Call above and needs a probe of its own. As there, the probe sits on the entry that adds the
+        // native frame, not on the CallCore the trampoline re-enters.
+        _engine._stackGuard.EnsureStackHeadroom();
+
         _functionDefinition!.EnsureTailCallMarkers(state, _strict);
         var result = CallCore(thisObject, new RegisterArguments(arg0, arg1, arg2, arg3, argCount), state);
         return result is TailCallRequest ? ContinueTailCalls(result, ownsFrame) : result;
@@ -619,6 +641,10 @@ public sealed class ScriptFunction : Function, IConstructor
 
     private ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget, bool ownsFrame)
     {
+        // `function F() { new F(); } new F();` reaches a function body without ever evaluating a
+        // CallExpression, so [[Construct]] carries the probe as [[Call]] does.
+        _engine._stackGuard.EnsureStackHeadroom();
+
         var state = _functionDefinition!.Initialize();
         _functionDefinition.EnsureTailCallMarkers(state, _strict);
         var callerContext = _engine.ExecutionContext;
