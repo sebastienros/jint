@@ -408,6 +408,13 @@ internal sealed partial class CollatorConstructor : Constructor
                 Throw.RangeError(_realm, $"Invalid value '{collation}' for option 'collation'");
             }
 
+            // 9.2.7 step 10 canonicalizes the option value before asking whether the [[co]] list
+            // contains it, and CanonicalizeUValue (9.2.2) starts by ASCII-lowercasing. Without this
+            // every spelling but the all-lowercase one missed the list below - which compares
+            // ordinally, as it must, now that what reaches it is canonical - and fell through to
+            // "default", so 'PHONEBK' silently produced a collator 'phonebk' would not have.
+            collation = IntlUtilities.CanonicalizeUValue("co", collation);
+
             if (IsCollationSupportedForLocale(langCode, collation))
             {
                 return collation;

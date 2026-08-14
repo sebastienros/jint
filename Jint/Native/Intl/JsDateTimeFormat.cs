@@ -113,7 +113,13 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             && !string.Equals(Calendar, "iso8601", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(Calendar, "gregory", StringComparison.OrdinalIgnoreCase);
 
-        if (isLunisolarCalendar || hasEra || isNonIsoCalendar)
+        // A year no DateTime can hold arrives on a representative year with an override beside it, and
+        // the parts lane is the one that knows what to do with a per-field override - AddYearPart reads
+        // originalYear, FormatDateStyleToParts reads it, and neither .NET format strings nor the
+        // literal-splicing FormatWithComponents used to do can express a year outside 1-9999 at all.
+        // This is the same delegation era and the non-Gregorian calendars already take, and for the
+        // same reason.
+        if (isLunisolarCalendar || hasEra || isNonIsoCalendar || originalYear.HasValue)
         {
             var parts = FormatToParts(dateTime, originalYear, isPlain);
             var sb = new StringBuilder();
@@ -294,12 +300,35 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             "hebrew" => GetHebrewEra(style, eraNames),
             "persian" => GetPersianEra(style, eraNames),
             "indian" => GetIndianEra(style, eraNames),
-            "ethiopic" => GetEthiopicEra(dateTime, style, eraNames),
+            "ethiopic" => GetEthiopicEra(effectiveYear, style, eraNames),
             "ethioaa" => GetEthioAaEra(style, eraNames),
             "coptic" => GetCopticEra(effectiveYear, style, eraNames),
-            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(dateTime, style, eraNames),
+            "islamic" or "islamic-civil" or "islamic-tbla" or "islamic-umalqura" => GetIslamicEra(effectiveYear, dateTime, style, eraNames),
             _ => GetGregorianEra(effectiveYear, style, eraNames) // Default to Gregorian
         };
+    }
+
+    /// <summary>
+    /// Whether the date <paramref name="year"/> names, taking its month and day from
+    /// <paramref name="dateTime"/>, falls on or after the given proleptic Gregorian date.
+    ///
+    /// The year has to come in separately because <paramref name="dateTime"/> may be standing on a
+    /// representative year — congruent to the real one mod 400, so its month, day and weekday are the
+    /// real ones and its year is not. Every era boundary here is an absolute date, so comparing against
+    /// the substitute's year answers about a year 275760 years away from the one asked about. It used to
+    /// happen to work, because the clamp this replaces put such a value on year 9999 or year 1, which
+    /// is on the right side of every one of these boundaries by accident.
+    /// </summary>
+    private static bool IsOnOrAfter(int year, DateTime dateTime, int boundaryYear, int boundaryMonth, int boundaryDay)
+    {
+        if (year != boundaryYear)
+        {
+            return year > boundaryYear;
+        }
+
+        // A year DateTime can hold is never substituted, so within the boundary year the month and day
+        // beside it are the real ones.
+        return dateTime.Month > boundaryMonth || (dateTime.Month == boundaryMonth && dateTime.Day >= boundaryDay);
     }
 
     private static string GetGregorianEra(int year, string style, string[]? eraNames)
@@ -333,28 +362,27 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // For Japanese eras, short and long use the same full name
         var isNarrow = string.Equals(style, "narrow", StringComparison.Ordinal);
 
-        // Check for dates within .NET DateTime range using actual DateTime comparison
-        if (effectiveYear >= 2019 && dateTime >= new DateTime(2019, 5, 1))
+        if (IsOnOrAfter(effectiveYear, dateTime, 2019, 5, 1))
         {
             return isNarrow ? "R" : "Reiwa";
         }
 
-        if (effectiveYear >= 1989 && dateTime >= new DateTime(1989, 1, 8))
+        if (IsOnOrAfter(effectiveYear, dateTime, 1989, 1, 8))
         {
             return isNarrow ? "H" : "Heisei";
         }
 
-        if (effectiveYear >= 1926 && dateTime >= new DateTime(1926, 12, 25))
+        if (IsOnOrAfter(effectiveYear, dateTime, 1926, 12, 25))
         {
             return isNarrow ? "S" : "Shōwa";
         }
 
-        if (effectiveYear >= 1912 && dateTime >= new DateTime(1912, 7, 30))
+        if (IsOnOrAfter(effectiveYear, dateTime, 1912, 7, 30))
         {
             return isNarrow ? "T" : "Taishō";
         }
 
-        if (effectiveYear >= 1868 && dateTime >= new DateTime(1868, 1, 25))
+        if (IsOnOrAfter(effectiveYear, dateTime, 1868, 1, 25))
         {
             return isNarrow ? "M" : "Meiji";
         }
@@ -429,12 +457,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         };
     }
 
-    private static string GetEthiopicEra(DateTime dateTime, string style, string[]? eraNames)
+    private static string GetEthiopicEra(int year, string style, string[]? eraNames)
     {
         // Ethiopic has two eras: Anno Mundi (AA) for Ethiopic years ≤ 0, Era of the Incarnation
         // (AM) for Ethiopic years ≥ 1. Ethiopic year 1 starts roughly ISO 8 CE; the easy
         // approximation that suffices here is "ISO year ≥ 8 → AM, otherwise AA".
-        var isAm = dateTime.Year >= 8;
+        var isAm = year >= 8;
         return style switch
         {
             "long" => isAm ? "Era of the Incarnation" : "Anno Mundi",
@@ -469,11 +497,11 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         };
     }
 
-    private static string GetIslamicEra(DateTime dateTime, string style, string[]? eraNames)
+    private static string GetIslamicEra(int year, DateTime dateTime, string style, string[]? eraNames)
     {
         // Islamic has two eras: AH (Anno Hegirae) for dates ≥ 622-07-16 CE Gregorian (the Hijra
         // epoch) and BH (Before Hijra) for earlier dates.
-        var isAh = dateTime.Year > 622 || (dateTime.Year == 622 && (dateTime.Month > 7 || (dateTime.Month == 7 && dateTime.Day >= 16)));
+        var isAh = IsOnOrAfter(year, dateTime, 622, 7, 16);
         return style switch
         {
             "long" => isAh ? "Anno Hegirae" : "Before Hijra",
@@ -593,19 +621,22 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         if (string.Equals(Calendar, "japanese", StringComparison.OrdinalIgnoreCase))
         {
             // For Japanese, the displayed year is the era year of whichever era contains the
-            // given date. Pre-Meiji dates fall back to the Gregorian year.
+            // given date. Pre-Meiji dates fall back to the Gregorian year. The comparisons read
+            // sourceYear rather than dateTime.Year for the reason IsOnOrAfter gives: a year outside
+            // DateTime's range arrives on a substitute congruent mod 400, whose month and day are real
+            // and whose year is not.
             var dt = dateTime;
             int? eraYear = null;
-            if (dt.Year > 2019 || (dt.Year == 2019 && (dt.Month > 5 || (dt.Month == 5 && dt.Day >= 1))))
-                eraYear = dt.Year - 2018; // Reiwa
-            else if (dt.Year > 1989 || (dt.Year == 1989 && (dt.Month > 1 || (dt.Month == 1 && dt.Day >= 8))))
-                eraYear = dt.Year - 1988; // Heisei
-            else if (dt.Year > 1926 || (dt.Year == 1926 && (dt.Month > 12 || (dt.Month == 12 && dt.Day >= 25))))
-                eraYear = dt.Year - 1925; // Showa
-            else if (dt.Year > 1912 || (dt.Year == 1912 && (dt.Month > 7 || (dt.Month == 7 && dt.Day >= 30))))
-                eraYear = dt.Year - 1911; // Taisho
-            else if (dt.Year > 1868 || (dt.Year == 1868 && (dt.Month > 1 || (dt.Month == 1 && dt.Day >= 25))))
-                eraYear = dt.Year - 1867; // Meiji
+            if (IsOnOrAfter(sourceYear, dt, 2019, 5, 1))
+                eraYear = sourceYear - 2018; // Reiwa
+            else if (IsOnOrAfter(sourceYear, dt, 1989, 1, 8))
+                eraYear = sourceYear - 1988; // Heisei
+            else if (IsOnOrAfter(sourceYear, dt, 1926, 12, 25))
+                eraYear = sourceYear - 1925; // Showa
+            else if (IsOnOrAfter(sourceYear, dt, 1912, 7, 30))
+                eraYear = sourceYear - 1911; // Taisho
+            else if (IsOnOrAfter(sourceYear, dt, 1868, 1, 25))
+                eraYear = sourceYear - 1867; // Meiji
             if (eraYear.HasValue)
             {
                 year = eraYear;
@@ -986,35 +1017,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                     });
                     break;
                 case 'y' when Year != null:
-                    if (originalYear.HasValue)
+                    // No originalYear branch here: Format routes a value carrying one through
+                    // FormatToParts instead. Splicing the real year in as a quoted literal is what this
+                    // used to do, and BuildFormatString reads a part beginning with an apostrophe as an
+                    // hour - so it put the date/time separator in front of the year and then ran the
+                    // real time fields together behind it: "12/31, 27576011:59:59 PM".
+                    parts.Add(Year switch
                     {
-                        // Use original year as escaped literal to avoid .NET formatting the representative year
-                        var yearVal = originalYear.Value;
-                        int displayYear;
-                        if (Era != null && yearVal <= 0)
-                        {
-                            displayYear = 1 - yearVal; // Convert to era-relative positive year
-                        }
-                        else
-                        {
-                            displayYear = yearVal; // Keep sign for iso8601/gregorian without era
-                        }
-                        var yearStr = Year switch
-                        {
-                            "2-digit" => (System.Math.Abs(displayYear) % 100).ToString("00", CultureInfo),
-                            _ => displayYear.ToString(CultureInfo)
-                        };
-                        parts.Add("'" + yearStr + "'");
-                    }
-                    else
-                    {
-                        parts.Add(Year switch
-                        {
-                            "numeric" => "yyyy",
-                            "2-digit" => "yy",
-                            _ => "yyyy"
-                        });
-                    }
+                        "numeric" => "yyyy",
+                        "2-digit" => "yy",
+                        _ => "yyyy"
+                    });
                     break;
             }
         }
@@ -1379,6 +1392,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // For plain Temporal types (isPlain=true), skip timezone conversion
         if (!isPlain)
         {
+            var beforeConversion = dateTime;
             if (TimeZone != null)
             {
                 dateTime = ConvertToTimeZone(dateTime, TimeZone);
@@ -1388,6 +1402,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 // No explicit timezone: convert UTC to engine's default timezone
                 var defaultTz = _engine.Options.TimeSystem.DefaultTimeZone;
                 dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, defaultTz);
+            }
+
+            // A conversion can carry the representative date over a year boundary - an instant just
+            // after midnight on 1 January in a zone behind UTC belongs to the previous year - and
+            // originalYear names the year of the value that went in. Move it by what the substitute
+            // moved by, so the printed year is the one the wall clock is actually in.
+            if (originalYear.HasValue && dateTime.Year != beforeConversion.Year)
+            {
+                originalYear += dateTime.Year - beforeConversion.Year;
             }
         }
 
@@ -1429,7 +1452,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         if (hasDate)
         {
-            FormatDateStyleToParts(dateTime, result);
+            FormatDateStyleToParts(dateTime, result, originalYear);
         }
 
         if (hasDate && hasTime)
@@ -1444,9 +1467,16 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
     }
 
-    private void FormatDateStyleToParts(DateTime dateTime, List<DateTimePart> result)
+    /// <summary>
+    /// The date half of a dateStyle format. <c>originalYear</c> is the real year when
+    /// <c>dateTime</c> stands on a representative one: FormatStyleToParts took it and dropped it, so a
+    /// styled format of a date outside DateTime's range printed the substitute's year - 9999 - with
+    /// nothing to say it had.
+    /// </summary>
+    private void FormatDateStyleToParts(DateTime dateTime, List<DateTimePart> result, int? originalYear = null)
     {
         var style = DateStyle;
+        var year = originalYear ?? dateTime.Year;
 
         // Check if using Chinese or Dangi calendar
         var isChineseCalendar = string.Equals(Calendar, "chinese", StringComparison.OrdinalIgnoreCase);
@@ -1486,7 +1516,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 result.Add(new DateTimePart("literal", " "));
                 result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
                 result.Add(new DateTimePart("literal", ", "));
-                result.Add(new DateTimePart("year", dateTime.Year.ToString(CultureInfo)));
+                result.Add(new DateTimePart("year", year.ToString(CultureInfo)));
             }
         }
         else if (string.Equals(style, "medium", StringComparison.Ordinal))
@@ -1501,7 +1531,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 result.Add(new DateTimePart("literal", " "));
                 result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
                 result.Add(new DateTimePart("literal", ", "));
-                result.Add(new DateTimePart("year", dateTime.Year.ToString(CultureInfo)));
+                result.Add(new DateTimePart("year", year.ToString(CultureInfo)));
             }
         }
         else // short
@@ -1516,7 +1546,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                 result.Add(new DateTimePart("literal", "/"));
                 result.Add(new DateTimePart("day", dateTime.Day.ToString(CultureInfo)));
                 result.Add(new DateTimePart("literal", "/"));
-                result.Add(new DateTimePart("year", (dateTime.Year % 100).ToString("D2", CultureInfo)));
+                result.Add(new DateTimePart("year", (year % 100).ToString("D2", CultureInfo)));
             }
         }
     }

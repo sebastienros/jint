@@ -79,10 +79,20 @@ internal sealed partial class NumberFormatConstructor : Constructor
         if (!numberingSystemValue.IsUndefined())
         {
             numberingSystem = TypeConverter.ToString(numberingSystemValue);
-            if (string.IsNullOrEmpty(numberingSystem) || !IsValidNumberingSystem(numberingSystem))
+
+            // https://tc39.es/ecma402/#sec-resolveoptions (9.2.8) step 6.d.ii: the check is the "type"
+            // Unicode locale nonterminal, alphanum{3,8} (sep alphanum{3,8})*, and nothing narrower.
+            // The hand-rolled check this replaces was narrower in two ways that both misreported:
+            // char.IsAsciiLetterLower made 'LATN' a RangeError where the nonterminal matches it, and no
+            // hyphen was admitted at all, so a well-formed multi-subtag value threw where it should
+            // simply have matched no numbering system and left the default in place.
+            if (!IntlUtilities.IsValidUnicodeExtensionValue(numberingSystem))
             {
                 Throw.RangeError(_realm, $"Invalid numberingSystem: {numberingSystem}");
             }
+
+            // 9.2.7 step 10, immediately before the keyLocaleData lookup below.
+            numberingSystem = IntlUtilities.CanonicalizeUValue("nu", numberingSystem);
         }
 
         // Resolve locale using already-read localeMatcher
@@ -436,25 +446,6 @@ internal sealed partial class NumberFormatConstructor : Constructor
         }
 
         return null;
-    }
-
-    private static bool IsValidNumberingSystem(string numberingSystem)
-    {
-        // Basic validation: must be 3-8 lowercase alphanumeric characters
-        if (numberingSystem.Length < 3 || numberingSystem.Length > 8)
-        {
-            return false;
-        }
-
-        foreach (var c in numberingSystem)
-        {
-            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static bool IsSupportedNumberingSystem(string numberingSystem)

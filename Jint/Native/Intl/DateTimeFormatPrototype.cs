@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.Temporal;
 using Jint.Runtime;
@@ -451,8 +452,22 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// Creates a DateTime, using a representative year if the actual year is outside .NET's 1-9999 range.
-    /// The representative year preserves leap year status and day-of-week alignment (Gregorian 400-year cycle).
+    /// Creates a <see cref="DateTime"/>, substituting a representative year when the real one is
+    /// outside .NET's 1-9999 range and reporting the real one through <paramref name="originalYear"/>
+    /// for the formatter to print over it.
+    ///
+    /// The representative is congruent to the real year modulo 400, the length of the Gregorian cycle,
+    /// so leap status, weekday and every day-of-year alignment carry over untouched — the proleptic
+    /// Gregorian leap rule reads nothing but the year mod 400, for negative years as much as positive
+    /// ones, and 400 years is a whole number of weeks (146097 days = 20871 weeks). Everything except
+    /// the year itself is therefore already right on the substitute, which is what lets a single
+    /// per-field override carry the whole date.
+    ///
+    /// The representative is taken from 401-800 rather than 1-400 for one reason: what the formatter
+    /// does next is convert this value into the resolved time zone, and <see cref="TimeZoneInfo"/>
+    /// saturates at <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/> rather than
+    /// wrapping, so a representative sitting on the first day of year 1 would lose its time and its day
+    /// to the clamp for any zone behind UTC.
     /// </summary>
     private static DateTime CreateDateTimeSafe(int year, int month, int day, int hour, int minute, int second, int millisecond, out int? originalYear)
     {
@@ -463,29 +478,11 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         originalYear = year;
-        // Map to representative year in 1-400 range preserving leap year and day-of-week
-        var repYear = ((year - 1) % 400 + 400) % 400 + 1;
+        var repYear = ((year - 1) % 400 + 400) % 400 + 401;
 
-        // Ensure leap year match: if the original year is a leap year but repYear isn't (or vice versa),
-        // adjust by searching nearby in the 400-year cycle
-        var needLeap = DateTime.IsLeapYear(IsLeapYearISO(year) ? 4 : 1); // use IsLeapYearISO for negative years
-        if (IsLeapYearISO(year) != DateTime.IsLeapYear(repYear))
-        {
-            // Shift to nearest matching leap year status within valid range
-            // Leap years in a 400-year cycle: every 4 except 100 except 400
-            for (var offset = 1; offset <= 400; offset++)
-            {
-                var candidate = repYear + offset;
-                if (candidate > 400) candidate -= 400;
-                if (DateTime.IsLeapYear(candidate) == IsLeapYearISO(year))
-                {
-                    repYear = candidate;
-                    break;
-                }
-            }
-        }
-
-        // For non-leap year rep when day is 29 Feb, constrain to 28
+        // 29 February exists in the representative year exactly when it exists in the real one, by the
+        // congruence above. The guard stays as an assertion of that rather than as a fix-up: if it ever
+        // fires, the representative has stopped being congruent and the weekday is wrong too.
         if (month == 2 && day == 29 && !DateTime.IsLeapYear(repYear))
         {
             day = 28;
@@ -495,13 +492,21 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// ISO 8601 leap year calculation (works for negative years).
+    /// The UTC instant a time value names, as a <see cref="DateTime"/> the platform can hold: the real
+    /// one when the year fits, and otherwise the representative <see cref="CreateDateTimeSafe"/> builds
+    /// with the real year handed back through <paramref name="originalYear"/>.
+    ///
+    /// Deliberately unconverted and <see cref="DateTimeKind.Utc"/>: the formatter's own timezone step
+    /// converts it into the resolved zone, which is the only place that knows what
+    /// <c>options.timeZone</c> resolved to, and it converts an out-of-range value on exactly the terms
+    /// it converts an in-range one.
     /// </summary>
-    private static bool IsLeapYearISO(int year)
+    internal static DateTime FromTimeValueUtc(DatePresentation timeValue, out int? originalYear)
     {
-        // For negative years, convert to proleptic Gregorian
-        var y = year > 0 ? year : 1 - year; // year 0 = 1 BC, -1 = 2 BC, etc.
-        return (y % 4 == 0) && (y % 100 != 0 || y % 400 == 0);
+        var fields = DatePrototype.FieldsFromTimeValue(timeValue);
+        var dateTime = CreateDateTimeSafe(fields.Year, fields.Month, fields.Day,
+            fields.Hour, fields.Minute, fields.Second, fields.Millisecond, out originalYear);
+        return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
     }
 
     /// <summary>
@@ -633,8 +638,15 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// Converts a JavaScript value to DateTime, returning the original JavaScript year
-    /// when the date is outside .NET DateTime range (for proper era formatting).
+    /// Converts a JavaScript value to a <see cref="DateTime"/> the formatter can work on, reporting the
+    /// real JavaScript year through <paramref name="originalYear"/> when it is one no
+    /// <see cref="DateTime"/> can hold.
+    ///
+    /// An out-of-range value used to be clamped to <see cref="DateTime.MinValue"/>/
+    /// <see cref="DateTime.MaxValue"/> with only the year carried out beside it, so month, day and every
+    /// time field came from the clamp: the maximum time value formatted as December 31 rather than
+    /// September 13. It is decomposed instead, onto a representative year that keeps all of them —
+    /// see <see cref="FromTimeValueUtc"/>.
     /// </summary>
     private DateTime ToDateTimeWithOriginalYear(JsValue value, out int? originalYear)
     {
@@ -646,13 +658,19 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
 
         if (value is JsDate jsDate)
         {
-            // Check if date is within .NET DateTime range
+            // ToDateTimeFormattable keeps a Date object as itself where the spec converts it to a
+            // Number, so HandleDateTimeValue's "If x is not a finite Number, throw a RangeError" has to
+            // be made here as well. It reached the Number branch below and nothing else, which was
+            // invisible only because the year the clamp produced for a NaN time value was garbage
+            // either way; decomposing the time value would have answered 1/1/1970 instead.
+            if (double.IsNaN(jsDate.DateValue))
+            {
+                Throw.RangeError(_realm, "Invalid time value");
+            }
+
             if (!jsDate.DateTimeRangeValid)
             {
-                // Extract the original JavaScript year from the date value
-                originalYear = GetJavaScriptYear(jsDate.DateValue);
-                // Date is outside .NET range - return min/max based on sign
-                return jsDate.DateValue < 0 ? DateTime.MinValue : DateTime.MaxValue;
+                return FromTimeValueUtc(jsDate.DateValue, out originalYear);
             }
 
             // ECMA-402 requires formatting in local time unless a specific timezone is provided
@@ -674,62 +692,13 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             Throw.RangeError(_realm, "Invalid time value");
         }
 
-        // Clamp to .NET DateTime range if necessary
-        if (presentation.Value < JsDate.Min)
+        if (!presentation.DateTimeRangeValid)
         {
-            originalYear = GetJavaScriptYear(presentation.Value);
-            return DateTime.MinValue;
-        }
-
-        if (presentation.Value > JsDate.Max)
-        {
-            originalYear = GetJavaScriptYear(presentation.Value);
-            return DateTime.MaxValue;
+            return FromTimeValueUtc(presentation, out originalYear);
         }
 
         originalYear = null;
         return presentation.ToDateTime().ToLocalTime();
-    }
-
-    /// <summary>
-    /// Extracts the JavaScript year from a timestamp value using the ECMAScript algorithm.
-    /// JavaScript Date uses milliseconds since Unix epoch (1970-01-01).
-    /// </summary>
-    private static int GetJavaScriptYear(double timeValue)
-    {
-        // ECMAScript YearFromTime algorithm
-        // https://tc39.es/ecma262/#sec-yearfromtime
-        const double msPerDay = 86400000;
-
-        // Day number from epoch
-        var day = System.Math.Floor(timeValue / msPerDay);
-
-        // Estimate year (rough approximation to start binary search)
-        var year = (int) (1970 + day / 365.2425);
-
-        // Binary search refinement for exact year
-        while (DayFromYear(year + 1) <= day)
-        {
-            year++;
-        }
-        while (DayFromYear(year) > day)
-        {
-            year--;
-        }
-
-        return year;
-    }
-
-    /// <summary>
-    /// Returns the day number of the first day of a given year (ECMAScript algorithm).
-    /// </summary>
-    private static double DayFromYear(int year)
-    {
-        // https://tc39.es/ecma262/#sec-dayfromyear
-        return 365.0 * (year - 1970)
-               + System.Math.Floor((year - 1969) / 4.0)
-               - System.Math.Floor((year - 1901) / 100.0)
-               + System.Math.Floor((year - 1601) / 400.0);
     }
 
     /// <summary>

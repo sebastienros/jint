@@ -461,31 +461,49 @@ public class DateTests
     /// try/catch never saw it, the same escape #2954 closed for sort and #2965 for the first instant of
     /// year 10000.
     ///
-    /// These years have no representation in any .NET calendar, so there is no locale-aware string to
-    /// produce; each method answers with what its culture-independent sibling renders instead, which is
-    /// the rendering https://tc39.es/ecma262/#sec-datestring already gives these values from toString.
+    /// #2981 answered those years with the culture-independent rendering their non-locale siblings give,
+    /// because the alternative it wanted — carrying the real fields in on a substitute year congruent
+    /// mod 400 — "needs the whole component pipeline to learn about per-field overrides it does not
+    /// have". It has them now, so these methods produce a real locale string again: the substitute year
+    /// preserves month, day, time and weekday, and the formatter prints the true year over it.
     /// </summary>
     [Theory]
-    [InlineData(8640000000000000)] // the maximum time value, year 275760
-    [InlineData(253402300800001)] // one past what DateTime can hold, year 10000
-    [InlineData(-62135596800001)] // one before what DateTime can hold, year 0
-    [InlineData(-8640000000000000)] // the minimum time value, year -271821
-    public void ToLocaleStringOutsideDateTimeRangeRendersTheCultureIndependentString(long timeValue)
+    // the maximum time value, 275760-09-13T00:00:00.000Z
+    [InlineData(8640000000000000, "9/13/275760, 12:00:00 AM", "9/13/275760", "12:00:00 AM")]
+    // one past what DateTime can hold, +010000-01-01T00:00:00.001Z
+    [InlineData(253402300800001, "1/1/10000, 12:00:00 AM", "1/1/10000", "12:00:00 AM")]
+    // one before what DateTime can hold, 0000-12-31T23:59:59.999Z
+    [InlineData(-62135596800001, "12/31/0, 11:59:59 PM", "12/31/0", "11:59:59 PM")]
+    // the minimum time value, -271821-04-20T00:00:00.000Z
+    [InlineData(-8640000000000000, "4/20/-271821, 12:00:00 AM", "4/20/-271821", "12:00:00 AM")]
+    public void ToLocaleStringOutsideDateTimeRangeRendersALocaleString(
+        long timeValue, string expectedDateTime, string expectedDate, string expectedTime)
     {
         var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
 
-        engine.Evaluate($"new Date({timeValue}).toLocaleString()").AsString()
-            .Should().Be(engine.Evaluate($"new Date({timeValue}).toString()").AsString());
+        engine.Evaluate($"new Date({timeValue}).toLocaleString('en-US')").AsString().Should().Be(expectedDateTime);
+        engine.Evaluate($"new Date({timeValue}).toLocaleDateString('en-US')").AsString().Should().Be(expectedDate);
+        engine.Evaluate($"new Date({timeValue}).toLocaleTimeString('en-US')").AsString().Should().Be(expectedTime);
+    }
 
-        engine.Evaluate($"new Date({timeValue}).toLocaleDateString()").AsString()
-            .Should().Be(engine.Evaluate($"new Date({timeValue}).toDateString()").AsString());
+    /// <summary>
+    /// The options bag reaches these years now rather than being read, validated and discarded.
+    /// </summary>
+    [Fact]
+    public void ToLocaleStringOutsideDateTimeRangeHonoursTheOptionsBag()
+    {
+        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
 
-        engine.Evaluate($"new Date({timeValue}).toLocaleTimeString()").AsString()
-            .Should().Be(engine.Evaluate($"new Date({timeValue}).toTimeString()").AsString());
+        engine.Evaluate("new Date(8640000000000000).toLocaleString('en-US', { month: 'long' })")
+            .AsString().Should().Be("September");
 
-        // A locale and an options bag are still read and validated; they simply cannot change the answer.
-        engine.Evaluate($"new Date({timeValue}).toLocaleString('de-DE', {{ month: 'long' }})").AsString()
-            .Should().Be(engine.Evaluate($"new Date({timeValue}).toString()").AsString());
+        engine.Evaluate("new Date(8640000000000000).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })")
+            .AsString().Should().Be("Saturday September 13, 275760");
+
+        // A malformed locale is still a RangeError: the formatter is constructed before anything is
+        // rendered, and none of its validation may be skipped.
+        engine.Evaluate("(function () { try { return new Date(8640000000000000).toLocaleString('!!bad!!'); } catch (e) { return e.constructor.name; } })()")
+            .AsString().Should().Be("RangeError");
     }
 
     /// <summary>
@@ -522,11 +540,13 @@ public class DateTests
     }
 
     /// <summary>
-    /// The fallback is reached only where the locale path cannot go. A date .NET can represent is still
-    /// formatted by ECMA-402, and the two renderings do not look alike.
+    /// There is no switch left to land on the wrong side of: the millisecond either side of the end of
+    /// <see cref="DateTime"/>'s range is formatted by ECMA-402, and neither looks like what
+    /// https://tc39.es/ecma262/#sec-datestring renders. #2981 made the second of these two answer with
+    /// the culture-independent string, and that is the 4.16.0 behaviour this changes.
     /// </summary>
     [Fact]
-    public void ToLocaleStringInsideDateTimeRangeIsStillLocaleFormatted()
+    public void ToLocaleStringIsLocaleFormattedOnBothSidesOfTheDateTimeBoundary()
     {
         var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
 
@@ -534,11 +554,16 @@ public class DateTests
         localeString.Should().NotBe(engine.Evaluate("new Date(0).toString()").AsString());
         localeString.Should().Contain("1970");
 
-        // The two instants either side of DateTime.MaxValue land on opposite sides of the switch.
         engine.Evaluate("new Date(253402300799999).toLocaleDateString('en-US')").AsString()
-            .Should().NotBe(engine.Evaluate("new Date(253402300799999).toDateString()").AsString());
+            .Should().Be("12/31/9999");
         engine.Evaluate("new Date(253402300800001).toLocaleDateString('en-US')").AsString()
-            .Should().Be(engine.Evaluate("new Date(253402300800001).toDateString()").AsString());
+            .Should().Be("1/1/10000");
+
+        foreach (var timeValue in new[] { "253402300799999", "253402300800001" })
+        {
+            engine.Evaluate($"new Date({timeValue}).toLocaleDateString('en-US')").AsString()
+                .Should().NotBe(engine.Evaluate($"new Date({timeValue}).toDateString()").AsString());
+        }
     }
 
     /// <summary>

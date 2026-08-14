@@ -66,10 +66,14 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         if (!numberingSystemValue.IsUndefined())
         {
             numberingSystem = TypeConverter.ToString(numberingSystemValue);
-            if (string.IsNullOrEmpty(numberingSystem) || !IsWellFormedNumberingSystem(numberingSystem))
+            if (!IntlUtilities.IsValidUnicodeExtensionValue(numberingSystem))
             {
                 Throw.RangeError(_realm, $"Invalid numberingSystem: {numberingSystem}");
             }
+
+            // 9.2.7 step 10. IsSupportedNumberingSystem below is an OrdinalIgnoreCase dictionary probe,
+            // so 'LATN' was accepted and then reported verbatim from resolvedOptions().
+            numberingSystem = IntlUtilities.CanonicalizeUValue("nu", numberingSystem);
         }
 
         // Step 16: style
@@ -192,35 +196,6 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         }
 
         return null;
-    }
-
-    private static bool IsWellFormedNumberingSystem(string numberingSystem)
-    {
-        // Unicode numbering system identifier can be a sequence of subtags separated by '-'
-        // Each subtag must be 3-8 alphanumeric characters
-        if (string.IsNullOrEmpty(numberingSystem))
-        {
-            return false;
-        }
-
-        var subtags = numberingSystem.Split('-');
-        foreach (var subtag in subtags)
-        {
-            if (subtag.Length < 3 || subtag.Length > 8)
-            {
-                return false;
-            }
-
-            foreach (var c in subtag)
-            {
-                if (!char.IsAsciiLetterOrDigit(c))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
     private static bool IsSupportedNumberingSystem(string numberingSystem)
