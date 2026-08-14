@@ -1787,6 +1787,18 @@ internal static class TemporalHelpers
     /// Odd months have 30 days, even months have 29 days.
     /// Month 12 has 30 days in leap years.
     /// </summary>
+    /// <remarks>
+    /// This one <em>can</em> answer below 1: a month outside 1-12 has no days, and 0 is what says so.
+    /// Both places that use it as the max of <c>System.Math.Clamp(day, 1, ...)</c> clamp the month to
+    /// 1-12 on the line immediately above, and both places that use it in a range test reach it only
+    /// after <c>month &lt; 1 || month &gt; 12</c> has short-circuited, so the 0 never becomes an
+    /// inverted bound — which Math.Clamp answers with an ArgumentException escaping engine.Evaluate,
+    /// where the private clamp helper it replaced returned min. Anything new that takes this value as
+    /// a maximum has to establish the month range first. Note that all four callers currently sit in
+    /// IslamicCivilDateToISO and IslamicTblaDateToISO, which nothing references — the live islamic-civil
+    /// and islamic-tbla conversions run through NonIsoCalendars.IslamicCivilTabularDateToIso and its own
+    /// IslamicCivilDaysInMonth, which has no out-of-range arm at all.
+    /// </remarks>
     private static int IslamicCivilDaysInMonth(int year, int month)
     {
         if (month <= 0 || month > 12)
@@ -2782,6 +2794,11 @@ internal static class TemporalHelpers
     {
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
+            // The month clamp is what keeps the day clamp's bounds the right way round:
+            // IsoDate.IsoDateInMonth answers 0 for a month outside 1-12 (which is what IsoDate.IsValid
+            // reads it for), and a max of 0 is inverted bounds, which Math.Clamp answers with an
+            // ArgumentException escaping engine.Evaluate rather than with a constrained date. The two
+            // lines have to stay in this order.
             month = System.Math.Clamp(month, 1, 12);
             var daysInMonth = IsoDate.IsoDateInMonth(year, month);
             day = System.Math.Clamp(day, 1, daysInMonth);

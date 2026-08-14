@@ -896,33 +896,59 @@ uriError:
 
         if (result)
         {
-            MarkBindingPropertyCreatedByShadowing(property);
+            MarkBindingPropertyCreatedBySet(property);
         }
 
         return true;
     }
 
     /// <summary>
-    /// Where the inherited property is writable data, [[Set]] shadows it by creating an own property on
-    /// the receiver through CreateDataProperty. That gives the right attributes but not
-    /// <see cref="PropertyFlag.MutableBinding"/>, which is the marker telling the two stores above they
-    /// may write the descriptor's value in place. So a property the binding machinery had itself just
-    /// created sent every later write of that name down the validate-and-apply path instead — allocating
-    /// a descriptor and a key each time, and for the rest of the engine's life, since nothing ever puts
-    /// the marker on afterwards. Both of the record's other ways of creating a global property mark it:
-    /// CreateGlobalVarBinding for a <c>var</c> declaration, and the branch just above for a binding that
-    /// resolves to nothing on the prototype either.
+    /// https://tc39.es/ecma262/#sec-putvalue step 2.c — a sloppy assignment to a name that resolves
+    /// nowhere at all has an unresolvable reference, so PutValue never reaches the global environment
+    /// record and performs Set(globalObj, V.[[ReferencedName]], W, false) here instead. What that
+    /// creates is a global variable-like binding all the same, so it is marked like every other route
+    /// that creates one and comes out indistinguishable from an eval-scoped <c>var</c>'s global.
     /// </summary>
     /// <remarks>
-    /// <para>Only the exact descriptor CreateDataProperty leaves behind is marked. The caller has already
+    /// <para>Unresolvability establishes what <see cref="MarkBindingPropertyCreatedBySet"/> needs: the
+    /// name resolved on no environment of the chain, which for the last of them means neither an own
+    /// property of the global nor anything on its prototype chain, so whatever own property is there
+    /// once [[Set]] returns was created by it. A right-hand side that reached <c>globalThis</c> between
+    /// the reference and the assignment is the one way that is not literally true, and it is covered
+    /// anyway: only the exact descriptor shape CreateDataProperty produces is ever marked, which is a
+    /// plain writable global data property either way.</para>
+    /// <para>The property name of an unresolvable reference is always an identifier name — only
+    /// Engine.GetIdentifierReference produces the unresolvable sentinel, and it always carries a
+    /// <see cref="JsString"/>.</para>
+    /// </remarks>
+    internal void SetFromUnresolvableAssignment(JsString property, JsValue value)
+    {
+        // [[Set]] can still decline - a non-extensible global has nowhere to put the property, and the
+        // sloppy assignment is a silent no-op - in which case there is nothing to mark.
+        if (Set(property, value))
+        {
+            MarkBindingPropertyCreatedBySet(property.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Where a global binding is created by ordinary [[Set]] rather than by the binding machinery's own
+    /// helper, the property comes out with the right attributes but without
+    /// <see cref="PropertyFlag.MutableBinding"/>, the marker telling the two stores above they may write
+    /// the descriptor's value in place. So a property the binding machinery had itself just created sent
+    /// every later write of that name down the validate-and-apply path instead — allocating a descriptor
+    /// and a key each time, and for the rest of the engine's life, since nothing ever puts the marker on
+    /// afterwards. Every other way a global binding comes into being marks it: CreateGlobalVarBinding for
+    /// a <c>var</c> declaration, and the branch above for a binding that resolves to nothing on the
+    /// prototype either.
+    /// </summary>
+    /// <remarks>
+    /// Only the exact descriptor CreateDataProperty leaves behind is marked. Each caller has already
     /// established that the global had no own property of this name before the [[Set]], so whatever is
     /// there now was created by it — but an inherited setter is free to have defined something of its
-    /// own shape during the call, and that is left alone.</para>
-    /// <para>A sloppy assignment to a name that resolves nowhere at all is a different route with the
-    /// same shortfall, and is deliberately not covered here: the reference is unresolvable, so PutValue
-    /// never reaches this record and assigns through the global object's plain [[Set]] instead.</para>
+    /// own shape during the call, and that is left alone.
     /// </remarks>
-    private void MarkBindingPropertyCreatedByShadowing(Key property)
+    private void MarkBindingPropertyCreatedBySet(Key property)
     {
         var created = GetOwnProperty(property);
         if (created != PropertyDescriptor.Undefined

@@ -9,6 +9,19 @@ namespace Jint.Native.Temporal;
 /// Gregorian-based calendars (iso8601, gregory, japanese, roc, buddhist) are handled
 /// directly in TemporalHelpers using ISO arithmetic.
 /// </summary>
+/// <remarks>
+/// Constraining a field here means <c>System.Math.Clamp(value, 1, max)</c> against a computed
+/// months-in-year or days-in-month. Math.Clamp throws ArgumentException when min is greater than max,
+/// where the private clamp helpers it replaced returned min, so a max below 1 is not a badly
+/// constrained date: it is a CLR exception escaping engine.Evaluate, where a script sees neither a
+/// value nor a catchable JavaScript error. Every helper below that produces such a max therefore
+/// states why it cannot answer below 1, and each maximum taken from System.Globalization instead
+/// (Calendar.GetDaysInMonth, GetMonthsInYear, GetLeapMonth, IsLeapYear — all of which either answer 1
+/// or more or throw for a year outside the calendar's range) sits inside a try whose catch answers
+/// with a literal or with one of those helpers. What keeps all of it true is
+/// Jint.Tests/Runtime/NonIsoCalendarTests.cs: 85,800 field combinations per overflow mode across all
+/// eleven calendars, every one of which has to come back as a date or as null rather than throw.
+/// </remarks>
 internal static class NonIsoCalendars
 {
     // Lazy calendar instances to avoid startup overhead
@@ -1243,6 +1256,12 @@ internal static class NonIsoCalendars
     /// <summary>
     /// Gets the number of months in a calendar year.
     /// </summary>
+    /// <remarks>
+    /// Never below 12: every arm answers 12 or 13 outright, and Calendar.GetMonthsInYear answers 12 or
+    /// 13 for the lunisolar calendars that reach it — or throws for a year outside its range, which the
+    /// catch answers with 12 or 13 too. The value becomes the max of Math.Clamp(month, 1, ...); see the
+    /// type's remarks for what an answer below 1 would cost.
+    /// </remarks>
     private static int GetMonthsInYear(string calendar, Calendar? cal, int year)
     {
         if (calendar is "persian" or "indian" or "islamic-umalqura" or "islamic-civil" or "islamic-tbla")
@@ -1710,6 +1729,14 @@ internal static class NonIsoCalendars
         return PersianEpochJdn + cycle * 1029983L + 365L * (yc - 1L) + (yc * 682L - 110L) / 2816L;
     }
 
+    /// <summary>
+    /// Days in a Persian month, computed algorithmically for the years PersianCalendar cannot answer for.
+    /// </summary>
+    /// <remarks>
+    /// Never below 29: 31 for months 1-6, 30 for 7-11, and 30 or 29 for month 12. A month argument
+    /// outside 1-12 answers from one of those arms as well — zero and negatives take the first, 13 and
+    /// above the last. The value becomes the max of Math.Clamp(day, 1, ...); see the type's remarks.
+    /// </remarks>
     private static int PersianAlgorithmicDaysInMonth(int year, int month)
     {
         if (month <= 6) return 31;
@@ -1958,6 +1985,11 @@ internal static class NonIsoCalendars
     /// Returns the number of days in the given month of a fixed-epoch calendar year.
     /// Months 1-12 have 30 days each. Month 13 has 5 days (6 in leap year).
     /// </summary>
+    /// <remarks>
+    /// Never below 5, the length of a common-year epagomenal month, and a month argument outside 1-13
+    /// takes the 30 fallback. The value becomes the max of Math.Clamp(day, 1, ...); see the type's
+    /// remarks.
+    /// </remarks>
     private static int FixedEpochDaysInMonth(int year, int month)
     {
         if (month >= 1 && month <= 12) return 30;
@@ -2250,6 +2282,10 @@ internal static class NonIsoCalendars
     /// Months 2-6: 31 days each.
     /// Months 7-12: 30 days each.
     /// </summary>
+    /// <remarks>
+    /// Never below 30, and the final arm covers a month argument outside 1-12 as well. The value
+    /// becomes the max of Math.Clamp(day, 1, ...); see the type's remarks.
+    /// </remarks>
     private static int IndianDaysInMonth(int sakaYear, int month)
     {
         if (month == 1) return IsIndianLeapYear(sakaYear) ? 31 : 30;
@@ -2628,6 +2664,13 @@ internal static class NonIsoCalendars
         return mod is 2 or 5 or 7 or 10 or 13 or 16 or 18 or 21 or 24 or 26 or 29;
     }
 
+    /// <summary>
+    /// Returns the number of days in the given month of the Islamic Civil (tabular) calendar.
+    /// </summary>
+    /// <remarks>
+    /// Never below 29, and a month argument outside 1-12 answers 30 or 29 from the same two arms. The
+    /// value becomes the max of Math.Clamp(day, 1, ...); see the type's remarks.
+    /// </remarks>
     private static int IslamicCivilDaysInMonth(int year, int month)
     {
         // Odd months have 30 days, even months have 29 days

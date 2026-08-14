@@ -171,6 +171,67 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("w").AsNumber().Should().Be(1, "the inherited property is visible again");
     }
 
+    [Fact]
+    public void AssigningToAnUnresolvableNameCreatesAMutableBindingLikeAVarDeclarationDoes()
+    {
+        // The sibling route, and the same shortfall reached by a different expression shape. A name that
+        // resolves nowhere at all — no environment on the chain, no own property on the global, nothing on
+        // its prototype chain either — makes the reference unresolvable, so PutValue never reaches the
+        // global environment record and assigns through the global object's plain [[Set]] instead
+        // (https://tc39.es/ecma262/#sec-putvalue step 2.c). What that creates is a global variable-like
+        // binding, so it must be indistinguishable from the one an eval-scoped `var` creates through
+        // CreateGlobalVarBinding — marker included.
+        var engine = new Engine();
+        engine.Execute("assigned = 5; (0, eval)('var declared = 5');");
+
+        var assigned = GlobalPropertyFlags(engine, "assigned");
+
+        assigned.Should().HaveFlag(PropertyFlag.MutableBinding);
+        assigned.Should().Be(GlobalPropertyFlags(engine, "declared"));
+    }
+
+    [Fact]
+    public void TheMutableBindingMarkerDoesNotChangeHowAnUnresolvableAssignmentGlobalBehaves()
+    {
+        var engine = new Engine();
+        engine.Execute("u = 5;");
+
+        // the marker is internal: the property describes itself exactly as [[Set]] left it
+        engine.Evaluate("JSON.stringify(Object.getOwnPropertyDescriptor(globalThis, 'u'))").AsString()
+            .Should().Be("""{"value":5,"writable":true,"enumerable":true,"configurable":true}""");
+
+        // clearing writable is still honoured, in sloppy and strict mode alike
+        engine.Execute("Object.defineProperty(globalThis, 'u', { writable: false });");
+        engine.Execute("u = 9;");
+        engine.Evaluate("u").AsNumber().Should().Be(5);
+        engine.Evaluate("(function () { 'use strict'; try { u = 9; return 'no error'; } catch (e) { return e instanceof TypeError ? 'TypeError' : 'other'; } })()")
+            .AsString().Should().Be("TypeError");
+
+        // redefining it as an accessor still routes assignment to the setter
+        engine.Execute("Object.defineProperty(globalThis, 'u', { get: function () { return 'got'; }, set: function (v) { globalThis.observed = v; } });");
+        engine.Evaluate("u").AsString().Should().Be("got");
+        engine.Execute("u = 11;");
+        engine.Evaluate("observed").AsNumber().Should().Be(11);
+
+        // and the marker is not a claim that the property cannot be deleted
+        engine.Evaluate("delete u").AsBoolean().Should().BeTrue();
+        engine.Evaluate("globalThis.hasOwnProperty('u')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("typeof u").AsString().Should().Be("undefined");
+    }
+
+    [Fact]
+    public void AFailedUnresolvableAssignmentMarksNothing()
+    {
+        // [[Set]] can decline: a non-extensible global has nowhere to put the new property, and the
+        // sloppy assignment is a silent no-op. Nothing was created, so there is nothing to mark.
+        var engine = new Engine();
+        engine.Execute("Object.preventExtensions(globalThis);");
+        engine.Execute("nope = 5;");
+
+        engine.Evaluate("globalThis.hasOwnProperty('nope')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("typeof nope").AsString().Should().Be("undefined");
+    }
+
 #if NET
     [Fact]
     public void RepeatedWritesToAShadowedGlobalStoreInPlace()
@@ -200,6 +261,36 @@ public class GlobalPrototypeBindingTests
         // (104 bytes when this was written). The validate-and-apply path added exactly 64 on top of
         // that, every write: one PropertyDescriptor to carry the new value and one JsString key.
         perWrite.Should().BeLessThan(130, $"writing a shadowed global allocated {perWrite} bytes per write");
+    }
+
+    [Fact]
+    public void RepeatedWritesToAGlobalCreatedByUnresolvableAssignmentStoreInPlace()
+    {
+        // The same measurement for the other creation route: this global exists only because a sloppy
+        // assignment to a name that resolved nowhere created it. Every write after that first one does
+        // resolve, so it reaches GlobalObject.SetFromMutableBinding — and the descriptor the first one
+        // left behind is what decides whether the store happens in place.
+        const int iterations = 20_000;
+
+        var engine = new Engine();
+        engine.Execute("acc = 0;");
+
+        var prepared = Engine.PrepareScript($$"""
+            var src = [7];
+            (function () {
+                for (var i = 0; i < {{iterations}}; i++) { [acc] = src; }
+            })();
+            """);
+        engine.Evaluate(prepared);
+        engine.Evaluate(prepared);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        engine.Evaluate(prepared);
+        var perWrite = (double) (GC.GetAllocatedBytesForCurrentThread() - before) / iterations;
+
+        // Same budget as the shadowing case above: 104 bytes of iterator machinery the destructuring
+        // legitimately allocates, and none of the 64 the validate-and-apply path adds per write.
+        perWrite.Should().BeLessThan(130, $"writing a global created by an unresolvable assignment allocated {perWrite} bytes per write");
     }
 #endif
 
