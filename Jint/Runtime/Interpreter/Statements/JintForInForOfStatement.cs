@@ -912,10 +912,10 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
             }
         }
-        catch
+        catch when (LeavingOnException(suspendable, out completionType))
         {
-            completionType = CompletionType.Throw;
-            suspendable?.Data.Clear(this);
+            // Unreachable: the filter always declines. Kept as a rethrow so that a filter which one day
+            // sometimes accepts still leaves this site behaving exactly as it did before it had one.
             throw;
         }
         finally
@@ -965,6 +965,52 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
             engine.UpdateLexicalEnvironment(oldEnv);
         }
+    }
+
+    /// <summary>
+    /// Exception filter for <see cref="BodyEvaluation"/>. It performs the bookkeeping every exception
+    /// leaving the loop owes — recording the throw completion the <c>finally</c> below closes the iterator
+    /// with, and dropping the loop's suspend data — and then <em>always declines</em>, so the frame never
+    /// enters the unwind of an exception it could only rethrow.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Declining is the point, and it is the point <see cref="JintStatementList.ShouldCatch"/> already
+    /// makes for statement lists: a throw from inside a catch handler restarts the two-pass dispatch, so
+    /// the runtime cannot collapse the frames it has already searched and each level costs roughly 10 KB
+    /// that stays live for the rest of the unwind. A <c>for-of</c> on the recursion path contributes one
+    /// such frame per JavaScript call, which is why a constraint exception raised underneath one unwound a
+    /// fraction as far as the same exception raised anywhere else — far enough short of the forward
+    /// ceiling that <c>Options.LimitRecursion</c> went on killing the process for that shape after the
+    /// statement lists had been fixed. A filter is answered in the first pass and leaves nothing behind.
+    /// </para>
+    /// <para>
+    /// Both halves of the bookkeeping are safe to do from that first pass.
+    /// <paramref name="completionType"/> is a local of the invocation being unwound, and its only reader is
+    /// that same invocation's <c>finally</c>, which runs later in the second pass either way — the catch
+    /// handler this replaces also assigned it before that <c>finally</c> could see it. The suspend data
+    /// keyed by this statement is written and read only by <see cref="BodyEvaluation"/> itself, on entry
+    /// and resume paths that cannot be running while an exception is in flight through it; and no script
+    /// code runs in between to reach them, because Jint evaluates a JavaScript <c>finally</c> block as
+    /// forward interpretation of a parked completion (<c>JintTryStatement.ExecuteFinalizer</c>) rather than
+    /// from a CLR <c>finally</c>, so a CLR unwind through the interpreter carries interpreter bookkeeping
+    /// only. Clearing it is a dictionary removal: it does not recurse, does not allocate and cannot throw,
+    /// which is the contract a filter owes here — see
+    /// <see cref="ExceptionDataHelper.HasJavaScriptLocation"/>.
+    /// </para>
+    /// <para>
+    /// What the loop still does on the way out is unchanged. The <c>finally</c> reads the very
+    /// <see cref="CompletionType.Throw"/> written here, so IteratorClose is still performed with a throw
+    /// completion — which is what makes a failing <c>return()</c> swallowed rather than allowed to replace
+    /// the exception in flight, per step 5 of
+    /// <see href="https://tc39.es/ecma262/#sec-iteratorclose">IteratorClose</see>.
+    /// </para>
+    /// </remarks>
+    private bool LeavingOnException(ISuspendable? suspendable, out CompletionType completionType)
+    {
+        completionType = CompletionType.Throw;
+        suspendable?.Data.Clear(this);
+        return false;
     }
 
     /// <summary>

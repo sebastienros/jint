@@ -625,6 +625,103 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
+    // A for-of on the recursion path puts a JintForInForOfStatement frame on the stack once per
+    // JavaScript frame, and that frame kept the catch { bookkeep; throw; } the statement lists shed —
+    // so this shape went on dying at a fraction of the depth it can reach forward, long after the rest
+    // of the unwind was fixed. Measured on the 1 MB stack these run on: the loop reaches 219 frames
+    // forward, and the constraint's unwind used to survive only 78 of them. Every limit below sits
+    // between the two, so a regression is a dead test host rather than a smaller number.
+    private const string ForOfRecursion = "var depth = 0; function f() { depth++; for (const x of [1]) { return f(); } }";
+
+    [Fact]
+    public void RecursionLimitFiringInsideAForOfBodyUnwindsToTheHost()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.LimitRecursion(130));
+                engine.Execute(ForOfRecursion);
+
+                Invoking(() => engine.Evaluate("f()")).Should().ThrowExactly<RecursionDepthOverflowException>();
+                engine.CallStack.Count.Should().Be(0);
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void ClrExceptionFromHostCodeUnwindsADeepForOfRecursion()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine();
+                engine.SetValue("bang", new Action(() => throw new InvalidOperationException("bang")));
+                engine.Execute("function f(n) { if (n <= 0) { bang(); } for (const x of [1]) { return f(n - 1); } }");
+
+                var thrown = Invoking(() => engine.Evaluate("f(130)"))
+                    .Should().ThrowExactly<InvalidOperationException>().Which;
+
+                JintException.TryGetJavaScriptCallStack(thrown, out var callStack).Should().BeTrue();
+                callStack.Should().Contain("at f");
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void EngineStaysUsableAfterAForOfRecursionLimitUnwind()
+    {
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o => o.LimitRecursion(130));
+                engine.Execute(ForOfRecursion);
+                engine.Execute("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }");
+
+                var depths = new List<double>();
+                for (var round = 0; round < 3; round++)
+                {
+                    engine.Evaluate("depth = 0");
+                    Invoking(() => engine.Evaluate("f()")).Should().ThrowExactly<RecursionDepthOverflowException>();
+
+                    // Every one of those frames also owned an iteration environment and an iterator to
+                    // close on the way out, so a leak here is more likely than in the plain-call shape.
+                    depths.Add(engine.Evaluate("depth").AsNumber());
+                    engine.CallStack.Count.Should().Be(0);
+                    engine.Evaluate("fib(20)").AsNumber().Should().Be(6765);
+                }
+
+                depths.Should().AllBeEquivalentTo(depths[0], "an unwind that left anything behind would move the next round's number");
+            },
+            maxStackSize: SmallStack);
+    }
+
+    [Fact]
+    public void AnExceptionUnwindingAForOfStillClosesTheIteratorWithAThrowCompletion()
+    {
+        // The completion the loop's finally performs IteratorClose with is what the filter has to assign
+        // before it declines: a throw completion swallows a failing return(), per step 5 of IteratorClose,
+        // while any other completion would let that failure replace the exception actually in flight.
+        // No recursion needed — one frame is enough to see which completion was recorded.
+        var engine = new Engine();
+        engine.SetValue("bang", new Action(() => throw new InvalidOperationException("bang")));
+        engine.Execute("""
+            var returned = false;
+            var it = {
+                [Symbol.iterator]: function () {
+                    return {
+                        next: function () { return { value: 1, done: false }; },
+                        return: function () { returned = true; throw new Error('from return'); }
+                    };
+                }
+            };
+            """);
+
+        Invoking(() => engine.Evaluate("(function () { for (const x of it) { bang(); } })()"))
+            .Should().ThrowExactly<InvalidOperationException>().WithMessage("bang");
+
+        engine.Evaluate("returned").AsBoolean().Should().BeTrue();
+    }
+
     [Fact]
     public void ShouldLimitArraySizeForConcat()
     {
