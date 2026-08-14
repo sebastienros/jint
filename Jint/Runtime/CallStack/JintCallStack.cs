@@ -123,56 +123,89 @@ internal sealed class JintCallStack
         return true;
     }
 
-    public void ReplaceTop(Function function, JintExpression? expression)
+    /// <summary>
+    /// Replaces the top frame with a proper tail call's target, and returns the target's new recursion
+    /// depth exactly as <c>Push</c> would have (-1 when depth is not tracked).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The displaced function is deliberately <em>not</em> discounted. Its frame is gone — that is what
+    /// PrepareForTailCall asks for, and what stack traces and <see cref="Count"/> report — but the
+    /// activation itself is not over: the trampoline that displaced it (<c>ScriptFunction.ContinueTailCalls</c>)
+    /// is still running, and so are all the native frames beneath it. Discounting it made
+    /// <c>Options.LimitRecursion</c> unable to see a recursion that leaves and re-enters a trampoline
+    /// through a non-tail route — a getter, <c>new</c>, a coercion, a Proxy trap, a host callback — because
+    /// each re-entry pushed the displaced function again at depth zero while the native stack kept growing.
+    /// Retaining it is also what the option already promises: repeated tail transfers count against the
+    /// limit, so an infinite strict tail recursion terminates with
+    /// <see cref="RecursionDepthOverflowException"/> rather than running forever.
+    /// </para>
+    /// <para>
+    /// The retention is the trampoline's to undo. The frame count does not change here while
+    /// <paramref name="function"/> gains an occurrence, so the statistic runs exactly one occurrence of
+    /// the <em>displaced</em> function ahead of the stack — that is the one <c>ContinueTailCalls</c>
+    /// hands back through <see cref="ReleaseTailRetention"/> when it returns. A same-definition
+    /// replacement is counted like any other, so the statistic keeps step with the hop count instead of
+    /// standing still.
+    /// </para>
+    /// </remarks>
+    public int ReplaceTop(Function function, JintExpression? expression)
     {
         ref var top = ref _stack._array[_stack._size - 1];
-        var previous = top;
-        var replacement = new CallStackElement(function, expression, in previous.CallingExecutionContext);
-
-        if (_statistics is not null && !CallStackElementComparer.Instance.Equals(previous, replacement))
-        {
-            if (_statistics[previous] == 0)
-            {
-                _statistics.Remove(previous);
-            }
-            else
-            {
-                _statistics[previous]--;
-            }
-
-            if (_statistics.TryGetValue(replacement, out var depth))
-            {
-                _statistics[replacement] = depth + 1;
-            }
-            else
-            {
-                _statistics.Add(replacement, 0);
-            }
-        }
-
+        var replacement = new CallStackElement(function, expression, in top.CallingExecutionContext);
         top = replacement;
-    }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TopIs(Function function)
-        => _stack._size > 0 && ReferenceEquals(_stack._array[_stack._size - 1].Function, function);
-
-    internal int GetRecursionDepth(Function function)
-    {
         if (_statistics is null)
         {
             return -1;
         }
 
-        var item = new CallStackElement(function, null, default);
-        return _statistics.TryGetValue(item, out var depth) ? depth : -1;
+        if (_statistics.TryGetValue(replacement, out var depth))
+        {
+            return _statistics[replacement] = depth + 1;
+        }
+
+        _statistics.Add(replacement, 0);
+        return 0;
     }
 
-    internal int GetNextRecursionDepth(Function function)
+    /// <summary>
+    /// Hands back <paramref name="count"/> occurrences retained by <see cref="ReplaceTop"/>, once the
+    /// trampoline that displaced them has returned.
+    /// </summary>
+    /// <remarks>
+    /// Tolerant of a missing entry on purpose: a host callback can call
+    /// <c>Engine.Advanced.ResetCallStack()</c> from inside a running trampoline, which clears the
+    /// statistics outright, and the release still has to be a no-op rather than a throw.
+    /// </remarks>
+    internal void ReleaseTailRetention(Function function, int count)
     {
-        var depth = GetRecursionDepth(function);
-        return depth < 0 ? 0 : depth + 1;
+        if (_statistics is null || count <= 0)
+        {
+            return;
+        }
+
+        var item = new CallStackElement(function, null, default);
+        if (!_statistics.TryGetValue(item, out var depth))
+        {
+            return;
+        }
+
+        // depth counts occurrences beyond the first, so `count` occurrences leave depth - count, and
+        // removing the entry is how zero occurrences are spelled.
+        if (depth < count)
+        {
+            _statistics.Remove(item);
+        }
+        else
+        {
+            _statistics[item] = depth - count;
+        }
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TopIs(Function function)
+        => _stack._size > 0 && ReferenceEquals(_stack._array[_stack._size - 1].Function, function);
 
     public bool TryPeek([NotNullWhen(true)] out CallStackElement item)
     {

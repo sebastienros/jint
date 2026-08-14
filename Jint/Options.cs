@@ -725,8 +725,11 @@ public class Options
         /// <para>
         /// It is a backstop, not a policy. <see cref="MaxRecursionDepth"/> counts frames and is checked
         /// before the callee is entered, so where both are configured the recursion limit is what fires;
-        /// the probe answers only when no limit was set, or when the limit was set higher than the thread's
-        /// stack can actually hold. <see cref="MaxExecutionStackCount"/> selects the older
+        /// the probe answers when no limit was set, when the limit was set higher than the thread's stack
+        /// can actually hold, and when the limit structurally cannot see the recursion — it counts
+        /// occurrences of one function <em>definition</em>, so a recursion whose every level is a function
+        /// created for that level (<c>eval</c>, <c>new Function</c>, a host re-running a script) repeats
+        /// no definition and never reaches it. <see cref="MaxExecutionStackCount"/> selects the older
         /// continue-on-a-fresh-thread lane instead, and takes precedence over this flag when both are set,
         /// because the probe sits a few frames deeper and would reach the condition first — leaving that
         /// lane nothing to hop with.
