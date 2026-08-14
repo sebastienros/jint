@@ -168,8 +168,8 @@ internal sealed partial class DatePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
-    /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
+    /// The time value a toLocale* method hands to <see cref="JsDateTimeFormat"/>, plus the real year
+    /// when that is one no <see cref="DateTime"/> can hold.
     ///
     /// ECMA-402's FormatDateTime is defined for every valid time value, but the machinery behind it here
     /// is <see cref="DateTime"/> and the .NET calendars, which reach from year 1 to year 9999 and no
@@ -178,21 +178,30 @@ internal sealed partial class DatePrototype : Prototype
     /// Converting one of those threw ArgumentOutOfRangeException out of engine.Evaluate, and a CLR
     /// exception is not something a script try/catch can see.
     ///
-    /// What the three toLocale* methods answer with instead is the culture-independent rendering their
-    /// non-locale siblings already give the same value: https://tc39.es/ecma262/#sec-datestring and
-    /// https://tc39.es/ecma262/#sec-timestring are pure integer arithmetic on the time value and render
-    /// year 275760 as readily as year 2026. Two alternatives were weighed and rejected. Clamping the
-    /// DateTime to MinValue/MaxValue and overriding only the year — which is what the format method on
-    /// Intl.DateTimeFormat does today — keeps the locale's shape but takes month, day and time from the
-    /// clamp, so new Date(8640000000000000) renders as December 31 rather than September 13. And
-    /// carrying the real fields in on a substitute year congruent mod 400 would need the whole component
-    /// pipeline to learn about overrides it does not have, for a band of years no non-Gregorian calendar
-    /// can express anyway. Being wrong in the locale's shape is worse than being right in nobody's, and
-    /// the string a caller gets now is the one Date.prototype.toString would have given them.
+    /// #2981 closed that escape by answering those years with the culture-independent rendering their
+    /// non-locale siblings give, because the alternative it preferred — carrying the real fields in on a
+    /// substitute year congruent mod 400 — "needs the whole component pipeline to learn about per-field
+    /// overrides it does not have". It has them now, so that alternative is what happens instead: the
+    /// substitute carries month, day, time and weekday, and the formatter prints the real year over it.
+    /// </summary>
+    private static DateTime ToFormattableDateTime(DatePresentation t, out int? originalYear)
+    {
+        if (t.DateTimeRangeValid)
+        {
+            originalYear = null;
+            return t.ToDateTime();
+        }
+
+        return DateTimeFormatPrototype.FromTimeValueUtc(t, out originalYear);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-date.prototype.tolocalestring
     ///
-    /// The formatter is still constructed first: CreateDateTimeFormat reads the locale list and the
-    /// options bag and rejects what the spec says to reject, and none of that may be skipped just
-    /// because the year is out of reach.
+    /// The formatter is constructed before anything is rendered: CreateDateTimeFormat reads the locale
+    /// list and the options bag and rejects what the spec says to reject, and none of that may be
+    /// skipped. See <see cref="ToFormattableDateTime"/> for the years the platform cannot hold.
     /// </summary>
     [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
@@ -231,12 +240,8 @@ internal sealed partial class DatePrototype : Prototype
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
 
-        if (!dateInstance.DateTimeRangeValid)
-        {
-            return ToDateString(dateInstance);
-        }
-
-        return dateTimeFormat.Format(dateInstance.ToDateTime());
+        var dateTime = ToFormattableDateTime(dateInstance, out var originalYear);
+        return dateTimeFormat.Format(dateTime, originalYear);
     }
 
     /// <summary>
@@ -279,12 +284,8 @@ internal sealed partial class DatePrototype : Prototype
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
 
-        if (!dateInstance.DateTimeRangeValid)
-        {
-            return DateString(LocalTime(dateInstance));
-        }
-
-        return dateTimeFormat.Format(dateInstance.ToDateTime());
+        var dateTime = ToFormattableDateTime(dateInstance, out var originalYear);
+        return dateTimeFormat.Format(dateTime, originalYear);
     }
 
     /// <summary>
@@ -327,12 +328,8 @@ internal sealed partial class DatePrototype : Prototype
         // Pass UTC time; DTF handles timezone conversion based on its timeZone option
         var dateTimeFormat = (JsDateTimeFormat) Engine.Realm.Intrinsics.DateTimeFormat.Construct([locales, options], Engine.Realm.Intrinsics.DateTimeFormat);
 
-        if (!dateInstance.DateTimeRangeValid)
-        {
-            return TimeString(LocalTime(dateInstance)) + TimeZoneString(dateInstance);
-        }
-
-        return dateTimeFormat.Format(dateInstance.ToDateTime());
+        var dateTime = ToFormattableDateTime(dateInstance, out var originalYear);
+        return dateTimeFormat.Format(dateTime, originalYear);
     }
 
     /// <summary>
@@ -1478,6 +1475,28 @@ internal sealed partial class DatePrototype : Prototype
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct Date(int Year, int Month, int Day);
+
+    /// <summary>
+    /// The calendar fields of a time value, with <see cref="Month"/> 1-based as every consumer outside
+    /// this class wants it (<see cref="Date.Month"/> is the spec's 0-based MonthFromTime).
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct TimeValueFields(int Year, int Month, int Day, int Hour, int Minute, int Second, int Millisecond);
+
+    /// <summary>
+    /// Decomposes a time value into its ECMAScript calendar fields, for the whole range
+    /// https://tc39.es/ecma262/#sec-timeclip admits — years -271821 through 275760, which is far wider
+    /// than any <see cref="DateTime"/> can hold. Exposed because Intl.DateTimeFormat needs exactly this
+    /// for a value it cannot convert, and its own partial copy of the arithmetic (a YearFromTime built
+    /// on a floating-point estimate plus a linear search) was a third implementation of what
+    /// <see cref="YearMonthDayFromDays"/> already does correctly, negative years included.
+    /// </summary>
+    internal static TimeValueFields FieldsFromTimeValue(DatePresentation t)
+    {
+        var date = YearMonthDayFromTime(t);
+        return new TimeValueFields(date.Year, date.Month + 1, date.Day,
+            HourFromTime(t), MinFromTime(t), SecFromTime(t), MsFromTime(t));
+    }
 
     private static readonly int[] kDaysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 

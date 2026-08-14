@@ -869,6 +869,98 @@ internal static class IntlUtilities
     }
 
     /// <summary>
+    /// https://tc39.es/ecma402/#sec-canonicalizeuvalue (9.2.2) — the canonical, case-regularized form
+    /// of <paramref name="value"/> read as a value of the Unicode extension key
+    /// <paramref name="unicodeKey"/>: step 1 ASCII-lowercases it, step 2 canonicalizes it per UTS #35
+    /// Annex C, and the note names the CLDR <c>common/bcp47</c> data as what to canonicalize against —
+    /// which is what <see cref="LocaleData.UnicodeMappings"/> carries.
+    ///
+    /// Every path that reads a Unicode extension value out of a locale <em>tag</em> already got both
+    /// halves, because the tag parsers lowercase as they go and CanonicalizeUnicodeLocaleId applies the
+    /// same alias data to the extension sequence. The options bag had neither, so
+    /// https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 10 — "Set optionsValue to
+    /// CanonicalizeUValue(ukey, optionsValue)", immediately before asking whether keyLocaleData contains
+    /// it — and https://tc39.es/ecma402/#sec-makelocalerecord (15.1.3), which does the same for
+    /// Intl.Locale, both compared the caller's spelling instead of the canonical one.
+    ///
+    /// The value is expected to have passed <see cref="IsValidUnicodeExtensionValue"/> first: that is
+    /// https://tc39.es/ecma402/#sec-resolveoptions (9.2.8) step 6.d.ii, and the two are deliberately
+    /// separate, because an ill-formed value is a RangeError however the locale would have resolved a
+    /// well-formed one.
+    /// </summary>
+    internal static string CanonicalizeUValue(string unicodeKey, string value)
+    {
+        var lowerValue = AsciiLowercase(value);
+
+        if (!LocaleData.UnicodeMappings.TryGetValue(unicodeKey, out var aliases))
+        {
+            // No bcp47 alias data for this key — "co" and "nu" have none, so the fold is the whole of
+            // their canonicalization. A key gaining data later is picked up here without a code change.
+            return lowerValue;
+        }
+
+        // The whole value first, so a hyphenated alias such as "ethiopic-amete-alem" is matched as the
+        // one key it is, then subtag by subtag — the same order CanonicalizeUnicodeLocaleId applies to
+        // a tag's own extension sequence.
+        if (aliases.TryGetValue(lowerValue, out var canonical))
+        {
+            return canonical;
+        }
+
+        if (lowerValue.IndexOf('-') < 0)
+        {
+            return lowerValue;
+        }
+
+        var parts = lowerValue.Split('-');
+        var replaced = false;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (aliases.TryGetValue(parts[i], out var partAlias))
+            {
+                parts[i] = partAlias;
+                replaced = true;
+            }
+        }
+
+        return replaced ? string.Join('-', parts) : lowerValue;
+    }
+
+    /// <summary>
+    /// The ASCII-lowercase of <paramref name="value"/>, returning the argument itself when it already
+    /// is one. Deliberately not ToLowerInvariant: the spec says ASCII-lowercase, and a Unicode value
+    /// the syntax check let through is ASCII by construction, so nothing outside A-Z may move.
+    /// </summary>
+    private static string AsciiLowercase(string value)
+    {
+        var first = -1;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (char.IsAsciiLetterUpper(value[i]))
+            {
+                first = i;
+                break;
+            }
+        }
+
+        if (first < 0)
+        {
+            return value;
+        }
+
+        var chars = value.ToCharArray();
+        for (var i = first; i < chars.Length; i++)
+        {
+            if (char.IsAsciiLetterUpper(chars[i]))
+            {
+                chars[i] = (char) (chars[i] + 32);
+            }
+        }
+
+        return new string(chars);
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma402/#sec-canonicalizeunicodelocaleid
     /// Canonicalizes a Unicode locale identifier.
     /// </summary>

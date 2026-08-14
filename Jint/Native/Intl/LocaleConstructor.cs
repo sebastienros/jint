@@ -106,14 +106,14 @@ internal sealed class LocaleConstructor : Constructor
         // Apply variant aliasing (e.g., arevela → language:hy, aaland → region:AX)
         ApplyVariantMappings(ref language, ref script, ref region, ref variants);
 
-        var calendar = GetUnicodeExtensionOption(optionsObj, "calendar", parsedLocale.Calendar);
-        var collation = GetUnicodeExtensionOption(optionsObj, "collation", parsedLocale.Collation);
+        var calendar = GetUnicodeExtensionOption(optionsObj, "calendar", "ca", parsedLocale.Calendar);
+        var collation = GetUnicodeExtensionOption(optionsObj, "collation", "co", parsedLocale.Collation);
         var firstDayOfWeek = GetFirstDayOfWeekOption(optionsObj, parsedLocale.FirstDayOfWeek);
         var hourCycle = GetOptionString(optionsObj, "hourCycle", parsedLocale.HourCycle, in HourCycleValues);
         var caseFirst = GetOptionString(optionsObj, "caseFirst", parsedLocale.CaseFirst, in CaseFirstValues);
         var numericValue = IntlUtilities.GetOption(_engine, optionsObj, "numeric", IntlUtilities.OptionType.Boolean, null, JsValue.Undefined);
         bool? numeric = numericValue.IsUndefined() ? parsedLocale.Numeric : TypeConverter.ToBoolean(numericValue);
-        var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem", parsedLocale.NumberingSystem);
+        var numberingSystem = GetUnicodeExtensionOption(optionsObj, "numberingSystem", "nu", parsedLocale.NumberingSystem);
 
         // Build the canonical locale string
         var canonicalLocale = BuildLocaleString(language, script, region, variants, parsedLocale.Attributes, calendar, caseFirst, collation, firstDayOfWeek, hourCycle, numberingSystem, numeric, parsedLocale.OtherUnicodeExtensions, parsedLocale.OtherExtensions);
@@ -164,19 +164,23 @@ internal sealed class LocaleConstructor : Constructor
     }
 
     /// <summary>
-    /// Gets a Unicode extension option value and validates it matches the pattern (3*8alphanum) *("-" (3*8alphanum))
+    /// Reads the option for a Unicode extension key, checks it against the <c>type</c> nonterminal and
+    /// returns it in canonical form. https://tc39.es/ecma402/#sec-makelocalerecord (15.1.3) is where an
+    /// option supersedes the tag's own keyword, and it does so through
+    /// <c>CanonicalizeUValue(key, overrideValue)</c> — so the extension sequence Intl.Locale builds
+    /// carries the canonical spelling of the value and never the one the caller happened to type.
+    /// The local canonicalization this used to do covered only the CLDR alias substitution and never
+    /// the case fold that precedes it, and its "collation" arm could not fire at all because
+    /// <c>LocaleData.UnicodeMappings</c> has no "co" table.
     /// </summary>
-    private string? GetUnicodeExtensionOption(ObjectInstance options, string property, string? fallback)
+    private string? GetUnicodeExtensionOption(ObjectInstance options, string property, string unicodeKey, string? fallback)
     {
         var value = options.Get(property);
         if (value.IsUndefined())
         {
-            // Also canonicalize the fallback value (from parsed tag)
-            if (fallback != null)
-            {
-                return CanonicalizeUnicodeExtensionValue(property, fallback);
-            }
-            return fallback;
+            // The fallback comes from the parsed tag, which the parser has already lowercased and
+            // aliased; running it through again is idempotent and keeps the two sources in one shape.
+            return fallback != null ? IntlUtilities.CanonicalizeUValue(unicodeKey, fallback) : null;
         }
 
         var stringValue = TypeConverter.ToString(value);
@@ -187,42 +191,7 @@ internal sealed class LocaleConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid value '{stringValue}' for option '{property}'");
         }
 
-        // Canonicalize using Unicode mappings (e.g., "islamicc" → "islamic-civil")
-        stringValue = CanonicalizeUnicodeExtensionValue(property, stringValue);
-
-        return stringValue;
-    }
-
-    /// <summary>
-    /// Canonicalizes a Unicode extension value using CLDR data.
-    /// Maps the property name to its Unicode extension key (e.g., "calendar" → "ca").
-    /// </summary>
-    private static string CanonicalizeUnicodeExtensionValue(string property, string value)
-    {
-        // Map property names to Unicode extension keys
-        var unicodeKey = property switch
-        {
-            "calendar" => "ca",
-            "collation" => "co",
-            "numberingSystem" => "nu",
-            _ => null
-        };
-
-        if (unicodeKey == null)
-        {
-            return value;
-        }
-
-        // Look up the mapping in UnicodeMappings
-        if (Data.LocaleData.UnicodeMappings.TryGetValue(unicodeKey, out var mappings))
-        {
-            if (mappings.TryGetValue(value, out var canonicalValue))
-            {
-                return canonicalValue;
-            }
-        }
-
-        return value;
+        return IntlUtilities.CanonicalizeUValue(unicodeKey, stringValue);
     }
 
     /// <summary>

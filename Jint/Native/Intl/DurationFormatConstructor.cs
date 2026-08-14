@@ -283,7 +283,10 @@ internal sealed partial class DurationFormatConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid numbering system: {stringValue}");
         }
 
-        return stringValue;
+        // 9.2.7 step 10. ResolveNumberingSystem below probes NumberingSystemData.Digits, which is keyed
+        // OrdinalIgnoreCase, so an uncanonicalized 'LATN' was accepted and then reported back verbatim
+        // from resolvedOptions() as a numbering system identifier that does not exist.
+        return IntlUtilities.CanonicalizeUValue("nu", stringValue);
     }
 
     private static string? ParseNumberingSystemExtension(string locale)

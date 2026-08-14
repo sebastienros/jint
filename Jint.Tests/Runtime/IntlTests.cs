@@ -375,12 +375,37 @@ public class IntlTests
         // The "type" nonterminal is built from alphanum, [0-9 A-Z a-z], and Unicode locale
         // identifiers are case-insensitive, so casing cannot make a value unmatchable and 9.2.8
         // step 6.d.ii cannot fire on it. Which collation such a value then resolves to is
-        // ResolveLocale's business, not this check's: 9.2.7 step 10 runs the option value through
-        // CanonicalizeUValue before comparing it against the [[co]] list, which Jint does not yet
-        // do, so 'PHONEBK' still falls back to "default" where the spec resolves it to "phonebk".
-        // That is a separate defect and is deliberately not pinned here.
+        // ResolveLocale's business, not this check's; that half is pinned by
+        // CollatorCanonicalizesACollationOptionBeforeMatchingIt below.
         _engine.Evaluate($"(() => {{ try {{ new Intl.Collator('de', {{ collation: '{collation}' }}); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
             .AsString().Should().Be("no throw");
+    }
+
+    [Theory]
+    [InlineData("phonebk")]
+    [InlineData("PHONEBK")]
+    [InlineData("Phonebk")]
+    [InlineData("pHoNeBk")]
+    public void CollatorCanonicalizesACollationOptionBeforeMatchingIt(string collation)
+    {
+        // https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 10 runs an option value through
+        // CanonicalizeUValue before asking whether keyLocaleData contains it, and
+        // https://tc39.es/ecma402/#sec-canonicalizeuvalue (9.2.2) step 1 is "Let lowerValue be the
+        // ASCII-lowercase of uvalue". Jint compared the raw string against the [[co]] list with
+        // StringComparison.Ordinal, so every spelling but the all-lowercase one missed the list and
+        // fell through to "default" - a silently wrong collator rather than an error.
+        _engine.Evaluate($"new Intl.Collator('de', {{ collation: '{collation}' }}).resolvedOptions().collation")
+            .AsString().Should().Be("phonebk");
+    }
+
+    [Fact]
+    public void CollatorKeepsAnOptionSourcedCollationOutOfTheResolvedLocale()
+    {
+        // ResolveLocale only copies a keyword onto [[locale]] when the value came from the requested
+        // locale's own extension sequence (supportedKeyword is set to empty as soon as an options
+        // value supersedes it), so canonicalizing the option must not start emitting "-u-co-".
+        _engine.Evaluate("new Intl.Collator('de', { collation: 'PHONEBK' }).resolvedOptions().locale")
+            .AsString().Should().Be("de");
     }
 
     // Intl.NumberFormat tests
@@ -1095,5 +1120,193 @@ public class IntlTests
             """);
         result.AsString().Should().Be(
             "true true true compat,dict,emoji,eor,phonebk,phonetic,pinyin,searchjl,stroke,trad,unihan,zhuyin");
+    }
+
+    [Theory]
+    // Case folding alone.
+    [InlineData("de", "collation", "PHONEBK", "de-u-co-phonebk")]
+    [InlineData("en", "calendar", "GREGORY", "en-u-ca-gregory")]
+    [InlineData("en", "numberingSystem", "LATN", "en-u-nu-latn")]
+    // Alias substitution, which already worked, kept here so a regression in either half shows.
+    [InlineData("en", "calendar", "islamicc", "en-u-ca-islamic-civil")]
+    [InlineData("en", "calendar", "ethiopic-amete-alem", "en-u-ca-ethioaa")]
+    // Both at once: the fold has to happen before the alias lookup, not instead of it.
+    [InlineData("en", "calendar", "ISLAMICC", "en-u-ca-islamic-civil")]
+    [InlineData("en", "calendar", "Ethiopic-Amete-Alem", "en-u-ca-ethioaa")]
+    public void LocaleCanonicalizesAUnicodeExtensionOptionValue(string tag, string option, string value, string expected)
+    {
+        // https://tc39.es/ecma402/#sec-makelocalerecord (15.1.3) sets the keyword's value to
+        // CanonicalizeUValue(key, overrideValue) for every option that overrides the tag, so the
+        // extension sequence Intl.Locale builds carries the canonical spelling and never the one the
+        // caller happened to type.
+        _engine.Evaluate($"new Intl.Locale('{tag}', {{ {option}: '{value}' }}).toString()")
+            .AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void LocaleReportsACanonicalizedOptionValueFromItsAccessors()
+    {
+        // The accessors read the same [[Collation]]/[[NumberingSystem]] slots MakeLocaleRecord filled,
+        // so an uncanonicalized option leaked out of getCollations() as well - Intl.Locale advertising
+        // a collation identifier that exists in no CLDR data at all.
+        _engine.Evaluate("new Intl.Locale('de', { collation: 'PHONEBK' }).collation").AsString().Should().Be("phonebk");
+        _engine.Evaluate("JSON.stringify(new Intl.Locale('de', { collation: 'PHONEBK' }).getCollations())")
+            .AsString().Should().Be("""["phonebk"]""");
+        _engine.Evaluate("new Intl.Locale('en', { numberingSystem: 'LATN' }).numberingSystem").AsString().Should().Be("latn");
+        _engine.Evaluate("new Intl.Locale('en', { calendar: 'GREGORY' }).calendar").AsString().Should().Be("gregory");
+    }
+
+    [Theory]
+    [InlineData("latn", "latn")]
+    [InlineData("LATN", "latn")]
+    [InlineData("Latn", "latn")]
+    [InlineData("arab", "arab")]
+    [InlineData("ARAB", "arab")]
+    // Well formed by the "type" nonterminal and matched by no numbering system: 9.2.7 step 10 only
+    // replaces the resolved value when keyLocaleData contains the canonicalized option, so this has
+    // to fall back to the locale's default rather than throw.
+    [InlineData("abc-def", "latn")]
+    [InlineData("zzzzz", "latn")]
+    public void NumberFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
+    {
+        // The validator here was stricter than the grammar it was standing in for: it required
+        // char.IsAsciiLetterLower, so "LATN" was a RangeError instead of "latn", and it rejected the
+        // hyphen outright, so a well-formed multi-subtag value threw where it should merely have
+        // failed to match.
+        _engine.Evaluate($"new Intl.NumberFormat('en', {{ numberingSystem: '{numberingSystem}' }}).resolvedOptions().numberingSystem")
+            .AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // The invalid list of intl402/NumberFormat/constructor-options-numberingSystem-invalid.js: what
+    // relaxing the validator must not start accepting.
+    [InlineData("")]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("abcdefghi")]
+    [InlineData("abc-abcdefghi")]
+    [InlineData("!invalid!")]
+    [InlineData("-latn-")]
+    [InlineData("latn-")]
+    [InlineData("latn--")]
+    [InlineData("latn-ca")]
+    [InlineData("latn-ca-")]
+    [InlineData("latn-ca-gregory")]
+    public void NumberFormatRejectsANumberingSystemOptionTheTypeNonterminalDoesNotMatch(string numberingSystem)
+    {
+        _engine.Evaluate($"(() => {{ try {{ new Intl.NumberFormat('en', {{ numberingSystem: '{numberingSystem}' }}); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
+            .AsString().Should().Be("RangeError");
+    }
+
+    [Theory]
+    [InlineData("LATN", "latn")]
+    [InlineData("ARAB", "arab")]
+    [InlineData("arab", "arab")]
+    public void DurationFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
+    {
+        _engine.Evaluate($"new Intl.DurationFormat('en', {{ numberingSystem: '{numberingSystem}' }}).resolvedOptions().numberingSystem")
+            .AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("LATN", "latn")]
+    [InlineData("ARAB", "arab")]
+    [InlineData("arab", "arab")]
+    public void RelativeTimeFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
+    {
+        _engine.Evaluate($"new Intl.RelativeTimeFormat('en', {{ numberingSystem: '{numberingSystem}' }}).resolvedOptions().numberingSystem")
+            .AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void DateTimeFormatCanonicalizesItsUnicodeExtensionOptions()
+    {
+        // DateTimeFormat already adopted the canonical spelling, because it matches an option against
+        // its supported list with StringComparison.OrdinalIgnoreCase and then keeps the list's entry
+        // rather than the caller's. Pinned so the shared helper cannot regress it.
+        _engine.Evaluate("new Intl.DateTimeFormat('en', { numberingSystem: 'LATN' }).resolvedOptions().numberingSystem")
+            .AsString().Should().Be("latn");
+        _engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'GREGORY' }).resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+    }
+
+    [Theory]
+    // The maximum time value: 275760-09-13T00:00:00.000Z.
+    [InlineData(8640000000000000L, "9/13/275760")]
+    // The minimum time value: -271821-04-20T00:00:00.000Z.
+    [InlineData(-8640000000000000L, "4/20/-271821")]
+    // One millisecond past what DateTime can hold: +010000-01-01T00:00:00.001Z.
+    [InlineData(253402300800001L, "1/1/10000")]
+    // One millisecond before it: 0000-12-31T23:59:59.999Z.
+    [InlineData(-62135596800001L, "12/31/0")]
+    public void DateTimeFormatKeepsEveryDateFieldOfAValueOutsideDateTimeRange(long timeValue, string expected)
+    {
+        // The conversion clamped an out-of-range time value to DateTime.MinValue/MaxValue and carried
+        // only the year out beside it, so month and day came from the clamp: the maximum time value
+        // formatted as December 31 rather than September 13. It now decomposes the time value itself
+        // and formats on a representative year congruent mod 400, which is where the real month, day,
+        // time and weekday survive.
+        _engine.Evaluate($"new Intl.DateTimeFormat('en-US', {{ timeZone: 'UTC' }}).format(new Date({timeValue}))")
+            .AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void DateTimeFormatKeepsTheTimeFieldsOfAValueOutsideDateTimeRange()
+    {
+        // The year was re-inserted as a quoted literal, and BuildFormatString classifies a part whose
+        // first character is an apostrophe as an hour - so it inserted the date/time separator in front
+        // of the year and then ran the real time fields together behind it:
+        // "12/31, 27576011:59:59 PM".
+        _engine.Evaluate("""
+            new Intl.DateTimeFormat('en-US', {
+                timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: 'numeric', minute: 'numeric', second: 'numeric'
+            }).format(new Date(8640000000000000))
+            """).AsString().Should().Be("9/13/275760, 12:00:00 AM");
+
+        _engine.Evaluate("""
+            new Intl.DateTimeFormat('en-US', {
+                timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: 'numeric', minute: 'numeric', second: 'numeric'
+            }).format(new Date(-62135596800001))
+            """).AsString().Should().Be("12/31/0, 11:59:59 PM");
+    }
+
+    [Fact]
+    public void DateTimeFormatToPartsReportsTheRealFieldsOfAValueOutsideDateTimeRange()
+    {
+        _engine.Evaluate("""
+            JSON.stringify(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC' })
+                .formatToParts(new Date(8640000000000000))
+                .filter(p => p.type !== 'literal')
+                .map(p => p.type + '=' + p.value))
+            """).AsString().Should().Be("""["month=9","day=13","year=275760"]""");
+    }
+
+    [Fact]
+    public void DateTimeFormatCarriesTheRealYearThroughDateStyle()
+    {
+        // FormatStyleToParts took originalYear and dropped it on the floor, so a styled format of an
+        // out-of-range date printed the clamp's year 9999 with no sign that anything was wrong.
+        _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'long' }).format(new Date(8640000000000000))")
+            .AsString().Should().Be("September 13, 275760");
+
+        // "full" additionally pins the weekday, which is what the representative year being congruent
+        // mod 400 buys: the maximum time value really is a Saturday.
+        _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full' }).format(new Date(8640000000000000))")
+            .AsString().Should().Be("Saturday, September 13, 275760");
+
+        _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full', timeStyle: 'short' }).format(new Date(8640000000000000))")
+            .AsString().Should().Be("Saturday, September 13, 275760, 12:00 AM");
+    }
+
+    [Fact]
+    public void DateTimeFormatStillAgreesWithItselfInsideDateTimeRange()
+    {
+        // The control: nothing above may move a date the platform can hold.
+        _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 2, 15)))")
+            .AsString().Should().Be("3/15/2024");
+        _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full' }).format(new Date(Date.UTC(2024, 2, 15)))")
+            .AsString().Should().Be("Friday, March 15, 2024");
     }
 }
