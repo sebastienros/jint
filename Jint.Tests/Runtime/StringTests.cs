@@ -1,4 +1,5 @@
-﻿using Jint.Runtime;
+﻿using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -84,10 +85,10 @@ bar += 'bar';
     }
 
     [Fact]
-    public void RepeatRejectsCountsThatCannotFitInClrStringCapacity()
+    public void RepeatRejectsCountsThatExceedTheMaximumStringLength()
     {
         var engine = new Engine();
-        var repeatCount = ClrLimits.MaxArrayLength / 2 + 1UL;
+        var repeatCount = JsString.MaxLength / 2 + 1;
 
         var exception = Invoking(() => engine.Evaluate($"'xx'.repeat({repeatCount});")).Should().ThrowExactly<JavaScriptException>().Which;
 

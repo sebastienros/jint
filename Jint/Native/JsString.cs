@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -46,6 +47,34 @@ namespace Jint.Native;
 [DebuggerDisplay("{ToString()}")]
 public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 {
+    /// <summary>
+    /// The largest number of UTF-16 code units a JavaScript string may hold. The value is V8's
+    /// <c>String::kMaxLength</c>, so a script that builds a longer string fails identically on both
+    /// engines — with a <c>RangeError: Invalid string length</c> a <c>catch</c> block can handle,
+    /// rather than with a CLR exception escaping the host's <c>Evaluate</c> call.
+    /// </summary>
+    /// <remarks>
+    /// This is the <em>language</em> limit and is deliberately far below
+    /// <see cref="ClrLimits.MaxArrayLength"/>, which remains the CLR allocation ceiling for
+    /// everything that is not a JavaScript string.
+    /// </remarks>
+    internal const int MaxLength = (1 << 29) - 24; // 536_870_888
+
+    /// <summary>
+    /// Throws <c>RangeError: Invalid string length</c> when a string of <paramref name="length"/>
+    /// code units would exceed <see cref="MaxLength"/>. The length is a <see cref="long"/> so a
+    /// caller can add the lengths of the pieces it is about to concatenate without the sum wrapping,
+    /// and so the check happens <em>before</em> anything of that size is allocated.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ThrowIfLengthExceeded(Realm realm, long length)
+    {
+        if (length > MaxLength)
+        {
+            Throw.RangeError(realm, "Invalid string length");
+        }
+    }
+
     private const int AsciiMax = 126;
     private static readonly JsString[] _charToJsValue;
     private static readonly JsString[] _charToStringJsValue;
@@ -345,9 +374,18 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     public virtual int Length => _value.Length;
 
-    internal virtual JsString Append(JsValue jsValue)
+    /// <summary>
+    /// Concatenates <paramref name="value"/> onto this string.
+    /// </summary>
+    /// <remarks>
+    /// The caller performs the coercion and checks the combined length against
+    /// <see cref="MaxLength"/> (through <see cref="ThrowIfLengthExceeded"/>) before calling: it holds
+    /// the <see cref="Realm"/> this level does not, and checking before the append is what keeps a
+    /// rejected concatenation from first allocating the oversized result it is about to refuse.
+    /// </remarks>
+    internal virtual JsString Append(string value)
     {
-        return new ConcatenatedString(string.Concat(ToString(), TypeConverter.ToString(jsValue)));
+        return new ConcatenatedString(string.Concat(ToString(), value));
     }
 
     internal virtual JsString EnsureCapacity(int capacity)
@@ -565,11 +603,12 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         public override char this[int index] => _stringBuilder?[index] ?? _value[index];
 
-        internal override JsString Append(JsValue jsValue)
+        internal override JsString Append(string value)
         {
-            var value = TypeConverter.ToString(jsValue);
             if (_stringBuilder == null)
             {
+                // The caller has already established that the combined length fits in MaxLength, so
+                // this int sum cannot overflow.
                 _stringBuilder = new StringBuilder(_value, _value.Length + value.Length);
             }
 

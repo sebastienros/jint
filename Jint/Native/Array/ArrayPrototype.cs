@@ -1846,6 +1846,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     _engine.Constraints.Check();
                 }
 
+                // The element is read (and coerced, which can run user code) before the separator is
+                // appended so a single check covers both, and covers them before either is written:
+                // appending the separator is not observable, so the reordering is not either.
+                var element = StringFromJsValue(o.Get(k));
+                JsString.ThrowIfLengthExceeded(_realm, (long) sb.Length + separatorLength + element.Length);
+
                 if (separatorLength == 1)
                 {
                     sb.Append(singleCharSeparator);
@@ -1855,7 +1861,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     sb.Append(sep);
                 }
 
-                sb.Append(StringFromJsValue(o.Get(k)));
+                sb.Append(element);
             }
 
             return sb.ToString();
@@ -1905,11 +1911,13 @@ public sealed partial class ArrayPrototype : ArrayInstance
                         _engine.Constraints.Check();
                     }
 
+                    JsString.ThrowIfLengthExceeded(_realm, (long) r.Length + Separator.Length);
                     r.Append(Separator);
                 }
                 if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
                 {
                     var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", invokeArgs));
+                    JsString.ThrowIfLengthExceeded(_realm, (long) r.Length + s.Length);
                     r.Append(s);
                 }
             }

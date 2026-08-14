@@ -411,11 +411,18 @@ internal sealed partial class RegExpPrototype : Prototype
                     namedCaptures = TypeConverter.ToObject(_realm, namedCaptures);
                 }
 
-                replacement = GetSubstitution(matched, s, position, captures.ToArray(), namedCaptures, TypeConverter.ToString(replaceValue));
+                replacement = GetSubstitution(_realm, matched, s, position, captures.ToArray(), namedCaptures, TypeConverter.ToString(replaceValue));
             }
 
             if (position >= nextSourcePosition)
             {
+                // Checked before the concatenation, so an over-long result is refused rather than
+                // built: every match appends both the preserved slice and its replacement, and a
+                // replacement pattern can be arbitrarily larger than the match it stands in for.
+                JsString.ThrowIfLengthExceeded(
+                    _realm,
+                    (long) accumulatedResult.Length + (position - nextSourcePosition) + replacement.Length);
+
 #pragma warning disable CA1845
                 accumulatedResult = accumulatedResult +
                                     s.Substring(nextSourcePosition, position - nextSourcePosition) +
@@ -431,6 +438,8 @@ internal sealed partial class RegExpPrototype : Prototype
             return accumulatedResult;
         }
 
+        JsString.ThrowIfLengthExceeded(_realm, (long) accumulatedResult.Length + (lengthS - nextSourcePosition));
+
 #pragma warning disable CA1845
         return accumulatedResult + s.Substring(nextSourcePosition);
 #pragma warning restore CA1845
@@ -445,7 +454,17 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getsubstitution
     /// </summary>
+    /// <remarks>
+    /// A single replacement pattern can expand without bound — <c>"$&amp;$&amp;$&amp;…"</c> repeats the
+    /// match once per token — so the result is bounded by <see cref="JsString.MaxLength"/> twice
+    /// over: once up front from <see cref="MinimumSubstitutionLength"/>, so a pathological expansion
+    /// is refused before a character is copied, and then before every append that can contribute more
+    /// than one character, which is the exact enforcement. All three callers are instance methods on
+    /// a prototype, which is why the realm is a parameter rather than something this method has to
+    /// reach for.
+    /// </remarks>
     internal static string GetSubstitution(
+        Realm realm,
         string matched,
         string str,
         int position,
@@ -459,6 +478,8 @@ internal sealed partial class RegExpPrototype : Prototype
             return replacement;
         }
 
+        JsString.ThrowIfLengthExceeded(realm, MinimumSubstitutionLength(matched, str, position, captures, namedCaptures, replacement));
+
         // Patterns
         // $$	Inserts a "$".
         // $&	Inserts the matched substring.
@@ -466,6 +487,10 @@ internal sealed partial class RegExpPrototype : Prototype
         // $'	Inserts the portion of the string that follows the matched substring.
         // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
         using var sb = new ValueStringBuilder(stackalloc char[128]);
+
+        // Only the appends below that can contribute more than one character are checked. Every other
+        // branch emits at most as many characters as it consumes from `replacement`, whose own length
+        // is already bounded by JsString.MaxLength, so the per-character path stays guard-free.
         for (var i = 0; i < replacement.Length; i++)
         {
             char c = replacement[i];
@@ -478,9 +503,11 @@ internal sealed partial class RegExpPrototype : Prototype
                         sb.Append('$');
                         break;
                     case '&':
+                        JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + matched.Length);
                         sb.Append(matched);
                         break;
                     case '`':
+                        JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + position);
                         sb.Append(str.AsSpan(0, position));
                         break;
                     case '\'':
@@ -490,7 +517,9 @@ internal sealed partial class RegExpPrototype : Prototype
                         // @@replace ran against an object whose "exec" is not the intrinsic one and which
                         // reported a matched string longer than what is left of str; the sum is taken as
                         // a long so a pair of near-int.MaxValue lengths cannot wrap into a negative index.
-                        sb.Append(str.AsSpan((int) System.Math.Min((long) position + matched.Length, str.Length)));
+                        var tailPos = (int) System.Math.Min((long) position + matched.Length, str.Length);
+                        JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + (str.Length - tailPos));
+                        sb.Append(str.AsSpan(tailPos));
                         break;
                     case '<':
                         var gtPos = replacement.IndexOf('>', i + 1);
@@ -506,7 +535,9 @@ internal sealed partial class RegExpPrototype : Prototype
                             var capture = namedCaptures.Get(groupName);
                             if (!capture.IsUndefined())
                             {
-                                sb.Append(TypeConverter.ToString(capture));
+                                var captureText = TypeConverter.ToString(capture);
+                                JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + captureText.Length);
+                                sb.Append(captureText);
                             }
 
                             i = gtPos;
@@ -529,13 +560,17 @@ internal sealed partial class RegExpPrototype : Prototype
                                 if (matchNumber2 > 0 && matchNumber2 <= captures.Length)
                                 {
                                     // Two digit capture replacement.
-                                    sb.Append(TypeConverter.ToString(captures[matchNumber2 - 1]));
+                                    var capture = TypeConverter.ToString(captures[matchNumber2 - 1]);
+                                    JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + capture.Length);
+                                    sb.Append(capture);
                                     i++;
                                 }
                                 else if (matchNumber1 > 0 && matchNumber1 <= captures.Length)
                                 {
                                     // Single digit capture replacement.
-                                    sb.Append(TypeConverter.ToString(captures[matchNumber1 - 1]));
+                                    var capture = TypeConverter.ToString(captures[matchNumber1 - 1]);
+                                    JsString.ThrowIfLengthExceeded(realm, (long) sb.Length + capture.Length);
+                                    sb.Append(capture);
                                 }
                                 else
                                 {
@@ -562,6 +597,92 @@ internal sealed partial class RegExpPrototype : Prototype
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// An exact lower bound on what <see cref="GetSubstitution"/> is about to produce, computed
+    /// without copying a character.
+    /// </summary>
+    /// <remarks>
+    /// Only the tokens whose contribution is knowable without running user code are counted; every
+    /// other character counts as zero. The result therefore can never exceed the real one and can
+    /// never produce a spurious <c>RangeError</c> — it exists so a pathological expansion
+    /// (<c>"$&amp;$&amp;$&amp;…"</c> against a large match, the shape issue #3011 reported) is refused
+    /// while the builder is still empty, instead of after it has grown to the gigabyte it is going to
+    /// discard. The one token deliberately skipped is <c>$&lt;name&gt;</c>, whose capture is resolved
+    /// through a <c>Get</c> that can run user code and must not run twice; the per-append checks in
+    /// <see cref="GetSubstitution"/> cover it. The loop mirrors that method's parse step for step,
+    /// including how far each branch advances, because miscounting <em>upwards</em> is the only way
+    /// this can be wrong.
+    /// </remarks>
+    private static long MinimumSubstitutionLength(
+        string matched,
+        string str,
+        int position,
+        string[] captures,
+        JsValue namedCaptures,
+        string replacement)
+    {
+        long length = 0;
+        for (var i = 0; i < replacement.Length; i++)
+        {
+            if (replacement[i] != '$' || i >= replacement.Length - 1)
+            {
+                continue;
+            }
+
+            var c = replacement[++i];
+            switch (c)
+            {
+                case '&':
+                    length += matched.Length;
+                    break;
+                case '`':
+                    length += position;
+                    break;
+                case '\'':
+                    length += str.Length - (int) System.Math.Min((long) position + matched.Length, str.Length);
+                    break;
+                case '<':
+                    var gtPos = replacement.IndexOf('>', i + 1);
+                    if (gtPos != -1 && !namedCaptures.IsUndefined())
+                    {
+                        // The group name is consumed, exactly as above, so a "$&" spelled inside it
+                        // is not counted as a token it never was.
+                        i = gtPos;
+                    }
+                    break;
+                default:
+                    if (char.IsDigit(c))
+                    {
+                        var matchNumber1 = c - '0';
+
+                        var matchNumber2 = 0;
+                        if (i < replacement.Length - 1 && char.IsDigit(replacement[i + 1]))
+                        {
+                            matchNumber2 = matchNumber1 * 10 + (replacement[i + 1] - '0');
+                        }
+
+                        if (matchNumber2 > 0 && matchNumber2 <= captures.Length)
+                        {
+                            length += captures[matchNumber2 - 1].Length;
+                            i++;
+                        }
+                        else if (matchNumber1 > 0 && matchNumber1 <= captures.Length)
+                        {
+                            length += captures[matchNumber1 - 1].Length;
+                        }
+                        else
+                        {
+                            // Capture does not exist: the digit is re-read as a literal, as above.
+                            i--;
+                        }
+                    }
+                    break;
+            }
+        }
+
+        return length;
     }
 
     /// <summary>

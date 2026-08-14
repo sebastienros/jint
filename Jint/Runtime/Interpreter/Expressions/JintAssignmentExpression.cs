@@ -265,7 +265,16 @@ internal sealed class JintAssignmentExpression : JintExpression
                             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                         }
 
-                        return jsString.Append(rprim);
+                        // Coerced and checked before the append, so `s += t` past JsString.MaxLength
+                        // is refused rather than first growing the buffer to hold it. The realm is
+                        // resolved only inside the cold branch.
+                        var appended = TypeConverter.ToString(rprim);
+                        if ((long) jsString.Length + appended.Length > JsString.MaxLength)
+                        {
+                            Throw.RangeError(context.Engine.Realm, "Invalid string length");
+                        }
+
+                        return jsString.Append(appended);
                     }
 
                     if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
