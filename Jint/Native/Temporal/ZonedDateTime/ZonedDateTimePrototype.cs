@@ -123,10 +123,6 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     private JsNumber GetNanosecond(JsValue thisObject) =>
         JsNumber.Create(ValidateZonedDateTime(thisObject).GetIsoDateTime().Nanosecond);
 
-    [JsAccessor("epochSeconds")]
-    private JsNumber GetEpochSeconds(JsValue thisObject) =>
-        JsNumber.Create((double) FloorDivide(ValidateZonedDateTime(thisObject).EpochNanoseconds, 1_000_000_000));
-
     [JsAccessor("epochMilliseconds")]
     private JsNumber GetEpochMilliseconds(JsValue thisObject) =>
         JsNumber.Create((double) FloorDivide(ValidateZonedDateTime(thisObject).EpochNanoseconds, 1_000_000));
@@ -141,10 +137,6 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
 
         return result;
     }
-
-    [JsAccessor("epochMicroseconds")]
-    private JsBigInt GetEpochMicroseconds(JsValue thisObject) =>
-        JsBigInt.Create(ValidateZonedDateTime(thisObject).EpochNanoseconds / 1_000);
 
     [JsAccessor("epochNanoseconds")]
     private JsBigInt GetEpochNanoseconds(JsValue thisObject) =>
@@ -884,22 +876,6 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
         var zdt = ValidateZonedDateTime(thisObject);
         var dt = zdt.GetIsoDateTime();
         return _realm.Intrinsics.TemporalPlainDateTime.Construct(dt, zdt.Calendar);
-    }
-
-    [JsFunction]
-    private JsPlainYearMonth ToPlainYearMonth(JsValue thisObject)
-    {
-        var zdt = ValidateZonedDateTime(thisObject);
-        var dt = zdt.GetIsoDateTime();
-        return _realm.Intrinsics.TemporalPlainYearMonth.Construct(dt.Date, zdt.Calendar);
-    }
-
-    [JsFunction]
-    private JsPlainMonthDay ToPlainMonthDay(JsValue thisObject)
-    {
-        var zdt = ValidateZonedDateTime(thisObject);
-        var dt = zdt.GetIsoDateTime();
-        return _realm.Intrinsics.TemporalPlainMonthDay.Construct(dt.Date, zdt.Calendar);
     }
 
     [JsFunction]

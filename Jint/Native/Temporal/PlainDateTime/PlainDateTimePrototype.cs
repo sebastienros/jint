@@ -394,17 +394,6 @@ internal sealed partial class PlainDateTimePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withplaindate
-    /// </summary>
-    [JsFunction]
-    private JsPlainDateTime WithPlainDate(JsValue thisObject, JsValue plainDateLike)
-    {
-        var plainDateTime = ValidatePlainDateTime(thisObject);
-        var plainDate = _realm.Intrinsics.TemporalPlainDate.ToTemporalDate(plainDateLike, "constrain");
-        return _constructor.Construct(new IsoDateTime(plainDate.IsoDate, plainDateTime.IsoDateTime.Time), plainDate.Calendar);
-    }
-
-    /// <summary>
     /// https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withplaintime
     /// </summary>
     [JsFunction(Length = 0)]
