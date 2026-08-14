@@ -25,6 +25,7 @@ internal sealed class Test262AgentManager : IDisposable
     private readonly Lock _broadcastLock = new();
     private readonly ManualResetEventSlim _broadcastEvent = new(false);
     private int _broadcastVersion;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Adds the $262.agent object to the engine's $262 object.
@@ -117,6 +118,18 @@ internal sealed class Test262AgentManager : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        // Release anyone parked in WaitForBroadcast first. A test that failed before it broadcast
+        // leaves its agent waiting for a broadcast that is never coming, and without this the join
+        // below costs the full timeout for a thread that had nothing left to do.
+        _broadcastEvent.Set();
+
         // Wait for all workers to finish
         List<AgentWorker> workers;
         lock (_workers)
@@ -124,16 +137,27 @@ internal sealed class Test262AgentManager : IDisposable
             workers = [.. _workers];
         }
 
+        var allExited = true;
         foreach (var worker in workers)
         {
-            worker.WaitForExit(TimeSpan.FromSeconds(30));
+            allExited &= worker.WaitForExit(TimeSpan.FromSeconds(30));
         }
 
-        _broadcastEvent.Dispose();
+        // Disposing a ManualResetEventSlim while another thread is inside Wait() is undefined -- the
+        // waiter can end up operating on a handle that has already been closed -- and a worker that
+        // outlived the join is exactly such a thread. Nothing here ever asks the event for its
+        // WaitHandle, so an undisposed one holds managed state only; leaving it to the garbage
+        // collector is strictly safer than racing a live waiter.
+        if (allExited)
+        {
+            _broadcastEvent.Dispose();
+        }
     }
 
     private sealed class AgentWorker
     {
+        private static readonly TimeSpan BroadcastPollInterval = TimeSpan.FromMilliseconds(50);
+
         private readonly Test262AgentManager _manager;
         private readonly string _scriptSource;
         private Thread? _thread;
@@ -156,9 +180,13 @@ internal sealed class Test262AgentManager : IDisposable
             _thread.Start();
         }
 
-        public void WaitForExit(TimeSpan timeout)
+        /// <summary>
+        /// Returns whether the worker thread had actually exited by the time the timeout elapsed, which is
+        /// what <see cref="Dispose"/> needs to know before it touches the shared broadcast event.
+        /// </summary>
+        public bool WaitForExit(TimeSpan timeout)
         {
-            _thread?.Join(timeout);
+            return _thread?.Join(timeout) ?? true;
         }
 
         private void Run()
@@ -268,7 +296,23 @@ internal sealed class Test262AgentManager : IDisposable
         {
             while (true)
             {
-                _manager._broadcastEvent.Wait();
+                // Bounded, and re-checked on both sides of the wait: an agent whose test ended before it
+                // broadcast used to park here forever, keeping a thread alive past the test that started
+                // it and costing the manager its whole join timeout on the way out.
+                if (_manager._disposed)
+                {
+                    return;
+                }
+
+                if (!_manager._broadcastEvent.Wait(BroadcastPollInterval))
+                {
+                    continue;
+                }
+
+                if (_manager._disposed)
+                {
+                    return;
+                }
 
                 byte[]? bufferData;
                 int bufferLength;

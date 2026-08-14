@@ -25,6 +25,14 @@ internal readonly record struct IsoDate(int Year, int Month, int Day)
     /// <summary>
     /// Returns the number of days in the given month for the given year.
     /// </summary>
+    /// <remarks>
+    /// A month outside 1-12 answers 0, which is load-bearing for <see cref="IsValid"/> — no day is
+    /// within an interval of zero days — and so stays. It does mean this value cannot be handed to
+    /// <c>System.Math.Clamp(day, 1, ...)</c> without establishing the month range first: Math.Clamp
+    /// throws ArgumentException for inverted bounds, and that exception escapes engine.Evaluate, where
+    /// a script sees neither a value nor a catchable JavaScript error. TemporalHelpers.RegulateIsoDate
+    /// clamps the month on the line above for exactly that reason.
+    /// </remarks>
     public static int IsoDateInMonth(int year, int month)
     {
         return month switch

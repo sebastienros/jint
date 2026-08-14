@@ -6,6 +6,7 @@ using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
+using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
@@ -1545,7 +1546,22 @@ public sealed partial class Engine : IDisposable
                 Throw.ReferenceError(Realm, reference);
             }
 
-            Realm.GlobalObject.Set(property, value, throwOnError: false);
+            // Step 2.c, Set(globalObj, V.[[ReferencedName]], W, false) — plus, when the global object
+            // is Jint's own, the mutable-binding marking every other route that creates a global
+            // binding does. A host that substituted its own global through Host.CreateGlobalObject
+            // has no such binding storage to mark and just takes the [[Set]]. The cast is the
+            // reference's own invariant: an unresolvable reference is only ever built for an
+            // identifier that resolved on no environment — GetIdentifierReference below and the two
+            // JintIdentifierExpression sites — and all three carry the name as a JsString, the
+            // former through JsString.Create and the latter two through Environment.BindingName.Value.
+            if (Realm.GlobalObject is GlobalObject globalObject)
+            {
+                globalObject.SetFromUnresolvableAssignment((JsString) property, value);
+            }
+            else
+            {
+                Realm.GlobalObject.Set(property, value, throwOnError: false);
+            }
         }
         else if (reference.IsPropertyReference)
         {
