@@ -19,13 +19,13 @@ namespace Jint.Tests.Runtime;
 /// </para>
 /// <para>
 /// Every row below is a path whose limit is decided from small inputs — a repeat count, a pad length,
-/// a replacement pattern's expansion factor — so the throw happens before anything of that size is
-/// allocated and the test costs a few megabytes. The remaining guarded paths (<c>+</c>/<c>+=</c>,
-/// template literals, <c>concat</c>, <c>join</c>, <c>toLocaleString</c>, <c>String.raw</c> and the
-/// accumulators inside <c>replace</c>/<c>replaceAll</c>) accumulate their result one piece at a time,
-/// so their guard can only fire once roughly half a billion characters are already in hand; a test for
-/// those would have to allocate the gigabyte the guard exists to prevent, and there is no cheaper
-/// input that reaches them.
+/// a replacement pattern's expansion factor, an array's <c>length</c> — so the throw happens before
+/// anything of that size is allocated and the test costs a few megabytes. The remaining guarded paths
+/// (<c>+</c>/<c>+=</c>, template literals, <c>concat</c>, <c>join</c>, <c>toLocaleString</c>,
+/// <c>String.raw</c>, the accumulators inside <c>replace</c>/<c>replaceAll</c> and the element-by-element
+/// half of <c>JSON.stringify</c>) accumulate their result one piece at a time, so their guard can only
+/// fire once roughly half a billion characters are already in hand; a test for those would have to
+/// allocate the gigabyte the guard exists to prevent, and there is no cheaper input that reaches them.
 /// </para>
 /// </summary>
 public class StringLengthLimitTests
@@ -122,6 +122,54 @@ public class StringLengthLimitTests
             """);
 
         Caught("x.replace(/(.+)/g, rep)").Should().Be(InvalidStringLength);
+    }
+
+    /// <summary>
+    /// <c>JSON.stringify</c> builds its document one element at a time, but an array announces up front
+    /// how many elements there are, and every index contributes at least two characters — a separator
+    /// plus at least one character of value text, an absent element being written as <c>null</c>. So an
+    /// array whose <c>length</c> alone puts the document past the limit is refused before the first
+    /// element is written, which is what makes this row cost nothing: the array itself is empty.
+    /// </summary>
+    [Fact]
+    public void JsonStringifyOfAnArrayTooLongToSerializeIsACatchableRangeError()
+    {
+        Caught("JSON.stringify(Object.assign([], { length: 4294967295 }))").Should().Be(InvalidStringLength);
+        Caught($"JSON.stringify(new Array({JsString.MaxLength / 2 + 1}))").Should().Be(InvalidStringLength);
+    }
+
+    /// <summary>
+    /// The estimate above is a lower bound on the finished document, so it can never refuse one that
+    /// would have fit. These are the shapes where over-counting would show up first: an element is
+    /// written as <c>null</c> however it came to have no representation, and indentation only ever
+    /// adds to the count.
+    /// </summary>
+    [Theory]
+    [InlineData("JSON.stringify(new Array(3))", "[null,null,null]")]
+    [InlineData("JSON.stringify([1, undefined, function () {}, Symbol()])", "[1,null,null,null]")]
+    [InlineData("JSON.stringify([1, 2], null, 4).replace(/\\n/g, '|')", "[|    1,|    2|]")]
+    [InlineData("JSON.stringify({ a: undefined, b: 1 })", "{\"b\":1}")]
+    [InlineData("JSON.stringify(['x'.repeat(1 << 20)]).length", "1048580")]
+    public void JsonDocumentsThatFitAreUnaffected(string source, string expected)
+    {
+        _engine.Evaluate(source).ToString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// <c>JSON.parse</c> needs no guard of its own — a reviver that builds too long a string does it
+    /// through the ordinary string-building paths, which have one — but the error has to reach the
+    /// script's <c>catch</c> through the parse machinery rather than being wrapped or swallowed on the
+    /// way out. Verified with <c>+</c> as well as <c>repeat</c>, in a run that could afford the half
+    /// gigabyte the concatenating shape costs.
+    /// </summary>
+    [Fact]
+    public void JsonParseReviverThatBuildsTooLongAStringIsACatchableRangeError()
+    {
+        Caught($"JSON.parse('{{\"a\":1}}', function (k, v) {{ return typeof v === 'number' ? 'x'.repeat({JsString.MaxLength + 1L}) : v; }})")
+            .Should().Be(InvalidStringLength);
+
+        _engine.Evaluate("JSON.stringify(JSON.parse('{\"a\":1}', function (k, v) { return typeof v === 'number' ? v + 1 : v; }))")
+            .AsString().Should().Be("{\"a\":2}");
     }
 
     /// <summary>
