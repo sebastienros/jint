@@ -18,14 +18,30 @@ internal static class Test262Object
     /// <summary>
     /// Installs the $262 object into the engine's global scope and returns it.
     /// </summary>
-    public static ObjectInstance Install(Engine engine)
+    public static ObjectInstance Install(Engine engine) => Install(engine, engine.Realm);
+
+    /// <summary>
+    /// Installs a $262 object onto the global object of <paramref name="realm"/> and returns it.
+    /// <para>
+    /// Everything it carries is built from <paramref name="realm"/>'s own intrinsics and pinned to that
+    /// realm, because <c>$262.createRealm()</c> installs an API into a realm other than the one running.
+    /// A function left pinned to the caller's realm would report its errors — and hand out its
+    /// prototypes — from the wrong one.
+    /// </para>
+    /// </summary>
+    public static ObjectInstance Install(Engine engine, Realm realm)
     {
-        var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+        // Not Intrinsics.Object.Construct: for a plain construction that lands on `new JsObject(engine)`,
+        // which takes the *active* realm's Object.prototype. Name the prototype explicitly instead.
+        var o = ObjectInstance.OrdinaryObjectCreate(engine, realm.Intrinsics.Object.PrototypeObject);
+
+        // "A reference to the global object on which the $262 object lives."
+        o.FastSetProperty("global", new PropertyDescriptor(realm.GlobalObject, true, true, true));
 
         // %AbstractModuleSource% intrinsic - exposed via $262 for source-phase-imports tests
-        o.FastSetProperty("AbstractModuleSource", new PropertyDescriptor(CreateAbstractModuleSource(engine), true, true, true));
+        o.FastSetProperty("AbstractModuleSource", new PropertyDescriptor(CreateAbstractModuleSource(engine, realm), true, true, true));
 
-        o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, "evalScript",
+        o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, realm, "evalScript",
             (_, args) =>
             {
                 if (args.Length > 1)
@@ -33,47 +49,35 @@ internal static class Test262Object
                     throw new ArgumentException("only script parsing supported", nameof(args));
                 }
 
-                var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPreparationOptions
-                {
-                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, RetainFunctionSourceText = true },
-                });
+                return EvaluateInRealm(engine, realm, args.At(0).AsString());
+            }, 0), true, true, true));
 
-                return engine.Evaluate(in script);
-            }), true, true, true));
+        // Per test262 INTERPRETING.md, createRealm "creates a new ECMAScript Realm, defines this API on
+        // the new realm's global object, and returns the $262 property of the new realm's global object".
+        // So the whole API - createRealm included, so realms can nest - goes onto the new global, and the
+        // new realm's own $262 is what comes back.
+        o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunction(engine, realm, "createRealm",
+            (_, _) => Install(engine, engine._host.CreateRealm()), 0), true, true, true));
 
-        o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunction(engine, "createRealm",
-            (_, _) =>
-            {
-                var realm = engine._host.CreateRealm();
-                var newGlobal = realm.GlobalObject;
-                newGlobal.Set("global", newGlobal);
-                // Per test262 INTERPRETING.md, the object returned by createRealm exposes an evalScript
-                // that evaluates in the new realm. Provide it so cross-realm tests (e.g. FallbackSymbol
-                // per-realm) can run code against the freshly created realm's intrinsics.
-                newGlobal.Set("evalScript", new ClrFunction(engine, "evalScript",
-                    (_, args) => EvaluateInRealm(engine, realm, args.At(0).AsString())));
-                return newGlobal;
-            }), true, true, true));
-
-        o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, "detachArrayBuffer",
+        o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, realm, "detachArrayBuffer",
             (_, args) =>
             {
                 var buffer = (JsArrayBuffer) args.At(0);
                 buffer.DetachArrayBuffer();
                 return JsValue.Undefined;
-            }), true, true, true));
+            }, 0), true, true, true));
 
-        o.FastSetProperty("gc", new PropertyDescriptor(new ClrFunction(engine, "gc",
+        o.FastSetProperty("gc", new PropertyDescriptor(new ClrFunction(engine, realm, "gc",
             (_, _) =>
             {
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 return JsValue.Undefined;
-            }), true, true, true));
+            }, 0), true, true, true));
 
-        o.FastSetProperty("IsHTMLDDA", new PropertyDescriptor(new IsHTMLDDA(engine), true, true, true));
+        o.FastSetProperty("IsHTMLDDA", new PropertyDescriptor(new IsHTMLDDA(engine, realm), true, true, true));
 
-        engine.SetValue("$262", o);
+        realm.GlobalObject.Set("$262", o);
         return o;
     }
 
@@ -86,7 +90,7 @@ internal static class Test262Object
     {
         var script = Engine.PrepareScript(source, options: new ScriptPreparationOptions
         {
-            ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
+            ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false, RetainFunctionSourceText = true },
         });
 
         var context = new ExecutionContext(
@@ -114,15 +118,13 @@ internal static class Test262Object
     /// Creates the %AbstractModuleSource% intrinsic constructor and prototype.
     /// https://tc39.es/proposal-source-phase-imports/#sec-%abstractmodulesource%
     /// </summary>
-    private static ClrFunction CreateAbstractModuleSource(Engine engine)
+    private static ClrFunction CreateAbstractModuleSource(Engine engine, Realm realm)
     {
-        var realm = engine.Realm;
-
-        // Create the prototype object
-        var proto = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+        // Create the prototype object (see the note in Install about naming the prototype explicitly)
+        var proto = ObjectInstance.OrdinaryObjectCreate(engine, realm.Intrinsics.Object.PrototypeObject);
 
         // @@toStringTag getter on prototype
-        var toStringTagGetter = new ClrFunction(engine, "get [Symbol.toStringTag]", (thisObj, _) =>
+        var toStringTagGetter = new ClrFunction(engine, realm, "get [Symbol.toStringTag]", (thisObj, _) =>
         {
             if (thisObj is not ObjectInstance)
             {
@@ -139,7 +141,7 @@ internal static class Test262Object
             PropertyFlag.Configurable));
 
         // The constructor function that always throws TypeError
-        var ctor = new ClrFunction(engine, "AbstractModuleSource", (_, _) =>
+        var ctor = new ClrFunction(engine, realm, "AbstractModuleSource", (_, _) =>
         {
             Throw.TypeError(realm, "Abstract class constructor %AbstractModuleSource% cannot be invoked");
             return JsValue.Undefined;

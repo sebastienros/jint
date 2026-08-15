@@ -12,8 +12,11 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class IsHTMLDDA : ObjectInstance, ICallable
 {
-    internal IsHTMLDDA(Engine engine) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.IsHTMLDDA | InternalTypes.Callable)
+    internal IsHTMLDDA(Engine engine, Realm realm) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.IsHTMLDDA | InternalTypes.Callable)
     {
+        // The base constructor takes the prototype from whichever realm is active; this object may be
+        // built for another one ($262.createRealm() installs a $262 into the realm it just made).
+        _prototype = realm.Intrinsics.Object.PrototypeObject;
     }
 
     JsValue ICallable.Call(JsValue thisObject, JsCallArguments arguments) => Null;
