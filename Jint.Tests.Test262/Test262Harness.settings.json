@@ -57,9 +57,6 @@
     "staging/sm/expressions/nullish-coalescing.js",
     "staging/sm/regress/regress-1507322-deep-weakmap.js",
 
-    // Removed by the fix for #3010: five Temporal members the proposal dropped are still present.
-    "staging/Temporal/removed-methods.js",
-
     // Cross-realm error identity. $262.createRealm() works, but an error Jint raises while running
     // a function belonging to another realm is constructed from the *current* realm's intrinsics,
     // so `e instanceof otherGlobal.TypeError` is false. The realm's global also does not carry its
