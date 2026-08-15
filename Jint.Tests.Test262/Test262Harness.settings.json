@@ -10,7 +10,250 @@
   ],
   "ExcludedDirectories": [
   ],
+  // Sub-directories of test262's test/ to generate from. The tool's own default is the first four;
+  // "staging" is opted into explicitly because it carries upstream coverage that exists nowhere else
+  // in the suite (see the STAGING EXCLUSIONS banner below for what it costs us).
+  "SubDirectories": [
+    "annexB",
+    "built-ins",
+    "intl402",
+    "language",
+    "staging"
+  ],
   "ExcludedFiles": [
+
+    // === STAGING EXCLUSIONS ===
+
+    // Unbounded JavaScript recursion. Jint's default MaxRecursionDepth is -1, so the CLR stack
+    // overflows and the whole test host dies, taking every other test in the process with it.
+    "staging/sm/extensions/recursion.js",
+
+    // { length: Infinity } array generics: the loop is bounded only by the 30-second
+    // TimeoutInterval, which it reaches on every run.
+    "staging/sm/Array/to-length.js",
+
+    // Non-terminating under an interpreter: each of these only ends at the 30-second
+    // TimeoutInterval, and the DST ones additionally drive the engine into multi-GB
+    // allocation. Removed when the underlying loop terminates, not by "make it faster".
+    "staging/sm/Date/dst-offset-caching-1-of-8.js",
+    "staging/sm/Date/dst-offset-caching-2-of-8.js",
+    "staging/sm/Date/dst-offset-caching-3-of-8.js",
+    "staging/sm/Date/dst-offset-caching-4-of-8.js",
+    "staging/sm/Date/dst-offset-caching-5-of-8.js",
+    "staging/sm/Date/dst-offset-caching-6-of-8.js",
+    "staging/sm/Date/dst-offset-caching-7-of-8.js",
+    "staging/sm/Date/dst-offset-caching-8-of-8.js",
+    "staging/sm/generators/delegating-yield-9.js",
+    "staging/sm/regress/regress-610026.js",
+    "staging/sm/regress/regress-619003-1.js",
+    // Same shape, found by running the suite: each of these burns the whole 30-second budget and
+    // (times two modes, times ~1400 new files running in parallel) starves the rest of the run
+    // badly enough to make unrelated tests elsewhere in the suite time out too.
+    "staging/sm/Function/has-instance-jitted.js",
+    "staging/sm/JSON/parse-mega-huge-array.js",
+    "staging/sm/RegExp/unicode-braced.js",
+    "staging/sm/RegExp/unicode-class-braced.js",
+    "staging/sm/RegExp/unicode-ignoreCase.js",
+    "staging/sm/expressions/nullish-coalescing.js",
+    "staging/sm/regress/regress-1507322-deep-weakmap.js",
+
+    // Removed by the fix for #3010: five Temporal members the proposal dropped are still present.
+    "staging/Temporal/removed-methods.js",
+
+    // Removed by the fix for #3011: String.prototype.replace has to raise a RangeError when the
+    // result would exceed the maximum string length; today the length overflows to int.MinValue and
+    // surfaces as an ArgumentOutOfRangeException out of the BCL.
+    "staging/sm/String/replace-math.js",
+
+    // Cross-realm error identity. $262.createRealm() works, but an error Jint raises while running
+    // a function belonging to another realm is constructed from the *current* realm's intrinsics,
+    // so `e instanceof otherGlobal.TypeError` is false. The realm's global also does not carry its
+    // own $262, so otherGlobal.$262.detachArrayBuffer is undefined. Removed by making error
+    // creation realm-aware (and by installing $262 into every created realm).
+    "staging/sm/Array/change-array-by-copy-cross-compartment-create.js",
+    "staging/sm/Array/change-array-by-copy-errors-from-correct-realm.js",
+    "staging/sm/Array/from_realms.js",
+    "staging/sm/Iterator/from/wrap-new-global.js",
+    "staging/sm/Iterator/prototype/every/error-from-correct-realm.js",
+    "staging/sm/Iterator/prototype/find/error-from-correct-realm.js",
+    "staging/sm/Iterator/prototype/forEach/error-from-correct-realm.js",
+    "staging/sm/Iterator/prototype/reduce/error-from-correct-realm.js",
+    "staging/sm/Iterator/prototype/some/error-from-correct-realm.js",
+    "staging/sm/Iterator/prototype/toArray/create-in-current-realm.js",
+    "staging/sm/JSON/parse-with-source.js",
+    "staging/sm/TypedArray/constructor-buffer-sequence.js",
+    "staging/sm/TypedArray/set-wrapped.js",
+
+    // Legacy Function.prototype.caller / arguments.callee.caller. These are Annex B accessors whose
+    // sloppy-mode observable behaviour (the calling function, null at the top of the stack, poisoned
+    // on strict functions, transparent through eval frames) Jint does not reproduce. Removed by
+    // implementing the legacy accessors, not by relaxing the tests.
+    "staging/sm/Function/function-caller-restrictions.js",
+    "staging/sm/extensions/arguments-property-access-in-function.js",
+    "staging/sm/extensions/censor-strict-caller.js",
+    "staging/sm/extensions/function-caller-skips-eval-frames.js",
+    "staging/sm/extensions/function-properties.js",
+    "staging/sm/regress/regress-577648-1.js",
+    "staging/sm/regress/regress-577648-2.js",
+    "staging/sm/regress/regress-584355.js",
+    "staging/sm/regress/regress-586482-1.js",
+    "staging/sm/regress/regress-586482-2.js",
+    "staging/sm/regress/regress-586482-3.js",
+    "staging/sm/regress/regress-586482-4.js",
+
+    // Function source text and inferred names. Function.prototype.toString does not return the
+    // original source for class expressions and some method forms, and NamedEvaluation does not
+    // reach every position the spec names (for-in heads, computed method keys, ...). Removed by
+    // carrying the source range and completing NamedEvaluation.
+    "staging/sm/Function/function-name-for.js",
+    "staging/sm/Function/function-name-method.js",
+    "staging/sm/Function/function-name-property.js",
+    "staging/sm/class/parenExprToString.js",
+    "staging/sm/generators/runtime.js",
+
+    // Math precision. Jint delegates to the BCL, whose acosh/asinh/atanh/cbrt/expm1/log1p differ
+    // from the reference values in the last few ULPs, and expm1/log1p flush 1e-300 to zero. Removed
+    // by implementing these with the spec-grade algorithms rather than the BCL primitives.
+    "staging/sm/Math/acosh-approx.js",
+    "staging/sm/Math/asinh-approx.js",
+    "staging/sm/Math/atanh-approx.js",
+    "staging/sm/Math/cbrt-approx.js",
+    "staging/sm/Math/expm1-approx.js",
+    "staging/sm/Math/log1p-approx.js",
+
+    // Number conversion and formatting. toFixed/toPrecision lose the exact mathematical value for
+    // extreme magnitudes and subnormals, and ToPrimitive on a Number wrapper consults the wrong
+    // method. Removed by exact-value formatting and a spec-order OrdinaryToPrimitive.
+    "staging/sm/Number/20.1.3.3-toFixed.js",
+    "staging/sm/Number/defaultvalue.js",
+    "staging/sm/Number/toFixed-values.js",
+    "staging/sm/Number/toPrecision-values.js",
+
+    // RegExp semantics: case-insensitive matching across the Latin-1 boundary, and lastIndex
+    // bookkeeping in the Symbol.match / Symbol.replace / matchAll paths (including -0 and the
+    // ToLength recomputation the spec performs per iteration).
+    "staging/sm/RegExp/ignoreCase-non-latin1-to-latin1.js",
+    "staging/sm/RegExp/lastIndex-match-or-replace.js",
+    "staging/sm/RegExp/replace-local-tolength-lastindex.js",
+    "staging/sm/RegExp/replace-local-tolength-recompilation.js",
+    "staging/sm/RegExp/unicode-ignoreCase-ascii.js",
+    "staging/sm/String/matchAll.js",
+    "staging/sm/String/replace-updates-global-lastIndex.js",
+
+    // Set methods (new Set.prototype union/intersection/difference/... ) observe the set-like
+    // argument in a strictly specified order -- GetSetRecord reads size, then has, then keys, and
+    // coerces size exactly once. Jint's order and coercion count differ. Removed by implementing
+    // GetSetRecord to the letter.
+    "staging/sm/Set/difference.js",
+    "staging/sm/Set/intersection.js",
+    "staging/sm/Set/is-disjoint-from.js",
+    "staging/sm/Set/is-subset-of.js",
+    "staging/sm/Set/is-superset-of.js",
+    "staging/sm/Set/symmetric-difference.js",
+    "staging/sm/Set/union.js",
+
+    // Iterator protocol: IteratorClose is not invoked (or not invoked at the right point) on the
+    // abrupt paths of Array.from, the Map/Set constructors, for-of and array destructuring, and the
+    // "done" bookkeeping of a destructuring pattern differs from the spec's.
+    "staging/sm/Array/for_of_2.js",
+    "staging/sm/Array/from-iterator-close.js",
+    "staging/sm/Map/constructor-iterator-close.js",
+    "staging/sm/destructuring/order.js",
+    "staging/sm/destructuring/order-super.js",
+    "staging/sm/expressions/destructuring-array-done.js",
+    "staging/sm/statements/for-of-iterator-close.js",
+
+    // Array.from applied to an arbitrary constructor: the spec constructs `this` when it is a
+    // constructor and falls back to ArrayCreate when it is not, and each element goes in through
+    // CreateDataPropertyOrThrow, so a read-only element or a non-extensible target has to throw.
+    "staging/sm/Array/from_constructor.js",
+    "staging/sm/Array/from_errors.js",
+
+    // Proxy trap invariants and the exact trap sequence the array built-ins are specified to
+    // perform. Jint's own invariant check on a defineProperty trap also fires where it should not.
+    "staging/sm/Array/concat-proxy.js",
+    "staging/sm/Array/from_proxy.js",
+    "staging/sm/Array/species.js",
+    "staging/sm/Reflect/has.js",
+
+    // Date parsing and clipping: the implementation-defined fallback parser accepts (and rejects)
+    // different strings than SpiderMonkey's, two-digit years map differently, TimeClip does not
+    // reject every out-of-range value, and Symbol.toPrimitive throws a non-object.
+    "staging/sm/Date/non-iso.js",
+    "staging/sm/Date/timeclip.js",
+    "staging/sm/Date/toISOString.js",
+    "staging/sm/Date/toPrimitive.js",
+    "staging/sm/Date/two-digit-years.js",
+
+    // String case mapping is done with the BCL's culture-aware tables rather than the Unicode
+    // Default Case Conversion the spec requires, so a handful of code points (dotless i, the
+    // supplementary planes) map differently. Removed by using the Unicode data directly.
+    "staging/sm/String/string-code-point-upper-lower-mapping.js",
+    "staging/sm/String/string-upper-lower-mapping.js",
+
+    // Parser early errors that Acornima does not raise, or raises as the wrong error type: an
+    // invalid parameter list, `super()` inside an arrow inside a direct eval in a derived
+    // constructor, a destructuring pattern with a duplicate binding, a legacy octal literal in
+    // strict mode, `yield` as an identifier, and a field initializer's TDZ.
+    "staging/sm/Function/invalid-parameter-list.js",
+    "staging/sm/class/derivedConstructorArrowEvalNestedSuperCall.js",
+    "staging/sm/class/derivedConstructorArrowEvalSuperCall.js",
+    "staging/sm/destructuring/bug1396261.js",
+    "staging/sm/fields/bug1587574.js",
+    "staging/sm/strict/deprecated-octal-noctal-tokens.js",
+    "staging/sm/syntax/yield-as-identifier.js",
+
+    // Annex B B.3.3 block-scoped function hoisting: the var-scoped alias a sloppy-mode block
+    // function creates is not synthesised the way the spec's FunctionDeclarationInstantiation
+    // amendment describes, so the name is visible with the wrong value (or not at all) in the
+    // enclosing function, inside a direct eval, inside `with`, and after a redeclaration.
+    "staging/sm/lexical-environment/block-scoped-functions-annex-b-arguments.js",
+    "staging/sm/lexical-environment/block-scoped-functions-annex-b-eval.js",
+    "staging/sm/lexical-environment/block-scoped-functions-annex-b-with.js",
+    "staging/sm/lexical-environment/block-scoped-functions-deprecated-redecl.js",
+    "staging/sm/regress/regress-602621.js",
+
+    // Mapped arguments: the exotic object's link to the formal parameters (and what an object
+    // created *from* it inherits) does not match the spec's mapping.
+    "staging/sm/Function/arguments-parameter-shadowing.js",
+    "staging/sm/regress/regress-552432.js",
+
+    // Argument validation raising no error, or the wrong one, on built-ins called with a bad this
+    // or a bad index. Includes SpiderMonkey's own toSource extension, which Jint does not implement
+    // at all -- that half is removed by the test moving, not by Jint changing.
+    "staging/sm/Function/bound-non-constructable.js",
+    "staging/sm/TypedArray/constructor-byteoffsets-bounds.js",
+    "staging/sm/TypedArray/iterator-next-with-detached.js",
+    "staging/sm/class/newTargetDVG.js",
+    "staging/sm/class/superPropOrdering.js",
+    "staging/sm/expressions/computed-property-side-effects.js",
+    "staging/sm/expressions/optional-chain.js",
+    "staging/sm/extensions/extension-methods-reject-null-undefined-this.js",
+    "staging/sm/extensions/quote-string-for-nul-character.js",
+    "staging/sm/misc/builtin-methods-reject-null-undefined-this.js",
+
+    // Array exotic [[DefineOwnProperty]] and the generics' element ordering: truncating length past
+    // a non-configurable sparse element stops at the wrong index, sort/unshift observe the wrong
+    // element sequence, and the strict-mode generics do not report failure to write.
+    "staging/sm/Array/length-truncate-nonconfigurable-sparse.js",
+    "staging/sm/Array/sort-typedarray-with-own-length.js",
+    "staging/sm/Array/unshift-with-enumeration.js",
+    "staging/sm/strict/15.4.4.9.js",
+    "staging/sm/strict/15.4.4.12.js",
+
+    // Remaining one-offs, each its own gap: Iterator.from's next() result validation, the Map
+    // constructor's per-entry type check, Symbol.keyFor over a cross-realm registry, and a module
+    // namespace re-exported under a string name.
+    "staging/sm/Iterator/from/wrap-next-not-object-throws.js",
+    "staging/sm/Map/iterable.js",
+    "staging/sm/Symbol/keyFor.js",
+    "staging/sm/module/module-export-name-star.js",
+
+    // Source phase imports (stage 3): Jint supports the phase for WebAssembly-shaped sources only,
+    // so `import source` of a JavaScript module is refused outright and the prototype chain of an
+    // AbstractModuleSource is not the one the proposal describes.
+    "staging/source-phase-imports/import-source-source-text-module.js",
+    "staging/source-phase-imports/module-source-prototype-chain.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.

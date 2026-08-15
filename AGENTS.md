@@ -33,7 +33,9 @@ Bump `SuiteGitSha` in `Jint.Tests.Test262/Test262Harness.settings.json` to the n
 
 A bump is a **code** change, not just a pin change. An upstream normative change can turn a feature that passes today red tomorrow, so read the commits in the range rather than only the new test files — `git log --oneline <old>..<new>` in a test262 checkout, plus the `features.txt` diff for newly added features.
 
-A feature that arrives unimplemented parks in `ExcludedFeatures`, and the PR that implements it removes the entry again. Keep exclusions outside `intl402/` temporary and commented with what removes them; every `ExcludedFiles` entry today is intl402, and that invariant is worth keeping.
+A feature that arrives unimplemented parks in `ExcludedFeatures`, and the PR that implements it removes the entry again. Keep exclusions outside `intl402/` temporary and commented with what removes them — the `ExcludedFiles` entries today are `intl402/` (missing CLDR data) and `staging/` (SpiderMonkey ports Jint does not yet satisfy), each grouped under a banner with a prose reason, and that invariant is worth keeping.
+
+`SubDirectories` names which of test262's `test/` sub-directories are generated: `annexB`, `built-ins`, `intl402`, `language` and `staging`. The first four are the harness tool's own default; **`staging` is opted into explicitly** and is not part of a default `Test262Harness.Console` run, so it needs `Test262Harness.Console` 1.1.2 or newer. It is worth the ~2,800 extra cases: it is largely SpiderMonkey's own suite contributed upstream, and it covers behaviour the stable directories do not reach at all (`parseInt` with a signed hex string, a `Proxy` as the global's prototype). Its helpers live in `harness/sm/` and are included as `sm/non262-Set-shell.js`, which is why `TestHarness.cs` enumerates `harness/` recursively and keys `State.Sources` on the path relative to `harness/` rather than on the file name.
 
 ### Quick manual testing with Jint.Repl
 
@@ -116,7 +118,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 ### Test projects
 
 - **`Jint.Tests`** — Main unit tests (xUnit v3, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. Use a 30-second timeout when invoking the runner.
-- **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit). `Test262Harness.settings.json` holds exclusions/inclusions. Test sources live in `..\test262\test`, which you may always read. Failure output contains the failing script — strip the line numbers to reproduce. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
+- **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit). `Test262Harness.settings.json` holds exclusions/inclusions and, in `SubDirectories`, which of test262's `test/` sub-directories are generated at all — `annexB`, `built-ins`, `intl402`, `language` and `staging` (see [Updating the test262 suite](#updating-the-test262-suite); `staging/` is an explicit opt-in, not the tool's default). Test sources live in `..\test262\test`, which you may always read, and the harness scripts a test `includes` in `..\test262\harness` — including `harness/sm/` for the staged SpiderMonkey ports. Failure output contains the failing script — strip the line numbers to reproduce. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
 - **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
 - **`Jint.Tests.PublicInterface`** — API contract tests (xUnit v3). See the integration-surface section below.
 - **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
