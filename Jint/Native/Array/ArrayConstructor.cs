@@ -61,9 +61,13 @@ public sealed partial class ArrayConstructor : Constructor
         var usingIterator = GetMethod(_realm, items, GlobalSymbolRegistry.Iterator);
         if (usingIterator is not null)
         {
-            if (!ReferenceEquals(this, thisObject) && thisObject is IConstructor constructor)
+            // Step 5.a: IsConstructor(C), which is a question about the [[Construct]] slot, not about the CLR
+            // interface the implementing type declares -- an arrow function, a generator, an async function, a
+            // method with a [[HomeObject]] and a bound function over a non-constructor all implement
+            // IConstructor and are all rejected by IsConstructor. Fall back to ArrayCreate for those.
+            if (!ReferenceEquals(this, thisObject) && thisObject.IsConstructor)
             {
-                var instance = constructor.Construct([], thisObject);
+                var instance = ((IConstructor) thisObject).Construct([], thisObject);
                 var iterator = items.GetIterator(_realm, method: usingIterator);
                 var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
                 protocol.Execute();
@@ -247,9 +251,9 @@ public sealed partial class ArrayConstructor : Constructor
         // ii. Let iteratorRecord be ? GetIterator(asyncItems, async).
         // We'll handle both async and sync iterators
         ObjectInstance instance;
-        if (!ReferenceEquals(this, c) && c is IConstructor constructor)
+        if (!ReferenceEquals(this, c) && c.IsConstructor)
         {
-            instance = constructor.Construct([], c);
+            instance = ((IConstructor) c).Construct([], c);
         }
         else
         {
@@ -498,9 +502,9 @@ public sealed partial class ArrayConstructor : Constructor
             // v. Else,
             //     1. Let A be ? ArrayCreate(len).
             ObjectInstance a;
-            if (!ReferenceEquals(c, this) && c is IConstructor constructor)
+            if (!ReferenceEquals(c, this) && c.IsConstructor)
             {
-                a = constructor.Construct([(JsNumber) longLen], c);
+                a = ((IConstructor) c).Construct([(JsNumber) longLen], c);
             }
             else
             {
@@ -650,10 +654,11 @@ public sealed partial class ArrayConstructor : Constructor
         var length = source.GetLength();
 
         ObjectInstance a;
-        if (!ReferenceEquals(thisObj, this) && thisObj is IConstructor constructor)
+        // Step 6.b: IsConstructor(C) -- see the note on the iterator branch above.
+        if (!ReferenceEquals(thisObj, this) && thisObj.IsConstructor)
         {
             var argumentsList = new JsValue[] { length };
-            a = Construct(constructor, argumentsList);
+            a = Construct((IConstructor) thisObj, argumentsList);
         }
         else
         {

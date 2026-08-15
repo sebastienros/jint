@@ -385,9 +385,12 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetLongLength() => GetLength();
 
+        // Every caller of this is a spec step spelled "Perform ? Set(O, "length", len, true)" -- Array.from,
+        // Array.fromAsync and the Array.prototype generics that a typed array can be the receiver of. A typed
+        // array's "length" is a getter-only accessor on %TypedArray%.prototype, so that Set fails and, being a
+        // throwing one, raises a TypeError. Doing nothing here silently swallowed all of them.
         public override void SetLength(ulong length)
-        {
-        }
+            => _target.Set(CommonProperties.Length, length, true);
 
         public override void EnsureCapacity(ulong capacity)
         {

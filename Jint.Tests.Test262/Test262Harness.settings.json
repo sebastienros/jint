@@ -155,12 +155,6 @@
     "staging/sm/expressions/destructuring-array-done.js",
     "staging/sm/statements/for-of-iterator-close.js",
 
-    // Array.from applied to an arbitrary constructor: the spec constructs `this` when it is a
-    // constructor and falls back to ArrayCreate when it is not, and each element goes in through
-    // CreateDataPropertyOrThrow, so a read-only element or a non-extensible target has to throw.
-    "staging/sm/Array/from_constructor.js",
-    "staging/sm/Array/from_errors.js",
-
     // Proxy trap invariants and the exact trap sequence the array built-ins are specified to
     // perform. Jint's own invariant check on a defineProperty trap also fires where it should not.
     "staging/sm/Array/concat-proxy.js",
@@ -213,7 +207,6 @@
     // Argument validation raising no error, or the wrong one, on built-ins called with a bad this
     // or a bad index. Includes SpiderMonkey's own toSource extension, which Jint does not implement
     // at all -- that half is removed by the test moving, not by Jint changing.
-    "staging/sm/Function/bound-non-constructable.js",
     "staging/sm/TypedArray/constructor-byteoffsets-bounds.js",
     "staging/sm/TypedArray/iterator-next-with-detached.js",
     "staging/sm/class/newTargetDVG.js",
