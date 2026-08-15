@@ -13,23 +13,72 @@ namespace Jint.Runtime.Debugger;
 public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 {
     private readonly Dictionary<BreakLocation, BreakPoint> _breakPoints = new(new OptionalSourceBreakLocationEqualityComparer());
+    private readonly Engine? _engine;
+    private bool _active = true;
 
     public BreakPointCollection()
     {
     }
 
+    internal BreakPointCollection(Engine engine)
+    {
+        _engine = engine;
+    }
+
     /// <summary>
     /// Gets or sets whether breakpoints are activated. When false, all breakpoints will fail to match (and be skipped by the debugger).
     /// </summary>
-    public bool Active { get; set; } = true;
+    public bool Active
+    {
+        get
+        {
+            if (_engine is null)
+            {
+                return _active;
+            }
 
-    public int Count => _breakPoints.Count;
+            using var ownership = _engine.EnterHostCall();
+            return _active;
+        }
+        set
+        {
+            if (_engine is null)
+            {
+                _active = value;
+                return;
+            }
+
+            using var ownership = _engine.EnterHostCall();
+            _active = value;
+        }
+    }
+
+    public int Count
+    {
+        get
+        {
+            if (_engine is null)
+            {
+                return _breakPoints.Count;
+            }
+
+            using var ownership = _engine.EnterHostCall();
+            return _breakPoints.Count;
+        }
+    }
 
     /// <summary>
     /// Sets a new breakpoint. Note that this will replace any breakpoint at the same location (source/column/line).
     /// </summary>
     public void Set(BreakPoint breakPoint)
     {
+        if (_engine is not null)
+        {
+            using var ownership = _engine.EnterHostCall();
+            _breakPoints[breakPoint.Location] = breakPoint;
+            return;
+        }
+
         _breakPoints[breakPoint.Location] = breakPoint;
     }
 
@@ -39,6 +88,12 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool RemoveAt(BreakLocation location)
     {
+        if (_engine is not null)
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _breakPoints.Remove(location);
+        }
+
         return _breakPoints.Remove(location);
     }
 
@@ -48,6 +103,12 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool Contains(BreakLocation location)
     {
+        if (_engine is not null)
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _breakPoints.ContainsKey(location);
+        }
+
         return _breakPoints.ContainsKey(location);
     }
 
@@ -56,6 +117,13 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public void Clear()
     {
+        if (_engine is not null)
+        {
+            using var ownership = _engine.EnterHostCall();
+            _breakPoints.Clear();
+            return;
+        }
+
         _breakPoints.Clear();
     }
 
@@ -95,11 +163,17 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 
     public IEnumerator<BreakPoint> GetEnumerator()
     {
+        if (_engine is not null)
+        {
+            using var ownership = _engine.EnterHostCall();
+            return new List<BreakPoint>(_breakPoints.Values).GetEnumerator();
+        }
+
         return _breakPoints.Values.GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return _breakPoints.GetEnumerator();
+        return GetEnumerator();
     }
 }

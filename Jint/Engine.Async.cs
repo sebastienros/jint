@@ -31,8 +31,23 @@ public partial class Engine
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     public Task<JsValue> EvaluateAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
-        var result = Evaluate(code, source);
-        return UnwrapResultAsync(result, cancellationToken);
+        var owner = ReserveAsyncHostOperation();
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                var result = Evaluate(code, source);
+                task = UnwrapResultAsync(result, owner, cancellationToken);
+            }
+
+            return CompleteAsyncHostOperation(task, owner);
+        }
+        catch
+        {
+            ReleaseAsyncHostOperation(owner);
+            throw;
+        }
     }
 
     /// <summary>
@@ -53,8 +68,23 @@ public partial class Engine
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
-        var result = Evaluate(in preparedScript);
-        return UnwrapResultAsync(result, cancellationToken);
+        var owner = ReserveAsyncHostOperation();
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                var result = Evaluate(in preparedScript);
+                task = UnwrapResultAsync(result, owner, cancellationToken);
+            }
+
+            return CompleteAsyncHostOperation(task, owner);
+        }
+        catch
+        {
+            ReleaseAsyncHostOperation(owner);
+            throw;
+        }
     }
 
     /// <summary>
@@ -73,15 +103,25 @@ public partial class Engine
     /// <param name="source">Optional source identifier for debugging.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
-    public async Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
+    public Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
-        var result = Evaluate(code, source);
-        if (result is JsPromise)
+        var owner = ReserveAsyncHostOperation();
+        try
         {
-            await UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);
-        }
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                var result = Evaluate(code, source);
+                task = UnwrapResultAsync(result, owner, cancellationToken);
+            }
 
-        return this;
+            return CompleteExecuteAsync(task, owner);
+        }
+        catch
+        {
+            ReleaseAsyncHostOperation(owner);
+            throw;
+        }
     }
 
     /// <summary>
@@ -112,8 +152,48 @@ public partial class Engine
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     public Task<JsValue> InvokeAsync(string propertyName, CancellationToken cancellationToken, params object?[] arguments)
     {
-        var result = Invoke(propertyName, arguments);
-        return UnwrapResultAsync(result, cancellationToken);
+        var owner = ReserveAsyncHostOperation();
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                var result = Invoke(propertyName, arguments);
+                task = UnwrapResultAsync(result, owner, cancellationToken);
+            }
+
+            return CompleteAsyncHostOperation(task, owner);
+        }
+        catch
+        {
+            ReleaseAsyncHostOperation(owner);
+            throw;
+        }
+    }
+
+    private async Task<JsValue> CompleteAsyncHostOperation(Task<JsValue> task, object owner)
+    {
+        try
+        {
+            return await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
+    }
+
+    private async Task<Engine> CompleteExecuteAsync(Task<JsValue> task, object owner)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+            return this;
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
     }
 
     /// <summary>
@@ -121,6 +201,26 @@ public partial class Engine
     /// without blocking any thread. For non-promise values, returns synchronously.
     /// </summary>
     internal Task<JsValue> UnwrapResultAsync(JsValue result, CancellationToken cancellationToken)
+    {
+        var owner = ReserveAsyncHostOperation();
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                task = UnwrapResultAsync(result, owner, cancellationToken);
+            }
+
+            return CompleteAsyncHostOperation(task, owner);
+        }
+        catch
+        {
+            ReleaseAsyncHostOperation(owner);
+            throw;
+        }
+    }
+
+    internal Task<JsValue> UnwrapResultAsync(JsValue result, object owner, CancellationToken cancellationToken)
     {
         if (result is not JsPromise promise)
         {
@@ -143,7 +243,7 @@ public partial class Engine
         // Slow path: promise is pending, use truly async waiting.
         // No thread is consumed during the wait — the event loop wake signal
         // will resume execution when new work arrives (e.g., from Task.ContinueWith).
-        return AwaitPromiseSettlementAsync(promise, cancellationToken);
+        return AwaitPromiseSettlementAsync(promise, owner, cancellationToken);
     }
 
     /// <summary>
@@ -153,7 +253,7 @@ public partial class Engine
     /// to resume on a thread pool thread, process the JS continuation, and either complete
     /// or go back to sleep if another await is hit.
     /// </summary>
-    private async Task<JsValue> AwaitPromiseSettlementAsync(JsPromise promise, CancellationToken cancellationToken)
+    private async Task<JsValue> AwaitPromiseSettlementAsync(JsPromise promise, object owner, CancellationToken cancellationToken)
     {
         var eventLoop = _eventLoop;
         var timeout = Options.Constraints.PromiseTimeout;
@@ -194,41 +294,46 @@ public partial class Engine
 
                 // Truly async wait — releases the thread back to the pool.
                 // Zero threads consumed while waiting for IO to complete.
-                // Work the engine scheduled for itself — a pending Atomics.waitAsync timeout, a pending
-                // web-API timer — is the one thing that can make this loop's condition advance without
-                // anything being enqueued, so the wait has to be bounded by its due time. One Task.Delay per
-                // idle wait, and only while such work pends; an engine with none takes the first branch and
-                // is byte-for-byte what it was.
-                var untilNextWork = TimeUntilNextPumpScheduledWork();
-                if (untilNextWork is not { } untilDue)
-                {
-                    await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
-                }
-                else if (untilDue > TimeSpan.Zero)
-                {
-                    await eventLoop.WaitForEventAsync(untilDue, effectiveCt).ConfigureAwait(false);
-                }
-                else if (eventLoop.IsRunningJob)
-                {
-                    // Due now, but nested inside a job this thread cannot run the queue at all, so waiting is
-                    // what keeps the loop from spinning hot on work nobody present can promote.
-                    await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
-                }
-
-                // Otherwise something is due and can be promoted: fall straight through to the pump.
-
-                // Woke up — take ownership of the event loop for this processing cycle.
-                // Setting _waitingThreadId prevents any other thread from processing
-                // JavaScript continuations while we're running.
-                var previousWaitingThreadId = eventLoop._waitingThreadId;
-                eventLoop._waitingThreadId = Environment.CurrentManagedThreadId;
+                Interlocked.Increment(ref _hostCallbackAdmission);
                 try
                 {
-                    RunAvailableContinuations();
+                    // Work the engine scheduled for itself — a pending Atomics.waitAsync timeout, a pending
+                    // web-API timer — is the one thing that can make this loop's condition advance without
+                    // anything being enqueued, so the wait has to be bounded by its due time.
+                    var untilNextWork = TimeUntilNextPumpScheduledWork();
+                    if (untilNextWork is not { } untilDue)
+                    {
+                        await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+                    }
+                    else if (untilDue > TimeSpan.Zero)
+                    {
+                        await eventLoop.WaitForEventAsync(untilDue, effectiveCt).ConfigureAwait(false);
+                    }
+                    else if (eventLoop.IsRunningJob)
+                    {
+                        await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+                    }
                 }
                 finally
                 {
-                    eventLoop._waitingThreadId = previousWaitingThreadId;
+                    Interlocked.Decrement(ref _hostCallbackAdmission);
+                }
+
+                using (EnterTransferredHostCall(owner))
+                {
+                    // Woke up — take ownership of the event loop for this processing cycle.
+                    // Setting _waitingThreadId prevents any other thread from processing
+                    // JavaScript continuations while we're running.
+                    var previousWaitingThreadId = eventLoop._waitingThreadId;
+                    eventLoop._waitingThreadId = Environment.CurrentManagedThreadId;
+                    try
+                    {
+                        RunAvailableContinuations();
+                    }
+                    finally
+                    {
+                        eventLoop._waitingThreadId = previousWaitingThreadId;
+                    }
                 }
             }
         }

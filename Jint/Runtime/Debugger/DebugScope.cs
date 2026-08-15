@@ -10,12 +10,14 @@ namespace Jint.Runtime.Debugger;
 /// </summary>
 public sealed class DebugScope
 {
+    private readonly Engine _engine;
     private readonly Environment _record;
     private string[]? _bindingNames;
 
     internal DebugScope(DebugScopeType type, Environment record, bool isTopLevel)
     {
         ScopeType = type;
+        _engine = record._engine;
         _record = record;
         BindingObject = record is ObjectEnvironment objEnv ? objEnv._bindingObject : null;
         IsTopLevel = isTopLevel;
@@ -39,7 +41,14 @@ public sealed class DebugScope
     /// <summary>
     /// Names of all bindings in the scope.
     /// </summary>
-    public IReadOnlyList<string> BindingNames => _bindingNames ??= _record.GetAllBindingNames();
+    public IReadOnlyList<string> BindingNames
+    {
+        get
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _bindingNames ??= _record.GetAllBindingNames();
+        }
+    }
 
     /// <summary>
     /// Binding object for ObjectEnvironmentRecords - that is, Global scope and With scope. Null for other scopes.
@@ -57,6 +66,7 @@ public sealed class DebugScope
     /// <returns>Value of the binding</returns>
     public JsValue? GetBindingValue(string name)
     {
+        using var ownership = _engine.EnterHostCall();
         _record.TryGetBinding(new Environment.BindingName(name), strict: false, out var result);
         return result;
     }
@@ -68,6 +78,7 @@ public sealed class DebugScope
     /// <param name="value">New value of the binding</param>
     public void SetBindingValue(string name, JsValue value)
     {
+        using var ownership = _engine.EnterHostCall();
         _record.SetMutableBinding(name, value, strict: true);
     }
 }

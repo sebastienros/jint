@@ -100,7 +100,11 @@ public partial class Engine
         /// <exception cref="NotSupportedException">The realm's global object overrides one of the property
         /// storage virtuals (<c>GetOwnProperty</c>, <c>Set</c>, …), so it resolves own properties from state
         /// outside the engine's tables and cannot be captured or restored.</exception>
-        public GlobalSnapshot CaptureGlobalSnapshot() => GlobalSnapshot.Capture(_engine);
+        public GlobalSnapshot CaptureGlobalSnapshot()
+        {
+            using var ownership = _engine.EnterHostCall();
+            return GlobalSnapshot.Capture(_engine);
+        }
 
         /// <summary>
         /// Restores the global bindings captured by <see cref="CaptureGlobalSnapshot"/>: global own
@@ -157,6 +161,7 @@ public partial class Engine
         /// engine's realm no longer has the global object the snapshot was taken from.</exception>
         public void RestoreGlobalSnapshot(GlobalSnapshot snapshot)
         {
+            using var ownership = _engine.EnterHostCall();
             if (snapshot is null)
             {
                 Throw.ArgumentNullException(nameof(snapshot));
@@ -206,8 +211,9 @@ public partial class Engine
         /// its own: it is a <see langword="finally"/>, not a sandbox.
         /// </para>
         /// <para>
-        /// An <see cref="Engine"/> is single-threaded, so a host sharing one across requests still needs its
-        /// own lock around the whole call — the restore is only correct if nothing else is evaluating.
+        /// An <see cref="Engine"/> accepts one host operation at a time. A host sharing one across requests
+        /// still needs to serialize the whole call — concurrent entries fail rather than waiting for one
+        /// another, and the restore is only correct if nothing else is evaluating.
         /// Asynchronous work has to be awaited <em>inside</em> <paramref name="action"/>: an
         /// <c>EvaluateAsync</c> whose <see cref="System.Threading.Tasks.Task"/> is still outstanding when the
         /// action returns makes the restore throw.
@@ -227,6 +233,7 @@ public partial class Engine
         /// is <see langword="null"/>.</exception>
         public void WithRestoredGlobals(GlobalSnapshot snapshot, Action action)
         {
+            using var ownership = _engine.EnterHostCall();
             if (snapshot is null)
             {
                 Throw.ArgumentNullException(nameof(snapshot));

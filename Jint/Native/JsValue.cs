@@ -262,6 +262,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// </summary>
     public static JsValue FromObjectWithType(Engine engine, object? value, Type? type)
     {
+        using var ownership = engine.EnterHostCall();
         if (value is null)
         {
             return Null;

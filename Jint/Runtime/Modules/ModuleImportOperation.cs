@@ -69,6 +69,7 @@ public sealed class ModuleImportOperation
     {
         get
         {
+            using var ownership = _engine.EnterHostCall();
             ObserveAbandonment();
             return _completed;
         }
@@ -79,6 +80,7 @@ public sealed class ModuleImportOperation
     {
         get
         {
+            using var ownership = _engine.EnterHostCall();
             ObserveAbandonment();
             return _faulted;
         }
@@ -89,6 +91,7 @@ public sealed class ModuleImportOperation
     {
         get
         {
+            using var ownership = _engine.EnterHostCall();
             ObserveAbandonment();
             return _namespace;
         }
@@ -102,6 +105,7 @@ public sealed class ModuleImportOperation
     {
         get
         {
+            using var ownership = _engine.EnterHostCall();
             ObserveAbandonment();
             return _error;
         }
@@ -114,6 +118,7 @@ public sealed class ModuleImportOperation
     /// <exception cref="PromiseRejectedException">The import failed.</exception>
     public ObjectInstance GetResult()
     {
+        using var ownership = _engine.EnterHostCall();
         if (!IsCompleted)
         {
             Throw.InvalidOperationException("The module import has not completed. Give the engine turns with engine.Advanced.ProcessTasks() until IsCompleted is true, or await Engine.Modules.ImportAsync instead.");
@@ -153,8 +158,8 @@ public sealed class ModuleImportOperation
             return;
         }
 
-        _completed = true;
         _namespace = value as ObjectInstance;
+        _completed = true;
     }
 
     internal void Fail(JsValue error)
@@ -164,8 +169,8 @@ public sealed class ModuleImportOperation
             return;
         }
 
-        _completed = true;
         _faulted = true;
         _error = error;
+        _completed = true;
     }
 }

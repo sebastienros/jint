@@ -459,7 +459,7 @@ public class GlobalSnapshotTests
 
         Invoking(() => engine.Advanced.RestoreGlobalSnapshot(snapshot))
             .Should().Throw<InvalidOperationException>()
-            .WithMessage("*evaluation is in progress*");
+            .WithMessage("*asynchronous operation in progress*");
 
         gate.SetResult(1);
         (await pending).AsNumber().Should().Be(42);

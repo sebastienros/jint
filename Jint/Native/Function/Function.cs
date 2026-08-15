@@ -601,7 +601,13 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     public sealed override object ToObject()
     {
-        return (JsCallDelegate) Call;
+        return (JsCallDelegate) CallFromHost;
+    }
+
+    private JsValue CallFromHost(JsValue thisObject, JsValue[] arguments)
+    {
+        using var ownership = _engine.EnterHostCallback();
+        return Call(thisObject, arguments);
     }
 
     public override string ToString()

@@ -29,6 +29,7 @@ public partial class Engine
         {
             get
             {
+                using var ownership = _engine.EnterHostCall();
                 var lastSyntaxElement = _engine._lastSyntaxElement;
                 if (lastSyntaxElement is null)
                 {
@@ -55,6 +56,7 @@ public partial class Engine
         /// </remarks>
         public void ResetCallStack()
         {
+            using var ownership = _engine.EnterHostCall();
             _engine.ResetCallStack();
         }
 
@@ -63,6 +65,7 @@ public partial class Engine
         /// </summary>
         public void ProcessTasks()
         {
+            using var ownership = _engine.EnterHostCall();
             _engine.RunAvailableContinuations();
         }
 
@@ -78,6 +81,7 @@ public partial class Engine
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
+            using var ownership = _engine.EnterHostCall();
             return _engine.RegisterPromise();
         }
 
@@ -100,6 +104,7 @@ public partial class Engine
         /// <returns>The proxy object, ready to be passed into script.</returns>
         public ObjectInstance CreateProxy(ObjectInstance target, ProxyHandler handler)
         {
+            using var ownership = _engine.EnterHostCall();
             if (target is null)
             {
                 Throw.ArgumentNullException(nameof(target));
@@ -123,6 +128,7 @@ public partial class Engine
         /// <returns>The proxy paired with its revoke operation.</returns>
         public RevocableProxy CreateRevocableProxy(ObjectInstance target, ProxyHandler handler)
         {
+            using var ownership = _engine.EnterHostCall();
             if (target is null)
             {
                 Throw.ArgumentNullException(nameof(target));
@@ -171,6 +177,7 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
         public ObjectRepresentation GetObjectRepresentation(ObjectInstance value)
         {
+            using var ownership = _engine.EnterHostCall();
             if (value is null)
             {
                 Throw.ArgumentNullException(nameof(value));
@@ -299,6 +306,7 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
         public PropertyAccessSemantics GetPropertyAccessSemantics(ObjectInstance value)
         {
+            using var ownership = _engine.EnterHostCall();
             if (value is null)
             {
                 Throw.ArgumentNullException(nameof(value));
@@ -357,7 +365,10 @@ public partial class Engine
         /// </para>
         /// </remarks>
         public InteropConversionDiagnostics GetInteropConversionDiagnostics()
-            => new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+        {
+            using var ownership = _engine.EnterHostCall();
+            return new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+        }
 
         /// <summary>
         /// Installs a global on <em>this</em> engine whose value is produced the first time script reads it,
@@ -436,6 +447,7 @@ public partial class Engine
             Func<Engine, JsValue> valueFactory,
             PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
         {
+            using var ownership = _engine.EnterHostCall();
             if (name is null)
             {
                 Throw.ArgumentNullException(nameof(name));
@@ -502,6 +514,7 @@ public partial class Engine
             Func<Engine, TState, JsValue> valueFactory,
             PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
         {
+            using var ownership = _engine.EnterHostCall();
             if (name is null)
             {
                 Throw.ArgumentNullException(nameof(name));
@@ -599,8 +612,16 @@ public partial class Engine
         /// </example>
         public object? HostDefined
         {
-            get => _engine._mainRealm.HostDefined;
-            set => _engine._mainRealm.HostDefined = value;
+            get
+            {
+                using var ownership = _engine.EnterHostCall();
+                return _engine._mainRealm.HostDefined;
+            }
+            set
+            {
+                using var ownership = _engine.EnterHostCall();
+                _engine._mainRealm.HostDefined = value;
+            }
         }
 
         /// <summary>

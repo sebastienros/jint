@@ -10,6 +10,7 @@ public sealed class CallFrame
     private SourceLocation _location;
     private readonly CallStackElement? _element;
     private readonly Lazy<DebugScopes> _scopeChain;
+    private readonly Engine _engine;
 
     internal CallFrame(
         CallStackElement? element,
@@ -19,6 +20,7 @@ public sealed class CallFrame
     {
         _element = element;
         _context = context;
+        _engine = context.LexicalEnvironment._engine;
         _location = location;
         ReturnValue = returnValue;
 
@@ -47,7 +49,14 @@ public sealed class CallFrame
     /// <summary>
     /// The scope chain of this call frame.
     /// </summary>
-    public DebugScopes ScopeChain => _scopeChain.Value;
+    public DebugScopes ScopeChain
+    {
+        get
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _scopeChain.Value;
+        }
+    }
 
     /// <summary>
     /// The value of <c>this</c> in this call frame.
@@ -56,6 +65,7 @@ public sealed class CallFrame
     {
         get
         {
+            using var ownership = _engine.EnterHostCall();
             var environment = _context.GetThisEnvironment();
             return environment.GetThisBinding();
         }

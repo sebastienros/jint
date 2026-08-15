@@ -122,6 +122,7 @@ public partial class Engine
         /// </summary>
         public void Check()
         {
+            using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
                 constraint.Check();
@@ -133,6 +134,7 @@ public partial class Engine
         /// </summary>
         public T? Find<T>() where T : Constraint
         {
+            using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
                 if (constraint.GetType() == typeof(T))
@@ -149,6 +151,7 @@ public partial class Engine
         /// </summary>
         public void Reset()
         {
+            using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
                 constraint.Reset();

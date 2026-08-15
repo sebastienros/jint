@@ -89,6 +89,7 @@ Defaults are compatibility choices, not a hardened profile.
 | Maximum array size | `uint.MaxValue` | Effectively unbounded for hostile input |
 | Regex timeout | 10 seconds | Bounds an individual regular expression operation |
 | Promise wait timeout | 10 seconds | Bounds host APIs that wait for promise or module settlement |
+| Concurrent `Engine` use | Rejected | Public host entries throw instead of racing or silently serializing |
 | Dynamic `eval` / `Function` compilation | Enabled | Script can create and parse additional source at runtime |
 | `Atomics.wait` suspension | Enabled | Script may block the engine thread, including indefinitely |
 | Debugger | Disabled | Debug callbacks and debugger expressions are inactive |
@@ -407,17 +408,25 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 
 **Existing mitigations.**
 
-- Async completion paths queue work to the event loop and guard which waiter drains it.
-- Documentation states that an engine is single-threaded.
+- Public engine, module, constraint, and advanced-operation entries claim exclusive ownership
+  and fail fast with `InvalidOperationException` when another thread or outstanding async host
+  operation owns the engine.
+- Same-thread callback re-entry is allowed. Async APIs reserve ownership for the lifetime of
+  their returned `Task` and transfer the active thread when a continuation resumes.
+- Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**
 
-- General concurrent use is not serialized or rejected automatically.
-- Event-loop thread-safety does not make the engine safe for concurrent host calls.
+- The guard covers Jint's public host entry points, not direct calls on engine-owned objects
+  already handed to the host, such as mutating `engine.Global` or a retained `ObjectInstance`.
+- Fail-fast detection prevents concurrent state corruption; it does not make one engine a
+  tenant-isolation boundary or repair host state mutated before an exception.
+- A host can still share projected CLR objects across otherwise separate engines.
 
-**Required host action.** Give an engine exclusive ownership for its entire lifetime, or
-serialize the complete execution and async drain with one gate. Never return a pooled engine
-while asynchronous work is outstanding.
+**Required host action.** Give an engine exclusive ownership for each complete operation and
+treat a concurrency exception as an integration bug, not a retry signal. Await every async
+engine call before returning a pooled engine, and do not mutate retained engine-owned objects
+from another thread. Use separate engines for mutually distrusting requests.
 
 ### TM-14: Regular expression denial of service
 

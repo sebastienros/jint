@@ -31,6 +31,12 @@ public sealed class ExceptionThrownEventArgs : EventArgs
     /// <summary>
     /// The call stack at the point the exception was thrown.
     /// </summary>
-    public DebugCallStack CallStack =>
-        _callStack ??= new DebugCallStack(_engine, _location, _engine.CallStack, returnValue: null);
+    public DebugCallStack CallStack
+    {
+        get
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _callStack ??= new DebugCallStack(_engine, _location, _engine.CallStack, returnValue: null);
+        }
+    }
 }

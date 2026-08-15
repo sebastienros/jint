@@ -878,7 +878,17 @@ https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javasc
 
 ## Thread-safety
 
-Engine instances are not thread-safe and they should not accessed from multiple threads simultaneously. 
+An `Engine` is single-operation, not thread-safe. Public host entries fail fast with
+`InvalidOperationException` when another thread is using the same engine or while one of its async APIs
+is still outstanding; callers are never silently serialized. Same-thread re-entry from a host callback is
+supported, and an awaited async operation may resume on a different thread after ownership transfers.
+Background task and module completions may enqueue work safely, but they do not grant permission for other
+host calls while the owning async operation is pending.
+
+Keep one engine exclusively assigned to one request or operation at a time. If engines are pooled, await
+`EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, `ImportAsync`, or `UnwrapIfPromiseAsync` before returning an
+engine to the pool. Direct mutation through engine-owned objects such as `engine.Global` remains subject to
+the same contract and cannot be guarded by the `Engine` entry-point check.
 
 ## Examples
 

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Collections;
 using Jint.Constraints;
 using Jint.Native;
@@ -22,11 +23,13 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
+using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint;
 
 /// <summary>
-/// Engine is the main API to JavaScript interpretation. Engine instances are not thread-safe.
+/// Engine is the main API to JavaScript interpretation. An engine supports one host operation at a time;
+/// concurrent public entries fail with <see cref="InvalidOperationException"/>.
 /// </summary>
 [DebuggerTypeProxy(typeof(EngineDebugView))]
 public sealed partial class Engine : IDisposable
@@ -88,6 +91,286 @@ public sealed partial class Engine : IDisposable
     /// </para>
     /// </summary>
     private int _hostEntryDepth;
+
+    private const string ConcurrentUseMessage =
+        "This Engine is already in use by another thread or has an asynchronous operation in progress. " +
+        "Engine instances may only be used by one host operation at a time.";
+
+    // Same-thread re-entry is allowed. Async APIs reserve the engine while suspended and claim
+    // whichever thread resumes each continuation, without leaving a window for another host call.
+    private int _ownerThreadId;
+    private int _ownerDepth;
+    private object? _ownerToken;
+    private object? _asyncOwner;
+    private int _hostCallbackAdmission;
+    private ManualResetEventSlim? _ownershipReleased;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal HostCallScope EnterHostCall(object? asyncOwner = null)
+    {
+        var threadId = System.Environment.CurrentManagedThreadId;
+        if (Volatile.Read(ref _ownerThreadId) == threadId)
+        {
+            if (asyncOwner is not null)
+            {
+                if (_ownerToken is not null && !ReferenceEquals(_ownerToken, asyncOwner))
+                {
+                    Throw.InvalidOperationException(ConcurrentUseMessage);
+                }
+
+                _ownerToken = asyncOwner;
+            }
+
+            _ownerDepth++;
+            return new HostCallScope(this);
+        }
+
+        var reservedOwner = Volatile.Read(ref _asyncOwner);
+        if ((asyncOwner is null && reservedOwner is not null)
+            || (asyncOwner is not null && !ReferenceEquals(asyncOwner, reservedOwner)))
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        if (Interlocked.CompareExchange(ref _ownerThreadId, threadId, 0) != 0)
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        // Close the race with an async operation reserving the engine after the first check.
+        reservedOwner = Volatile.Read(ref _asyncOwner);
+        if ((asyncOwner is null && reservedOwner is not null)
+            || (asyncOwner is not null && !ReferenceEquals(asyncOwner, reservedOwner)))
+        {
+            Volatile.Write(ref _ownerThreadId, 0);
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        _ownerDepth = 1;
+        _ownerToken = asyncOwner;
+        return new HostCallScope(this);
+    }
+
+    internal HostCallScope EnterHostCallback()
+    {
+        var owner = Volatile.Read(ref _asyncOwner);
+        return owner is not null && Volatile.Read(ref _hostCallbackAdmission) > 0
+            ? EnterTransferredHostCall(owner)
+            : EnterHostCall();
+    }
+
+    internal HostCallScope EnterTransferredHostCall(object owner)
+    {
+        if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        var threadId = System.Environment.CurrentManagedThreadId;
+        if (Volatile.Read(ref _ownerThreadId) == threadId)
+        {
+            _ownerDepth++;
+            return new HostCallScope(this);
+        }
+
+        AcquireHostCall(threadId);
+        if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
+        {
+            Volatile.Write(ref _ownerThreadId, 0);
+            Volatile.Read(ref _ownershipReleased)?.Set();
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        _ownerDepth = 1;
+        _ownerToken = owner;
+        return new HostCallScope(this);
+    }
+
+    private bool TryEnterHostCall(out HostCallScope scope)
+    {
+        var threadId = System.Environment.CurrentManagedThreadId;
+        if (Volatile.Read(ref _ownerThreadId) == threadId)
+        {
+            _ownerDepth++;
+            scope = new HostCallScope(this);
+            return true;
+        }
+
+        if (Volatile.Read(ref _asyncOwner) is not null
+            || Interlocked.CompareExchange(ref _ownerThreadId, threadId, 0) != 0)
+        {
+            scope = default;
+            return false;
+        }
+
+        if (Volatile.Read(ref _asyncOwner) is not null)
+        {
+            Volatile.Write(ref _ownerThreadId, 0);
+            Volatile.Read(ref _ownershipReleased)?.Set();
+            scope = default;
+            return false;
+        }
+
+        _ownerDepth = 1;
+        _ownerToken = null;
+        scope = new HostCallScope(this);
+        return true;
+    }
+
+    private void AcquireHostCall(int threadId)
+    {
+        var spinWait = new SpinWait();
+        while (Interlocked.CompareExchange(ref _ownerThreadId, threadId, 0) != 0)
+        {
+            if (spinWait.NextSpinWillYield)
+            {
+                var released = OwnershipReleasedEvent;
+                released.Reset();
+                if (Volatile.Read(ref _ownerThreadId) != 0)
+                {
+                    released.Wait();
+                }
+            }
+            else
+            {
+                spinWait.SpinOnce();
+            }
+        }
+    }
+
+    private ManualResetEventSlim OwnershipReleasedEvent
+    {
+        get
+        {
+            if (_ownershipReleased is not null)
+            {
+                return _ownershipReleased;
+            }
+
+            var newEvent = new ManualResetEventSlim(false);
+            var existing = Interlocked.CompareExchange(ref _ownershipReleased, newEvent, null);
+            if (existing is not null)
+            {
+                newEvent.Dispose();
+                return existing;
+            }
+
+            return newEvent;
+        }
+    }
+
+    private HostCallSuspension SuspendHostCallForCallbacks()
+    {
+        var owner = _ownerToken;
+        if (owner is null)
+        {
+            owner = this;
+            if (Interlocked.CompareExchange(ref _asyncOwner, owner, null) is not null)
+            {
+                Throw.InvalidOperationException(ConcurrentUseMessage);
+            }
+        }
+        else if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        Interlocked.Increment(ref _hostCallbackAdmission);
+        var depth = _ownerDepth;
+        _ownerDepth = 0;
+        _ownerToken = null;
+        Volatile.Write(ref _ownerThreadId, 0);
+        Volatile.Read(ref _ownershipReleased)?.Set();
+        return new HostCallSuspension(this, owner, depth);
+    }
+
+    private void ResumeHostCall(object owner, int depth)
+    {
+        AcquireHostCall(System.Environment.CurrentManagedThreadId);
+        _ownerDepth = depth;
+        _ownerToken = owner;
+
+        if (Interlocked.Decrement(ref _hostCallbackAdmission) == 0 && ReferenceEquals(owner, this))
+        {
+            Interlocked.CompareExchange(ref _asyncOwner, null, owner);
+            _ownerToken = null;
+        }
+    }
+
+    internal object ReserveAsyncHostOperation()
+    {
+        var threadId = System.Environment.CurrentManagedThreadId;
+        var activeOwner = Volatile.Read(ref _ownerThreadId);
+        if (activeOwner != 0 && activeOwner != threadId)
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        var owner = new object();
+        if (Interlocked.CompareExchange(ref _asyncOwner, owner, null) is not null)
+        {
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        activeOwner = Volatile.Read(ref _ownerThreadId);
+        if (activeOwner != 0 && activeOwner != threadId)
+        {
+            Interlocked.CompareExchange(ref _asyncOwner, null, owner);
+            Throw.InvalidOperationException(ConcurrentUseMessage);
+        }
+
+        return owner;
+    }
+
+    internal void ReleaseAsyncHostOperation(object owner)
+    {
+        if (ReferenceEquals(Interlocked.CompareExchange(ref _asyncOwner, null, owner), owner)
+            && Volatile.Read(ref _ownerThreadId) == System.Environment.CurrentManagedThreadId
+            && ReferenceEquals(_ownerToken, owner))
+        {
+            _ownerToken = null;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ExitHostCall()
+    {
+        if (--_ownerDepth == 0)
+        {
+            _ownerToken = null;
+            Volatile.Write(ref _ownerThreadId, 0);
+            Volatile.Read(ref _ownershipReleased)?.Set();
+        }
+    }
+
+    internal readonly struct HostCallScope : IDisposable
+    {
+        private readonly Engine _engine;
+
+        internal HostCallScope(Engine engine)
+        {
+            _engine = engine;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Dispose() => _engine.ExitHostCall();
+    }
+
+    private readonly struct HostCallSuspension : IDisposable
+    {
+        private readonly Engine _engine;
+        private readonly object _owner;
+        private readonly int _depth;
+
+        internal HostCallSuspension(Engine engine, object owner, int depth)
+        {
+            _engine = engine;
+            _owner = owner;
+            _depth = depth;
+        }
+
+        public void Dispose() => _engine.ResumeHostCall(_owner, _depth);
+    }
 
     /// <summary>
     /// Whether the engine is running something for someone: a host entry is on the stack
@@ -560,12 +843,26 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// The well-known intrinsics for this engine instance.
     /// </summary>
-    public Intrinsics Intrinsics => Realm.Intrinsics;
+    public Intrinsics Intrinsics
+    {
+        get
+        {
+            using var ownership = EnterHostCall();
+            return Realm.Intrinsics;
+        }
+    }
 
     /// <summary>
     /// The global object for this engine instance.
     /// </summary>
-    public ObjectInstance Global => Realm.GlobalObject;
+    public ObjectInstance Global
+    {
+        get
+        {
+            using var ownership = EnterHostCall();
+            return Realm.GlobalObject;
+        }
+    }
 
     internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
 
@@ -578,7 +875,14 @@ public sealed partial class Engine : IDisposable
         private set;
     }
 
-    public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
+    public DebugHandler Debugger
+    {
+        get
+        {
+            using var ownership = EnterHostCall();
+            return _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
+        }
+    }
 
     internal ParserOptions DefaultModuleParserOptions => _defaultModuleParserOptions ??=
         (Options.RetainFunctionSourceText ? ModuleParsingOptions.RetainingDefault : ModuleParsingOptions.Default).GetParserOptions(Options);
@@ -653,6 +957,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine SetValue(string name, Delegate value)
     {
+        using var ownership = EnterHostCall();
         Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), PropertyFlag.NonEnumerable));
         return this;
     }
@@ -694,6 +999,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine SetValue(string name, JsValue value)
     {
+        using var ownership = EnterHostCall();
         Realm.GlobalObject.Set(name, value);
         return this;
     }
@@ -703,6 +1009,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine SetValue(string name, object? obj)
     {
+        using var ownership = EnterHostCall();
         var value = obj is Type t
             ? TypeReference.CreateTypeReference(this, t)
             : JsValue.FromObject(this, obj);
@@ -715,6 +1022,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine SetValue(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
     {
+        using var ownership = EnterHostCall();
 #pragma warning disable IL2111
         return SetValue(name, TypeReference.CreateTypeReference(this, type));
 #pragma warning restore IL2111
@@ -725,6 +1033,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T? obj)
     {
+        using var ownership = EnterHostCall();
         return obj is Type t
             ? SetValue(name, t)
             : SetValue(name, JsValue.FromObject(this, obj));
@@ -756,6 +1065,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public JsValue Evaluate(string code, string? source = null)
     {
+        using var ownership = EnterHostCall();
         var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
     }
@@ -771,6 +1081,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
     {
+        using var ownership = EnterHostCall();
         var parser = GetParserFor(parsingOptions);
         var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Evaluate(new Prepared<Script>(script, parser.Options));
@@ -787,6 +1098,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(string code, string? source = null)
     {
+        using var ownership = EnterHostCall();
         var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
         return Execute(new Prepared<Script>(script, _defaultParser.Options));
     }
@@ -802,6 +1114,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
     {
+        using var ownership = EnterHostCall();
         var parser = GetParserFor(parsingOptions);
         var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
         return Execute(new Prepared<Script>(script, parser.Options));
@@ -928,6 +1241,7 @@ public sealed partial class Engine : IDisposable
         // RestoreGlobalSnapshot has since ended".
         var generation = _eventLoop.Generation;
 
+        var registrationThreadId = System.Environment.CurrentManagedThreadId;
         Action<JsValue> SettleWith(Function settle) => value =>
         {
             // Enqueue to event loop to ensure thread safety - the settle operation
@@ -941,11 +1255,16 @@ public sealed partial class Engine : IDisposable
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             promise.CompletedEvent.Set();
 
-            // Try to run continuations. If we're on a background thread and there's a
-            // waiting thread (in UnwrapIfPromise), this will be a no-op and the waiting
-            // thread will process instead. If we're on the main thread (direct Resolve call),
-            // this will process the continuations immediately.
-            RunAvailableContinuations();
+            // A completion may arrive on any thread. Only drain inline when this thread is already
+            // inside a guarded engine turn; otherwise the next host turn or async waiter owns the drain.
+            if (System.Environment.CurrentManagedThreadId == registrationThreadId
+                && TryEnterHostCall(out var ownership))
+            {
+                using (ownership)
+                {
+                    _eventLoop.RunAvailableContinuations(this);
+                }
+            }
         };
 
         return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
@@ -1061,6 +1380,7 @@ public sealed partial class Engine : IDisposable
 
     internal void RunAvailableContinuations()
     {
+        using var ownership = EnterHostCall();
         _eventLoop.RunAvailableContinuations(this);
     }
 
@@ -1122,6 +1442,8 @@ public sealed partial class Engine : IDisposable
         TimeSpan timeout,
         System.Threading.CancellationToken cancellationToken = default)
     {
+        using var ownership = EnterHostCall();
+
         // Claim this thread as the one draining the loop so background threads (Task completions)
         // don't race to execute JavaScript continuations on the engine. Save/restore to support
         // nesting (e.g. a re-entrant UnwrapIfPromise already waiting).
@@ -1216,7 +1538,10 @@ public sealed partial class Engine : IDisposable
                     // settle arriving from a background thread only enqueues, and this thread is the one that
                     // has to run it — before the wake it idled out the rest of the poll slice first, which a
                     // chain of sequential asynchronous loads paid on every hop.
-                    _eventLoop.WaitForWork(completedEvent, waitInterval, waitToken);
+                    using (SuspendHostCallForCallbacks())
+                    {
+                        _eventLoop.WaitForWork(completedEvent, waitInterval, waitToken);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -1657,6 +1982,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the function call.</returns>
     public JsValue Invoke(string propertyName, object? thisObj, object?[] arguments)
     {
+        using var ownership = EnterHostCall();
         var value = GetValue(propertyName);
 
         return Invoke(value, thisObj, arguments);
@@ -1682,6 +2008,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the function call.</returns>
     public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
     {
+        using var ownership = EnterHostCall();
         var callable = value as ICallable;
         if (callable is null)
         {
@@ -1729,6 +2056,8 @@ public sealed partial class Engine : IDisposable
 
     internal T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
     {
+        using var ownership = EnterHostCall();
+
         // A nested call — a host callback inside a running script calling back into the engine —
         // must not re-arm the outer run's constraints: the outer budget (time/statements) keeps
         // applying to everything the outer script triggers, otherwise `while (true) hostCallback()`
@@ -1815,6 +2144,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="propertyName">The name of the property to return.</param>
     public JsValue GetValue(string propertyName)
     {
+        using var ownership = EnterHostCall();
         return GetValue(Realm.GlobalObject, new JsString(propertyName));
     }
 
@@ -1833,6 +2163,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="property">The name of the property to return.</param>
     public JsValue GetValue(JsValue scope, JsValue property)
     {
+        using var ownership = EnterHostCall();
         var reference = _referencePool.Rent(scope, property, _isStrict, thisValue: null);
         var jsValue = GetValue(reference, returnReferenceToPool: false);
         _referencePool.Return(reference);
@@ -2640,6 +2971,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the call.</returns>
     public JsValue Call(string callableName, params JsCallArguments arguments)
     {
+        using var ownership = EnterHostCall();
         var callable = Evaluate(callableName);
         return Call(callable, arguments);
     }
@@ -2694,6 +3026,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the constructor call.</returns>
     public ObjectInstance Construct(string constructorName, params JsCallArguments arguments)
     {
+        using var ownership = EnterHostCall();
         var constructor = Evaluate(constructorName);
         return Construct(constructor, arguments);
     }
@@ -2818,6 +3151,8 @@ public sealed partial class Engine : IDisposable
 
     public void Dispose()
     {
+        using var ownership = EnterHostCall();
+
         // the recent-wrapper ring (on by default since 4.14) strongly roots its targets and wrappers,
         // so a disposed-but-still-referenced engine must release them
         _recentObjectWrapperCache?.Clear();

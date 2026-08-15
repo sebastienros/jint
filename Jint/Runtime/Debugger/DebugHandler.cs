@@ -20,6 +20,7 @@ public class DebugHandler
     private readonly Engine _engine;
     private bool _paused;
     private int _steppingDepth;
+    private SourceLocation? _currentLocation;
 
     /// <summary>
     /// Triggered before the engine executes/evaluates the parsed AST of a script or module.
@@ -64,6 +65,7 @@ public class DebugHandler
     internal DebugHandler(Engine engine, StepMode initialStepMode)
     {
         _engine = engine;
+        BreakPoints = new BreakPointCollection(engine);
         HandleNewStepMode(initialStepMode);
     }
 
@@ -76,12 +78,20 @@ public class DebugHandler
     /// The location is available as long as DebugMode is enabled - i.e. even when not stepping
     /// or hitting a breakpoint.
     /// </remarks>
-    public SourceLocation? CurrentLocation { get; private set; }
+    public SourceLocation? CurrentLocation
+    {
+        get
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _currentLocation;
+        }
+        private set => _currentLocation = value;
+    }
 
     /// <summary>
     /// Collection of active breakpoints for the engine.
     /// </summary>
-    public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
+    public BreakPointCollection BreakPoints { get; }
 
     /// <summary>
     /// Evaluates a script (expression) within the current execution context.
@@ -92,6 +102,7 @@ public class DebugHandler
     /// </remarks>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
     {
+        using var ownership = _engine.EnterHostCall();
         if (!preparedScript.IsValid)
         {
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
@@ -144,6 +155,7 @@ public class DebugHandler
     /// <inheritdoc cref="Evaluate(in Prepared{Script})" />
     public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
     {
+        using var ownership = _engine.EnterHostCall();
         var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
         var parser = _engine.GetParserFor(parserOptions);
         try
