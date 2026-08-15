@@ -1,6 +1,5 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of methods return JsValue
 
-using System.Collections.Concurrent;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -24,145 +23,118 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString AtomicsToStringTag = new("Atomics");
 
     /// <summary>
-    /// Global waiters list for Atomics.wait/notify.
-    /// Key is (buffer identity, byte index), value is list of waiting threads.
+    /// The waiter lists of every shared data block this process has waited on, one entry per block, each
+    /// holding one list per byte index — the spec's store of WaiterList Records, "indexed by (block, i)" and
+    /// "agent-independent" (https://tc39.es/ecma262/#sec-waiterlist-records).
     /// </summary>
-    private static readonly ConcurrentDictionary<WaiterKey, WaiterList> _waiters = new();
+    /// <remarks>
+    /// The table is keyed <b>weakly</b> on the block, and that is what bounds a waiter's lifetime. An async
+    /// waiter holds its engine — that is how it resolves its promise back onto the right event loop — and a
+    /// wait asking for no timeout never resolves and is never removed, so keying this strongly kept the engine,
+    /// its realm and everything they root alive for the life of the process. Weakly it lives exactly as long as
+    /// the block, which is the lifetime the spec gives it: while any agent can still reach the block it can
+    /// still call <c>Atomics.notify</c>, so the entry has to survive to be woken; once no agent can, nothing
+    /// can ever notify it again and the whole cycle — block, engine, waiter — is collected together. The engine
+    /// reference stays strong on purpose, so what <c>Atomics.notify</c> counts never depends on when a
+    /// collection happened to run.
+    /// <para>
+    /// A block whose lists have all been pruned keeps an empty entry here until the block itself dies. Removing
+    /// it would race a thread that already holds the <see cref="WaiterBlock"/> and is about to add to it, and
+    /// what it would save is one empty object per block that is about to be collected anyway.
+    /// </para>
+    /// </remarks>
+    private static readonly ConditionalWeakTable<byte[], WaiterBlock> _blocks = new();
 
-    private readonly struct WaiterKey : IEquatable<WaiterKey>
-    {
-        public readonly object Buffer;
-        public readonly int ByteIndex;
+    private static readonly ConditionalWeakTable<byte[], WaiterBlock>.CreateValueCallback _createWaiterBlock = static _ => new WaiterBlock();
 
-        public WaiterKey(object buffer, int byteIndex)
-        {
-            Buffer = buffer;
-            ByteIndex = byteIndex;
-        }
+    /// <summary>
+    /// How many per-index waiter lists the registry currently holds for a shared data block. Nothing in the
+    /// engine reads this; it exists so the pruning invariant — a list that has emptied is removed — can be
+    /// asserted from a test.
+    /// </summary>
+    internal static int WaiterListCount(byte[] block) => _blocks.TryGetValue(block, out var waiters) ? waiters.Count : 0;
 
-        public bool Equals(WaiterKey other) => ReferenceEquals(Buffer, other.Buffer) && ByteIndex == other.ByteIndex;
-        public override bool Equals(object? obj) => obj is WaiterKey other && Equals(other);
-        public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Buffer) ^ ByteIndex;
-    }
-
-    private sealed class WaiterList
+    /// <summary>
+    /// The waiter lists of one shared data block, indexed by byte index.
+    /// </summary>
+    /// <remarks>
+    /// One lock guards both this dictionary and the contents of every list in it, which is what makes creating
+    /// a list and adding the waiter that needed it a single step. Two steps could not be made safe: a list
+    /// obtained from the dictionary and added to afterwards can be pruned in between, and the waiter then joins
+    /// a list nothing can find. The order is block lock → <see cref="Waiter.SyncRoot"/>, never the reverse: a
+    /// suspended agent releases its own monitor before it asks for this one.
+    /// </remarks>
+    private sealed class WaiterBlock
     {
         private readonly Lock _lock = new();
-        private readonly List<Waiter> _syncWaiters = [];
-        private readonly List<AsyncWaiter> _asyncWaiters = [];
+        private readonly Dictionary<int, WaiterList> _lists = new();
 
-        public int SyncCount
+        public int Count
         {
             get
             {
                 lock (_lock)
                 {
-                    return _syncWaiters.Count;
+                    return _lists.Count;
                 }
             }
         }
 
-        public int AddSync(Waiter waiter)
+        public WaiterList AddSync(int byteIndex, Waiter waiter)
         {
             lock (_lock)
             {
-                _syncWaiters.Add(waiter);
-                return _syncWaiters.Count;
+                var list = GetOrCreate(byteIndex);
+                list.SyncWaiters.Add(waiter);
+                return list;
             }
         }
 
-        public void RemoveSync(Waiter waiter)
+        public WaiterList AddAsync(int byteIndex, AsyncWaiter waiter)
         {
             lock (_lock)
             {
-                _syncWaiters.Remove(waiter);
+                var list = GetOrCreate(byteIndex);
+                list.AsyncWaiters.Add(waiter);
+                return list;
             }
         }
 
-        public void AddAsync(AsyncWaiter waiter)
+        public void RemoveSync(WaiterList list, Waiter waiter)
         {
             lock (_lock)
             {
-                _asyncWaiters.Add(waiter);
+                list.SyncWaiters.Remove(waiter);
+                PruneIfEmpty(list);
             }
         }
 
-        public void RemoveAsync(AsyncWaiter waiter)
+        public void RemoveAsync(WaiterList list, AsyncWaiter waiter)
         {
             lock (_lock)
             {
-                _asyncWaiters.Remove(waiter);
+                list.AsyncWaiters.Remove(waiter);
+                PruneIfEmpty(list);
             }
         }
 
-        public int NotifyWaiters(int count)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-notifywaiter
+        /// </summary>
+        public int Notify(int byteIndex, int count)
         {
-            var notified = 0;
-            List<Waiter>? syncToRemove = null;
-            List<AsyncWaiter>? asyncToNotify = null;
+            int notified;
+            List<AsyncWaiter>? asyncToNotify;
 
             lock (_lock)
             {
-                // First notify sync waiters
-                foreach (var waiter in _syncWaiters)
+                if (!_lists.TryGetValue(byteIndex, out var list))
                 {
-                    if (notified >= count)
-                    {
-                        break;
-                    }
-
-                    lock (waiter.SyncRoot)
-                    {
-                        // Skip if already notified (handles race where waiter hasn't been removed yet)
-                        if (waiter.Notified)
-                        {
-                            continue;
-                        }
-
-                        waiter.Notified = true;
-                        Monitor.Pulse(waiter.SyncRoot);
-                    }
-                    notified++;
-
-                    // Mark for removal from the list
-                    syncToRemove ??= [];
-                    syncToRemove.Add(waiter);
+                    return 0;
                 }
 
-                // Remove notified sync waiters from the list
-                // This prevents double-counting in subsequent Notify calls
-                if (syncToRemove != null)
-                {
-                    foreach (var waiter in syncToRemove)
-                    {
-                        _syncWaiters.Remove(waiter);
-                    }
-                }
-
-                // Then notify async waiters
-                foreach (var waiter in _asyncWaiters)
-                {
-                    if (notified >= count)
-                    {
-                        break;
-                    }
-
-                    if (!waiter.Resolved)
-                    {
-                        asyncToNotify ??= [];
-                        asyncToNotify.Add(waiter);
-                        notified++;
-                    }
-                }
-
-                // Remove notified async waiters from the list
-                if (asyncToNotify != null)
-                {
-                    foreach (var waiter in asyncToNotify)
-                    {
-                        _asyncWaiters.Remove(waiter);
-                    }
-                }
+                notified = NotifyWaiters(list, count, out asyncToNotify);
+                PruneIfEmpty(list);
             }
 
             // Resolve async waiters outside the lock to avoid deadlocks
@@ -176,6 +148,116 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
 
             return notified;
         }
+
+        private static int NotifyWaiters(WaiterList list, int count, out List<AsyncWaiter>? asyncToNotify)
+        {
+            var notified = 0;
+            List<Waiter>? syncToRemove = null;
+            asyncToNotify = null;
+
+            // First notify sync waiters
+            foreach (var waiter in list.SyncWaiters)
+            {
+                if (notified >= count)
+                {
+                    break;
+                }
+
+                lock (waiter.SyncRoot)
+                {
+                    // Skip if already notified (handles race where waiter hasn't been removed yet)
+                    if (waiter.Notified)
+                    {
+                        continue;
+                    }
+
+                    waiter.Notified = true;
+                    Monitor.Pulse(waiter.SyncRoot);
+                }
+                notified++;
+
+                // Mark for removal from the list
+                syncToRemove ??= [];
+                syncToRemove.Add(waiter);
+            }
+
+            // Remove notified sync waiters from the list
+            // This prevents double-counting in subsequent Notify calls
+            if (syncToRemove != null)
+            {
+                foreach (var waiter in syncToRemove)
+                {
+                    list.SyncWaiters.Remove(waiter);
+                }
+            }
+
+            // Then notify async waiters
+            foreach (var waiter in list.AsyncWaiters)
+            {
+                if (notified >= count)
+                {
+                    break;
+                }
+
+                if (!waiter.Resolved)
+                {
+                    asyncToNotify ??= [];
+                    asyncToNotify.Add(waiter);
+                    notified++;
+                }
+            }
+
+            // Remove notified async waiters from the list
+            if (asyncToNotify != null)
+            {
+                foreach (var waiter in asyncToNotify)
+                {
+                    list.AsyncWaiters.Remove(waiter);
+                }
+            }
+
+            return notified;
+        }
+
+        private WaiterList GetOrCreate(int byteIndex)
+        {
+            if (!_lists.TryGetValue(byteIndex, out var list))
+            {
+                list = new WaiterList(byteIndex);
+                _lists[byteIndex] = list;
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// Drops a list nobody is waiting in any more. Every wait that ever ended used to leave its list here
+        /// forever, one per index the script touched. The caller holds the lock, so no waiter can be joining
+        /// the list being examined, and the identity check keeps a stale reference — a list already pruned and
+        /// replaced by a later wait on the same index — from removing its successor.
+        /// </summary>
+        private void PruneIfEmpty(WaiterList list)
+        {
+            if (list.SyncWaiters.Count != 0 || list.AsyncWaiters.Count != 0)
+            {
+                return;
+            }
+
+            if (_lists.TryGetValue(list.ByteIndex, out var current) && ReferenceEquals(current, list))
+            {
+                _lists.Remove(list.ByteIndex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The waiters of one byte index. Both lists are guarded by the owning <see cref="WaiterBlock"/>'s lock.
+    /// </summary>
+    private sealed class WaiterList(int byteIndex)
+    {
+        public int ByteIndex { get; } = byteIndex;
+        public List<Waiter> SyncWaiters { get; } = [];
+        public List<AsyncWaiter> AsyncWaiters { get; } = [];
     }
 
     private sealed class Waiter
@@ -388,11 +470,9 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         // Ensure we see the latest updates from other threads (important for ARM memory model)
         Thread.MemoryBarrier();
 
-        var key = new WaiterKey(bufferData, byteIndexInBuffer);
-        if (_waiters.TryGetValue(key, out var waiterList))
+        if (_blocks.TryGetValue(bufferData, out var waiters))
         {
-            var notified = waiterList.NotifyWaiters(c);
-            return JsNumber.Create(notified);
+            return JsNumber.Create(waiters.Notify(byteIndexInBuffer, c));
         }
 
         return JsNumber.PositiveZero;
@@ -557,10 +637,9 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         }
 
         // Value matches - add ourselves to the waiters list and block
-        var key = new WaiterKey(bufferData, byteIndexInBuffer);
-        var waiterList = _waiters.GetOrAdd(key, _ => new WaiterList());
+        var waiters = _blocks.GetValue(bufferData, _createWaiterBlock);
         var waiter = new Waiter();
-        waiterList.AddSync(waiter);
+        var waiterList = waiters.AddSync(byteIndexInBuffer, waiter);
 
         // Ensure the waiter addition is visible to other threads (important for ARM memory model)
         Thread.MemoryBarrier();
@@ -605,7 +684,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         }
         finally
         {
-            waiterList.RemoveSync(waiter);
+            waiters.RemoveSync(waiterList, waiter);
         }
     }
 
@@ -687,16 +766,16 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
 
         if (bufferData is not null)
         {
-            var key = new WaiterKey(bufferData, byteIndexInBuffer);
-            var waiterList = _waiters.GetOrAdd(key, _ => new WaiterList());
+            var waiters = _blocks.GetValue(bufferData, _createWaiterBlock);
             var hasTimeout = !double.IsPositiveInfinity(q);
             var asyncWaiter = new AsyncWaiter(_engine, promiseCapability, hasTimeout);
-            waiterList.AddAsync(asyncWaiter);
+            var waiterList = waiters.AddAsync(byteIndexInBuffer, asyncWaiter);
 
             // Handle timeout
             if (hasTimeout)
             {
                 var timeoutMs = (int) System.Math.Min(System.Math.Ceiling(q), int.MaxValue);
+                var capturedWaiters = waiters;
                 var capturedWaiterList = waiterList;
                 var capturedAsyncWaiter = asyncWaiter;
                 var timeoutToken = asyncWaiter.TimeoutToken;
@@ -737,7 +816,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
 
                     if (!capturedAsyncWaiter.Resolved)
                     {
-                        capturedWaiterList.RemoveAsync(capturedAsyncWaiter);
+                        capturedWaiters.RemoveAsync(capturedWaiterList, capturedAsyncWaiter);
                         capturedAsyncWaiter.Resolve("timed-out");
                     }
                 }, timeoutToken);
