@@ -41,6 +41,14 @@ namespace Jint.Native.Json;
 /// exists to avoid, and added a decode on top.
 /// </para>
 /// <para>
+/// <b>Document length.</b> The <see cref="JsValue"/>-returning overloads produce a JavaScript string and
+/// are bounded by the same maximum length as every other way of building one: a document that would
+/// exceed it raises <c>RangeError: Invalid string length</c>, which a script can catch, and raises it
+/// while the document is being built rather than after it has been paid for. The
+/// <see cref="IBufferWriter{T}"/> overloads produce bytes the host consumes and never a string, so the
+/// language's limit does not apply to them; they remain bounded only by what a CLR array can hold.
+/// </para>
+/// <para>
 /// <b>BigInt.</b> A <c>BigInt</c> that reaches the output throws a
 /// <see cref="Runtime.JavaScriptException"/> carrying a <c>TypeError</c> ("Do not know how to serialize a
 /// BigInt"), as the specification requires. A host using this type as a storage codec has one escape hatch:
@@ -62,6 +70,13 @@ public sealed class JsonSerializer
     private string _gap = string.Empty;
     private List<JsValue>? _propertyList;
     private bool _hasReplacerFunction;
+
+    // The largest document this call is allowed to build. JsString.MaxLength for the overloads whose
+    // result is a JavaScript string, so JSON.stringify can no longer hand back a string the engine's
+    // own limit forbids; the CLR array ceiling for the IBufferWriter overloads, whose result is bytes
+    // the host consumes and never a JsString, so the language's string limit has no business bounding
+    // them and a host writing a gigabyte-sized document to a stream keeps working.
+    private long _maxDocumentLength;
 
     // Declared last: this is the only field that is not read on the per-key hot path (only
     // UnwrapValueSlow touches it, and only when _hasReplacerFunction says there is one), and embedding
@@ -113,12 +128,11 @@ public sealed class JsonSerializer
     /// </returns>
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
-        if (!TryCreateHolder(value, replacer, space, out var wrapper))
+        if (!TryCreateHolder(value, replacer, space, JsString.MaxLength, out var wrapper))
         {
             return JsValue.Undefined;
         }
 
-        string result;
         var json = new ValueStringBuilder();
         try
         {
@@ -126,12 +140,20 @@ public sealed class JsonSerializer
             {
                 return JsValue.Undefined;
             }
+
+            // The walk refuses an over-long document while it is being built; this catches the one
+            // thing a single append can still overshoot by — the expansion of a quoted string's
+            // escapes — before the document is turned into a JsString.
+            ThrowIfDocumentLengthExceeded(json.Length);
+            return new JsString(json.ToString());
         }
         finally
         {
-            result = json.ToString();
+            // Dispose rather than the ToString() this used to end in: on the throwing path that
+            // materialized the whole partial document, which is up to half a billion characters the
+            // caller never sees. ToString() disposes on the way out, so this is a no-op after it.
+            json.Dispose();
         }
-        return new JsString(result);
     }
 
     /// <summary>
@@ -175,7 +197,7 @@ public sealed class JsonSerializer
             Throw.ArgumentNullException(nameof(writer));
         }
 
-        if (!TryCreateHolder(value, replacer, space, out var wrapper))
+        if (!TryCreateHolder(value, replacer, space, ClrLimits.MaxArrayLength, out var wrapper))
         {
             return false;
         }
@@ -202,9 +224,10 @@ public sealed class JsonSerializer
     /// gap, and builds the wrapper object the value is serialized out of. Returns <see langword="false"/>
     /// for the inputs that produce no output at all.
     /// </summary>
-    private bool TryCreateHolder(JsValue value, JsValue replacer, JsValue space, out ObjectInstance wrapper)
+    private bool TryCreateHolder(JsValue value, JsValue replacer, JsValue space, long maxDocumentLength, out ObjectInstance wrapper)
     {
         _stack = new ObjectTraverseStack(_engine);
+        _maxDocumentLength = maxDocumentLength;
 
         // JSON.stringify allocates a serializer per call, but the type is public and a host may hold an
         // instance across calls: every field the prologue only conditionally assigns has to be cleared
@@ -229,6 +252,36 @@ public sealed class JsonSerializer
         wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
         wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
         return true;
+    }
+
+    /// <summary>
+    /// Throws <c>RangeError: Invalid string length</c> — the same catchable error every other
+    /// string-building path raises — when a document of <paramref name="length"/> characters would
+    /// exceed what this call may produce.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The check does not live in <c>ValueStringBuilder</c>, which also backs URI encoding and the
+    /// Intl/Temporal formatters and has no realm to raise a JavaScript error into. It lives at the
+    /// points where this walk accumulates — once per array element, once per object key and before a
+    /// string is copied in — so a document that cannot fit is refused while it is being built rather
+    /// than after the whole cost has been paid.
+    /// </para>
+    /// <para>
+    /// The length is a <see cref="long"/> so a caller can add what it is about to append, and what the
+    /// elements it has not reached yet must contribute, without the sum wrapping. Every such estimate
+    /// is a lower bound on the finished document, so this can never refuse one that would have fit.
+    /// The realm is read only on the throwing path: <see cref="Engine.Realm"/> peeks the execution
+    /// context stack, which is not something to do once per element.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ThrowIfDocumentLengthExceeded(long length)
+    {
+        if (length > _maxDocumentLength)
+        {
+            Throw.RangeError(_engine.Realm, "Invalid string length");
+        }
     }
 
     /// <summary>
@@ -397,7 +450,15 @@ public sealed class JsonSerializer
 
         if (value.IsString())
         {
-            QuoteJSONString(value.ToString(), ref json);
+            var stringValue = value.ToString();
+
+            // Quoting adds the two quotes and can only expand what is between them, so the unquoted
+            // length is a lower bound on what this append costs. Checking here refuses a string that
+            // cannot fit before it is copied into the document — including the case where the string
+            // is the whole document.
+            ThrowIfDocumentLengthExceeded(json.Length + 2L + stringValue.Length);
+
+            QuoteJSONString(stringValue, ref json);
             return SerializeResult.NotUndefined;
         }
 
@@ -438,6 +499,10 @@ public sealed class JsonSerializer
             // Handle RawJSON objects - output rawJSON property directly
             if (objectInstance is JsRawJson rawJson)
             {
+                // Raw JSON text and the host hook below are copied through verbatim, so what they
+                // add is exactly their length: both are single appends large enough to be worth
+                // refusing before the copy.
+                ThrowIfDocumentLengthExceeded(json.Length + (long) rawJson.RawJson.Length);
                 json.Append(rawJson.RawJson);
                 return SerializeResult.NotUndefined;
             }
@@ -451,7 +516,14 @@ public sealed class JsonSerializer
             if (objectInstance is IObjectWrapper wrapper
                 && _engine.Options.Interop.SerializeToJson is { } serialize)
             {
-                json.Append(serialize(wrapper.Target, _gap, _indent));
+                // The pattern keeps the append tolerant of a host handing back null, which it has
+                // always been: ValueStringBuilder.Append(string?) returns for null.
+                var hostJson = serialize(wrapper.Target, _gap, _indent);
+                if (hostJson is { Length: > 0 })
+                {
+                    ThrowIfDocumentLengthExceeded(json.Length + (long) hostJson.Length);
+                    json.Append(hostJson);
+                }
                 return SerializeResult.NotUndefined;
             }
 
@@ -686,6 +758,15 @@ public sealed class JsonSerializer
                 _engine.Constraints.Check();
             }
 
+            // What is written so far can no longer be taken back — an array element is never rolled
+            // back the way an object member with no JSON representation is — and every index still to
+            // come adds at least two characters: a separator (or the opening bracket) plus at least
+            // one character of value text, since an element with no representation is written as
+            // null. So this is a lower bound on the finished document, and it is what makes an array
+            // whose length alone puts the result out of reach fail here instead of after half a
+            // billion characters have been built.
+            ThrowIfDocumentLengthExceeded(json.Length + 2L * (len - i));
+
             if (hasPrevious)
             {
                 json.Append(separator);
@@ -767,6 +848,10 @@ public sealed class JsonSerializer
             {
                 _engine.Constraints.Check();
             }
+
+            // Checked before the key's own position is taken: a member with no JSON representation
+            // rewinds the document to that position, so only what precedes it is certainly final.
+            ThrowIfDocumentLengthExceeded(json.Length);
 
             var p = enumeration.Keys[i];
             int position = json.Length;
@@ -868,6 +953,10 @@ public sealed class JsonSerializer
             {
                 _engine.Constraints.Check();
             }
+
+            // Same reasoning as the generic path: only what precedes this member's position is
+            // certainly final, so the check goes before the position is taken.
+            ThrowIfDocumentLengthExceeded(json.Length);
 
             int position = json.Length;
 
