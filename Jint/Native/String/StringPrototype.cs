@@ -1633,9 +1633,7 @@ internal sealed partial class StringPrototype : StringInstance
 
         foreach (var argument in arguments)
         {
-            var value = TypeConverter.ToString(argument);
-            JsString.ThrowIfLengthExceeded(_realm, (long) jsString.Length + value.Length);
-            jsString = jsString.Append(value);
+            jsString = jsString.Append(_realm, TypeConverter.ToString(argument));
         }
 
         return jsString;

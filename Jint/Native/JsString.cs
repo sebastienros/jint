@@ -375,17 +375,25 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     public virtual int Length => _value.Length;
 
     /// <summary>
-    /// Concatenates <paramref name="value"/> onto this string.
+    /// Concatenates <paramref name="value"/> onto this string, refusing a result longer than
+    /// <see cref="MaxLength"/> before allocating it. The caller performs the coercion and passes the
+    /// <see cref="Realm"/> the error is raised from.
     /// </summary>
     /// <remarks>
-    /// The caller performs the coercion and checks the combined length against
-    /// <see cref="MaxLength"/> (through <see cref="ThrowIfLengthExceeded"/>) before calling: it holds
-    /// the <see cref="Realm"/> this level does not, and checking before the append is what keeps a
-    /// rejected concatenation from first allocating the oversized result it is about to refuse.
+    /// The check lives here rather than at the call site because the receiver's length is only cheap
+    /// from inside: <see cref="Length"/> is virtual and <c>ConcatenatedString</c> overrides it with a
+    /// two-branch null coalesce, so reading it before the call added a dispatch to every <c>s += t</c>
+    /// — measurable on the SunSpider <c>string-base64</c> and <c>string-fasta</c> rows, which are that
+    /// loop and nothing else. Each override instead reads a field it was already loading, so the guard
+    /// costs an add and a compare and the realm is touched only on the throw.
     /// </remarks>
-    internal virtual JsString Append(string value)
+    internal virtual JsString Append(Realm realm, string value)
     {
-        return new ConcatenatedString(string.Concat(ToString(), value));
+        // ToString() rather than _value: a subclass may carry a null backing value until it
+        // materializes, and it is called here anyway, so its length is free and non-virtual.
+        var self = ToString();
+        ThrowIfLengthExceeded(realm, (long) self.Length + value.Length);
+        return new ConcatenatedString(string.Concat(self, value));
     }
 
     internal virtual JsString EnsureCapacity(int capacity)
@@ -603,13 +611,19 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
         public override char this[int index] => _stringBuilder?[index] ?? _value[index];
 
-        internal override JsString Append(string value)
+        internal override JsString Append(Realm realm, string value)
         {
             if (_stringBuilder == null)
             {
-                // The caller has already established that the combined length fits in MaxLength, so
-                // this int sum cannot overflow.
+                ThrowIfLengthExceeded(realm, (long) _value.Length + value.Length);
+
+                // The line above has established that the combined length fits in MaxLength, so this
+                // int sum cannot overflow.
                 _stringBuilder = new StringBuilder(_value, _value.Length + value.Length);
+            }
+            else
+            {
+                ThrowIfLengthExceeded(realm, (long) _stringBuilder.Length + value.Length);
             }
 
             _stringBuilder.Append(value);
