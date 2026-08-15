@@ -60,11 +60,6 @@
     // Removed by the fix for #3010: five Temporal members the proposal dropped are still present.
     "staging/Temporal/removed-methods.js",
 
-    // Removed by the fix for #3011: String.prototype.replace has to raise a RangeError when the
-    // result would exceed the maximum string length; today the length overflows to int.MinValue and
-    // surfaces as an ArgumentOutOfRangeException out of the BCL.
-    "staging/sm/String/replace-math.js",
-
     // Cross-realm error identity. $262.createRealm() works, but an error Jint raises while running
     // a function belonging to another realm is constructed from the *current* realm's intrinsics,
     // so `e instanceof otherGlobal.TypeError` is false. The realm's global also does not carry its

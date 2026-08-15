@@ -155,6 +155,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    public static void OverflowException(string message)
+    {
+        throw new OverflowException(message);
+    }
+
+    [DoesNotReturn]
     public static void TimeoutException()
     {
         throw new TimeoutException();

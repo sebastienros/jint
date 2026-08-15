@@ -350,14 +350,29 @@ internal ref struct ValueStringBuilder
         Debug.Assert(additionalCapacityBeyondPos > 0);
         Debug.Assert(_pos > _chars.Length - additionalCapacityBeyondPos, "Grow called incorrectly, no resize is needed.");
 
-        // Increase to at least the required size (_pos + additionalCapacityBeyondPos), but try
-        // to double the size if possible, bounding the doubling to not go beyond the max array length.
+        // The required size is computed as a long, because past int.MaxValue characters the int sum
+        // wraps negative and the (uint) round-trip below then turns it into a Rent(int.MinValue) whose
+        // ArgumentOutOfRangeException escapes the caller — for a script, past every catch block.
+        // The cap in the doubling term below bounds only the doubling, never the required size.
+        //
+        // This level does not raise a JavaScript RangeError: the builder also backs the JSON
+        // serializer, URI encoding/decoding and the Intl/Temporal formatters, none of which has a
+        // realm to throw into. Its job is only to stop lying about the size, so a size no array could
+        // ever hold reports as the overflow it is. Script-visible results are capped well below this
+        // at JsString.MaxLength by the JavaScript-semantic callers, which do throw a RangeError a
+        // script can catch.
+        var required = (long) _pos + additionalCapacityBeyondPos;
+        if (required > global::Jint.Runtime.ClrLimits.MaxArrayLength)
+        {
+            global::Jint.Runtime.Throw.OverflowException("The required string builder capacity exceeds the maximum supported array length.");
+        }
+
+        // Increase to at least the required size, but try to double the size if possible, bounding
+        // the doubling to not go beyond the max array length.
         int newCapacity = (int) Math.Max(
-            (uint) (_pos + additionalCapacityBeyondPos),
+            (uint) required,
             Math.Min((uint) _chars.Length * 2, global::Jint.Runtime.ClrLimits.MaxArrayLength));
 
-        // Make sure to let Rent throw an exception if the caller has a bug and the desired capacity is negative.
-        // This could also go negative if the actual required length wraps around.
         char[] poolArray = ArrayPool<char>.Shared.Rent(newCapacity);
 
         _chars.Slice(0, _pos).CopyTo(poolArray);

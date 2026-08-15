@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native;
 
@@ -43,7 +44,9 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
             // Skip the quasi append for the resume iteration — it's already in sb.
             if (!(i == startIndex && resumeMidIteration))
             {
-                sb.Append(elements[i].Value.Cooked);
+                var cooked = elements[i].Value.Cooked;
+                CheckLength(context, (long) sb.Length + (cooked?.Length ?? 0));
+                sb.Append(cooked);
             }
 
             if (i < _expressions.Length)
@@ -63,11 +66,26 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
                     return JsString.Empty;
                 }
 
-                sb.Append(TypeConverter.ToString(value));
+                var text = TypeConverter.ToString(value);
+                CheckLength(context, (long) sb.Length + text.Length);
+                sb.Append(text);
             }
         }
 
         suspendable?.Data.Clear(this);
         return JsString.Create(sb.ToString());
+    }
+
+    /// <summary>
+    /// Refuses a template literal whose result would exceed <see cref="JsString.MaxLength"/>, checked
+    /// before the append that would take it there. The realm is resolved only inside the cold branch.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CheckLength(EvaluationContext context, long length)
+    {
+        if (length > JsString.MaxLength)
+        {
+            Throw.RangeError(context.Engine.Realm, "Invalid string length");
+        }
     }
 }

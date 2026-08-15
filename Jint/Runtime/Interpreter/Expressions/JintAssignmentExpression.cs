@@ -265,7 +265,11 @@ internal sealed class JintAssignmentExpression : JintExpression
                             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                         }
 
-                        return jsString.Append(rprim);
+                        // Append itself refuses a result past JsString.MaxLength, before growing the
+                        // buffer to hold it. Deliberately not checked here: reading the receiver's
+                        // Length at this call site costs a virtual dispatch on every `s += t`, which
+                        // the override does not, because it already holds the field it measures.
+                        return jsString.Append(context.Engine.Realm, TypeConverter.ToString(rprim));
                     }
 
                     if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))

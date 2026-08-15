@@ -685,7 +685,7 @@ myarr[0](0);
     [Fact]
     public void ShouldThrowRangeErrorWhenPadStartExceedsMaxStringLength()
     {
-        // The result length (2147483647) exceeds ClrLimits.MaxArrayLength, so the size cap converts
+        // The result length (2147483647) exceeds JsString.MaxLength, so the size cap converts
         // a would-be OutOfMemoryException into a catchable RangeError without any constraints set.
         var engine = new Engine();
         var ex = Invoking(() => engine.Evaluate("'x'.padStart(2147483647)")).Should().ThrowExactly<JavaScriptException>().Which;
@@ -696,10 +696,10 @@ myarr[0](0);
     [Fact]
     public void ShouldLimitStringSizeForPadEnd()
     {
-        // The result (536870911) is below the size cap, so it must be built incrementally and the
-        // memory limit must be able to interrupt it instead of allocating ~1 GB up front.
+        // The result is exactly at the size cap rather than past it, so it must be built incrementally
+        // and the memory limit must be able to interrupt it instead of allocating ~1 GB up front.
         var engine = new Engine(o => o.LimitMemory(4_000_000));
-        Invoking(() => engine.Evaluate("'x'.padEnd(536870911, 'ab')")).Should().ThrowExactly<MemoryLimitExceededException>();
+        Invoking(() => engine.Evaluate($"'x'.padEnd({JsString.MaxLength}, 'ab')")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     // https://github.com/sebastienros/jint/issues/2486

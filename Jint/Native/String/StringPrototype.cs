@@ -1353,10 +1353,11 @@ internal sealed partial class StringPrototype : StringInstance
         else
         {
             var captures = System.Array.Empty<string>();
-            replStr = RegExpPrototype.GetSubstitution(searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
+            replStr = RegExpPrototype.GetSubstitution(_realm, searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
         }
 
         var tailPos = position + searchString.Length;
+        JsString.ThrowIfLengthExceeded(_realm, (long) position + replStr.Length + (thisString.Length - tailPos));
         var newString = thisString.Substring(0, position) + replStr + thisString.Substring(tailPos);
 
         return newString;
@@ -1449,9 +1450,10 @@ internal sealed partial class StringPrototype : StringInstance
             else
             {
                 var captures = System.Array.Empty<string>();
-                replacement = RegExpPrototype.GetSubstitution(searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
+                replacement = RegExpPrototype.GetSubstitution(_realm, searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
+            JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + preserved.Length + replacement.Length);
             result.Append(preserved);
             result.Append(replacement);
 
@@ -1462,6 +1464,7 @@ internal sealed partial class StringPrototype : StringInstance
 
         if (endOfLastMatch < thisString.Length)
         {
+            JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + (thisString.Length - endOfLastMatch));
             result.Append(thisString.AsSpan(endOfLastMatch));
         }
 
@@ -1614,9 +1617,10 @@ internal sealed partial class StringPrototype : StringInstance
 
     // FastCall only: both the receiver's ToString and each argument's Append coerce, so any of them
     // can be an object whose toString is user code and needs the frame.
+    // Instance rather than static so the length guard has a realm to throw the RangeError into.
     [JsFunction(Length = 1, FastCall = true)]
     [RequireObjectCoercible]
-    private static JsValue Concat(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> arguments)
+    private JsValue Concat(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> arguments)
     {
         if (thisObject is not JsString jsString)
         {
@@ -1629,7 +1633,7 @@ internal sealed partial class StringPrototype : StringInstance
 
         foreach (var argument in arguments)
         {
-            jsString = jsString.Append(argument);
+            jsString = jsString.Append(_realm, TypeConverter.ToString(argument));
         }
 
         return jsString;
@@ -1781,7 +1785,7 @@ internal sealed partial class StringPrototype : StringInstance
         }
 
         // Convert a would-be OutOfMemoryException into a catchable RangeError, mirroring repeat.
-        if (intMaxLength > ClrLimits.MaxArrayLength)
+        if (intMaxLength > (ulong) JsString.MaxLength)
         {
             Throw.RangeError(_realm, "Invalid string length");
         }
@@ -2003,7 +2007,7 @@ internal sealed partial class StringPrototype : StringInstance
         }
 
         var resultLength = n * s.Length;
-        if (resultLength > ClrLimits.MaxArrayLength)
+        if (resultLength > JsString.MaxLength)
         {
             Throw.RangeError(_realm, "Invalid string length");
         }

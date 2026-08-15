@@ -163,11 +163,15 @@ rangeError:
 
                 if (i < arguments.Length && !arguments[i].IsUndefined())
                 {
-                    result.Append(TypeConverter.ToString(arguments[i]));
+                    var substitution = TypeConverter.ToString(arguments[i]);
+                    JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + substitution.Length);
+                    result.Append(substitution);
                 }
             }
 
-            result.Append(TypeConverter.ToString(operations.Get((ulong) i)));
+            var segment = TypeConverter.ToString(operations.Get((ulong) i));
+            JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + segment.Length);
+            result.Append(segment);
         }
 
         return result.ToString();

@@ -1476,7 +1476,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var lprim = TypeConverter.ToPrimitive(left);
             var rprim = TypeConverter.ToPrimitive(right);
 
-            return ApplyAdditionToPrimitives(lprim, rprim);
+            return ApplyAdditionToPrimitives(context, lprim, rprim);
         }
     }
 
@@ -1491,11 +1491,21 @@ internal abstract class JintBinaryExpression : JintExpression
     /// this makes is which TypeError message a BigInt-wrapper-plus-non-BigInt raises; both spellings
     /// throw TypeError, as required.
     /// </remarks>
-    internal static JsValue ApplyAdditionToPrimitives(JsValue lprim, JsValue rprim)
+    internal static JsValue ApplyAdditionToPrimitives(EvaluationContext context, JsValue lprim, JsValue rprim)
     {
         if (lprim.IsString() || rprim.IsString())
         {
-            return JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
+            var left = TypeConverter.ToString(lprim);
+            var right = TypeConverter.ToString(rprim);
+
+            // Checked before string.Concat allocates the result. The realm is resolved only inside
+            // the cold branch, so the warm path pays one widened add and one compare.
+            if ((long) left.Length + right.Length > JsString.MaxLength)
+            {
+                Throw.RangeError(context.Engine.Realm, "Invalid string length");
+            }
+
+            return JsString.Create(string.Concat(left, right));
         }
 
         if (AreNonBigIntOperands(lprim, rprim))
@@ -1687,7 +1697,7 @@ internal abstract class JintBinaryExpression : JintExpression
                         {
                             // Later evaluations of a numeric chain skip straight to the nested tree.
                             _kind = ChainKind.NotString;
-                            accumulator = ApplyAdditionToPrimitives(buffer[0], buffer[1]);
+                            accumulator = ApplyAdditionToPrimitives(context, buffer[0], buffer[1]);
                         }
 
                         nextFold = 2;
@@ -1705,13 +1715,13 @@ internal abstract class JintBinaryExpression : JintExpression
                     {
                         // Numeric chain: fold pairwise, exactly as the nested tree would. Each step's
                         // accumulator is already a primitive, so it needs no further ToPrimitive.
-                        accumulator = ApplyAdditionToPrimitives(accumulator, buffer[nextFold]);
+                        accumulator = ApplyAdditionToPrimitives(context, accumulator, buffer[nextFold]);
                     }
 
                     nextFold++;
                 }
 
-                return accumulator ?? JsString.Create(ConcatAll(buffer, count));
+                return accumulator ?? JsString.Create(ConcatAll(context, buffer, count));
             }
             finally
             {
@@ -1751,10 +1761,10 @@ internal abstract class JintBinaryExpression : JintExpression
             if (!p0.IsString() && !p1.IsString())
             {
                 _kind = ChainKind.NotString;
-                var accumulator = ApplyAdditionToPrimitives(p0, p1);
+                var accumulator = ApplyAdditionToPrimitives(context, p0, p1);
                 for (var i = 2; i < count; i++)
                 {
-                    accumulator = ApplyAdditionToPrimitives(accumulator, TypeConverter.ToPrimitive(operands[i].GetValue(context)));
+                    accumulator = ApplyAdditionToPrimitives(context, accumulator, TypeConverter.ToPrimitive(operands[i].GetValue(context)));
                 }
 
                 return accumulator;
@@ -1767,6 +1777,7 @@ internal abstract class JintBinaryExpression : JintExpression
             if (count == 3)
             {
                 var s2 = NextOperandAsString(context, operands[2]);
+                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
                 return JsString.Create(string.Concat(s0, s1, s2));
             }
 
@@ -1774,17 +1785,22 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 var s2 = NextOperandAsString(context, operands[2]);
                 var s3 = NextOperandAsString(context, operands[3]);
+                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
                 return JsString.Create(string.Concat(s0, s1, s2, s3));
             }
 
             var strings = new string[count];
             strings[0] = s0;
             strings[1] = s1;
+            long total = s0.Length + (long) s1.Length;
             for (var i = 2; i < count; i++)
             {
-                strings[i] = NextOperandAsString(context, operands[i]);
+                var next = NextOperandAsString(context, operands[i]);
+                strings[i] = next;
+                total += next.Length;
             }
 
+            CheckConcatenationLength(context, total);
             return JsString.Create(string.Concat(strings));
         }
 
@@ -1797,35 +1813,56 @@ internal abstract class JintBinaryExpression : JintExpression
             => TypeConverter.ToString(TypeConverter.ToPrimitive(operand.GetValue(context)));
 
         /// <summary>
+        /// Refuses a concatenation whose result would exceed <see cref="JsString.MaxLength"/>, before
+        /// the single allocation that would produce it. The caller has already summed the operand
+        /// lengths into a <see cref="long"/> — one widened add per operand — so the check itself is a
+        /// compare against a constant, and the realm is resolved only inside the cold branch.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CheckConcatenationLength(EvaluationContext context, long length)
+        {
+            if (length > JsString.MaxLength)
+            {
+                Throw.RangeError(context.Engine.Realm, "Invalid string length");
+            }
+        }
+
+        /// <summary>
         /// Joins every operand's string form with a single allocation for the result. The 3- and
         /// 4-operand overloads avoid the intermediate <see cref="string"/>[] that the general
         /// <see cref="string.Concat(string[])"/> path needs.
         /// </summary>
-        private static string ConcatAll(JsValue[] buffer, int count)
+        private static string ConcatAll(EvaluationContext context, JsValue[] buffer, int count)
         {
             if (count == 3)
             {
-                return string.Concat(
-                    TypeConverter.ToString(buffer[0]),
-                    TypeConverter.ToString(buffer[1]),
-                    TypeConverter.ToString(buffer[2]));
+                var s0 = TypeConverter.ToString(buffer[0]);
+                var s1 = TypeConverter.ToString(buffer[1]);
+                var s2 = TypeConverter.ToString(buffer[2]);
+                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
+                return string.Concat(s0, s1, s2);
             }
 
             if (count == 4)
             {
-                return string.Concat(
-                    TypeConverter.ToString(buffer[0]),
-                    TypeConverter.ToString(buffer[1]),
-                    TypeConverter.ToString(buffer[2]),
-                    TypeConverter.ToString(buffer[3]));
+                var s0 = TypeConverter.ToString(buffer[0]);
+                var s1 = TypeConverter.ToString(buffer[1]);
+                var s2 = TypeConverter.ToString(buffer[2]);
+                var s3 = TypeConverter.ToString(buffer[3]);
+                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
+                return string.Concat(s0, s1, s2, s3);
             }
 
             var strings = new string[count];
+            long total = 0;
             for (var i = 0; i < count; i++)
             {
-                strings[i] = TypeConverter.ToString(buffer[i]);
+                var next = TypeConverter.ToString(buffer[i]);
+                strings[i] = next;
+                total += next.Length;
             }
 
+            CheckConcatenationLength(context, total);
             return string.Concat(strings);
         }
     }
