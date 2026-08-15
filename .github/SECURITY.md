@@ -1,5 +1,8 @@
 # Security policy
 
+See the [threat model](THREAT_MODEL.md) for the security boundaries, existing controls,
+known limitations, and deployment requirements when running untrusted JavaScript.
+
 If you believe you have found a security vulnerability in Jint — for example, a way for an
 untrusted script to escape engine execution constraints, access the host process beyond the
 configured CLR interop surface, or crash the runtime — please report it privately via
