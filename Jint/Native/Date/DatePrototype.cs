@@ -67,7 +67,10 @@ internal sealed partial class DatePrototype : Prototype
         var hint = arguments.At(0);
         if (!hint.IsString())
         {
-            Throw.TypeError(_realm, $"Invalid hint: {hint}");
+            // Render the type rather than the value: hint is not a string here, so interpolating it
+            // would run the full JavaScript ToString algorithm on it (a user toString would be called,
+            // and one that throws would replace this TypeError with its own exception).
+            Throw.TypeError(_realm, $"Invalid hint: {hint.Type}");
         }
 
         var hintString = hint.ToString();
@@ -82,7 +85,10 @@ internal sealed partial class DatePrototype : Prototype
         }
         else
         {
-            Throw.TypeError(_realm, $"Invalid hint: {hint}");
+            // hintString, not hint: the guard above proves hint is a JsString, but interpolating the
+            // JsValue would leave a ToString() call on a JsValue-typed expression for a later reader
+            // to have to re-prove safe. The rendering is identical.
+            Throw.TypeError(_realm, $"Invalid hint: {hintString}");
         }
 
         return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);

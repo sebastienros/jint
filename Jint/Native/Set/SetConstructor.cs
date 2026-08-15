@@ -83,7 +83,7 @@ public sealed partial class SetConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_engine.Realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_engine.Realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         if (ReferenceEquals(newTarget, this))

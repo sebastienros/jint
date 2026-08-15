@@ -1481,25 +1481,12 @@ public sealed partial class Engine : IDisposable
 
     private void ThrowPropertyNotFound(JsValue property, JsValue baseValue)
     {
-        // Avoid calling ToString() on the property as it may have a custom toString that throws
-        string propertyName;
-        if (property.IsSymbol())
-        {
-            propertyName = "[Symbol]";
-        }
-        else if (property.IsString())
-        {
-            propertyName = property.ToString();
-        }
-        else if (property.IsNumber())
-        {
-            propertyName = Runtime.TypeConverter.ToString(property);
-        }
-        else
-        {
-            propertyName = "unknown";
-        }
-        Throw.TypeError(Realm, $"Cannot read property '{propertyName}' of {baseValue}");
+        // The property may carry a custom toString that throws, so it goes through the safe renderer.
+        // baseValue does not: the only caller guards this with baseValue.IsNullOrUndefined(), so it is
+        // always JsUndefined or JsNull, whose ToString() is a constant. Interpolating it keeps the
+        // message the one every JavaScript developer recognizes -- "... of undefined", not "... of
+        // Undefined", which is what rendering the type would produce.
+        Throw.TypeError(Realm, $"Cannot read property '{Throw.SafeToDisplayString(property)}' of {baseValue}");
     }
 
     private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance? o, out JsValue jsValue)
@@ -1576,7 +1563,10 @@ public sealed partial class Engine : IDisposable
             var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
             if (!succeeded && reference.Strict)
             {
-                Throw.TypeError(Realm, $"Cannot assign to read only property '{property}' of {baseObject}");
+                // reference.ReferencedName is the already-coerced key; the `property` local still holds the
+                // pre-coercion value, so quoting it would run a user toString a second time. The base is
+                // rendered as its type because rendering the object itself would run one too.
+                Throw.TypeError(Realm, $"Cannot assign to read only property '{reference.ReferencedName}' of {baseObject.Type}");
             }
         }
         else
@@ -2614,7 +2604,7 @@ public sealed partial class Engine : IDisposable
         {
             if (!callable.IsCallable)
             {
-                Throw.ArgumentException(callable + " is not callable");
+                Throw.ArgumentException($"{callable.Type} is not callable");
             }
 
             return Call((ICallable) callable, thisObject, arguments, null);
@@ -2658,7 +2648,7 @@ public sealed partial class Engine : IDisposable
         {
             if (!constructor.IsConstructor)
             {
-                Throw.ArgumentException(constructor + " is not a constructor");
+                Throw.ArgumentException($"{constructor.Type} is not a constructor");
             }
 
             return Construct(constructor, arguments, constructor, null);

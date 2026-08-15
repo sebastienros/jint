@@ -17,6 +17,37 @@ internal sealed record ErrorDispatchInfo(ErrorConstructor ErrorConstructor, stri
 
 internal static class Throw
 {
+    /// <summary>
+    /// Renders <paramref name="value"/> for an error message without ever running user JavaScript.
+    /// <para>
+    /// This is the sanctioned way to put a <see cref="JsValue"/> into a <c>Throw.*</c> message. Writing
+    /// <c>$"{value} is not a function"</c> instead is a bug: the message argument is evaluated eagerly, and
+    /// <see cref="Native.Object.ObjectInstance.ToString"/> is <see cref="TypeConverter.ToString(JsValue)"/>
+    /// — the full JavaScript ToString algorithm, which reads <c>@@toPrimitive</c>, reads <c>toString</c>,
+    /// <b>calls it</b>, and reads <c>@@toStringTag</c>. That makes building the error observable (the extra
+    /// <c>[[Get]]</c>s show up in a Proxy log) and lets a user <c>toString</c> that throws replace the error
+    /// with its own exception.
+    /// </para>
+    /// <para>
+    /// Every non-object <see cref="JsValue"/> renders from its own state and is therefore safe:
+    /// <see cref="JsString"/> (and its concatenated/sliced forms) hands back its characters,
+    /// <see cref="JsNumber"/>, <see cref="JsBigInt"/>, <see cref="JsBoolean"/>, <see cref="JsNull"/> and
+    /// <see cref="JsUndefined"/> are pure conversions, and <see cref="JsSymbol"/> renders
+    /// SymbolDescriptiveString over an own field, so a symbol keeps its description. An object has no safe
+    /// value rendering at all, so it is reported as its shape rather than its contents.
+    /// </para>
+    /// <para>
+    /// Prefer this wherever the offending <i>value</i> is what the reader needs. Where the reader needs the
+    /// <i>kind</i> of thing that was passed rather than which one, <c>value.Type</c> is the better answer and
+    /// is equally safe; and where a guard already proves the value is a primitive, interpolating it directly
+    /// is fine — say so in a comment, because the next sweep for this bug class will look at that line again.
+    /// </para>
+    /// </summary>
+    public static string SafeToDisplayString(JsValue value)
+    {
+        return value.IsObject() ? "[object]" : value.ToString();
+    }
+
     [DoesNotReturn]
     public static void SyntaxError(Realm realm, string? message = null)
     {

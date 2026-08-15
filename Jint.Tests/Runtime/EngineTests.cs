@@ -3007,7 +3007,7 @@ x.test = {
         var engine = new Engine();
         const string source = "'use strict'; var x = () => { delete Boolean.prototype; }; x();";
         var ex = Invoking(() => engine.Evaluate(source)).Should().ThrowExactly<JavaScriptException>().Which;
-        ex.Message.Should().Be("Cannot delete property 'prototype' of function Boolean() { [native code] }");
+        ex.Message.Should().Be("Cannot delete property 'prototype' of Object");
 
         const string source2 = "'use strict'; delete foobar;";
         ex = Invoking(() => engine.Evaluate(source2)).Should().ThrowExactly<JavaScriptException>().Which;

@@ -43,7 +43,7 @@ internal sealed partial class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            Throw.TypeError(_realm, "Method get DataView.prototype.buffer called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.buffer called on incompatible receiver");
         }
 
         return o._viewedArrayBuffer!;
@@ -58,7 +58,7 @@ internal sealed partial class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            Throw.TypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver");
         }
 
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -82,7 +82,7 @@ internal sealed partial class DataViewPrototype : Prototype
         var o = thisObject as JsDataView;
         if (o is null)
         {
-            Throw.TypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver");
         }
 
         var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -241,7 +241,7 @@ internal sealed partial class DataViewPrototype : Prototype
     {
         if (view is not JsDataView dataView)
         {
-            Throw.TypeError(_realm, "Method called on incompatible receiver " + view);
+            Throw.TypeError(_realm, "Method called on incompatible receiver");
             return Undefined;
         }
 
@@ -364,7 +364,7 @@ internal sealed partial class DataViewPrototype : Prototype
         var dataView = view as JsDataView;
         if (dataView is null)
         {
-            Throw.TypeError(_realm, "Method called on incompatible receiver " + view);
+            Throw.TypeError(_realm, "Method called on incompatible receiver");
         }
 
         var buffer = dataView._viewedArrayBuffer!;

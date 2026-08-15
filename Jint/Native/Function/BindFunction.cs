@@ -67,7 +67,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         var target = BoundTargetFunction as IConstructor;
         if (target is null)
         {
-            Throw.TypeError(_realm, $"{BoundTargetFunction} is not a constructor");
+            Throw.TypeError(_realm, "The bound target function is not a constructor");
         }
 
         var args = CreateArguments(arguments);

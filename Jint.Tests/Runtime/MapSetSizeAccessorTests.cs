@@ -58,7 +58,7 @@ public class MapSetSizeAccessorTests
         {
             Invoking(() => engine.Evaluate($"get.call({receiver});"))
                 .Should().ThrowExactly<JavaScriptException>(receiver)
-                .WithMessage($"Method {kind}.prototype.get size called on incompatible receiver *");
+                .WithMessage($"Method {kind}.prototype.get size called on incompatible receiver");
         }
     }
 
@@ -168,7 +168,7 @@ public class MapSetSizeAccessorTests
         // reached the getter and answered 3 instead.
         Invoking(() => new Engine().Evaluate($"new Proxy({create}, {{}}).size;"))
             .Should().ThrowExactly<JavaScriptException>()
-            .WithMessage($"Method {kind}.prototype.get size called on incompatible receiver *");
+            .WithMessage($"Method {kind}.prototype.get size called on incompatible receiver");
     }
 
     [Theory]

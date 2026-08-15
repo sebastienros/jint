@@ -4359,13 +4359,13 @@ try {
         engineNoWrite.SetValue("data", dictionary);
 
         var ex1 = Invoking(() => engineNoWrite.Evaluate("data['a'] = 42")).Should().ThrowExactly<JavaScriptException>().Which;
-        ex1.Message.Should().Be("Cannot assign to read only property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]");
+        ex1.Message.Should().Be("Cannot assign to read only property 'a' of Object");
 
         // no changes
         engineNoWrite.Evaluate("data['a'] === 1").AsBoolean().Should().BeTrue();
 
         var ex2 = Invoking(() => engineNoWrite.Execute("delete data['a'];")).Should().ThrowExactly<JavaScriptException>().Which;
-        ex2.Message.Should().Be("Cannot delete property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]");
+        ex2.Message.Should().Be("Cannot delete property 'a' of Object");
     }
 
     public record RecordTestClass(object Value = null);

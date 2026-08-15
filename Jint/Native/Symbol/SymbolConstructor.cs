@@ -93,7 +93,10 @@ internal sealed partial class SymbolConstructor : Constructor
         var symbol = sym as JsSymbol;
         if (symbol is null)
         {
-            Throw.TypeError(_realm, $"{sym} is not a symbol");
+            // sym is provably not a JsSymbol here, so it may be an object carrying a user toString.
+            // Which value was passed is what the caller needs, so render it safely rather than naming
+            // its type -- matching what other engines report for Symbol.keyFor(5).
+            Throw.TypeError(_realm, $"{Throw.SafeToDisplayString(sym)} is not a symbol");
         }
 
         if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))

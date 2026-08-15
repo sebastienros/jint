@@ -190,7 +190,7 @@ internal sealed partial class MapPrototype : Prototype
             return map;
         }
 
-        Throw.TypeError(_realm, $"Method Map.prototype.{MapMethodName(methodName)} called on incompatible receiver {thisObject}");
+        Throw.TypeError(_realm, $"Method Map.prototype.{MapMethodName(methodName)} called on incompatible receiver");
         return default;
     }
 

@@ -118,7 +118,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         var callable = target as ICallable;
         if (callable is null)
         {
-            Throw.TypeError(_engine.Realm, target + " is not a function");
+            Throw.TypeError(_engine.Realm, "Proxy target is not a function");
         }
 
         return callable.Call(thisObject, arguments);
@@ -238,7 +238,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
                 var targetValue = targetDesc.Value;
                 if (!targetDesc.Configurable && !targetDesc.Writable && !SameValue(result, targetValue))
                 {
-                    Throw.TypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '{targetValue}' but got '{result}')");
+                    Throw.TypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value");
                 }
             }
 
@@ -246,7 +246,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
             {
                 if (!targetDesc.Configurable && (targetDesc.Get ?? Undefined).IsUndefined() && !result.IsUndefined())
                 {
-                    Throw.TypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
+                    Throw.TypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined'");
                 }
             }
         }

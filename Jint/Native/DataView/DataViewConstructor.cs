@@ -31,7 +31,7 @@ internal sealed class DataViewConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         var buffer = arguments.At(0) as JsArrayBuffer;

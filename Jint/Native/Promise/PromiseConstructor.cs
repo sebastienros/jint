@@ -48,7 +48,7 @@ internal sealed partial class PromiseConstructor : Constructor
 
         if (arguments.At(0) is not ICallable executor)
         {
-            Throw.TypeError(_realm, $"Promise resolver {(arguments.At(0))} is not a function");
+            Throw.TypeError(_realm, "Promise resolver is not a function");
             return null;
         }
 
@@ -356,7 +356,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 var then = nextPromise.GetV(_realm, "then");
                 if (then is not ICallable thenFunc)
                 {
-                    Throw.TypeError(_realm, $"{then} is not a function");
+                    Throw.TypeError(_realm, "then is not a function");
                     return;
                 }
 
@@ -388,7 +388,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 var then = nextPromise.GetV(_realm, "then");
                 if (then is not ICallable thenFunc)
                 {
-                    Throw.TypeError(_realm, $"{then} is not a function");
+                    Throw.TypeError(_realm, "then is not a function");
                     return;
                 }
 
@@ -843,7 +843,7 @@ internal sealed partial class PromiseConstructor : Constructor
                 var then = nextPromise.GetV(_realm, "then");
                 if (then is not ICallable thenFunc)
                 {
-                    Throw.TypeError(_realm, $"{then} is not a function");
+                    Throw.TypeError(_realm, "then is not a function");
                     return capability.PromiseInstance;
                 }
 

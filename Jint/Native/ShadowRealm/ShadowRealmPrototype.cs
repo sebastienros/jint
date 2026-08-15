@@ -41,7 +41,7 @@ internal sealed partial class ShadowRealmPrototype : Prototype
 
         if (!sourceText.IsString())
         {
-            Throw.TypeError(_realm, "Invalid source text " + sourceText);
+            Throw.TypeError(_realm, "Invalid source text");
         }
 
         var parserOptions = _engine.GetActiveParserOptions();

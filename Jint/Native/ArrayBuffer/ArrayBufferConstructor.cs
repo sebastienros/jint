@@ -54,7 +54,7 @@ public sealed partial class ArrayBufferConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         var length = arguments.At(0);

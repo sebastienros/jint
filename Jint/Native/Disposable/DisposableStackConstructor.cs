@@ -21,7 +21,7 @@ internal sealed class DisposableStackConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         var stack = OrdinaryCreateFromConstructor(

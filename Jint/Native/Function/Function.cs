@@ -651,6 +651,22 @@ public abstract partial class Function : ObjectInstance, ICallable
     }
 
     /// <summary>
+    /// The function's own <c>name</c> for an error message, rendered without ever running script.
+    /// <para>
+    /// <c>name</c> is configurable on every built-in, so a script can replace it with an object whose
+    /// <c>toString</c> throws. <see cref="GetOwnFunctionName"/> coerces through <c>TypeConverter.ToString</c>
+    /// and would let that object hijack the error being built — an extra observable call, and a thrown
+    /// value replacing the <c>TypeError</c> the caller meant to raise. So only an actual string is quoted
+    /// here; anything else falls back to the CLR type's name, which no script can influence. Reading
+    /// <see cref="PropertyDescriptor.Value"/> touches the raw field and never invokes an accessor.
+    /// </para>
+    /// </summary>
+    internal string GetOwnFunctionNameForMessage()
+    {
+        return _nameDescriptor?.Value is JsString name ? name.ToString() : GetType().Name;
+    }
+
+    /// <summary>
     /// A constructor's lazily created <c>prototype</c> object, which serves <c>constructor</c> from a field
     /// instead of the property bag. It goes through the internal constructor rather than the protected one so
     /// its type flags are stated rather than derived per type: it does not override

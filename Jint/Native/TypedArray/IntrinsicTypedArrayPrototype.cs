@@ -63,7 +63,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm, $"Method get TypedArray.prototype.buffer called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method get TypedArray.prototype.buffer called on incompatible receiver");
         }
 
         return o._viewedArrayBuffer;
@@ -78,7 +78,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm, $"Method get TypedArray.prototype.byteLength called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method get TypedArray.prototype.byteLength called on incompatible receiver");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -94,7 +94,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm, $"Method get TypedArray.prototype.byteOffset called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method get TypedArray.prototype.byteOffset called on incompatible receiver");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -115,7 +115,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm, $"Method get TypedArray.prototype.length called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method get TypedArray.prototype.length called on incompatible receiver");
         }
 
         var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
@@ -1051,7 +1051,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var target = thisObject as JsTypedArray;
         if (target is null)
         {
-            Throw.TypeError(_realm, $"Method TypedArray.prototype.set called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method TypedArray.prototype.set called on incompatible receiver");
         }
 
         // https://tc39.es/proposal-immutable-arraybuffer/ — set must reject an immutable target before
@@ -1433,7 +1433,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         var o = thisObject as JsTypedArray;
         if (o is null)
         {
-            Throw.TypeError(_realm, $"Method TypedArray.prototype.subarray called on incompatible receiver {thisObject}");
+            Throw.TypeError(_realm, "Method TypedArray.prototype.subarray called on incompatible receiver");
         }
 
         var buffer = o._viewedArrayBuffer;

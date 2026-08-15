@@ -199,7 +199,7 @@ public sealed partial class ArrayConstructor : Constructor
         {
             if (mapfn is not ICallable mapCallable)
             {
-                Throw.TypeError(_realm, $"{mapfn} is not a function");
+                Throw.TypeError(_realm, "mapfn is not a function");
                 return;
             }
             callable = mapCallable;
@@ -1058,7 +1058,9 @@ public sealed partial class ArrayConstructor : Constructor
 
         if (!c.IsConstructor)
         {
-            Throw.TypeError(_realm, $"{c} is not a constructor");
+            // Not interpolating c: rendering a JsValue runs the full JavaScript ToString algorithm,
+            // so a user toString would be called (and could throw) while the error is being built.
+            Throw.TypeError(_realm, "The constructor's [Symbol.species] property is not a constructor");
         }
 
         return ((IConstructor) c).Construct([JsNumber.Create(length)], c);

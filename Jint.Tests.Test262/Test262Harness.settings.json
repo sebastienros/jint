@@ -132,17 +132,14 @@
     "staging/sm/String/matchAll.js",
     "staging/sm/String/replace-updates-global-lastIndex.js",
 
-    // Set methods (new Set.prototype union/intersection/difference/... ) observe the set-like
-    // argument in a strictly specified order -- GetSetRecord reads size, then has, then keys, and
-    // coerces size exactly once. Jint's order and coercion count differ. Removed by implementing
-    // GetSetRecord to the letter.
-    "staging/sm/Set/difference.js",
+    // Set.prototype.intersection / .isSubsetOf let the *receiver* be mutated while they traverse it
+    // (a set-like's has/keys callback calling this.delete(v) or this.clear()), and the spec models
+    // that with the [[SetData]] tombstone: a deleted entry becomes EMPTY in place rather than being
+    // removed, so the index-based traversal keeps its position and still visits the right elements.
+    // Jint's JsSet compacts on delete, so the traversal skips or repeats entries. Removed by giving
+    // the ordered set a tombstone representation.
     "staging/sm/Set/intersection.js",
-    "staging/sm/Set/is-disjoint-from.js",
     "staging/sm/Set/is-subset-of.js",
-    "staging/sm/Set/is-superset-of.js",
-    "staging/sm/Set/symmetric-difference.js",
-    "staging/sm/Set/union.js",
 
     // Iterator protocol: IteratorClose is not invoked (or not invoked at the right point) on the
     // abrupt paths of Array.from, the Map/Set constructors, for-of and array destructuring, and the
@@ -169,12 +166,11 @@
     "staging/sm/Reflect/has.js",
 
     // Date parsing and clipping: the implementation-defined fallback parser accepts (and rejects)
-    // different strings than SpiderMonkey's, two-digit years map differently, TimeClip does not
-    // reject every out-of-range value, and Symbol.toPrimitive throws a non-object.
+    // different strings than SpiderMonkey's, two-digit years map differently, and TimeClip does not
+    // reject every out-of-range value.
     "staging/sm/Date/non-iso.js",
     "staging/sm/Date/timeclip.js",
     "staging/sm/Date/toISOString.js",
-    "staging/sm/Date/toPrimitive.js",
     "staging/sm/Date/two-digit-years.js",
 
     // String case mapping is done with the BCL's culture-aware tables rather than the Unicode

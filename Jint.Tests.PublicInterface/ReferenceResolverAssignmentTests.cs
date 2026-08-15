@@ -144,7 +144,7 @@ public class ReferenceResolverAssignmentTests
 
         Invoking(() => engine.Execute("'use strict'; o.r = 2;"))
             .Should().Throw<JavaScriptException>()
-            .Which.Message.Should().Be("Cannot assign to read only property 'r' of [object Object]");
+            .Which.Message.Should().Be("Cannot assign to read only property 'r' of Object");
 
         // sloppy mode silently ignores the write
         engine.Execute("o.r = 3;");
