@@ -3,6 +3,7 @@ using System.Threading;
 using Jint.Native.Object;
 using Jint.Pooling;
 using Jint.Runtime;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
@@ -463,24 +464,40 @@ public sealed class ScriptFunction : Function, IConstructor
     /// environment have unwound. Replacing the visible frame keeps error stacks and recursion tracking
     /// aligned with the execution-context replacement required by PrepareForTailCall.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Recursion depth is read straight off the call stack — <see cref="JintCallStack.ReplaceTop"/>
+    /// returns it exactly as <c>JintCallStack.Push</c> does — because a replaced frame keeps
+    /// counting until this trampoline returns (see that method's remarks). The counters used to be
+    /// private locals here instead, which held only while <em>one</em> activation of this loop was on
+    /// the stack: a tail-call target that re-entered the engine through a non-tail route, and so landed
+    /// in a nested trampoline, restarted them from zero, and <c>Options.LimitRecursion</c> then never
+    /// fired however deep the native stack grew.
+    /// </para>
+    /// <para>
+    /// What is left here is the ledger of retentions to hand back on the way out: one per
+    /// <see cref="JintCallStack.ReplaceTop"/>, tallied against the function that call <em>displaced</em>
+    /// — the replacement is accounted by the frame it now names, so it is the displaced one whose
+    /// occurrence outlives its element. Two fields carry the one- and two-function cases (direct and
+    /// mutual tail recursion) without allocating; anything wider spills into the dictionary. Tallied by
+    /// <see cref="Function"/> identity rather than by definition — two instances sharing a definition
+    /// are one key to the statistic, so their separate tallies release against the same entry and still
+    /// sum to what was retained.
+    /// </para>
+    /// </remarks>
     private JsValue ContinueTailCalls(JsValue result, bool ownsFrame)
     {
         var engine = _engine;
         var callStack = engine.CallStack;
         var pushedFrame = false;
         Function? currentFrame = ownsFrame ? this : null;
-        JintFunctionDefinition? depthDefinition0 = null;
-        JintFunctionDefinition? depthDefinition1 = null;
-        var depth0 = 0;
-        var depth1 = 0;
-        Dictionary<JintFunctionDefinition, int>? tailDepths = null;
-        if (engine._maxRecursionDepth >= 0)
-        {
-            depthDefinition0 = _functionDefinition!;
-            depth0 = ownsFrame
-                ? callStack.GetRecursionDepth(this)
-                : callStack.GetNextRecursionDepth(this);
-        }
+        var tracksDepth = engine._maxRecursionDepth >= 0;
+
+        Function? retained0 = null;
+        var retainCount0 = 0;
+        Function? retained1 = null;
+        var retainCount1 = 0;
+        Dictionary<Function, int>? retainedRest = null;
 
         try
         {
@@ -501,57 +518,43 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 try
                 {
+                    int recursionDepth;
                     if (currentFrame is not null && callStack.TopIs(currentFrame))
                     {
-                        callStack.ReplaceTop(target, expression);
+                        recursionDepth = callStack.ReplaceTop(target, expression);
+
+                        if (tracksDepth)
+                        {
+                            var displaced = currentFrame;
+                            if (retained0 is null || ReferenceEquals(retained0, displaced))
+                            {
+                                retained0 = displaced;
+                                retainCount0++;
+                            }
+                            else if (retained1 is null || ReferenceEquals(retained1, displaced))
+                            {
+                                retained1 = displaced;
+                                retainCount1++;
+                            }
+                            else
+                            {
+                                retainedRest ??= new Dictionary<Function, int>();
+                                retainedRest.TryGetValue(displaced, out var retained);
+                                retainedRest[displaced] = retained + 1;
+                            }
+                        }
                     }
                     else
                     {
-                        callStack.Push(target, expression, engine.ExecutionContext);
+                        recursionDepth = callStack.Push(target, expression, engine.ExecutionContext);
                         pushedFrame = true;
                     }
 
                     currentFrame = target;
-                    if (depthDefinition0 is not null)
+
+                    if (recursionDepth > engine._maxRecursionDepth)
                     {
-                        var definition = target._functionDefinition!;
-                        int recursionDepth;
-                        if (ReferenceEquals(definition, depthDefinition0))
-                        {
-                            recursionDepth = ++depth0;
-                        }
-                        else if (ReferenceEquals(definition, depthDefinition1))
-                        {
-                            recursionDepth = ++depth1;
-                        }
-                        else if (depthDefinition1 is null)
-                        {
-                            depthDefinition1 = definition;
-                            recursionDepth = depth1 = callStack.GetRecursionDepth(target);
-                        }
-                        else
-                        {
-                            tailDepths ??= new Dictionary<JintFunctionDefinition, int>
-                            {
-                                [depthDefinition0] = depth0,
-                                [depthDefinition1] = depth1
-                            };
-
-                            if (tailDepths.TryGetValue(definition, out var previousDepth))
-                            {
-                                recursionDepth = previousDepth + 1;
-                            }
-                            else
-                            {
-                                recursionDepth = callStack.GetRecursionDepth(target);
-                            }
-                            tailDepths[definition] = recursionDepth;
-                        }
-
-                        if (recursionDepth > engine._maxRecursionDepth)
-                        {
-                            Throw.RecursionDepthOverflowException(callStack, preserveTop: true);
-                        }
+                        Throw.RecursionDepthOverflowException(callStack, preserveTop: true);
                     }
 
                     result = registerState is null
@@ -577,6 +580,24 @@ public sealed class ScriptFunction : Function, IConstructor
             if (pushedFrame)
             {
                 callStack.TryPop(out _);
+            }
+
+            if (retained0 is not null)
+            {
+                callStack.ReleaseTailRetention(retained0, retainCount0);
+            }
+
+            if (retained1 is not null)
+            {
+                callStack.ReleaseTailRetention(retained1, retainCount1);
+            }
+
+            if (retainedRest is not null)
+            {
+                foreach (var entry in retainedRest)
+                {
+                    callStack.ReleaseTailRetention(entry.Key, entry.Value);
+                }
             }
         }
     }

@@ -201,7 +201,19 @@ public static class OptionsExtensions
     /// <remarks>
     /// Proper tail calls do not consume native or interpreter call-stack frames, but repeated tail
     /// transfers are still included in this limit so an infinite strict tail-recursive function
-    /// terminates with <see cref="RecursionDepthOverflowException"/>.
+    /// terminates with <see cref="RecursionDepthOverflowException"/>. A frame a tail call replaced goes
+    /// on counting for as long as the trampoline that replaced it is running, so a recursion that
+    /// leaves and re-enters that trampoline by a route which is not a tail call — a getter,
+    /// <c>new</c>, a coercion, a Proxy trap, a host callback — is bounded like any other.
+    /// <para>
+    /// What the limit counts is occurrences of one function <em>definition</em> on the call stack, per
+    /// point (b) above, and not the depth of the stack. So a recursion whose every level is a function
+    /// created for that level — through <c>eval</c>, <c>new Function</c>, or a host re-running a
+    /// script — repeats no definition and is outside this limit however deep it goes. Nothing before
+    /// or since has covered that shape; a host running script it did not write wants
+    /// <see cref="Options.ConstraintOptions.StackOverflowGuard"/>, which measures the remaining native
+    /// stack instead of counting calls.
+    /// </para>
     /// <para>
     /// Unlike the constraint helpers in <see cref="ConstraintsOptionsExtensions"/>, this one does not
     /// treat a saturated value as "no limit": any non-negative depth — <see cref="int.MaxValue"/>

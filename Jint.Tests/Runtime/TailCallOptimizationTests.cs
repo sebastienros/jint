@@ -491,6 +491,63 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
+    /// <summary>
+    /// A tail call replaces its caller's frame, but the caller's activation is not over while the
+    /// trampoline runs — and here the tail-call target leaves it again through a getter, which is not
+    /// a tail position and so really does grow the native stack. The limit has to keep seeing the
+    /// displaced getter across those re-entries; when it did not, this ran until the process died.
+    /// <para>
+    /// Each <c>calc</c> is deliberately a definition of its own. The limit counts occurrences of one
+    /// function definition, so a stable <c>calc</c> would be counted and would stop the recursion by
+    /// itself, leaving the defect untested.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void RecursionLimitFiresWhenATailCallReEntersThroughAGetter()
+    {
+        var engine = new Engine(options => options.LimitRecursion(20));
+
+        Invoking(() => engine.Evaluate("""
+            "use strict";
+            var version = 0;
+            var entity = {
+                get calc() {
+                    (0, eval)("function calc() { return entity.calc; } //" + version++);
+                    return calc();
+                }
+            };
+            entity.calc;
+            """)).Should().ThrowExactly<RecursionDepthOverflowException>();
+
+        engine.CallStack.Count.Should().Be(0);
+    }
+
+    /// <summary>
+    /// The depth statistic must come back to zero after the limit fires, not only the frame stack. A
+    /// retention the trampoline failed to hand back is invisible in <c>CallStack.Count</c> and shows up
+    /// only later, as a second run of the same functions overflowing before it has recursed at all.
+    /// </summary>
+    [Fact]
+    public void RecursionLimitFailureLeavesTheDepthStatisticBalanced()
+    {
+        var engine = new Engine(options => options.LimitRecursion(0));
+        engine.Execute("""
+            "use strict";
+            var stop = false;
+            function first() {
+                return stop ? 42 : second();
+            }
+            function second() {
+                return first();
+            }
+            """);
+
+        Invoking(() => engine.Evaluate("first()")).Should().ThrowExactly<RecursionDepthOverflowException>();
+        engine.CallStack.Count.Should().Be(0);
+
+        engine.Evaluate("stop = true; first();").Should().Be(42);
+    }
+
     [Fact]
     public void DebugModeKeepsTailCallerFrame()
     {
