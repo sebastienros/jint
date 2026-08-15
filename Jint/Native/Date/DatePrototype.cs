@@ -629,7 +629,10 @@ internal sealed partial class DatePrototype : Prototype
         var t = TypeConverter.ToNumber(arguments.At(0));
         var v = t.TimeClip();
 
-        ((JsDate) thisObject)._dateValue = t;
+        // "Set dateObj.[[DateValue]] to v" - the clipped value, not the argument. Storing t instead let
+        // an out-of-range or infinite argument survive in the object while setTime returned NaN, so the
+        // Date and setTime's own return value disagreed from that point on.
+        ((JsDate) thisObject)._dateValue = v;
         return v.ToJsValue();
     }
 
@@ -979,7 +982,13 @@ internal sealed partial class DatePrototype : Prototype
     {
         var thisTime = ThisTimeValue(thisObject);
         var t = thisTime;
-        if (t.IsNaN)
+
+        // Step 4 is "If tv is NaN, throw a RangeError exception", and in the spec that is the whole of
+        // "not a finite time value": a [[DateValue]] is either NaN or an integral Number inside the
+        // TimeClip range. DatePresentation is wider than that domain - it can carry an Infinity flag
+        // with a Value of 0 - so IsNaN alone let such a value reach the formatter, which rendered the
+        // epoch for it. Testing IsFinite is the same step expressed over the representation we have.
+        if (!t.IsFinite)
         {
             Throw.RangeError(_realm, "Invalid time value");
         }

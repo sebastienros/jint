@@ -81,7 +81,10 @@ internal readonly record struct DatePresentation(long Value, DateFlags Flags)
 
     internal JsNumber ToJsValue()
     {
-        if (IsNaN || Value is < -8640000000000000 or > 8640000000000000)
+        // A non-finite presentation keeps its state in the flags and leaves Value at 0, so a reader
+        // testing IsNaN alone reads an infinity back as the epoch. Only a finite value inside the range
+        // https://tc39.es/ecma262/#sec-timeclip admits is a time value; everything else is NaN.
+        if (!IsFinite || Value is < -8640000000000000 or > 8640000000000000)
         {
             return JsNumber.DoubleNaN;
         }

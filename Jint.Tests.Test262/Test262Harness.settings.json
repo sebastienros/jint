@@ -168,12 +168,10 @@
     "staging/sm/Array/species.js",
     "staging/sm/Reflect/has.js",
 
-    // Date parsing and clipping: the implementation-defined fallback parser accepts (and rejects)
-    // different strings than SpiderMonkey's, two-digit years map differently, and TimeClip does not
-    // reject every out-of-range value.
+    // Date parsing: the implementation-defined fallback parser accepts (and rejects) different strings
+    // than SpiderMonkey's, and two-digit years map differently. Both are implementation-defined
+    // territory the spec leaves open, so these two stay.
     "staging/sm/Date/non-iso.js",
-    "staging/sm/Date/timeclip.js",
-    "staging/sm/Date/toISOString.js",
     "staging/sm/Date/two-digit-years.js",
 
     // String case mapping is done with the BCL's culture-aware tables rather than the Unicode
