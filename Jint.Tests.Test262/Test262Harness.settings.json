@@ -155,12 +155,6 @@
     "staging/sm/Set/intersection.js",
     "staging/sm/Set/is-subset-of.js",
 
-    // Iterator protocol: IteratorClose is not invoked (or not invoked at the right point) on the
-    // abrupt paths of Array.from, the Map/Set constructors and for-of.
-    "staging/sm/Array/from-iterator-close.js",
-    "staging/sm/Map/constructor-iterator-close.js",
-    "staging/sm/statements/for-of-iterator-close.js",
-
     // Proxy trap invariants and the exact trap sequence the array built-ins are specified to
     // perform. Jint's own invariant check on a defineProperty trap also fires where it should not.
     "staging/sm/Array/concat-proxy.js",

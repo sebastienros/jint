@@ -90,9 +90,9 @@ public sealed partial class ArrayConstructor : Constructor
     /// Iterator branch of Array.from for the plain-array result: accumulates into a pooled
     /// builder and materializes an exact-size dense array instead of per-item
     /// CreateDataPropertyOrThrow writes. The loop structure mirrors
-    /// <see cref="IteratorProtocol.Execute"/>, including closing the iterator on abrupt
-    /// completion; materialization happens after the loop so a length-related throw does
-    /// not trigger an extra iterator close.
+    /// <see cref="IteratorProtocol.Execute"/>, including closing the iterator on the mapper's
+    /// own abrupt completion (never the step's); materialization happens after the loop so a
+    /// length-related throw does not trigger an extra iterator close.
     /// </summary>
     private JsArray ConstructFromIterator(JsValue items, ICallable usingIterator, ICallable? callable, JsValue thisArg)
     {
@@ -113,12 +113,11 @@ public sealed partial class ArrayConstructor : Constructor
                         _engine.Constraints.Check();
                     }
 
-                    if (!iterator.TryIteratorStep(out var item))
+                    if (!iterator.TryIteratorStepValue(out var jsValue))
                     {
                         break;
                     }
 
-                    var jsValue = item.Get(CommonProperties.Value);
                     index++;
 
                     if (callable is not null)
@@ -131,7 +130,9 @@ public sealed partial class ArrayConstructor : Constructor
             }
             catch
             {
-                iterator.Close(CompletionType.Throw);
+                // Only the mapper is the caller's own abrupt completion; a failure inside the step
+                // has set the record's [[Done]] and must propagate unclosed (IteratorStepValue).
+                iterator.CloseIfNotDone(CompletionType.Throw);
                 throw;
             }
 

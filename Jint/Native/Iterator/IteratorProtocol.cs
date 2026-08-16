@@ -38,20 +38,20 @@ internal abstract class IteratorProtocol
                     _engine.Constraints.Check();
                 }
 
-                if (!_iterator.TryIteratorStep(out var item))
+                if (!_iterator.TryIteratorStepValue(out var currentValue))
                 {
                     done = true;
                     break;
                 }
-
-                var currentValue = item.Get(CommonProperties.Value);
 
                 ProcessItem(args, currentValue);
             }
         }
         catch
         {
-            IteratorClose(CompletionType.Throw);
+            // Only ProcessItem is the caller's own abrupt completion; a failure inside the step has
+            // set the record's [[Done]] and must propagate unclosed (IteratorStepValue).
+            _iterator.CloseIfNotDone(CompletionType.Throw);
             throw;
         }
         finally
@@ -76,6 +76,9 @@ internal abstract class IteratorProtocol
 
     protected abstract void ProcessItem(JsValue[] arguments, JsValue currentValue);
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-add-entries-from-iterable
+    /// </summary>
     internal static void AddEntriesFromIterable(ObjectInstance target, IteratorInstance iterable, object adder)
     {
         var callable = adder as ICallable;
@@ -86,7 +89,6 @@ internal abstract class IteratorProtocol
 
         var invoker = CallbackInvoker.Rent(target.Engine, callable, 2);
 
-        var skipClose = true;
         var iterations = 0;
         try
         {
@@ -99,14 +101,11 @@ internal abstract class IteratorProtocol
                     target.Engine.Constraints.Check();
                 }
 
-                if (!iterable.TryIteratorStep(out var nextItem))
+                if (!iterable.TryIteratorStepValue(out var temp))
                 {
                     return;
                 }
 
-                var temp = nextItem.Get(CommonProperties.Value);
-
-                skipClose = false;
                 var oi = temp as ObjectInstance;
                 if (oi is null)
                 {
@@ -121,10 +120,9 @@ internal abstract class IteratorProtocol
         }
         catch
         {
-            if (!skipClose)
-            {
-                iterable.Close(CompletionType.Throw);
-            }
+            // Steps 2.c/2.e/2.g/2.i close; step 2.a's own abrupt completion does not, and [[Done]] is
+            // what tells the two apart on every iteration, not just the first.
+            iterable.CloseIfNotDone(CompletionType.Throw);
             throw;
         }
         finally

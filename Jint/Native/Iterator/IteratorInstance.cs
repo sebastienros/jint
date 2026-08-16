@@ -35,6 +35,66 @@ internal abstract class IteratorInstance : ObjectInstance
     internal virtual bool HasNativeNext => true;
 
     /// <summary>
+    /// The iterator record's [[Done]] field, https://tc39.es/ecma262/#sec-iterator-records.
+    /// <para>
+    /// IteratorNext (steps 3.a and 6.a), IteratorStep (steps 3.a and 5.a) and IteratorStepValue
+    /// (step 4.a) set it for <em>every</em> abrupt completion the step itself produces —
+    /// <c>next()</c> throwing, <c>next()</c> answering a non-object, and the <c>done</c>/<c>value</c>
+    /// reads — plus for the step that reports done. Callers propagate such a completion with
+    /// <c>?</c>, so IteratorClose is never reached for any of them; <see cref="CloseIfNotDone"/> is
+    /// how that reads here. Only the consumer's own abrupt completion closes.
+    /// </para>
+    /// </summary>
+    internal bool Done { get; private set; }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorstepvalue
+    /// Steps the iterator, produces the step's value and maintains <see cref="Done"/>. Returns
+    /// <c>false</c> for the spec's ~done~ result. Every consumer that loops an iterator and closes it
+    /// on failure should step through this and close through <see cref="CloseIfNotDone"/>, so that
+    /// "abrupt while stepping" and "abrupt while processing" cannot be confused — and so that the
+    /// distinction is re-established on every iteration rather than only on the first.
+    /// </summary>
+    internal bool TryIteratorStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
+    {
+        try
+        {
+            if (!TryStepValue(out value))
+            {
+                // IteratorStep step 5.a: a done result sets [[Done]] as well.
+                Done = true;
+                return false;
+            }
+        }
+        catch
+        {
+            Done = true;
+            throw;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iteratorclose
+    /// IteratorClose, guarded by the record's [[Done]] — the shape the spec writes as
+    /// "If <c>iteratorRecord</c>.[[Done]] is <c>false</c>, ... IteratorClose". A step that already
+    /// failed (or already reported done) leaves nothing to close.
+    /// </summary>
+    internal void CloseIfNotDone(CompletionType completion)
+    {
+        if (!Done)
+        {
+            Close(completion);
+        }
+    }
+
+    /// <summary>
+    /// Rewinds [[Done]] for an instance that is being reused as a fresh iterator record.
+    /// </summary>
+    private void ResetDone() => Done = false;
+
+    /// <summary>
     /// Steps the iterator and hands back the value directly, letting concrete iterators skip
     /// the per-step IteratorResult object when nothing user-visible needs it (for-in keys).
     /// The default wraps <see cref="TryIteratorStep"/> with exactly the read the for-in/of
@@ -531,6 +591,10 @@ internal abstract class IteratorInstance : ObjectInstance
             // per-level scratch set carried into CompletedLevel — it must not leak across reuses.
             _visited = null;
             _levelAbsent = null;
+            // A pooled instance is a fresh iterator record for the next loop entry, so its [[Done]]
+            // starts over too. For-in steps through TryStepValue rather than TryIteratorStepValue and
+            // so never sets it today; resetting it keeps that an implementation detail of the caller.
+            ResetDone();
             InitializeEnumeration(target);
         }
 

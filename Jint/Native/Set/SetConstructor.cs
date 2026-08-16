@@ -59,19 +59,20 @@ public sealed partial class SetConstructor : Constructor
                         _engine.Constraints.Check();
                     }
 
-                    if (!iterable.TryIteratorStep(out var next))
+                    if (!iterable.TryIteratorStepValue(out var nextValue))
                     {
                         return set;
                     }
 
-                    var nextValue = next.Get(CommonProperties.Value);
                     args[0] = nextValue;
                     adder.Call(set, args);
                 } while (true);
             }
             catch
             {
-                iterable.Close(CompletionType.Throw);
+                // Step 8.d closes for the adder's own abrupt completion (step 8.c); step 8.a's does
+                // not, and [[Done]] is what tells the two apart on every iteration, not just the first.
+                iterable.CloseIfNotDone(CompletionType.Throw);
                 throw;
             }
         }
