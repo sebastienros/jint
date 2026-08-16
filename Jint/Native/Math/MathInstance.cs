@@ -70,16 +70,14 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Acos(x);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.acosh
+    /// </summary>
+    // The whole special-case table (NaN and x < 1 give NaN, 1 gives +0, +inf gives +inf) is
+    // decided inside the fdlibm port, so guarding for it again here would only be a second copy of
+    // the same branches. See Fdlibm.Acosh.
     [JsFunction]
-    private static JsValue Acosh(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsNaN(x) || x < 1)
-        {
-            return JsNumber.DoubleNaN;
-        }
-
-        return System.Math.Log(x + System.Math.Sqrt(x * x - 1.0));
-    }
+    private static JsValue Acosh(JsValue thisObject, [ToNumber] double x) => Fdlibm.Acosh(x);
 
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Asin(JsValue thisObject, [ToNumber] double x)
@@ -96,16 +94,12 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Asin(x);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.asinh
+    /// </summary>
+    // NaN, +-inf and +-0 all return the argument unchanged, which the fdlibm port already does.
     [JsFunction]
-    private static JsValue Asinh(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsInfinity(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
-        {
-            return x;
-        }
-
-        return System.Math.Log(x + System.Math.Sqrt(x * x + 1.0));
-    }
+    private static JsValue Asinh(JsValue thisObject, [ToNumber] double x) => Fdlibm.Asinh(x);
 
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Atan(JsValue thisObject, [ToNumber] double x)
@@ -129,21 +123,16 @@ internal sealed partial class MathInstance : BuiltinShapeObject
 
         return System.Math.Atan(x);
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.atanh
+    /// </summary>
+    // NaN and +-0 return the argument, +-1 return +-inf and |x| > 1 returns NaN; the fdlibm port
+    // decides all four up front rather than leaving them to fall out of the arithmetic. The
+    // accuracy is what changed: 0.5*Log((1+x)/(1-x)) cancels for small x, so every argument below
+    // 2**-53 came back as zero, and even Math.atanh(0.5) was a ULP out.
     [JsFunction]
-    private static JsValue Atanh(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsNaN(x))
-        {
-            return JsNumber.DoubleNaN;
-        }
-
-        if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
-        {
-            return x;
-        }
-
-        return 0.5 * System.Math.Log((1.0 + x) / (1.0 - x));
-    }
+    private static JsValue Atanh(JsValue thisObject, [ToNumber] double x) => Fdlibm.Atanh(x);
 
     [JsFunction]
     private static JsValue Atan2(JsValue thisObject, [ToNumber] double y, [ToNumber] double x)
@@ -394,20 +383,14 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Exp(x);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.expm1
+    /// </summary>
+    // "The result is computed in a way that is accurate even when the value of x is close to 0",
+    // which Exp(x) - 1.0 is not: everything below 2**-53 cancelled away to zero. The fdlibm port
+    // also produces the special cases (NaN, +-0 and +inf return x; -inf returns -1).
     [JsFunction]
-    private static JsNumber Expm1(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsNaN(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x) || double.IsPositiveInfinity(x))
-        {
-            return JsNumber.Create(x);
-        }
-        if (double.IsNegativeInfinity(x))
-        {
-            return JsNumber.DoubleNegativeOne;
-        }
-
-        return JsNumber.Create(System.Math.Exp(x) - 1.0);
-    }
+    private static JsNumber Expm1(JsValue thisObject, [ToNumber] double x) => JsNumber.Create(Fdlibm.Expm1(x));
 
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Floor(JsValue thisObject, [ToNumber] double x)
@@ -463,31 +446,14 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Log(x);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.log1p
+    /// </summary>
+    // Same normative "accurate even when the value of x is close to 0" as expm1, and Log(1 + x) was
+    // just as far from honouring it: 1 + 1e-300 is 1, and 1 + 1e-15 loses a tenth of its digits.
+    // NaN, +-0 and +inf return x, -1 returns -inf, x < -1 returns NaN, all inside the port.
     [JsFunction(FastCall = true, Leaf = true)]
-    private static JsValue Log1p(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsNaN(x))
-        {
-            return JsNumber.DoubleNaN;
-        }
-
-        if (x < -1)
-        {
-            return JsNumber.DoubleNaN;
-        }
-
-        if (x == -1)
-        {
-            return JsNumber.DoubleNegativeInfinity;
-        }
-
-        if (x == 0 || double.IsPositiveInfinity(x))
-        {
-            return JsNumber.Create(x);
-        }
-
-        return System.Math.Log(1 + x);
-    }
+    private static JsValue Log1p(JsValue thisObject, [ToNumber] double x) => Fdlibm.Log1p(x);
 
     [JsFunction(FastCall = true, Leaf = true)]
     private static JsValue Log2(JsValue thisObject, [ToNumber] double x)
@@ -959,33 +925,14 @@ internal sealed partial class MathInstance : BuiltinShapeObject
         return System.Math.Sign(x);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-math.cbrt
+    /// </summary>
+    // Pow(|x|, 1.0/3.0) is not a cube root: 1/3 is not representable, so the exponent is already
+    // wrong before Pow starts, and Math.cbrt(1e-300) came out ~58 ULP high. NaN, +-inf and +-0
+    // return the argument, which the fdlibm port does itself.
     [JsFunction(FastCall = true, Leaf = true)]
-    private static JsValue Cbrt(JsValue thisObject, [ToNumber] double x)
-    {
-        if (double.IsNaN(x))
-        {
-            return JsNumber.DoubleNaN;
-        }
-        else if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
-        {
-            return x;
-        }
-        else if (double.IsPositiveInfinity(x))
-        {
-            return JsNumber.DoublePositiveInfinity;
-        }
-        else if (double.IsNegativeInfinity(x))
-        {
-            return JsNumber.DoubleNegativeInfinity;
-        }
-
-        if (System.Math.Sign(x) >= 0)
-        {
-            return System.Math.Pow(x, 1.0 / 3.0);
-        }
-
-        return -1 * System.Math.Pow(System.Math.Abs(x), 1.0 / 3.0);
-    }
+    private static JsValue Cbrt(JsValue thisObject, [ToNumber] double x) => Fdlibm.Cbrt(x);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.hypot
