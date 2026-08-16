@@ -907,7 +907,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
 
         proto ??= PrototypeObject;
-        var instance = new JsArray(Engine, (uint) length, (uint) length)
+        var instance = new JsArray(this, (uint) length, (uint) length)
         {
             _prototype = proto
         };
@@ -929,7 +929,7 @@ public sealed partial class ArrayConstructor : Constructor
         }
 
         proto ??= PrototypeObject;
-        var instance = new JsArray(Engine, capacity: 0, length: (uint) length)
+        var instance = new JsArray(this, capacity: 0, length: (uint) length)
         {
             _prototype = proto
         };
@@ -970,14 +970,14 @@ public sealed partial class ArrayConstructor : Constructor
     {
         var array = new JsValue[contents.Length];
         System.Array.Copy(contents, array, contents.Length);
-        return new JsArray(_engine, array);
+        return new JsArray(this, array);
     }
 
     internal JsArray ConstructFast(List<JsValue> contents)
     {
         var array = new JsValue[contents.Count];
         contents.CopyTo(array);
-        return new JsArray(_engine, array);
+        return new JsArray(this, array);
     }
 
     /// <summary>
@@ -998,7 +998,7 @@ public sealed partial class ArrayConstructor : Constructor
 
         if (length < ArrayInstance.MaxDenseArrayLengthInternal)
         {
-            return new JsArray(_engine, builder.ToArray());
+            return new JsArray(this, builder.ToArray());
         }
 
         // The incremental write path would have converted an array this large to sparse

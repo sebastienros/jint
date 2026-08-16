@@ -49,6 +49,13 @@ public sealed partial class ArrayPrototype : ArrayInstance
         _joinStack = new(engine);
     }
 
+    /// <summary>
+    /// Coerces a built-in's callback argument, raising the TypeError from this prototype's own realm.
+    /// <see cref="ArrayPrototype"/> descends from <see cref="ArrayInstance"/> rather than from
+    /// <see cref="Prototype"/>, so it needs its own copy of the helper the latter declares.
+    /// </summary>
+    private ICallable GetCallable(JsValue source) => source.GetCallable(_realm);
+
     protected override void Initialize()
     {
         CreateProperties_Generated();
@@ -156,7 +163,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 System.Array.Copy(dense, a, count);
                 a[actualIndex] = value;
-                return new JsArray(_engine, a);
+                return new JsArray(_constructor, a);
             }
         }
 
@@ -172,7 +179,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 _engine.Constraints.Check();
             }
         }
-        return new JsArray(_engine, a);
+        return new JsArray(_constructor, a);
     }
 
     [JsFunction]
@@ -2244,7 +2251,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         if (len == 0)
         {
-            return new JsArray(_engine);
+            return new JsArray(_constructor);
         }
 
         var a = CreateBackingArray(len);
@@ -2266,7 +2273,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             {
                 System.Array.Copy(dense, a, count);
                 a.AsSpan(0, count).Reverse();
-                return new JsArray(_engine, a);
+                return new JsArray(_constructor, a);
             }
         }
 
@@ -2282,7 +2289,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 _engine.Constraints.Check();
             }
         }
-        return new JsArray(_engine, a);
+        return new JsArray(_constructor, a);
     }
 
     [JsFunction(Length = 1, FastCall = true)]
@@ -2296,14 +2303,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         if (len == 0)
         {
-            return new JsArray(_engine);
+            return new JsArray(_constructor);
         }
 
         var array = o.GetAll(skipHoles: true);
 
         array = SortArray(array, compareFn);
 
-        return new JsArray(_engine, array);
+        return new JsArray(_constructor, array);
     }
 
     [JsFunction(Length = 2)]
@@ -2366,7 +2373,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         ValidateArrayLength(newLen);
 
         var r = actualStart + actualDeleteCount;
-        var a = new JsArray(_engine, (uint) newLen);
+        var a = new JsArray(_constructor, (uint) newLen);
         uint i = 0;
 
         while (i < actualStart)
@@ -2572,7 +2579,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     {
         if (length > ArrayOperations.MaxArrayLength)
         {
-            Throw.RangeError(_engine.Realm, "Invalid array length " + length);
+            Throw.RangeError(_realm, "Invalid array length " + length);
         }
     }
 

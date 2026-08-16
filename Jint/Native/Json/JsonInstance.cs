@@ -45,7 +45,19 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
     private JsValue RawJSON(JsValue thisObject, JsValue text)
     {
         // 1. Let jsonString be ? ToString(text).
-        var jsonString = TypeConverter.ToString(text);
+        // ToString has no realm to raise from — a Symbol argument produces the engine-less TypeError that
+        // the statement list would otherwise attribute to whichever realm is running. Re-raise it here so
+        // a cross-realm `otherGlobal.JSON.rawJSON(Symbol())` throws that realm's TypeError.
+        string jsonString;
+        try
+        {
+            jsonString = TypeConverter.ToString(text);
+        }
+        catch (TypeErrorException ex)
+        {
+            Throw.TypeError(_realm, ex.Message);
+            return Undefined;
+        }
 
         // 2. Throw a SyntaxError exception if jsonString is the empty String,
         //    or if either the first or last code unit of jsonString is a

@@ -2468,7 +2468,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return false;
         }
 
-        var callable = GetCallable(callbackfn);
+        // `this` is the receiver the generic was applied to, not the built-in that owns the algorithm,
+        // so no callee realm is reachable here and the running one is the best available answer.
+        var callable = callbackfn.GetCallable(_engine.Realm);
 
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
@@ -2529,8 +2531,6 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         value = Undefined;
         return false;
     }
-
-    internal ICallable GetCallable(JsValue source) => source.GetCallable(_engine.Realm);
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal bool IsConcatSpreadable

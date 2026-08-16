@@ -587,7 +587,7 @@ internal partial class IteratorPrototype : Prototype
                 }
             }
 
-            return _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            return _realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
         }
         finally
         {
