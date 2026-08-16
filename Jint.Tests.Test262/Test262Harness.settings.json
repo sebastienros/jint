@@ -145,14 +145,9 @@
     "staging/sm/Set/union.js",
 
     // Iterator protocol: IteratorClose is not invoked (or not invoked at the right point) on the
-    // abrupt paths of Array.from, the Map/Set constructors, for-of and array destructuring, and the
-    // "done" bookkeeping of a destructuring pattern differs from the spec's.
-    "staging/sm/Array/for_of_2.js",
+    // abrupt paths of Array.from, the Map/Set constructors and for-of.
     "staging/sm/Array/from-iterator-close.js",
     "staging/sm/Map/constructor-iterator-close.js",
-    "staging/sm/destructuring/order.js",
-    "staging/sm/destructuring/order-super.js",
-    "staging/sm/expressions/destructuring-array-done.js",
     "staging/sm/statements/for-of-iterator-close.js",
 
     // Array.from applied to an arbitrary constructor: the spec constructs `this` when it is a
