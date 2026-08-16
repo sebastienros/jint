@@ -1138,7 +1138,11 @@ stack trace and inner exceptions.
 
 ## Security
 
-The following features provide you with a secure, sand-boxed environment to run user scripts.
+Jint is an in-process interpreter, not an operating-system security boundary. Running
+untrusted scripts safely requires explicit limits, a minimal host capability surface, fresh
+engines across trust domains, and process-level isolation. See the
+[threat model](.github/THREAT_MODEL.md) for the supported boundaries, known limitations, and
+a hardened deployment baseline.
 
 - Define memory limits, to prevent allocations from depleting the memory.
 - Enable/disable usage of BCL to prevent scripts from invoking .NET code.
