@@ -17,6 +17,8 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- BenchmarkTopology reads the processor topology through a [LibraryImport] stub. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
   </PropertyGroup>
   <ItemGroup>
