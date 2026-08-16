@@ -411,8 +411,9 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 - Public engine, module, constraint, and advanced-operation entries claim exclusive ownership
   and fail fast with `InvalidOperationException` when another thread or outstanding async host
   operation owns the engine.
-- Same-thread callback re-entry is allowed. Async APIs reserve ownership for the lifetime of
-  their returned `Task` and transfer the active thread when a continuation resumes.
+- Same-thread synchronous callback re-entry is allowed. Async entry from inside an active
+  engine call is rejected before work starts; top-level async APIs reserve ownership for the
+  lifetime of their returned `Task` and transfer the active thread when a continuation resumes.
 - Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**

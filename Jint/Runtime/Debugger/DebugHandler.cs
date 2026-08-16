@@ -65,7 +65,7 @@ public class DebugHandler
     internal DebugHandler(Engine engine, StepMode initialStepMode)
     {
         _engine = engine;
-        BreakPoints = new BreakPointCollection(engine);
+        BreakPoints = new BreakPointCollection();
         HandleNewStepMode(initialStepMode);
     }
 

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading;
 
 namespace Jint.Runtime.Debugger;
 
@@ -13,16 +14,11 @@ namespace Jint.Runtime.Debugger;
 public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 {
     private readonly Dictionary<BreakLocation, BreakPoint> _breakPoints = new(new OptionalSourceBreakLocationEqualityComparer());
-    private readonly Engine? _engine;
+    private readonly Lock _lock = new();
     private bool _active = true;
 
     public BreakPointCollection()
     {
-    }
-
-    internal BreakPointCollection(Engine engine)
-    {
-        _engine = engine;
     }
 
     /// <summary>
@@ -32,24 +28,17 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     {
         get
         {
-            if (_engine is null)
+            lock (_lock)
             {
                 return _active;
             }
-
-            using var ownership = _engine.EnterHostCall();
-            return _active;
         }
         set
         {
-            if (_engine is null)
+            lock (_lock)
             {
                 _active = value;
-                return;
             }
-
-            using var ownership = _engine.EnterHostCall();
-            _active = value;
         }
     }
 
@@ -57,13 +46,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     {
         get
         {
-            if (_engine is null)
+            lock (_lock)
             {
                 return _breakPoints.Count;
             }
-
-            using var ownership = _engine.EnterHostCall();
-            return _breakPoints.Count;
         }
     }
 
@@ -72,14 +58,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public void Set(BreakPoint breakPoint)
     {
-        if (_engine is not null)
+        lock (_lock)
         {
-            using var ownership = _engine.EnterHostCall();
             _breakPoints[breakPoint.Location] = breakPoint;
-            return;
         }
-
-        _breakPoints[breakPoint.Location] = breakPoint;
     }
 
     /// <summary>
@@ -88,13 +70,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool RemoveAt(BreakLocation location)
     {
-        if (_engine is not null)
+        lock (_lock)
         {
-            using var ownership = _engine.EnterHostCall();
             return _breakPoints.Remove(location);
         }
-
-        return _breakPoints.Remove(location);
     }
 
     /// <summary>
@@ -103,13 +82,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool Contains(BreakLocation location)
     {
-        if (_engine is not null)
+        lock (_lock)
         {
-            using var ownership = _engine.EnterHostCall();
             return _breakPoints.ContainsKey(location);
         }
-
-        return _breakPoints.ContainsKey(location);
     }
 
     /// <summary>
@@ -117,26 +93,21 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public void Clear()
     {
-        if (_engine is not null)
+        lock (_lock)
         {
-            using var ownership = _engine.EnterHostCall();
             _breakPoints.Clear();
-            return;
         }
-
-        _breakPoints.Clear();
     }
 
     internal BreakPoint? FindMatch(DebugHandler debugger, BreakLocation location)
     {
-        if (!Active)
+        BreakPoint? breakPoint;
+        lock (_lock)
         {
-            return null;
-        }
-
-        if (!_breakPoints.TryGetValue(location, out var breakPoint))
-        {
-            return null;
+            if (!_active || !_breakPoints.TryGetValue(location, out breakPoint))
+            {
+                return null;
+            }
         }
 
         if (!string.IsNullOrEmpty(breakPoint.Condition))
@@ -163,13 +134,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 
     public IEnumerator<BreakPoint> GetEnumerator()
     {
-        if (_engine is not null)
+        lock (_lock)
         {
-            using var ownership = _engine.EnterHostCall();
             return new List<BreakPoint>(_breakPoints.Values).GetEnumerator();
         }
-
-        return _breakPoints.Values.GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()

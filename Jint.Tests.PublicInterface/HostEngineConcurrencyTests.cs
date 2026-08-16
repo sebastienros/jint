@@ -2,6 +2,7 @@
 
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
 
 using Module = Jint.Runtime.Modules.Module;
@@ -150,16 +151,20 @@ public class HostEngineConcurrencyTests
     }
 
     [Fact]
-    public void ConsecutiveSynchronousAsyncCallsCanReenterOnTheOwningThread()
+    public void AsyncEntryFromAHostCallbackFailsBeforeStartingWork()
     {
         var engine = new Engine();
+        engine.SetValue("completed", false);
         engine.SetValue("reenter", new Action(() =>
         {
-            engine.EvaluateAsync("1").GetAwaiter().GetResult().AsNumber().Should().Be(1);
-            engine.EvaluateAsync("2").GetAwaiter().GetResult().AsNumber().Should().Be(2);
+            Action nested = () => _ = engine.EvaluateAsync("completed = true");
+            Invoking(nested)
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
         }));
 
         engine.Execute("reenter()");
+        engine.Evaluate("completed").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -316,6 +321,50 @@ public class HostEngineConcurrencyTests
         }
 
         await running;
+    }
+
+    [Fact]
+    public async Task BreakpointsCanBeAdministeredWhileTheEngineIsRunning()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+        engine.SetValue("block", new Action(() =>
+        {
+            entered.Set();
+            release.Wait();
+        }));
+        var running = Task.Run(() => engine.Execute("block()"));
+
+        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        try
+        {
+            engine.Debugger.BreakPoints.Set(new BreakPoint(1, 0));
+            engine.Debugger.BreakPoints.Count.Should().Be(1);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await running;
+    }
+
+    [Fact]
+    public async Task DisposeFailsFastWhileAnAsyncOperationOwnsTheEngine()
+    {
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new Engine();
+        engine.SetValue("hostWork", new Func<Task<int>>(() => gate.Task));
+        var pending = engine.EvaluateAsync("(async () => await hostWork())()");
+
+        Invoking(engine.Dispose)
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage(ConcurrentUseMessage);
+
+        gate.SetResult(42);
+        (await pending).AsNumber().Should().Be(42);
+        engine.Dispose();
     }
 
     [Fact]

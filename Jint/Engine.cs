@@ -102,6 +102,7 @@ public sealed partial class Engine : IDisposable
     private int _ownerDepth;
     private object? _ownerToken;
     private object? _asyncOwner;
+    private object? _asyncReleasePending;
     private int _hostCallbackAdmission;
     private ManualResetEventSlim? _ownershipReleased;
 
@@ -143,6 +144,7 @@ public sealed partial class Engine : IDisposable
             || (asyncOwner is not null && !ReferenceEquals(asyncOwner, reservedOwner)))
         {
             Volatile.Write(ref _ownerThreadId, 0);
+            Volatile.Read(ref _ownershipReleased)?.Set();
             Throw.InvalidOperationException(ConcurrentUseMessage);
         }
 
@@ -154,28 +156,56 @@ public sealed partial class Engine : IDisposable
     internal HostCallScope EnterHostCallback()
     {
         var owner = Volatile.Read(ref _asyncOwner);
-        return owner is not null && Volatile.Read(ref _hostCallbackAdmission) > 0
-            ? EnterTransferredHostCall(owner)
-            : EnterHostCall();
+        if (owner is null)
+        {
+            return EnterHostCall();
+        }
+
+        // Claim the admission window before it can close. A count of one after the increment means
+        // there was no open window to claim; a larger count keeps the transfer token alive until
+        // this callback's scope exits.
+        if (Interlocked.Increment(ref _hostCallbackAdmission) == 1
+            || !ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
+        {
+            ReleaseHostCallbackAdmission(owner);
+            return EnterHostCall();
+        }
+
+        try
+        {
+            return EnterTransferredHostCall(owner, callback: true);
+        }
+        catch
+        {
+            ReleaseHostCallbackAdmission(owner);
+            throw;
+        }
     }
 
-    internal HostCallScope EnterTransferredHostCall(object owner)
+    internal HostCallScope EnterTransferredHostCall(object owner, bool callback = false)
     {
         if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
         {
-            Throw.InvalidOperationException(ConcurrentUseMessage);
+            return EnterHostCall();
         }
 
         var threadId = System.Environment.CurrentManagedThreadId;
         if (Volatile.Read(ref _ownerThreadId) == threadId)
         {
             _ownerDepth++;
-            return new HostCallScope(this);
+            return new HostCallScope(this, callback ? owner : null);
         }
 
         AcquireHostCall(threadId);
         if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
         {
+            if (Volatile.Read(ref _asyncOwner) is null)
+            {
+                _ownerDepth = 1;
+                _ownerToken = null;
+                return new HostCallScope(this, callback ? owner : null);
+            }
+
             Volatile.Write(ref _ownerThreadId, 0);
             Volatile.Read(ref _ownershipReleased)?.Set();
             Throw.InvalidOperationException(ConcurrentUseMessage);
@@ -290,18 +320,25 @@ public sealed partial class Engine : IDisposable
         _ownerDepth = depth;
         _ownerToken = owner;
 
-        if (Interlocked.Decrement(ref _hostCallbackAdmission) == 0 && ReferenceEquals(owner, this))
+        ReleaseHostCallbackAdmission(owner);
+    }
+
+    private void ReleaseHostCallbackAdmission(object owner)
+    {
+        if (Interlocked.Decrement(ref _hostCallbackAdmission) == 0
+            && (ReferenceEquals(owner, this)
+                || ReferenceEquals(Volatile.Read(ref _asyncReleasePending), owner)))
         {
             Interlocked.CompareExchange(ref _asyncOwner, null, owner);
+            Interlocked.CompareExchange(ref _asyncReleasePending, null, owner);
             _ownerToken = null;
         }
     }
 
     internal object ReserveAsyncHostOperation()
     {
-        var threadId = System.Environment.CurrentManagedThreadId;
         var activeOwner = Volatile.Read(ref _ownerThreadId);
-        if (activeOwner != 0 && activeOwner != threadId)
+        if (activeOwner != 0)
         {
             Throw.InvalidOperationException(ConcurrentUseMessage);
         }
@@ -313,7 +350,7 @@ public sealed partial class Engine : IDisposable
         }
 
         activeOwner = Volatile.Read(ref _ownerThreadId);
-        if (activeOwner != 0 && activeOwner != threadId)
+        if (activeOwner != 0)
         {
             Interlocked.CompareExchange(ref _asyncOwner, null, owner);
             Throw.InvalidOperationException(ConcurrentUseMessage);
@@ -324,6 +361,22 @@ public sealed partial class Engine : IDisposable
 
     internal void ReleaseAsyncHostOperation(object owner)
     {
+        if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
+        {
+            return;
+        }
+
+        if (Volatile.Read(ref _hostCallbackAdmission) > 0)
+        {
+            Volatile.Write(ref _asyncReleasePending, owner);
+            if (Volatile.Read(ref _hostCallbackAdmission) > 0)
+            {
+                return;
+            }
+
+            Interlocked.CompareExchange(ref _asyncReleasePending, null, owner);
+        }
+
         if (ReferenceEquals(Interlocked.CompareExchange(ref _asyncOwner, null, owner), owner)
             && Volatile.Read(ref _ownerThreadId) == System.Environment.CurrentManagedThreadId
             && ReferenceEquals(_ownerToken, owner))
@@ -346,14 +399,29 @@ public sealed partial class Engine : IDisposable
     internal readonly struct HostCallScope : IDisposable
     {
         private readonly Engine _engine;
+        private readonly object? _callbackOwner;
 
         internal HostCallScope(Engine engine)
         {
             _engine = engine;
+            _callbackOwner = null;
+        }
+
+        internal HostCallScope(Engine engine, object? callbackOwner)
+        {
+            _engine = engine;
+            _callbackOwner = callbackOwner;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Dispose() => _engine.ExitHostCall();
+        public void Dispose()
+        {
+            _engine.ExitHostCall();
+            if (_callbackOwner is not null)
+            {
+                _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+            }
+        }
     }
 
     private readonly struct HostCallSuspension : IDisposable
@@ -879,8 +947,21 @@ public sealed partial class Engine : IDisposable
     {
         get
         {
+            var debugger = Volatile.Read(ref _debugger);
+            if (debugger is not null)
+            {
+                return debugger;
+            }
+
             using var ownership = EnterHostCall();
-            return _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
+            debugger = _debugger;
+            if (debugger is null)
+            {
+                debugger = new DebugHandler(this, Options.Debugger.InitialStepMode);
+                Volatile.Write(ref _debugger, debugger);
+            }
+
+            return debugger;
         }
     }
 
