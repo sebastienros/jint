@@ -15,7 +15,11 @@ internal static class JintEnvironment
     {
         record = env;
 
-        if (env._outerEnv is null)
+        // The type, not the outer link. Jint pools environments and clears _outerEnv on release, so a
+        // released environment still reachable through a closure or a continuation is indistinguishable
+        // from the global one by that link alone. Here that is only a false premise — with no outer link
+        // the walk below reaches the same answer — but the sibling casts on it, and throws.
+        if (env is GlobalEnvironment)
         {
             return env.HasBinding(name);
         }
@@ -55,9 +59,10 @@ internal static class JintEnvironment
         record = env;
         value = default;
 
-        if (env._outerEnv is null)
+        // See the sibling above: a released environment also has a null outer link.
+        if (env is GlobalEnvironment globalEnv)
         {
-            return ((GlobalEnvironment) env).TryGetBinding(name, strict, out value);
+            return globalEnv.TryGetBinding(name, strict, out value);
         }
 
         while (record is not null)
