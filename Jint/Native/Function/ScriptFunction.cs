@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Object;
 using Jint.Pooling;
@@ -338,7 +338,15 @@ public sealed class ScriptFunction : Function, IConstructor
                 // `new Function(...)`), so an instance-level cache never warms. Park the env
                 // on the per-realm definition instead — env identity then stays stable across
                 // instances, keeping the shared statement tree's per-node slot caches valid.
-                funcEnv._outerEnv = null;
+                //
+                // The outer link stays attached, unlike the block/catch/loop parks. Those pool only
+                // environments no closure can reach at all; EnvironmentMayEscape is weaker — it lets a
+                // closure that reads none of the slots escape this one — and such a closure still
+                // resolves its free identifiers *through* this record. Detaching left such a closure
+                // starting its lookup at a record with no outer link, which identifier resolution reads
+                // as "this is the global environment" — so a plain global read threw InvalidCastException.
+                // Keeping the link roots nothing: a dynamic function closes over the realm's global
+                // environment (CreateDynamicFunction), which the realm holds for its own lifetime.
                 Interlocked.Exchange(ref state._dynamicCachedEnv, funcEnv);
             }
             else
