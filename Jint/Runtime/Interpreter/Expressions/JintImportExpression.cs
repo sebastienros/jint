@@ -74,7 +74,7 @@ internal sealed class JintImportExpression : JintExpression
 
                         if (!value.IsString())
                         {
-                            Throw.TypeError(context.Engine.Realm, "Invalid option value " + value);
+                            Throw.TypeError(context.Engine.Realm, "Invalid option value");
                             return JsValue.Undefined;
                         }
 

@@ -71,7 +71,7 @@ public sealed class ShadowRealmConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         return Construct(newTarget);

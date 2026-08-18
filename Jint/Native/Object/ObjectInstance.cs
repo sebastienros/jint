@@ -181,7 +181,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return (IConstructor) s;
         }
 
-        Throw.TypeError(o._engine.Realm, $"{s} is not a constructor");
+        Throw.TypeError(o._engine.Realm, "The [Symbol.species] property is not a constructor");
         return null;
     }
 
@@ -2991,7 +2991,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var func = v.GetV(_engine.Realm, p);
         if (func is not ICallable callable)
         {
-            Throw.TypeError(_engine.Realm, $"{v}.{p} is not a function");
+            Throw.TypeError(_engine.Realm, $"Property '{p}' of object is not a function");
             return default;
         }
 

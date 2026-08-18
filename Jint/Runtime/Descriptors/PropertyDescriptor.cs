@@ -468,7 +468,7 @@ public class PropertyDescriptor
         {
             if (!get!.IsUndefined() && get!.TryCast<ICallable>() == null)
             {
-                Throw.TypeError(realm, $"Getter must be a function: {get}");
+                Throw.TypeError(realm, "Getter must be a function");
             }
 
             ((GetSetPropertyDescriptor) desc).SetGet(get!);
@@ -478,7 +478,7 @@ public class PropertyDescriptor
         {
             if (!set!.IsUndefined() && set!.TryCast<ICallable>() is null)
             {
-                Throw.TypeError(realm, $"Setter must be a function: {set}");
+                Throw.TypeError(realm, "Setter must be a function");
             }
 
             ((GetSetPropertyDescriptor) desc).SetSet(set!);

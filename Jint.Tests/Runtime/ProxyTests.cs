@@ -459,7 +459,7 @@ public class ProxyTests
             let p = new Proxy(o, handler);
         """);
         var ex = Invoking(() => _engine.Evaluate("p.value")).Should().ThrowExactly<JavaScriptException>().Which;
-        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '42' but got '32')");
+        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value");
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/get#invariants
@@ -483,7 +483,7 @@ public class ProxyTests
             let p = new Proxy(o, handler);
         """);
         var ex = Invoking(() => _engine.Evaluate("p.value")).Should().ThrowExactly<JavaScriptException>().Which;
-        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '32')");
+        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined'");
     }
 
     private const string ScriptProxyHandlerSetInvariantsDataPropertyImmutable = """
@@ -556,7 +556,7 @@ public class ProxyTests
             p.value = 42;
         """)).Should().ThrowExactly<JavaScriptException>().Which;
         // V8: "'set' on proxy: trap returned falsish for property 'value'",
-        AssertJsTypeError(_engine, ex, "Cannot assign to read only property 'value' of [object Object]");
+        AssertJsTypeError(_engine, ex, "Cannot assign to read only property 'value' of Object");
     }
 
     [Fact]

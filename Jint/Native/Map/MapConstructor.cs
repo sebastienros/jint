@@ -58,7 +58,7 @@ public sealed partial class MapConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            Throw.TypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
+            Throw.TypeError(_realm, $"Constructor {GetOwnFunctionNameForMessage()} requires 'new'");
         }
 
         if (ReferenceEquals(newTarget, this))

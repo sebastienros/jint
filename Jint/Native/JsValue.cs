@@ -537,7 +537,9 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var p = Get(CommonProperties.Prototype);
         if (p is not ObjectInstance)
         {
-            Throw.TypeError(o.Engine.Realm, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+            // p is proven not to be an object, so its own ToString() runs no script -- and unlike
+            // TypeConverter.ToString it does not throw for a Symbol, which would replace this message.
+            Throw.TypeError(o.Engine.Realm, $"Function has non-object prototype '{p}' in instanceof check");
         }
 
         while (true)
@@ -621,7 +623,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     {
         if (!c.IsConstructor)
         {
-            Throw.TypeError(engine.Realm, c + " is not a constructor");
+            Throw.TypeError(engine.Realm, $"{c.Type} is not a constructor");
         }
 
         return (IConstructor) c;

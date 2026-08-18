@@ -688,7 +688,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         if (!mapperFunction.IsCallable)
         {
-            Throw.TypeError(_realm, $"{mapperFunction} is not a function");
+            Throw.TypeError(_realm, "mapperFunction is not a function");
         }
 
         if (thisObject is JsArray { CanUseFastAccess: true } jsArray

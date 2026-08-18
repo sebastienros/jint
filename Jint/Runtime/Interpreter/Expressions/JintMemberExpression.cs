@@ -402,7 +402,7 @@ internal sealed class JintMemberExpression : JintExpression
                     return CompleteReadFromReference(context, engine, nullishBaseReference);
                 }
 
-                TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, determinedProperty.ToString());
+                TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, Throw.SafeToDisplayString(determinedProperty));
             }
 
             context.LastSyntaxElement = _expression;
@@ -629,9 +629,12 @@ internal sealed class JintMemberExpression : JintExpression
         if (reference.Base.IsNullOrUndefined() && !engine._nullishPropagatesInline)
         {
             var property = reference.ReferencedName;
-            // Only use property for error message if it's already a primitive (won't trigger ToPropertyKey)
+            // Only use property for error message if it's already a primitive (won't trigger ToPropertyKey).
+            // The rendering goes through the safe helper because a Symbol *is* primitive and
+            // TypeConverter.ToString throws for one, which replaced this TypeError with
+            // "Cannot convert a Symbol value to a string" for every `nullishBase[someSymbol]` read.
             var referenceName = property.IsPrimitive()
-                ? TypeConverter.ToString(property)
+                ? Throw.SafeToDisplayString(property)
                 : null;
 
             TypeConverter.CheckObjectCoercible(engine, reference.Base, _memberExpression.Property, referenceName);

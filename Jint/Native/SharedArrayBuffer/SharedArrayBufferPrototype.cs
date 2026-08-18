@@ -39,7 +39,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method prototype.byteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method prototype.byteLength called on incompatible receiver");
         }
 
         return JsNumber.Create(o.ArrayBufferByteLength);
@@ -54,7 +54,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method prototype.slice called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method prototype.slice called on incompatible receiver");
         }
 
         o.AssertNotDetached();
@@ -136,7 +136,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.growable called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.growable called on incompatible receiver");
         }
 
         return !o.IsFixedLengthArrayBuffer;
@@ -151,7 +151,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.grow called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.grow called on incompatible receiver");
         }
 
         var newByteLength = TypeConverter.ToIndex(_realm, newLength);
@@ -172,7 +172,7 @@ internal sealed partial class SharedArrayBufferPrototype : Prototype
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
         {
-            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.maxByteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method SharedArrayBuffer.prototype.maxByteLength called on incompatible receiver");
         }
 
         if (o.IsDetachedBuffer)

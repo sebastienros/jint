@@ -1285,7 +1285,7 @@ internal sealed partial class RegExpPrototype : Prototype
             var result = callable.Call(r, s);
             if (!result.IsNull() && !result.IsObject())
             {
-                Throw.TypeError(r.Engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {r}");
+                Throw.TypeError(r.Engine.Realm, "Method RegExp.prototype.exec called on incompatible receiver");
             }
 
             return result;
@@ -1293,7 +1293,7 @@ internal sealed partial class RegExpPrototype : Prototype
 
         if (ri is null)
         {
-            Throw.TypeError(r.Engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {r}");
+            Throw.TypeError(r.Engine.Realm, "Method RegExp.prototype.exec called on incompatible receiver");
         }
 
         return RegExpBuiltinExec(ri, s);
@@ -1927,7 +1927,7 @@ internal sealed partial class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            Throw.TypeError(_engine.Realm, $"Method RegExp.prototype.exec called on incompatible receiver {thisObject}");
+            Throw.TypeError(_engine.Realm, "Method RegExp.prototype.exec called on incompatible receiver");
         }
 
         var s = TypeConverter.ToString(arguments.At(0));

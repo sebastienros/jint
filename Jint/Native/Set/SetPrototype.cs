@@ -487,13 +487,17 @@ internal sealed partial class SetPrototype : Prototype
         var has = obj.Get(CommonProperties.Has);
         if (!has.IsCallable)
         {
-            Throw.TypeError(_realm, $"{obj}.has is not a function");
+            // Deliberately not interpolating obj: ObjectInstance.ToString() is the full JavaScript
+            // ToString algorithm, so rendering the receiver here would run user code while the error
+            // is being built (observable as extra [[Get]]s, and a throwing toString would replace
+            // this TypeError with its own exception).
+            Throw.TypeError(_realm, "The .has property of the object is not a function");
         }
 
         var keys = obj.Get(CommonProperties.Keys);
         if (!keys.IsCallable)
         {
-            Throw.TypeError(_realm, $"{obj}.keys is not a function");
+            Throw.TypeError(_realm, "The .keys property of the object is not a function");
         }
 
         return new SetRecord(Set: obj, Size: intSize, Has: (ICallable) has, Keys: (ICallable) keys);
@@ -513,7 +517,7 @@ internal sealed partial class SetPrototype : Prototype
             return set;
         }
 
-        Throw.TypeError(_realm, $"Method Set.prototype.{SetMethodName(methodName)} called on incompatible receiver {thisObject}");
+        Throw.TypeError(_realm, $"Method Set.prototype.{SetMethodName(methodName)} called on incompatible receiver");
         return default;
     }
 

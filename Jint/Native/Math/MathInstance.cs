@@ -1060,7 +1060,7 @@ internal sealed partial class MathInstance : BuiltinShapeObject
 
                 if (value is not JsNumber jsNumber)
                 {
-                    Throw.TypeError(_realm, "Input is not a number: " + next);
+                    Throw.TypeError(_realm, "Input is not a number");
                     return default;
                 }
 

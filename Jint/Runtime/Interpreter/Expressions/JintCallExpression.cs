@@ -727,7 +727,7 @@ internal sealed class JintCallExpression : JintExpression
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowReferenceNotFunction(Reference? referenceRecord1, object reference, Engine engine)
     {
-        var message = $"{referenceRecord1?.ReferencedName ?? reference} is not a function";
+        var message = $"{DescribeCallee(referenceRecord1, reference)} is not a function";
         Throw.TypeError(engine.Realm, message);
     }
 
@@ -736,9 +736,26 @@ internal sealed class JintCallExpression : JintExpression
     private static void ThrowMemberIsNotFunction(Reference? referenceRecord1, object reference, Engine engine)
     {
         var message = referenceRecord1 == null
-            ? reference + " is not a function"
+            ? $"{DescribeCallee(referenceRecord1, reference)} is not a function"
             : $"Property '{referenceRecord1.ReferencedName}' of object is not a function";
         Throw.TypeError(engine.Realm, message);
+    }
+
+    /// <summary>
+    /// A description of the callee for an error message, built without running user JavaScript — see
+    /// <see cref="Throw.SafeToDisplayString"/> for why interpolating an evaluated <see cref="JsValue"/>
+    /// directly is a bug. A named callee is quoted by name; an unnamed one (the result of a call, an
+    /// index, a parenthesized expression) is quoted by value as far as that is safe.
+    /// </summary>
+    private static string DescribeCallee(Reference? referenceRecord, object reference)
+    {
+        if (referenceRecord is not null)
+        {
+            // A referenced name is a property key, i.e. a String or a Symbol; both render from own state.
+            return Throw.SafeToDisplayString(referenceRecord.ReferencedName);
+        }
+
+        return reference is JsValue value ? Throw.SafeToDisplayString(value) : "expression";
     }
 
     private JsValue HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)

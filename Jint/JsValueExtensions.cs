@@ -678,7 +678,10 @@ public static class JsValueExtensions
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static JsValue ThrowNotObject(JsValue value)
     {
-        Throw.ArgumentException(value + " is not object");
+        // Every caller reaches here from a failed `value is ObjectInstance`, so value is a primitive and
+        // rendering it runs nothing; the safe renderer states that rather than relying on the reader to
+        // re-derive it. Which value it was is the whole point of a host-facing ArgumentException.
+        Throw.ArgumentException($"{Throw.SafeToDisplayString(value)} is not object");
         return null;
     }
 

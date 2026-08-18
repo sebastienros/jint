@@ -2340,7 +2340,10 @@ internal abstract class JintBinaryExpression : JintExpression
             var oi = right as ObjectInstance;
             if (oi is null)
             {
-                Throw.TypeError(context.Engine.Realm, $"Cannot use 'in' operator to search for '{left}' in {right}");
+                // left is the property name the reader needs and is not coerced before this check, so it
+                // may be an arbitrary object -- hence the safe renderer. right is interpolated directly:
+                // this throw fires precisely because right is not an object, so its ToString() is its own.
+                Throw.TypeError(context.Engine.Realm, $"Cannot use 'in' operator to search for '{Throw.SafeToDisplayString(left)}' in {right}");
             }
 
             if (left.IsPrivateName())
