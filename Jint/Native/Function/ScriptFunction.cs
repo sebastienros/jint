@@ -111,13 +111,21 @@ public sealed class ScriptFunction : Function, IConstructor
         }
     }
 
+    // A plain data property holding null, which is what a browser answers for a function that is not
+    // currently executing. %ThrowTypeError% belongs on Function.prototype — where AddRestrictedFunctionProperties
+    // puts it, and where a *strict* function's read still lands; a thrower on the own property is reachable by
+    // a read no browser makes throw. Real code walks it:
+    // Object.getOwnPropertyNames(fn).reduce((acc, k) => (acc[k] = fn[k], acc), {}) is how a Flux-era
+    // library copies a store's statics, and its skip-list is built from a *strict* function, which has no
+    // own "arguments" to list — so the copy reads it off every sloppy one it is given.
     internal PropertyDescriptor MaterializeArgumentsDescriptor()
     {
-        // Same deferred %ThrowTypeError% resolution as the old eager descriptor: the thrower is
-        // looked up from the engine's active realm on the first Get/Set access either way.
-        return _argumentsDescriptor = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable);
+        return _argumentsDescriptor = new PropertyDescriptor(Null, PropertyFlag.Configurable);
     }
 
+    // Deliberately undefined rather than the null a browser answers: undefined is test262's sentinel for
+    // "this implementation does not offer the caller extension" (language/arguments-object/10.6-13-a-2 and
+    // -3), and the alternative is a value the suite then requires to be callable.
     internal PropertyDescriptor MaterializeCallerDescriptor()
     {
         return _callerDescriptor = new PropertyDescriptor(Undefined, PropertyFlag.Configurable);
