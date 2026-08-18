@@ -583,7 +583,17 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }
         }
 
-        operations.SetLength(to);
+        // https://tc39.es/ecma262/#sec-array.prototype.filter has no Set(A, "length", ...) step at all: A is
+        // created with length 0 and each accepted element arrives through CreateDataPropertyOrThrow, which is
+        // what grows an array's length. The write below is Jint's own bookkeeping, needed because the fast
+        // JsArray lane stores elements with updateLength: false. Anything that is not an array -- a typed array
+        // species, a plain object, a Proxy -- must be left alone, or the algorithm performs a Set it does not
+        // have; on a typed array that Set now correctly throws, which would turn a legal filter into a TypeError.
+        if (a is JsArray)
+        {
+            operations.SetLength(to);
+        }
+
         invoker.Return();
 
         return a;
