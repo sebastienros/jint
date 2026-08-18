@@ -45,34 +45,39 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         return default;
     }
 
-    private static bool ConsumeFromIterator(IteratorInstance it, out JsValue value, out bool done)
+    /// <summary>
+    /// IteratorStepValue (https://tc39.es/ecma262/#sec-iteratorstepvalue) under the
+    /// <c>If iteratorRecord.[[Done]] is false</c> guard that every element form of
+    /// IteratorDestructuringAssignmentEvaluation (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation)
+    /// and IteratorBindingInitialization (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization)
+    /// is wrapped in: an iterator that has already reported done is never stepped again, and the
+    /// element takes <c>undefined</c> instead. Every abrupt completion — the <c>next</c> call, the
+    /// <c>done</c> read behind <see cref="IteratorInstance.TryIteratorStep"/>, or the <c>value</c>
+    /// read — sets <paramref name="done"/>, so the caller's <c>finally</c> does not close an
+    /// iterator the spec already considers done.
+    /// </summary>
+    private static JsValue StepValue(IteratorInstance it, ref bool done)
     {
-        value = JsValue.Undefined;
-        done = false;
+        if (done)
+        {
+            return JsValue.Undefined;
+        }
 
-        bool stepped;
         try
         {
-            stepped = it.TryIteratorStep(out var d);
-            if (stepped)
+            if (!it.TryIteratorStep(out var result))
             {
-                value = d.Get(CommonProperties.Value);
+                done = true;
+                return JsValue.Undefined;
             }
+
+            return result.Get(CommonProperties.Value);
         }
         catch
         {
-            // Per spec 13.15.5.5 step 2b: If next is an abrupt completion, set iteratorRecord.[[Done]] to true.
             done = true;
             throw;
         }
-
-        if (!stepped)
-        {
-            done = true;
-            return false;
-        }
-
-        return true;
     }
 
     private static JsValue HandleArrayPattern(
@@ -173,10 +178,9 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        if (!ConsumeFromIterator(iterator!, out _, out done))
-                        {
-                            break;
-                        }
+                        // An elision consumes a step and discards it; it never ends the pattern, so
+                        // the elements after it still bind (undefined, or their initializer).
+                        StepValue(iterator!, ref done);
                     }
                     // skip assignment
                     continue;
@@ -191,7 +195,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        ConsumeFromIterator(iterator!, out value, out done);
+                        value = StepValue(iterator!, ref done);
                     }
 
                     AssignToIdentifier(engine, identifier.Name, value, environment, checkReference);
@@ -228,7 +232,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        ConsumeFromIterator(iterator!, out value, out done);
+                        value = StepValue(iterator!, ref done);
                     }
 
                     AssignToReference(engine, reference, value, environment);
@@ -242,16 +246,9 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        try
-                        {
-                            iterator!.TryIteratorStep(out var temp);
-                            value = temp;
-                        }
-                        catch
-                        {
-                            done = true;
-                            throw;
-                        }
+                        // BindingElement : BindingPattern binds the nested pattern to the value the
+                        // step produced, never to the { value, done } result object the step returned.
+                        value = StepValue(iterator!, ref done);
                     }
                     ProcessPatterns(context, dp, value, environment);
                 }
@@ -299,18 +296,30 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     {
                         array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                         uint index = 0;
-                        done = true;
-                        do
+                        // AssignmentRestElement / BindingRestElement: "Repeat, while
+                        // iteratorRecord.[[Done]] is false". An iterator a preceding element already
+                        // drove to done contributes nothing and is not stepped at all.
+                        while (!done)
                         {
-                            if (!iterator!.TryIteratorStep(out var item))
+                            JsValue value;
+                            try
+                            {
+                                if (!iterator!.TryIteratorStep(out var item))
+                                {
+                                    done = true;
+                                    break;
+                                }
+
+                                value = item.Get(CommonProperties.Value);
+                            }
+                            catch
                             {
                                 done = true;
-                                break;
+                                throw;
                             }
 
-                            var value = item.Get(CommonProperties.Value);
                             array.SetIndexValue(index++, value, updateLength: false);
-                        } while (true);
+                        }
 
                         array.SetLength(index);
                     }
@@ -370,7 +379,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        ConsumeFromIterator(iterator!, out value, out done);
+                        value = StepValue(iterator!, ref done);
                     }
 
                     // Only an initializer the engine actually ran can be the subject of

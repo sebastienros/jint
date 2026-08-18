@@ -22,6 +22,19 @@ internal abstract class IteratorInstance : ObjectInstance
     public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
     /// <summary>
+    /// GetIterator (https://tc39.es/ecma262/#sec-getiterator) step 3 reads <c>next</c> off the object
+    /// the @@iterator method handed back, and every step then calls what that read produced. A
+    /// built-in iterator may only be stepped natively — skipping both the read and the call — while
+    /// the read would resolve to the very built-in function its native stepping implements.
+    /// <see cref="JsValue.TryGetIterator"/> asks this before adopting an instance as the iterator
+    /// record; a <see langword="false"/> answer wraps it in an <see cref="ObjectIterator"/>, which
+    /// performs the read and drives the iteration through the replacement.
+    /// The default is <see langword="true"/>: an iterator whose <c>next</c> the engine cannot observe
+    /// being replaced keeps stepping natively.
+    /// </summary>
+    internal virtual bool HasNativeNext => true;
+
+    /// <summary>
     /// Steps the iterator and hands back the value directly, letting concrete iterators skip
     /// the per-step IteratorResult object when nothing user-visible needs it (for-in keys).
     /// The default wraps <see cref="TryIteratorStep"/> with exactly the read the for-in/of

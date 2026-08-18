@@ -17,7 +17,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)] private static readonly JsString ArrayIteratorToStringTag = new("Array Iterator");
 
     // Captured by CreateProperties_Generated (via CaptureField below) before any user code can
-    // replace `next`; HasOriginalNext identity-compares against this snapshot to detect overrides.
+    // replace `next`; StepsNatively identity-compares against this snapshot to detect overrides.
     private FunctionInstance _originalNextFunction = null!;
 
     internal ArrayIteratorPrototype(
@@ -36,13 +36,15 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
     [JsFunction(Name = "next", CaptureField = nameof(_originalNextFunction))]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
+    /// <summary>
+    /// CreateArrayIterator (https://tc39.es/ecma262/#sec-createarrayiterator). The object handed back
+    /// is script-visible — it is what <c>[][Symbol.iterator]()</c> evaluates to — so it always
+    /// iterates <paramref name="array"/> with <paramref name="kind"/>, whatever <c>next</c> currently
+    /// resolves to. Whether a *consumer* may then step it natively instead of calling <c>next</c> is
+    /// decided where the iterator record is built, by <see cref="IteratorInstance.HasNativeNext"/>.
+    /// </summary>
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
-        if (!HasOriginalNext)
-        {
-            return new IteratorInstance.ObjectIterator(this);
-        }
-
         IteratorInstance instance = array is JsArray jsArray
             ? new ArrayIterator(Engine, jsArray, kind) { _prototype = this }
             : new ArrayLikeIterator(Engine, array, kind) { _prototype = this };
@@ -50,8 +52,14 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         return instance;
     }
 
-    internal bool HasOriginalNext
-        => ReferenceEquals(Get(CommonProperties.Next), _originalNextFunction);
+    /// <summary>
+    /// One read covers both ways an array iterator's <c>next</c> can stop being the built-in one: an
+    /// own <c>next</c> on the instance shadowing the prototype's, and the prototype's own <c>next</c>
+    /// having been replaced. A prototype swapped out from under the instance fails the type test and
+    /// is treated as replaced too.
+    /// </summary>
+    private bool StepsNatively(ObjectInstance iterator)
+        => ReferenceEquals(iterator.Get(CommonProperties.Next), _originalNextFunction);
 
     private sealed class ArrayIterator : IteratorInstance
     {
@@ -66,6 +74,9 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             _array = array;
             _position = 0;
         }
+
+        internal override bool HasNativeNext
+            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
@@ -136,6 +147,9 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
             _position = 0;
         }
+
+        internal override bool HasNativeNext
+            => _prototype is ArrayIteratorPrototype prototype && prototype.StepsNatively(this);
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
