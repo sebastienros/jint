@@ -227,7 +227,7 @@ public class GuardFusionTests
     {
         var engine = new Engine();
         // an object with the [[IsHTMLDDA]] internal slot (the document.all shape)
-        var htmlDDA = new Jint.Native.IsHTMLDDA(engine);
+        var htmlDDA = new Jint.Native.IsHTMLDDA(engine, engine.Realm);
         engine.SetValue("htmlDDA", (Jint.Native.JsValue) htmlDDA);
 
         // Annex B: loose equality with null/undefined is true (both orientations, both operators)
