@@ -112,11 +112,8 @@
 
     // Function source text and inferred names. Function.prototype.toString does not return the
     // original source for class expressions and some method forms, and NamedEvaluation does not
-    // reach every position the spec names (for-in heads, computed method keys, ...). Removed by
-    // carrying the source range and completing NamedEvaluation.
+    // reach the for-in head. Removed by carrying the source range and completing NamedEvaluation.
     "staging/sm/Function/function-name-for.js",
-    "staging/sm/Function/function-name-method.js",
-    "staging/sm/Function/function-name-property.js",
     "staging/sm/class/parenExprToString.js",
     "staging/sm/generators/runtime.js",
 
@@ -235,7 +232,6 @@
     "staging/sm/TypedArray/iterator-next-with-detached.js",
     "staging/sm/class/newTargetDVG.js",
     "staging/sm/class/superPropOrdering.js",
-    "staging/sm/expressions/computed-property-side-effects.js",
     "staging/sm/expressions/optional-chain.js",
     "staging/sm/extensions/extension-methods-reject-null-undefined-this.js",
     "staging/sm/extensions/quote-string-for-nul-character.js",

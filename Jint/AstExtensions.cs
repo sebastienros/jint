@@ -42,7 +42,7 @@ public static class AstExtensions
     internal static JsValue TryGetKey<T>(this T expression, Engine engine, bool resolveComputed) where T : Expression
     {
         JsValue key;
-        if (expression is Literal literal)
+        if (expression is Literal literal && (!resolveComputed || CanSkipComputedKeyEvaluation(literal)))
         {
             key = literal.Kind == TokenKind.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
         }
@@ -63,6 +63,34 @@ public static class AstExtensions
             key = JsValue.Undefined;
         }
         return key;
+    }
+
+    /// <summary>
+    /// Whether a computed key spelled as this literal may be turned into its key string directly instead of
+    /// running the full ComputedPropertyName evaluation
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-propertydefinitionevaluation, which is
+    /// <c>ToPropertyKey(? GetValue(? Evaluation(AssignmentExpression)))</c>).
+    /// <para>
+    /// The line is drawn at exactly the three literal kinds the grammar also admits in a *non-computed* key
+    /// position. Each evaluates to a primitive already, so ToPropertyKey is ToPrimitive (the identity on a
+    /// primitive) followed by ToString, and neither step can reach user code: the shortcut is therefore
+    /// observationally equivalent, and it is what keeps the common <c>{ ["foo"]: 1 }</c> and <c>{ [0]: 1 }</c>
+    /// shapes free of an expression build.
+    /// </para>
+    /// <para>
+    /// The remaining kinds are deliberately excluded. A RegExpLiteral evaluates to an *object*, so its
+    /// ToPropertyKey runs ToPrimitive and calls a user-replaceable <c>RegExp.prototype.toString</c>
+    /// (<c>({ [/a/]: 0 })</c> must key on <c>"/a/"</c>, and an overridden toString must be honoured, and may
+    /// throw). BooleanLiteral and NullLiteral are primitives whose conversion is pure, but there is nothing to
+    /// win — such a key is vanishingly rare — and shortcutting them means hand-spelling a conversion that can
+    /// drift from <see cref="TypeConverter"/>, which is exactly how <c>{ [true]: 1 }</c> came to bind
+    /// <c>"True"</c>. Let the evaluator produce the value and TypeConverter convert it.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanSkipComputedKeyEvaluation(Literal literal)
+    {
+        return literal.Kind is TokenKind.StringLiteral or TokenKind.NumericLiteral or TokenKind.BigIntLiteral;
     }
 
     internal static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
@@ -148,6 +176,12 @@ public static class AstExtensions
         return node is IChainElement { Optional: true };
     }
 
+    /// <summary>
+    /// Renders a literal the way JavaScript spells it. The first three branches are the only kinds that can
+    /// reach here as a property key (see <see cref="CanSkipComputedKeyEvaluation"/>); the rest exist for the
+    /// diagnostic callers that render an arbitrary literal — <see cref="JintExpression"/>'s source text for
+    /// error messages, and the call-stack argument rendering.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string LiteralKeyToString(Literal literal)
     {
@@ -155,20 +189,40 @@ public static class AstExtensions
         {
             return stringLiteral.Value;
         }
+
         // prevent conversion to scientific notation
-        else if (literal is NumericLiteral numericLiteral)
+        if (literal is NumericLiteral numericLiteral)
         {
             return TypeConverter.ToString(numericLiteral.Value);
         }
-        else if (literal is BigIntLiteral bigIntLiteral)
+
+        if (literal is BigIntLiteral bigIntLiteral)
         {
             return bigIntLiteral.Value.ToString(provider: null);
         }
-        else
+
+        return NonKeyLiteralToString(literal);
+    }
+
+    /// <summary>
+    /// The literal kinds that are never a property key: a non-computed key is a string/numeric/bigint literal
+    /// by grammar, and a computed one is evaluated and converted by <see cref="TypeConverter.ToPropertyKey"/>.
+    /// Only the diagnostic callers land here, and they get the JavaScript spelling rather than a CLR-formatted
+    /// one — <c>Convert.ToString</c> renders a boolean as <c>"True"</c>, and for a regex either the bare
+    /// pattern held by the <see cref="System.Text.RegularExpressions.Regex"/> or, when Acornima did not build
+    /// one, the empty string.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string NonKeyLiteralToString(Literal literal)
+    {
+        // Raw is the literal's own source text, which for a regex is exactly what
+        // RegExp.prototype.toString produces ("/a/gi").
+        return literal switch
         {
-            // We shouldn't ever reach this line in the case of a literal property key.
-            return Convert.ToString(literal.Value, provider: null) ?? "";
-        }
+            BooleanLiteral booleanLiteral => booleanLiteral.Value ? "true" : "false",
+            NullLiteral => "null",
+            _ => literal.Raw ?? "",
+        };
     }
 
     internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)
