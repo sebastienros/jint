@@ -65,6 +65,59 @@ Running everything is slow — filter unless you need the full set.
 
 The cross-engine comparison (`EngineComparisonBenchmark`) has its own notes and published results in [`Jint.Benchmark/README.md`](Jint.Benchmark/README.md). Run it from the `Jint.Benchmark` directory so the `Scripts/*.js` files resolve: `dotnet run -c Release -- --allCategories EngineComparison`.
 
+### The measurement environment
+
+Every benchmark runs under `JintBenchmarkConfig` (`Jint.Benchmark/JintBenchmarkConfig.cs`), applied globally from `Program.cs`. It exists because the suite previously ran on BenchmarkDotNet's bare `DefaultJob` — and almost everything needed here was already in BenchmarkDotNet and merely unused: `LaunchCount`, `WithAffinity`, `WithPowerPlan`, `WithGcConcurrent`, `WithEnvironmentVariable`, `AnalyzeLaunchVariance`, and the `MValue` column. BDN was already computing the multimodality statistic that marks a row as untrustworthy, and this project was throwing it away.
+
+**Keep the two error terms apart.** *Within-run noise* is what `StdDev` describes; BDN resamples it up to 100 iterations and the mean converges. *Between-run offset* — code layout, heap placement, tiered-compilation outcome, starting core — is constant within a process and varies between them, so with `LaunchCount = 1` **none of it reaches the reported error**. That is the shape of an A/B pair that looks decisive and then will not reproduce. More iterations cannot fix an offset; only more launches can.
+
+Three modes, selected by `JINT_BENCH_MODE`:
+
+| Mode | What it adds | Use it for |
+| --- | --- | --- |
+| `stable` (default) | machine-idle check, affinity, fixed-clock plan, blocking GC | day-to-day development |
+| `gate` | the above plus `LaunchCount=3` and launch-variance analysis | **any number quoted in a PR** |
+| `legacy` | nothing — bare `DefaultJob` | measuring the old environment for comparison |
+
+The machine-specific pieces all fail safe. The **affinity mask is derived, never hard-coded** (`BenchmarkTopology`): it picks the last-level-cache domain containing CPU 0 and drops physical core 0, falling back to no pinning on non-Windows, on multi-group machines and on anything too small to pin. On the gating 5950X that is CPU 2–15 — one 32 MB L3 domain, so a thread cannot migrate across the CCD boundary and lose its last-level working set.
+
+**What each control actually costs**, measured one factor at a time against `legacy` on a machine verified idle (medians over six `GuardComparisonBenchmark` rows, three launches each):
+
+| control | cost | variance benefit |
+| --- | --- | --- |
+| blocking GC | +1.1% | none that survives the noise |
+| affinity | +3.2% (+1.6% excluding one bimodal row) | none that survives the noise |
+| **fixed-clock power plan** | **+47%** | **none** |
+
+So pinning and GC mode are kept because they are free and have a principled rationale, not because this experiment proved they help. The **fixed clock is opt-in** and needs *both* `JINT_BENCH_FIXED_CLOCK=1` and `JINT_BENCH_POWERPLAN`: the GUID tends to live in a user-level environment variable forever, and applying it implicitly would silently cost ~47% on every run thereafter. It does buy one thing the numbers support — it removes boost as a free variable (measured 3,375 MHz with peak equal to mean, against 4,744 MHz peak), so absolute figures become comparable across sessions. Create the plan once with `Jint.Benchmark/setup-benchmark-machine.ps1` (elevated).
+
+> **`MachineStateValidator` refuses to start on a busy machine**, naming the offending processes. BDN has no such notion and will happily format a beautiful table from a contaminated run — the failure is otherwise completely silent. `CompatTelRunner.exe` (Microsoft Compatibility Telemetry) is a repeat offender here and starts on its own schedule; it was caught taking 65% of a core. Override with `JINT_BENCH_SKIP_IDLE_CHECK=1` only when the numbers do not need to be gate-quality.
+
+> **After any interrupted run, `./setup-benchmark-machine.ps1 -Restore`.** BDN restores the power plan only on a clean exit. A killed run leaves the fixed-clock plan active *and* can leave an orphaned `Jint.Benchmark` process that re-applies it, so whatever runs next silently runs at nominal frequency.
+
+**Tiered compilation and dynamic PGO stay at production defaults, and nothing works around them.** Turning tiering off does tighten the spread, but it measures code no embedder runs and forfeits PGO's devirtualization — most of the win for a tree-walking interpreter. Two mitigations were built and measured against a verified-idle baseline on `TypeofStringGuard` over ten launches, and **neither shipped**:
+
+| config | StdDev | MValue |
+| --- | --- | --- |
+| production defaults | **0.783 ms** | 2.000 (unimodal) |
+| run to JIT quiescence (`JitInfo.GetCompiledMethodCount`) | 1.224 ms | 2.000 |
+| `DOTNET_TC_QuickJitForLoops=0` + `DOTNET_TC_CallCountingDelayMs=0` | 1.275 ms | 2.795 (and ~13% slower) |
+
+The same row measured StdDev 1.946 ms and looked bimodal on a machine that was quietly busy. **The "bistable slow mode" that looked like a tiering artifact was mostly contention** — which is the strongest argument for the idle check above, and a warning against diagnosing the runtime from numbers taken on a shared machine.
+
+**No machine control reduced the between-process offset**, which is the term that actually breaks reproducibility. Only sampling it helps, which is what `LaunchCount` and the paired comparison below are for.
+
+**Comparing two builds:** BDN runs all of job A then all of job B, so anything that drifts between those two windows becomes a systematic between-arm bias (BDN issue #2004 is that symptom). `Jint.Benchmark/measure-paired.ps1` interleaves the two worktrees round by round, alternating order, and reports the per-round *difference* with a percentile bootstrap CI — the paired ("duet") design, reported in the literature as 2.3–12.5× more accurate than measuring the two separately. **A row is a regression only when its CI excludes zero.**
+
+Validated with an A/A run (the same worktree as both sides, six rounds), which correctly reported *no change* on both rows and calibrates the detection floor:
+
+| row | median Δ | 95% CI |
+| --- | --- | --- |
+| `NullCheckBenchmark.LooseEqualNull` | −0.49% | [−2.37, +0.59] |
+| `NullCheckBenchmark.LooseNotEqualNull` | −0.23% | [−1.03, +0.71] |
+
+So six rounds resolves roughly a 1–2.5% effect on these rows; add rounds rather than reading the median on its own when the interval is too wide to decide. **This is also why the old flat "1% blocks" rule cannot work as stated** — on many rows 1% is below what the measurement can resolve, so it manufactures re-runs rather than catching regressions.
+
 ### Adding a new benchmark
 
 1. Create a class in `Jint.Benchmark/` with `[MemoryDiagnoser]`.
