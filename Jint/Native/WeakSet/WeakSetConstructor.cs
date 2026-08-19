@@ -24,6 +24,9 @@ internal sealed class WeakSetConstructor : Constructor
 
     private WeakSetPrototype PrototypeObject { get; }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-weakset-iterable
+    /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
@@ -79,19 +82,20 @@ internal sealed class WeakSetConstructor : Constructor
                         _engine.Constraints.Check();
                     }
 
-                    if (!iterable.TryIteratorStep(out var next))
+                    if (!iterable.TryIteratorStepValue(out var nextValue))
                     {
                         return set;
                     }
 
-                    var nextValue = next.Get(CommonProperties.Value);
                     args[0] = nextValue;
                     adder.Call(set, args);
                 } while (true);
             }
             catch
             {
-                iterable.Close(CompletionType.Throw);
+                // Step 8.d closes for the adder's own abrupt completion (step 8.c); step 8.a's does
+                // not, and [[Done]] is what tells the two apart on every iteration, not just the first.
+                iterable.CloseIfNotDone(CompletionType.Throw);
                 throw;
             }
         }

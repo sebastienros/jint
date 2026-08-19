@@ -439,6 +439,14 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
+                // Steps 8.a-8.f (next(), the await, the non-object check, the "done" read and the
+                // "value" read) all propagate with ?, and step 8.e returns iterationResult when done
+                // — none of them reaches IteratorClose. So the loop enters every iteration with
+                // nothing to close, and only a completed step (below) arms it. Re-arming per
+                // iteration is what keeps a next() that throws on the SECOND step from closing on
+                // the strength of the first step's success.
+                close = false;
+
                 engine.ExecutionContext.ClearCompletedAwaitsIfNotResuming();
 
                 DeclarativeEnvironment? iterationEnv = null;
@@ -524,7 +532,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             var doneVal = nextResult.Get(CommonProperties.Done);
                             if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
                             {
-                                close = true;
+                                // step 8.e: "If done is true, return iterationResult" — no close
                                 suspendable?.Data.Clear(this);
                                 return new Completion(CompletionType.Normal, v, _statement!);
                             }
@@ -575,7 +583,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                             var doneVal = nextResult.Get(CommonProperties.Done);
                             if (!doneVal.IsUndefined() && TypeConverter.ToBoolean(doneVal))
                             {
-                                close = true;
+                                // step 8.e: "If done is true, return iterationResult" — no close
                                 suspendable?.Data.Clear(this);
                                 return new Completion(CompletionType.Normal, v, _statement!);
                             }
@@ -591,7 +599,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     // Get(value) sequence for everything else.
                     if (!iteratorRecord.TryStepValue(out var steppedValue))
                     {
-                        close = true;
+                        // step 8.e: "If done is true, return iterationResult" — no close. An
+                        // iterator that runs out is not closed; only an abrupt completion of the
+                        // binding or the body (below) reaches IteratorClose.
                         // Clean up suspend data on normal completion
                         suspendable?.Data.Clear(this);
                         return new Completion(CompletionType.Normal, v, _statement!);
@@ -600,6 +610,8 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                     nextValue = steppedValue;
                 }
 
+                // The step produced a value, so from here on an abrupt completion is the loop's own
+                // (steps 8.i and 8.m) and does reach IteratorClose.
                 close = true;
 
                 var valueForResume = nextValue;
