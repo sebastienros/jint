@@ -89,16 +89,6 @@
     "staging/sm/class/parenExprToString.js",
     "staging/sm/generators/runtime.js",
 
-    // Math precision. Jint delegates to the BCL, whose acosh/asinh/atanh/cbrt/expm1/log1p differ
-    // from the reference values in the last few ULPs, and expm1/log1p flush 1e-300 to zero. Removed
-    // by implementing these with the spec-grade algorithms rather than the BCL primitives.
-    "staging/sm/Math/acosh-approx.js",
-    "staging/sm/Math/asinh-approx.js",
-    "staging/sm/Math/atanh-approx.js",
-    "staging/sm/Math/cbrt-approx.js",
-    "staging/sm/Math/expm1-approx.js",
-    "staging/sm/Math/log1p-approx.js",
-
     // Number conversion and formatting. toFixed/toPrecision lose the exact mathematical value for
     // extreme magnitudes and subnormals, and ToPrimitive on a Number wrapper consults the wrong
     // method. Removed by exact-value formatting and a spec-order OrdinaryToPrimitive.
