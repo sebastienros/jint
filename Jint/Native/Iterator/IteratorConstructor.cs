@@ -90,7 +90,7 @@ internal sealed partial class IteratorConstructor : Constructor
         var iteratorRecord = GetIteratorFlattenable(o, StringHandlingType.IterateStrings, out var underlyingIterator);
 
         // 3. Let hasInstance be ? OrdinaryHasInstance(%Iterator%, iteratorRecord.[[Iterator]]).
-        var hasInstance = _engine.Intrinsics.Iterator.OrdinaryHasInstance(underlyingIterator);
+        var hasInstance = _realm.Intrinsics.Iterator.OrdinaryHasInstance(underlyingIterator);
 
         // 4. If hasInstance is true, return iteratorRecord.[[Iterator]].
         if (TypeConverter.ToBoolean(hasInstance))
@@ -101,7 +101,7 @@ internal sealed partial class IteratorConstructor : Constructor
         // 5. Let wrapper be OrdinaryObjectCreate(%WrapForValidIteratorPrototype%, « [[Iterated]] »).
         // 6. Set wrapper.[[Iterated]] to iteratorRecord.
         // 7. Return wrapper.
-        var wrapper = new WrapForValidIterator(_engine, iteratorRecord);
+        var wrapper = new WrapForValidIterator(_engine, _realm, iteratorRecord);
         return wrapper;
     }
 

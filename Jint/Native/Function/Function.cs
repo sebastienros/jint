@@ -58,6 +58,13 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal PrivateEnvironment? _privateEnvironment;
     internal readonly IScriptOrModule? _scriptOrModule;
 
+    /// <summary>
+    /// Coerces a built-in's callback argument, raising the TypeError from this function's own
+    /// <c>[[Realm]]</c> rather than from whichever realm is running. See the same helper on
+    /// <see cref="Prototype"/> for why it is not declared on <see cref="ObjectInstance"/>.
+    /// </summary>
+    private protected ICallable GetCallable(JsValue source) => source.GetCallable(_realm);
+
     protected Function(
         Engine engine,
         Realm realm,

@@ -25,6 +25,21 @@ public sealed class JsArray : ArrayInstance
     {
     }
 
+    /// <summary>
+    /// Creates an array belonging to <paramref name="constructor"/>'s realm rather than to whichever
+    /// realm happens to be running. Built-ins that create a result array use this so a cross-realm call
+    /// returns an array inheriting from the callee's <c>Array.prototype</c>.
+    /// </summary>
+    internal JsArray(ArrayConstructor constructor, uint capacity = 0, uint length = 0)
+        : base(constructor.Engine, capacity, length, constructor)
+    {
+    }
+
+    /// <inheritdoc cref="JsArray(ArrayConstructor, uint, uint)"/>
+    internal JsArray(ArrayConstructor constructor, JsValue[] items) : base(constructor.Engine, items, constructor)
+    {
+    }
+
     public uint Length => GetLength();
 
     private sealed class JsArrayDebugView

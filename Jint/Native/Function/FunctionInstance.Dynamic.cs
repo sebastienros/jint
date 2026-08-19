@@ -165,7 +165,11 @@ public partial class Function
             else
             {
                 Parser parser = new(parserOptions);
-                var function = (IFunction) parser.ParseScriptGuarded(callerRealm, functionExpression, strict: _engine._isStrict).Body[0];
+                // CreateDynamicFunction step 21 throws its SyntaxError in the current realm, and the
+                // current realm while a built-in runs is the built-in's own [[Realm]] — not the caller's.
+                // Jint does not push an execution context for a built-in call, so _engine.ExecutionContext
+                // still describes the caller here and only _realm names the callee.
+                var function = (IFunction) parser.ParseScriptGuarded(_realm, functionExpression, strict: _engine._isStrict).Body[0];
                 definition = new JintFunctionDefinition(function)
                 {
                     IsDynamic = true,
@@ -192,7 +196,7 @@ public partial class Function
         }
         catch (ParseErrorException ex)
         {
-            Throw.SyntaxError(_engine.ExecutionContext.Realm, ex.Message);
+            Throw.SyntaxError(_realm, ex.Message);
         }
 
         var proto = GetPrototypeFromConstructor(newTarget, fallbackProto);

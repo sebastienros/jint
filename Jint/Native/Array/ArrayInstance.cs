@@ -71,9 +71,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         _dense = [];
     }
 
-    private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
+    private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0, ArrayConstructor? constructor = null) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
     {
-        InitializePrototypeAndValidateCapacity(engine, System.Math.Max(capacity, length));
+        InitializePrototypeAndValidateCapacity(engine, System.Math.Max(capacity, length), constructor);
 
         if (capacity < MaxDenseArrayLength)
         {
@@ -87,9 +87,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         _lengthValue = JsNumber.Create(length);
     }
 
-    private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
+    private protected ArrayInstance(Engine engine, JsValue[] items, ArrayConstructor? constructor = null) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
     {
-        InitializePrototypeAndValidateCapacity(engine, capacity: 0);
+        InitializePrototypeAndValidateCapacity(engine, capacity: 0, constructor);
 
         // _dense must be an exact JsValue[] so the dense element-write fast paths can store any JsValue
         // without paying a per-write CLR array-covariance check (see WriteDenseUnchecked). Array covariance
@@ -111,9 +111,15 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         _lengthValue = JsNumber.Create(items.Length);
     }
 
-    private void InitializePrototypeAndValidateCapacity(Engine engine, uint capacity)
+    /// <summary>
+    /// A <paramref name="constructor"/> of <c>null</c> means "whichever realm is running", which is what
+    /// the public <see cref="JsArray"/> constructors have always done and must keep doing. Every in-box
+    /// built-in that creates a result array names its own <c>%Array%</c> instead, so a cross-realm call
+    /// produces an array inheriting from the callee's <c>Array.prototype</c> rather than the caller's.
+    /// </summary>
+    private void InitializePrototypeAndValidateCapacity(Engine engine, uint capacity, ArrayConstructor? constructor)
     {
-        _constructor = engine.Realm.Intrinsics.Array;
+        _constructor = constructor ?? engine.Realm.Intrinsics.Array;
         _prototype = _constructor.PrototypeObject;
 
         // Validates against the larger of the physical backing capacity and the declared length:
@@ -1661,7 +1667,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         var len = GetLength();
 
-        var callable = GetCallable(callbackfn);
+        // `this` is the receiver, not the built-in that owns the algorithm (ArrayPrototype delegates
+        // here), so no callee realm is reachable and the running one is the best available answer.
+        var callable = callbackfn.GetCallable(_engine.Realm);
         var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
         for (uint k = 0; k < len; k++)
@@ -1691,7 +1699,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         var len = GetLength();
 
-        var callable = GetCallable(callbackfn);
+        // `this` is the receiver, not the built-in that owns the algorithm (ArrayPrototype delegates
+        // here), so no callee realm is reachable and the running one is the best available answer.
+        var callable = callbackfn.GetCallable(_engine.Realm);
 
         // Output size is unknown (only bounded by len); accumulate into a pooled buffer and
         // materialize an exact-size result instead of growing the result's dense backing by
@@ -1738,7 +1748,9 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         bool visitUnassigned,
         bool fromEnd = false)
     {
-        var callable = GetCallable(callbackfn);
+        // `this` is the receiver, not the built-in that owns the algorithm (ArrayPrototype delegates
+        // here), so no callee realm is reachable and the running one is the best available answer.
+        var callable = callbackfn.GetCallable(_engine.Realm);
 
         var len = GetLength();
         if (len == 0)

@@ -79,9 +79,11 @@ internal sealed class WrapForValidIterator : ObjectInstance
 {
     internal readonly IteratorInstance.ObjectIterator Iterated;
 
-    public WrapForValidIterator(Engine engine, IteratorInstance.ObjectIterator iterated) : base(engine)
+    public WrapForValidIterator(Engine engine, Realm realm, IteratorInstance.ObjectIterator iterated) : base(engine)
     {
         Iterated = iterated;
-        _prototype = engine.Realm.Intrinsics.WrapForValidIteratorPrototype;
+        // The realm is the one Iterator.from itself belongs to, not whichever realm is running:
+        // step 5 creates the wrapper from the callee's %WrapForValidIteratorPrototype%.
+        _prototype = realm.Intrinsics.WrapForValidIteratorPrototype;
     }
 }
