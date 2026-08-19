@@ -1233,38 +1233,49 @@ public partial class EngineTests : IDisposable
         result.Should().Be(msPriorMidnight);
     }
 
+    /// <summary>
+    /// Wall-clock readings in the Pacific zone, carried as text rather than as <see cref="DateTime"/>.
+    /// xUnit serializes a theory's <see cref="DateTime"/> argument through <see cref="DateTime.ToUniversalTime"/>,
+    /// which reinterprets a <see cref="DateTimeKind.Unspecified"/> value as the runner machine's local time and
+    /// shifts it, so the value arriving here would depend on where the suite ran.
+    /// </summary>
     public static System.Collections.Generic.IEnumerable<object[]> TestDates
     {
         get
         {
-            yield return [new DateTime(2000, 1, 1)];
-            yield return [new DateTime(2000, 1, 1, 0, 15, 15, 15)];
-            yield return [new DateTime(2000, 6, 1, 0, 15, 15, 15)];
-            yield return [new DateTime(1900, 1, 1)];
-            yield return [new DateTime(1900, 1, 1, 0, 15, 15, 15)];
-            yield return [new DateTime(1900, 6, 1, 0, 15, 15, 15)];
+            yield return ["2000-01-01T00:00:00.000"];
+            yield return ["2000-01-01T00:15:15.015"];
+            yield return ["2000-06-01T00:15:15.015"];
+            yield return ["1900-01-01T00:00:00.000"];
+            yield return ["1900-01-01T00:15:15.015"];
+            yield return ["1900-06-01T00:15:15.015"];
         }
     }
 
-    [Theory, MemberData("TestDates")]
-    public void TestDateToISOStringFormat(DateTime testDate)
+    private static DateTime ParseTestDate(string testDate)
+        => DateTime.ParseExact(testDate, "yyyy-MM-dd'T'HH:mm:ss.fff", CultureInfo.InvariantCulture);
+
+    [Theory, MemberData(nameof(TestDates))]
+    public void TestDateToISOStringFormat(string testDate)
     {
         var customTimeZone = _pacificTimeZone;
 
         var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
-        var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+        var date = ParseTestDate(testDate);
+        var testDateTimeOffset = new DateTimeOffset(date, customTimeZone.GetUtcOffset(date));
         engine.Execute(
             string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
         engine.Evaluate("d.toISOString();").ToString().Should().Be(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
     }
 
     [Theory, MemberData(nameof(TestDates))]
-    public void TestDateToStringFormat(DateTime testDate)
+    public void TestDateToStringFormat(string testDate)
     {
         var customTimeZone = _pacificTimeZone;
 
         var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
-        var dt = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+        var date = ParseTestDate(testDate);
+        var dt = new DateTimeOffset(date, customTimeZone.GetUtcOffset(date));
         var dateScript = $"var d = new Date({dt.Year}, {dt.Month - 1}, {dt.Day}, {dt.Hour}, {dt.Minute}, {dt.Second}, {dt.Millisecond});";
         engine.Execute(dateScript);
 
