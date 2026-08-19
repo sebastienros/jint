@@ -653,4 +653,129 @@ public class DateTests
         result2.Should().Contain("GMT+1200");
         result2.Should().Contain("Sep 28 2025 00:00:00");
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date.prototype.settime sets [[DateValue]] to the clipped value v,
+    /// and setTime stored the raw argument instead — the one setter in the file that did.
+    /// The returned value was always right, so the object and its own return value disagreed. It
+    /// surfaces because an infinite argument becomes a DatePresentation flagged Infinity whose Value
+    /// is 0, so getTime read the stored infinity back as the epoch rather than as NaN.
+    /// </summary>
+    [Theory]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    [InlineData("NaN")]
+    [InlineData("8.64e15 + 1")]
+    [InlineData("-8.64e15 - 1")]
+    [InlineData("Number.MAX_VALUE")]
+    [InlineData("-Number.MAX_VALUE")]
+    public void SetTimeStoresTheClippedTimeValue(string argument)
+    {
+        _engine.Execute($"var d = new Date(); var returned = d.setTime({argument});");
+
+        double.IsNaN(_engine.Evaluate("returned").AsNumber()).Should().BeTrue("setTime returns the clipped value");
+        double.IsNaN(_engine.Evaluate("d.getTime()").AsNumber()).Should().BeTrue("getTime reports the clipped value");
+        double.IsNaN(_engine.Evaluate("d.valueOf()").AsNumber()).Should().BeTrue("valueOf reports the clipped value");
+
+        // Numeric coercion of a Date has its own fast path in TypeConverter.ToNumeric, which reads
+        // [[DateValue]] directly rather than going through valueOf, so it has to agree as well.
+        double.IsNaN(_engine.Evaluate("+d").AsNumber()).Should().BeTrue("unary + reports the clipped value");
+    }
+
+    /// <summary>
+    /// The extremes https://tc39.es/ecma262/#sec-timeclip admits are legal time values and must survive
+    /// the round trip untouched — clipping one millisecond too eagerly would be the opposite defect.
+    /// </summary>
+    [Theory]
+    [InlineData("8.64e15", 8640000000000000d)]
+    [InlineData("-8.64e15", -8640000000000000d)]
+    [InlineData("0", 0d)]
+    [InlineData("-1", -1d)]
+    public void SetTimeAtTheClipBoundaryRoundTrips(string argument, double expected)
+    {
+        _engine.Execute($"var d = new Date(); var returned = d.setTime({argument});");
+
+        _engine.Evaluate("returned").AsNumber().Should().Be(expected);
+        _engine.Evaluate("d.getTime()").AsNumber().Should().Be(expected);
+        _engine.Evaluate("d.valueOf()").AsNumber().Should().Be(expected);
+        _engine.Evaluate("+d").AsNumber().Should().Be(expected);
+    }
+
+    [Fact]
+    public void SetTimeAtTheUpperClipBoundaryStillFormats()
+    {
+        _engine.Execute("var d = new Date(); d.setTime(8.64e15);");
+        _engine.Evaluate("d.toISOString()").AsString().Should().Be("+275760-09-13T00:00:00.000Z");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date.prototype.toisostring throws a RangeError when [[DateValue]] is
+    /// NaN, which in the spec's value domain is every non-finite time value there is. Jint's
+    /// DatePresentation is wider — an infinity is flags plus a Value of 0 — so the IsNaN guard let one
+    /// through to the formatter, which produced the epoch string for it.
+    /// </summary>
+    [Theory]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    [InlineData("NaN")]
+    [InlineData("Number.MAX_VALUE")]
+    [InlineData("8.64e15 + 1")]
+    public void ToIsoStringThrowsRangeErrorForANonFiniteTimeValue(string argument)
+    {
+        _engine.Execute($"var d = new Date(); d.setTime({argument});");
+
+        _engine.Evaluate("(function () { try { return d.toISOString(); } catch (e) { return e.constructor.name; } })()")
+            .AsString().Should().Be("RangeError");
+    }
+
+    [Fact]
+    public void ToIsoStringThrowsRangeErrorForADateConstructedFromNaN()
+    {
+        _engine.Evaluate("(function () { try { return new Date(NaN).toISOString(); } catch (e) { return e.constructor.name; } })()")
+            .AsString().Should().Be("RangeError");
+    }
+
+    /// <summary>
+    /// The invariant behind both of the above, stated once: whatever setTime hands back is what the
+    /// object then reports. Object.is rather than === so the NaN rows say something.
+    /// </summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1")]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("8.64e15")]
+    [InlineData("-8.64e15")]
+    [InlineData("8.64e15 + 1")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    [InlineData("NaN")]
+    [InlineData("Number.MAX_VALUE")]
+    public void SetTimeReturnsWhatGetTimeSubsequentlyReports(string argument)
+    {
+        _engine.Evaluate($"var d = new Date(); var returned = d.setTime({argument}); Object.is(returned, d.getTime()) && Object.is(returned, d.valueOf());")
+            .AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The class of defect rather than the instance: DatePresentation stores an infinity as flags plus a
+    /// Value of 0, so any reader testing IsNaN alone reads it back as the epoch. ToJsValue is the single
+    /// place every such read funnels through, so answering NaN for anything that is not a finite in-range
+    /// time value closes it for the next caller too.
+    /// </summary>
+    [Fact]
+    public void AnInfinityFlaggedDatePresentationReadsBackAsNaN()
+    {
+        DatePresentation positive = double.PositiveInfinity;
+        positive.IsInfinity.Should().BeTrue();
+        double.IsNaN(positive.ToJsValue().AsNumber()).Should().BeTrue();
+
+        DatePresentation negative = double.NegativeInfinity;
+        negative.IsInfinity.Should().BeTrue();
+        double.IsNaN(negative.ToJsValue().AsNumber()).Should().BeTrue();
+
+        // The DateTime sentinels are finite, in-range time values and must keep reading back as numbers.
+        DatePresentation.MinValue.ToJsValue().AsNumber().Should().Be(JsDate.Min);
+        DatePresentation.MaxValue.ToJsValue().AsNumber().Should().Be(JsDate.Max);
+    }
 }
