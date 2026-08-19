@@ -10,9 +10,60 @@ internal abstract class JintExpression
 {
     protected internal readonly Expression _expression;
 
+    /// <summary>
+    /// The signal one optional-chain link hands the next when the chain short-circuits — that is, when a
+    /// <c>?.</c> found its <em>own</em> base nullish (https://tc39.es/ecma262/#sec-optional-chaining-evaluation).
+    /// It exists so that a short circuit is distinguishable from a link that legitimately produced
+    /// <c>undefined</c>: <c>({})?.a['b']</c> must throw because <c>({})?.a</c> did not short-circuit, and
+    /// <c>(0, undefined)()</c> must throw because nothing in it is a chain at all.
+    /// <para>
+    /// It cannot reach a script. A link produces it only when the node that evaluates it asked to receive
+    /// it — <see cref="EnableShortCircuitPropagation"/>, called at build time by the member/call node that
+    /// owns it as its object/callee — and every such node tests for it in the statement immediately
+    /// following that evaluation and returns instead of using it. A link nobody asked (the outermost link
+    /// of the chain, i.e. whatever a <c>ChainExpression</c> wraps) returns a real
+    /// <see cref="JsValue.Undefined"/>, which is precisely what the chain's value is.
+    /// </para>
+    /// </summary>
+    private protected static readonly JsValue ShortCircuited = OptionalChainShortCircuit.Instance;
+
     protected JintExpression(Expression expression)
     {
         _expression = expression;
+    }
+
+    /// <summary>
+    /// Tells this node that whoever built it will evaluate it as the base of the next link in the same
+    /// optional chain, and so will consume <see cref="ShortCircuited"/> rather than mistake it for a value.
+    /// Only the two link types — <see cref="JintMemberExpression"/> and <see cref="JintCallExpression"/> —
+    /// can short-circuit at all, so every other node ignores the request. Build time only; nothing calls
+    /// this during evaluation.
+    /// </summary>
+    internal virtual void EnableShortCircuitPropagation()
+    {
+    }
+
+    /// <summary>
+    /// Whether evaluating <paramref name="expression"/> can end in an optional chain's short circuit: it is
+    /// itself a <c>?.</c> link, or it is a link whose own base can. A <c>ChainExpression</c> is deliberately
+    /// transparent here — the predicate gates fast paths, where over-approximating costs a fast lane and
+    /// never correctness; the chain <em>boundary</em> a <c>ChainExpression</c> marks is honoured where
+    /// propagation is enabled instead.
+    /// </summary>
+    private protected static bool CanShortCircuit(Expression expression)
+    {
+        if (expression.IsOptional())
+        {
+            return true;
+        }
+
+        return expression switch
+        {
+            ChainExpression chainExpression => CanShortCircuit(chainExpression.Expression),
+            CallExpression callExpression => CanShortCircuit(callExpression.Callee),
+            MemberExpression memberExpression => CanShortCircuit(memberExpression.Object),
+            _ => false
+        };
     }
 
     /// <summary>
@@ -573,4 +624,28 @@ internal abstract class JintExpression
     {
         return left._type == right._type && left._type == InternalTypes.Integer;
     }
+}
+
+/// <summary>
+/// The single instance behind <see cref="JintExpression.ShortCircuited"/>. A dedicated type rather than a
+/// reused <see cref="JsValue.Undefined"/> (which is exactly what made the short circuit indistinguishable
+/// from a value) or a marker string (which would masquerade as one if it ever escaped): it claims no
+/// JavaScript type at all, so nothing coerces or compares it into looking like a value, and the one member
+/// through which a host could observe it throws instead of answering.
+/// </summary>
+internal sealed class OptionalChainShortCircuit : JsValue
+{
+    internal static readonly OptionalChainShortCircuit Instance = new();
+
+    private OptionalChainShortCircuit() : base(Types.Empty)
+    {
+    }
+
+    public override object? ToObject()
+    {
+        Throw.InvalidOperationException("The optional chain short-circuit signal escaped the chain that produced it.");
+        return null;
+    }
+
+    public override string ToString() => "[[optional chain short-circuit]]";
 }

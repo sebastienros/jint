@@ -172,15 +172,12 @@
     "staging/sm/Function/arguments-parameter-shadowing.js",
     "staging/sm/regress/regress-552432.js",
 
-    // Argument validation raising no error, or the wrong one, on built-ins called with a bad this
-    // or a bad index. Includes SpiderMonkey's own toSource extension, which Jint does not implement
-    // at all -- that half is removed by the test moving, not by Jint changing.
+    // Argument validation raising no error, or the wrong one: a bad this or a bad index reaching a
+    // built-in, a NUL-bearing string reaching one, and the order in which a super reference is
+    // evaluated against its side effects.
     "staging/sm/TypedArray/constructor-byteoffsets-bounds.js",
     "staging/sm/TypedArray/iterator-next-with-detached.js",
-    "staging/sm/class/newTargetDVG.js",
     "staging/sm/class/superPropOrdering.js",
-    "staging/sm/expressions/optional-chain.js",
-    "staging/sm/extensions/extension-methods-reject-null-undefined-this.js",
     "staging/sm/extensions/quote-string-for-nul-character.js",
     "staging/sm/misc/builtin-methods-reject-null-undefined-this.js",
 

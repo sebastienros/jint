@@ -81,12 +81,25 @@ internal sealed class JintMemberExpression : JintExpression
 
     private static readonly JsValue _nullMarker = new JsString("NULL MARKER");
 
+    // Set by the next link of the same optional chain (see JintExpression.EnableShortCircuitPropagation):
+    // true means this node's short circuit is consumed by its parent link, false means this node is the
+    // outermost link and its short circuit is the chain's value, i.e. a real undefined.
+    private bool _propagatesShortCircuit;
+
     public JintMemberExpression(MemberExpression expression) : base(expression)
     {
         _memberExpression = (MemberExpression) _expression;
         _objectExpression = Build(_memberExpression.Object);
         _objectExpressionCanShortCircuit = CanShortCircuit(_memberExpression.Object);
         _objectReadKeepsRawEnvironmentWalk = _objectExpression is JintIdentifierExpression { HasEvalOrArguments: true };
+
+        // A ChainExpression object is a chain of its own whose value has already been taken (`(a?.b).c`),
+        // so its short circuit is a real undefined and this member access must run against it — that is the
+        // whole difference the parentheses make. Anything else is the same chain continuing.
+        if (_objectExpressionCanShortCircuit && _memberExpression.Object.Type != NodeType.ChainExpression)
+        {
+            _objectExpression.EnableShortCircuitPropagation();
+        }
 
         // Computed reads like a[i] / a[i][j] / a[0] (but not super[i] or optional a?.[i]) can take a
         // dense-array fast path in GetValue that resolves base+index without a Reference rent.
@@ -214,21 +227,15 @@ internal sealed class JintMemberExpression : JintExpression
         return property ?? _nullMarker;
     }
 
-    private static bool CanShortCircuit(Expression expression)
-    {
-        if (expression.IsOptional())
-        {
-            return true;
-        }
+    internal override void EnableShortCircuitPropagation() => _propagatesShortCircuit = true;
 
-        return expression switch
-        {
-            ChainExpression chainExpression => CanShortCircuit(chainExpression.Expression),
-            CallExpression callExpression => CanShortCircuit(callExpression.Callee),
-            MemberExpression memberExpression => CanShortCircuit(memberExpression.Object),
-            _ => false
-        };
-    }
+    /// <summary>
+    /// What this link returns when the chain short-circuits here or below: the signal when the next link
+    /// is waiting for it, and the chain's actual value — <c>undefined</c> — when this is the outermost
+    /// link. Only ever reached from a link that can short-circuit, which is exactly the shape whose fast
+    /// paths <see cref="_objectExpressionCanShortCircuit"/> and <c>_memberExpression.Optional</c> disarm.
+    /// </summary>
+    private JsValue ShortCircuit() => _propagatesShortCircuit ? ShortCircuited : JsValue.Undefined;
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
@@ -301,9 +308,11 @@ internal sealed class JintMemberExpression : JintExpression
                     // check bails before use.
                     return context.Engine._referencePool.Rent(JsValue.Undefined, JsValue.Undefined, strict, thisValue: null);
                 }
-                if (ReferenceEquals(JsValue.Undefined, baseReference))
+                if (ReferenceEquals(ShortCircuited, baseReference))
                 {
-                    return JsValue.Undefined;
+                    // A link below short-circuited. Stop here without evaluating the property expression
+                    // — `undefined?.x[y + 1]` must not evaluate `y + 1` — and hand the signal on.
+                    return ShortCircuit();
                 }
                 if (baseReference is Reference reference)
                 {
@@ -316,9 +325,12 @@ internal sealed class JintMemberExpression : JintExpression
                 }
             }
 
-            if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
+            // Only this link's own `?.` short-circuits. An object expression that merely *contains* one
+            // (`({})?.a` in `({})?.a['b']`) has already decided not to short-circuit and produced a
+            // genuine undefined, so this access must run against it and throw.
+            if (_memberExpression.Optional && baseValue.IsNullOrUndefined())
             {
-                return JsValue.Undefined;
+                return ShortCircuit();
             }
         }
 

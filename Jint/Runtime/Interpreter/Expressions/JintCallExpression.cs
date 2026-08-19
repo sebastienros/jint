@@ -82,6 +82,11 @@ internal sealed class JintCallExpression : JintExpression
     /// </summary>
     private const int MaxRegisterArguments = 4;
 
+    // Set by the next link of the same optional chain (see JintExpression.EnableShortCircuitPropagation):
+    // true means this node's short circuit is consumed by its parent link, false means this node is the
+    // outermost link and its short circuit is the chain's value, i.e. a real undefined.
+    private bool _propagatesShortCircuit;
+
     public JintCallExpression(CallExpression expression) : base(expression)
     {
         _arguments.Initialize(expression.Arguments.AsSpan());
@@ -90,10 +95,26 @@ internal sealed class JintCallExpression : JintExpression
         _calleeMember = _calleeExpression as JintMemberExpression;
         _isTailPosition = ReferenceEquals(expression.UserData, TailCallMarker.Instance);
 
+        // A ChainExpression callee is a chain of its own whose value has already been taken
+        // (`(a?.b)()`), so its short circuit is a real undefined and this call must run against it.
+        // Anything else is the same chain continuing.
+        if (expression.Callee.Type != NodeType.ChainExpression && CanShortCircuit(expression.Callee))
+        {
+            _calleeExpression.EnableShortCircuitPropagation();
+        }
+
         _argCount = expression.Arguments.Count;
         _fastArgsEligible = !_arguments.HasSpreads && _argCount <= 2;
         _regLaneEligible = !_arguments.HasSpreads && _argCount is >= 1 and <= MaxRegisterArguments;
     }
+
+    internal override void EnableShortCircuitPropagation() => _propagatesShortCircuit = true;
+
+    /// <summary>
+    /// What this link returns when the chain short-circuits here or below: the signal when the next link
+    /// is waiting for it, and the chain's actual value — <c>undefined</c> — when this is the outermost link.
+    /// </summary>
+    private JsValue ShortCircuit() => _propagatesShortCircuit ? ShortCircuited : JsValue.Undefined;
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
@@ -176,17 +197,21 @@ internal sealed class JintCallExpression : JintExpression
                 return calleeReference as JsValue ?? JsValue.Undefined;
             }
 
-            if (ReferenceEquals(calleeReference, JsValue.Undefined))
+            if (ReferenceEquals(calleeReference, ShortCircuited))
             {
-                return JsValue.Undefined;
+                // The callee link short-circuited, so this call is skipped along with the rest of the
+                // chain — its arguments are never evaluated. A callee that merely evaluated to undefined
+                // is *not* this case and falls through to the "not a function" throw below.
+                return ShortCircuit();
             }
 
             func = engine.GetValue(calleeReference, false);
 
+            // This link's own `?.(`: the value being called is nullish, so the chain short-circuits here.
             if (func.IsNullOrUndefined() && _expression.IsOptional())
             {
                 engine._referencePool.Return(referenceRecord);
-                return JsValue.Undefined;
+                return ShortCircuit();
             }
 
             if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
