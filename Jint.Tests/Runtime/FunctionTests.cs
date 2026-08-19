@@ -1011,4 +1011,46 @@ assertEqual(booleanCount, 1);
         Invoking(() => engine.Invoke(ns.Get("run")))
             .Should().Throw<JavaScriptException>().WithMessage("*read only*");
     }
+
+    [Fact]
+    public void ASloppyFunctionsOwnArgumentsIsReadableRatherThanAThrower()
+    {
+        var engine = new Engine();
+
+        // A library's own-property copier, with its skip-list built from a strict function — which has no
+        // own "arguments" to list, so the name never reaches the skip-list.
+        engine.Execute("""
+            "use strict";
+            var blank = function () { };
+            var skip = Object.getOwnPropertyNames(blank);
+            globalThis.copy = function (fn) {
+                return Object.getOwnPropertyNames(fn).reduce(function (acc, k) {
+                    if (skip.indexOf(k) === -1) acc[k] = fn[k];
+                    return acc;
+                }, {});
+            };
+            """);
+
+        // A separate, non-strict script: this function does carry own "arguments" and "caller", so the
+        // copier above reads both. That read is what used to throw.
+        engine.Execute("var sloppy = function () { }; var copied = copy(sloppy);");
+
+        engine.Evaluate("Object.getOwnPropertyNames(blank).join(',')").AsString()
+            .Should().Be("length,name,prototype");
+        engine.Evaluate("Object.getOwnPropertyNames(sloppy).join(',')").AsString()
+            .Should().Be("length,name,prototype,arguments,caller");
+        engine.Evaluate("copied.arguments").Should().Be(JsValue.Null);
+        // undefined, not null: test262's sentinel for an engine that does not offer the caller extension.
+        engine.Evaluate("copied.caller").Should().Be(JsValue.Undefined);
+    }
+
+    [Fact]
+    public void AStrictFunctionsRestrictedPropertiesStillThrowFromThePrototype()
+    {
+        var engine = new Engine();
+        Invoking(() => engine.Evaluate("(function () { 'use strict'; }).caller"))
+            .Should().Throw<JavaScriptException>().WithMessage("*may not be accessed*");
+        Invoking(() => engine.Evaluate("(function () { 'use strict'; }).arguments"))
+            .Should().Throw<JavaScriptException>().WithMessage("*may not be accessed*");
+    }
 }
