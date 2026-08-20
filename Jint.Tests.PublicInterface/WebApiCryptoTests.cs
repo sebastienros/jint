@@ -96,11 +96,19 @@ public class WebApiCryptoTests
     }
 
     [Fact]
-    public void HasNoSubtleCryptoForFeatureDetectionToFind()
+    public void HasASubtleCryptoWhoseUnimplementedOperationsFeatureDetectionCanSee()
     {
         var engine = new Engine(options => options.UseWebApis());
 
-        engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("undefined");
+        // `subtle` rides the Crypto flag rather than carrying one of its own — it is an attribute of the very
+        // same interface — so a host that asked for crypto has it.
+        engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
+        engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
+
+        // Everything that needs key material is absent, not present-and-throwing.
+        engine.Evaluate("typeof crypto.subtle.sign").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof crypto.subtle.importKey").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof CryptoKey").AsString().Should().Be("undefined");
     }
 
     [Fact]

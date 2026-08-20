@@ -26,20 +26,24 @@ namespace Jint.WebApi.Crypto;
 /// nowhere near this file.
 /// </para>
 /// <para>
-/// <b><c>crypto.subtle</c> is deliberately absent</b> rather than present-and-throwing, so that the feature
-/// detection every library performing cryptography starts with — <c>if (crypto.subtle)</c> — gets the truthful
-/// answer and takes its fallback path.
+/// <c>crypto.subtle</c> exists and carries <b><c>digest</c> alone</b>. The rest of the <c>SubtleCrypto</c>
+/// interface — every operation that needs key material — is absent rather than present-and-throwing, so the
+/// feature detection a library performing cryptography starts with gets the truthful answer about each
+/// operation it means to use. See <see cref="SubtleCryptoInstance"/>.
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL, the same pair <c>console</c> carries. There is no
-/// <c>Crypto</c> interface object and no <c>Crypto.prototype</c>, so the two operations and the
-/// <c>@@toStringTag</c> are own properties of this object with the attributes an ECMAScript built-in method
-/// has (writable, configurable, non-enumerable) rather than those of a WebIDL interface prototype's
-/// operations. What a script can actually observe of that is unchanged: <c>Object.keys(crypto)</c> answers
-/// the empty array in a browser too, because there the operations live one level up on the prototype. Both
-/// operations still brand-check their receiver, so extracting one and calling it on something else raises a
-/// <c>TypeError</c> exactly as a browser does. And the object is installed as an ordinary enumerable data
-/// property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL gives it.
+/// Three documented simplifications against WebIDL, the first pair of which <c>console</c> carries too. There
+/// is no <c>Crypto</c> interface object and no <c>Crypto.prototype</c>, so the two operations, the
+/// <c>subtle</c> attribute and the <c>@@toStringTag</c> are own properties of this object with the attributes
+/// an ECMAScript built-in member has — non-enumerable and configurable, the two operations writable as well —
+/// rather than those of a WebIDL interface prototype's members. What a script can actually observe of that is unchanged: <c>Object.keys(crypto)</c>
+/// answers the empty array in a browser too, because there the members live one level up on the prototype.
+/// All three still brand-check their receiver, so extracting one and calling it on something else raises a
+/// <c>TypeError</c> exactly as a browser does. The object is installed as an ordinary enumerable data
+/// property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL gives it. And
+/// <c>[SecureContext]</c>, which gates <c>subtle</c> and <c>randomUUID</c> in a browser, has no meaning for
+/// an embedded engine — there is no origin and no transport to be secure — so both are exposed
+/// unconditionally.
 /// </para>
 /// </remarks>
 [JsObject]
@@ -69,6 +73,22 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     }
 
     /// <summary>
+    /// https://w3c.github.io/webcrypto/#Crypto-attribute-subtle — <c>[SecureContext] readonly attribute
+    /// SubtleCrypto subtle</c>.
+    /// </summary>
+    /// <remarks>
+    /// One object per realm, returned by reference, so <c>crypto.subtle === crypto.subtle</c> holds and a
+    /// script may keep the reference. It is built on the first read and never before: a script that never
+    /// mentions <c>subtle</c> has not paid for one.
+    /// </remarks>
+    [JsAccessor("subtle")]
+    private SubtleCryptoInstance SubtleGet(JsValue thisObject)
+    {
+        Brand(thisObject, "Failed to read the 'subtle' property from 'Crypto'");
+        return _realm.Intrinsics.SubtleCrypto;
+    }
+
+    /// <summary>
     /// https://w3c.github.io/webcrypto/#Crypto-method-getRandomValues
     /// </summary>
     /// <remarks>
@@ -90,7 +110,7 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     [JsFunction(Name = "getRandomValues", Length = 1)]
     private JsValue GetRandomValues(JsValue thisObject, JsValue array)
     {
-        Brand(thisObject, "getRandomValues");
+        Brand(thisObject, "Failed to execute 'getRandomValues' on 'Crypto'");
 
         if (array is JsDataView)
         {
@@ -173,7 +193,7 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     [JsFunction(Name = "randomUUID", Length = 0)]
     private JsString RandomUuid(JsValue thisObject)
     {
-        Brand(thisObject, "randomUUID");
+        Brand(thisObject, "Failed to execute 'randomUUID' on 'Crypto'");
 
         Span<byte> bytes = stackalloc byte[16];
         RandomNumberGenerator.Fill(bytes);
@@ -201,15 +221,15 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
         or TypedArrayElementType.BigUint64;
 
     /// <summary>
-    /// The WebIDL brand check every operation performs: a receiver that is not a platform object implementing
-    /// the interface raises a <c>TypeError</c>, so an extracted <c>getRandomValues</c> cannot be called on
-    /// anything else.
+    /// The WebIDL brand check every member performs: a receiver that is not a platform object implementing
+    /// the interface raises a <c>TypeError</c>, so an extracted <c>getRandomValues</c> — or the <c>subtle</c>
+    /// getter — cannot be called on anything else.
     /// </summary>
-    private void Brand(JsValue thisObject, string operation)
+    private void Brand(JsValue thisObject, string what)
     {
         if (thisObject is not CryptoInstance)
         {
-            Throw.TypeError(_realm, $"Failed to execute '{operation}' on 'Crypto': illegal invocation, receiver is not a Crypto object.");
+            Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a Crypto object.");
         }
     }
 

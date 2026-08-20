@@ -267,14 +267,23 @@ public class CryptoTests
     }
 
     [Fact]
-    public void HasNoSubtleCrypto()
+    public void HasASubtleCryptoCarryingDigestAlone()
     {
         var engine = WebEngine();
 
-        // Absent rather than present-and-throwing: `if (crypto.subtle)` is how every library that does
-        // cryptography decides whether it can, and it has to get the truthful answer.
-        engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("undefined");
-        engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeFalse();
+        // `crypto.subtle` exists and answers a SubtleCrypto object, but only its digest operation does. The
+        // rest is absent rather than present-and-throwing, because `if (crypto.subtle.sign)` is how a library
+        // that does cryptography decides whether it can, and it has to get the truthful answer — see
+        // SubtleCryptoTests for the operation itself.
+        engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
+        engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeTrue();
+        engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
+
+        engine.Evaluate("""
+            ['encrypt', 'decrypt', 'sign', 'verify', 'generateKey', 'deriveKey', 'deriveBits',
+             'importKey', 'exportKey', 'wrapKey', 'unwrapKey']
+                .map(name => typeof crypto.subtle[name]).join(',')
+            """).AsString().Should().Be("undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined");
     }
 
     [Fact]

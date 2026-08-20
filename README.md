@@ -217,7 +217,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
-| `crypto.getRandomValues` / `crypto.randomUUID` | `WebApiFeatures.Crypto` | ✔ shipped |
+| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle.digest` (SHA-1/256/384/512) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `performance.timeOrigin` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
@@ -226,6 +226,14 @@ its own `console` (or any other name in the table below), enabling the feature l
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
+
+`crypto.subtle` carries **`digest` and nothing else** so far. It is the one `SubtleCrypto` operation that
+needs no key material, which is what makes it shippable on its own; `sign`, `verify`, `encrypt`, `importKey`
+and the rest are *absent* rather than present-and-throwing, so `typeof crypto.subtle.sign` tells a library the
+truth and it takes its fallback path. `digest` never throws — a promise-returning WebIDL operation converts
+every failure into a rejection, so an unregistered algorithm name is a `NotSupportedError` `DOMException`
+rejection and a `data` argument that is not an `ArrayBuffer` or a view over one is a `TypeError` rejection.
+The work is synchronous, so the promise is already settled when you get it.
 
 ### Timers fire only while the engine is being pumped
 
