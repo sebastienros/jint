@@ -39,7 +39,7 @@ internal sealed partial class FinalizationRegistryPrototype : Prototype
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 
-        if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!target.CanBeHeldWeakly())
         {
             Throw.TypeError(_realm, "target must be an object or symbol");
         }
@@ -49,7 +49,7 @@ internal sealed partial class FinalizationRegistryPrototype : Prototype
             Throw.TypeError(_realm, "target and holdings must not be same");
         }
 
-        if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!unregisterToken.CanBeHeldWeakly())
         {
             if (!unregisterToken.IsUndefined())
             {
@@ -70,7 +70,7 @@ internal sealed partial class FinalizationRegistryPrototype : Prototype
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 
-        if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!unregisterToken.CanBeHeldWeakly())
         {
             Throw.TypeError(_realm, unregisterToken + " must be an object or symbol");
         }

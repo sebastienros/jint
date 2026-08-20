@@ -34,6 +34,7 @@ public sealed class GlobalSymbolRegistry
     {
         _customSymbolLookup ??= new Dictionary<JsValue, JsSymbol>();
         _customSymbolLookup[symbol._value] = symbol;
+        symbol._registered = true;
     }
 
     internal static JsSymbol CreateSymbol(JsValue description)
@@ -43,12 +44,16 @@ public sealed class GlobalSymbolRegistry
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-keyforsymbol
+    /// Answers the [[Key]] of the registry record whose [[Symbol]] <em>is</em> the argument, so a
+    /// symbol that merely shares a description with a registered one -- <c>Symbol("x")</c> after
+    /// <c>Symbol.for("x")</c> -- is not a registered symbol and answers undefined.
     /// </summary>
-    internal JsValue KeyForSymbol(JsValue value)
+    internal static JsValue KeyForSymbol(JsValue value)
     {
-        if (value is JsSymbol symbol && _customSymbolLookup?.TryGetValue(symbol._value, out var s) == true)
+        if (value is JsSymbol { _registered: true } symbol)
         {
-            return s._value;
+            // Symbol.for creates the symbol with the key as its description, so the two coincide.
+            return symbol._value;
         }
 
         return JsValue.Undefined;

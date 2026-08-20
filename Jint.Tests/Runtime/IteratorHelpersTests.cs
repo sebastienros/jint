@@ -1239,4 +1239,52 @@ public class IteratorHelpersTests
 
         result.Should().Be("""["[object Iterator]","[object Array Iterator]","[object Generator]","[object AsyncIterator]"]""");
     }
+
+    /// <summary>
+    /// %WrapForValidIteratorPrototype%.next (https://tc39.es/ecma262/#sec-%wrapforvaliditeratorprototype%.next)
+    /// is Call(nextMethod, iterator) and nothing else: it neither requires the result to be an Object
+    /// nor reads `done` off it. Those belong to IteratorNext, performed by whoever consumes the
+    /// wrapper as an iterator -- which calling .next() on it directly is not.
+    /// </summary>
+    [Fact]
+    public void WrapForValidIteratorNextHandsBackWhateverTheWrappedNextReturned()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const wrap = value => Iterator.from({ next: () => value });
+            const values = [undefined, null, 0, false, 'test', Symbol('')];
+            JSON.stringify(values.map(v => wrap(v).next() === v));
+            """).AsString();
+
+        result.Should().Be("[true,true,true,true,true,true]");
+    }
+
+    [Fact]
+    public void WrapForValidIteratorNextDoesNotReadDoneOffTheResult()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            const reads = [];
+            const step = { get done() { reads.push('done'); return true; }, get value() { reads.push('value'); return 1; } };
+            const wrapped = Iterator.from({ next: () => step });
+            const returned = wrapped.next();
+            JSON.stringify([returned === step, reads]);
+            """).AsString();
+
+        result.Should().Be("""[true,[]]""");
+    }
+
+    [Fact]
+    public void ConsumingAWrappedIteratorStillRequiresAnObjectResult()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            (() => {
+                try { Iterator.from({ next: () => undefined }).toArray(); return false; }
+                catch (e) { return e instanceof TypeError; }
+            })();
+            """);
+
+        result.AsBoolean().Should().BeTrue();
+    }
 }

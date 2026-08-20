@@ -149,7 +149,10 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             }
             else
             {
-                iterator = obj.GetIterator(realm);
+                // ArrayBindingPattern's step is GetIterator(value, sync) over the *value*, not over
+                // the object ToObject built from it (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+                // The conversion above exists for the array fast path and for the null/undefined throw.
+                iterator = argument.GetIterator(realm);
 
                 // Save the iterator for potential yield inside this pattern
                 if (suspendable is not null && iterator is not null)
