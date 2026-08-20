@@ -6,15 +6,15 @@ namespace Jint.Native;
 
 public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 {
-    internal readonly OrderedSet<JsValue> _set;
+    internal readonly KeyedCollectionData _data;
 
-    internal JsSet(Engine engine) : this(engine, new OrderedSet<JsValue>(SameValueZeroComparer.Instance))
+    internal JsSet(Engine engine) : this(engine, new KeyedCollectionData())
     {
     }
 
-    internal JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
+    internal JsSet(Engine engine, KeyedCollectionData data) : base(engine)
     {
-        _set = set;
+        _data = data;
         _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
         // Every Set reaches this constructor, subclass instances included, so the bit is exactly the
         // brand SetPrototype's methods check. It is set here rather than passed through the internal
@@ -26,28 +26,30 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
     // No `size` here: it is an accessor on Set.prototype (https://tc39.es/ecma262/#sec-get-set.prototype.size)
     // and an instance has no own property of that name. See the note in JsMap for what synthesizing one cost.
 
-    public int Size => _set.Count;
+    public int Size => _data.Count;
 
-    internal JsValue? this[int index]
-    {
-        get { return index < _set._list.Count ? _set._list[index] : null; }
-    }
+    public void Add(JsValue value) => _data.Add(SameValueZeroComparer.ToStableKey(value));
 
-    public void Add(JsValue value) => _set.Add(SameValueZeroComparer.ToStableKey(value));
+    public void Clear() => _data.Clear();
 
-    public void Clear() => _set.Clear();
+    public bool Has(JsValue key) => _data.ContainsKey(key);
 
-    public bool Has(JsValue key) => _set.Contains(key);
+    public new bool Delete(JsValue key) => _data.Remove(key);
 
-    public new bool Delete(JsValue key) => _set.Remove(key);
-
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.foreach
+    /// </summary>
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
-        var i = 0;
+        // The cursor is the spec's `index` into [[SetData]]: the callback may add, delete and re-add
+        // freely, and the tombstoned representation keeps the resume point exact without any of the
+        // relocate-the-last-value guesswork a compacting list needed.
+        var cursor = default(KeyedCollectionCursor);
         var iterations = 0;
-        while (i < _set._list.Count)
+        int slot;
+        while ((slot = _data.Next(ref cursor)) >= 0)
         {
             // A native (CLR) callback does not self-throttle via statement checks; check periodically.
             if (++iterations % Engine.ConstraintCheckInterval == 0)
@@ -55,26 +57,8 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
                 _engine.Constraints.Check();
             }
 
-            var value = _set._list[i];
+            var value = _data.KeyAt(slot)!;
             invoker.Call(thisArg, value, value);
-
-            // Adjust position for mutations during callback
-            if (i < _set._list.Count && (ReferenceEquals(_set._list[i], value) || SameValueZeroComparer.Equals(_set._list[i], value)))
-            {
-                // Common fast path: value still at same position
-                i++;
-            }
-            else if (_set.Contains(value))
-            {
-                var newIndex = _set.IndexOf(value);
-                if (newIndex < i)
-                {
-                    // Value moved backward (entries before it were deleted)
-                    i = newIndex + 1;
-                }
-                // else: value was deleted and re-added at end, keep i (entries shifted left)
-            }
-            // else: value was deleted, entries shifted left so i now points to next entry
         }
 
         invoker.Return();
@@ -84,7 +68,14 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 
     internal ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
 
-    public IEnumerator<JsValue> GetEnumerator() => _set.GetEnumerator();
+    public IEnumerator<JsValue> GetEnumerator()
+    {
+        var enumerator = _data.GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            yield return enumerator.Key;
+        }
+    }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
