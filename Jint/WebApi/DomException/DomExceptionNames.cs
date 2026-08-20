@@ -39,6 +39,14 @@ internal static class DomExceptionNames
     internal const string NotAllowed = "NotAllowedError";
 
     /// <summary>
+    /// The two names the Web Cryptography API adds — https://w3c.github.io/webcrypto/#dfn-exceptions. Neither
+    /// is in the legacy code table, so both report <c>code</c> 0, which is what
+    /// <see cref="CodeFor"/> already answers for a name it does not know.
+    /// </summary>
+    internal const string Data = "DataError";
+    internal const string Operation = "OperationError";
+
+    /// <summary>
     /// The legacy code for an error name, or <c>0</c> when the name has none.
     /// </summary>
     internal static ushort CodeFor(string name) => name switch

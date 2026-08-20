@@ -1,15 +1,10 @@
 #if NET8_0_OR_GREATER
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
-using System.Text;
 using Jint.Native;
-using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
 
 namespace Jint.WebApi.Crypto;
@@ -22,14 +17,17 @@ namespace Jint.WebApi.Crypto;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b><c>digest</c> is the whole of the interface here.</b> Every other operation the IDL declares —
-/// <c>encrypt</c>, <c>decrypt</c>, <c>sign</c>, <c>verify</c>, <c>generateKey</c>, <c>deriveKey</c>,
-/// <c>deriveBits</c>, <c>importKey</c>, <c>exportKey</c>, <c>wrapKey</c> and <c>unwrapKey</c> — is
-/// <b>absent</b> rather than present-and-throwing, and <c>CryptoKey</c> does not exist at all. Digest is the
-/// one operation that needs no key material, no key store and no <c>CryptoKey</c> object, which is what makes
-/// it shippable on its own; a library that checks <c>typeof crypto.subtle.sign === 'function'</c> before
-/// reaching for it gets the truthful answer and takes its fallback path, exactly as it does for
-/// <c>crypto.subtle</c> itself in an engine without the crypto feature.
+/// <b>Eight of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
+/// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and <c>exportKey</c>, over the algorithms
+/// <c>HMAC</c> (SHA-1, SHA-256, SHA-384, SHA-512) and <c>AES-GCM</c> (128, 192 and 256 bits), plus the four
+/// SHA hashes for <c>digest</c>. <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are
+/// <b>absent</b> rather than present-and-throwing, and so is every asymmetric algorithm, so a library that
+/// checks <c>typeof crypto.subtle.deriveBits === 'function'</c> before reaching for it gets the truthful
+/// answer and takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine
+/// without the crypto feature. An algorithm that is absent for a <i>particular</i> operation is a
+/// <c>NotSupportedError</c>, which is what the specification says a name that is not registered for an
+/// operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does <c>encrypt</c> with
+/// <c>HMAC</c>.
 /// </para>
 /// <para>
 /// <b>Nothing here ever throws to its caller.</b> WebIDL turns an exception out of a promise-returning
@@ -44,46 +42,27 @@ namespace Jint.WebApi.Crypto;
 /// constraint that became a rejection would no longer bound anything.
 /// </para>
 /// <para>
-/// The promise is already resolved when it is handed back: hashing a byte sequence already in memory is
-/// synchronous CPU work, so there is nothing for an event-loop turn to wait for. Step 7's "perform the
-/// remaining steps in parallel" exists so that a browser's main thread is not blocked by a slow key
-/// operation, and observing the difference needs a second thread to mutate something in between — which an
-/// engine that runs script on one thread does not have. It is still a real promise: <c>await</c> works, and
-/// the value arrives on the microtask turn a <c>then</c> would give it.
+/// The promise is already resolved when it is handed back: every operation here is synchronous CPU work over
+/// bytes that are already in memory, so there is nothing for an event-loop turn to wait for. "Return promise
+/// and perform the remaining steps in parallel" exists so that a browser's main thread is not blocked by a
+/// slow key operation, and observing the difference needs a second thread to mutate something in between —
+/// which an engine that runs script on one thread does not have. It is still a real promise: <c>await</c>
+/// works, and the value arrives on the microtask turn a <c>then</c> would give it.
 /// </para>
 /// <para>
 /// Two documented simplifications against WebIDL, both of which <c>console</c>, <c>crypto</c> and
 /// <c>performance</c> carry too. There is no <c>SubtleCrypto</c> interface object and no
-/// <c>SubtleCrypto.prototype</c>, so <c>digest</c> and the <c>@@toStringTag</c> are own properties of this
+/// <c>SubtleCrypto.prototype</c>, so the operations and the <c>@@toStringTag</c> are own properties of this
 /// object with the attributes an ECMAScript built-in method has rather than those of a WebIDL interface
 /// prototype's operations; <c>Object.keys(crypto.subtle)</c> answers the empty array here exactly as it does
-/// in a browser, where the operation lives one level up. And <c>[SecureContext]</c> has no meaning for an
-/// embedded engine — there is no origin, no transport and no browsing context — so the operation is exposed
-/// unconditionally, which is the same reading Node and workerd take.
+/// in a browser, where the operations live one level up. And <c>[SecureContext]</c> has no meaning for an
+/// embedded engine — there is no origin, no transport and no browsing context — so the operations are
+/// exposed unconditionally, which is the same reading Node and workerd take.
 /// </para>
 /// </remarks>
 [JsObject]
 internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 {
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#sha-registration — "The recognized algorithm names are
-    /// <c>SHA-1</c>, <c>SHA-256</c>, <c>SHA-384</c>, and <c>SHA-512</c> for the respective SHA algorithms",
-    /// each registered for the <c>digest</c> operation.
-    /// </summary>
-    private const string Sha1 = "SHA-1";
-    private const string Sha256 = "SHA-256";
-    private const string Sha384 = "SHA-384";
-    private const string Sha512 = "SHA-512";
-
-    /// <summary>
-    /// The associative container "stored at the <c>op</c> key of supportedAlgorithms" for <c>op</c> =
-    /// "digest". Written as an explicit list rather than derived from anything, because an algorithm added to
-    /// the BCL later must not become reachable from script until someone has read this specification again.
-    /// </summary>
-    private static readonly string[] RegisteredDigestAlgorithms = [Sha1, Sha256, Sha384, Sha512];
-
-    private static readonly JsString _nameKey = new("name");
-
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString SubtleCryptoToStringTag = new("SubtleCrypto");
 
@@ -101,66 +80,269 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         CreateSymbols_Generated();
     }
 
+    private CryptoContext Context => new(_engine, _realm);
+
     /// <summary>
     /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-digest, whose IDL is
     /// <c>Promise&lt;ArrayBuffer&gt; digest(AlgorithmIdentifier algorithm, BufferSource data)</c>.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// The order the failures come in is WebIDL's, not the algorithm's: the brand check, then the conversion
     /// of <c>algorithm</c> to <c>(object or DOMString)</c>, then the conversion of <c>data</c> to
     /// <c>BufferSource</c>, and only then step 2's normalization. So <c>digest('nonsense', 42)</c> rejects
     /// with the <c>TypeError</c> the second argument earns rather than the <c>NotSupportedError</c> the first
     /// one would — argument conversion runs before a single step of the method body does.
-    /// </para>
-    /// <para>
-    /// Step 4 says to <i>copy</i> the bytes. Nothing here copies them: the digest is computed from a window
-    /// onto the engine's own backing array before this method returns, and the copy exists only so that a
-    /// mutation from another agent cannot be observed halfway through — see
-    /// <see cref="BufferSource"/>. The bytes are read once, in order, and never again.
-    /// </para>
     /// </remarks>
     [JsFunction(Name = "digest", Length = 2)]
     private JsValue Digest(JsValue thisObject, JsValue algorithm, JsValue data)
     {
+        return Perform(thisObject, CryptoOperation.Digest, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var message = GetBufferSourceBytes(data, what, "parameter 2");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Digest, what);
+
+            return Context.CreateArrayBuffer(ComputeDigest(normalized.Name, message));
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-sign, whose IDL is
+    /// <c>Promise&lt;ArrayBuffer&gt; sign(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
+    /// </summary>
+    [JsFunction(Name = "sign", Length = 3)]
+    private JsValue Sign(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
+    {
+        return Perform(thisObject, CryptoOperation.Sign, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+            var message = GetBufferSourceBytes(data, what, "parameter 3");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Sign, what);
+
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.Sign, "sign", what);
+
+            // HMAC is the only algorithm registered for this operation, and the check above has just proved
+            // the key was made for the algorithm that normalization returned — so the dispatch is decided.
+            return Context.CreateArrayBuffer(HmacAlgorithm.Sign(cryptoKey, message));
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-verify, whose IDL is
+    /// <c>Promise&lt;boolean&gt; verify(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource signature,
+    /// BufferSource data)</c>.
+    /// </summary>
+    [JsFunction(Name = "verify", Length = 4)]
+    private JsValue Verify(JsValue thisObject, JsValue algorithm, JsValue key, JsValue signature, JsValue data)
+    {
+        return Perform(thisObject, CryptoOperation.Verify, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+            var signatureBytes = GetBufferSourceBytes(signature, what, "parameter 3");
+            var message = GetBufferSourceBytes(data, what, "parameter 4");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Verify, what);
+
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.Verify, "verify", what);
+
+            return HmacAlgorithm.Verify(cryptoKey, signatureBytes, message) ? JsBoolean.True : JsBoolean.False;
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-encrypt, whose IDL is
+    /// <c>Promise&lt;ArrayBuffer&gt; encrypt(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
+    /// </summary>
+    [JsFunction(Name = "encrypt", Length = 3)]
+    private JsValue Encrypt(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
+    {
+        return Perform(thisObject, CryptoOperation.Encrypt, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+            var plaintext = GetBufferSourceBytes(data, what, "parameter 3");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Encrypt, what);
+
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.Encrypt, "encrypt", what);
+
+            // AES-GCM is the only algorithm registered for this operation, so — as in sign above — the check
+            // that the key was made for the normalized algorithm is what decides the dispatch.
+            return Context.CreateArrayBuffer(AesGcmAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-decrypt, whose IDL is
+    /// <c>Promise&lt;ArrayBuffer&gt; decrypt(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
+    /// </summary>
+    [JsFunction(Name = "decrypt", Length = 3)]
+    private JsValue Decrypt(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
+    {
+        return Perform(thisObject, CryptoOperation.Decrypt, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+            var ciphertext = GetBufferSourceBytes(data, what, "parameter 3");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Decrypt, what);
+
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.Decrypt, "decrypt", what);
+
+            return Context.CreateArrayBuffer(AesGcmAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-generateKey, whose IDL is
+    /// <c>Promise&lt;(CryptoKey or CryptoKeyPair)&gt; generateKey(AlgorithmIdentifier algorithm,
+    /// boolean extractable, sequence&lt;KeyUsage&gt; keyUsages)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Both algorithms here produce a single secret key, never a pair, so the union's second arm — and with
+    /// it <c>CryptoKeyPair</c>, which has no interface object in this engine — is unreachable.
+    /// </remarks>
+    [JsFunction(Name = "generateKey", Length = 3)]
+    private JsValue GenerateKey(JsValue thisObject, JsValue algorithm, JsValue extractable, JsValue keyUsages)
+    {
+        return Perform(thisObject, CryptoOperation.GenerateKey, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var isExtractable = TypeConverter.ToBoolean(extractable);
+            var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.GenerateKey, what);
+
+            var material = string.Equals(normalized.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
+                ? HmacAlgorithm.GenerateKey(Context, normalized, usages, what)
+                : AesGcmAlgorithm.GenerateKey(Context, normalized, usages, what);
+
+            // "If result is a CryptoKey object: If the [[type]] internal slot of result is 'secret' or
+            // 'private' and usages is empty, then throw a SyntaxError." A secret key nobody may use is a
+            // mistake, not a key, and it is caught here rather than inside the algorithm because it is the
+            // same mistake whichever algorithm made the key.
+            RequireNonEmptyUsages(usages, what);
+
+            return _realm.Intrinsics.CryptoKey.CreateKey(material.Handle, material.Algorithm, isExtractable, usages);
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-importKey, whose IDL is
+    /// <c>Promise&lt;CryptoKey&gt; importKey(KeyFormat format, (BufferSource or JsonWebKey) keyData,
+    /// AlgorithmIdentifier algorithm, boolean extractable, sequence&lt;KeyUsage&gt; keyUsages)</c>.
+    /// </summary>
+    /// <remarks>
+    /// The union's arms are told apart the way WebIDL tells them apart — https://webidl.spec.whatwg.org/#es-union:
+    /// a buffer source is one, and anything else that is an object (or <c>null</c>, or <c>undefined</c>)
+    /// becomes a <c>JsonWebKey</c> dictionary, which is read <i>here</i>, with the other arguments, and not
+    /// when the algorithm's steps get to it. So the getters on a JWK run before the algorithm is even
+    /// normalized. Step 4 then rejects the mismatches: a JWK with a format that is not <c>"jwk"</c>, and a
+    /// buffer source with the format that is.
+    /// </remarks>
+    [JsFunction(Name = "importKey", Length = 5)]
+    private JsValue ImportKey(JsValue thisObject, JsValue format, JsValue keyData, JsValue algorithm, JsValue extractable, JsValue keyUsages)
+    {
+        return Perform(thisObject, CryptoOperation.ImportKey, what =>
+        {
+            var keyFormat = ReadKeyFormat(format, what);
+            var (rawData, jwk) = ReadKeyData(keyData, what);
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var isExtractable = TypeConverter.ToBoolean(extractable);
+            var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.ImportKey, what);
+
+            // Step 4, after normalization as the numbering says.
+            if (keyFormat == KeyFormat.Jwk && jwk is null)
+            {
+                Context.ThrowTypeError(what + ": the 'jwk' format needs a JsonWebKey object, not a buffer source.");
+            }
+
+            if (keyFormat != KeyFormat.Jwk && jwk is not null)
+            {
+                Context.ThrowTypeError(what + ": the '" + KeyFormats.NameOf(keyFormat) + "' format needs a buffer source, not a JsonWebKey object.");
+            }
+
+            var material = string.Equals(normalized.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
+                ? HmacAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what)
+                : AesGcmAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, isExtractable, usages, what);
+
+            RequireNonEmptyUsages(usages, what);
+
+            return _realm.Intrinsics.CryptoKey.CreateKey(material.Handle, material.Algorithm, isExtractable, usages);
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-exportKey, whose IDL is
+    /// <c>Promise&lt;(ArrayBuffer or JsonWebKey)&gt; exportKey(KeyFormat format, CryptoKey key)</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is the only door the key material has, and it is shut by two checks before the algorithm is
+    /// asked for anything: the key's algorithm must be registered for the export operation, and the key must
+    /// be extractable. Neither is a property of the request — both are properties of the key, decided when it
+    /// was made.
+    /// </remarks>
+    [JsFunction(Name = "exportKey", Length = 2)]
+    private JsValue ExportKey(JsValue thisObject, JsValue format, JsValue key)
+    {
+        return Perform(thisObject, CryptoOperation.ExportKey, what =>
+        {
+            var keyFormat = ReadKeyFormat(format, what);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+
+            // "If the name member of the [[algorithm]] internal slot of key does not identify a registered
+            // algorithm that supports the export key operation, then throw a NotSupportedError."
+            if (Array.IndexOf(AlgorithmNormalization.RegisteredFor(CryptoOperation.ExportKey), cryptoKey.Algorithm.Name) < 0)
+            {
+                Context.ThrowNotSupportedError(
+                    what + ": " + cryptoKey.Algorithm.Name + " is not registered for the exportKey operation.");
+            }
+
+            // "If the [[extractable]] internal slot of key is false, then throw an InvalidAccessError."
+            if (!cryptoKey.Extractable)
+            {
+                Context.ThrowInvalidAccessError(what + ": the key is not extractable.");
+            }
+
+            return string.Equals(cryptoKey.Algorithm.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
+                ? HmacAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what)
+                : AesGcmAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+        });
+    }
+
+    /// <summary>
+    /// Runs one operation's steps and settles a promise with whatever they produce — the whole of what
+    /// https://webidl.spec.whatwg.org/#dfn-create-operation-function does around a promise-returning
+    /// operation, including the brand check.
+    /// </summary>
+    /// <remarks>
+    /// The three exceptions caught are the whole of what a failure here can arrive as. They are the
+    /// script-visible arm of <c>JintStatementList.ShouldCatch</c> — the exceptions the interpreter itself
+    /// turns into a throw completion — minus <c>SyntaxErrorException</c>, which nothing on this path can
+    /// raise because nothing on it parses. Everything else a <c>JintException</c> covers is deliberately not
+    /// caught: an execution constraint, a cancellation or a stack-depth overflow is not a value a script may
+    /// catch, and a constraint that became a rejection would no longer bound anything.
+    /// </remarks>
+    private JsValue Perform(JsValue thisObject, CryptoOperation operation, Func<string, JsValue> steps)
+    {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
+        var what = "Failed to execute '" + AlgorithmNormalization.NameOf(operation) + "' on 'SubtleCrypto'";
 
         try
         {
             if (thisObject is not SubtleCryptoInstance)
             {
-                Throw.TypeError(_realm, "Failed to execute 'digest' on 'SubtleCrypto': illegal invocation, receiver is not a SubtleCrypto object.");
+                Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a SubtleCrypto object.");
             }
 
-            // `AlgorithmIdentifier` is `typedef (object or DOMString)`, so an object stays an object and
-            // everything else is stringified here — which is where a symbol raises its TypeError, and why
-            // `digest(null, …)` normalizes the name "null" rather than failing differently.
-            var algorithmObject = algorithm as ObjectInstance;
-            var algorithmName = algorithmObject is null ? TypeConverter.ToString(algorithm) : null;
-
-            // `BufferSource data`: converted before the method body runs, hence before normalization.
-            var message = GetMessageBytes(data);
-
-            // Steps 2 and 3: normalize an algorithm, with op set to "digest".
-            var normalizedAlgorithm = algorithmObject is not null
-                ? NormalizeAlgorithm(algorithmObject)
-                : MatchRegisteredAlgorithm(algorithmName!);
-
-            // Steps 9 to 12: the digest operation, then an ArrayBuffer over its bytes.
-            var digest = ComputeDigest(normalizedAlgorithm, message);
-
-            capability.Resolve(new JsArrayBuffer(_engine, digest)
-            {
-                _prototype = _realm.Intrinsics.ArrayBuffer.PrototypeObject,
-            });
+            capability.Resolve(steps(what));
         }
-        // Every failure of a promise-returning operation is a rejection, and these three are the whole of
-        // what a failure here can arrive as. They are the script-visible arm of
-        // `JintStatementList.ShouldCatch` — the exceptions the interpreter itself turns into a throw
-        // completion — minus SyntaxErrorException, which nothing on this path can raise because nothing on
-        // it parses. Everything else a JintException covers is deliberately not caught: an execution
-        // constraint, a cancellation or a stack-depth overflow is not a value a script may catch, and a
-        // constraint that became a rejection would no longer bound anything.
         catch (JavaScriptException e)
         {
             capability.Reject(e.Error);
@@ -168,7 +350,8 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         catch (TypeErrorException e)
         {
             // TypeConverter raises this shape when no engine is at hand — `ToString` of a symbol, which is
-            // reachable both as the algorithm identifier and as an algorithm object's `name` member.
+            // reachable as an algorithm identifier, as an algorithm object's `name` member, as a key format
+            // and as a JWK field.
             capability.Reject(_realm.Intrinsics.TypeError.Construct(e.Message));
         }
         catch (RangeErrorException e)
@@ -180,10 +363,126 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     }
 
     /// <summary>
-    /// WebIDL's conversion of the <c>data</c> argument to <c>BufferSource</c>, which is
-    /// <c>(ArrayBufferView or ArrayBuffer)</c> — https://webidl.spec.whatwg.org/#BufferSource.
+    /// The two <c>InvalidAccessError</c>s every keyed operation makes before doing any work: the key was made
+    /// for this algorithm, and the key permits this use.
+    /// </summary>
+    private void RequireKeyFor(NormalizedAlgorithm normalized, JsCryptoKey key, KeyUsage usage, string usageName, string what)
+    {
+        if (!string.Equals(normalized.Name, key.Algorithm.Name, StringComparison.Ordinal))
+        {
+            Context.ThrowInvalidAccessError(
+                what + ": the key was created for " + key.Algorithm.Name + ", not for " + normalized.Name + ".");
+        }
+
+        if (!key.Allows(usage))
+        {
+            Context.ThrowInvalidAccessError(
+                what + ": the key's usages are " + KeyUsages.Describe(key.Usages) + ", which does not include '" + usageName + "'.");
+        }
+    }
+
+    /// <summary>
+    /// "If the [[type]] internal slot of result is 'secret' or 'private' and usages is empty, then throw a
+    /// SyntaxError" — the step <c>generateKey</c> and <c>importKey</c> both end in. Every key this engine
+    /// makes is a secret one.
+    /// </summary>
+    private void RequireNonEmptyUsages(KeyUsage usages, string what)
+    {
+        if (usages == KeyUsage.None)
+        {
+            Context.ThrowSyntaxError(what + ": a secret key must be created with at least one usage.");
+        }
+    }
+
+    /// <summary>
+    /// The WebIDL <c>CryptoKey</c> conversion: a platform object of that interface, or a <c>TypeError</c>.
+    /// </summary>
+    private JsCryptoKey RequireCryptoKey(JsValue value, string what, string parameter)
+    {
+        if (value is JsCryptoKey key)
+        {
+            return key;
+        }
+
+        Context.ThrowTypeError(what + ": " + parameter + " is not of type 'CryptoKey'.");
+        return null!;
+    }
+
+    /// <summary>
+    /// The WebIDL <c>KeyFormat</c> enumeration conversion, https://webidl.spec.whatwg.org/#es-enumeration:
+    /// the value is stringified and matched <i>case-sensitively</i> against the four recognized values, and
+    /// anything else is a <c>TypeError</c>. That is a different failure from asking a symmetric algorithm for
+    /// <c>"spki"</c>, which is a recognized format the algorithm's own steps refuse with a
+    /// <c>NotSupportedError</c>.
+    /// </summary>
+    private KeyFormat ReadKeyFormat(JsValue value, string what)
+    {
+        var name = TypeConverter.ToString(value);
+
+        switch (name)
+        {
+            case KeyFormats.Raw:
+                return KeyFormat.Raw;
+            case KeyFormats.Spki:
+                return KeyFormat.Spki;
+            case KeyFormats.Pkcs8:
+                return KeyFormat.Pkcs8;
+            case KeyFormats.Jwk:
+                return KeyFormat.Jwk;
+            default:
+                Context.ThrowTypeError(
+                    what + ": '" + name + "' is not a valid value for the enumeration KeyFormat (raw, spki, pkcs8, jwk).");
+                return default;
+        }
+    }
+
+    /// <summary>
+    /// The <c>(BufferSource or JsonWebKey)</c> union conversion. Exactly one of the two results is non-null.
     /// </summary>
     /// <remarks>
+    /// <c>null</c> and <c>undefined</c> become a <c>JsonWebKey</c> with every member absent, which is what
+    /// WebIDL does for a union containing a dictionary type; a number, a string or a boolean is a
+    /// <c>TypeError</c>, because converting a non-object to a dictionary is one.
+    /// </remarks>
+    private (byte[]? Raw, JsonWebKeyData? Jwk) ReadKeyData(JsValue keyData, string what)
+    {
+        if (BufferSource.TryGetBytes(keyData, out var bytes))
+        {
+            if (AlgorithmNormalization.IsSharedBufferSource(keyData))
+            {
+                Context.ThrowTypeError(what + ": parameter 2 is backed by a SharedArrayBuffer, which this operation does not accept.");
+            }
+
+            return (bytes.ToArray(), null);
+        }
+
+        if (keyData.IsNull() || keyData.IsUndefined())
+        {
+            return (null, new JsonWebKeyData());
+        }
+
+        if (keyData is ObjectInstance source)
+        {
+            return (null, JsonWebKeyData.Read(Context, source, what));
+        }
+
+        Context.ThrowTypeError(what + ": parameter 2 is neither a BufferSource nor a JsonWebKey object.");
+        return default;
+    }
+
+    /// <summary>
+    /// WebIDL's conversion of a <c>BufferSource</c> argument, which is
+    /// <c>(ArrayBufferView or ArrayBuffer)</c> — https://webidl.spec.whatwg.org/#BufferSource — followed by
+    /// "getting a copy of the bytes" it holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The copy is real, and it has to be: the argument conversions run before the method body, and the
+    /// first thing the body does is normalize an algorithm, which reads a <c>name</c> member and may
+    /// therefore run a script's getter — with the buffer this argument came from in scope. A window onto the
+    /// engine's own backing array would then be a window onto what that getter left behind, and the operation
+    /// would run over bytes the caller never passed.
+    /// </para>
     /// <para>
     /// A view onto a <c>SharedArrayBuffer</c> is refused, and so is a <c>SharedArrayBuffer</c> itself: the
     /// IDL says <c>BufferSource</c> and not <c>AllowSharedBufferSource</c>, and WebIDL refuses a shared
@@ -196,90 +495,30 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// <para>
     /// One deliberate divergence, in the permissive direction: a <b>resizable</b> <c>ArrayBuffer</c>, or a
     /// view onto one, is accepted. WebIDL's conversion refuses those too for a type without
-    /// <c>[AllowResizable]</c>, which <c>BufferSource</c> does not carry — but the bytes hashed are exactly
+    /// <c>[AllowResizable]</c>, which <c>BufferSource</c> does not carry — but the bytes taken are exactly
     /// the ones the view spans at the moment of the call, so the answer is right rather than merely
     /// tolerated, and no engine an embedder is likely to be replacing refuses it.
     /// </para>
     /// </remarks>
-    private ReadOnlySpan<byte> GetMessageBytes(JsValue data)
+    private byte[] GetBufferSourceBytes(JsValue data, string what, string parameter)
     {
         if (!BufferSource.TryGetBytes(data, out var bytes))
         {
-            Throw.TypeError(_realm, "Failed to execute 'digest' on 'SubtleCrypto': parameter 2 is not of type 'BufferSource'.");
+            Context.ThrowTypeError(what + ": " + parameter + " is not of type 'BufferSource'.");
         }
 
-        var buffer = data switch
+        if (AlgorithmNormalization.IsSharedBufferSource(data))
         {
-            JsTypedArray typedArray => typedArray._viewedArrayBuffer,
-            JsDataView dataView => dataView._viewedArrayBuffer,
-            _ => data as JsArrayBuffer,
-        };
-
-        if (buffer is not null && buffer.IsSharedArrayBuffer)
-        {
-            Throw.TypeError(_realm, "Failed to execute 'digest' on 'SubtleCrypto': parameter 2 is backed by a SharedArrayBuffer, which this operation does not accept.");
+            Context.ThrowTypeError(what + ": " + parameter + " is backed by a SharedArrayBuffer, which this operation does not accept.");
         }
 
-        return bytes;
-    }
-
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#dfn-normalize-an-algorithm, the branch for an <c>alg</c> that is an
-    /// object: convert it to the IDL dictionary type <c>Algorithm</c>, whose one member is
-    /// <c>required DOMString name</c>, and match that name against the algorithms registered for the
-    /// operation.
-    /// </summary>
-    /// <remarks>
-    /// The single <c>Get</c> is the whole of the dictionary conversion, and it may run script — a getter on
-    /// <c>name</c> is called exactly once, and whatever it throws becomes the rejection. An absent member
-    /// reads as <c>undefined</c>, which for a required member is the <c>TypeError</c> WebIDL raises rather
-    /// than a <c>NotSupportedError</c> for the name "undefined".
-    /// </remarks>
-    private string NormalizeAlgorithm(ObjectInstance algorithm)
-    {
-        var name = algorithm.Get(_nameKey);
-        if (name.IsUndefined())
-        {
-            Throw.TypeError(_realm, "Failed to execute 'digest' on 'SubtleCrypto': Algorithm: required member name is undefined.");
-        }
-
-        return MatchRegisteredAlgorithm(TypeConverter.ToString(name));
-    }
-
-    /// <summary>
-    /// The lookup at the heart of normalization: "If registeredAlgorithms contains a key that is a
-    /// case-insensitive string match for algName: Set algName to the value of the matching key. …
-    /// Otherwise: Return a new NotSupportedError".
-    /// </summary>
-    /// <remarks>
-    /// "Case-insensitive" is defined by the specification, at
-    /// https://w3c.github.io/webcrypto/#case-insensitive, as <i>ASCII</i> case-insensitive — so
-    /// <see cref="Ascii.EqualsIgnoreCase(ReadOnlySpan{char}, ReadOnlySpan{char})"/> is the comparison that
-    /// says exactly that and nothing else, rather than a string comparison whose treatment of the letters
-    /// outside ASCII has to be reasoned about. It allocates nothing. The <i>registered</i> key is returned
-    /// rather than the caller's spelling, because the digest operation below matches its name
-    /// <i>case-sensitively</i> — normalization is what makes <c>'sha-256'</c> reach SHA-256 at all.
-    /// </remarks>
-    private string MatchRegisteredAlgorithm(string algName)
-    {
-        foreach (var registered in RegisteredDigestAlgorithms)
-        {
-            if (Ascii.EqualsIgnoreCase(algName, registered))
-            {
-                return registered;
-            }
-        }
-
-        ThrowDomException(
-            DomExceptionNames.NotSupported,
-            "Failed to execute 'digest' on 'SubtleCrypto': the algorithm name '" + algName + "' is not one this engine registers for the digest operation (SHA-1, SHA-256, SHA-384, SHA-512).");
-        return null!;
+        return bytes.ToArray();
     }
 
     /// <summary>
     /// https://w3c.github.io/webcrypto/#sha-operations-digest — the digest operation of the SHA algorithms,
     /// which is the hash function of [FIPS-180-4] applied to the message. The name is matched
-    /// case-sensitively there, which is why normalization above returns the registered spelling.
+    /// case-sensitively there, which is why normalization returns the registered spelling.
     /// </summary>
     /// <remarks>
     /// The one-shot <c>HashData</c> statics rather than <see cref="IncrementalHash"/>: the message is one
@@ -293,7 +532,7 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     {
         switch (normalizedAlgorithm)
         {
-            case Sha1:
+            case AlgorithmNormalization.Sha1:
                 // SHA-1 is one of the four names the specification registers for this operation and every
                 // browser implements it, so refusing it here would be Jint deciding what a script may hash —
                 // and a script asking for it has already chosen. It is reached only through that name, is
@@ -301,25 +540,17 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms -- the caller named SHA-1, we did not choose it
                 return SHA1.HashData(message);
 #pragma warning restore CA5350
-            case Sha256:
+            case AlgorithmNormalization.Sha256:
                 return SHA256.HashData(message);
-            case Sha384:
+            case AlgorithmNormalization.Sha384:
                 return SHA384.HashData(message);
-            case Sha512:
+            case AlgorithmNormalization.Sha512:
                 return SHA512.HashData(message);
             default:
-                // Unreachable: the name came from RegisteredDigestAlgorithms one call ago.
+                // Unreachable: the name came from the registry one call ago.
                 Throw.InvalidOperationException("Unhandled digest algorithm '" + normalizedAlgorithm + "'.");
                 return null!;
         }
-    }
-
-    [DoesNotReturn]
-    private void ThrowDomException(string name, string message)
-    {
-        var exception = _realm.Intrinsics.DomException.CreateException(name, message);
-        var location = _engine._lastSyntaxElement?.Location ?? default;
-        Throw.JavaScriptException(_engine, exception, in location);
     }
 }
 #endif

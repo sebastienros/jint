@@ -6,9 +6,11 @@ using Jint.Native;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// <c>crypto.subtle</c> against the Web Cryptography API — https://w3c.github.io/webcrypto/#subtlecrypto-interface.
-/// Only <c>digest</c> exists, so only <c>digest</c> is tested; the absence of everything else is pinned too,
-/// because "absent rather than throwing" is a promise feature detection is written against.
+/// <c>crypto.subtle.digest</c> against the Web Cryptography API — https://w3c.github.io/webcrypto/#subtlecrypto-interface.
+/// The keyed operations, which have their own vectors and their own failure modes, are in
+/// <see cref="SubtleCryptoKeyTests"/>; what is pinned here is the one operation that needs no key at all,
+/// plus the absence of key derivation and key wrapping, because "absent rather than throwing" is a promise
+/// feature detection is written against.
 /// </summary>
 /// <remarks>
 /// The digests are asserted against the published example vectors of FIPS-180-4 (and, for SHA-1, RFC 3174),
@@ -485,23 +487,18 @@ public class SubtleCryptoTests
     }
 
     [Fact]
-    public void ExposesDigestAloneAndEveryOtherOperationIsAbsent()
+    public void ExposesDigestAndTheKeyedOperationsButNotKeyDerivation()
     {
         var engine = WebEngine();
 
-        // Absent rather than present-and-throwing: a library checking `typeof crypto.subtle.sign` before
-        // reaching for it has to get the truthful answer, which is the same reason `crypto.subtle` itself is
-        // absent from an engine without the crypto feature.
+        // Absent rather than present-and-throwing: a library checking `typeof crypto.subtle.deriveBits`
+        // before reaching for it has to get the truthful answer, which is the same reason `crypto.subtle`
+        // itself is absent from an engine without the crypto feature.
         engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
 
         engine.Evaluate("""
-            ['encrypt', 'decrypt', 'sign', 'verify', 'generateKey', 'deriveKey', 'deriveBits',
-             'importKey', 'exportKey', 'wrapKey', 'unwrapKey']
-                .filter(name => name in crypto.subtle).join(',')
+            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
             """).AsString().Should().Be("");
-
-        // CryptoKey has no interface object either — nothing in the engine can produce one.
-        engine.Evaluate("typeof CryptoKey").AsString().Should().Be("undefined");
 
         // As with crypto itself, the operation is an own property with a built-in method's attributes, so
         // enumeration sees nothing.
