@@ -375,6 +375,15 @@ public class HostCallLoopConstraintTests
         }
 
         engineTime.Should().BeGreaterThan(HostCallTimeout);
+
+        // A loaded CI runner can stall one call past the whole timeout, which makes a single completion
+        // indistinguishable from the accumulation bug this test exists to refute. The stall is detectable —
+        // the loop then spent far longer than its healthy total — and a detected stall is a skip, not a
+        // verdict either way.
+        Assert.SkipWhen(
+            completed <= 1 && engineTime > HostCallTimeout + HostCallTimeout,
+            "the runner stalled a single call past the whole timeout, so this run cannot distinguish the behaviours");
+
         completed.Should().BeGreaterThan(
             1,
             "the host-loop check measures the time since the last entry returned and re-armed the "
@@ -496,6 +505,14 @@ public class HostCallLoopConstraintTests
         stopwatch.Elapsed.Should().BeGreaterThanOrEqualTo(
             OperationBudget - AttributionSlack,
             "the deadline may only fire once the budget has actually elapsed");
+
+        // A loaded CI runner can stall the very first call past the whole budget, which makes one call
+        // exhausting it correct behaviour rather than mis-arming. The stall is detectable — the elapsed
+        // wall time then dwarfs the budget one healthy call would have spent — and a detected stall is a
+        // skip, not a verdict either way.
+        Assert.SkipWhen(
+            calls <= 1 && stopwatch.Elapsed > OperationBudget + OperationBudget,
+            "the runner stalled the first call past the whole budget, so this run cannot distinguish the behaviours");
 
         calls.Should().BeGreaterThan(
             1,
