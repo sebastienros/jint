@@ -94,6 +94,16 @@ public class StackOverflowGuardTests
     /// the state it was in before, not merely alive. Firing at the very same depth on three successive
     /// runs is the strongest single signal available here — a frame, an execution context or a native
     /// stack slot left behind by the unwind would move the third run's number.
+    /// <para>
+    /// The first two runs are warm-ups whose depths are discarded. Depth is a count of native stack
+    /// frames, so it moves whenever the JIT re-compiles any interpreter method the recursion runs
+    /// through, and the promoted code has a different frame size. Observed on CI at 543/533/533,
+    /// 613/533/533, 705/571/571 and 533/713/696 — note the last one rises and then falls, and note that
+    /// a <em>drop</em> is exactly the shape a leaked frame produces, so measuring from cold confounds
+    /// the runtime with the defect. Two rounds are discarded rather than one because the
+    /// <c>fib(20)</c> recovery check inside each round promotes code of its own, so a single warm-up
+    /// still left the second measured round moving.
+    /// </para>
     /// </summary>
     [Fact]
     public void TheEngineIsUnchangedAfterTheGuardFires()
@@ -106,12 +116,17 @@ public class StackOverflowGuardTests
                 engine.Execute("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }");
 
                 var depths = new List<double>();
-                for (var round = 0; round < 3; round++)
+                const int warmupRounds = 2;
+                for (var round = 0; round < warmupRounds + 3; round++)
                 {
                     engine.Evaluate("depth = 0");
                     Assert.Throws<JavaScriptException>(() => engine.Evaluate("f()"));
 
-                    depths.Add(engine.Evaluate("depth").AsNumber());
+                    // the first rounds are warm-ups; see the remarks above
+                    if (round >= warmupRounds)
+                    {
+                        depths.Add(engine.Evaluate("depth").AsNumber());
+                    }
 
                     // the interpreter still works, and the call stack it works on is the one it started with
                     engine.Evaluate("fib(20)").AsNumber().Should().Be(6765);
