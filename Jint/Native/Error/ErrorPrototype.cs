@@ -161,10 +161,15 @@ internal sealed partial class ErrorPrototype : ErrorInstance
             Throw.TypeError(_realm, $"Method Error.prototype.toString called on incompatible receiver {thisObject}");
         }
 
-        var nameProp = o.Get("name", this);
+        // Steps 3 and 5 are Get(O, "name") and Get(O, "message"), so the receiver is O — not %Error.prototype%.
+        // It only matters when the property resolves to an accessor somewhere up the chain, which no ordinary
+        // error has but a WebIDL-shaped one (DOMException, whose attributes are prototype accessors that
+        // brand-check their receiver) does: with the prototype as receiver such a getter is handed the wrong
+        // object and rightly refuses.
+        var nameProp = o.Get("name");
         var name = nameProp.IsUndefined() ? "Error" : TypeConverter.ToString(nameProp);
 
-        var msgProp = o.Get("message", this);
+        var msgProp = o.Get("message");
         string msg = msgProp.IsUndefined() ? "" : TypeConverter.ToString(msgProp);
 
         if (name == "")

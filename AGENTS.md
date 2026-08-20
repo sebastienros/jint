@@ -167,6 +167,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 - `Jint.Runtime.Interop` — CLR interop: `ObjectWrapper`, `TypeReference`, `ClrFunction`, `DelegateWrapper`, `DefaultTypeConverter`, and `Reflection/` for cached type discovery and method binding.
 - `Jint.Runtime.Environments` — Lexical environments and environment records (Declarative, Function, Global, Object).
 - `Jint.Runtime.Modules` — ES module system: `ModuleLoader` resolution, `CyclicModule` for cyclic dependencies, `ModuleBuilder` for programmatic modules.
+- `Jint.WebApi` — The opt-in WHATWG web platform APIs (`console`, `DOMException`, …), one subfolder and namespace per feature, every file gated `#if NET8_0_OR_GREATER`. See [Web APIs](#web-apis).
 - `Jint.Collections` — High-performance dictionaries (`HybridDictionary`, `StringDictionarySlim`, `DictionarySlim`). `PropertyDictionary` is a global-using alias for `HybridDictionary<PropertyDescriptor>`, which switches between list and hash storage by property count.
 - `Jint.Pooling` — Pools for hot allocations (`ReferencePool`, `ArgumentsInstancePool`, `JsValueArrayPool`, `JsValueListBuilder`).
 
@@ -383,7 +384,7 @@ Performance is a first-class concern; every change must consider its impact.
 - **Partial classes** — Large types are split (`Engine.*.cs`, `Intrinsics.*.cs`, `ObjectInstance.*.cs`). Keep related functionality together when editing.
 - **Type flags** — The `InternalTypes` enum enables fast type checks without casting; many hot paths depend on it.
 - **Property keys** — `KnownKeys` holds pre-computed common property names.
-- **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`).
+- **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`). The web APIs under `Jint/WebApi/` are owned by WHATWG living standards instead, each with its own document and anchor vocabulary: `https://console.spec.whatwg.org/#...`, `https://webidl.spec.whatwg.org/#...` (`#idl-*`, `#es-*`, `#dfn-*`), `https://fetch.spec.whatwg.org/#...` (`#dom-*`, `#concept-*`), `https://dom.spec.whatwg.org/#...`, `https://html.spec.whatwg.org/multipage/...`, `https://encoding.spec.whatwg.org/#...` and `https://url.spec.whatwg.org/#...`. Cite the one that actually defines the thing — `fetch` is WHATWG Fetch, `setTimeout` is HTML, `DOMException` is WebIDL — never MDN.
 
 ### Data structures
 
@@ -426,7 +427,21 @@ Follow the specification as closely as practical, support both strict and sloppy
 5. Update `TypeConverter` if new coercion rules apply.
 6. Add a statement/expression handler under `Runtime/Interpreter/` if it is new syntax.
 
-Proposal-stage built-ins are registered unconditionally — there is no per-feature option or ES-version gate. `Options.ExperimentalFeatures` is about CLR interop and has nothing to do with which built-ins exist.
+Proposal-stage **TC39** built-ins are registered unconditionally — there is no per-feature option or ES-version gate for anything ECMAScript defines, however early its stage. `Options.ExperimentalFeatures` is about CLR interop and has nothing to do with which built-ins exist.
+
+**That rule stops at the language.** The WHATWG web APIs under `Jint/WebApi/` are host APIs, not language features, and are deliberately **opt-in**: nothing is installed unless `Options.WebApi.Features` names it, and a default engine is byte-for-byte the engine it was before they existed. Do not "fix" that gating by registering them unconditionally — see [Web APIs](#web-apis) for how it works and why.
+
+### Web APIs
+
+`Jint/WebApi/` holds the opt-in WHATWG surface — `console`, `DOMException`, and the timers/encoding/URL/fetch features still landing — with one subfolder and matching namespace per feature (`Console/`, `DomException/`, …). It is deliberately *not* under `Jint/Native/`, which mirrors ECMAScript; these are host APIs guided by WinterTC's Minimum Common Web Platform API, they use the BCL only (no new package dependencies), and their JS-facing types are `internal sealed` and authored with the source generator exactly like the built-ins.
+
+Three conventions hold across the subtree:
+
+- **Whole-file `#if NET8_0_OR_GREATER`.** Every file in `Jint/WebApi/`, the `Options.WebApi.cs` / `Intrinsics.WebApi.cs` partials, and every test file that touches them is wrapped end to end. No `SUPPORTS_` constant is minted for this — those name absent BCL *types*; this is a uniform floor for the whole feature area. The gate is airtight only if `dotnet build -c Release` is run for the **solution**, since `net462`/`netstandard2.0`/`netstandard2.1` are where a leaked reference shows up. Both test suites also compile `net472` on Windows, which is what the test-file wrapping is for.
+- **Installed from `Options.Apply`, as lazy globals.** `WebApiRegistration.Apply` runs from the one gated block in `Options.Apply` — the sanctioned conditional-install site, the same one `Interop.Enabled` and `Modules.RegisterRequire` use. `[JsIntrinsicReference]` is not usable here: it is unconditional and would leak into every `ShadowRealm`. Each global is a `LazyPropertyDescriptor<Engine>` installed through `GlobalObject.SetProperty`, exactly as `AddLazyGlobal` does and for its reasons — the version bump that keeps inline caches valid, and the unmaterialized state `RestoreGlobalSnapshot` can revert to. The install is **non-clobbering**: the host's `_configurations` run first and any name the global already owns is left alone, checked with a probe so a host's own lazy global is not materialized just by looking.
+- **Only the principal realm.** Nothing outside `Options.Apply` touches a global object, so a `ShadowRealm` never carries these APIs. That diverges from browsers, where they are `[Exposed=*]`; it is a deliberate conservative choice, pinned by a test, and `Host.InitializeShadowRealm` remains the host's door.
+
+Feature flags live in `WebApiFeatures`, whose bit layout is fixed ahead of the implementations so a persisted value keeps its meaning — but a flag is **declared only once the feature behind it exists**, so naming one can never compile into an engine that silently lacks it. `WebApiFeatures.Default` is every non-network feature and will never include fetch.
 
 ## Modules
 

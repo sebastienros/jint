@@ -16,7 +16,7 @@ using Jint.Runtime.Modules;
 
 namespace Jint;
 
-public class Options
+public partial class Options
 {
     private static readonly CultureInfo _defaultCulture = CultureInfo.CurrentCulture;
     private static readonly TimeZoneInfo _defaultTimeZone = TimeZoneInfo.Local;
@@ -220,6 +220,18 @@ public class Options
 
 #pragma warning restore IL2026
         }
+
+#if NET8_0_OR_GREATER
+        // Opt-in WHATWG web APIs. Deliberately after the configuration callbacks above, so that a global a
+        // host registered itself is never replaced by one of ours: WebApiRegistration skips every name the
+        // global object already owns. Nothing is installed while Features is None, which is the default.
+        // The backing field rather than the property, so an engine built from options that never mentioned a
+        // web API does not allocate the group just to find out that it is empty.
+        if (_webApi is not null && _webApi.Features != WebApiFeatures.None)
+        {
+            Jint.WebApi.WebApiRegistration.Apply(this, engine);
+        }
+#endif
 
         if (Interop.ExtensionMethodTypes.Count > 0)
         {

@@ -70,6 +70,7 @@ for (int i = 0; i < args.Length; i++)
 var engine = new Engine(cfg =>
 {
     cfg.AllowClr();
+    cfg.UseConsole(Console.Out);
     if (timeoutSeconds.HasValue)
     {
         cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));
@@ -85,7 +86,6 @@ var engine = new Engine(cfg =>
 
 engine
     .SetValue("print", new Action<object>(Console.WriteLine))
-    .SetValue("console", new JsConsole())
     .SetValue("load", new Func<string, object>(
         path => engine.Evaluate(File.ReadAllText(path)))
     );
@@ -302,19 +302,4 @@ static void PrintHelp()
     Console.WriteLine("  jint -f script.js -t 10       Execute with 10 second timeout");
     Console.WriteLine("  echo \"1+1\" | jint             Execute from stdin");
     Console.WriteLine("  echo \"1+1\" | jint -t 5        Execute from stdin with timeout");
-}
-
-file sealed class JsConsole
-{
-    public void Log(object value)
-    {
-        Console.WriteLine(value?.ToString() ?? "null");
-    }
-
-    public void Error(object value)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(value?.ToString() ?? "null");
-        Console.ResetColor();
-    }
 }
