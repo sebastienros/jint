@@ -58,14 +58,6 @@
     "staging/sm/expressions/nullish-coalescing.js",
     "staging/sm/regress/regress-1507322-deep-weakmap.js",
 
-    // Argument-validation order in the TypedArray-from-ArrayBuffer constructor - despite the file's
-    // cross-realm cast, nothing about it is realm-specific and it fails the same way on a buffer from
-    // this realm. InitializeTypedArrayFromArrayBuffer throws the RangeError for a byteOffset that is
-    // not a multiple of the element size (step 3) before it evaluates ToIndex(length) (step 5); Jint
-    // runs them the other way round, so `new Int32Array(buffer, 1, poisonedValue)` reports the
-    // poisoned value's own error instead of the RangeError. Removed by fixing that ordering.
-    "staging/sm/TypedArray/constructor-buffer-sequence.js",
-
     // Acornima (the external parser) rejects a SuperCall inside a direct eval. Jint already parses
     // eval code with AllowSuperOutsideMethod, but that covers SuperProperty only; Acornima 1.7.0 has
     // no separate switch for a direct `super()`, so `eval("super()")` in a derived constructor fails
@@ -103,15 +95,6 @@
     // strict from the first character. The file's checkPrologue half already passes. Reported as
     // adams85/acornima#47.
     "staging/sm/strict/deprecated-octal-noctal-tokens.js",
-
-    // Argument validation raising no error, or the wrong one: a bad this or a bad index reaching a
-    // built-in, a NUL-bearing string reaching one, and the order in which a super reference is
-    // evaluated against its side effects.
-    "staging/sm/TypedArray/constructor-byteoffsets-bounds.js",
-    "staging/sm/TypedArray/iterator-next-with-detached.js",
-    "staging/sm/class/superPropOrdering.js",
-    "staging/sm/extensions/quote-string-for-nul-character.js",
-    "staging/sm/misc/builtin-methods-reject-null-undefined-this.js",
 
     // === PERMANENT EXCLUSIONS ===
     //

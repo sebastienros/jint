@@ -243,12 +243,20 @@ internal sealed class JintMemberExpression : JintExpression
         object? baseReferenceName = null;
         JsValue? baseValue = null;
 
+        // Non-null only for `super[expr]`, whose super base must not be resolved until after `expr`
+        // has been evaluated - see the comment on the super branch below.
+        FunctionEnvironment? deferredSuperEnvironment = null;
+
         var engine = context.Engine;
         ref readonly var executionContext = ref engine.ExecutionContext;
         var strict = executionContext.Strict;
         var suspendable = executionContext.Suspendable;
 
+        // A super base is derived from the running execution context, not from evaluating the object
+        // side, so a resume re-derives it rather than reading it back - which is also what keeps the
+        // deferral below intact across `super[await x]`.
         if (suspendable is { IsResuming: true }
+            && _objectExpression is not JintSuperExpression
             && suspendable.Data.TryGet(this, out MemberExpressionSuspendData? suspendData))
         {
             // Resume: reuse the previously-resolved object state so a side-effectful
@@ -289,12 +297,25 @@ internal sealed class JintMemberExpression : JintExpression
             }
             else if (_objectExpression is JintSuperExpression)
             {
+                // https://tc39.es/ecma262/#sec-super-keyword-runtime-semantics-evaluation
+                // `super [ Expression ]` evaluates Expression (steps 3-4) and only then calls
+                // MakeSuperPropertyReference, whose GetSuperBase reads [[HomeObject]].[[Prototype]].
+                // So a side effect in Expression that re-points the home object's prototype - the
+                // whole point of staging/sm/class/superPropOrdering.js - is observed by the lookup.
+                // `super . IdentifierName` has no such expression and resolves its base immediately.
                 var env = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
                 actualThis = env.GetThisBinding();
-                baseValue = env.GetSuperBase();
+                if (_propertyExpression is null)
+                {
+                    baseValue = env.GetSuperBase();
+                }
+                else
+                {
+                    deferredSuperEnvironment = env;
+                }
             }
 
-            if (baseValue is null)
+            if (baseValue is null && deferredSuperEnvironment is null)
             {
                 // fast checks failed
                 var baseReference = _objectExpression.Evaluate(context);
@@ -327,8 +348,10 @@ internal sealed class JintMemberExpression : JintExpression
 
             // Only this link's own `?.` short-circuits. An object expression that merely *contains* one
             // (`({})?.a` in `({})?.a['b']`) has already decided not to short-circuit and produced a
-            // genuine undefined, so this access must run against it and throw.
-            if (_memberExpression.Optional && baseValue.IsNullOrUndefined())
+            // genuine undefined, so this access must run against it and throw. A deferred super base
+            // leaves baseValue null here but cannot reach this test: bare `super` is not a
+            // MemberExpression, so `super?.x` is a SyntaxError and Optional is always false for one.
+            if (_memberExpression.Optional && baseValue!.IsNullOrUndefined())
             {
                 return ShortCircuit();
             }
@@ -336,11 +359,21 @@ internal sealed class JintMemberExpression : JintExpression
 
         var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
 
+        // Unconditional, suspension included: GetSuperBase reads [[HomeObject]].[[Prototype]], and a
+        // [[HomeObject]] is always an ordinary object, so this is a field read with nothing observable
+        // about when it happens - only about what it happens *after*. A suspended pass still needs a
+        // base for the Reference it hands back, and the resumed pass re-derives it after re-evaluating
+        // the property expression, which is where the ordering guarantee actually has to hold.
+        if (deferredSuperEnvironment is not null)
+        {
+            baseValue = deferredSuperEnvironment.GetSuperBase();
+        }
+
         if (context.IsSuspended())
         {
             // Property-side suspended. Save the resolved object state so resume
             // doesn't re-evaluate the (potentially side-effectful) object side.
-            if (suspendable is not null)
+            if (suspendable is not null && _objectExpression is not JintSuperExpression)
             {
                 var data = suspendable.Data.GetOrCreate<MemberExpressionSuspendData>(this);
                 data.BaseValue = baseValue!;
