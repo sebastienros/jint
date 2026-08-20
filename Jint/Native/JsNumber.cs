@@ -16,9 +16,6 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal readonly double _value;
 
-    // how many decimals to check when determining if double is actually an int
-    internal const double DoubleIsIntegerTolerance = double.Epsilon * 100;
-
     internal static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
     // we can cache most common values, doubles are used in indexing too at times so we also cache
