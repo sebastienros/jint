@@ -870,4 +870,32 @@ public class GeneratorTests
 
         _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
     }
+
+    [Fact]
+    public void GeneratorFunctionConstructorsInheritFromTheFunctionConstructor()
+    {
+        // https://tc39.es/ecma262/#sec-generatorfunction-constructor and
+        // https://tc39.es/ecma262/#sec-asyncgeneratorfunction-constructor: each of these constructors
+        // "has a [[Prototype]] internal slot whose value is %Function%" -- the Function constructor
+        // itself, not its own .prototype object.
+        _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(function* () {}).constructor) === Function")
+            .AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(async function* () {}).constructor) === Function")
+            .AsBoolean().Should().BeTrue();
+
+        // AsyncFunction already had this right; pinned here so the three stay together.
+        _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(async function () {}).constructor) === Function")
+            .AsBoolean().Should().BeTrue();
+
+        // The prototype objects are unaffected: %GeneratorFunction.prototype%.[[Prototype]] stays
+        // %Function.prototype% (https://tc39.es/ecma262/#sec-properties-of-generatorfunction-prototype).
+        _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(function* () {})) === Function.prototype")
+            .AsBoolean().Should().BeTrue();
+        _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(async function* () {})) === Function.prototype")
+            .AsBoolean().Should().BeTrue();
+
+        // And a generator is still an instance of both.
+        _engine.Evaluate("function* g() {} g instanceof Object.getPrototypeOf(g).constructor && g instanceof Function")
+            .AsBoolean().Should().BeTrue();
+    }
 }

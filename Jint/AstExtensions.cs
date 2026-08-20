@@ -366,7 +366,14 @@ public static class AstExtensions
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
     /// </summary>
-    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype, INode sourceTextNode) where T : IProperty
+    /// <remarks>
+    /// <c>definitionCacheKey</c> is the node the interpreter definition is cached under, defaulting to the
+    /// method's own function node. A class constructor overrides it with the class body: a class without an
+    /// explicit constructor borrows one synthesized constructor AST that every such class shares, so keying on
+    /// the function node would make all of them share one definition — and with it one
+    /// <see cref="JintFunctionDefinition.SourceTextNode"/>, which is whichever class got there first.
+    /// </remarks>
+    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype, INode sourceTextNode, Node? definitionCacheKey = null) where T : IProperty
     {
         var engine = obj.Engine;
         var propKey = TypeConverter.ToPropertyKey(m.GetKey(engine));
@@ -386,9 +393,10 @@ public static class AstExtensions
         // re-evaluating the same class (factory functions, re-run prepared scripts) reuses the
         // method's interpreter definition and its warm body handler tree; the closure, home object
         // and environments stay per-evaluation
-        if (!engine.TryGetFunctionDefinition((Node) function, out var definition))
+        var cacheKey = definitionCacheKey ?? (Node) function;
+        if (!engine.TryGetFunctionDefinition(cacheKey, out var definition))
         {
-            engine.CacheFunctionDefinition((Node) function, definition = new JintFunctionDefinition(function, sourceTextNode));
+            engine.CacheFunctionDefinition(cacheKey, definition = new JintFunctionDefinition(function, sourceTextNode));
         }
 
         var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);

@@ -70,7 +70,12 @@ public partial class Engine
     /// </summary>
     internal static readonly OnNodeHandler DefaultNodeHandler = static (node, in ctx) =>
     {
-        if (node.Type is NodeType.ArrowFunctionExpression or NodeType.FunctionDeclaration or NodeType.FunctionExpression)
+        // Class nodes are stamped too, because a class constructor's source text is the whole
+        // ClassDeclaration/ClassExpression and a class without an explicit constructor has no function
+        // node of its own to read it from - the engine synthesizes one shared constructor AST for all
+        // of them. https://tc39.es/ecma262/#sec-class-definitions-runtime-semantics-evaluation
+        if (node.Type is NodeType.ArrowFunctionExpression or NodeType.FunctionDeclaration or NodeType.FunctionExpression
+            or NodeType.ClassDeclaration or NodeType.ClassExpression)
         {
             node.UserData = ctx.Input;
         }

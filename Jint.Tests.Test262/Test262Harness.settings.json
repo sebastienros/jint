@@ -66,13 +66,6 @@
     // poisoned value's own error instead of the RangeError. Removed by fixing that ordering.
     "staging/sm/TypedArray/constructor-buffer-sequence.js",
 
-    // Function source text and inferred names. Function.prototype.toString does not return the
-    // original source for class expressions and some method forms, and NamedEvaluation does not
-    // reach the for-in head. Removed by carrying the source range and completing NamedEvaluation.
-    "staging/sm/Function/function-name-for.js",
-    "staging/sm/class/parenExprToString.js",
-    "staging/sm/generators/runtime.js",
-
     // Set.prototype.intersection / .isSubsetOf let the *receiver* be mutated while they traverse it
     // (a set-like's has/keys callback calling this.delete(v) or this.clear()), and the spec models
     // that with the [[SetData]] tombstone: a deleted entry becomes EMPTY in place rather than being
