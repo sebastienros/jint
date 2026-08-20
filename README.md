@@ -474,10 +474,11 @@ them: a `Request` always has an `AbortSignal`, its URL is a WHATWG URL, `respons
 
 `Headers`, `Request` and `Response` are the standard's own classes — the full `Headers` (sorted, combined
 iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `Response.error()`,
-`Response.redirect()`, `Response.json()`. `formData()` is absent and a `FormData` request body is a
-`TypeError` — the `multipart/form-data` serializer is a follow-up. `credentials`, `cache`, `mode`, `referrer`
-and `integrity` are accepted and ignored, the same convention Node and workerd follow, because there is no
-origin, cookie jar or HTTP cache here to honour them with.
+`Response.redirect()`, `Response.json()`. A `FormData` body is serialized as `multipart/form-data` with a
+cryptographically random boundary, and `formData()` reads one back — as well as an
+`application/x-www-form-urlencoded` body — rejecting with a `TypeError` for anything else. `credentials`,
+`cache`, `mode`, `referrer` and `integrity` are accepted and ignored, the same convention Node and workerd
+follow, because there is no origin, cookie jar or HTTP cache here to honour them with.
 
 ### Response bodies stream
 

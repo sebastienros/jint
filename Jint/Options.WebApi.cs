@@ -496,7 +496,8 @@ public enum WebApiFeatures
 
     /// <summary>
     /// <c>Blob</c>, <c>File</c> and <c>FormData</c> — in-memory byte sequences and the ordered entry list a
-    /// form submission is made of. No <c>multipart/form-data</c> serialization, which arrives with fetch.
+    /// form submission is made of. Serializing a <c>FormData</c> as <c>multipart/form-data</c> is a body's
+    /// business, so it arrives with <see cref="Fetch"/>.
     /// </summary>
     /// <remarks>
     /// <c>Blob.stream()</c> answers a real <c>ReadableStream</c> whether or not <see cref="Streams"/> is also

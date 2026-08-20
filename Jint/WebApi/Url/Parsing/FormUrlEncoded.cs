@@ -28,14 +28,21 @@ internal static class FormUrlEncoded
     /// and runs the byte-sequence parser over it.
     /// </summary>
     internal static List<FormUrlEncodedEntry> Parse(string input)
+        => Parse(SystemEncoding.UTF8.GetBytes(input));
+
+    /// <summary>
+    /// The application/x-www-form-urlencoded parser,
+    /// https://url.spec.whatwg.org/#concept-urlencoded-parser — the byte-sequence parser the string parser
+    /// above is defined in terms of, and what a request body reaches directly.
+    /// </summary>
+    internal static List<FormUrlEncodedEntry> Parse(byte[] bytes)
     {
         var output = new List<FormUrlEncodedEntry>();
-        if (input.Length == 0)
+        if (bytes.Length == 0)
         {
             return output;
         }
 
-        var bytes = SystemEncoding.UTF8.GetBytes(input);
         var offset = 0;
         while (offset <= bytes.Length)
         {
