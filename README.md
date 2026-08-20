@@ -194,7 +194,7 @@ explicitly.
 var engine = new Engine(options => options.UseWebApis());
 
 // Or exactly what you want, with somewhere for console output to go.
-var engine = new Engine(options => options
+engine = new Engine(options => options
     .UseWebApis(WebApiFeatures.Console)
     .UseConsole(Console.Out));
 
