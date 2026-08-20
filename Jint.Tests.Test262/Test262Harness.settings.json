@@ -82,13 +82,6 @@
     "staging/sm/Set/intersection.js",
     "staging/sm/Set/is-subset-of.js",
 
-    // Proxy trap invariants and the exact trap sequence the array built-ins are specified to
-    // perform. Jint's own invariant check on a defineProperty trap also fires where it should not.
-    "staging/sm/Array/concat-proxy.js",
-    "staging/sm/Array/from_proxy.js",
-    "staging/sm/Array/species.js",
-    "staging/sm/Reflect/has.js",
-
     // Parser early errors that Acornima does not raise, or raises as the wrong error type: an
     // invalid parameter list, `super()` inside an arrow inside a direct eval in a derived
     // constructor, a destructuring pattern with a duplicate binding, a legacy octal literal in

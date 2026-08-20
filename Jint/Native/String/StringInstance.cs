@@ -1,3 +1,4 @@
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -21,15 +22,24 @@ internal class StringInstance : ObjectInstance, IJsPrimitive
 
     public JsString StringData { get; }
 
-    private static bool IsInt32(double d, out int intValue)
+    /// <summary>
+    /// StringGetOwnProperty steps 3-6 (https://tc39.es/ecma262/#sec-stringgetownproperty): a String
+    /// exotic object owns an index only when the key is the <em>canonical</em> numeric string for an
+    /// integral, non-negative index. So <c>"01"</c>, <c>"+1"</c>, <c>"1.0"</c> and <c>" 1"</c> denote no
+    /// element -- their CanonicalNumericIndexString is undefined -- and neither does <c>"-0"</c>, which
+    /// step 6 rejects outright. <see cref="ArrayInstance.IsArrayIndex"/> is exactly that test: it accepts
+    /// a numeric key by value (a JsNumber key stands in for the string ToPropertyKey would have produced,
+    /// which is why <c>str[-0]</c> still resolves to index 0) and a string key only in canonical form.
+    /// </summary>
+    private static bool TryGetStringIndex(JsValue property, int length, out int index)
     {
-        if (d >= int.MinValue && d <= int.MaxValue)
+        if (ArrayInstance.IsArrayIndex(property, out var arrayIndex) && arrayIndex < (uint) length)
         {
-            intValue = (int) d;
-            return intValue == d;
+            index = (int) arrayIndex;
+            return true;
         }
 
-        intValue = 0;
+        index = 0;
         return false;
     }
 
@@ -56,14 +66,12 @@ internal class StringInstance : ObjectInstance, IJsPrimitive
             return PropertyDescriptor.Undefined;
         }
 
-        var str = StringData.ToString();
-        var number = TypeConverter.ToNumber(property);
-        if (!IsInt32(number, out var index) || index < 0 || index >= str.Length)
+        if (!TryGetStringIndex(property, StringData.Length, out var index))
         {
             return PropertyDescriptor.Undefined;
         }
 
-        return new PropertyDescriptor(str[index], PropertyFlag.OnlyEnumerable);
+        return new PropertyDescriptor(StringData.ToString()[index], PropertyFlag.OnlyEnumerable);
     }
 
     /// <summary>
@@ -112,8 +120,7 @@ internal class StringInstance : ObjectInstance, IJsPrimitive
             return OwnPropertyProbe.Missing;
         }
 
-        var number = TypeConverter.ToNumber(property);
-        if (!IsInt32(number, out var index) || index < 0 || index >= StringData.Length)
+        if (!TryGetStringIndex(property, StringData.Length, out _))
         {
             return OwnPropertyProbe.Missing;
         }
