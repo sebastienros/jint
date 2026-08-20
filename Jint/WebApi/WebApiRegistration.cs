@@ -119,6 +119,10 @@ internal static class WebApiRegistration
             Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
             Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
             Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+
+            // A WebIDL operation on the global is a writable, enumerable, configurable data property, unlike
+            // the interface objects above — https://webidl.spec.whatwg.org/#es-operations.
+            Install(global, engine, "fetch", static e => e.Realm.Intrinsics.Fetch, PropertyFlag.ConfigurableEnumerableWritable);
         }
     }
 
@@ -167,9 +171,10 @@ internal static class WebApiRegistration
     {
         // The timer globals are the obvious reason for a queue; AbortSignal.timeout() is the other, and it
         // needs one whether or not the host also asked for setTimeout. The events and performance features
-        // additionally read the time origin (Event.timeStamp, performance.now), which is why they want the state
-        // even without the timers flag.
-        const WebApiFeatures NeedsEngineState = WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance;
+        // additionally read the time origin (Event.timeStamp, performance.now), and fetch keeps its settings
+        // and its in-flight set here, which is why each of them wants the state.
+        const WebApiFeatures NeedsEngineState =
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch;
         if ((features & NeedsEngineState) == WebApiFeatures.None)
         {
             return;
@@ -185,7 +190,11 @@ internal static class WebApiRegistration
             ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers)
             : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers);
+        // The fetch settings are read here, once, so that nothing on a background thread ever reaches into
+        // Options — and so that a host mutating them afterwards does not change an engine that already exists.
+        var fetch = (features & WebApiFeatures.Fetch) != WebApiFeatures.None ? options.WebApi.Fetch : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch);
     }
 
     /// <summary>

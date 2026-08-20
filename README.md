@@ -222,7 +222,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
-| `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
+| `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
@@ -290,6 +290,57 @@ retained by its sources until one of them aborts, at which point every link is d
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them
 inside a shadow realm can install them through `Host.InitializeShadowRealm`.
+
+### `fetch` is opt-in on its own
+
+`UseWebApis()` never enables `fetch`, and `WebApiFeatures.Default` will never include it. Network egress from
+script is a decision you make explicitly:
+
+```csharp
+var engine = new Engine(options => options.UseWebApis().UseFetch(fetch =>
+{
+    fetch.AllowedSchemes.Remove("http");                     // https only
+    fetch.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    fetch.MaxResponseBytes = 1024 * 1024;
+    fetch.Timeout = TimeSpan.FromSeconds(5);
+    fetch.HttpClient = myClient;                             // or HttpClientFactory, for a per-tenant client
+}));
+
+var body = engine.Evaluate("fetch('https://api.example.org/x').then(r => r.json())").UnwrapIfPromise();
+```
+
+Enabling it also brings `Events`, `Url` and `Files`, because fetch's own surface is built out of them: a
+`Request` always has an `AbortSignal`, its URL is a WHATWG URL, and `response.blob()` answers with a `Blob`.
+
+`Headers`, `Request` and `Response` are the standard's own classes — the full `Headers` (sorted, combined
+iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `Response.error()`,
+`Response.redirect()`, `Response.json()`. Bodies are **buffered rather than streamed**: `text()`, `json()`,
+`arrayBuffer()`, `bytes()` and `blob()` answer already-resolved promises, `bodyUsed` flips on the first read
+and a second one rejects, and `response.body` is always `null` because Jint has no streams yet. `formData()`
+is absent and a `FormData` request body is a `TypeError` — the `multipart/form-data` serializer is a
+follow-up. `credentials`, `cache`, `mode`, `referrer` and `integrity` are accepted and ignored, the same
+convention Node and workerd follow, because there is no origin, cookie jar or HTTP cache here to honour them
+with.
+
+Like every other web API, `fetch` settles only while the engine is being pumped: the promise resolves inside a
+blocking `UnwrapIfPromise`, an `await` of `EvaluateAsync`, or your own `engine.Advanced.ProcessTasks()` loop.
+The deadline is the one exception, and deliberately so — it is enforced CLR-side, so an engine nobody pumps
+still lets go of its socket. An in-flight request is cancelled by `Engine.Advanced.RestoreGlobalSnapshot`, and
+its promise never settles into the restored engine.
+
+**Security.** Enabling `fetch` gives the script your process's network position: anything the worker can
+reach, the script can reach. The defaults bound the resource questions — 32 MiB per response body (counted
+after decompression, so a compression bomb is bounded too), 20 redirects, a 30-second deadline, 10 concurrent
+requests — but they cannot know which *hosts* are legitimate. That is what `UrlFilter` is for, and a
+deployment running untrusted script wants one. Jint follows redirects itself with `AllowAutoRedirect` off
+precisely so that **every hop is re-checked** against the scheme list and your filter: a server you allow
+answering `302 Location: http://169.254.169.254/…` does not get to launder the request past a first-hop check.
+`Authorization`, `Cookie` and `Proxy-Authorization` are stripped across an origin change, header values may
+not carry CR or LF, and a URL with credentials in it is refused. Every network-class failure is one
+`TypeError` saying only `Failed to fetch`, so a script cannot map your internal network by reading the
+failures apart; the real cause rides the error value and is readable by the host through
+`JintException.TryGetClrException`. See [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-21 for the full
+analysis, including what these controls do *not* cover.
 
 
 ## Performance

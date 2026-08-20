@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using Jint.WebApi.Fetch;
 using Jint.WebApi.Timers;
 
 namespace Jint;
@@ -38,11 +39,20 @@ internal sealed class WebApiEngineState
     /// </summary>
     private readonly long _originTimestamp;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers)
+    /// <summary>
+    /// The requests this engine has in flight, in registration order. Engine-thread-only, so no lock: a
+    /// request is added by <c>fetch</c> and removed by its own settle job, both of which run on the engine's
+    /// thread. A list rather than a set because it is bounded by
+    /// <c>Options.FetchOptions.MaxConcurrentRequests</c> and never long.
+    /// </summary>
+    private List<FetchOperation>? _fetches;
+
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions)
     {
         _engine = engine;
         _timeProvider = timeProvider;
         Timers = timers;
+        FetchOptions = fetchOptions;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -54,6 +64,22 @@ internal sealed class WebApiEngineState
     /// The engine's active timers, or <see langword="null"/> when nothing that schedules one is enabled.
     /// </summary>
     internal TimerQueue? Timers { get; }
+
+    /// <summary>
+    /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once, when the
+    /// engine is built, so that no background thread ever reaches into <see cref="Options"/>.
+    /// </summary>
+    internal Options.FetchOptions? FetchOptions { get; }
+
+    /// <summary>
+    /// How many requests are in flight, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
+    /// bounds.
+    /// </summary>
+    internal int ActiveFetchCount => _fetches?.Count ?? 0;
+
+    internal void RegisterFetch(FetchOperation operation) => (_fetches ??= new List<FetchOperation>()).Add(operation);
+
+    internal void UnregisterFetch(FetchOperation operation) => _fetches?.Remove(operation);
 
     /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
@@ -102,6 +128,30 @@ internal sealed class WebApiEngineState
     /// <summary>
     /// Drops the state that belongs to the evaluation cycle a <c>RestoreGlobalSnapshot</c> has just ended.
     /// </summary>
-    internal void ResetTransientState() => Timers?.Clear();
+    /// <remarks>
+    /// A request in flight is cancelled rather than merely forgotten: the generation fence already stops its
+    /// response reaching the restored engine, but forgetting it would leave the socket open until the server
+    /// answered. Its promise stays pending — settling it is exactly what the fence forbids — which is the
+    /// same contract a promise registered before a restore has always had.
+    /// </remarks>
+    internal void ResetTransientState()
+    {
+        Timers?.Clear();
+
+        if (_fetches is not { Count: > 0 } fetches)
+        {
+            return;
+        }
+
+        // Copied before the walk: Abandon cancels a token source, and a synchronous continuation on this very
+        // thread would otherwise reach UnregisterFetch and mutate the list under the enumerator.
+        var pending = fetches.ToArray();
+        fetches.Clear();
+
+        foreach (var fetch in pending)
+        {
+            fetch.Abandon();
+        }
+    }
 }
 #endif
