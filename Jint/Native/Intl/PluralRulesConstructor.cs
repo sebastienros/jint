@@ -60,12 +60,16 @@ internal sealed partial class PluralRulesConstructor : Constructor
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
-        // Note: localeMatcher is read by ResolveLocale, so we don't read it here
+        // https://tc39.es/ecma402/#sec-resolveoptions step 3: the localeMatcher option is read - and
+        // validated against « "lookup", "best fit" » - before any of the options below it. Reading it
+        // through ResolveLocale instead skipped the validation entirely, so a bad value was silently
+        // accepted rather than raising a RangeError.
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // Resolve locale
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolvePluralRulesLocale(_engine, availableLocales, requestedLocales, optionsObj);
+        var resolvedLocale = ResolvePluralRulesLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
         // Get type option
         var type = GetStringOption(optionsObj, "type", in TypeValues, "cardinal");
@@ -194,9 +198,9 @@ internal sealed partial class PluralRulesConstructor : Constructor
         return intValue;
     }
 
-    private static string ResolvePluralRulesLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    private static string ResolvePluralRulesLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
         return resolved.Locale;
     }
 

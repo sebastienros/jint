@@ -97,4 +97,100 @@ public class ClassTests
 
         ex.Error.Get("message").AsString().Should().Be(expected);
     }
+
+    /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-super-keyword-runtime-semantics-evaluation">
+    /// SuperProperty : super [ Expression ]</see> evaluates Expression (steps 3 and 4) and only then calls
+    /// MakeSuperPropertyReference, whose <c>GetSuperBase</c> reads <c>[[HomeObject]].[[Prototype]]</c>. So an
+    /// Expression that re-points the home object's prototype is observed by the very lookup it is part of.
+    /// Jint resolved the super base first, and the read went to the old prototype. test262 covers it in
+    /// <c>staging/sm/class/superPropOrdering.js</c>.
+    /// </summary>
+    [Fact]
+    public void ComputedSuperPropertyResolvesItsBaseAfterThePropertyExpression()
+    {
+        const string Script = """
+            class Base { constructor() {} }
+            class Derived extends Base {
+                read() { return super[detach()]; }
+            }
+            function detach() { Object.setPrototypeOf(Derived.prototype, null); return 'x'; }
+
+            try { new Derived().read(); return 'did not throw'; }
+            catch (e) { return e.constructor.name; }
+            """;
+
+        new Engine().Evaluate($"(function () {{ {Script} }})()").AsString().Should().Be("TypeError");
+    }
+
+    /// <summary>
+    /// A non-computed <c>super.name</c> has no such expression, so its base is resolved before the argument
+    /// list — the same re-pointing during an argument leaves the already-resolved method alone.
+    /// </summary>
+    [Fact]
+    public void NonComputedSuperPropertyResolvesItsBaseBeforeTheArguments()
+    {
+        const string Script = """
+            class Base { constructor() {} method() { return 'called'; } }
+            class Derived extends Base {
+                call() { return super.method(detach()); }
+            }
+            function detach() { Object.setPrototypeOf(Derived.prototype, null); return 0; }
+
+            new Derived().call();
+            """;
+
+        new Engine().Evaluate(Script).AsString().Should().Be("called");
+    }
+
+    /// <summary>
+    /// Deferring the base must not disturb the ordinary computed cases: the property expression's value is
+    /// still taken before the right-hand side runs, and the reference still writes through the super base's
+    /// [[Set]] onto the receiver.
+    /// </summary>
+    [Fact]
+    public void ComputedSuperPropertyStillReadsAndWritesNormally()
+    {
+        const string Script = """
+            class Base { constructor() {} }
+            Base.prototype.value = 'from base';
+            class Derived extends Base {
+                read(key) { return super[key]; }
+                write() {
+                    let key = 'first';
+                    super[key] = (() => (key = 'second', 42))();
+                    return this.first + ' ' + this.second;
+                }
+            }
+
+            var instance = new Derived();
+            instance.read('value') + ' / ' + instance.write();
+            """;
+
+        new Engine().Evaluate(Script).AsString().Should().Be("from base / 42 undefined");
+    }
+
+    /// <summary>
+    /// And it must survive suspension: <c>super[await key]</c> resumes into the same deferred base rather
+    /// than into whatever evaluating the <c>super</c> keyword on its own would produce.
+    /// </summary>
+    [Fact]
+    public void ComputedSuperPropertySurvivesAnAwaitInThePropertyExpression()
+    {
+        const string Script = """
+            class Base { constructor() {} }
+            Base.prototype.value = 'from base';
+            class Derived extends Base {
+                async read() { return super[await Promise.resolve('value')]; }
+            }
+
+            var result = 'pending';
+            new Derived().read().then(v => result = v);
+            result;
+            """;
+
+        var engine = new Engine();
+        engine.Evaluate(Script);
+        engine.Evaluate("result").AsString().Should().Be("from base");
+    }
 }
