@@ -317,12 +317,11 @@ public class UrlTests
     }
 
     [Fact]
-    public void HasNeitherUrlPatternNorTheBlobUrlStore()
+    public void HasNoBlobUrlStore()
     {
         var engine = WebEngine();
 
         // Absent, not present and throwing: feature detection has to be able to see they are missing.
-        engine.Evaluate("typeof URLPattern").AsString().Should().Be("undefined");
         engine.Evaluate("typeof URL.createObjectURL").AsString().Should().Be("undefined");
         engine.Evaluate("typeof URL.revokeObjectURL").AsString().Should().Be("undefined");
     }

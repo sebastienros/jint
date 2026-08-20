@@ -223,13 +223,14 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
-| `URL` / `URLSearchParams` | `Url` | ✔ shipped |
+| `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
 | `Blob` (incl. `stream()`) / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
 | `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
+| `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
@@ -237,9 +238,6 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
 | `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
 | `caches` / `Cache` / `CacheStorage` | `CacheApi` — **opt-in on its own, see below** | ✔ shipped |
-
-| `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
-| `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.

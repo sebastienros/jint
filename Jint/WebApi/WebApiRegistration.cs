@@ -105,6 +105,11 @@ internal static class WebApiRegistration
         {
             Install(global, engine, "URL", static e => e.Realm.Intrinsics.WebApiUrl, PropertyFlag.NonEnumerable);
             Install(global, engine, "URLSearchParams", static e => e.Realm.Intrinsics.WebApiUrlSearchParams, PropertyFlag.NonEnumerable);
+
+            // URLPattern rides this flag rather than carrying one of its own: it is the same standard family, it
+            // is defined entirely in terms of the URL parser and its component canonicalization, and a pattern is
+            // matched against a URL — so an engine that has no URL has nothing for it to be useful on.
+            Install(global, engine, "URLPattern", static e => e.Realm.Intrinsics.WebApiUrlPattern, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Events) != WebApiFeatures.None)

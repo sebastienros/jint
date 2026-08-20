@@ -22,8 +22,10 @@ public class WebApiUrlTests
 
         engine.Evaluate("typeof URL").AsString().Should().Be("undefined");
         engine.Evaluate("typeof URLSearchParams").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof URLPattern").AsString().Should().Be("undefined");
         engine.Evaluate("'URL' in globalThis").AsBoolean().Should().BeFalse();
         engine.Evaluate("'URLSearchParams' in globalThis").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'URLPattern' in globalThis").AsBoolean().Should().BeFalse();
 
         // Nor an engine that asked for a different feature.
         var console = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -31,12 +33,16 @@ public class WebApiUrlTests
     }
 
     [Fact]
-    public void TheUrlFlagInstallsBothInterfaces()
+    public void TheUrlFlagInstallsEveryInterfaceOfTheStandardFamily()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
 
         engine.Evaluate("typeof URL").AsString().Should().Be("function");
         engine.Evaluate("typeof URLSearchParams").AsString().Should().Be("function");
+
+        // URLPattern has no flag of its own: it is defined in terms of the URL parser and matches against URLs,
+        // so it would have no independent meaning on an engine that has no URL.
+        engine.Evaluate("typeof URLPattern").AsString().Should().Be("function");
 
         // ... and nothing else the group could have brought along.
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
@@ -59,7 +65,7 @@ public class WebApiUrlTests
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
 
         // An interface object is writable and configurable but not enumerable.
-        foreach (var name in new[] { "URL", "URLSearchParams" })
+        foreach (var name in new[] { "URL", "URLSearchParams", "URLPattern" })
         {
             var descriptor = engine.Evaluate($"Object.getOwnPropertyDescriptor(globalThis, '{name}')").AsObject();
 
@@ -92,6 +98,7 @@ public class WebApiUrlTests
 
         engine.Evaluate("new ShadowRealm().evaluate('typeof URL')").AsString().Should().Be("undefined");
         engine.Evaluate("new ShadowRealm().evaluate('typeof URLSearchParams')").AsString().Should().Be("undefined");
+        engine.Evaluate("new ShadowRealm().evaluate('typeof URLPattern')").AsString().Should().Be("undefined");
         engine.Evaluate("typeof URL").AsString().Should().Be("function");
     }
 
@@ -175,6 +182,46 @@ public class WebApiUrlTests
         engine.Evaluate("URL.canParse('https://example.com:demo')").AsBoolean().Should().BeFalse();
         engine.Evaluate("URL.canParse('http://[www.example.com]/')").AsBoolean().Should().BeFalse();
         engine.Evaluate("URL.canParse('https://09/')").AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void MatchesUrlsWithUrlPatternFromTheHostSide()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
+
+        var pattern = engine.Evaluate("new URLPattern('https://*.example.com/products/:id')").AsObject();
+
+        pattern.Get("hostname").AsString().Should().Be("*.example.com");
+        pattern.Get("pathname").AsString().Should().Be("/products/:id");
+        pattern.Get("hasRegExpGroups").AsBoolean().Should().BeFalse();
+
+        engine.SetValue("pattern", pattern);
+        engine.Evaluate("pattern.test('https://shop.example.com/products/74205')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("pattern.test('https://shop.example.com/orders/74205')").AsBoolean().Should().BeFalse();
+
+        var result = engine.Evaluate("pattern.exec('https://shop.example.com/products/74205')").AsObject();
+        result.Get("pathname").AsObject().Get("groups").AsObject().Get("id").AsString().Should().Be("74205");
+        result.Get("hostname").AsObject().Get("groups").AsObject().Get("0").AsString().Should().Be("shop");
+
+        // A component pattern that will not canonicalize is a TypeError from the constructor, not a silent
+        // never-matching pattern.
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("new URLPattern({ protocol: 'http{' })"));
+    }
+
+    [Fact]
+    public void UrlPatternSurvivesAGlobalSnapshotRestore()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
+
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Execute("var p = new URLPattern({ pathname: '/a/:b' });");
+        engine.Evaluate("p.test({ pathname: '/a/c' })").AsBoolean().Should().BeTrue();
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("typeof p").AsString().Should().Be("undefined");
+        engine.Evaluate("new URLPattern({ pathname: '/x' }).test({ pathname: '/x' })").AsBoolean().Should().BeTrue();
     }
 }
 #endif

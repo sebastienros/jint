@@ -677,11 +677,19 @@ internal ref struct UrlParser : IDisposable
 
                 _url.Port = port == UrlRecord.DefaultPort(_url.Scheme) ? null : port;
                 _buffer.Length = 0;
-            }
 
-            if (_stateOverride is not null)
+                if (_stateOverride is not null)
+                {
+                    return StepResult.Return;
+                }
+            }
+            else if (_stateOverride is not null)
             {
-                return StepResult.Return;
+                // A state-override run that reached here with nothing buffered was handed something that is not
+                // a port at all — "abc", or the empty string. The spec's "return failure" is inside this branch
+                // and the success "return" is inside the one above, which the URL port setter cannot tell apart
+                // because it discards the result either way; URLPattern's canonicalize a port does not.
+                return StepResult.Failure;
             }
 
             _state = UrlParserState.PathStart;
