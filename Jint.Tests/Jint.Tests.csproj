@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
+    <EmbeddedResource Include="Runtime\WebApi\Resources\*.json" />
   </ItemGroup>
 
   <ItemGroup>

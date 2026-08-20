@@ -220,7 +220,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
 | `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | in progress |
-| `URL` / `URLSearchParams` | `Url` | in progress |
+| `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
 

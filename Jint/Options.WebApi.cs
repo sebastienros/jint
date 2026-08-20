@@ -135,8 +135,7 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
-/// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c> and
+/// <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>, <c>Events = 1 &lt;&lt; 7</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
 /// that naming one can never compile into an engine that silently does not have it.
 /// </para>
@@ -187,6 +186,12 @@ public enum WebApiFeatures
     StructuredClone = 1 << 4,
 
     /// <summary>
+    /// The <c>URL</c> and <c>URLSearchParams</c> interfaces — the whole of the WHATWG URL Standard's API,
+    /// on the specification's own parser rather than on <see cref="Uri"/>.
+    /// </summary>
+    Url = 1 << 8,
+
+    /// <summary>
     /// <c>Blob</c>, <c>File</c> and <c>FormData</c> — in-memory byte sequences and the ordered entry list a
     /// form submission is made of. No streaming (<c>Blob.stream()</c> is absent) and no
     /// <c>multipart/form-data</c> serialization, which arrives with fetch.
@@ -196,9 +201,9 @@ public enum WebApiFeatures
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
-    /// <see cref="StructuredClone"/> and <see cref="Files"/>; it grows as further features land, and never
-    /// comes to include fetch.
+    /// <see cref="StructuredClone"/>, <see cref="Url"/> and <see cref="Files"/>; it grows as further features
+    /// land, and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Files,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Url | Files,
 }
 #endif
