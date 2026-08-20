@@ -97,17 +97,6 @@
     "staging/sm/Number/toFixed-values.js",
     "staging/sm/Number/toPrecision-values.js",
 
-    // RegExp semantics: case-insensitive matching across the Latin-1 boundary, and lastIndex
-    // bookkeeping in the Symbol.match / Symbol.replace / matchAll paths (including -0 and the
-    // ToLength recomputation the spec performs per iteration).
-    "staging/sm/RegExp/ignoreCase-non-latin1-to-latin1.js",
-    "staging/sm/RegExp/lastIndex-match-or-replace.js",
-    "staging/sm/RegExp/replace-local-tolength-lastindex.js",
-    "staging/sm/RegExp/replace-local-tolength-recompilation.js",
-    "staging/sm/RegExp/unicode-ignoreCase-ascii.js",
-    "staging/sm/String/matchAll.js",
-    "staging/sm/String/replace-updates-global-lastIndex.js",
-
     // Set.prototype.intersection / .isSubsetOf let the *receiver* be mutated while they traverse it
     // (a set-like's has/keys callback calling this.delete(v) or this.clear()), and the spec models
     // that with the [[SetData]] tombstone: a deleted entry becomes EMPTY in place rather than being

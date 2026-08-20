@@ -615,12 +615,11 @@ public sealed partial class RegExpConstructor : Constructor
             return true;
         }
 
-        // Case-insensitive with non-ASCII characters: .NET IgnoreCase applies broader
-        // Unicode case folding than ES spec (e.g. U+212A KELVIN SIGN matches 'K',
-        // U+017F LONG S matches 's'). In non-unicode mode, ES spec Canonicalize uses
-        // toUpperCase only, not Unicode case folding. This applies to both literal
-        // non-ASCII characters and \uXXXX escape sequences for non-ASCII code points.
-        if (flags.Contains('i') && HasNonAsciiContent(pattern))
+        // Case-insensitive matching that reaches across the ASCII boundary: .NET IgnoreCase groups
+        // characters that the spec's Canonicalize keeps apart in non-unicode mode, where it is
+        // toUpperCase with a hard barrier rather than Unicode case folding. See HasCaseFoldingHazard
+        // for exactly which pattern content that covers.
+        if (flags.Contains('i') && HasCaseFoldingHazard(pattern))
         {
             return true;
         }
@@ -1084,77 +1083,222 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Detect non-ASCII content in the pattern: either literal non-ASCII characters or
-    /// \uXXXX / \u{XXXX} hex escapes for non-ASCII code points (&gt;0x7F).
-    /// .NET IgnoreCase applies broader Unicode case folding than ES spec for these characters.
-    /// ASCII-range escapes like \u0041 work correctly in .NET and don't need the custom engine.
+    /// Detect pattern content whose case-insensitive matching .NET resolves differently from
+    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
+    /// in non-Unicode mode, which is what routes such a pattern to the custom engine. Two kinds:
+    /// <list type="bullet">
+    /// <item><description>
+    /// Any non-ASCII code point, whether written literally or as a <c>\uXXXX</c>, <c>\u{XXXX}</c> or
+    /// <c>\xNN</c> escape. Canonicalize is toUpperCase plus a hard barrier — a character at or above
+    /// U+0080 whose uppercase is a single code unit below U+0080 canonicalizes to itself (step 9) — so
+    /// U+00DF and U+1E9E, or U+00E5 and U+212B, are distinct to the spec while .NET groups them.
+    /// </description></item>
+    /// <item><description>
+    /// The letters <c>K</c> and <c>k</c>, which .NET 7 and later group with U+212A KELVIN SIGN while the
+    /// barrier keeps the spec from doing so. They are the only ASCII code points .NET pairs with a
+    /// non-ASCII one under <c>RegexOptions.ECMAScript | IgnoreCase | CultureInvariant</c>, so no other
+    /// ASCII character needs the custom engine on account of a subject character it never mentions.
+    /// A range inside a character class counts when it covers one of them.
+    /// </description></item>
+    /// </list>
+    /// A decimal escape is hazardous outright: it is either a backreference, whose matched text is not
+    /// known here and is compared through that same Canonicalize, or an Annex B legacy octal escape that
+    /// can denote any code point up to U+00FF — and telling the two apart needs the capture-group count.
+    /// So is <c>\w</c> / <c>\W</c>, whose set contains <c>k</c> and <c>K</c>.
+    /// <para>
+    /// Only consulted for a pattern that already carries the <c>i</c> flag and neither <c>u</c> nor
+    /// <c>v</c> (those go to the custom engine regardless), so a pattern without <c>i</c> never pays for
+    /// this scan and never loses the .NET engine over a character that only matters when folding.
+    /// </para>
     /// </summary>
-    private static bool HasNonAsciiContent(string pattern)
+    private static bool HasCaseFoldingHazard(string pattern)
     {
-        for (int i = 0; i < pattern.Length; i++)
+        // Kelvin sign folding partners: the only ASCII characters .NET puts in a case-equivalence class
+        // with a non-ASCII one.
+        const int KelvinPartnerUpper = 'K';
+        const int KelvinPartnerLower = 'k';
+
+        var inClass = false;
+
+        // Code point a following '-' would open a class range from, or -1 when the preceding element
+        // cannot be a range bound (a class escape, or a range that just closed).
+        var rangeStart = -1;
+        var inRange = false;
+
+        for (var i = 0; i < pattern.Length; i++)
         {
-            char ch = pattern[i];
+            var ch = pattern[i];
+            int codePoint;
 
-            if (ch == '\\' && i + 1 < pattern.Length)
+            if (ch == '\\')
             {
-                if (pattern[i + 1] == 'u' && i + 2 < pattern.Length)
+                if (!TryDecodeEscape(pattern, ref i, out codePoint))
                 {
-                    if (pattern[i + 2] == '{')
+                    if (codePoint < 0)
                     {
-                        // \u{XXXX} syntax — parse hex value
-                        int value = 0;
-                        int j = i + 3;
-                        while (j < pattern.Length && pattern[j] != '}')
-                        {
-                            int digit = HexDigitValue(pattern[j]);
-                            if (digit < 0) break;
-                            value = (value << 4) | digit;
-                            j++;
-                        }
-
-                        if (j < pattern.Length && pattern[j] == '}' && value > 0x7F)
-                        {
-                            return true;
-                        }
-
-                        i = j; // skip past parsed escape
+                        return true;
                     }
-                    else if (i + 5 < pattern.Length)
-                    {
-                        // \uXXXX syntax — parse 4 hex digits
-                        int d0 = HexDigitValue(pattern[i + 2]);
-                        int d1 = HexDigitValue(pattern[i + 3]);
-                        int d2 = HexDigitValue(pattern[i + 4]);
-                        int d3 = HexDigitValue(pattern[i + 5]);
-                        if (d0 >= 0 && d1 >= 0 && d2 >= 0 && d3 >= 0)
-                        {
-                            int value = (d0 << 12) | (d1 << 8) | (d2 << 4) | d3;
-                            if (value > 0x7F)
-                            {
-                                return true;
-                            }
-                        }
 
-                        i += 5; // skip past \uXXXX
-                    }
-                    else
-                    {
-                        i++; // skip escaped char
-                    }
-                }
-                else
-                {
-                    i++; // skip escaped char
+                    // A class escape (\d, \w, ...) stands for a set, so it cannot be a range bound.
+                    rangeStart = -1;
+                    inRange = false;
+                    continue;
                 }
             }
-            else if (ch > 0x7F)
+            else if (!inClass && ch == '[')
             {
-                // Literal non-ASCII character in the pattern
+                inClass = true;
+                rangeStart = -1;
+                inRange = false;
+                continue;
+            }
+            else if (inClass && ch == ']')
+            {
+                inClass = false;
+                rangeStart = -1;
+                inRange = false;
+                continue;
+            }
+            else if (inClass && ch == '-' && rangeStart >= 0)
+            {
+                inRange = true;
+                continue;
+            }
+            else
+            {
+                codePoint = ch;
+            }
+
+            if (inRange)
+            {
+                // An inverted range is a SyntaxError the parser rejects, so it needs no special care here.
+                if (codePoint > 0x7F
+                    || (rangeStart <= KelvinPartnerUpper && KelvinPartnerUpper <= codePoint)
+                    || (rangeStart <= KelvinPartnerLower && KelvinPartnerLower <= codePoint))
+                {
+                    return true;
+                }
+
+                rangeStart = -1;
+                inRange = false;
+                continue;
+            }
+
+            if (codePoint > 0x7F || codePoint == KelvinPartnerUpper || codePoint == KelvinPartnerLower)
+            {
                 return true;
             }
+
+            rangeStart = codePoint;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Decode the escape sequence starting at the backslash <paramref name="i"/> points at, leaving
+    /// <paramref name="i"/> on its last character. Returns <see langword="true"/> with the single code
+    /// point the escape denotes. Returns <see langword="false"/> with <paramref name="codePoint"/> set to
+    /// -1 for an escape that is hazardous on its own (a decimal escape — backreference or legacy octal —
+    /// or a named backreference), and to 0 for one that denotes a set of characters rather than one
+    /// (<c>\d</c>, <c>\w</c>, <c>\s</c>, <c>\p{…}</c>, the assertions).
+    /// </summary>
+    private static bool TryDecodeEscape(string pattern, ref int i, out int codePoint)
+    {
+        if (i + 1 >= pattern.Length)
+        {
+            // Trailing backslash: not a valid pattern, and the parser has the final say on that.
+            codePoint = '\\';
+            return true;
+        }
+
+        var ch = pattern[i + 1];
+        i++;
+
+        switch (ch)
+        {
+            case >= '0' and <= '9':
+                codePoint = -1;
+                return false;
+
+            case 'k':
+                // Either a named backreference or, under Annex B, an IdentityEscape for 'k' — and 'k' is
+                // itself a hazard, so the two readings agree.
+                codePoint = -1;
+                return false;
+
+            case 'w' or 'W':
+                // The word-character set contains 'k' and 'K', so it carries the hazard the same way an
+                // explicit class covering them does: /\w/i matches U+212A on .NET where the spec does not.
+                codePoint = -1;
+                return false;
+
+            case 'u' when i + 1 < pattern.Length && pattern[i + 1] == '{':
+                return TryDecodeBracedUnicodeEscape(pattern, ref i, out codePoint);
+
+            case 'u' when i + 4 < pattern.Length
+                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0
+                          && HexDigitValue(pattern[i + 3]) >= 0 && HexDigitValue(pattern[i + 4]) >= 0:
+                codePoint = (HexDigitValue(pattern[i + 1]) << 12)
+                            | (HexDigitValue(pattern[i + 2]) << 8)
+                            | (HexDigitValue(pattern[i + 3]) << 4)
+                            | HexDigitValue(pattern[i + 4]);
+                i += 4;
+                return true;
+
+            case 'x' when i + 2 < pattern.Length
+                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0:
+                codePoint = (HexDigitValue(pattern[i + 1]) << 4) | HexDigitValue(pattern[i + 2]);
+                i += 2;
+                return true;
+
+            case 'c' when i + 1 < pattern.Length && char.IsAsciiLetter(pattern[i + 1]):
+                // ControlLetter: always below U+0020.
+                i++;
+                codePoint = 0;
+                return false;
+
+            case 'd' or 'D' or 's' or 'S' or 'b' or 'B' or 'p' or 'P':
+                codePoint = 0;
+                return false;
+
+            default:
+                // IdentityEscape (including a malformed \u, \x or \c): the escape denotes the character.
+                codePoint = ch;
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Decode a braced unicode escape whose opening brace sits at <paramref name="i"/> + 1, leaving
+    /// <paramref name="i"/> on the closing brace. A sequence that is not well formed is an IdentityEscape
+    /// for <c>u</c> in a non-unicode pattern, which is what the parser makes of it too.
+    /// </summary>
+    private static bool TryDecodeBracedUnicodeEscape(string pattern, ref int i, out int codePoint)
+    {
+        var value = 0;
+        var j = i + 2;
+        while (j < pattern.Length && pattern[j] != '}')
+        {
+            var digit = HexDigitValue(pattern[j]);
+            if (digit < 0)
+            {
+                break;
+            }
+
+            value = (value << 4) | digit;
+            j++;
+        }
+
+        if (j < pattern.Length && pattern[j] == '}')
+        {
+            codePoint = value;
+            i = j;
+            return true;
+        }
+
+        codePoint = 'u';
+        return true;
     }
 
     private static int HexDigitValue(char c)

@@ -203,8 +203,30 @@ internal sealed partial class RegExpPrototype : Prototype
             rx.Set(JsRegExp.PropertyLastIndex, 0, true);
         }
 
+        // Step 9 above is the only lastIndex write this algorithm performs of its own accord; everything
+        // else is left to RegExpBuiltinExec. In particular there is no write *after* the matching is
+        // done: for a global regexp the exec that ends the loop has already reset lastIndex to +0, and a
+        // non-global one is not supposed to have its lastIndex touched at all (so a -0 stays -0, and a
+        // replacer function that assigns lastIndex keeps what it assigned).
+
+        // The two fused fast paths below collapse the whole RegExpExec loop (steps 11-12) into a single
+        // engine-level scan, so they may only run where that substitution is unobservable. Two things
+        // make it observable, both of them inside RegExpBuiltinExec:
+        //   - step 2 reads and coerces lastIndex *before* step 3 reads the flags and step 8 reads the
+        //     matcher, so a lastIndex holding an object runs user code from inside the match, and that
+        //     code may replace the very pattern being matched (RegExp.prototype.compile);
+        //   - a sticky regexp starts matching at lastIndex (step 12.b) and writes the result back.
+        // Neither is reproducible in a fused scan, so both send the call down the generic path below.
+        // Reading lastIndex here is free of side effects in turn: it is a non-configurable data property
+        // of every RegExp instance, so it can never have become an accessor.
+        // https://tc39.es/ecma262/#sec-regexpbuiltinexec
+        var canFuseExecLoop = rx is JsRegExp fusable
+                              && !fusable.Sticky
+                              && (global || fusable.Get(JsRegExp.PropertyLastIndex) is JsNumber);
+
         // Custom engine fast path for simple string replacement (no $-substitutions, no function)
-        if (!functionalReplace
+        if (canFuseExecLoop
+            && !functionalReplace
             && !mayHaveNamedCaptures
             && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: false } customRei)
         {
@@ -241,15 +263,13 @@ internal sealed partial class RegExpPrototype : Prototype
             }
 
             sb.Append(s.AsSpan(lastPos));
-            rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero);
             return sb.ToString();
         }
 
         // check if we can access fast path (only for .NET Regex engine)
-        // Derive sticky from already-read flags string to avoid extra observable property access
-        if (!fullUnicode
+        if (canFuseExecLoop
+            && !fullUnicode
             && !mayHaveNamedCaptures
-            && !flags.Contains('y')
             && rx is JsRegExp { HasDefaultRegExpExec: true, UsesDotNetEngine: true } rei)
         {
             var count = global ? int.MaxValue : 1;
@@ -311,7 +331,6 @@ internal sealed partial class RegExpPrototype : Prototype
                 result = rei.Value.Replace(s, TypeConverter.ToString(replaceValue), count);
             }
 
-            rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero);
             return result;
         }
 
@@ -1299,7 +1318,27 @@ internal sealed partial class RegExpPrototype : Prototype
         return RegExpBuiltinExec(ri, s);
     }
 
-    internal bool HasDefaultExec => Get(PropertyExec) is ClrFunction functionInstance && functionInstance._func == _defaultExec;
+    /// <summary>
+    /// Whether <c>RegExp.prototype.exec</c> is still this realm's built-in implementation, which is what
+    /// lets <see cref="RegExpExec"/> and the fast paths skip the <c>Get(R, "exec")</c> of
+    /// <see href="https://tc39.es/ecma262/#sec-regexpexec">RegExpExec</see> step 1.
+    /// <para>
+    /// The check reads the own descriptor rather than performing an ordinary <c>[[Get]]</c>: a script may
+    /// have replaced <c>exec</c> with an accessor, and a <c>[[Get]]</c> here would call that accessor an
+    /// extra time — with <c>RegExp.prototype</c> itself as the receiver rather than the regexp being
+    /// matched, which is observable and simply wrong.
+    /// </para>
+    /// </summary>
+    internal bool HasDefaultExec
+    {
+        get
+        {
+            var descriptor = GetOwnProperty(PropertyExec);
+            return !descriptor.IsAccessorDescriptor()
+                   && UnwrapJsValue(descriptor) is ClrFunction functionInstance
+                   && functionInstance._func == _defaultExec;
+        }
+    }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexpbuiltinexec
