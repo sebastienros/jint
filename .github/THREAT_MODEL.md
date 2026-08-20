@@ -697,6 +697,50 @@ attacker-controlled endpoint also controls how often the host retries it.
 the engine itself for untrusted script — one worker per request, discarded when the request
 ends — rather than pooling an engine that a script may leave streaming.
 
+### TM-23: The Cache API gives script storage that outlives the evaluation
+
+**Threat.** `WebApiFeatures.CacheApi` is the first feature whose whole point is that data a
+script writes is still there later — for a longer-lived engine, and for anything else the
+host wires to the same `CacheStorageProvider`. Three consequences follow. A script can
+**consume storage**: the entries it `put`s live wherever the provider keeps them, on the
+host's disk or database if that is what the provider is. A script can **poison what a later
+reader trusts**: a stored `Response` replays to whoever `match`es it, so two tenants sharing
+one provider, or a host reading a cache a script could write, turn a cache entry into an
+injection channel. And with `UseFetch` also granted, `cache.add` records what the *network*
+said — a cache filled through a redirect-day DNS answer replays it long after the DNS has
+moved on.
+
+**Existing mitigations.**
+
+- The feature is **off by default and not part of `WebApiFeatures.Default`** — like `Storage`,
+  and for the same reason: a host asking for "the web APIs" has not agreed to durable storage.
+  Enabling it brings the fetch *object model*, never the network; `cache.add`/`addAll` reject
+  with a `TypeError` until `UseFetch` is also granted, and with it they run under fetch's full
+  policy (scheme list, `UrlFilter`, size cap, deadline) exactly as a scripted `fetch` would.
+- The provider seam is **host-supplied and engine-free**: entries cross it as plain CLR
+  records, everything runs on the engine's thread, and a provider's
+  `CacheQuotaExceededException` surfaces as the standard `QuotaExceededError`, so quotas,
+  eviction and per-tenant partitioning have a sanctioned place to live.
+- The defaulted provider is **private to one engine** — nothing is shared between engines, and
+  nothing survives the engine being dropped.
+
+**Missing or residual mitigation.**
+
+- **The default `InMemoryCacheStorageProvider` has no quota.** A script can `put` until the
+  process runs out of memory; nothing in the engine bounds it. It also survives
+  `RestoreGlobalSnapshot` — a restore reverts global bindings, not host storage — so a pooled
+  engine carries one cycle's cache into the next unless the host swaps or clears the provider
+  itself.
+- Nothing validates what a provider returns against what was stored; a provider shared across
+  trust boundaries is itself the boundary, and partitioning is entirely its job.
+
+**Required host action.** For untrusted script, supply the provider: enforce a byte quota and
+an entry cap in it (throwing `CacheQuotaExceededException` when exceeded), partition it per
+tenant, and treat cached responses read outside the engine as script-controlled input. With a
+pooled engine, swap or clear the provider per request the same way `HostDefined` is swapped.
+If the default in-memory store is used at all, bound the engine's lifetime instead — the
+store dies with the engine, which is the only bound it has.
+
 ## Hardened deployment baseline
 
 The numbers below are examples only. Measure normal workloads and choose smaller limits that

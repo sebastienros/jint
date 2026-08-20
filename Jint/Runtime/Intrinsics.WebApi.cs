@@ -2,6 +2,7 @@
 using Jint.WebApi.Abort;
 using Jint.WebApi.Base64;
 using Jint.WebApi.Compression;
+using Jint.WebApi.Caches;
 using Jint.WebApi.Console;
 using Jint.WebApi.Crypto;
 using Jint.WebApi.DomException;
@@ -182,6 +183,23 @@ public sealed partial class Intrinsics
     /// <summary><c>MessageEvent</c> inherits from <c>Event</c>.</summary>
     internal MessageEventConstructor MessageEvent =>
         _messageEvent ??= new MessageEventConstructor(_engine, _realm, Event);
+
+    private CacheConstructor? _cache;
+    private CacheStorageConstructor? _cacheStorage;
+    private JsCacheStorage? _caches;
+
+    internal CacheConstructor Cache =>
+        _cache ??= new CacheConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal CacheStorageConstructor CacheStorage =>
+        _cacheStorage ??= new CacheStorageConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>caches</c> object, which reads the engine's cache storage provider and therefore needs the
+    /// web-API state <c>WebApiRegistration</c> created alongside the global.
+    /// </summary>
+    internal JsCacheStorage Caches =>
+        _caches ??= JsCacheStorage.Create(_engine, _realm);
 
     internal CryptoInstance Crypto =>
         _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);

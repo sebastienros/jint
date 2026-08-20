@@ -241,6 +241,24 @@ internal static class WebApiRegistration
             // intrinsic, and Install is non-clobbering, so an engine with any combination gets one object.
             Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
+        {
+            // A cache is a list of request/response pairs, so the fetch object model is the Cache API's model
+            // too — without it a script has nothing it could put in a cache. The network function is not part
+            // of that and stays behind its own flag; these three are installed by the block above as well
+            // when it ran, and Install leaves a name that already exists alone.
+            Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
+            Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
+            Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+
+            Install(global, engine, "Cache", static e => e.Realm.Intrinsics.Cache, PropertyFlag.NonEnumerable);
+            Install(global, engine, "CacheStorage", static e => e.Realm.Intrinsics.CacheStorage, PropertyFlag.NonEnumerable);
+
+            // WebIDL exposes caches through a [SameObject] accessor pair; an ordinary enumerable data
+            // property is the same simplification console, crypto and performance are installed with.
+            Install(global, engine, "caches", static e => e.Realm.Intrinsics.Caches, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>
@@ -307,6 +325,14 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Files;
         }
 
+        // The Cache API stores Request/Response pairs, so it needs the same three for the same reasons — and
+        // the fetch interface objects, which the install block adds. It deliberately does not bring
+        // WebApiFeatures.Fetch: caching is not network access, and only Cache.add/addAll need one.
+        if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
         return features;
     }
 
@@ -329,7 +355,7 @@ internal static class WebApiRegistration
         // in-flight set here, the scheduler keeps its own task queues here, and storage keeps its providers
         // here, which is why each of them wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi;
 
         // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
         // channel whatever else it did or did not ask for, which is why it is read before the flags are.
@@ -367,7 +393,13 @@ internal static class WebApiRegistration
         // needs is decided by the global a script touches, so defaulting one costs nothing until then.
         var storage = (features & WebApiFeatures.Storage) != WebApiFeatures.None ? options.WebApi.Storage : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage);
+        // The provider is resolved here, once, and a host that named none gets one of its own rather than
+        // one shared by every engine built from this Options instance — see Options.CacheOptions.Provider.
+        var cache = (features & WebApiFeatures.CacheApi) != WebApiFeatures.None
+            ? options.WebApi.Cache.Provider ?? new InMemoryCacheStorageProvider()
+            : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache);
     }
 
     /// <summary>

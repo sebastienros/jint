@@ -77,6 +77,12 @@ public partial class Options
         /// contains <see cref="WebApiFeatures.Storage"/>.
         /// </summary>
         public StorageOptions Storage { get; } = new();
+
+        /// <summary>
+        /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
+        /// </summary>
+        public CacheOptions Cache { get; } = new();
     }
 
     /// <summary>
@@ -139,6 +145,43 @@ public partial class Options
         /// no "unlimited" sentinel — <see cref="long.MaxValue"/> is how that is spelled.
         /// </remarks>
         public long MaxTotalBytes { get; set; } = DefaultMaxTotalBytes;
+    }
+
+    /// <summary>
+    /// Settings for the Cache API: where a script's cached request/response pairs are kept. Requires .NET 8
+    /// or higher.
+    /// </summary>
+    /// <remarks>
+    /// Like every other option group this may be shared by any number of engines, including concurrent ones.
+    /// Sharing one <see cref="Provider"/> between them is what makes them share a cache, and such a provider
+    /// must be thread-safe — see <see cref="CacheStorageProvider"/>.
+    /// </remarks>
+    public class CacheOptions
+    {
+        /// <summary>
+        /// Where the caches live, or <see langword="null"/> to give each engine a private
+        /// <see cref="InMemoryCacheStorageProvider"/> of its own.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The default is deliberately per engine rather than one instance on this options object: two
+        /// engines built from one shared <see cref="Options"/> would otherwise see each other's cached data,
+        /// which is not something a host asking for a web API should inherit. Sharing is what assigning a
+        /// provider here is <i>for</i>, and it is then an explicit act.
+        /// </para>
+        /// <para>
+        /// <b>The default has no quota</b>, so a script can go on caching until the process runs out of
+        /// memory; a host running untrusted script implements <see cref="CacheStorageProvider"/> and throws
+        /// <see cref="CacheQuotaExceededException"/> to impose one. Cached data also survives
+        /// <c>Engine.Advanced.RestoreGlobalSnapshot</c>, which reverts the engine's global bindings and not
+        /// host storage.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
+        /// already exists.
+        /// </para>
+        /// </remarks>
+        public CacheStorageProvider? Provider { get; set; }
     }
 
     /// <summary>
@@ -656,6 +699,30 @@ public enum WebApiFeatures
     /// </para>
     /// </remarks>
     WebSocket = 1 << 18,
+
+    /// <summary>
+    /// The <c>caches</c> object and the <c>Cache</c> and <c>CacheStorage</c> interfaces —
+    /// https://w3c.github.io/ServiceWorker/#cache-interface. <b>Never part of
+    /// <see cref="Default"/>:</b> a cache outlives the evaluation that filled it, so where the data goes and
+    /// what bounds it are decisions a host makes rather than inherits — see
+    /// <see cref="Options.CacheOptions"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/>, <see cref="Url"/> and <see cref="Files"/> for the same reason
+    /// <see cref="Fetch"/> does, and additionally installs <c>Headers</c>, <c>Request</c> and
+    /// <c>Response</c>: a cache <i>is</i> a list of request/response pairs, so a script that cannot build one
+    /// has nothing to put in it. What this flag does not bring is the network — <c>fetch</c> itself stays
+    /// behind <see cref="Fetch"/>, and the two <c>Cache</c> methods that reach the network,
+    /// <c>add</c> and <c>addAll</c>, reject with a <c>TypeError</c> naming the flag until it is enabled.
+    /// Everything else works: a host can populate a cache from its own data and a script can read it back.
+    /// </para>
+    /// <para>
+    /// Storage is delegated to <see cref="Options.CacheOptions.Provider"/>, which defaults to an in-memory
+    /// store per engine with no quota at all.
+    /// </para>
+    /// </remarks>
+    CacheApi = 1 << 19,
 
     /// <summary>
     /// <c>CompressionStream</c> and <c>DecompressionStream</c> — https://compression.spec.whatwg.org/ — for

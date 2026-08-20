@@ -221,6 +221,48 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables the <c>caches</c> object and the <c>Cache</c> and <c>CacheStorage</c> interfaces — and with
+    /// them <see cref="WebApiFeatures.Events"/>, <see cref="WebApiFeatures.Url"/> and
+    /// <see cref="WebApiFeatures.Files"/>, plus the <c>Headers</c>, <c>Request</c> and <c>Response</c>
+    /// classes a cache is made of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="UseWebApis(Options)"/> deliberately never does this: a cache outlives the evaluation that
+    /// filled it, so where the data goes and what bounds it are decisions a host makes rather than inherits.
+    /// Left unconfigured, each engine gets a private in-memory store <b>with no quota</b> — see
+    /// <see cref="Options.CacheOptions.Provider"/>.
+    /// </para>
+    /// <para>
+    /// This grants no network access. <c>cache.add</c> and <c>cache.addAll</c> fetch, so they additionally
+    /// need <see cref="UseFetch"/>, and reject with a <c>TypeError</c> naming it until they have it; every
+    /// other <c>Cache</c> method works without it.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseCacheApi(cache =>
+    /// {
+    ///     cache.Provider = myRedisBackedProvider;
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">Optional configuration of the cache settings, run after the feature is enabled.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseCacheApi(this Options options, Action<Options.CacheOptions>? configure = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.CacheApi;
+        configure?.Invoke(options.WebApi.Cache);
+        return options;
+    }
+
+    /// <summary>
     /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
     /// </summary>
     /// <param name="options">Options to modify.</param>

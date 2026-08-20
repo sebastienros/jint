@@ -236,10 +236,13 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
 | `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
+| `caches` / `Cache` / `CacheStorage` | `CacheApi` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
-`Storage` is the other standing exception, for the reason in its own section below.
+`Storage` is one standing exception, for the reason in its own section below, and `CacheApi` is the
+other, for the neighbouring one — a cache outlives the evaluation that filled it, so where its data goes,
+and what bounds it, is a decision you make rather than inherit.
 
 `crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
 `exportKey`**, over SHA-1/256/384/512 (for `digest` and as HMAC's inner hash), **HMAC**, and **AES-GCM** at
@@ -1011,6 +1014,53 @@ platform you are on, the same answer `process.platform` gives. `WorkingDirectory
 
 `node:querystring` and `node:url` need .NET 8 or newer, because both build on the engine's WHATWG URL
 implementation. `node:path` is available on every target framework Jint has.
+
+
+### The Cache API stores through a provider you supply
+
+`caches` is the Service Workers Standard's [`CacheStorage`](https://w3c.github.io/ServiceWorker/#cache-interface)
+— `open`, `has`, `delete`, `keys`, `match` — with the full `Cache` behind it: `match` / `matchAll` with
+`ignoreSearch`, `ignoreMethod` and `ignoreVary`, `put`, `add`, `addAll`, `delete`, `keys`, the request-matching
+algorithm including `Vary`, and the batch semantics that make a failed `addAll` store nothing at all.
+
+Jint implements the object model and delegates the storage:
+
+```csharp
+var engine = new Engine(options => options.UseCacheApi(cache =>
+{
+    cache.Provider = myProvider;   // omit for a private in-memory store per engine
+}));
+
+var body = engine.Evaluate(
+    "(async () => {" +
+    "  const cache = await caches.open('v1');" +
+    "  await cache.put('https://example.org/a', new Response('hi'));" +
+    "  return (await cache.match('https://example.org/a')).text();" +
+    "})()").UnwrapIfPromise();
+```
+
+A `CacheStorageProvider` opens, lists and deletes named caches; each `CacheStore` lists its entries and applies
+one `CacheWrite` — the removals and the additions of a whole operation together, so a provider that writes it
+in a transaction gets the standard's all-or-nothing behaviour for free. A request/response pair crosses that
+seam as `CacheEntry`, a plain CLR record with no engine reference in it, so it can go into a dictionary, a
+file, SQL or Redis. Everything is called on the engine's thread, synchronously, and any exception becomes a
+rejection: `CacheQuotaExceededException` as the `QuotaExceededError` a browser raises, anything else as a
+`TypeError` whose cause your host can read with `JintException.TryGetClrException`.
+
+Enabling it also brings `Headers`, `Request` and `Response` (and `Events`, `Url`, `Files` under them), because
+a cache *is* a list of request/response pairs. It does **not** bring the network: `cache.add` and
+`cache.addAll` fetch, so they additionally need `UseFetch` and reject with a `TypeError` naming it until they
+have it — and when they do have it, they go through the very same policy, so your `UrlFilter`, scheme list,
+size cap and deadline bound them exactly as they bound a `fetch` the script wrote itself. Every other `Cache`
+method works with no network at all, which is what lets a host populate a cache from its own data and a script
+read it back.
+
+**The default store has no quota.** Left unconfigured, each engine gets a private `InMemoryCacheStorageProvider`
+that grows until the process runs out of memory, and its contents survive `RestoreGlobalSnapshot` — a restore
+reverts global bindings, not host storage. A deployment running untrusted script implements the provider
+itself: that is where a size limit, an eviction policy and a per-tenant partition belong. See
+[THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-23 for the full analysis.
+
 
 
 ## Performance
