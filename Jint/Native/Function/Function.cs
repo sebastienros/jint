@@ -614,8 +614,7 @@ public abstract partial class Function : ObjectInstance, ICallable
                 return s;
             }
 
-            var state = _functionDefinition.Initialize();
-            if (state.SourceText.GetValue(sourceTextNode) is { } sourceText)
+            if (_functionDefinition.GetSourceText() is { } sourceText)
             {
                 return sourceText;
             }

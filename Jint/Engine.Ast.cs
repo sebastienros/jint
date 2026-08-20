@@ -194,6 +194,16 @@ public partial class Engine
                     node.UserData = JintFunctionDefinition.BuildState((IFunction) node, _retainSourceText ? ctx.Input : null);
                     break;
 
+                case NodeType.ClassDeclaration:
+                case NodeType.ClassExpression:
+                    // See Engine.DefaultNodeHandler: a class constructor's source text is the whole class
+                    // production, and a class with no explicit constructor has no function node carrying it.
+                    if (_retainSourceText)
+                    {
+                        node.UserData = ctx.Input;
+                    }
+                    break;
+
                 case NodeType.Program:
                     // A module root is a Program by node type, but nothing reads a module's cached scope —
                     // every reader of it is Script-typed and SourceTextModule walks its own declarations —
