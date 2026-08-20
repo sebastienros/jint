@@ -100,6 +100,31 @@ public class WebApiRegistrationTests
     }
 
     [Fact]
+    public void InstallsTheEventAndAbortInterfaceObjectsBehindTheEventsFlag()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
+
+        foreach (var name in new[] { "Event", "CustomEvent", "EventTarget", "AbortController", "AbortSignal" })
+        {
+            engine.Evaluate($"typeof {name}").AsString().Should().Be("function");
+
+            // Interface objects: writable and configurable, but not enumerable.
+            var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Enumerable.Should().BeFalse();
+            descriptor.Writable.Should().BeTrue();
+            descriptor.Configurable.Should().BeTrue();
+
+            // ... and only behind the flag.
+            new Engine(options => options.UseWebApis(WebApiFeatures.Console))
+                .Evaluate($"typeof {name}").AsString().Should().Be("undefined");
+
+            // ... and never inside a shadow realm.
+            engine.Evaluate($"new ShadowRealm().evaluate('typeof {name}')").AsString().Should().Be("undefined");
+        }
+    }
+
+    [Fact]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own");

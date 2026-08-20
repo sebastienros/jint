@@ -1,8 +1,10 @@
 #if NET8_0_OR_GREATER
+using Jint.WebApi.Abort;
 using Jint.WebApi.Base64;
 using Jint.WebApi.Console;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
+using Jint.WebApi.Events;
 using Jint.WebApi.Files;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Timers;
@@ -82,5 +84,31 @@ public sealed partial class Intrinsics
 
     internal UrlSearchParamsConstructor WebApiUrlSearchParams =>
         _webApiUrlSearchParams ??= new UrlSearchParamsConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    private EventConstructor? _event;
+    private CustomEventConstructor? _customEvent;
+    private EventTargetConstructor? _eventTarget;
+    private AbortSignalConstructor? _abortSignal;
+    private AbortControllerConstructor? _abortController;
+
+    internal EventConstructor Event =>
+        _event ??= new EventConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// <c>CustomEvent</c> inherits from <c>Event</c>, so reaching it builds <c>Event</c> too — which is what
+    /// makes <c>Object.getPrototypeOf(CustomEvent) === Event</c> hold however the two were first touched.
+    /// </summary>
+    internal CustomEventConstructor CustomEvent =>
+        _customEvent ??= new CustomEventConstructor(_engine, _realm, Event);
+
+    internal EventTargetConstructor EventTarget =>
+        _eventTarget ??= new EventTargetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary><c>AbortSignal</c> inherits from <c>EventTarget</c>.</summary>
+    internal AbortSignalConstructor AbortSignal =>
+        _abortSignal ??= new AbortSignalConstructor(_engine, _realm, EventTarget);
+
+    internal AbortControllerConstructor AbortController =>
+        _abortController ??= new AbortControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, AbortSignal);
 }
 #endif

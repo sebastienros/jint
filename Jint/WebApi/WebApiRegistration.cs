@@ -32,30 +32,24 @@ internal static class WebApiRegistration
     internal static void Apply(Options options, Engine engine)
     {
         var global = engine.Realm.GlobalObject;
+        var features = options.WebApi.Features;
+
+        CreateEngineState(options, engine, features);
 
         // DOMException has no feature flag of its own: it is how every other web API reports a failure, so it
         // exists whenever any of them does. As a WebIDL interface object it is writable and configurable but
         // NOT enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
         Install(global, engine, "DOMException", static e => e.Realm.Intrinsics.DomException, PropertyFlag.NonEnumerable);
 
-        if ((options.WebApi.Features & WebApiFeatures.Console) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Console) != WebApiFeatures.None)
         {
             // A WebIDL namespace object is exposed through an accessor pair; installing it as an ordinary
             // enumerable data property is a deliberate simplification, documented on ConsoleInstance.
             Install(global, engine, "console", static e => e.Realm.Intrinsics.Console, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.Timers) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Timers) != WebApiFeatures.None)
         {
-            // The queue is per engine, not per Options: two engines built from one shared Options instance
-            // get one each, and neither can see the other's timers. Both the clock and the cap are read here,
-            // once, which is what their documentation promises. This is the only place the engine's web-API
-            // state is created today; a later feature that needs state of its own has to extend the object
-            // rather than assign a second one over it.
-            var timerOptions = options.WebApi.Timers;
-            var timers = new TimerQueue(timerOptions.TimeProvider ?? TimeProvider.System, timerOptions.MaxActiveTimers);
-            engine._webApi = new WebApiEngineState(engine, timers);
-
             // WebIDL operations on the global: writable, enumerable and configurable —
             // https://webidl.spec.whatwg.org/#es-operations.
             Install(global, engine, "setTimeout", static e => e.Realm.Intrinsics.Timers.SetTimeout, PropertyFlag.ConfigurableEnumerableWritable);
@@ -65,13 +59,13 @@ internal static class WebApiRegistration
             Install(global, engine, "queueMicrotask", static e => e.Realm.Intrinsics.Timers.QueueMicrotask, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.Encoding) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Encoding) != WebApiFeatures.None)
         {
             Install(global, engine, "TextDecoder", static e => e.Realm.Intrinsics.TextDecoder, PropertyFlag.NonEnumerable);
             Install(global, engine, "TextEncoder", static e => e.Realm.Intrinsics.TextEncoder, PropertyFlag.NonEnumerable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.Base64) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Base64) != WebApiFeatures.None)
         {
             // Operations of a WebIDL interface mixin on the global are enumerable, unlike interface
             // objects — https://webidl.spec.whatwg.org/#es-operations.
@@ -79,25 +73,62 @@ internal static class WebApiRegistration
             Install(global, engine, "btoa", static e => e.Realm.Intrinsics.Btoa, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.StructuredClone) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.StructuredClone) != WebApiFeatures.None)
         {
             // A WebIDL operation on the global is a writable, enumerable, configurable data property —
             // https://webidl.spec.whatwg.org/#es-operations.
             Install(global, engine, "structuredClone", static e => e.Realm.Intrinsics.StructuredClone, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.Files) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
         {
             Install(global, engine, "Blob", static e => e.Realm.Intrinsics.Blob, PropertyFlag.NonEnumerable);
             Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
             Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
         }
 
-        if ((options.WebApi.Features & WebApiFeatures.Url) != WebApiFeatures.None)
+        if ((features & WebApiFeatures.Url) != WebApiFeatures.None)
         {
             Install(global, engine, "URL", static e => e.Realm.Intrinsics.WebApiUrl, PropertyFlag.NonEnumerable);
             Install(global, engine, "URLSearchParams", static e => e.Realm.Intrinsics.WebApiUrlSearchParams, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.Events) != WebApiFeatures.None)
+        {
+            Install(global, engine, "Event", static e => e.Realm.Intrinsics.Event, PropertyFlag.NonEnumerable);
+            Install(global, engine, "CustomEvent", static e => e.Realm.Intrinsics.CustomEvent, PropertyFlag.NonEnumerable);
+            Install(global, engine, "EventTarget", static e => e.Realm.Intrinsics.EventTarget, PropertyFlag.NonEnumerable);
+            Install(global, engine, "AbortController", static e => e.Realm.Intrinsics.AbortController, PropertyFlag.NonEnumerable);
+            Install(global, engine, "AbortSignal", static e => e.Realm.Intrinsics.AbortSignal, PropertyFlag.NonEnumerable);
+        }
+    }
+
+    /// <summary>
+    /// Creates <c>Engine._webApi</c> — once, and before any feature block, because more than one feature keeps
+    /// state in it now. A feature that needs none leaves the field null, which is what every hot path that
+    /// consults it starts by checking, so a <c>console</c>-only engine is still the engine it was.
+    /// </summary>
+    /// <remarks>
+    /// The state is per engine, not per <c>Options</c>: two engines built from one shared <c>Options</c>
+    /// instance get one each, and neither can see the other's timers. The clock and the cap are read here,
+    /// once, which is what their documentation promises.
+    /// </remarks>
+    private static void CreateEngineState(Options options, Engine engine, WebApiFeatures features)
+    {
+        // The timer globals are the obvious reason for a queue; AbortSignal.timeout() is the other, and it
+        // needs one whether or not the host also asked for setTimeout. The events feature additionally reads
+        // the time origin for Event.timeStamp, which is why it wants the state even without the timers flag.
+        const WebApiFeatures NeedsEngineState = WebApiFeatures.Timers | WebApiFeatures.Events;
+        if ((features & NeedsEngineState) == WebApiFeatures.None)
+        {
+            return;
+        }
+
+        var timerOptions = options.WebApi.Timers;
+        var timeProvider = timerOptions.TimeProvider ?? TimeProvider.System;
+        var timers = new TimerQueue(timeProvider, timerOptions.MaxActiveTimers);
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers);
     }
 
     /// <summary>

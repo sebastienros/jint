@@ -12,7 +12,10 @@ public partial class Engine
     /// predictable null check per event-loop drain and nothing else. The pump reaches it through
     /// <c>Engine.TryPromoteDueTimerJob</c> and <c>Engine.TimeUntilNextPumpScheduledWork</c>
     /// (<c>Jint/Engine.Pump.cs</c>), which are declared on every target framework so that neither the event
-    /// loop nor the wait loops need a conditional-compilation directive of their own.
+    /// loop nor the wait loops need a conditional-compilation directive of their own. It is created by
+    /// <c>WebApiRegistration.Apply</c> for the features that keep state in it — the timers and the events, the
+    /// latter for the time origin <c>Event.timeStamp</c> is measured against and for the queue
+    /// <c>AbortSignal.timeout()</c> schedules on.
     /// </summary>
     internal WebApiEngineState? _webApi;
 }
@@ -25,18 +28,30 @@ public partial class Engine
 internal sealed class WebApiEngineState
 {
     private readonly Engine _engine;
+    private readonly TimeProvider _timeProvider;
+    private readonly long _timeOrigin;
 
-    internal WebApiEngineState(Engine engine, TimerQueue? timers)
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers)
     {
         _engine = engine;
+        _timeProvider = timeProvider;
+        _timeOrigin = timeProvider.GetTimestamp();
         Timers = timers;
     }
 
     /// <summary>
-    /// The engine's active timers, or <see langword="null"/> when <see cref="WebApiFeatures.Timers"/> was not
-    /// enabled.
+    /// The engine's active timers, or <see langword="null"/> when nothing that schedules one is enabled.
     /// </summary>
     internal TimerQueue? Timers { get; }
+
+    /// <summary>
+    /// Milliseconds since this engine's <i>time origin</i>, which is the instant the web APIs were installed
+    /// on it — https://w3c.github.io/hr-time/#dfn-relative-high-resolution-time. It is what
+    /// <c>Event.timeStamp</c> is measured in, and it reads the same <see cref="TimeProvider"/> the timers do,
+    /// so a fake clock makes both deterministic together.
+    /// </summary>
+    internal double RelativeHighResolutionTime()
+        => _timeProvider.GetElapsedTime(_timeOrigin, _timeProvider.GetTimestamp()).TotalMilliseconds;
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job. One per call rather than all of them, so that
