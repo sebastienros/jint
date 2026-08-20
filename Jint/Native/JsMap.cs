@@ -7,12 +7,12 @@ namespace Jint.Native;
 public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, JsValue>>
 {
     private readonly Realm _realm;
-    internal readonly JintOrderedDictionary<JsValue, JsValue> _map;
+    internal readonly KeyedCollectionData _data;
 
     public JsMap(Engine engine, Realm realm) : base(engine)
     {
         _realm = realm;
-        _map = new JintOrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
+        _data = new KeyedCollectionData();
         // Every Map reaches this constructor, subclass instances included, so the bit is exactly the
         // brand MapPrototype's methods check. It is set here rather than passed through the internal
         // ObjectInstance constructor because that one skips DeriveAccessSemantics, and this type does
@@ -25,17 +25,17 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
     // prototype getter unreachable through `m.size` — which is how it went on returning a hard-coded 0 — and
     // gave every map a phantom own non-configurable `size` that [[OwnPropertyKeys]] never listed.
 
-    public int Size => _map.Count;
+    public int Size => _data.Count;
 
-    public void Clear() => _map.Clear();
+    public void Clear() => _data.Clear();
 
-    public bool Has(JsValue key) => _map.ContainsKey(key);
+    public bool Has(JsValue key) => _data.ContainsKey(key);
 
-    public bool Remove(JsValue key) => _map.Remove(key);
+    public bool Remove(JsValue key) => _data.Remove(key);
 
     public new JsValue Get(JsValue key)
     {
-        if (!_map.TryGetValue(key, out var value))
+        if (!_data.TryGetValue(key, out var value))
         {
             return Undefined;
         }
@@ -46,12 +46,12 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
     internal JsValue GetOrInsert(JsValue key, JsValue value)
     {
         key = SameValueZeroComparer.ToStableKey(key);
-        if (_map.TryGetValue(key, out var temp))
+        if (_data.TryGetValue(key, out var temp))
         {
             return temp;
         }
 
-        _map[key] = value;
+        _data.Append(key, value);
         return value;
     }
 
@@ -60,14 +60,15 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         // Flatten before the callback runs: the key is the string *value* the operation was handed
         // (spec step 4 canonicalizes it up front), not a buffer the callback may still append to.
         key = SameValueZeroComparer.ToStableKey(key);
-        if (_map.TryGetValue(key, out var temp))
+        if (_data.TryGetValue(key, out var temp))
         {
             return temp;
         }
 
         var value = callbackfn.Call(Undefined, key);
 
-        _map[key] = value;
+        // The callback may have inserted the key itself, so this cannot assume it is still absent.
+        _data.Set(key, value);
         return value;
     }
 
@@ -77,16 +78,22 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         {
             key = JsNumber.PositiveZero;
         }
-        _map[SameValueZeroComparer.ToStableKey(key)] = value;
+        _data.Set(SameValueZeroComparer.ToStableKey(key), value);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-map.prototype.foreach
+    /// </summary>
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
 
-        var i = 0;
+        // See JsSet.ForEach: the cursor is the spec's `index` into [[MapData]] and stays exact across
+        // whatever the callback does to the map.
+        var cursor = default(KeyedCollectionCursor);
         var iterations = 0;
-        while (i < _map.Count)
+        int slot;
+        while ((slot = _data.Next(ref cursor)) >= 0)
         {
             // A native (CLR) callback does not self-throttle via statement checks; check periodically.
             if (++iterations % Engine.ConstraintCheckInterval == 0)
@@ -94,26 +101,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
                 _engine.Constraints.Check();
             }
 
-            var key = _map.GetKey(i);
-            invoker.Call(thisArg, _map[key], key);
-
-            // Adjust position for mutations during callback
-            if (i < _map.Count && ReferenceEquals(_map.GetKey(i), key))
-            {
-                // Common fast path: key still at same position
-                i++;
-            }
-            else if (_map.ContainsKey(key))
-            {
-                var newIndex = _map.IndexOf(key);
-                if (newIndex < i)
-                {
-                    // Key moved backward (entries before it were deleted)
-                    i = newIndex + 1;
-                }
-                // else: key was deleted and re-added at end, keep i (entries shifted left)
-            }
-            // else: key was deleted, entries shifted left so i now points to next entry
+            invoker.Call(thisArg, _data.ValueAt(slot), _data.KeyAt(slot)!);
         }
 
         invoker.Return();
@@ -125,7 +113,14 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
 
     internal ObjectInstance Values() => _realm.Intrinsics.MapIteratorPrototype.ConstructValueIterator(this);
 
-    public IEnumerator<KeyValuePair<JsValue, JsValue>> GetEnumerator() => _map.GetEnumerator();
+    public IEnumerator<KeyValuePair<JsValue, JsValue>> GetEnumerator()
+    {
+        var enumerator = _data.GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            yield return new KeyValuePair<JsValue, JsValue>(enumerator.Key, enumerator.Value);
+        }
+    }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

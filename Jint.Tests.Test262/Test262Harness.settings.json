@@ -66,15 +66,6 @@
     // poisoned value's own error instead of the RangeError. Removed by fixing that ordering.
     "staging/sm/TypedArray/constructor-buffer-sequence.js",
 
-    // Set.prototype.intersection / .isSubsetOf let the *receiver* be mutated while they traverse it
-    // (a set-like's has/keys callback calling this.delete(v) or this.clear()), and the spec models
-    // that with the [[SetData]] tombstone: a deleted entry becomes EMPTY in place rather than being
-    // removed, so the index-based traversal keeps its position and still visits the right elements.
-    // Jint's JsSet compacts on delete, so the traversal skips or repeats entries. Removed by giving
-    // the ordered set a tombstone representation.
-    "staging/sm/Set/intersection.js",
-    "staging/sm/Set/is-subset-of.js",
-
     // Acornima (the external parser) rejects a SuperCall inside a direct eval. Jint already parses
     // eval code with AllowSuperOutsideMethod, but that covers SuperProperty only; Acornima 1.7.0 has
     // no separate switch for a direct `super()`, so `eval("super()")` in a derived constructor fails
