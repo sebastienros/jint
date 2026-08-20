@@ -10,6 +10,7 @@ using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
+using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
 using Jint.WebApi.Reporting;
@@ -127,6 +128,13 @@ public sealed partial class Intrinsics
 
     internal AbortControllerConstructor AbortController =>
         _abortController ??= new AbortControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, AbortSignal);
+
+    private EventSourceConstructor? _eventSource;
+
+    /// <summary><c>EventSource</c> inherits from <c>EventTarget</c>.</summary>
+    internal EventSourceConstructor EventSource =>
+        _eventSource ??= new EventSourceConstructor(_engine, _realm, EventTarget);
+
     private HeadersConstructor? _headers;
     private RequestConstructor? _request;
     private ResponseConstructor? _response;

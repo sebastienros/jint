@@ -637,6 +637,66 @@ proxy, DNS, and TLS policy. Resolve-and-check the destination address in the han
 rebinding is in scope. Keep the worker's egress restricted at the network layer as well:
 `UrlFilter` is a policy inside the process, not a firewall.
 
+### TM-22: `EventSource` holds that network position open
+
+**Threat.** `WebApiFeatures.EventSource` is a second, separate grant of the egress
+[TM-21](#tm-21-fetch-turns-script-into-a-client-of-the-hosts-network-position) describes, and
+the destination reachability question is identical — including the redirect-laundering one.
+What differs is duration and persistence. A connection is **long-lived by design**, so a
+script can pin sockets, connections, and server-side resources for as long as the engine
+lives rather than for one exchange. The response is a **stream**, so no total-size cap can
+apply to it. And the protocol **reconnects by itself**: a stream that ends, or fails at the
+network layer, comes back on a delay the *server* chooses through its `retry:` field, so an
+attacker-controlled endpoint also controls how often the host retries it.
+
+**Existing mitigations.**
+
+- The feature is **off by default and not part of `WebApiFeatures.Default`**. `UseWebApis()`
+  never enables it, and — unlike every other implication in the feature set — **`UseFetch()`
+  does not either**, nor does enabling this one enable `fetch`.
+- Destination policy is the same object and the same code as fetch's:
+  `Options.WebApi.Fetch.AllowedSchemes`, `UrlFilter` (re-run on every redirect hop **and on
+  every reconnection**, so revoking a destination between two attempts stops the next one) and
+  `MaxRedirects`.
+- `Options.WebApi.Fetch.MaxResponseBytes` is repurposed as the **maximum size of one event**
+  — the data buffer plus the line being read — which is what the parser has to hold; exceeding
+  it fails the connection.
+- `Options.WebApi.Fetch.MaxConcurrentRequests` bounds the streams one engine may have open,
+  counted separately from the fetches in flight.
+- A refused URL, a non-`200` response, a `Content-Type` that is not `text/event-stream`, and a
+  blown per-event cap all **fail the connection for good**: `readyState` becomes `CLOSED` and
+  nothing retries, so none of them can become a retry loop.
+- The reconnect delay is an entry on the engine's timer queue, so it counts against
+  `Options.WebApi.Timers.MaxActiveTimers` and **fires only while the host pumps the engine**.
+  A connection likewise delivers nothing to an engine nobody pumps.
+- `close()` cancels the request in flight, and so does
+  `Engine.Advanced.RestoreGlobalSnapshot`, which additionally drops the pending reconnection
+  and delivers nothing from the ended cycle into the restored engine. An engine cancellation
+  ends the connection silently rather than becoming an `error` event a script could react to.
+- The event a script receives carries no detail about the failure — the standard gives an
+  event source's `error` event none — so failures cannot be read apart to map the network.
+
+**Missing or residual mitigation.**
+
+- **`Options.WebApi.Fetch.Timeout` deliberately does not apply**, because an idle connection
+  is what the protocol is for. There is therefore no wall-clock bound on how long one stream
+  may stay open; `close()`, a restore, or dropping the engine is what ends it.
+- There is no floor on the server-announced `retry:` value and no exponential backoff, so a
+  hostile endpoint that ends every stream immediately with `retry: 0` makes the engine
+  reconnect as fast as the host pumps it. The concurrency cap bounds how many such streams
+  exist, not how often each retries.
+- No cap on total bytes or on event count over the life of a connection: the per-event cap
+  bounds memory, not throughput.
+- `withCredentials` is accepted and ignored, so neither a script nor a host may rely on it.
+- The residuals of TM-21 that are about destinations rather than duration — DNS rebinding, the
+  shared process-wide `HttpClient` — apply here unchanged.
+
+**Required host action.** Treat it as you would `UseFetch`: allow-list destinations with
+`UrlFilter`, drop `http` from `AllowedSchemes`, and lower `MaxResponseBytes` and
+`MaxConcurrentRequests`. Additionally, because there is no deadline: bound the *lifetime* of
+the engine itself for untrusted script — one worker per request, discarded when the request
+ends — rather than pooling an engine that a script may leave streaming.
+
 ## Hardened deployment baseline
 
 The numbers below are examples only. Measure normal workloads and choose smaller limits that

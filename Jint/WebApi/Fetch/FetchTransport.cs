@@ -127,6 +127,27 @@ internal sealed class FetchPolicy
 }
 
 /// <summary>
+/// A response whose body has <b>not</b> been read: the message itself, plus the two facts about the request
+/// that produced it which only the redirect loop knows.
+/// </summary>
+/// <remarks>
+/// What <see cref="FetchTransport.SendForStreamAsync"/> answers with, for the one consumer that must not have
+/// its body buffered — <c>EventSource</c>, whose response is a stream that stays open. The caller owns the
+/// <see cref="HttpResponseMessage"/> and must dispose it; the buffered path does that for itself.
+/// </remarks>
+internal sealed class FetchExchange : IDisposable
+{
+    internal required HttpResponseMessage Response { get; init; }
+
+    /// <summary>The URL that produced this response, i.e. the last hop of the redirect chain.</summary>
+    internal required UrlRecord Url { get; init; }
+
+    internal required bool Redirected { get; init; }
+
+    public void Dispose() => Response.Dispose();
+}
+
+/// <summary>
 /// A response as plain CLR data, classified off the engine thread. <c>FetchOperation</c> turns it into a
 /// <c>Response</c> object on the engine thread, in the realm the fetch started in.
 /// </summary>
@@ -216,9 +237,54 @@ internal static class FetchTransport
     }
 
     /// <summary>
+    /// The <see cref="HttpClient"/> a request goes through: the host's per-request factory, the host's own
+    /// client, or the shared default — in that order of precedence.
+    /// </summary>
+    /// <remarks>
+    /// Called on the engine thread, once per request, which is what lets a host factory read per-request state
+    /// through <c>engine.Advanced.HostDefined</c>. Answers <see langword="null"/> only when a host factory
+    /// did; each caller decides what that failure looks like to script.
+    /// </remarks>
+    internal static HttpClient? ResolveClient(Engine engine, Options.FetchOptions options)
+    {
+        if (options.HttpClientFactory is { } factory)
+        {
+            return factory(engine);
+        }
+
+        return options.HttpClient ?? SharedClient;
+    }
+
+    /// <summary>
     /// Runs the request, following redirects itself, and reads the body under the size cap.
     /// </summary>
     internal static async Task<FetchResponseSnapshot> SendAsync(
+        HttpClient client,
+        FetchRequestSnapshot request,
+        FetchPolicy policy,
+        CancellationToken cancellationToken)
+    {
+        var exchange = await SendForStreamAsync(client, request, policy, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ReadResponseAsync(exchange.Response, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            exchange.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The half of <see cref="SendAsync"/> that reaches the response: the redirect loop and the per-hop policy
+    /// re-check, stopping with the headers in hand and the body untouched.
+    /// </summary>
+    /// <remarks>
+    /// <b>The caller owns the returned <see cref="FetchExchange"/></b> and must dispose it — which is exactly
+    /// what makes it usable for a response that is a stream rather than a document. <c>EventSource</c> reads
+    /// that stream itself; <see cref="SendAsync"/> hands it straight to the bounded read below.
+    /// </remarks>
+    internal static async Task<FetchExchange> SendForStreamAsync(
         HttpClient client,
         FetchRequestSnapshot request,
         FetchPolicy policy,
@@ -252,6 +318,9 @@ internal static class FetchTransport
                 throw new FetchFailureException(FetchFailureKind.Network, $"The request to '{uri}' failed: {ex.Message}", ex);
             }
 
+            // The response is disposed here only while the loop goes on to another hop; the one it ends with
+            // belongs to the caller, whose body may not have been read yet.
+            var handedOver = false;
             try
             {
                 // https://fetch.spec.whatwg.org/#concept-http-fetch step 6, the three redirect modes. "manual"
@@ -262,7 +331,8 @@ internal static class FetchTransport
                 if (!FetchValues.IsRedirectStatus(status)
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
-                    return await ReadResponseAsync(response, url, redirectCount > 0, policy, cancellationToken).ConfigureAwait(false);
+                    handedOver = true;
+                    return new FetchExchange { Response = response, Url = url, Redirected = redirectCount > 0 };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -275,7 +345,8 @@ internal static class FetchTransport
                 var location = TryGetRedirectTarget(response, url);
                 if (location is null)
                 {
-                    return await ReadResponseAsync(response, url, redirectCount > 0, policy, cancellationToken).ConfigureAwait(false);
+                    handedOver = true;
+                    return new FetchExchange { Response = response, Url = url, Redirected = redirectCount > 0 };
                 }
 
                 if (++redirectCount > policy.MaxRedirects)
@@ -290,7 +361,10 @@ internal static class FetchTransport
             }
             finally
             {
-                response.Dispose();
+                if (!handedOver)
+                {
+                    response.Dispose();
+                }
             }
         }
     }

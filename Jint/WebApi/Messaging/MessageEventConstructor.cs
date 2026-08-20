@@ -84,6 +84,16 @@ internal sealed class MessageEventConstructor : Constructor
     /// takes its IDL default, because the message port post message steps set nothing else.
     /// </summary>
     internal JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data)
+        => CreateTrustedMessageEvent(type, data, JsString.Empty, JsString.Empty);
+
+    /// <summary>
+    /// <see cref="CreateTrustedMessageEvent(JsString, JsValue)"/> with the two members <c>EventSource</c>'s
+    /// dispatch steps additionally set — the stream's origin and the last event ID,
+    /// https://html.spec.whatwg.org/multipage/server-sent-events.html#dispatchMessage. <c>source</c> and
+    /// <c>ports</c> keep their IDL defaults there too: both name a <c>MessagePort</c>, and an event source
+    /// has none to hand over.
+    /// </summary>
+    internal JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data, JsString origin, JsString lastEventId)
     {
         return new JsMessageEvent(
             _engine,
@@ -91,8 +101,8 @@ internal sealed class MessageEventConstructor : Constructor
             default,
             EventConstructor.TimeStampNow(_engine),
             data,
-            JsString.Empty,
-            JsString.Empty,
+            origin,
+            lastEventId,
             Null,
             EmptyPorts)
         {
