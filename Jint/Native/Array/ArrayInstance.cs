@@ -239,33 +239,38 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             return false;
         }
 
+        // ArraySetLength step 17 walks the range downwards from oldLen - 1 and stops at the first index
+        // whose [[Delete]] fails, leaving everything below it in place and reporting that index + 1 as the
+        // length (https://tc39.es/ecma262/#sec-arraysetlength). Both branches below skip the indices that
+        // provably hold nothing -- deleting an absent index always succeeds, so that is unobservable -- but
+        // the *order* is not an optimization detail: an ascending walk deletes elements that a
+        // non-configurable one above them should have shielded.
         var count = _dense?.Length ?? _sparse!.Count;
         if (count < oldLen - newLen)
         {
-            if (_dense != null)
+            var dense = _dense;
+            if (dense != null)
             {
-                for (uint keyIndex = 0; keyIndex < _dense.Length; ++keyIndex)
+                var highest = (uint) System.Math.Min((ulong) dense.Length, oldLen);
+                for (var keyIndex = highest; keyIndex > newLen;)
                 {
-                    if (_dense[keyIndex] is null)
+                    keyIndex--;
+                    if (dense[keyIndex] is null)
                     {
                         continue;
                     }
 
-                    // is it the index of the array
-                    if (keyIndex >= newLen && keyIndex < oldLen)
+                    var deleteSucceeded = Delete(keyIndex);
+                    if (!deleteSucceeded)
                     {
-                        var deleteSucceeded = Delete(keyIndex);
-                        if (!deleteSucceeded)
+                        newLenDesc.Value = keyIndex + 1;
+                        if (!newWritable)
                         {
-                            newLenDesc.Value = keyIndex + 1;
-                            if (!newWritable)
-                            {
-                                newLenDesc.Writable = false;
-                            }
-
-                            base.DefineOwnProperty(CommonProperties.Length, newLenDesc);
-                            return false;
+                            newLenDesc.Writable = false;
                         }
+
+                        base.DefineOwnProperty(CommonProperties.Length, newLenDesc);
+                        return false;
                     }
                 }
             }
@@ -273,27 +278,31 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
             {
                 // in the case of sparse arrays, treat each concrete element instead of
                 // iterating over all indexes
-                var keys = new List<uint>(_sparse!.Keys);
-                var keysCount = keys.Count;
-                for (var i = 0; i < keysCount; i++)
+                var keys = new List<uint>();
+                foreach (var key in _sparse!.Keys)
+                {
+                    // is it the index of the array
+                    if (key >= newLen && key < oldLen)
+                    {
+                        keys.Add(key);
+                    }
+                }
+
+                keys.Sort();
+                for (var i = keys.Count - 1; i >= 0; i--)
                 {
                     var keyIndex = keys[i];
-
-                    // is it the index of the array
-                    if (keyIndex >= newLen && keyIndex < oldLen)
+                    var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex));
+                    if (!deleteSucceeded)
                     {
-                        var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex));
-                        if (!deleteSucceeded)
+                        newLenDesc.Value = JsNumber.Create(keyIndex + 1);
+                        if (!newWritable)
                         {
-                            newLenDesc.Value = JsNumber.Create(keyIndex + 1);
-                            if (!newWritable)
-                            {
-                                newLenDesc.Writable = false;
-                            }
-
-                            base.DefineOwnProperty(CommonProperties.Length, newLenDesc);
-                            return false;
+                            newLenDesc.Writable = false;
                         }
+
+                        base.DefineOwnProperty(CommonProperties.Length, newLenDesc);
+                        return false;
                     }
                 }
             }
@@ -566,6 +575,17 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     /// per-index descriptors and no named own string properties has exactly its present indices
     /// (plus non-enumerable length) as own string keys, in ascending order. <paramref name="bound"/>
     /// is the index stepping limit — everything at or beyond it is provably a hole.
+    /// <para>
+    /// The range has to be <em>hole-free</em>, which is what makes stepping it live equivalent to the
+    /// snapshot the exact path takes. With every index below the bound present at head evaluation, the
+    /// snapshot is exactly [0, bound), so an index that has gone missing by the time its turn comes is a
+    /// property "deleted before it is processed", which
+    /// <a href="https://tc39.es/ecma262/#sec-enumerate-object-properties">EnumerateObjectProperties</a>
+    /// requires be ignored — precisely what skipping it does. A hole below the bound breaks that: it is
+    /// absent from the snapshot, so filling it mid-loop (an <c>unshift</c> or a <c>splice</c> from inside
+    /// the body, which shifts the elements down over it) would hand out a key the snapshot never held.
+    /// Such an array takes the exact path instead.
+    /// </para>
     /// </summary>
     internal bool TryStartForInIndexMode(out uint bound)
     {
@@ -577,6 +597,12 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
 
         bound = (uint) System.Math.Min((ulong) dense.Length, GetLongLength());
+        if (System.Array.IndexOf(dense, null, 0, (int) bound) >= 0)
+        {
+            bound = 0;
+            return false;
+        }
+
         return true;
     }
 

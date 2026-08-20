@@ -612,4 +612,72 @@ public class ForInEnumerationTests
 
         result.Should().Be(0);
     }
+
+    /// <summary>
+    /// <a href="https://tc39.es/ecma262/#sec-enumerate-object-properties">EnumerateObjectProperties</a> is
+    /// specified over the key set the enumeration started with: a key deleted before its turn is ignored,
+    /// and a key that did not exist then is not part of the enumeration. Filling a hole below the starting
+    /// bound is exactly that second case — an <c>unshift</c> from inside the loop body shifts the elements
+    /// down over the hole, so index 1 becomes present and index 2 becomes the hole. Only "0" was ever in
+    /// the key set.
+    /// </summary>
+    [Theory]
+    [InlineData("Array.prototype.unshift", "[0]")]
+    [InlineData("Array.prototype.splice", "[0, 0, 0]")]
+    public void FillingAHoleDuringEnumerationDoesNotAddItToTheEnumeration(string method, string args)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            var array = [1, /* hole */, 3];
+            var called = false;
+            var keys = [];
+            for (var key in array) {
+                keys.push(key);
+                if (!called) {
+                    called = true;
+                    Reflect.apply({{method}}, array, {{args}});
+                }
+            }
+            keys.join(',');
+            """).AsString();
+
+        result.Should().Be("0");
+    }
+
+    /// <summary>
+    /// The hole-free case the index fast path still serves: every index below the bound was present at head
+    /// evaluation, so an index that goes missing mid-loop was "deleted before it is processed" and skipping
+    /// it is what the specification requires.
+    /// </summary>
+    [Fact]
+    public void ShiftingDuringEnumerationOfADenseArraySkipsTheVanishedTail()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var array = [1, 2, 3];
+            var called = false;
+            var keys = [];
+            for (var key in array) {
+                keys.push(key);
+                if (!called) { called = true; array.shift(); }
+            }
+            keys.join(',');
+            """).AsString();
+
+        result.Should().Be("0,1");
+    }
+
+    [Fact]
+    public void HolesAreSkippedWhenNothingMutatesTheArray()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var array = [1, , 3, , 5];
+            var keys = [];
+            for (var key in array) { keys.push(key); }
+            keys.join(',');
+            """).AsString();
+
+        result.Should().Be("0,2,4");
+    }
 }

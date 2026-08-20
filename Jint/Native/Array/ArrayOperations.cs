@@ -35,6 +35,17 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         return For(TypeConverter.ToObject(realm, value), forWrite);
     }
 
+    /// <summary>
+    /// A typed array viewed through its <em>intrinsic</em> length rather than through
+    /// <c>LengthOfArrayLike</c>. <c>%TypedArray%.prototype.sort</c> and <c>toSorted</c> are specified on
+    /// <c>TypedArrayLength(taRecord)</c> (https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort step 4),
+    /// so an own <c>"length"</c> shadowing the prototype accessor must not narrow what they sort -- unlike
+    /// the array-like algorithms <see cref="For(ObjectInstance, bool)"/> serves, which all say
+    /// <c>LengthOfArrayLike</c>.
+    /// </summary>
+    public static ArrayOperations ForIntrinsicLength(JsTypedArray instance)
+        => new JsTypedArrayOperations(instance, useIntrinsicLength: true);
+
     public static ArrayOperations For(ObjectInstance instance, bool forWrite)
     {
         if (instance is JsArray { CanUseFastAccess: true } arrayInstance)
@@ -282,8 +293,8 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public override void EnsureCapacity(ulong capacity)
             => _target.EnsureCapacity((uint) capacity);
 
+        // array max size is uint
         public override bool TryGetValue(ulong index, out JsValue value)
-            // array max size is uint
             => _target.TryGetValue((uint) index, out value);
 
         public override JsValue Get(ulong index) => _target.Get((uint) index);
@@ -357,19 +368,31 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
     private sealed class JsTypedArrayOperations : ArrayOperations
     {
         private readonly JsTypedArray _target;
+        private readonly bool _useIntrinsicLength;
 
-        public JsTypedArrayOperations(JsTypedArray target)
+        public JsTypedArrayOperations(JsTypedArray target, bool useIntrinsicLength = false)
         {
             _target = target;
+            _useIntrinsicLength = useIntrinsicLength;
         }
 
         public override ObjectInstance Target => _target;
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
+        // This lane serves the *array-like* algorithms -- the Array.prototype generics a typed array can be
+        // the receiver of, Array.from, apply-spreading -- and every one of them says
+        // "Let len be ? LengthOfArrayLike(O)", which is ToLength(? Get(O, "length"))
+        // (https://tc39.es/ecma262/#sec-lengthofarraylike). Usually that resolves to the accessor on
+        // %TypedArray%.prototype and agrees with the intrinsic length, but not when the object carries an
+        // own "length" of its own: "length" is not a canonical numeric index string, so
+        // Object.defineProperty(ta, "length", ...) installs an ordinary own property that shadows the
+        // accessor, and Array.prototype.sort.call(ta) must then sort only that many elements.
+        // %TypedArray%.prototype's own methods do not come through here -- they read the intrinsic length
+        // directly -- so nothing that must ignore an own "length" is affected.
         public override uint GetLength()
         {
-            if (!_target.IsConcatSpreadable)
+            if (_useIntrinsicLength)
             {
                 return _target.GetLength();
             }
@@ -377,7 +400,13 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             var descValue = _target.Get(CommonProperties.Length);
             if (descValue is not null)
             {
-                return (uint) TypeConverter.ToInteger(descValue);
+                var length = TypeConverter.ToInteger(descValue);
+                if (length <= 0)
+                {
+                    return 0;
+                }
+
+                return (uint) System.Math.Min(length, MaxArrayLength);
             }
 
             return 0;

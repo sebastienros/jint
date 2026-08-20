@@ -144,15 +144,6 @@
     "staging/sm/extensions/quote-string-for-nul-character.js",
     "staging/sm/misc/builtin-methods-reject-null-undefined-this.js",
 
-    // Array exotic [[DefineOwnProperty]] and the generics' element ordering: truncating length past
-    // a non-configurable sparse element stops at the wrong index, sort/unshift observe the wrong
-    // element sequence, and the strict-mode generics do not report failure to write.
-    "staging/sm/Array/length-truncate-nonconfigurable-sparse.js",
-    "staging/sm/Array/sort-typedarray-with-own-length.js",
-    "staging/sm/Array/unshift-with-enumeration.js",
-    "staging/sm/strict/15.4.4.9.js",
-    "staging/sm/strict/15.4.4.12.js",
-
     // Remaining one-offs, each its own gap: Iterator.from's next() result validation, the Map
     // constructor's per-entry type check, Symbol.keyFor over a cross-realm registry, and a module
     // namespace re-exported under a string name.
