@@ -1082,8 +1082,10 @@ export const count = globals.counter;
         _engine.Modules.Import("main");
 
         _engine.Evaluate("globalThis.rejected").AsBoolean().Should().BeTrue();
-        // SourceTextModules don't have a source representation; rejection type is host-defined.
-        _engine.Evaluate("globalThis.errorName").IsNull().Should().BeFalse();
+        // A SourceTextModule's [[ModuleSource]] is empty, and step 3.b of
+        // https://tc39.es/proposal-source-phase-imports/#sec-ContinueDynamicImport rejects with
+        // "a newly created SyntaxError object" for exactly that case.
+        _engine.Evaluate("globalThis.errorName").AsString().Should().Be("SyntaxError");
     }
 
     [Fact]
@@ -1093,8 +1095,10 @@ export const count = globals.counter;
         _engine.Modules.Add("main", "import source x from 'dep';");
 
         var ex = Invoking(() => _engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>().Which;
-        // Must not be SyntaxError per test262 expectations for SourceTextModule source phase.
-        ex.Error.Get("name").AsString().Should().NotBe("SyntaxError");
+        // Step 7.c.ii of
+        // https://tc39.es/proposal-source-phase-imports/#sec-source-text-module-record-initialize-environment:
+        // "If moduleSourceObject is empty, throw a SyntaxError exception."
+        ex.Error.Get("name").AsString().Should().Be("SyntaxError");
     }
 
     [Fact]

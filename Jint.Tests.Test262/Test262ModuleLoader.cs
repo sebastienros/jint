@@ -1,6 +1,5 @@
 #nullable enable
 
-using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
@@ -36,18 +35,22 @@ internal sealed class Test262ModuleLoader : ModuleLoader
             return null;
         }
 
-        // $262 (and thus $262.AbstractModuleSource) is installed before any module is imported. The synthetic
-        // [[ModuleSource]] must have %AbstractModuleSource%.prototype on its chain so that the source-phase
-        // binding passes `x instanceof $262.AbstractModuleSource`.
+        // $262 (and thus $262.AbstractModuleSource) is installed before any module is imported.
         if (engine.GetValue("$262") is not ObjectInstance dollar262
             || dollar262.Get("AbstractModuleSource") is not ObjectInstance ctor
-            || ctor.Get("prototype") is not ObjectInstance prototype)
+            || ctor.Get("prototype") is not ObjectInstance abstractModuleSourcePrototype)
         {
             return null;
         }
 
-        var source = engine.Realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
-        source.SetPrototypeOf(prototype);
+        // https://tc39.es/proposal-source-phase-imports/#sec-module-source-objects: "A Module Source Object is
+        // an object whose initial [[Prototype]] is an object whose initial [[Prototype]] is
+        // %AbstractModuleSource%.prototype." Two levels, because a real host exposes a concrete module source
+        // *class* (WebAssembly.Module) that subclasses %AbstractModuleSource% and hands out instances of it.
+        // Stand in for that class with a per-module prototype: `x instanceof $262.AbstractModuleSource` still
+        // holds, and Object.getPrototypeOf(Object.getPrototypeOf(x)) is %AbstractModuleSource%.prototype.
+        var sourcePrototype = ObjectInstance.OrdinaryObjectCreate(engine, abstractModuleSourcePrototype);
+        var source = ObjectInstance.OrdinaryObjectCreate(engine, sourcePrototype);
         return source;
     }
 
