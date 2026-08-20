@@ -1,0 +1,126 @@
+#if NET8_0_OR_GREATER
+using Jint.Runtime;
+using Jint.WebApi;
+
+// ReSharper disable once CheckNamespace
+namespace Jint;
+
+/// <summary>
+/// Enables the opt-in WHATWG web platform APIs. Requires .NET 8 or higher.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Every method here <b>adds</b> to <see cref="Options.WebApiOptions.Features"/> rather than replacing it,
+/// so the calls compose in any order and none of them can silently switch a feature off that an earlier
+/// call switched on. Assign <c>options.WebApi.Features</c> directly to say exactly what the set is.
+/// </para>
+/// <para>
+/// Enabling a feature only makes the engine <i>offer</i> the global: a name the host already registered
+/// itself — through <c>engine.SetValue(...)</c> in an <c>options.Configure(...)</c> callback, or through
+/// <c>options.AddLazyGlobal(...)</c> — is left exactly as the host left it. The host wins.
+/// </para>
+/// </remarks>
+public static class WebApiOptionsExtensions
+{
+    /// <summary>
+    /// Enables <see cref="WebApiFeatures.Default"/>: the web APIs a host normally wants, which is everything
+    /// implemented except outbound network access.
+    /// </summary>
+    /// <param name="options">Options to modify.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWebApis(this Options options)
+    {
+        return UseWebApis(options, WebApiFeatures.Default);
+    }
+
+    /// <summary>
+    /// Enables the named web APIs, in addition to any already enabled.
+    /// </summary>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="features">
+    /// The features to add. <see cref="WebApiFeatures.None"/> adds nothing and, in particular, does not
+    /// disable anything.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWebApis(this Options options, WebApiFeatures features)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= features;
+        return options;
+    }
+
+    /// <summary>
+    /// Enables <see cref="WebApiFeatures.Default"/> and then hands the whole web-API options group to
+    /// <paramref name="configure"/>, so a host can adjust the feature set and the per-feature settings in one
+    /// call.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(o => o.UseWebApis(w =>
+    /// {
+    ///     w.Console.Sink = ConsoleSink.FromTextWriter(Console.Out);
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">
+    /// Runs after the default features are enabled, so it observes them and may narrow the set by assigning
+    /// <see cref="Options.WebApiOptions.Features"/> outright.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWebApis(this Options options, Action<Options.WebApiOptions> configure)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        if (configure is null)
+        {
+            Throw.ArgumentNullException(nameof(configure));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Default;
+        configure(options.WebApi);
+        return options;
+    }
+
+    /// <summary>
+    /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
+    /// </summary>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="sink">Where console output goes. See <see cref="ConsoleSink"/> for the thread-safety obligation.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseConsole(this Options options, ConsoleSink sink)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        if (sink is null)
+        {
+            Throw.ArgumentNullException(nameof(sink));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Console;
+        options.WebApi.Console.Sink = sink;
+        return options;
+    }
+
+    /// <summary>
+    /// Enables the <c>console</c> object and writes each record to <paramref name="writer"/> as one line.
+    /// </summary>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="writer">The destination, e.g. <c>Console.Out</c>.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseConsole(this Options options, TextWriter writer)
+    {
+        return UseConsole(options, ConsoleSink.FromTextWriter(writer));
+    }
+}
+#endif

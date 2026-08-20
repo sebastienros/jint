@@ -172,6 +172,66 @@ intermediate tail callers are intentionally absent from `error.stack` and host s
 - Constraints for execution (recursion, memory usage, duration)
 
 
+## Web APIs (opt-in)
+
+Beyond ECMAScript, Jint is growing a WHATWG-faithful set of web platform APIs — the surface a script author
+expects from a browser or from Node: `console`, timers, `TextEncoder`, `fetch` and friends. It follows the
+published standards (`console.spec.whatwg.org`, `webidl.spec.whatwg.org`, `fetch.spec.whatwg.org`, …) rather
+than inventing a Jint-shaped variant, so scripts written against those standards behave the way their authors
+expect.
+
+**Everything here is opt-in and nothing is installed by default.** An engine that does not ask for these APIs
+is byte-for-byte the engine it was before they existed: no extra globals, no extra work at construction, no
+behaviour change. That is deliberate — an engine embedded in a workflow runner or a template renderer has no
+business exposing them, and outbound network access in particular is a decision a host has to make
+explicitly.
+
+**Requires .NET 8 or higher.** The whole surface is compiled only for `net8.0` and later; on `net462`,
+`netstandard2.0` and `netstandard2.1` the options and types simply do not exist.
+
+```csharp
+// Everything except network access.
+var engine = new Engine(options => options.UseWebApis());
+
+// Or exactly what you want, with somewhere for console output to go.
+var engine = new Engine(options => options
+    .UseWebApis(WebApiFeatures.Console)
+    .UseConsole(Console.Out));
+
+engine.Execute("console.log('hello %s', 'world')");
+```
+
+`console` output goes to a `ConsoleSink`, which defaults to `ConsoleSink.Null` and discards everything —
+enabling the feature never starts writing to your process's standard output by surprise. `ConsoleSink.FromTextWriter`
+covers the common case; implement the abstract class to route records to your own logger, where the
+`ConsoleLogLevel` tells you how loud each one is.
+
+A global you registered yourself always wins: the install is non-clobbering, so if your host already exposes
+its own `console` (or any other name in the table below), enabling the feature leaves yours exactly as it is.
+
+| API | Feature flag | Status |
+| --- | --- | --- |
+| `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`) | `WebApiFeatures.Console` | ✔ shipped |
+| `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
+| `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `Timers` | in progress |
+| `TextEncoder` / `TextDecoder` | `Encoding` | in progress |
+| `atob` / `btoa` | `Base64` | in progress |
+| `structuredClone` | `StructuredClone` | in progress |
+| `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
+| `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
+| `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | in progress |
+| `URL` / `URLSearchParams` | `Url` | in progress |
+| `Blob` / `File` / `FormData` | `Files` | in progress |
+| `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
+
+`WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
+grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
+
+**A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
+deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them
+inside a shadow realm can install them through `Host.InitializeShadowRealm`.
+
+
 ## Performance
 
 - Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast
