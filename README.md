@@ -343,6 +343,54 @@ failures apart; the real cause rides the error value and is readable by the host
 analysis, including what these controls do *not* cover.
 
 
+## Node compatibility (opt-in)
+
+Not everything a script expects is a web standard. `NodeStyleModuleLoader`
+([npm-style packages](#npm-style-packages-opt-in)) resolves bare specifiers the way Node does; `UseNodeProcess()`
+adds the other thing a script written for Node reaches for, a `process` object — most often to read
+`process.env.NODE_ENV` or to branch on `process.platform`.
+
+```csharp
+var engine = new Engine(options => options.UseNodeProcess(p =>
+{
+    p.EnvironmentVariableAllowlist = ["NODE_ENV"];
+    p.EnvironmentOverrides = new Dictionary<string, string> { ["NODE_ENV"] = "production" };
+}));
+
+engine.Evaluate("process.env.NODE_ENV"); // "production"
+```
+
+**Not one environment variable is readable until you list it.** `EnvironmentVariableAllowlist` is empty by
+default, so `process.env` starts out an empty object, and only the names on it are ever looked up — the engine
+never enumerates the environment block, so a variable you did not name is not read, not copied and not
+reachable from the engine at all. `EnvironmentOverrides` supplies values of your own, which win over the real
+environment and are filtered by the same allowlist, so a test fixture cannot accidentally widen what a script
+can see; an entry whose value is `null` hides the variable rather than falling through to the real one.
+
+| Member | What it answers |
+| --- | --- |
+| `process.env` | The allowed variables, materialized **once** when `process` is first touched — not a live view. Writes, and `delete`, are script-local: they never reach the real environment. |
+| `process.platform` | `"win32"`, `"darwin"` or `"linux"` for the platform you are actually on; settable, e.g. to one of Node's other values. |
+| `process.version` | `"v0.0.0-jint"` by default — deliberately *not* a Node version. Settable for a dependency that insists on one. |
+| `process.versions` | `{ jint: "<assembly version>" }`. There is no `node` key, so feature detection has something truthful to find. |
+| `process.argv` | An empty array. Jint launched no process and the script has no path of its own. |
+| `process.cwd()` | `WorkingDirectory`, `"/"` by default. **Never the real current directory**, which names a deployment layout and often a user account. |
+| `process.nextTick(cb, ...args)` | Queues `cb` onto the engine's job queue with the arguments forwarded, so it runs after the current script and before any timer. |
+| `process.hrtime.bigint()` | A monotonic reading in nanoseconds, for measuring elapsed time. The legacy tuple form `process.hrtime()` is absent. |
+
+`exit`, `abort`, `kill` and `chdir` are **absent rather than throwing**: an embedded script must not be able to
+act on the host process, and a missing function lets a script's own `typeof` check take its other branch where
+a throwing one would not. `process` is a plain object, not Node's `EventEmitter`, so there is no `on`/`emit`
+either. One divergence worth knowing: Node drains its next-tick queue ahead of the promise microtask queue,
+while Jint has a single job queue, so a `nextTick` callback and a `.then()` reaction run in registration order.
+
+The global is installed lazily and non-clobbering, exactly like the web APIs — a `process` you registered
+yourself is left alone whichever order the calls were made in — and a `ShadowRealm` does not get it. Every
+option is read once, when `UseNodeProcess` returns, so one `Options` instance stays safe to share across
+engines. **Unlike the web APIs above, this needs no particular target framework**: it compiles for every one
+Jint targets.
+
+
 ## Performance
 
 - Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast
