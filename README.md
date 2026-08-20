@@ -219,7 +219,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
 | `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
-| `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | in progress |
+| `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
@@ -263,6 +263,29 @@ deterministic and instant; `MaxActiveTimers` (1000 by default) bounds how many a
 and turns the excess into a catchable `QuotaExceededError` `DOMException`. A callback that throws erupts out
 of whatever was pumping — the same contract a promise reaction has — and the rest of the queue runs on the
 next pump.
+
+### Events dispatch to one target, because there is no tree
+
+`EventTarget` is constructible and `Event`, `CustomEvent`, `AbortController` and `AbortSignal` behave as the
+DOM standard describes them, with one reduction: the specification's dispatch walks an *event path* built
+from the target's ancestors in a node tree, and Jint has no node tree. The path is therefore always the
+single item «target» — which is exactly what the algorithm produces for the tree-less `EventTarget`s the
+standard itself says author code creates. Everything that survives that reduction is the real algorithm:
+`capture` decides which of the two passes a listener runs in, `stopPropagation()` ends the dispatch after the
+current pass and `stopImmediatePropagation()` also skips the rest of it, `once` listeners are removed before
+they run, a duplicate `(type, callback, capture)` registration is ignored, and `removeEventListener` matches
+on the object identity your script passed.
+
+**A listener that throws erupts from `dispatchEvent`.** The standard says to *report* the exception and carry
+on to the next listener, which presumes the `reportError` / `window.onerror` channel Jint does not have yet;
+swallowing it would lose it entirely on an engine whose host never enabled `console`, so for now it
+propagates — the same contract a timer callback has. The dispatch state is unwound either way, so the event
+and the target stay usable.
+
+`AbortSignal.timeout(ms)` schedules on the same queue the timers use, so it aborts only while the engine is
+being pumped and it counts against `MaxActiveTimers`; that queue exists whenever the `Events` feature does,
+whether or not you also asked for `setTimeout`. `AbortSignal.any(signals)` builds a composite that is
+retained by its sources until one of them aborts, at which point every link is dropped.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them

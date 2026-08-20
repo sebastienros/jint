@@ -135,7 +135,7 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>, <c>Events = 1 &lt;&lt; 7</c> and
+/// <c>Crypto = 1 &lt;&lt; 5</c> and <c>Performance = 1 &lt;&lt; 6</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
 /// that naming one can never compile into an engine that silently does not have it.
 /// </para>
@@ -186,6 +186,14 @@ public enum WebApiFeatures
     StructuredClone = 1 << 4,
 
     /// <summary>
+    /// <c>Event</c>, <c>CustomEvent</c>, <c>EventTarget</c>, <c>AbortController</c> and <c>AbortSignal</c> —
+    /// the DOM event and cancellation model, without the node tree a browser dispatches events through.
+    /// <c>AbortSignal.timeout()</c> schedules on the same queue the timers use, so it too fires only while the
+    /// engine is being pumped.
+    /// </summary>
+    Events = 1 << 7,
+
+    /// <summary>
     /// The <c>URL</c> and <c>URLSearchParams</c> interfaces — the whole of the WHATWG URL Standard's API,
     /// on the specification's own parser rather than on <see cref="Uri"/>.
     /// </summary>
@@ -201,9 +209,9 @@ public enum WebApiFeatures
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
-    /// <see cref="StructuredClone"/>, <see cref="Url"/> and <see cref="Files"/>; it grows as further features
-    /// land, and never comes to include fetch.
+    /// <see cref="StructuredClone"/>, <see cref="Events"/>, <see cref="Url"/> and <see cref="Files"/>; it
+    /// grows as further features land, and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Url | Files,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Events | Url | Files,
 }
 #endif
