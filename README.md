@@ -1392,6 +1392,46 @@ Do not throw the exception projected into the script instead
 and fails `instanceof Error` — and it hands the running script the exception's members, including its .NET
 stack trace and inner exceptions.
 
+## Code coverage (opt-in)
+
+An engine can count what it executes, so a host can tell which parts of a script actually ran — a test
+harness reporting coverage of embedded rules, a CI gate over business scripts, a dead-code audit.
+
+```c#
+var engine = new Engine(options => options.Coverage.Enabled = true);
+
+engine.Execute("function f(n) { if (n > 0) { return 'positive'; } return 'other'; } f(1); f(2);", "rules.js");
+
+foreach (var source in engine.Advanced.GetCoverage().Sources)
+{
+    foreach (var entry in source.Entries)
+    {
+        // rules.js  line 1  Statement  x2   ...
+        Console.WriteLine($"{source.Name} line {entry.Start.Line} {entry.Kind} x{entry.HitCount}");
+    }
+}
+
+engine.Advanced.ResetCoverage(); // start a fresh measurement
+```
+
+- `Options.Coverage.Granularity` is `Statements` by default, or `Functions` to report function-body entries
+  only.
+- A hit count is how many times the construct was *entered*: a statement in a loop counts once per iteration,
+  a function body once per call (and once per resumption for a generator or an `await`).
+- Only constructs that ran appear. The report is the covered set, not a ratio — derive the denominator by
+  walking the AST you prepared if you need one. Block statements are never reported; the statements inside
+  them are.
+- Counters are per engine, so a `Prepared<Script>` shared across a pool of engines keeps a separate count per
+  engine and the shared AST is untouched. `Options` stays shareable.
+- `GetCoverage()` and `ResetCoverage()` throw `InvalidOperationException` on an engine that did not enable
+  collection, rather than reporting an empty result that looks like a script which never ran.
+
+Coverage is collected through the same per-statement path the debugger and the exact execution constraints
+use, so an engine collecting it runs the instrumented interpreter path and its tight-loop optimizations are
+disarmed — measured code is not byte-for-byte the code an uninstrumented engine runs. That is the normal
+bargain for statement-level coverage, and the reason the option is off by default. An engine that leaves it
+off pays nothing: the per-statement path the counting rides on is not armed at all.
+
 ## Security
 
 Jint is an in-process interpreter, not an operating-system security boundary. Running

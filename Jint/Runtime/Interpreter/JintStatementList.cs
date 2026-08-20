@@ -144,7 +144,10 @@ internal sealed class JintStatementList
             {
                 ref readonly var pair = ref temp[i];
 
-                if (pair.Value is null || context.DebugMode)
+                // BypassStatementFastPaths is the frozen `debug mode or coverage` snapshot: both need the
+                // statement to actually execute - the debugger to step onto it, coverage to count it -
+                // rather than have its pre-resolved value handed over.
+                if (pair.Value is null || context.BypassStatementFastPaths)
                 {
                     if (pair.NormalValueDead && context.CompletionValuesObservable)
                     {
