@@ -141,12 +141,6 @@
     "staging/sm/Symbol/keyFor.js",
     "staging/sm/module/module-export-name-star.js",
 
-    // Source phase imports (stage 3): Jint supports the phase for WebAssembly-shaped sources only,
-    // so `import source` of a JavaScript module is refused outright and the prototype chain of an
-    // AbstractModuleSource is not the one the proposal describes.
-    "staging/source-phase-imports/import-source-source-text-module.js",
-    "staging/source-phase-imports/module-source-prototype-chain.js",
-
     // === PERMANENT EXCLUSIONS ===
     //
     // Everything above this banner is debt: a gap somebody is expected to pay down, each entry saying

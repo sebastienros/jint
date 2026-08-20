@@ -205,11 +205,22 @@ public class Host
     /// </remarks>
     internal virtual void ContinueDynamicImport(Module module, ModuleRequest moduleRequest, PromiseCapability payload)
     {
-        // Source phase: SourceTextModules don't support source phase imports.
+        // Step 3 of https://tc39.es/proposal-source-phase-imports/#sec-ContinueDynamicImport: a source-phase
+        // import settles here and goes no further — the module is never linked or evaluated. It resolves with
+        // the module's [[ModuleSource]], and rejects with a SyntaxError only when that slot is empty, which is
+        // the case for every ECMA-262 module record (a JavaScript module has no source representation).
         if (moduleRequest.Phase == ModuleImportPhase.Source)
         {
-            var error = Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for JavaScript modules");
-            payload.Reject(error);
+            var moduleSource = module.ModuleSource;
+            if (moduleSource is null)
+            {
+                payload.Reject(Engine.Realm.Intrinsics.SyntaxError.Construct("Source phase import is not supported for this module"));
+            }
+            else
+            {
+                payload.Resolve(moduleSource);
+            }
+
             return;
         }
 

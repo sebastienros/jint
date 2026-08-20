@@ -230,10 +230,11 @@ internal class SourceTextModule : CyclicModule
                     var source = importedModule.ModuleSource;
                     if (source is null)
                     {
-                        // The module has no [[ModuleSource]] (e.g. an ordinary JavaScript module). Throw a
-                        // TypeError rather than SyntaxError — test262 `import-source.js` expects a
-                        // host-defined non-SyntaxError rejection for this case.
-                        Throw.TypeError(_realm, "Source phase import is not supported for this module");
+                        // Step 7.c.ii of
+                        // https://tc39.es/proposal-source-phase-imports/#sec-source-text-module-record-initialize-environment:
+                        // "If moduleSourceObject is empty, throw a SyntaxError exception." Empty is the case for
+                        // every ECMA-262 module record, an ordinary JavaScript module included.
+                        Throw.SyntaxError(_realm, "Source phase import is not supported for this module");
                     }
 
                     env.CreateImmutableBinding(ie.LocalName, strict: true);
