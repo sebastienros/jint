@@ -71,6 +71,13 @@ var engine = new Engine(cfg =>
 {
     cfg.AllowClr();
     cfg.UseConsole(Console.Out);
+
+    // Timers, so a script pasted from the web behaves. Note that the REPL pumps the event loop only as part
+    // of evaluating each input, so a timer fires on the evaluation it is already due for or on a later one —
+    // a `setTimeout(f, 1000)` typed at the prompt runs f on the next line you enter, and one scheduled by a
+    // `-f script.js` run that outlives the script never runs at all. That is the engine's contract, not a
+    // REPL limitation: nothing anywhere in Jint pumps an engine on its own.
+    cfg.UseWebApis(WebApiFeatures.Timers);
     if (timeoutSeconds.HasValue)
     {
         cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));

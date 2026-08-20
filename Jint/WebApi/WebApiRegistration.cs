@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.WebApi.Timers;
 
 namespace Jint.WebApi;
 
@@ -42,6 +43,26 @@ internal static class WebApiRegistration
             // A WebIDL namespace object is exposed through an accessor pair; installing it as an ordinary
             // enumerable data property is a deliberate simplification, documented on ConsoleInstance.
             Install(global, engine, "console", static e => e.Realm.Intrinsics.Console, PropertyFlag.ConfigurableEnumerableWritable);
+        }
+
+        if ((options.WebApi.Features & WebApiFeatures.Timers) != WebApiFeatures.None)
+        {
+            // The queue is per engine, not per Options: two engines built from one shared Options instance
+            // get one each, and neither can see the other's timers. Both the clock and the cap are read here,
+            // once, which is what their documentation promises. This is the only place the engine's web-API
+            // state is created today; a later feature that needs state of its own has to extend the object
+            // rather than assign a second one over it.
+            var timerOptions = options.WebApi.Timers;
+            var timers = new TimerQueue(timerOptions.TimeProvider ?? TimeProvider.System, timerOptions.MaxActiveTimers);
+            engine._webApi = new WebApiEngineState(engine, timers);
+
+            // WebIDL operations on the global: writable, enumerable and configurable —
+            // https://webidl.spec.whatwg.org/#es-operations.
+            Install(global, engine, "setTimeout", static e => e.Realm.Intrinsics.Timers.SetTimeout, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "setInterval", static e => e.Realm.Intrinsics.Timers.SetInterval, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "clearTimeout", static e => e.Realm.Intrinsics.Timers.ClearTimeout, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "clearInterval", static e => e.Realm.Intrinsics.Timers.ClearInterval, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "queueMicrotask", static e => e.Realm.Intrinsics.Timers.QueueMicrotask, PropertyFlag.ConfigurableEnumerableWritable);
         }
     }
 
