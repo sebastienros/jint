@@ -1,3 +1,4 @@
+﻿using System.Buffers;
 using System.Text.RegularExpressions;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -15,6 +16,30 @@ public sealed class JsRegExp : ObjectInstance
     private string _flags = null!;
 
     private PropertyDescriptor _prototypeDescriptor = null!;
+
+    // 0 = not determined yet, 1 = no hazard, 2 = hazard. Determined lazily on the first match rather
+    // than at construction: a regexp literal caches its adaptation on the AST node and skips
+    // RegExpConstructor entirely on every evaluation after the first, so there is no construction-time
+    // hook that all of them pass through.
+    private byte _caseFoldingHazard;
+    private JintRegExpEngine? _caseFoldingFallbackEngine;
+
+    // One-entry memo of the last subject probed for a trigger, so a match loop over one string
+    // (`while (re.exec(s))`, @@match, @@replace) scans it once instead of once per match.
+    private string? _lastProbedSubject;
+    private bool _lastProbedSubjectHasTrigger;
+
+    /// <summary>
+    /// The non-ASCII code points that a case relation can connect to an ASCII one, and therefore the
+    /// only subject characters over which .NET's IgnoreCase matching of an all-ASCII pattern can
+    /// disagree with the specification's Canonicalize: U+0130 and U+0131 (dotted and dotless I),
+    /// U+017F LATIN SMALL LETTER LONG S, and U+212A KELVIN SIGN. Which of the four any given target
+    /// framework actually pairs with ASCII differs - .NET 7 and later pair U+212A with <c>k</c> and
+    /// .NET Framework pairs none of them - so all four are listed and the set is a property of Unicode
+    /// rather than of a framework version.
+    /// </summary>
+    internal static readonly SearchValues<char> CaseFoldingTriggers =
+        SearchValues.Create("\u0130\u0131\u017F\u212A");
 
     public JsRegExp(Engine engine)
         : base(engine, ObjectClass.RegExp)
@@ -37,6 +62,13 @@ public sealed class JsRegExp : ObjectInstance
         set
         {
             _flags = value;
+
+            // Every construction and every compile() assigns Flags last, so this is the one place that
+            // has to drop the lazily determined case-folding state along with the flags themselves.
+            _caseFoldingHazard = 0;
+            _caseFoldingFallbackEngine = null;
+            _lastProbedSubject = null;
+
             // Reset all flags before parsing (needed for RegExp.prototype.compile re-initialization)
             DotAll = false;
             Global = false;
@@ -106,6 +138,52 @@ public sealed class JsRegExp : ObjectInstance
     public bool UnicodeSets { get; private set; }
 
     internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
+
+    /// <summary>
+    /// Whether this match has to leave the .NET engine for the custom one because the pattern is
+    /// case-insensitive in a way .NET resolves differently from the specification's Canonicalize, and
+    /// this particular subject carries one of the <see cref="CaseFoldingTriggers"/> that makes the
+    /// difference observable. Everything else stays on .NET: the scan is the only cost a pattern with
+    /// the hazard pays on a subject without a trigger, and it is memoized per subject instance so a
+    /// match loop over one string pays it once.
+    /// <para>
+    /// A host-supplied <see cref="Regex"/> is exempt - it is the host's own .NET pattern, not one
+    /// adapted from JavaScript, so its casing rules are the host's to decide. So is a Unicode-mode
+    /// pattern, which never reaches the .NET engine at all.
+    /// </para>
+    /// </summary>
+    internal bool NeedsCaseFoldingFallback(string subject)
+    {
+        if (_caseFoldingHazard == 0)
+        {
+            _caseFoldingHazard = (byte) (IgnoreCase && !IsHostRegex && !FullUnicode
+                && RegExp.RegExpConstructor.HasSubjectDependentCaseFoldingHazard(Source, _flags)
+                ? 2
+                : 1);
+        }
+
+        if (_caseFoldingHazard == 1)
+        {
+            return false;
+        }
+
+        if (!ReferenceEquals(subject, _lastProbedSubject))
+        {
+            _lastProbedSubject = subject;
+            _lastProbedSubjectHasTrigger = subject.AsSpan().ContainsAny(CaseFoldingTriggers);
+        }
+
+        return _lastProbedSubjectHasTrigger;
+    }
+
+    /// <summary>
+    /// The custom-engine compilation of this pattern, built on the first subject that needs it and
+    /// reused afterwards. Never reached unless <see cref="NeedsCaseFoldingFallback"/> said so, so a
+    /// pattern whose subjects never carry a trigger never pays the compilation.
+    /// </summary>
+    internal JintRegExpEngine GetCaseFoldingFallbackEngine(TimeSpan timeout)
+        => _caseFoldingFallbackEngine ??=
+            RegExp.RegExpConstructor.TryCompileWithCustomEngine(Engine.Realm, Source, _flags, timeout);
 
     /// <summary>Whether this regex uses the .NET Regex engine (not the custom engine).</summary>
     internal bool UsesDotNetEngine => IsHostRegex || ParseResult.ConversionResult is Regex;

@@ -81,7 +81,8 @@ internal static class RegExpInterpreter
     {
         int bytecodeLen = BinaryPrimitives.ReadInt32LittleEndian(bytecode.Slice(RegExpHeader.OffsetBytecodeLen));
         var bc = bytecode.Slice(RegExpHeader.Length, bytecodeLen);
-        return TryDetectScanLoop(bc);
+        var flags = GetFlags(bytecode);
+        return TryDetectScanLoop(bc, (flags & (RegExpFlags.Unicode | RegExpFlags.UnicodeSets)) != RegExpFlags.None);
     }
 
     /// <summary>
@@ -707,7 +708,7 @@ internal static class RegExpInterpreter
     /// The scan loop is: SplitGotoFirst(5) + Any(1) + Goto(5) = 11 bytes, followed by SaveStart 0.
     /// Returns scan info for Char, CharI, Range, or LineStart (anchored) first opcodes.
     /// </summary>
-    private static ScanLoopInfo TryDetectScanLoop(ReadOnlySpan<byte> bc)
+    private static ScanLoopInfo TryDetectScanLoop(ReadOnlySpan<byte> bc, bool isUnicode)
     {
         // Need at least: 11 (scan loop) + 2 (SaveStart 0) + 1 (opcode) = 14 bytes
         if (bc.Length < 14)
@@ -788,7 +789,7 @@ internal static class RegExpInterpreter
         if (firstOp == (byte) RegExpOpcode.CharI && bc.Length >= 16)
         {
             char val = (char) ReadU16(bc, 14);
-            if (val < 128)
+            if (val < 128 && !FoldsAcrossAsciiBoundary(val, isUnicode))
             {
                 char alt = char.IsLower(val) ? char.ToUpperInvariant(val) : char.ToLowerInvariant(val);
 
@@ -805,7 +806,7 @@ internal static class RegExpInterpreter
                         && bc[nextOp] == (byte) RegExpOpcode.CharI)
                     {
                         char c = (char) ReadU16(bc, nextOp + 1);
-                        if (c >= 128)
+                        if (c >= 128 || FoldsAcrossAsciiBoundary(c, isUnicode))
                         {
                             break;
                         }
@@ -848,6 +849,23 @@ internal static class RegExpInterpreter
 
         return default;
     }
+
+    /// <summary>
+    /// Whether an ASCII canonical value is also what a non-ASCII character canonicalizes to, which
+    /// makes the two-code-unit ASCII scan set below (and the OrdinalIgnoreCase literal search) an
+    /// incomplete prefilter: the scan would skip the very position where the match starts.
+    /// <para>
+    /// In Unicode mode Canonicalize is Simple Case Folding, and exactly two non-ASCII characters fold
+    /// into ASCII — U+017F LATIN SMALL LETTER LONG S to <c>s</c> and U+212A KELVIN SIGN to <c>k</c>.
+    /// In non-Unicode mode it is toUpperCase with the barrier of
+    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">step 9</see>, which
+    /// makes a character at or above U+0080 canonicalize to itself whenever its uppercase drops below
+    /// it — so there the ASCII scan set is complete and the prefilter stays on.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool FoldsAcrossAsciiBoundary(char canonical, bool isUnicode)
+        => isUnicode && (canonical == 's' || canonical == 'k');
 
     /// <summary>
     /// Find the next position of the scan character(s) in the input string.
@@ -917,7 +935,7 @@ internal static class RegExpInterpreter
         // First-character scan optimization: replace the bytecode scan loop
         // (SplitGotoFirst/Any/Goto) with SIMD-accelerated string.IndexOf/IndexOfAny.
         // Use pre-computed scan info when available, fall back to runtime detection.
-        var effectiveScanInfo = scanInfo.HasFastScan ? scanInfo : TryDetectScanLoop(bc);
+        var effectiveScanInfo = scanInfo.HasFastScan ? scanInfo : TryDetectScanLoop(bc, isUnicode);
         bool hasFastScan = effectiveScanInfo.HasFastScan;
         int lastScanStart = cindex;
 

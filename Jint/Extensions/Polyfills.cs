@@ -177,6 +177,19 @@ internal static class Polyfills
     internal static bool ContainsAnyExceptInRange(this ReadOnlySpan<char> span, char lowInclusive, char highInclusive)
         => span.IndexOfAnyExceptInRange(lowInclusive, highInclusive) >= 0;
 
+    internal static bool ContainsAny(this ReadOnlySpan<char> span, SearchValues<char> values)
+    {
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (values.Contains(span[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal static int IndexOfAnyExcept(this ReadOnlySpan<char> span, SearchValues<char> values)
     {
         for (var i = 0; i < span.Length; i++)

@@ -655,4 +655,300 @@ public class RegExpTests
 
         result.AsString().Should().Be("[true,5]");
     }
+    // ---- RegExp.prototype[Symbol.replace] lastIndex handling
+    // (https://tc39.es/ecma262/#sec-regexp.prototype-@@replace) ----
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("i")]
+    [InlineData("u")]
+    [InlineData("iu")]
+    public void ReplaceLeavesLastIndexAloneOnNonGlobalRegExp(string flags)
+    {
+        // Only step 9 writes lastIndex, and only when the regexp is global. A non-global one is left
+        // exactly as the script set it - including a -0 that a write of +0 would quietly normalize.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            var re = /a/{{flags}};
+            re.lastIndex = -0;
+            re[Symbol.replace]('a', 'b');
+            var kept = /a/{{flags}};
+            kept.lastIndex = 7;
+            kept[Symbol.replace]('a', 'b');
+            JSON.stringify([Object.is(re.lastIndex, -0), kept.lastIndex])
+            """);
+
+        result.AsString().Should().Be("[true,7]");
+    }
+
+    [Fact]
+    public void ReplaceLeavesLastIndexWhereAReplacerFunctionPutIt()
+    {
+        // The exec loop of steps 11-12 runs to exhaustion before the first replacer call, so by then
+        // lastIndex is back to +0 and nothing may overwrite what the replacer assigns afterwards.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var re = /x/g;
+            re.lastIndex = 3;
+            var seen = [];
+            '0x2x4x6x8'.replace(re, function () { seen.push(re.lastIndex++); return 'y'; });
+            JSON.stringify([seen, re.lastIndex])
+            """);
+
+        result.AsString().Should().Be("[[0,1,2,3],4]");
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("y", true)]
+    [InlineData("g", false)]
+    [InlineData("gy", false)]
+    public void ReplaceCoercesLastIndexOnNonGlobalRegExp(string flags, bool expectedCoercion)
+    {
+        // RegExpBuiltinExec step 2 coerces lastIndex whatever the flags say, and only a global regexp
+        // has had that value replaced by the +0 of step 9 before the coercion could run.
+        var engine = new Engine();
+        var result = engine.Evaluate($$"""
+            var re = new RegExp('a', '{{flags}}');
+            var called = false;
+            re.lastIndex = { valueOf: function () { called = true; return 0; } };
+            re[Symbol.replace]('', '');
+            called
+            """);
+
+        result.AsBoolean().Should().Be(expectedCoercion);
+    }
+
+    [Fact]
+    public void ReplaceHonoursARecompileFromTheLastIndexCoercion()
+    {
+        // Step 2 runs before step 3 reads the flags and step 8 reads the matcher, so a compile() from
+        // inside the coercion decides which pattern the very same exec goes on to match with.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var re = new RegExp('a', '');
+            re.lastIndex = { valueOf: function () { re.compile('b'); return 0; } };
+            var replaced = re[Symbol.replace]('b', 'pass');
+
+            var toGlobal = new RegExp('a', '');
+            toGlobal.lastIndex = { valueOf: function () { toGlobal.compile('a', 'g'); return 0; } };
+            toGlobal[Symbol.replace]('a', '');
+
+            var fromSticky = new RegExp('a', 'y');
+            fromSticky.lastIndex = { valueOf: function () { fromSticky.compile('a', ''); fromSticky.lastIndex = 9000; return 0; } };
+            fromSticky[Symbol.replace]('a', '');
+
+            JSON.stringify([replaced, toGlobal.lastIndex, fromSticky.lastIndex])
+            """);
+
+        result.AsString().Should().Be("""["pass",1,9000]""");
+    }
+
+    [Fact]
+    public void ReplaceStartsAStickyRegExpAtItsLastIndex()
+    {
+        // A sticky match is anchored at lastIndex and writes the end position back. The non-ASCII
+        // pattern is what routes this through the custom engine, whose fast path used to scan from
+        // the start of the subject regardless.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var re = /µ/iy;
+            re.lastIndex = 1;
+            JSON.stringify([re[Symbol.replace]('Xµ', 'Z'), re.lastIndex])
+            """);
+
+        result.AsString().Should().Be("""["XZ",2]""");
+    }
+
+    // ---- RegExp.prototype.exec replaced by an accessor (https://tc39.es/ecma262/#sec-regexpexec) ----
+
+    [Fact]
+    public void ReplacingExecWithAnAccessorDoesNotInvokeItOnThePrototype()
+    {
+        // Deciding whether exec is still the built-in must not perform an ordinary [[Get]]: that calls
+        // a script-installed getter an extra time, with RegExp.prototype as the receiver rather than
+        // the regexp being matched.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var builtinExec = RegExp.prototype.exec;
+            var receivers = [];
+            Object.defineProperty(RegExp.prototype, 'exec', {
+                configurable: true,
+                get: function () { receivers.push(this); return builtinExec; }
+            });
+            var re = /a+/g;
+            var matched = 'aabbaa'.match(re);
+            Object.defineProperty(RegExp.prototype, 'exec', {
+                value: builtinExec, writable: true, enumerable: false, configurable: true
+            });
+            JSON.stringify([matched, receivers.length, receivers.every(function (r) { return r === re; })])
+            """);
+
+        result.AsString().Should().Be("""[["aa","aa"],3,true]""");
+    }
+
+    // ---- Case-insensitive matching across the ASCII/non-ASCII boundary
+    // (https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch) ----
+
+    [Theory]
+    // Canonicalize is toUpperCase in non-Unicode mode, so U+00B5 MICRO SIGN and U+039C GREEK CAPITAL
+    // MU share a canonical value and match either way round.
+    [InlineData(@"/\xB5/i", 0x039C, true)]
+    [InlineData(@"/Μ/i", 0x00B5, true)]
+    // The Latin-1 pair whose uppercase stays non-ASCII matches too.
+    [InlineData(@"/\xFF/i", 0x0178, true)]
+    // ... but step 9 keeps a character at or above U+0080 whose uppercase is ASCII to itself, so these
+    // pairs stay distinct however alike .NET's IgnoreCase considers them.
+    [InlineData(@"/\x6B/i", 0x212A, false)]
+    [InlineData("/k/i", 0x212A, false)]
+    [InlineData("/K/i", 0x212A, false)]
+    [InlineData("/[a-z]/i", 0x212A, false)]
+    [InlineData("/[j-l]/i", 0x212A, false)]
+    // ... and the word-character set contains them, so it carries the same hazard.
+    [InlineData(@"/\w/i", 0x212A, false)]
+    [InlineData(@"/\x73/i", 0x017F, false)]
+    [InlineData(@"/\xDF/i", 0x1E9E, false)]
+    [InlineData(@"/\xE5/i", 0x212B, false)]
+    public void CaseInsensitiveMatchingUsesCanonicalizeNotDotNetCaseFolding(string pattern, int subject, bool expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"{pattern}.test(String.fromCharCode({subject}))");
+
+        result.AsBoolean().Should().Be(expected);
+    }
+
+    [Theory]
+    // In Unicode mode Canonicalize is Simple Case Folding, and the two non-ASCII characters that fold
+    // into ASCII must be found even though the first-character scan searches for ASCII code units.
+    [InlineData("/s/iu", 0x017F, 1)]
+    [InlineData("/S/iu", 0x017F, 1)]
+    [InlineData("/k/iu", 0x212A, 1)]
+    [InlineData("/K/iu", 0x212A, 1)]
+    [InlineData("/s+/iu", 0x017F, 2)]
+    public void UnicodeCaseFoldingFindsTheNonAsciiFoldingPartners(string pattern, int subject, int repeat)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate(
+            $"{pattern}.exec(String.fromCharCode({subject}).repeat({repeat}))[0].length");
+
+        result.AsNumber().Should().Be(repeat);
+    }
+
+    [Fact]
+    public void UnicodeCaseFoldingFindsAFoldingPartnerInsideALiteralPrefix()
+    {
+        // The multi-code-unit scan path searches for the whole literal with OrdinalIgnoreCase, which
+        // knows nothing about the folding partners either.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            JSON.stringify([/as/iu.exec('xxaſ')[0], /sa/iu.exec('xxſa')[0]])
+            """);
+
+        result.AsString().Should().Be("[\"aſ\",\"ſa\"]");
+    }
+    [Theory]
+    // The word-boundary assertions classify their neighbours with .NET's own word-character set,
+    // which under IgnoreCase takes in U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE. The spec's
+    // WordCharacters gains nothing in non-Unicode mode, so U+0130 is a boundary on both sides.
+    [InlineData(@"/a\b/i", "aİ", true)]
+    [InlineData(@"/a\B/i", "aİ", false)]
+    [InlineData(@"/\bk/i", "İk", true)]
+    [InlineData(@"/\Bk/i", "İk", false)]
+    public void WordBoundariesTreatTheDottedCapitalIAsANonWordCharacter(string pattern, string subject, bool expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"{pattern}.test({ToJsLiteral(subject)})");
+
+        result.AsBoolean().Should().Be(expected);
+    }
+
+    [Theory]
+    // \W is the one construct the .NET adaptation expands into a positive class spanning the whole
+    // BMP while excluding the ASCII word characters. Closing that class under IgnoreCase pulls the
+    // partners of its non-ASCII members back in, so /\W/i matched 'k' on .NET 7+ and 'I' on .NET
+    // Framework - a divergence a pure-ASCII subject already shows.
+    [InlineData(@"/\W/i", "k", false)]
+    [InlineData(@"/\W/i", "K", false)]
+    [InlineData(@"/\W/i", "i", false)]
+    [InlineData(@"/\W/i", "I", false)]
+    [InlineData(@"/[\W]/i", "k", false)]
+    [InlineData(@"/\W/i", "-", true)]
+    public void NegatedWordClassDoesNotTakeInItsMembersCasePartners(string pattern, string subject, bool expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"{pattern}.test({ToJsLiteral(subject)})");
+
+        result.AsBoolean().Should().Be(expected);
+    }
+
+    [Fact]
+    public void OneRegExpAlternatesBetweenEnginesAcrossSubjects()
+    {
+        // The engine is chosen per subject, so the same instance has to answer correctly whichever
+        // subject it sees next - including after a compile() drops what it had determined.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var kelvin = String.fromCharCode(0x212A);
+            var re = /[a-z]/i;
+            var answers = [re.test('Q'), re.test(kelvin), re.test('Q'), re.test(kelvin), re.test('4')];
+            re.compile('[0-9]', 'i');
+            answers.push(re.test(kelvin), re.test('4'), re.test('Q'));
+            JSON.stringify(answers)
+            """);
+
+        result.AsString().Should().Be("[true,false,true,false,false,false,true,false]");
+    }
+
+    [Fact]
+    public void GlobalMatchOverASubjectCarryingATriggerStaysCorrectForEveryMatch()
+    {
+        // The per-subject probe is memoized by string instance so a match loop scans the subject once;
+        // the memo must not let the first answer stand for a different subject.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var kelvin = String.fromCharCode(0x212A);
+            var re = /[a-z]+/gi;
+            var withTrigger = 'ab' + kelvin + 'cd';
+            var first = withTrigger.match(re);
+            var second = 'abcd'.match(re);
+            var third = withTrigger.match(re);
+            JSON.stringify([first, second, third])
+            """);
+
+        result.AsString().Should().Be("""[["ab","cd"],["abcd"],["ab","cd"]]""");
+    }
+
+    [Theory]
+    // Routing pin. A case-insensitive pattern that merely mentions 'k', covers it with a range, or
+    // uses \w keeps the .NET engine and is diverted per subject; only the verdict that holds for
+    // every subject takes a pattern away from it. Losing this would put the most common
+    // case-insensitive patterns in real scripts on the bytecode interpreter for every match.
+    [InlineData("[a-z0-9]+", "i", false)]
+    [InlineData(@"\w+", "i", false)]
+    [InlineData("k", "i", false)]
+    [InlineData("check", "i", false)]
+    [InlineData(@"\bfoo\b", "i", false)]
+    [InlineData(@"\x6B", "i", false)]
+    // ... while non-ASCII pattern content and \W do, on every subject.
+    [InlineData(@"\xB5", "i", true)]
+    [InlineData(@"Μ", "i", true)]
+    [InlineData(@"\W", "i", true)]
+    [InlineData("[a-z]", "u", true)]
+    public void CaseInsensitivePatternsKeepTheDotNetEngineUnlessTheyDivergeOnEverySubject(
+        string pattern, string flags, bool needsCustomEngine)
+    {
+        Jint.Native.RegExp.RegExpConstructor.NeedCustomEngine(pattern, flags).Should().Be(needsCustomEngine);
+    }
+
+    private static string ToJsLiteral(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length * 6 + 2);
+        builder.Append('\'');
+        foreach (var c in value)
+        {
+            builder.Append("\\u").Append(((int) c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        return builder.Append('\'').ToString();
+    }
 }

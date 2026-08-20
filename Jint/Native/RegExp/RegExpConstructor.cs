@@ -615,12 +615,12 @@ public sealed partial class RegExpConstructor : Constructor
             return true;
         }
 
-        // Case-insensitive with non-ASCII characters: .NET IgnoreCase applies broader
-        // Unicode case folding than ES spec (e.g. U+212A KELVIN SIGN matches 'K',
-        // U+017F LONG S matches 's'). In non-unicode mode, ES spec Canonicalize uses
-        // toUpperCase only, not Unicode case folding. This applies to both literal
-        // non-ASCII characters and \uXXXX escape sequences for non-ASCII code points.
-        if (flags.Contains('i') && HasNonAsciiContent(pattern))
+        // Case-insensitive matching that reaches across the ASCII boundary: .NET IgnoreCase groups
+        // characters that the spec's Canonicalize keeps apart in non-unicode mode, where it is
+        // toUpperCase with a hard barrier rather than Unicode case folding. Only the verdict that holds
+        // for every subject takes the pattern away from .NET here; the subject-dependent one keeps the
+        // .NET engine and is resolved per match, see JsRegExp.NeedsCaseFoldingFallback.
+        if (flags.Contains('i') && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.Always)
         {
             return true;
         }
@@ -1084,77 +1084,275 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Detect non-ASCII content in the pattern: either literal non-ASCII characters or
-    /// \uXXXX / \u{XXXX} hex escapes for non-ASCII code points (&gt;0x7F).
-    /// .NET IgnoreCase applies broader Unicode case folding than ES spec for these characters.
-    /// ASCII-range escapes like \u0041 work correctly in .NET and don't need the custom engine.
+    /// How far .NET's case-insensitive matching of a pattern can drift from
+    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
+    /// in non-Unicode mode. Ordered by severity: a scan keeps the most severe verdict it finds.
     /// </summary>
-    private static bool HasNonAsciiContent(string pattern)
+    internal enum CaseFoldingHazard : byte
     {
-        for (int i = 0; i < pattern.Length; i++)
+        /// <summary>The two agree on every subject, so the pattern keeps the .NET engine unconditionally.</summary>
+        None,
+
+        /// <summary>
+        /// They agree on every subject free of <see cref="JsRegExp.CaseFoldingTriggers"/>. The pattern keeps
+        /// the .NET engine and only the rare subject that carries a trigger is diverted per match.
+        /// </summary>
+        SubjectDependent,
+
+        /// <summary>They can disagree on any subject at all, so the custom engine takes the pattern outright.</summary>
+        Always,
+    }
+
+    /// <summary>
+    /// Classify pattern content whose case-insensitive matching .NET resolves differently from
+    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
+    /// in non-Unicode mode, where Canonicalize is toUpperCase plus a hard barrier: a character at or
+    /// above U+0080 whose uppercase is a single code unit below U+0080 canonicalizes to itself (step 9).
+    /// .NET instead closes every character set in the pattern under its own case-equivalence relation.
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="CaseFoldingHazard.Always"/> for any non-ASCII code point, written literally or as a
+    /// <c>\uXXXX</c>, <c>\u{XXXX}</c> or <c>\xNN</c> escape: there the barrier keeps U+00DF and U+1E9E,
+    /// or U+00E5 and U+212B, distinct while .NET groups them. Also for a decimal escape, which is either
+    /// a backreference or an Annex B legacy octal escape denoting any code point up to U+00FF (telling
+    /// the two apart needs the capture-group count). And for <c>\W</c>, which is the one construct the
+    /// adapter expands into a *positive* class spanning the whole BMP while excluding the ASCII word
+    /// characters, so closing it pulls those characters back in and <c>/\W/i</c> matches <c>k</c> on
+    /// .NET 7+ and <c>I</c> on .NET Framework - a divergence an all-ASCII subject already shows, which
+    /// no check on the subject could catch.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="CaseFoldingHazard.SubjectDependent"/> for an all-ASCII pattern that can match <c>K</c>
+    /// or <c>k</c> - as a literal, through a class range covering one, or through <c>\w</c> - and for the
+    /// word-boundary assertions. Closing an all-ASCII set can only ever add a
+    /// <see cref="JsRegExp.CaseFoldingTriggers">trigger</see> to it, and the barrier keeps the spec from
+    /// mapping any non-ASCII subject character onto an ASCII one, so the two engines provably agree on
+    /// every subject that carries no trigger.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// Only consulted for a pattern that already carries the <c>i</c> flag and neither <c>u</c> nor
+    /// <c>v</c> (those go to the custom engine regardless), so a pattern without <c>i</c> never pays for
+    /// this scan and never loses the .NET engine over a character that only matters when folding.
+    /// </para>
+    /// </summary>
+    private static CaseFoldingHazard GetCaseFoldingHazard(string pattern)
+    {
+        // Kelvin sign folding partners: the only ASCII characters .NET puts in a case-equivalence class
+        // with a non-ASCII one.
+        const int KelvinPartnerUpper = 'K';
+        const int KelvinPartnerLower = 'k';
+
+        var worst = CaseFoldingHazard.None;
+        var inClass = false;
+
+        // Code point a following '-' would open a class range from, or -1 when the preceding element
+        // cannot be a range bound (a class escape, or a range that just closed).
+        var rangeStart = -1;
+        var inRange = false;
+
+        for (var i = 0; i < pattern.Length; i++)
         {
-            char ch = pattern[i];
+            var ch = pattern[i];
+            int codePoint;
 
-            if (ch == '\\' && i + 1 < pattern.Length)
+            if (ch == '\\')
             {
-                if (pattern[i + 1] == 'u' && i + 2 < pattern.Length)
+                if (!TryDecodeEscape(pattern, ref i, out codePoint, out var escapeHazard))
                 {
-                    if (pattern[i + 2] == '{')
+                    if (escapeHazard == CaseFoldingHazard.Always)
                     {
-                        // \u{XXXX} syntax — parse hex value
-                        int value = 0;
-                        int j = i + 3;
-                        while (j < pattern.Length && pattern[j] != '}')
-                        {
-                            int digit = HexDigitValue(pattern[j]);
-                            if (digit < 0) break;
-                            value = (value << 4) | digit;
-                            j++;
-                        }
-
-                        if (j < pattern.Length && pattern[j] == '}' && value > 0x7F)
-                        {
-                            return true;
-                        }
-
-                        i = j; // skip past parsed escape
+                        return CaseFoldingHazard.Always;
                     }
-                    else if (i + 5 < pattern.Length)
+
+                    if (escapeHazard > worst)
                     {
-                        // \uXXXX syntax — parse 4 hex digits
-                        int d0 = HexDigitValue(pattern[i + 2]);
-                        int d1 = HexDigitValue(pattern[i + 3]);
-                        int d2 = HexDigitValue(pattern[i + 4]);
-                        int d3 = HexDigitValue(pattern[i + 5]);
-                        if (d0 >= 0 && d1 >= 0 && d2 >= 0 && d3 >= 0)
-                        {
-                            int value = (d0 << 12) | (d1 << 8) | (d2 << 4) | d3;
-                            if (value > 0x7F)
-                            {
-                                return true;
-                            }
-                        }
+                        worst = escapeHazard;
+                    }
 
-                        i += 5; // skip past \uXXXX
-                    }
-                    else
-                    {
-                        i++; // skip escaped char
-                    }
-                }
-                else
-                {
-                    i++; // skip escaped char
+                    // A class escape (\d, \w, ...) stands for a set, so it cannot be a range bound.
+                    rangeStart = -1;
+                    inRange = false;
+                    continue;
                 }
             }
-            else if (ch > 0x7F)
+            else if (!inClass && ch == '[')
             {
-                // Literal non-ASCII character in the pattern
-                return true;
+                inClass = true;
+                rangeStart = -1;
+                inRange = false;
+                continue;
             }
+            else if (inClass && ch == ']')
+            {
+                inClass = false;
+                rangeStart = -1;
+                inRange = false;
+                continue;
+            }
+            else if (inClass && ch == '-' && rangeStart >= 0)
+            {
+                inRange = true;
+                continue;
+            }
+            else
+            {
+                codePoint = ch;
+            }
+
+            if (codePoint > 0x7F)
+            {
+                return CaseFoldingHazard.Always;
+            }
+
+            if (inRange)
+            {
+                // An inverted range is a SyntaxError the parser rejects, so it needs no special care here.
+                if ((rangeStart <= KelvinPartnerUpper && KelvinPartnerUpper <= codePoint)
+                    || (rangeStart <= KelvinPartnerLower && KelvinPartnerLower <= codePoint))
+                {
+                    worst = CaseFoldingHazard.SubjectDependent;
+                }
+
+                rangeStart = -1;
+                inRange = false;
+                continue;
+            }
+
+            if (codePoint == KelvinPartnerUpper || codePoint == KelvinPartnerLower)
+            {
+                worst = CaseFoldingHazard.SubjectDependent;
+            }
+
+            rangeStart = codePoint;
         }
 
-        return false;
+        return worst;
+    }
+
+    /// <summary>
+    /// Whether a case-insensitive pattern keeps the .NET engine but has to be diverted to the custom one
+    /// for a subject carrying a <see cref="JsRegExp.CaseFoldingTriggers">trigger</see>.
+    /// </summary>
+    internal static bool HasSubjectDependentCaseFoldingHazard(string pattern, string flags)
+        => flags.Contains('i')
+           && !flags.Contains('u')
+           && !flags.Contains('v')
+           && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.SubjectDependent;
+
+    /// <summary>
+    /// Decode the escape sequence starting at the backslash <paramref name="i"/> points at, leaving
+    /// <paramref name="i"/> on its last character. Returns <see langword="true"/> with the single code
+    /// point the escape denotes and <paramref name="hazard"/> set to <see cref="CaseFoldingHazard.None"/>,
+    /// leaving the caller to judge that code point. Returns <see langword="false"/> for an escape that
+    /// denotes no single character, with <paramref name="hazard"/> carrying its own verdict.
+    /// </summary>
+    private static bool TryDecodeEscape(string pattern, ref int i, out int codePoint, out CaseFoldingHazard hazard)
+    {
+        hazard = CaseFoldingHazard.None;
+        codePoint = 0;
+
+        if (i + 1 >= pattern.Length)
+        {
+            // Trailing backslash: not a valid pattern, and the parser has the final say on that.
+            codePoint = '\\';
+            return true;
+        }
+
+        var ch = pattern[i + 1];
+        i++;
+
+        switch (ch)
+        {
+            case >= '0' and <= '9':
+                hazard = CaseFoldingHazard.Always;
+                return false;
+
+            case 'W':
+                hazard = CaseFoldingHazard.Always;
+                return false;
+
+            case 'w':
+                // The word-character set contains 'k' and 'K'.
+                hazard = CaseFoldingHazard.SubjectDependent;
+                return false;
+
+            case 'b' or 'B':
+                // The word-boundary assertions classify their neighbours with .NET's own word-character
+                // set, which under IgnoreCase takes in U+0130 on every target framework.
+                hazard = CaseFoldingHazard.SubjectDependent;
+                return false;
+
+            case 'k':
+                // Either a named backreference or, under Annex B, an IdentityEscape for 'k'. Both carry
+                // the same hazard as a literal 'k', so the two readings agree.
+                hazard = CaseFoldingHazard.SubjectDependent;
+                return false;
+
+            case 'u' when i + 1 < pattern.Length && pattern[i + 1] == '{':
+                return TryDecodeBracedUnicodeEscape(pattern, ref i, out codePoint);
+
+            case 'u' when i + 4 < pattern.Length
+                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0
+                          && HexDigitValue(pattern[i + 3]) >= 0 && HexDigitValue(pattern[i + 4]) >= 0:
+                codePoint = (HexDigitValue(pattern[i + 1]) << 12)
+                            | (HexDigitValue(pattern[i + 2]) << 8)
+                            | (HexDigitValue(pattern[i + 3]) << 4)
+                            | HexDigitValue(pattern[i + 4]);
+                i += 4;
+                return true;
+
+            case 'x' when i + 2 < pattern.Length
+                          && HexDigitValue(pattern[i + 1]) >= 0 && HexDigitValue(pattern[i + 2]) >= 0:
+                codePoint = (HexDigitValue(pattern[i + 1]) << 4) | HexDigitValue(pattern[i + 2]);
+                i += 2;
+                return true;
+
+            case 'c' when i + 1 < pattern.Length && char.IsAsciiLetter(pattern[i + 1]):
+                // ControlLetter: always below U+0020.
+                i++;
+                return false;
+
+            case 'd' or 'D' or 's' or 'S' or 'p' or 'P':
+                return false;
+
+            default:
+                // IdentityEscape (including a malformed \u, \x or \c): the escape denotes the character.
+                codePoint = ch;
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Decode a braced unicode escape whose opening brace sits at <paramref name="i"/> + 1, leaving
+    /// <paramref name="i"/> on the closing brace. A sequence that is not well formed is an IdentityEscape
+    /// for <c>u</c> in a non-unicode pattern, which is what the parser makes of it too.
+    /// </summary>
+    private static bool TryDecodeBracedUnicodeEscape(string pattern, ref int i, out int codePoint)
+    {
+        var value = 0;
+        var j = i + 2;
+        while (j < pattern.Length && pattern[j] != '}')
+        {
+            var digit = HexDigitValue(pattern[j]);
+            if (digit < 0)
+            {
+                break;
+            }
+
+            value = (value << 4) | digit;
+            j++;
+        }
+
+        if (j < pattern.Length && pattern[j] == '}')
+        {
+            codePoint = value;
+            i = j;
+            return true;
+        }
+
+        codePoint = 'u';
+        return true;
     }
 
     private static int HexDigitValue(char c)
