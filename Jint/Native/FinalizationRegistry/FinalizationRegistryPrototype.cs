@@ -49,15 +49,25 @@ internal sealed partial class FinalizationRegistryPrototype : Prototype
             Throw.TypeError(_realm, "target and holdings must not be same");
         }
 
+        // 5. If CanBeHeldWeakly(unregisterToken) is false, then
+        //      a. If unregisterToken is not undefined, throw a TypeError exception.
+        //      b. Set unregisterToken to empty.
+        //
+        // "empty" is null here, and the distinction matters: a cell with an empty token must not be indexed
+        // by one, or every registration made without a token would pile up under the immortal `undefined`
+        // and never be released.
+        JsValue? token = unregisterToken;
         if (!unregisterToken.CanBeHeldWeakly())
         {
             if (!unregisterToken.IsUndefined())
             {
                 Throw.TypeError(_realm, unregisterToken + " must be an object");
             }
+
+            token = null;
         }
 
-        var cell = new Cell(target, heldValue, unregisterToken);
+        var cell = new Cell(target, heldValue, token);
         finalizationRegistry.AddCell(cell);
         return Undefined;
     }
