@@ -7,6 +7,11 @@ the managed engines ([NiL.JS](https://github.com/nilproject/NiL.JS),
 ClearFoundry-maintained bindings to Google's native V8 engine (the JIT inside Chrome and Node.js) —
 across a set of representative scripts.
 
+> Most of this document is about that cross-engine comparison. The rest of the project is Jint-only
+> micro-benchmarks, which need no prose beyond their own XML doc comments — with one exception:
+> the opt-in WHATWG web APIs have their own category, their own smoke mode and their own rules about
+> what to run when. That is [Web API rows](#web-api-rows), at the end.
+
 ## How each engine executes
 
 The engines reach the result in different ways, which shapes the numbers below:
@@ -464,3 +469,97 @@ AMD Ryzen 9 5950X 3.40GHz, 1 CPU, 32 logical and 16 physical cores
 | Okojo                | stopwatch-modern             |   151,840.067 μs |    916.1697 μs |    5 |   21469.24 KB |
 | Okojo_Prepared       | stopwatch-modern             |   155,504.922 μs |  2,858.1551 μs |    5 |   21445.98 KB |
 | NilJS                | stopwatch-modern             |   209,122.986 μs |    815.7981 μs |    6 |  324502.66 KB |
+
+## Web API rows
+
+The opt-in WHATWG web APIs under `Jint/WebApi/` shipped with a strict no-cost-when-off discipline —
+nothing is installed unless `Options.WebApi.Features` names it, and a default engine is byte-for-byte
+the engine it was before they existed. That half was measured. The other half, what the surface costs
+a host that *does* switch it on, had nothing tracking it release to release. These rows are that.
+
+Run the whole category:
+
+```
+dotnet run -c Release --project Jint.Benchmark -- --allCategories WebApi
+```
+
+Unlike the comparison suite, these rows load no files, so it does not matter which directory you run
+them from. As everywhere else here, set `JINT_BENCH_MODE=gate` before quoting any number in a PR.
+
+### Check the rows before measuring them
+
+```
+dotnet run -c Release --project Jint.Benchmark -- --smoke-webapi
+```
+
+This runs every web-API class's `[GlobalSetup]` and then each of its rows three times, and reports
+pass/fail per class in a few seconds. It measures nothing. Two failures it is there to catch, both of
+which otherwise surface half an hour into a benchmark session:
+
+* a row's script throwing — a built-in that moved, or a row asking for the wrong feature flag;
+* a row that works once and **drifts afterwards**. Every deterministic row records what its own first
+  run produced and compares every later run against it, because BenchmarkDotNet will happily average
+  an operation that is doing more work each time it runs — state accumulating on the row's engine, a
+  queue that is never emptied, a buffer that was detached last time and is not now. That check can
+  only bite from the second operation onwards, which is why the smoke mode runs each row more than
+  once.
+
+### Which rows cover which feature
+
+| Class | `WebApiFeatures` | Source | Rows |
+| --- | --- | --- | --- |
+| `WebApiUrlBenchmark` | `Url` | `Url/` | `ParseAbsolute`, `ParseRelative`, `ReadComponents`, `MutateAndSerialize`, `SearchParamsMutate`, `SearchParamsIterate` |
+| `WebApiEncodingBenchmark` | `Encoding` | `Encoding/` | `RoundTripSmall`, `RoundTripLarge`, `DecodeStreaming`, `EncodeIntoSmall` |
+| `WebApiStructuredCloneBenchmark` | `StructuredClone` | `StructuredClone/` | `CloneFlat`, `CloneNested`, `CloneTransfer` |
+| `WebApiFetchObjectModelBenchmark` | `Fetch` (implies `Events`, `Url`, `Files`) | `Fetch/` | `HeadersAppendAndIterate`, `RequestConstruction`, `ResponseConstruction`, `RequestClone` |
+| `WebApiStreamsBenchmark` | `Streams` | `Streams/` | `PumpWithReader`, `PumpWithAsyncIteration`, `PipeThroughTransform` |
+| `WebApiTimerBenchmark` | `Timers` | `Timers/` | `ScheduleAndCancel`, `FanOutFiring`, `IntervalFiring` |
+| `WebApiCryptoBenchmark` | `Crypto` | `Crypto/` | `RandomValuesSmall`, `RandomValuesLarge`, `RandomUuid` |
+
+**No row covers `Console`, `Base64`, `Performance`, `Files`, `Navigator`, `Scheduler` or
+`crypto.subtle` yet**, and `Events` is only reached incidentally, through the `AbortSignal` every
+`Request` carries. A PR touching one of those has nothing here to move, and saying so is the point of
+this paragraph — the alternative is a contributor running the category, seeing it flat, and reading
+that as evidence.
+
+Three properties of these rows are load-bearing and should survive any edit to them:
+
+* **One engine per row, warmed with that row's own workload and nothing else** — see
+  `IsolatedScript`'s doc comment for the measurement defect that rule exists to prevent. It matters
+  more here than elsewhere, because these globals are installed lazily and one row's touch is what
+  materializes them.
+* **Each engine carries only its own feature**, never `WebApiFeatures.Default`, so a change to one
+  feature cannot move another feature's rows through shared installation cost.
+* **The timer rows drive a manual `TimeProvider`.** On `TimeProvider.System` every `setTimeout` would
+  pay a real clock read and a row whose timers fire would be measuring how long the machine took to
+  reach a wall-clock instant. Nothing in these rows sleeps, waits or opens a socket — including the
+  fetch rows, which build `Request`/`Response`/`Headers` and never call `fetch`.
+
+### The pre-release regression pass
+
+Seven rows are the ones to run alongside SunSpider and Dromaeo before a release — one per feature
+area, each chosen as the row a regression in its area reaches first:
+
+```
+dotnet run -c Release --project Jint.Benchmark -- --filter "*WebApiUrlBenchmark.ParseAbsolute" "*WebApiUrlBenchmark.SearchParamsMutate" "*WebApiEncodingBenchmark.RoundTripSmall" "*WebApiStructuredCloneBenchmark.CloneNested" "*WebApiFetchObjectModelBenchmark.RequestConstruction" "*WebApiStreamsBenchmark.PumpWithReader" "*WebApiTimerBenchmark.FanOutFiring"
+```
+
+* `WebApiUrlBenchmark.ParseAbsolute` — the URL parser is the largest hand-written state machine in
+  the subtree, and `Request` construction runs it too.
+* `WebApiUrlBenchmark.SearchParamsMutate` — the other half of `Url/`: the list, its serializer and
+  the URL-object update the setters trigger.
+* `WebApiEncodingBenchmark.RoundTripSmall` — dominated by per-call ceremony (WebIDL argument
+  conversion, result-view allocation), which is the cost every one of these APIs shares, so it is the
+  row a change to that shared layer moves.
+* `WebApiStructuredCloneBenchmark.CloneNested` — the deepest recursive algorithm in the subtree, over
+  a graph carrying a `Map`, a `Set`, a `Date`, a `RegExp`, a typed array and a cycle.
+* `WebApiFetchObjectModelBenchmark.RequestConstruction` — one row crossing URL parsing, header-init
+  conversion, body extraction and `AbortSignal` creation.
+* `WebApiStreamsBenchmark.PumpWithReader` — promise and job-queue traffic, 256 chunks' worth.
+* `WebApiTimerBenchmark.FanOutFiring` — the event loop's timer promotion, 500 timers per operation.
+
+The last two are worth running for a change to the **engine's own** event loop as well, not only for
+one under `Jint/WebApi/`: they are the densest promise-and-job workloads in the suite.
+
+No baseline table is published here yet. The first `JINT_BENCH_MODE=gate` run of a release cycle
+establishes one, and a number measured before that has nothing to be compared against.
