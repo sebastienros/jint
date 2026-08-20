@@ -419,12 +419,23 @@ public enum WebApiFeatures
     Scheduler = 1 << 13,
 
     /// <summary>
+    /// <c>MessageChannel</c>, <c>MessagePort</c> and <c>MessageEvent</c> — the HTML Standard's channel
+    /// messaging, https://html.spec.whatwg.org/multipage/web-messaging.html. A message is structured-cloned
+    /// when it is posted and delivered as an event-loop task, so a port fires only while the engine is being
+    /// pumped. The same ports can span <b>two</b> engines through
+    /// <c>Engine.Advanced.CreateMessagePortPair</c>, which needs this flag on both of them. Transferring a
+    /// port through a port is not supported.
+    /// </summary>
+    Messaging = 1 << 14,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
-    /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/> and
-    /// <see cref="Scheduler"/>; it grows as further features land, and never comes to include fetch.
+    /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
+    /// <see cref="Scheduler"/> and <see cref="Messaging"/>; it grows as further features land, and never
+    /// comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging,
 }
 #endif

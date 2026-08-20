@@ -22,6 +22,16 @@ public partial class Engine
     internal WebApiEngineState? _webApi;
 
     /// <summary>
+    /// Which opt-in web APIs this engine was built with, as <c>WebApiRegistration.Apply</c> recorded them, or
+    /// <see cref="WebApiFeatures.None"/> for an engine that asked for nothing. Read by the one host API that
+    /// has to refuse an engine which never opted in — <see cref="AdvancedOperations.CreateMessagePortPair"/> —
+    /// and by nothing on any hot path. It lives here rather than being read back from <c>Options</c> because
+    /// an <c>Options</c> instance is shareable and mutable, so the set an engine was actually built with is
+    /// only knowable at build time.
+    /// </summary>
+    internal WebApiFeatures _webApiFeatures;
+
+    /// <summary>
     /// Whether the event loop still has jobs queued behind the one running now. Only the web-API scheduler
     /// reads it, to keep a task from overtaking the microtasks of the turn it was posted in — see
     /// <see cref="Runtime.EventLoop.HasPendingJobs"/>.

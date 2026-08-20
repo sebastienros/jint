@@ -1,7 +1,6 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -17,10 +16,12 @@ namespace Jint.WebApi.StructuredClone;
 /// <para>
 /// Three steps, all of them delegated: convert the options dictionary, run
 /// StructuredSerializeWithTransfer, run StructuredDeserializeWithTransfer in this function's own realm. The
-/// last two are fused into <see cref="StructuredCloner"/>, which documents why that is unobservable here.
+/// last two are <see cref="StructuredCloner"/>, which runs them as two genuine phases through an
+/// engine-neutral serialization record — the same pair <c>MessagePort</c> uses to move a value between two
+/// engines.
 /// </para>
 /// <para>
-/// A fresh <see cref="StructuredCloner"/> per call is the specification's "let memory be an empty map": two
+/// A fresh serializer and deserializer per call is the specification's "let memory be an empty map": two
 /// calls share no identity, so <c>structuredClone(x) !== structuredClone(x)</c>, and a getter that re-enters
 /// <c>structuredClone</c> during a clone gets its own memory rather than joining the outer one.
 /// </para>
@@ -28,7 +29,6 @@ namespace Jint.WebApi.StructuredClone;
 internal sealed class StructuredCloneFunction : Jint.Native.Function.Function
 {
     private static readonly JsString _functionName = new("structuredClone");
-    private static readonly JsString _transfer = new("transfer");
 
     internal StructuredCloneFunction(Engine engine, Realm realm, FunctionPrototype functionPrototype)
         : base(engine, realm, _functionName)
@@ -46,57 +46,8 @@ internal sealed class StructuredCloneFunction : Jint.Native.Function.Function
             Throw.TypeError(_realm, "Failed to execute 'structuredClone': 1 argument required, but only 0 present.");
         }
 
-        var transferList = ReadTransferList(arguments.At(1));
-        return new StructuredCloner(_engine, _realm).Clone(arguments[0], transferList);
-    }
-
-    /// <summary>
-    /// The <c>StructuredSerializeOptions</c> dictionary — one member, <c>sequence&lt;object&gt; transfer = []</c>.
-    /// <para>
-    /// https://html.spec.whatwg.org/multipage/structured-data.html#dictdef-structuredserializeoptions
-    /// </para>
-    /// </summary>
-    /// <remarks>
-    /// This runs before any cloning, so a malformed <c>transfer</c> option is a <c>TypeError</c> and nothing
-    /// has been walked, let alone detached. A <c>sequence</c> is converted through the iterator protocol, not
-    /// through <c>length</c>, so any iterable will do; each element must be an object, which is all WebIDL
-    /// checks here — whether it is <i>transferable</i> is a DataCloneError decided later, in the order the
-    /// serialization algorithm specifies.
-    /// </remarks>
-    private List<JsValue>? ReadTransferList(JsValue options)
-    {
-        // An omitted or null dictionary is the empty dictionary.
-        if (options.IsNullOrUndefined())
-        {
-            return null;
-        }
-
-        if (options is not ObjectInstance optionsObject)
-        {
-            Throw.TypeError(_realm, "Failed to execute 'structuredClone': The provided value is not of type 'StructuredSerializeOptions'.");
-            return null;
-        }
-
-        var transfer = optionsObject.Get(_transfer);
-        if (transfer.IsUndefined())
-        {
-            return null;
-        }
-
-        var iterator = transfer.GetIterator(_realm);
-        var list = new List<JsValue>();
-        while (iterator.TryIteratorStepValue(out var item))
-        {
-            if (item is not ObjectInstance)
-            {
-                iterator.Close(CompletionType.Throw);
-                Throw.TypeError(_realm, "Failed to execute 'structuredClone': The provided value is not of type 'object'.");
-            }
-
-            list.Add(item);
-        }
-
-        return list;
+        var transferList = StructuredSerializeOptions.ReadTransferOption(_realm, arguments.At(1), "structuredClone");
+        return StructuredCloner.Clone(_engine, _realm, arguments[0], transferList);
     }
 }
 #endif

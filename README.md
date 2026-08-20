@@ -228,6 +228,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
+| `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -348,6 +349,44 @@ token with no comment component, so nothing about your operating system or your 
 and it is there because [WinterTC's Minimum Common API](https://min-common-api.proposal.wintertc.org/)
 requires `globalThis.navigator.userAgent` of a conforming runtime. Everything else a browser's `Navigator`
 carries describes a user agent with a user, a document and a network stack, so it is absent rather than faked.
+
+### Channel messaging can span two engines
+
+`new MessageChannel()` gives the usual entangled pair, and it behaves as the HTML Standard describes: a
+message is structured-cloned *when it is posted* — so a `DataCloneError` is thrown synchronously at the
+`postMessage` call and a later mutation of the value cannot reach the message — and delivered as an
+event-loop task, so every already-queued promise reaction runs first. A port's message queue starts
+**disabled**: nothing arrives until `start()` is called or `onmessage` is assigned, and
+`addEventListener('message', …)` on its own does not start it. `{ transfer: [buffer] }` moves an
+`ArrayBuffer` instead of copying it, exactly as `structuredClone` does; transferring a *port* is not
+supported and is refused with a `DataCloneError`.
+
+The same pair can also connect **two engines**, which is what makes a worker-style split possible without a
+second process:
+
+```csharp
+var host = new Engine(o => o.UseWebApis());
+var worker = new Engine(o => o.UseWebApis());
+
+// Create the pair while neither engine is running, then give each half to its own engine.
+var pair = host.Advanced.CreateMessagePortPair(worker);
+host.SetValue("port", pair.Local);
+worker.SetValue("port", pair.Remote);
+
+worker.Execute("port.onmessage = e => port.postMessage(e.data.n * 2);");
+host.Execute("port.onmessage = e => log(e.data); port.postMessage({ n: 21 });");
+
+worker.Advanced.ProcessTasks();   // the worker's turn: it receives 21 and replies
+host.Advanced.ProcessTasks();     // the host's turn: it receives 42
+```
+
+**No `JsValue` ever crosses.** `postMessage` serializes on the calling engine's thread into a record that
+holds nothing engine-affine — primitives, byte arrays, lists, type tags — and enqueues a job on the receiving
+engine's event loop, the one part of an engine any thread may touch. The deserialization, the `MessageEvent`
+and the listeners all run on whichever thread pumps that engine, so nothing on the receiver is touched off
+its own pump. The receiver must actually be pumped, exactly as for timers: an engine nobody pumps never
+delivers a message. And a `RestoreGlobalSnapshot` on either engine ends that channel permanently — a port's
+listeners are closures over the cycle it was created in — so a pooled engine wants a fresh pair per cycle.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them

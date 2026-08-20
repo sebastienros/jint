@@ -8,6 +8,7 @@ using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
@@ -142,6 +143,21 @@ public sealed partial class Intrinsics
 
     internal ResponseConstructor Response =>
         _response ??= new ResponseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    private MessagePortConstructor? _messagePort;
+    private MessageChannelConstructor? _messageChannel;
+    private MessageEventConstructor? _messageEvent;
+
+    /// <summary><c>MessagePort</c> inherits from <c>EventTarget</c>.</summary>
+    internal MessagePortConstructor MessagePort =>
+        _messagePort ??= new MessagePortConstructor(_engine, _realm, EventTarget);
+
+    internal MessageChannelConstructor MessageChannel =>
+        _messageChannel ??= new MessageChannelConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary><c>MessageEvent</c> inherits from <c>Event</c>.</summary>
+    internal MessageEventConstructor MessageEvent =>
+        _messageEvent ??= new MessageEventConstructor(_engine, _realm, Event);
 
     internal CryptoInstance Crypto =>
         _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);
