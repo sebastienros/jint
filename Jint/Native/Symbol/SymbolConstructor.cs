@@ -99,12 +99,9 @@ internal sealed partial class SymbolConstructor : Constructor
             Throw.TypeError(_realm, $"{Throw.SafeToDisplayString(sym)} is not a symbol");
         }
 
-        if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))
-        {
-            return e._value;
-        }
-
-        return Undefined;
+        // 2. Return KeyForSymbol(sym) -- the [[Key]] of the registry record whose [[Symbol]] *is*
+        // sym, so a symbol that only shares a description with a registered one answers undefined.
+        return GlobalSymbolRegistry.KeyForSymbol(symbol);
     }
 
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)

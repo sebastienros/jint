@@ -25,7 +25,7 @@ internal sealed class JsWeakSet : ObjectInstance
 
     internal void WeakSetAdd(JsValue value)
     {
-        if (!value.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!value.CanBeHeldWeakly())
         {
             Throw.TypeError(_engine.Realm, "WeakSet value must be an object or symbol, got " + value);
         }

@@ -10,14 +10,45 @@ using Jint.Runtime.Interpreter;
 namespace Jint.Runtime.Modules;
 
 /// <summary>
+/// The alternatives an ImportEntry's or an ExportEntry's [[ImportName]] may take beyond an ordinary
+/// String: namespace-object for an ImportEntry (https://tc39.es/ecma262/#importentry-record), all and
+/// all-but-default for an ExportEntry (https://tc39.es/ecma262/#exportentry-record).
+/// <para>
+/// They are a separate discriminator rather than reserved strings because a ModuleExportName has been
+/// an arbitrary StringLiteral since ES2022 (https://tc39.es/ecma262/#prod-ModuleExportName) --
+/// <c>export { x as "*" }</c> and <c>import { "*" as y } from "..."</c> are ordinary syntax, so any
+/// string picked as a marker is a name that some module may genuinely import or export.
+/// </para>
+/// </summary>
+internal enum ModuleImportName
+{
+    /// <summary>[[ImportName]] is the String carried alongside this discriminator.</summary>
+    Name,
+
+    /// <summary>
+    /// namespace-object / all / all-but-default: the requested module's namespace object, from
+    /// <c>import * as ns from "m"</c>, <c>export * as ns from "m"</c> and <c>export * from "m"</c>.
+    /// An ExportEntry tells the last two apart by its [[ExportName]] being null, exactly as
+    /// ParseModule (https://tc39.es/ecma262/#sec-parsemodule) does.
+    /// </summary>
+    Namespace,
+
+    /// <summary>
+    /// A re-export of a source-phase import (https://tc39.es/proposal-source-phase-imports/):
+    /// the requested module's [[ModuleSource]] rather than any of its exports.
+    /// </summary>
+    ModuleSource,
+}
+
+/// <summary>
 /// https://tc39.es/ecma262/#importentry-record
 /// </summary>
-internal sealed record ImportEntry(ModuleRequest ModuleRequest, string? ImportName, string LocalName, ModuleImportPhase Phase = ModuleImportPhase.Evaluation);
+internal sealed record ImportEntry(ModuleRequest ModuleRequest, string? ImportName, string LocalName, ModuleImportPhase Phase = ModuleImportPhase.Evaluation, ModuleImportName ImportNameKind = ModuleImportName.Name);
 
 /// <summary>
 /// https://tc39.es/ecma262/#exportentry-record
 /// </summary>
-internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequest, string? ImportName, string? LocalName);
+internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequest, string? ImportName, string? LocalName, ModuleImportName ImportNameKind = ModuleImportName.Name);
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-source-text-module-records
@@ -142,12 +173,12 @@ internal class SourceTextModule : CyclicModule
             if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
                 var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest!.Value);
-                if (string.Equals(e.ImportName, "*source*", StringComparison.Ordinal))
+                if (e.ImportNameKind == ModuleImportName.ModuleSource)
                 {
                     // Re-export of a source-phase import (import source x from "..."; export { x };).
                     return new ResolvedBinding(importedModule, "*source*");
                 }
-                else if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
+                else if (e.ImportNameKind == ModuleImportName.Namespace)
                 {
                     // 1. Assert: module does not provide the direct binding for this export.
                     return new ResolvedBinding(importedModule, "*namespace*");
@@ -247,7 +278,7 @@ internal class SourceTextModule : CyclicModule
                     env.CreateImmutableBinding(ie.LocalName, strict: true);
                     env.InitializeBinding(ie.LocalName, ns, DisposeHint.Normal);
                 }
-                else if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
+                else if (ie.ImportNameKind == ModuleImportName.Namespace)
                 {
                     var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, strict: true);

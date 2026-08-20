@@ -1286,4 +1286,83 @@ export const count = globals.counter;
         Invoking(() => _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>()
             .Which.Message.Should().Be("Cannot access 'x' before initialization");
     }
+
+    /// <summary>
+    /// A ModuleExportName has been an arbitrary StringLiteral since ES2022
+    /// (https://tc39.es/ecma262/#prod-ModuleExportName), so "*" is an ordinary export name and must
+    /// not be confused with the namespace-object marker of `import * as ns`.
+    /// </summary>
+    [Fact]
+    public void ShouldImportAndExportArbitraryStringNames()
+    {
+        _engine.Modules.Add("provider", """
+            const x = 'ok';
+            const y = 'dashed';
+            export { x as "*", y as "a-b c" };
+            """);
+        _engine.Modules.Add("consumer", """
+            import { "*" as star, "a-b c" as dashed } from 'provider';
+            export const result = star + '|' + dashed;
+            """);
+
+        var ns = _engine.Modules.Import("consumer");
+
+        ns.Get("result").AsString().Should().Be("ok|dashed");
+    }
+
+    [Fact]
+    public void ShouldExposeAStringExportNameOnTheNamespaceObject()
+    {
+        _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
+
+        var ns = _engine.Modules.Import("provider");
+
+        ns.Get("*").AsString().Should().Be("ok");
+    }
+
+    [Fact]
+    public void ShouldReExportAStringNamedBindingByName()
+    {
+        _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
+        _engine.Modules.Add("middle", "export { \"*\" as star } from 'provider';");
+        _engine.Modules.Add("consumer", "import { star } from 'middle'; export const result = star;");
+
+        var ns = _engine.Modules.Import("consumer");
+
+        ns.Get("result").AsString().Should().Be("ok");
+    }
+
+    [Fact]
+    public void ShouldReExportAnImportedStringNamedBinding()
+    {
+        _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
+        _engine.Modules.Add("middle", "import { \"*\" as star } from 'provider'; export { star };");
+        _engine.Modules.Add("consumer", "import { star } from 'middle'; export const result = star;");
+
+        var ns = _engine.Modules.Import("consumer");
+
+        ns.Get("result").AsString().Should().Be("ok");
+    }
+
+    [Fact]
+    public void ShouldStillTreatStarSyntaxAsTheNamespaceObject()
+    {
+        // The negative control for the three above: the marker cases must keep resolving to a namespace.
+        _engine.Modules.Add("provider", "export const value = 'ok';");
+        _engine.Modules.Add("consumer", """
+            import * as direct from 'provider';
+            import { value } from 'provider';
+            export { direct };
+            export const reexported = value;
+            """);
+        _engine.Modules.Add("starred", "export * as ns from 'provider';");
+        _engine.Modules.Add("all", "export * from 'provider';");
+
+        var ns = _engine.Modules.Import("consumer");
+        ns.Get("direct").Get("value").AsString().Should().Be("ok");
+        ns.Get("reexported").AsString().Should().Be("ok");
+
+        _engine.Modules.Import("starred").Get("ns").Get("value").AsString().Should().Be("ok");
+        _engine.Modules.Import("all").Get("value").AsString().Should().Be("ok");
+    }
 }
