@@ -663,13 +663,22 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// <c>toString</c> throws. <see cref="GetOwnFunctionName"/> coerces through <c>TypeConverter.ToString</c>
     /// and would let that object hijack the error being built — an extra observable call, and a thrown
     /// value replacing the <c>TypeError</c> the caller meant to raise. So only an actual string is quoted
-    /// here; anything else falls back to the CLR type's name, which no script can influence. Reading
-    /// <see cref="PropertyDescriptor.Value"/> touches the raw field and never invokes an accessor.
+    /// here; anything else falls back to the CLR type's name, which no script can influence. A descriptor
+    /// carrying <see cref="PropertyFlag.CustomJsValue"/> is skipped for the same reason: its
+    /// <see cref="PropertyDescriptor.Value"/> routes through the <c>CustomValue</c> accessor rather than the
+    /// raw field, and one of those accessors — the shared pending-lazy sentinel a script function's name
+    /// starts with — throws by design. An error-message path must never introduce a throw of its own.
     /// </para>
     /// </summary>
     internal string GetOwnFunctionNameForMessage()
     {
-        return _nameDescriptor?.Value is JsString name ? name.ToString() : GetType().Name;
+        var descriptor = _nameDescriptor;
+        if (descriptor is null || (descriptor.Flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
+        {
+            return GetType().Name;
+        }
+
+        return descriptor.Value is JsString name ? name.ToString() : GetType().Name;
     }
 
     /// <summary>
