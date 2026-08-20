@@ -1282,7 +1282,13 @@ public class AsyncTests
     [Fact]
     public Task ShouldReturnedValueTaskOfTConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
-        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        // A loaded CI runner can starve the thread pool past the default 10 s PromiseTimeout while the
+        // delayed task's continuation waits for a worker; the test asserts the outcome, not the duration.
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
+        });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedValueTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
