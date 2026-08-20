@@ -12,7 +12,8 @@
   ],
   // Sub-directories of test262's test/ to generate from. The tool's own default is the first four;
   // "staging" is opted into explicitly because it carries upstream coverage that exists nowhere else
-  // in the suite (see the STAGING EXCLUSIONS banner below for what it costs us).
+  // in the suite (see the STAGING EXCLUSIONS and PERMANENT EXCLUSIONS banners below for what it costs
+  // us, and which part of that cost we intend to pay down).
   "SubDirectories": [
     "annexB",
     "built-ins",
@@ -65,23 +66,6 @@
     // poisoned value's own error instead of the RangeError. Removed by fixing that ordering.
     "staging/sm/TypedArray/constructor-buffer-sequence.js",
 
-    // Legacy Function.prototype.caller / arguments.callee.caller. These are Annex B accessors whose
-    // sloppy-mode observable behaviour (the calling function, null at the top of the stack, poisoned
-    // on strict functions, transparent through eval frames) Jint does not reproduce. Removed by
-    // implementing the legacy accessors, not by relaxing the tests.
-    "staging/sm/Function/function-caller-restrictions.js",
-    "staging/sm/extensions/arguments-property-access-in-function.js",
-    "staging/sm/extensions/censor-strict-caller.js",
-    "staging/sm/extensions/function-caller-skips-eval-frames.js",
-    "staging/sm/extensions/function-properties.js",
-    "staging/sm/regress/regress-577648-1.js",
-    "staging/sm/regress/regress-577648-2.js",
-    "staging/sm/regress/regress-584355.js",
-    "staging/sm/regress/regress-586482-1.js",
-    "staging/sm/regress/regress-586482-2.js",
-    "staging/sm/regress/regress-586482-3.js",
-    "staging/sm/regress/regress-586482-4.js",
-
     // Function source text and inferred names. Function.prototype.toString does not return the
     // original source for class expressions and some method forms, and NamedEvaluation does not
     // reach the for-in head. Removed by carrying the source range and completing NamedEvaluation.
@@ -123,12 +107,6 @@
     "staging/sm/Array/from_proxy.js",
     "staging/sm/Array/species.js",
     "staging/sm/Reflect/has.js",
-
-    // Date parsing: the implementation-defined fallback parser accepts (and rejects) different strings
-    // than SpiderMonkey's, and two-digit years map differently. Both are implementation-defined
-    // territory the spec leaves open, so these two stay.
-    "staging/sm/Date/non-iso.js",
-    "staging/sm/Date/two-digit-years.js",
 
     // String case mapping is done with the BCL's culture-aware tables rather than the Unicode
     // Default Case Conversion the spec requires, so a handful of code points (dotless i, the
@@ -193,6 +171,86 @@
     // AbstractModuleSource is not the one the proposal describes.
     "staging/source-phase-imports/import-source-source-text-module.js",
     "staging/source-phase-imports/module-source-prototype-chain.js",
+
+    // === PERMANENT EXCLUSIONS ===
+    //
+    // Everything above this banner is debt: a gap somebody is expected to pay down, each entry saying
+    // what removes it. The entries below are not debt. Each one records a decision that Jint will not
+    // implement the behaviour the test asserts, because no clause of the specification requires that
+    // behaviour of Jint - the test pins an optional extension, or a result the spec deliberately
+    // leaves implementation-defined. A pull request that wants to reverse one of these is welcome, but
+    // it argues the decision and rewrites the reasoning; it does not just delete the line, because the
+    // reason the line is here is not "nobody got round to it".
+
+    // Legacy Function.prototype.caller / arguments.callee.caller: DECLINED.
+    //
+    // These are not the restricted accessors of AddRestrictedFunctionProperties
+    // (https://tc39.es/ecma262/#sec-addrestrictedfunctionproperties), which Jint does implement:
+    // %ThrowTypeError% sits on Function.prototype's "caller" and "arguments", so a strict function's
+    // f.caller throws exactly as the spec requires. What these tests want is the separate legacy web
+    // extension that hands back the *calling function* in sloppy mode, and nothing requires that of
+    // anyone. Clause 17 (https://tc39.es/ecma262/#sec-error-handling-and-language-extensions) permits
+    // it - "a host or implementation may provide additional types, values, objects, properties, and
+    // functions beyond those described in this specification" - and 17.1
+    // Forbidden Extensions (https://tc39.es/ecma262/#sec-forbidden-extensions) then only constrains an
+    // implementation that takes the offer up (the value of such a "caller" property "must not be a
+    // strict function object"). The stable suite treats it as optional and probes for it:
+    // language/arguments-object/10.6-13-a-2.js and -3.js read arguments.callee.caller and take an
+    // "Extension not supported - fake it" branch when it is undefined. Jint answers undefined for
+    // exactly that reason (ScriptFunction.MaterializeCallerDescriptor), and that one value is what
+    // every file below fails on.
+    //
+    // The reason to decline is isolation, not effort. Jint runs in-process inside host applications,
+    // and .caller lets a script walk the stack and take a reference to a function it was never handed
+    // - including a host-supplied callback, and through it whatever that callback closed over. That is
+    // a sandboxing regression bought with a non-standard extension: a trade a browser makes and an
+    // embedded engine should not.
+    //
+    // The shape of the debt, if the decision is ever reversed: 10 of the 12 want only f.caller. Two of
+    // them additionally want f.arguments to be the running call's live arguments object -
+    // extensions/function-properties.js and extensions/arguments-property-access-in-function.js -
+    // which costs more than it looks, because Jint elides the arguments object entirely for a function
+    // whose body never mentions `arguments` (JintFunctionDefinition's State.ArgumentsObjectNeeded) and
+    // a constant-arity call site hands its arguments to an interpreted callee in registers without
+    // building a JsValue[] at all (#2874).
+    "staging/sm/Function/function-caller-restrictions.js",
+    "staging/sm/extensions/arguments-property-access-in-function.js",
+    "staging/sm/extensions/censor-strict-caller.js",
+    "staging/sm/extensions/function-caller-skips-eval-frames.js",
+    "staging/sm/extensions/function-properties.js",
+    "staging/sm/regress/regress-577648-1.js",
+    "staging/sm/regress/regress-577648-2.js",
+    "staging/sm/regress/regress-584355.js",
+    "staging/sm/regress/regress-586482-1.js",
+    "staging/sm/regress/regress-586482-2.js",
+    "staging/sm/regress/regress-586482-3.js",
+    "staging/sm/regress/regress-586482-4.js",
+
+    // Non-ISO Date parsing: DECLINED, and the weaker of the two decisions under this banner.
+    //
+    // Both files assert a heuristic fallback parser for strings that do not conform to the Date Time
+    // String Format: a space where the "T" belongs, one-digit month/day/hour fields, an hours-only UTC
+    // offset, a written month name in any of three positions, and two-digit years mapped onto
+    // 1950-2049. Date.parse (https://tc39.es/ecma262/#sec-date.parse) puts all of that out of scope:
+    // "If the String does not conform to that format the function may fall back to any
+    // implementation-specific heuristics or implementation-specific date formats", and "the value
+    // produced by this function is implementation-defined when given any String value that does not
+    // conform to the Date Time String Format". The tests say as much of themselves - "For the sake of
+    // cross compatibility with other implementations we implement date parsing heuristics". So nothing
+    // here is required of Jint, and passing these files means writing a parser whose only
+    // specification is another engine's source.
+    //
+    // What weakens that, stated plainly because it was measured rather than assumed: V8 passes both
+    // files unmodified, so these are shared web behaviour rather than Mozilla quirks, and Jint's own
+    // fallback diverges from both in ways that look more like accidents than choices - it reads
+    // "1997-03-08 11" as 1997-03-08 rather than NaN (a trailing token is silently dropped), and it
+    // reads a two-digit-year slash date as d/m/y ("1/2/1" is 1 February) while reading the
+    // four-digit-year form as m/d/y, which is what V8 does for both. Wanting those tightened is
+    // reasonable. It is still a change to implementation-defined behaviour and not a conformance fix,
+    // which is why it sits here rather than in the debt list above - but of everything under this
+    // banner it is the entry most likely to be argued back out, and a PR that argues it is welcome.
+    "staging/sm/Date/non-iso.js",
+    "staging/sm/Date/two-digit-years.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.
