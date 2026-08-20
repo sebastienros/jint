@@ -92,6 +92,12 @@ internal static class WebApiRegistration
             Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
             Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
         }
+
+        if ((options.WebApi.Features & WebApiFeatures.Url) != WebApiFeatures.None)
+        {
+            Install(global, engine, "URL", static e => e.Realm.Intrinsics.WebApiUrl, PropertyFlag.NonEnumerable);
+            Install(global, engine, "URLSearchParams", static e => e.Realm.Intrinsics.WebApiUrlSearchParams, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>

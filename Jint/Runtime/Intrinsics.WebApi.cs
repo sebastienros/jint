@@ -3,9 +3,10 @@ using Jint.WebApi.Base64;
 using Jint.WebApi.Console;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
+using Jint.WebApi.Files;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Timers;
-using Jint.WebApi.Files;
+using Jint.WebApi.Url;
 
 namespace Jint.Runtime;
 
@@ -29,6 +30,8 @@ public sealed partial class Intrinsics
     private Base64Function? _atob;
     private Base64Function? _btoa;
     private StructuredCloneFunction? _structuredClone;
+    private UrlConstructor? _webApiUrl;
+    private UrlSearchParamsConstructor? _webApiUrlSearchParams;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -42,6 +45,7 @@ public sealed partial class Intrinsics
     /// </summary>
     internal TimerFunctions Timers =>
         _timers ??= TimerFunctions.Create(_engine, _realm);
+
     internal TextEncoderConstructor TextEncoder =>
         _textEncoder ??= new TextEncoderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
@@ -72,5 +76,11 @@ public sealed partial class Intrinsics
 
     internal FormDataIteratorPrototype FormDataIteratorPrototype =>
         _formDataIteratorPrototype ??= new FormDataIteratorPrototype(_engine, _realm, IteratorPrototype);
+
+    internal UrlConstructor WebApiUrl =>
+        _webApiUrl ??= new UrlConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal UrlSearchParamsConstructor WebApiUrlSearchParams =>
+        _webApiUrlSearchParams ??= new UrlSearchParamsConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 }
 #endif
