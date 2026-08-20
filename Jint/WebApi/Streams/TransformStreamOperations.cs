@@ -58,6 +58,98 @@ internal static class TransformStreamOperations
     }
 
     /// <summary>
+    /// https://streams.spec.whatwg.org/#transformstream-set-up — the entry point for the transform streams
+    /// <i>other</i> standards define (<c>TextEncoderStream</c>, <c>CompressionStream</c>, …) rather than ones
+    /// a script constructs. It creates the stream too, which the specification leaves to the one line above
+    /// every call site ("let transformStream be a new TransformStream").
+    /// </summary>
+    /// <remarks>
+    /// The algorithms are engine code, not script callbacks, so they are <see cref="Action"/>s rather than
+    /// functions returning a promise: the specification's wrappers exist to turn a thrown exception into a
+    /// rejected promise and a non-promise return value into a resolved one, which is exactly what the
+    /// <c>RunAlgorithm</c> pair below does. The high water marks are the specification's own defaults — one chunk
+    /// of buffering on the way in, none on the way out — so a chunk is transformed only once the readable
+    /// side is read from.
+    /// </remarks>
+    internal static JsTransformStream SetUp(
+        Engine engine,
+        Realm realm,
+        Action<JsValue> transformAlgorithm,
+        Action? flushAlgorithm = null,
+        Action? cancelAlgorithm = null)
+    {
+        var stream = new JsTransformStream(engine, realm)
+        {
+            _prototype = realm.Intrinsics.TransformStream.PrototypeObject,
+        };
+
+        Initialize(
+            stream,
+            StreamPromises.ResolvedWithUndefined(engine, realm),
+            writableHighWaterMark: 1,
+            SizeOfOne,
+            readableHighWaterMark: 0,
+            SizeOfOne);
+
+        var controller = new JsTransformStreamDefaultController(engine, realm)
+        {
+            _prototype = realm.Intrinsics.TransformStreamDefaultController.PrototypeObject,
+        };
+
+        SetUpController(
+            stream,
+            controller,
+            chunk => RunAlgorithm(engine, realm, transformAlgorithm, chunk),
+            () => RunAlgorithm(engine, realm, flushAlgorithm),
+            _ => RunAlgorithm(engine, realm, cancelAlgorithm));
+
+        return stream;
+    }
+
+    /// <summary>
+    /// "Enqueue <paramref name="chunk"/> into <paramref name="stream"/>" —
+    /// https://streams.spec.whatwg.org/#transformstream-enqueue.
+    /// </summary>
+    internal static void Enqueue(JsTransformStream stream, JsValue chunk)
+        => ControllerEnqueue(stream.Controller, chunk);
+
+    /// <summary>The size algorithm the set-up operation gives both sides: "an algorithm that returns 1".</summary>
+    private static readonly Func<JsValue, double> SizeOfOne = static _ => 1;
+
+    /// <summary>
+    /// The specification's <c>transformAlgorithmWrapper</c>: run the algorithm, and report a JavaScript
+    /// exception it raised as a rejected promise rather than letting it escape into the caller.
+    /// </summary>
+    private static JsPromise RunAlgorithm(Engine engine, Realm realm, Action<JsValue>? algorithm, JsValue chunk)
+    {
+        try
+        {
+            algorithm?.Invoke(chunk);
+        }
+        catch (JavaScriptException e)
+        {
+            return StreamPromises.RejectedWith(engine, realm, e.Error);
+        }
+
+        return StreamPromises.ResolvedWithUndefined(engine, realm);
+    }
+
+    /// <summary>The same wrapper for the two algorithms that take no argument.</summary>
+    private static JsPromise RunAlgorithm(Engine engine, Realm realm, Action? algorithm)
+    {
+        try
+        {
+            algorithm?.Invoke();
+        }
+        catch (JavaScriptException e)
+        {
+            return StreamPromises.RejectedWith(engine, realm, e.Error);
+        }
+
+        return StreamPromises.ResolvedWithUndefined(engine, realm);
+    }
+
+    /// <summary>
     /// https://streams.spec.whatwg.org/#transform-stream-error
     /// </summary>
     /// <remarks>

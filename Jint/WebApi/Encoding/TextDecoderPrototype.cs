@@ -59,7 +59,7 @@ internal sealed partial class TextDecoderPrototype : Prototype
     [JsAccessor("encoding", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsString EncodingGet(JsValue thisObject)
     {
-        return Brand(thisObject).Name;
+        return Brand(thisObject).Common.Name;
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ internal sealed partial class TextDecoderPrototype : Prototype
     [JsAccessor("fatal", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsBoolean FatalGet(JsValue thisObject)
     {
-        return Brand(thisObject).Fatal ? JsBoolean.True : JsBoolean.False;
+        return Brand(thisObject).Common.Fatal ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ internal sealed partial class TextDecoderPrototype : Prototype
     [JsAccessor("ignoreBOM", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsBoolean IgnoreBomGet(JsValue thisObject)
     {
-        return Brand(thisObject).IgnoreBom ? JsBoolean.True : JsBoolean.False;
+        return Brand(thisObject).Common.IgnoreBom ? JsBoolean.True : JsBoolean.False;
     }
 
     /// <summary>
@@ -114,7 +114,7 @@ internal sealed partial class TextDecoderPrototype : Prototype
             stream = TypeConverter.ToBoolean(optionsObject.Get(_stream));
         }
 
-        return decoder.Decode(_realm, bytes, stream);
+        return decoder.Common.Decode(_realm, bytes, stream);
     }
 
     /// <summary>

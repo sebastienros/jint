@@ -437,6 +437,10 @@ public enum WebApiFeatures
     /// <summary>
     /// <c>TextEncoder</c> and <c>TextDecoder</c> — https://encoding.spec.whatwg.org/#api. The encoder is
     /// UTF-8 only, as the standard requires; the decoder reads UTF-8, UTF-16LE and UTF-16BE.
+    /// <para>
+    /// Their streaming counterparts, <c>TextEncoderStream</c> and <c>TextDecoderStream</c>, need
+    /// <see cref="Streams"/> as well and are installed only when both flags are present.
+    /// </para>
     /// </summary>
     Encoding = 1 << 2,
 
@@ -619,14 +623,29 @@ public enum WebApiFeatures
     EventSource = 1 << 17,
 
     /// <summary>
+    /// <c>CompressionStream</c> and <c>DecompressionStream</c> — https://compression.spec.whatwg.org/ — for
+    /// the three formats the standard's <c>CompressionFormat</c> names and this implementation supports:
+    /// <c>gzip</c> (RFC 1952), <c>deflate</c> (the ZLIB wrapper of RFC 1950, as the standard defines that
+    /// name) and <c>deflate-raw</c> (RFC 1951). <c>brotli</c> is not implemented and, like any other
+    /// unsupported value, is a <c>TypeError</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Requires <see cref="Streams"/> as well</b>: both are transform streams, so naming this flag on
+    /// its own installs nothing. The bit is 1 &lt;&lt; 20 rather than the next numerically free one — the
+    /// bits below it are spoken for by features landing alongside this one, and the layout is fixed ahead
+    /// of the implementations so that a value a host persisted keeps its meaning as the surface grows.
+    /// </remarks>
+    Compression = 1 << 20,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
-    /// <see cref="Scheduler"/>, <see cref="Messaging"/> and <see cref="Reporting"/>; it grows as further
+    /// <see cref="Scheduler"/>, <see cref="Messaging"/> <see cref="Reporting"/> and <see cref="Compression"/>; it grows as further
     /// features land, and never comes to include fetch or <see cref="Storage"/>.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression,
 }
 #endif

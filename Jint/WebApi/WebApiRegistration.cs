@@ -213,6 +213,24 @@ internal static class WebApiRegistration
             // both flags gets one object either way.
             Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
+
+        // The transform streams other standards define need two flags each, because each of them is one
+        // standard's algorithm running inside the Streams Standard's machinery: an engine that asked for
+        // only one half of the pair gets neither, rather than an interface whose readable and writable
+        // sides it has no way to consume.
+        const WebApiFeatures TextTransforms = WebApiFeatures.Encoding | WebApiFeatures.Streams;
+        if ((features & TextTransforms) == TextTransforms)
+        {
+            Install(global, engine, "TextDecoderStream", static e => e.Realm.Intrinsics.TextDecoderStream, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TextEncoderStream", static e => e.Realm.Intrinsics.TextEncoderStream, PropertyFlag.NonEnumerable);
+        }
+
+        const WebApiFeatures CompressionTransforms = WebApiFeatures.Compression | WebApiFeatures.Streams;
+        if ((features & CompressionTransforms) == CompressionTransforms)
+        {
+            Install(global, engine, "CompressionStream", static e => e.Realm.Intrinsics.CompressionStream, PropertyFlag.NonEnumerable);
+            Install(global, engine, "DecompressionStream", static e => e.Realm.Intrinsics.DecompressionStream, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
