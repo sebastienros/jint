@@ -556,7 +556,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance
             && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
         {
-            return arrayInstance.Filter(arguments);
+            return arrayInstance.Filter(_realm, arguments);
         }
 
         var callbackfn = arguments.At(0);
@@ -615,7 +615,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance
             && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
         {
-            return arrayInstance.Map(arguments);
+            return arrayInstance.Map(_realm, arguments);
         }
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
@@ -1677,7 +1677,8 @@ public sealed partial class ArrayPrototype : ArrayInstance
         {
             // slower path
             var operations = ArrayOperations.For(a, forWrite: true);
-            for (uint n = 0; k < final; k++, n++)
+            uint n = 0;
+            for (; k < final; k++, n++)
             {
                 if (n > 0 && n % ConstraintCheckInterval == 0)
                 {
@@ -1689,6 +1690,11 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     operations.CreateDataPropertyOrThrow(n, kValue);
                 }
             }
+
+            // Step 12: Perform ? Set(A, "length", n, true). Only CreateDataPropertyOrThrow grows an
+            // array's length, so a trailing hole -- and any species result that is not an array at all --
+            // is left with the wrong length without this.
+            operations.SetLength(n);
         }
         return a;
     }
@@ -2011,8 +2017,15 @@ public sealed partial class ArrayPrototype : ArrayInstance
                             _engine.Constraints.Check();
                         }
 
-                        operations.TryGetValue(k, out var subElement);
-                        aOperations.CreateDataPropertyOrThrow(n, subElement);
+                        // Step 5.b.iv.2-3: a hole contributes no property to A, it only advances n. The
+                        // existence question is asked afresh per element because the CreateDataPropertyOrThrow
+                        // of an earlier one can have deleted a later one (a Proxy defineProperty trap, an
+                        // array with a setter species).
+                        if (operations.TryGetValue(k, out var subElement))
+                        {
+                            aOperations.CreateDataPropertyOrThrow(n, subElement);
+                        }
+
                         n++;
                     }
                 }
@@ -2024,9 +2037,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }
         }
 
-        // this is not in the specs, but is necessary in case the last element of the last
-        // array doesn't exist, and thus the length would not be incremented
-        a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(n, PropertyFlag.OnlyWritable));
+        // Step 6: Perform ? Set(A, "length", n, true). A plain [[DefineOwnProperty]] with the array
+        // length attributes is not the same operation: it bypasses a species result's own [[Set]] and,
+        // on a Proxy whose target has a configurable "length", trips the defineProperty invariant.
+        aOperations.SetLength(n);
 
         return a;
     }
