@@ -19,6 +19,19 @@ namespace Jint.Tests.PublicInterface;
 public class AsyncModuleLoaderTests
 {
     /// <summary>
+    /// Builds the engine every outcome-asserting test here uses: modules over <paramref name="loader"/>, with
+    /// a promise budget generous enough that only a genuine hang can reach it. A loaded CI runner can starve
+    /// the thread pool long enough that even a 5 ms loader hop misses the engine's default 10-second
+    /// <c>PromiseTimeout</c> — seen as one-leg CI failures reading "Timeout of 00:00:10 reached". These tests
+    /// assert outcomes, never durations, so the budget is not part of what they prove; the tests that DO
+    /// assert timeout semantics configure their own short budget explicitly and never come through here.
+    /// </summary>
+    private static Engine CreateEngine(IModuleLoader loader) => new(options =>
+    {
+        options.EnableModules(loader);
+        options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
+    });
+    /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
     /// engine really does carry on without the answer.
     /// </summary>
@@ -120,7 +133,7 @@ public class AsyncModuleLoaderTests
             ["./dep.js"] = "export const value = 21;",
         }, TimeSpan.FromMilliseconds(20));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("./main.js");
 
@@ -141,7 +154,7 @@ public class AsyncModuleLoaderTests
             ["./d.js"] = "export const d = 'd';",
         }, TimeSpan.FromMilliseconds(5));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("./a.js");
 
@@ -160,7 +173,7 @@ public class AsyncModuleLoaderTests
             ["./shared.js"] = "export const shared = 1;",
         }, TimeSpan.FromMilliseconds(20));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("./main.js");
 
@@ -178,7 +191,7 @@ public class AsyncModuleLoaderTests
             ["./main.js"] = "import './missing.js';",
         }, TimeSpan.FromMilliseconds(5));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ex = await Invoking(() => engine.Modules.ImportAsync("./main.js")).Should().ThrowAsync<PromiseRejectedException>();
         ex.Which.RejectedValue.Get("message").AsString().Should().Contain("404 ./missing.js");
@@ -190,7 +203,7 @@ public class AsyncModuleLoaderTests
         // The point of the whole exercise: evaluation returns, the script goes on, and nothing is blocked
         // waiting for the module. The promise settles on a later turn of the event loop.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.log = []; import('./late.js').then(ns => log.push('loaded:' + ns.value), e => log.push('failed:' + e.message)); log.push('after-import');");
 
@@ -207,7 +220,7 @@ public class AsyncModuleLoaderTests
     public void ADynamicImportRejectsWhenTheHostFailsTheLoad()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.outcome = 'pending'; import('./gone.js').then(() => { outcome = 'resolved'; }, e => { outcome = e.message; });");
 
@@ -223,7 +236,7 @@ public class AsyncModuleLoaderTests
     public Task AHostCanFinishALoadFromAnotherThread() => DedicatedThread.RunAsync(() =>
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.value = 0; import('./worker.js').then(ns => { value = ns.value; });");
 
@@ -250,7 +263,7 @@ public class AsyncModuleLoaderTests
         // twice while its first load is in flight - see the two-phase case below, which the spec both
         // produces and permits.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.results = []; import('./twice.js').then(ns => results.push(ns.value));");
         loader.Deliver("./twice.js", "export const value = 'first';");
@@ -273,7 +286,7 @@ public class AsyncModuleLoaderTests
         // that the answer be the same. What must hold is the outcome: the two denote one module record, so
         // there is one fetch and one evaluation, not two.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./main.js");
         loader.Deliver("./main.js", "import defer * as d from './dep.js'; import { v } from './dep.js'; export const a = v;");
@@ -291,7 +304,7 @@ public class AsyncModuleLoaderTests
     public void SettlingALoadTwiceIsIgnored()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.value = 0; import('./once.js').then(ns => { value = ns.value; });");
 
@@ -310,7 +323,7 @@ public class AsyncModuleLoaderTests
     public void AnAsyncLoaderCanAnswerWithAModuleItBuiltItself()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./built.js");
 
@@ -335,7 +348,7 @@ public class AsyncModuleLoaderTests
             ["./dep.js"] = "export const dep = 'ready';",
         }, TimeSpan.FromMilliseconds(20));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./frame.js");
         import.IsCompleted.Should().BeFalse();
@@ -358,7 +371,7 @@ public class AsyncModuleLoaderTests
     public void AFailedPumpedImportReportsTheErrorRatherThanThrowingOutOfThePump()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./nope.js");
         loader.Fail("./nope.js", new InvalidOperationException("asset bundle missing"));
@@ -375,7 +388,7 @@ public class AsyncModuleLoaderTests
     public void AskingAPumpedImportForItsResultTooEarlyIsAnActionableError()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./slow.js");
 
@@ -391,7 +404,7 @@ public class AsyncModuleLoaderTests
             ["./tla.js"] = "const v = await Promise.resolve(5); export const value = v * 2;",
         }, TimeSpan.FromMilliseconds(10));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("./tla.js");
 
@@ -406,7 +419,7 @@ public class AsyncModuleLoaderTests
             ["./main.js"] = "import { answer } from 'lib'; export const value = answer;",
         }, TimeSpan.FromMilliseconds(5));
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
         engine.Modules.Add("lib", "export const answer = 42;");
 
         var ns = await engine.Modules.ImportAsync("./main.js");
@@ -423,7 +436,7 @@ public class AsyncModuleLoaderTests
         // left to catch a parse error. The error must become the load's failure: escaping instead would erupt
         // out of ProcessTasks and leave the import pending forever.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
         engine.Modules.Add("lib", "export const = broken;");
 
         var import = engine.Modules.StartImport("./root.js");
@@ -442,7 +455,7 @@ public class AsyncModuleLoaderTests
     public void ASyntaxErrorInAsynchronouslyDeliveredSourceRejectsTheImport()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./broken.js");
         loader.Deliver("./broken.js", "export const = ;");
@@ -461,7 +474,7 @@ public class AsyncModuleLoaderTests
         // on the way out - a broken transport constructor, say - must produce the same rejection SetError
         // would have, not an exception on whatever thread was evaluating.
         var loader = new ThrowingLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./unreachable.js");
         engine.Advanced.ProcessTasks();
@@ -504,7 +517,7 @@ public class AsyncModuleLoaderTests
         // Task.IsCanceled is not Task.IsFaulted - there is no exception object to take a message from - so
         // the base class has to say what happened itself.
         var loader = new TokenCapturingLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./doomed.js");
         loader.CancelPendingFetch();
@@ -554,7 +567,7 @@ public class AsyncModuleLoaderTests
         // wait, not the engine failing the load - the load stays pending, there is just nobody waiting.
         using var cts = new CancellationTokenSource();
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var importTask = engine.Modules.ImportAsync("./never.js", cts.Token);
         cts.Cancel();
@@ -569,7 +582,7 @@ public class AsyncModuleLoaderTests
         // delivers is built into the module kind the attribute asks for - the same dispatch the synchronous
         // loader performs.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./main.js");
         loader.Deliver("./main.js", "import data from './config.json' with { type: 'json' }; export const message = data.message;");
@@ -587,7 +600,7 @@ public class AsyncModuleLoaderTests
         // SetSource(byte[]) hands raw content over; with { type: 'bytes' } must receive it untouched rather
         // than round-tripped through a string decode.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("globalThis.result = null; import('./blob.bin', { with: { type: 'bytes' } }).then(ns => { result = ns.default.length + ':' + ns.default[0] + ',' + ns.default[1]; });");
 
@@ -604,7 +617,7 @@ public class AsyncModuleLoaderTests
         // another thread - the shape every real fetch has - only enqueues, and the drain on this thread has
         // to notice it. Every other sync-Import test settles inline on the engine thread, which never
         // exercises that wait.
-        var engine = new Engine(options => options.EnableModules(new BackgroundThreadLoader()));
+        var engine = CreateEngine(new BackgroundThreadLoader());
 
         var ns = engine.Modules.Import("./bg.js");
 
@@ -643,7 +656,7 @@ public class AsyncModuleLoaderTests
             ["./dep.js"] = "export const dep = 'dep';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+dep");
     }
@@ -679,7 +692,7 @@ public class AsyncModuleLoaderTests
     public void AnInlineFailureStillReachesTheBlockingImportAsAnError()
     {
         var loader = new InlineFailingLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         Invoking(() => engine.Modules.Import("./missing.js"))
             .Should().Throw<JavaScriptException>().WithMessage("*not in the bundle*");
@@ -697,7 +710,7 @@ public class AsyncModuleLoaderTests
             ["./slow.js"] = "export const dep = 'slow';",
         }, coldSpecifiers: ["./slow.js"]);
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+slow");
     });
@@ -758,7 +771,7 @@ public class AsyncModuleLoaderTests
             ["http://localhost:5173/app/base.js"] = "export const base = 'base';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("http://localhost:5173/app/main.js");
 
@@ -774,7 +787,7 @@ public class AsyncModuleLoaderTests
             ["http://localhost:5173/app/sibling.js"] = "export const who = 'sibling';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var ns = await engine.Modules.ImportAsync("http://localhost:5173/app/main.js");
 
@@ -838,7 +851,7 @@ public class AsyncModuleLoaderTests
     {
         // The whole point of making async opt-in: an IModuleLoader that only loads synchronously behaves
         // exactly as it did, including answering the blocking Modules.Import.
-        var engine = new Engine(options => options.EnableModules(new SynchronousLoader()));
+        var engine = CreateEngine(new SynchronousLoader());
 
         engine.Modules.Import("./main.js").Get("value").AsNumber().Should().Be(3);
     }
@@ -863,7 +876,7 @@ public class AsyncModuleLoaderTests
         // A host driving a module by hand has to run the load phase first. With a synchronous loader Link()
         // still does it implicitly; with an asynchronous one it cannot, and says so.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var module = ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import './dep.js';", "./hand-driven.js"));
 
@@ -877,7 +890,7 @@ public class AsyncModuleLoaderTests
         // LoadRequestedModules is the specification's load phase as a primitive: run it to completion, and the
         // ordinary synchronous Link/Evaluate pipeline works on an asynchronously fetched graph.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var module = ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import { v } from './dep.js'; export const value = v;", "./root.js"));
 
@@ -901,7 +914,7 @@ public class AsyncModuleLoaderTests
         // code runs against the principal realm's globals, which is precisely what a ShadowRealm exists to
         // prevent.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.Execute("""
             globalThis.imported = null;
@@ -926,7 +939,7 @@ public class AsyncModuleLoaderTests
         // the load's failure, for every importer waiting on it, or their promises hang forever.
         var loader = new DeferredModuleLoader();
         loader.RefuseToResolve.Add("./forbidden.js");
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var first = engine.Modules.StartImport("./a.js");
         loader.Deliver("./a.js", "import './shared.js';");
@@ -956,7 +969,7 @@ public class AsyncModuleLoaderTests
         // attempt must also not stay registered as in flight, or the next import of the same specifier would
         // attach to a completion that can never settle.
         var loader = new ConstraintThrowingLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         Invoking(() => engine.Modules.Import("./guarded.js")).Should().Throw<ExecutionCanceledException>();
 
@@ -993,7 +1006,7 @@ public class AsyncModuleLoaderTests
         // module. A failure there has no caller to erupt to; escaping would leave every waiter permanently
         // pending behind a half-finished load.
         var loader = new ThrowingModuleSourceLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./hooked.js");
 
@@ -1033,7 +1046,7 @@ public class AsyncModuleLoaderTests
         // one from the builder, one from the fetch — each with its own top-level state. Every importer of
         // the key gets the same record: the fetch that was started first.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var first = engine.Modules.StartImport("lib");
         engine.Modules.Add("lib", "export const who = 'builder';");
@@ -1079,7 +1092,7 @@ public class AsyncModuleLoaderTests
         });
         loader.RefuseToResolve.Add("./forbidden.js");
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         Invoking(() => engine.Modules.Import("./root.js"))
             .Should().Throw<ModuleResolutionException>()
@@ -1139,7 +1152,7 @@ public class AsyncModuleLoaderTests
     {
         // The load-phase promise is engine-internal plumbing the host never sees; its rejection is delivered
         // to the blocking caller as an exception. Unhandled-rejection telemetry must not alarm about it.
-        var engine = new Engine(options => options.EnableModules(new SynchronousLoader()));
+        var engine = CreateEngine(new SynchronousLoader());
 
         var events = new List<PromiseRejectionTrackerEventArgs>();
         engine.Advanced.PromiseRejectionTracker += (_, args) => events.Add(args);
@@ -1158,7 +1171,7 @@ public class AsyncModuleLoaderTests
         // synchronous start or an asynchronous settle) is not the host's business.
         var loader = new DeferredModuleLoader();
         loader.RefuseToResolve.Add("./forbidden.js");
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         ModuleImportOperation import = null!;
         Invoking(() => import = engine.Modules.StartImport("./forbidden.js")).Should().NotThrow();
@@ -1177,7 +1190,7 @@ public class AsyncModuleLoaderTests
         // PromiseTimeout and then blame the loader for being slow; the host should instead learn immediately
         // what is wrong and what to do.
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         engine.SetValue("hostImport", new Action(() => engine.Modules.Import("./never.js")));
 
@@ -1195,7 +1208,7 @@ public class AsyncModuleLoaderTests
         // loader correctly; the generic could-not-load wrapping used to replace it with what reads as a
         // missing file.
         var loader = new DelayedModuleLoader(new Dictionary<string, string>(), TimeSpan.Zero);
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         Invoking(() => ((IModuleLoader) loader).LoadModule(engine, loader.Resolve(null, new ModuleRequest("./x.js", []))))
             .Should().Throw<NotSupportedException>()

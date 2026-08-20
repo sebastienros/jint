@@ -134,8 +134,16 @@ public class StackOverflowGuardTests
                     engine.IsEvaluationInProgress.Should().BeFalse();
                 }
 
-                depths.Should().AllBeEquivalentTo(depths[0], "an unwind that left anything behind would shorten the next run");
-                depths[0].Should().BeGreaterThan(100, "a guard that fires this early would be a limit, not a backstop");
+                // Exact equality is too strong on a loaded runner: the JIT may promote an interpreter method
+                // in ANY round, and the promoted code's different frame size moves the depth — observed on CI
+                // as 694/593, 679/671 and 607/565 after the warm-ups above, always a one-off step of under
+                // 15%. A genuine unwind leak produces a march instead: every guard fire leaves the same
+                // residue, so depth falls round after round and the loss compounds. Bounding the total spread
+                // at 25% of the best round rides out any single recompilation while a compounding leak of
+                // meaningful size still trips it — and the deterministic leak signals (CallStack.Count == 0,
+                // IsEvaluationInProgress false, fib recovering) are asserted per round above regardless.
+                depths.Min().Should().BeGreaterThan(depths.Max() * 0.75, "an unwind that left anything behind would shorten every following run, compounding past JIT frame-size wobble");
+                depths.Min().Should().BeGreaterThan(100, "a guard that fires this early would be a limit, not a backstop");
             },
             maxStackSize: SmallStack);
     }
