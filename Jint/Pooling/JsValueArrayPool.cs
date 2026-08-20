@@ -22,6 +22,20 @@ internal sealed class JsValueArrayPool
         _poolArray4 = new ObjectPool<JsValue[]>(Factory4, PoolSize);
     }
 
+    /// <summary>
+    /// How many arrays the four buckets are holding between them, for
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>.
+    /// </summary>
+    internal int PooledArrayCount =>
+        _poolArray1.PooledCount + _poolArray2.PooledCount + _poolArray3.PooledCount + _poolArray4.PooledCount;
+
+    /// <summary>
+    /// The element slots across those arrays, which is exact because each bucket's arrays all have that
+    /// bucket's length. The closest thing to a size figure this engine can state without guessing.
+    /// </summary>
+    internal int PooledArraySlotCount =>
+        _poolArray1.PooledCount + (2 * _poolArray2.PooledCount) + (3 * _poolArray3.PooledCount) + (4 * _poolArray4.PooledCount);
+
     private static JsValue[] Factory1()
     {
         return new JsValue[1];

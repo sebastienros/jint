@@ -18,6 +18,12 @@ internal sealed class ObjectTraverseStackPool
         _pool = new ObjectPool<ObjectTraverseStack>(Factory, PoolSize);
     }
 
+    /// <summary>
+    /// How many instances the pool is holding right now, for
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>; at most <see cref="PoolSize"/>.
+    /// </summary>
+    internal int PooledCount => _pool.PooledCount;
+
     private static ObjectTraverseStack Factory()
     {
         return new ObjectTraverseStack(null!);

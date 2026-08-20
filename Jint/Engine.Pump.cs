@@ -94,6 +94,30 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Pending finite-timeout <c>Atomics.waitAsync</c> waits, for
+    /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Declared here beside the registry it reads,
+    /// like every other pump hook, so the report needs no conditional compilation of its own.
+    /// </summary>
+    internal int PendingAtomicsWaiterCount => _atomicsWaiterDeadlines?.PendingCount ?? 0;
+
+    /// <summary>
+    /// Registered web-API timers that have not fired and have not been cleared, for
+    /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Zero on every target framework below .NET 8,
+    /// which has no timers to register, and on any engine that did not enable them.
+    /// </summary>
+    internal int PendingTimerCount
+    {
+        get
+        {
+#if NET8_0_OR_GREATER
+            return _webApi?.PendingTimerCount ?? 0;
+#else
+            return 0;
+#endif
+        }
+    }
+
+    /// <summary>
     /// How long the engine may idle before work it scheduled for itself needs the pump: the earlier of the
     /// next <c>Atomics.waitAsync</c> deadline and — on net8.0 and later — the next due web-API timer.
     /// <see langword="null"/> when neither pends; zero or negative means something is due right now.

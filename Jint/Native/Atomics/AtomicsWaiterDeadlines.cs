@@ -44,6 +44,30 @@ internal sealed class AtomicsWaiterDeadlines
     private long _nextSequence;
 
     /// <summary>
+    /// How many registered waits are still unsettled, for
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>. Entries an <c>Atomics.notify</c> has
+    /// already settled sit in the heap until they next surface, so they are filtered out here rather than
+    /// reported: the question the count answers is what the engine is still waiting on, and a linear pass
+    /// over a heap this size costs nothing on a diagnostic path.
+    /// </summary>
+    internal int PendingCount
+    {
+        get
+        {
+            var pending = 0;
+            for (var i = 0; i < _count; i++)
+            {
+                if (!_entries[i].Waiter.Resolved)
+                {
+                    pending++;
+                }
+            }
+
+            return pending;
+        }
+    }
+
+    /// <summary>
     /// Registers <paramref name="waiter"/> to time out <paramref name="timeoutMilliseconds"/> from now.
     /// </summary>
     internal void Add(AtomicsInstance.AsyncWaiter waiter, double timeoutMilliseconds)
