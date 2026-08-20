@@ -170,20 +170,35 @@ public class WebApiEventTests
     [Fact]
     public void ATimeoutSignalFiresOnlyWhileTheEngineIsPumped()
     {
-        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
+        // A manual clock rather than a real 1ms timeout: Evaluate itself pumps the event loop, so with a
+        // wall clock the first assertion races the machine — on a loaded CI runner more than a millisecond
+        // passes before the read and the signal has legitimately aborted. With the clock held still the
+        // "not yet" half is a fact rather than a race, and advancing it makes the "fires when pumped" half
+        // deterministic too.
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.Events);
+            options.WebApi.Timers.TimeProvider = clock;
+        });
 
         engine.Execute("var signal = AbortSignal.timeout(1);");
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeFalse();
 
-        // The host pumps until the abort lands, which is the only way it ever can.
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-        while (!engine.Evaluate("signal.aborted").AsBoolean() && DateTime.UtcNow < deadline)
-        {
-            engine.Advanced.ProcessTasks();
-        }
+        clock.Advance(TimeSpan.FromMilliseconds(2));
+        engine.Advanced.ProcessTasks();
 
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeTrue();
         engine.Evaluate("signal.reason.name").AsString().Should().Be("TimeoutError");
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp = 1;
+
+        public override long GetTimestamp() => _timestamp;
+
+        public void Advance(TimeSpan by) => _timestamp += (long) (by.TotalSeconds * TimestampFrequency);
     }
 
     [Fact]
