@@ -17,6 +17,9 @@ internal static class Polyfills
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool StartsWith(this string source, char c) => source.Length > 0 && source[0] == c;
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal static bool EndsWith(this string source, char c) => source.Length > 0 && source[source.Length - 1] == c;
+
     // The string.Join(char, ...) overloads were added in .NET Core 2.1 / netstandard2.1.
     // Backfill the IEnumerable<string> overload the codebase uses so call sites can pass a char
     // separator uniformly on every target framework, without a per-call-site #if.
