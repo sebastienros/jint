@@ -376,11 +376,17 @@ internal sealed class JintObjectExpression : JintExpression
 
         ObjectInstance obj;
         int startIndex;
+
+        // The computed key of the property we are resuming into, if that property's value is what
+        // suspended. Consumed by exactly that property (the resume index names it) and never seen by
+        // any other, since only a computed key is ever parked.
+        JsValue? pendingKey = null;
         if (suspendable is { IsResuming: true }
             && suspendable.Data.TryGet(this, out ObjectExpressionSuspendData? suspendData))
         {
             obj = suspendData!.Target!;
             startIndex = suspendData.NextIndex;
+            pendingKey = suspendData.PendingKey;
         }
         else
         {
@@ -409,7 +415,7 @@ internal sealed class JintObjectExpression : JintExpression
                 // Check for generator suspension
                 if (context.IsSuspended())
                 {
-                    SaveObjectExpressionSuspendState(suspendable, obj, i);
+                    SaveObjectExpressionSuspendState(suspendable, obj, i, pendingKey: null);
                     return JsValue.Undefined;
                 }
 
@@ -440,26 +446,43 @@ internal sealed class JintObjectExpression : JintExpression
                 // properties while the generator is suspended.
                 if (context.IsSuspended())
                 {
-                    SaveObjectExpressionSuspendState(suspendable, obj, i);
+                    SaveObjectExpressionSuspendState(suspendable, obj, i, pendingKey: null);
                     return JsValue.Undefined;
                 }
 
                 continue;
             }
 
+            // Non-null only for a computed key, which is the one a suspension inside the property's
+            // value has to park — a static key costs nothing to re-derive from the node.
+            JsValue? computedKey = null;
+
             JsValue? propName = objectProperty.KeyJsString;
             if (propName is null)
             {
-                var value = property.TryGetKey(engine);
-
-                // Check for generator suspension after evaluating computed property key
-                if (context.IsSuspended())
+                if (pendingKey is not null)
                 {
-                    SaveObjectExpressionSuspendState(suspendable, obj, i);
-                    return value;
+                    // Resuming into the property whose value suspended: its key expression already
+                    // ran, and running it again would double its side effects (`{ [f()]: await x }`)
+                    // and rerun the ToPropertyKey conversion, which reaches user code too.
+                    propName = pendingKey;
+                    pendingKey = null;
+                }
+                else
+                {
+                    var value = property.TryGetKey(engine);
+
+                    // Check for generator suspension after evaluating computed property key
+                    if (context.IsSuspended())
+                    {
+                        SaveObjectExpressionSuspendState(suspendable, obj, i, pendingKey: null);
+                        return value;
+                    }
+
+                    propName = TypeConverter.ToPropertyKey(value);
                 }
 
-                propName = TypeConverter.ToPropertyKey(value);
+                computedKey = propName;
             }
 
             if (property.Kind == PropertyKind.Init)
@@ -473,7 +496,7 @@ internal sealed class JintObjectExpression : JintExpression
                 // Check for generator suspension
                 if (context.IsSuspended())
                 {
-                    SaveObjectExpressionSuspendState(suspendable, obj, i);
+                    SaveObjectExpressionSuspendState(suspendable, obj, i, computedKey);
                     return JsValue.Undefined;
                 }
 
@@ -520,13 +543,16 @@ internal sealed class JintObjectExpression : JintExpression
         return obj;
     }
 
-    private void SaveObjectExpressionSuspendState(ISuspendable? suspendable, ObjectInstance obj, int nextIndex)
+    private void SaveObjectExpressionSuspendState(ISuspendable? suspendable, ObjectInstance obj, int nextIndex, JsValue? pendingKey)
     {
         if (suspendable is not null)
         {
             var data = suspendable.Data.GetOrCreate<ObjectExpressionSuspendData>(this);
             data.Target = obj;
             data.NextIndex = nextIndex;
+            // Written on every save, never left over from an earlier one: a suspension at a
+            // different index, or before this index's key was resolved, must not inherit it.
+            data.PendingKey = pendingKey;
         }
     }
 
