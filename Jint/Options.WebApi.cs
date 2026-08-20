@@ -411,12 +411,20 @@ public enum WebApiFeatures
     Streams = 1 << 12,
 
     /// <summary>
+    /// The <c>scheduler</c> object — <c>postTask()</c> and <c>yield()</c> — with <c>TaskController</c>,
+    /// <c>TaskSignal</c> and <c>TaskPriorityChangeEvent</c>: prioritized tasks, from
+    /// https://wicg.github.io/scheduling-apis/. Tasks run only while the engine is being pumped, exactly as
+    /// the timers do, and a <c>delay</c> rides the same timer queue.
+    /// </summary>
+    Scheduler = 1 << 13,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
-    /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/> and <see cref="Streams"/>; it grows as
-    /// further features land, and never comes to include fetch.
+    /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/> and
+    /// <see cref="Scheduler"/>; it grows as further features land, and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler,
 }
 #endif

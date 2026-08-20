@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Scheduling;
 using Jint.WebApi.Timers;
 
 namespace Jint;
@@ -20,6 +21,12 @@ public partial class Engine
     /// </summary>
     internal WebApiEngineState? _webApi;
 
+    /// <summary>
+    /// Whether the event loop still has jobs queued behind the one running now. Only the web-API scheduler
+    /// reads it, to keep a task from overtaking the microtasks of the turn it was posted in — see
+    /// <see cref="Runtime.EventLoop.HasPendingJobs"/>.
+    /// </summary>
+    internal bool HasPendingEventLoopJobs => _eventLoop.HasPendingJobs;
 }
 
 /// <summary>
@@ -47,12 +54,13 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<FetchOperation>? _fetches;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions)
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler)
     {
         _engine = engine;
         _timeProvider = timeProvider;
         Timers = timers;
         FetchOptions = fetchOptions;
+        Scheduler = scheduler;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -80,6 +88,13 @@ internal sealed class WebApiEngineState
     internal void RegisterFetch(FetchOperation operation) => (_fetches ??= new List<FetchOperation>()).Add(operation);
 
     internal void UnregisterFetch(FetchOperation operation) => _fetches?.Remove(operation);
+
+    /// <summary>
+    /// The engine's prioritized task queues, or <see langword="null"/> when the scheduler feature is off.
+    /// Nothing else consults it: the scheduler drains itself through an ordinary event-loop job, so unlike the
+    /// timers it needs no hook in the pump.
+    /// </summary>
+    internal SchedulerQueue? Scheduler { get; }
 
     /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
@@ -137,6 +152,7 @@ internal sealed class WebApiEngineState
     internal void ResetTransientState()
     {
         Timers?.Clear();
+        Scheduler?.Clear();
 
         if (_fetches is not { Count: > 0 } fetches)
         {

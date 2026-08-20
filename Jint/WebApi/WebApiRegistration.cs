@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.WebApi.Scheduling;
 using Jint.WebApi.Timers;
 
 namespace Jint.WebApi;
@@ -151,6 +152,18 @@ internal static class WebApiRegistration
             Install(global, engine, "ByteLengthQueuingStrategy", static e => e.Realm.Intrinsics.ByteLengthQueuingStrategy, PropertyFlag.NonEnumerable);
             Install(global, engine, "CountQueuingStrategy", static e => e.Realm.Intrinsics.CountQueuingStrategy, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.Scheduler) != WebApiFeatures.None)
+        {
+            // WebIDL exposes scheduler through a [Replaceable] accessor pair; an ordinary enumerable data
+            // property is the same simplification console, crypto and performance are installed with, and it
+            // is documented on SchedulerInstance.
+            Install(global, engine, "scheduler", static e => e.Realm.Intrinsics.Scheduler, PropertyFlag.ConfigurableEnumerableWritable);
+
+            Install(global, engine, "TaskController", static e => e.Realm.Intrinsics.TaskController, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TaskSignal", static e => e.Realm.Intrinsics.TaskSignal, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TaskPriorityChangeEvent", static e => e.Realm.Intrinsics.TaskPriorityChangeEvent, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
@@ -196,12 +209,14 @@ internal static class WebApiRegistration
     /// </remarks>
     private static void CreateEngineState(Options options, Engine engine, WebApiFeatures features)
     {
-        // The timer globals are the obvious reason for a queue; AbortSignal.timeout() is the other, and it
-        // needs one whether or not the host also asked for setTimeout. The events and performance features
-        // additionally read the time origin (Event.timeStamp, performance.now), and fetch keeps its settings
-        // and its in-flight set here, which is why each of them wants the state.
+        // The timer globals are the obvious reason for a queue; AbortSignal.timeout() and a delayed
+        // scheduler.postTask() are the others, and they need one whether or not the host also asked for
+        // setTimeout. The events and performance features additionally read the time origin
+        // (Event.timeStamp, performance.now), fetch keeps its settings and its in-flight set here, and the
+        // scheduler keeps its own task queues here, which is why each of them wants the state even without
+        // the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler;
         if ((features & NeedsEngineState) == WebApiFeatures.None)
         {
             return;
@@ -210,10 +225,12 @@ internal static class WebApiRegistration
         var timerOptions = options.WebApi.Timers;
         var timeProvider = timerOptions.TimeProvider ?? TimeProvider.System;
 
-        // The queue exists for the timer globals and for AbortSignal.timeout(), which needs it whether or
-        // not the host also asked for setTimeout; a performance-only engine reads just the time origin and
-        // never schedules, so it carries no queue at all.
-        var timers = (features & (WebApiFeatures.Timers | WebApiFeatures.Events)) != WebApiFeatures.None
+        // The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
+        // scheduler.postTask(), each of which needs it whether or not the host also asked for setTimeout; a
+        // performance-only engine reads just the time origin and never schedules, so it carries no queue at
+        // all.
+        const WebApiFeatures NeedsTimerQueue = WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler;
+        var timers = (features & NeedsTimerQueue) != WebApiFeatures.None
             ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers)
             : null;
 
@@ -221,7 +238,11 @@ internal static class WebApiRegistration
         // Options — and so that a host mutating them afterwards does not change an engine that already exists.
         var fetch = (features & WebApiFeatures.Fetch) != WebApiFeatures.None ? options.WebApi.Fetch : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch);
+        var scheduler = (features & WebApiFeatures.Scheduler) != WebApiFeatures.None
+            ? new SchedulerQueue(engine)
+            : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler);
     }
 
     /// <summary>

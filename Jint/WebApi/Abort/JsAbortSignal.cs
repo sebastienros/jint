@@ -35,8 +35,13 @@ namespace Jint.WebApi.Abort;
 /// specification's "must not be garbage collected while it has listeners" rule too, which .NET cannot express
 /// as cheaply as a browser's garbage collector can.
 /// </para>
+/// <para>
+/// The class is not sealed because <c>Jint.WebApi.Scheduling.JsTaskSignal</c> derives from it —
+/// <c>TaskSignal</c> is an <c>AbortSignal</c> that also carries a priority,
+/// https://wicg.github.io/scheduling-apis/#tasksignal.
+/// </para>
 /// </remarks>
-internal sealed class JsAbortSignal : JsEventTarget
+internal class JsAbortSignal : JsEventTarget
 {
     /// <summary>The event type an abort fires, and the one <c>onabort</c> is the handler for.</summary>
     internal const string AbortEventType = "abort";
@@ -62,8 +67,12 @@ internal sealed class JsAbortSignal : JsEventTarget
     /// <summary>https://dom.spec.whatwg.org/#abortsignal-abort-reason.</summary>
     internal JsValue Reason { get; private set; } = Undefined;
 
-    /// <summary>https://dom.spec.whatwg.org/#abortsignal-dependent.</summary>
-    private bool Dependent { get; set; }
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#abortsignal-dependent. Readable by <c>JsTaskSignal</c>, which needs it for
+    /// https://wicg.github.io/scheduling-apis/#tasksignal-has-fixed-priority — "a TaskSignal has fixed
+    /// priority if it is a dependent signal with a null source signal".
+    /// </summary>
+    internal bool Dependent { get; private protected set; }
 
     /// <summary>
     /// A token that is cancelled when this signal is aborted — the handle a CLR-side operation links against,
@@ -197,6 +206,17 @@ internal sealed class JsAbortSignal : JsEventTarget
             _prototype = realm.Intrinsics.AbortSignal.PrototypeObject,
         };
 
+        return InitializeDependent(result, signals);
+    }
+
+    /// <summary>
+    /// Steps 2 to 5 of https://dom.spec.whatwg.org/#create-a-dependent-abort-signal, applied to a signal the
+    /// caller has already created. Split out so that <c>TaskSignal.any()</c>, whose result is a
+    /// <c>TaskSignal</c> rather than a plain <c>AbortSignal</c>, runs exactly these steps rather than a copy
+    /// of them — https://wicg.github.io/scheduling-apis/#create-a-dependent-task-signal step 1.
+    /// </summary>
+    internal static T InitializeDependent<T>(T result, List<JsAbortSignal> signals) where T : JsAbortSignal
+    {
         // Step 2: an already-aborted source wins outright, and the result is not dependent on anything — so
         // it registers nowhere and is retained by nobody.
         foreach (var signal in signals)

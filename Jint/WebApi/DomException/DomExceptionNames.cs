@@ -36,6 +36,7 @@ internal static class DomExceptionNames
     internal const string Timeout = "TimeoutError";
     internal const string InvalidNodeType = "InvalidNodeTypeError";
     internal const string DataClone = "DataCloneError";
+    internal const string NotAllowed = "NotAllowedError";
 
     /// <summary>
     /// The legacy code for an error name, or <c>0</c> when the name has none.

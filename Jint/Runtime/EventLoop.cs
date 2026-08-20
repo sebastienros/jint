@@ -73,6 +73,14 @@ internal sealed record EventLoop
     internal bool IsRunningJob => Volatile.Read(ref _isProcessing) == 1;
 
     /// <summary>
+    /// Whether any job is still queued. Read from inside a running job by work that must not overtake the
+    /// jobs behind it: the web-API scheduler's drain job consults it to reproduce HTML's <i>microtask
+    /// checkpoint</i>, re-queueing itself while anything else is pending so that a scheduler task never runs
+    /// before a promise reaction that was queued in the same turn.
+    /// </summary>
+    internal bool HasPendingJobs => !_events.IsEmpty;
+
+    /// <summary>
     /// Tracks the thread ID of the thread that is currently waiting on a promise.
     /// Only this thread (or any thread if -1) is allowed to process continuations.
     /// This prevents background threads (e.g., Task.ContinueWith callbacks) from
