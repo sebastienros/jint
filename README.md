@@ -230,10 +230,12 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
+| `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
+`Storage` is the other standing exception, for the reason in its own section below.
 
 `crypto.subtle` carries **`digest` and nothing else** so far. It is the one `SubtleCrypto` operation that
 needs no key material, which is what makes it shippable on its own; `sign`, `verify`, `encrypt`, `importKey`
@@ -503,6 +505,41 @@ Two deliberate reductions:
   `WritableStreamDefaultWriter` and the three controllers exist as ordinary interface objects — a reader's
   `constructor` is the real thing, and `new` on it behaves as the standard says — but they are not installed
   on `globalThis`, where a browser would expose them.
+
+### Storage is opt-in on its own, and you decide where the data lives
+
+`localStorage` and `sessionStorage` are the one non-network feature `UseWebApis()` does **not** turn on. Every
+other web API gives a script something to *do*; this one gives it somewhere to *keep* things, and a host that
+asked for "the web APIs" has not agreed to that. Ask for it by name:
+
+```csharp
+// Two in-memory stores, per engine, gone when the engine is.
+var engine = new Engine(options => options.UseStorage());
+
+// Or your own store, which is what makes anything persist or be shared.
+var tenantStorage = new MyDatabaseStorage(tenantId);
+engine = new Engine(options => options.UseStorage(tenantStorage));
+```
+
+The whole `Storage` interface is there — `length`, `key`, `getItem`, `setItem`, `removeItem`, `clear` — and so
+is the named property access the standard defines alongside it, so `storage.foo = 'bar'`, `delete storage.foo`,
+`'foo' in storage` and `Object.keys(storage)` all work. `Storage` is a WebIDL *legacy platform object*, which
+decides the one rule that surprises people: an interface member always wins over a stored key of the same
+name, so `storage.getItem` is the method even after `storage.setItem('getItem', 'x')` — and the key is still
+stored, and `storage.getItem('getItem')` still reads it back.
+
+**Where the data lives is entirely `StorageProvider`'s business.** Implement it over a file, a database, a
+per-tenant cache or a request-scoped dictionary; the engine implements the algorithms and never persists
+anything itself. With no provider each engine gets its own `InMemoryStorageProvider` — nothing is shared
+between engines, nothing survives one, and `Options.WebApi.Storage.MaxTotalBytes` (5 MB by default) bounds it,
+turning an over-quota `setItem` into the catchable `QuotaExceededError` `DOMException` the standard names.
+Your own provider raises the same error by throwing `StorageQuotaExceededException`; anything else it throws
+reaches you unchanged rather than becoming a JavaScript error the script can swallow. A provider reached from
+engines that run concurrently must be thread-safe.
+
+**There is no `storage` event.** Every mutating step ends in "broadcast", which notifies *other* browsing
+contexts sharing an origin — a multi-context feature, and an engine has one context. `StorageEvent` is absent
+rather than present-and-never-firing, so feature detection sees the truth.
 
 
 ## Node compatibility (opt-in)

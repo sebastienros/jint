@@ -71,6 +71,74 @@ public partial class Options
         /// <c>reportError</c> function that feeds it.
         /// </summary>
         public DiagnosticsOptions Diagnostics { get; } = new();
+
+        /// <summary>
+        /// Settings for <c>localStorage</c> and <c>sessionStorage</c>, installed when <see cref="Features"/>
+        /// contains <see cref="WebApiFeatures.Storage"/>.
+        /// </summary>
+        public StorageOptions Storage { get; } = new();
+    }
+
+    /// <summary>
+    /// Settings for the <c>localStorage</c> and <c>sessionStorage</c> globals. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Storage is not in <see cref="WebApiFeatures.Default"/>.</b> Like <c>fetch</c> it has to be asked
+    /// for by name — <see cref="WebApiOptionsExtensions.UseStorage(Options)"/> — because it is the one web
+    /// API that hands a script somewhere to <i>keep</i> things. A host that says "give me the web APIs"
+    /// expects globals, not a place where the script it ran last week left data for the script it runs now;
+    /// with a host-supplied provider that is exactly what this is, and even the in-box default gives a
+    /// script state that outlives an evaluation. Everything in <see cref="WebApiFeatures.Default"/> is
+    /// surprise-free in that sense, and this is how it stays that way.
+    /// </para>
+    /// <para>
+    /// The two providers are read once, when the engine is built. Assigning the same instance to both makes
+    /// <c>localStorage</c> and <c>sessionStorage</c> one store, which is a thing a browser can never do and
+    /// is occasionally what a host wants.
+    /// </para>
+    /// </remarks>
+    public class StorageOptions
+    {
+        /// <summary>
+        /// Five mebibytes: the quota browsers converged on, and what a defaulted
+        /// <see cref="InMemoryStorageProvider"/> is built with.
+        /// </summary>
+        internal const long DefaultMaxTotalBytes = 5 * 1024 * 1024;
+
+        /// <summary>
+        /// The map behind <c>localStorage</c>. <see langword="null"/> — the default — gives each engine its
+        /// own <see cref="InMemoryStorageProvider"/>, which stores nothing anywhere and dies with the engine.
+        /// </summary>
+        /// <remarks>
+        /// <b>Persistence and cross-engine sharing are entirely the provider's business.</b> Assign an
+        /// instance of your own to put storage on disk, in a database or in a per-tenant cache; assign one
+        /// instance to an <see cref="Options"/> object several engines share to give them one store, and
+        /// remember that a provider reached from concurrently running engines must be thread-safe.
+        /// </remarks>
+        public StorageProvider? LocalStorageProvider { get; set; }
+
+        /// <summary>
+        /// The map behind <c>sessionStorage</c>. <see langword="null"/> — the default — gives each engine its
+        /// own <see cref="InMemoryStorageProvider"/>, separate from <c>localStorage</c>'s.
+        /// </summary>
+        /// <remarks>
+        /// With the in-box provider the two globals differ only in that they are two stores: the lifetime
+        /// difference the names carry in a browser is something only a host-supplied provider can express.
+        /// </remarks>
+        public StorageProvider? SessionStorageProvider { get; set; }
+
+        /// <summary>
+        /// The quota a defaulted <see cref="InMemoryStorageProvider"/> enforces, in the UTF-16 bytes its
+        /// documentation describes. Defaults to five mebibytes. A <c>setItem</c> that would exceed it throws
+        /// a <c>DOMException</c> named <c>QuotaExceededError</c>, which the script can catch.
+        /// </summary>
+        /// <remarks>
+        /// Read once, when the engine is built, and only for a provider this engine defaulted: a
+        /// host-supplied provider enforces whatever limit it likes and this value never reaches it. There is
+        /// no "unlimited" sentinel — <see cref="long.MaxValue"/> is how that is spelled.
+        /// </remarks>
+        public long MaxTotalBytes { get; set; } = DefaultMaxTotalBytes;
     }
 
     /// <summary>
@@ -480,12 +548,22 @@ public enum WebApiFeatures
     Reporting = 1 << 15,
 
     /// <summary>
-    /// The web APIs a host normally wants: everything except outbound network access. Today that is
+    /// <c>localStorage</c>, <c>sessionStorage</c> and the <c>Storage</c> interface —
+    /// https://html.spec.whatwg.org/multipage/webstorage.html. <b>Deliberately not part of
+    /// <see cref="Default"/>:</b> like fetch it has to be named, because it is the one web API that gives a
+    /// script somewhere to keep things, and where that somewhere is — memory, a file, a tenant's row in a
+    /// database — is <see cref="Options.StorageOptions.LocalStorageProvider"/>'s business.
+    /// </summary>
+    Storage = 1 << 16,
+
+    /// <summary>
+    /// The web APIs a host normally wants: everything except outbound network access and persistent state.
+    /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
     /// <see cref="Scheduler"/>, <see cref="Messaging"/> and <see cref="Reporting"/>; it grows as further
-    /// features land, and never comes to include fetch.
+    /// features land, and never comes to include fetch or <see cref="Storage"/>.
     /// </summary>
     Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting,
 }

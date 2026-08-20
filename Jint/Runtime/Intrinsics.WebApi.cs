@@ -14,6 +14,7 @@ using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
 using Jint.WebApi.Reporting;
 using Jint.WebApi.Scheduling;
+using Jint.WebApi.Storage;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
@@ -285,5 +286,24 @@ public sealed partial class Intrinsics
 
     internal ReportErrorFunction ReportError =>
         _reportError ??= new ReportErrorFunction(_engine, _realm, Function.PrototypeObject);
+
+    private StorageConstructor? _storage;
+    private JsStorage? _localStorage;
+    private JsStorage? _sessionStorage;
+
+    internal StorageConstructor Storage =>
+        _storage ??= new StorageConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The one <c>localStorage</c> object of this realm. Built on first access and then kept, so
+    /// <c>localStorage === localStorage</c> holds — the HTML Standard achieves the same by remembering the
+    /// object in the document's "local storage holder".
+    /// </summary>
+    internal JsStorage LocalStorage =>
+        _localStorage ??= JsStorage.Create(_engine, _realm, Storage, StorageKind.Local);
+
+    /// <inheritdoc cref="LocalStorage" />
+    internal JsStorage SessionStorage =>
+        _sessionStorage ??= JsStorage.Create(_engine, _realm, Storage, StorageKind.Session);
 }
 #endif
