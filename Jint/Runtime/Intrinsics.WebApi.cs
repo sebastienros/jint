@@ -1,7 +1,9 @@
 #if NET8_0_OR_GREATER
+using Jint.WebApi.Base64;
 using Jint.WebApi.Console;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Timers;
+using Jint.WebApi.Encoding;
 
 namespace Jint.Runtime;
 
@@ -20,6 +22,10 @@ public sealed partial class Intrinsics
     private DomExceptionConstructor? _domException;
     private ConsoleInstance? _console;
     private TimerFunctions? _timers;
+    private TextEncoderConstructor? _textEncoder;
+    private TextDecoderConstructor? _textDecoder;
+    private Base64Function? _atob;
+    private Base64Function? _btoa;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -33,5 +39,16 @@ public sealed partial class Intrinsics
     /// </summary>
     internal TimerFunctions Timers =>
         _timers ??= TimerFunctions.Create(_engine, _realm);
+    internal TextEncoderConstructor TextEncoder =>
+        _textEncoder ??= new TextEncoderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal TextDecoderConstructor TextDecoder =>
+        _textDecoder ??= new TextDecoderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal Base64Function Atob =>
+        _atob ??= new Base64Function(_engine, _realm, Function.PrototypeObject, isAtob: true);
+
+    internal Base64Function Btoa =>
+        _btoa ??= new Base64Function(_engine, _realm, Function.PrototypeObject, isAtob: false);
 }
 #endif

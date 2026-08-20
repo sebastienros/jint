@@ -64,6 +64,20 @@ internal static class WebApiRegistration
             Install(global, engine, "clearInterval", static e => e.Realm.Intrinsics.Timers.ClearInterval, PropertyFlag.ConfigurableEnumerableWritable);
             Install(global, engine, "queueMicrotask", static e => e.Realm.Intrinsics.Timers.QueueMicrotask, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((options.WebApi.Features & WebApiFeatures.Encoding) != WebApiFeatures.None)
+        {
+            Install(global, engine, "TextDecoder", static e => e.Realm.Intrinsics.TextDecoder, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TextEncoder", static e => e.Realm.Intrinsics.TextEncoder, PropertyFlag.NonEnumerable);
+        }
+
+        if ((options.WebApi.Features & WebApiFeatures.Base64) != WebApiFeatures.None)
+        {
+            // Operations of a WebIDL interface mixin on the global are enumerable, unlike interface
+            // objects — https://webidl.spec.whatwg.org/#es-operations.
+            Install(global, engine, "atob", static e => e.Realm.Intrinsics.Atob, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "btoa", static e => e.Realm.Intrinsics.Btoa, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>
