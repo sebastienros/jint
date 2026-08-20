@@ -5,9 +5,11 @@ internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
     private readonly JintStatement _body;
     private readonly string? _labelName;
 
-    public JintLabeledStatement(LabeledStatement statement) : base(statement)
+    public JintLabeledStatement(LabeledStatement statement, bool blockLevel = false) : base(statement)
     {
-        _body = Build(statement.Body);
+        // A label chain sitting in a Block / CaseClause StatementList keeps its item block-level, so a
+        // labelled function declaration still writes Annex B's var-scope alias when it is evaluated.
+        _body = blockLevel ? BuildBlockLevel(statement.Body) : Build(statement.Body);
         _labelName = statement.Label.Name;
     }
 

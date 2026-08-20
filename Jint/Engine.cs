@@ -532,6 +532,18 @@ public sealed partial class Engine : IDisposable
     internal int _envBindingInjectionEpoch;
 
     /// <summary>
+    /// The block-level function declarations of the sloppy direct or indirect eval whose body is
+    /// currently running - the Annex B B.3.2 candidates its EvalDeclarationInstantiation considered.
+    /// Null outside an eval body and for a strict one. Set and restored by
+    /// <see cref="Jint.Native.Function.EvalFunction"/>; read by
+    /// <c>JintFunctionDeclarationStatement</c>, which has no other route back to the eval's static
+    /// analysis. Function code answers the same question from its own
+    /// <c>JintFunctionDefinition.State</c> instead, and script/global-eval code from the global
+    /// environment, so this covers only the eval-inside-a-function case.
+    /// </summary>
+    internal List<FunctionDeclaration>? _evalAnnexBFunctions;
+
+    /// <summary>
     /// The realm <c>InitializeHostDefinedRealm</c> created for this engine, as opposed to
     /// <see cref="Realm"/>, which is whichever realm the running execution context names. Assigned once, in
     /// <c>Reset()</c>, and never replaced.

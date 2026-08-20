@@ -50,7 +50,14 @@ internal sealed class JintStatementList
     {
     }
 
-    public JintStatementList(Statement? statement, in NodeList<Statement> statements, CompletionValueObservability? observability = null)
+    // blockLevel: true for the StatementList of a Block, a CaseClause or a DefaultClause - the
+    // syntactic position Annex B B.3.2 gives a function declaration its var-scope alias in. See
+    // JintFunctionDeclarationStatement.
+    public JintStatementList(
+        Statement? statement,
+        in NodeList<Statement> statements,
+        CompletionValueObservability? observability = null,
+        bool blockLevel = false)
     {
         _statement = statement;
         _observability = observability
@@ -63,7 +70,9 @@ internal sealed class JintStatementList
         for (var i = 0; i < jintStatements.Length; i++)
         {
             var esprimaStatement = statements[i];
-            var stmt = JintStatement.Build(esprimaStatement);
+            var stmt = blockLevel
+                ? JintStatement.BuildBlockLevel(esprimaStatement)
+                : JintStatement.Build(esprimaStatement);
             // FastResolve pre-evaluates literal return values.
             // Debug mode check moved to Execute loop to preserve stepping behavior.
             var value = JintStatement.FastResolve(esprimaStatement);
@@ -381,43 +390,9 @@ internal sealed class JintStatementList
                 var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
                 env.InitializeBinding(fn, fo, DisposeHint.Normal);
 
-                // B.3.2/B.3.3/B.3.3.1: Copy block-level function declaration to var scope in sloppy mode
-                // Only regular function declarations get AnnexB treatment (not generators, async, or async generators)
-                if (!functionDeclaration.Generator && !functionDeclaration.Async && !env._engine.ExecutionContext.Strict)
-                {
-                    var engine = env._engine;
-                    var executionContext = engine.ExecutionContext;
-                    var varEnv = executionContext.VariableEnvironment;
-                    if (!ReferenceEquals(varEnv, env))
-                    {
-                        var shouldCopy = false;
-                        if (executionContext.Function is { _functionDefinition: { } funcDef })
-                        {
-                            // Function scope: check AnnexBFunctionDeclarations from B.3.3.1
-                            // Must check the specific declaration, not just the name, because
-                            // nested blocks can have same-named declarations with different eligibility.
-                            shouldCopy = funcDef.Initialize().AnnexBFunctionDeclarations?.Contains(functionDeclaration) == true;
-                        }
-                        else if (varEnv is GlobalEnvironment globalEnv)
-                        {
-                            // Global/eval scope: copy if not a lexical declaration
-                            shouldCopy = !globalEnv.HasLexicalDeclaration(fn) && globalEnv.HasOwnBinding(fn);
-                        }
-                        else
-                        {
-                            // Eval in function scope: copy if var binding exists
-                            shouldCopy = varEnv.HasBinding(fn);
-                        }
-
-                        if (shouldCopy)
-                        {
-                            // this may CREATE a binding in the pre-existing var env (sloppy
-                            // set-on-missing) — invalidate pinned nested-global chain memos
-                            engine._envBindingInjectionEpoch++;
-                            varEnv.SetMutableBinding(fn, fo, strict: false);
-                        }
-                    }
-                }
+                // NOTE: Annex B's var-scope alias for a sloppy-mode block-level function declaration is
+                // written when the declaration is EVALUATED, not here - see
+                // JintFunctionDeclarationStatement.ExecuteAnnexBVarScopeAssignment.
             }
         }
 

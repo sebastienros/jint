@@ -37,6 +37,17 @@ internal static class DeclarationCacheBuilder
         ref readonly var statementListItems = ref statement.Body;
         foreach (var node in statementListItems.AsSpan())
         {
+            if (node.Type == NodeType.LabeledStatement)
+            {
+                var labelled = UnwrapLabelledFunctionDeclaration((LabeledStatement) node);
+                if (labelled is not null)
+                {
+                    Collect(boundNames, labelled, ref allLexical, declarations);
+                }
+
+                continue;
+            }
+
             if (node.Type != NodeType.VariableDeclaration && node.Type != NodeType.FunctionDeclaration && node.Type != NodeType.ClassDeclaration)
             {
                 continue;
@@ -53,6 +64,24 @@ internal static class DeclarationCacheBuilder
         return new DeclarationCache(declarations, allLexical);
     }
 
+    /// <summary>
+    /// LexicallyScopedDeclarations of a <c>LabelledStatement</c> is the FunctionDeclaration it labels -
+    /// Annex B.3.1 makes <c>l: function f() {}</c> legal in sloppy code, and inside a Block or CaseClause
+    /// that declaration is scoped to the block just like an unlabelled one. Labels nest, so unwrap all of
+    /// them. Every other labelled item contributes nothing.
+    /// https://tc39.es/ecma262/#sec-static-semantics-lexicallyscopeddeclarations
+    /// </summary>
+    private static FunctionDeclaration? UnwrapLabelledFunctionDeclaration(LabeledStatement statement)
+    {
+        var body = statement.Body;
+        while (body.Type == NodeType.LabeledStatement)
+        {
+            body = ((LabeledStatement) body).Body;
+        }
+
+        return body as FunctionDeclaration;
+    }
+
     public static DeclarationCache Build(SwitchCase statement)
     {
         var allLexical = true;
@@ -62,6 +91,17 @@ internal static class DeclarationCacheBuilder
         ref readonly var statementListItems = ref statement.Consequent;
         foreach (var node in statementListItems.AsSpan())
         {
+            if (node.Type == NodeType.LabeledStatement)
+            {
+                var labelled = UnwrapLabelledFunctionDeclaration((LabeledStatement) node);
+                if (labelled is not null)
+                {
+                    Collect(boundNames, labelled, ref allLexical, declarations);
+                }
+
+                continue;
+            }
+
             if (node.Type == NodeType.FunctionDeclaration || node.Type == NodeType.ClassDeclaration)
             {
                 Collect(boundNames, node, ref allLexical, declarations);

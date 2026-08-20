@@ -330,6 +330,16 @@ public sealed class EvalFunction : Function
 
         Engine.EnterExecutionContext(lexEnv, varEnv, evalRealm, privateEnv, strictEval);
 
+        // Annex B's var-scope alias for a block-level function declaration is written when the
+        // declaration is evaluated, but whether it may be written at all is settled here, by
+        // EvalDeclarationInstantiation. Which declarations qualify is a static property of this eval's
+        // body (chiefly "replacing it with a VariableStatement would not produce any Early Errors"),
+        // and a block statement has no other way back to it - see
+        // JintFunctionDeclarationStatement.IsAliasEligible. Saved and restored around the body so a
+        // nested eval, and the caller, keep their own.
+        var outerAnnexBFunctions = _engine._evalAnnexBFunctions;
+        _engine._evalAnnexBFunctions = strictEval ? null : cached.HoistingScope._annexBFunctionDeclarations;
+
         try
         {
             Engine.EvalDeclarationInstantiation(script, cached.HoistingScope, varEnv, lexEnv, privateEnv, strictEval, bindingsPreInitialized: useSlots);
@@ -355,6 +365,7 @@ public sealed class EvalFunction : Function
         }
         finally
         {
+            _engine._evalAnnexBFunctions = outerAnnexBFunctions;
             Engine.LeaveExecutionContext();
         }
     }

@@ -100,16 +100,6 @@
     "staging/sm/fields/bug1587574.js",
     "staging/sm/strict/deprecated-octal-noctal-tokens.js",
 
-    // Annex B B.3.3 block-scoped function hoisting: the var-scoped alias a sloppy-mode block
-    // function creates is not synthesised the way the spec's FunctionDeclarationInstantiation
-    // amendment describes, so the name is visible with the wrong value (or not at all) in the
-    // enclosing function, inside a direct eval, inside `with`, and after a redeclaration.
-    "staging/sm/lexical-environment/block-scoped-functions-annex-b-arguments.js",
-    "staging/sm/lexical-environment/block-scoped-functions-annex-b-eval.js",
-    "staging/sm/lexical-environment/block-scoped-functions-annex-b-with.js",
-    "staging/sm/lexical-environment/block-scoped-functions-deprecated-redecl.js",
-    "staging/sm/regress/regress-602621.js",
-
     // Argument validation raising no error, or the wrong one: a bad this or a bad index reaching a
     // built-in, a NUL-bearing string reaching one, and the order in which a super reference is
     // evaluated against its side effects.
@@ -212,6 +202,19 @@
     // banner it is the entry most likely to be argued back out, and a PR that argues it is welcome.
     "staging/sm/Date/non-iso.js",
     "staging/sm/Date/two-digit-years.js",
+
+    // === STALE TEST ===
+
+    // Written in 2017 against an edition of FunctionDeclarationInstantiation this test quotes in its
+    // own info block - "22.f. Append \"arguments\" to parameterNames" - and superseded by the
+    // normative change that split paramBindings out of paramNames. Today the Annex B condition reads
+    // "paramNames does not contain funcName", so a block-level `function arguments(){}` IS eligible;
+    // only the creation of a NEW var binding is skipped for that name, while the assignment made when
+    // the declaration is evaluated still runs. V8 and SpiderMonkey both answer "function" where this
+    // test demands the arguments object, and staging/sm/lexical-environment/
+    // block-scoped-functions-annex-b-arguments.js in this very suite asserts the opposite of it.
+    // Reported as tc39/test262#5113; tc39/test262#5112 corrects the file. Removed when that lands.
+    "annexB/language/function-code/block-decl-func-skip-arguments.js",
 
     // === INTL402 EXCLUSIONS ===
     // The following tests require full CLDR locale data support which is not available in the default provider.

@@ -216,7 +216,9 @@ start:
 
         public JintSwitchCase(SwitchCase switchCase)
         {
-            Consequent = new JintStatementList(statement: null, switchCase.Consequent, CompletionValueObservability.Inherit);
+            // blockLevel: a CaseClause / DefaultClause StatementList carries Annex B B.3.2's
+            // var-scope alias exactly as a Block's does.
+            Consequent = new JintStatementList(statement: null, switchCase.Consequent, CompletionValueObservability.Inherit, blockLevel: true);
             LexicalDeclarations = DeclarationCacheBuilder.Build(switchCase);
             Range = switchCase.Range;
             TestRange = switchCase.Test?.Range;
