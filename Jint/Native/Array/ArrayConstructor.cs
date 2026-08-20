@@ -318,13 +318,12 @@ public sealed partial class ArrayConstructor : Constructor
             var promiseResolve = _realm.Intrinsics.Promise.PromiseResolve(next);
 
             var capturedK = k;
-            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+            PromiseOperations.UponPromise(_engine, (JsPromise) promiseResolve, iterResult =>
             {
-                var iterResult = args.At(0);
                 if (iterResult is not ObjectInstance iterResultObj)
                 {
                     promiseCapability.Reject(_realm.Intrinsics.TypeError.Construct("Iterator result is not an object"));
-                    return Undefined;
+                    return;
                 }
 
                 var done = TypeConverter.ToBoolean(iterResultObj.Get(CommonProperties.Done));
@@ -341,24 +340,13 @@ public sealed partial class ArrayConstructor : Constructor
                     {
                         promiseCapability.Reject(e.Error);
                     }
-                    return Undefined;
+                    return;
                 }
 
-                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, iterator, () =>
-                {
-                    // Queue next iteration to prevent stack overflow
-                    _engine.AddToEventLoop(() => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
-                });
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunction(_engine, "", (_, args) =>
-            {
-                promiseCapability.Reject(args.At(0));
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) promiseResolve, onFulfilled, onRejected, null!);
+                ProcessAsyncIteratorValue(value, target, callable, thisArg, promiseCapability, capturedK, iterator,
+                    () => FromAsyncIteratorLoop(iterator, target, callable, thisArg, promiseCapability, capturedK + 1));
+            },
+            reason => promiseCapability.Reject(reason));
         }
         catch (JavaScriptException e)
         {
@@ -366,6 +354,15 @@ public sealed partial class ArrayConstructor : Constructor
         }
     }
 
+    /// <summary>
+    /// One element of https://tc39.es/proposal-array-from-async/#sec-array.fromAsync step 3.e's repeat loop.
+    /// </summary>
+    /// <remarks>
+    /// <c>continueLoop</c> is the next turn of that loop, and is invoked directly rather than through a job
+    /// of its own: the loop's only job boundaries are its Awaits, so an extra hop would sever the algorithm
+    /// across jobs the specification does not have. It cannot recurse, because the next turn's own Await
+    /// ends in a <c>PerformPromiseThen</c>, which queues rather than calls.
+    /// </remarks>
     private void ProcessAsyncIteratorValue(
         JsValue value,
         ArrayOperations target,
@@ -381,21 +378,13 @@ public sealed partial class ArrayConstructor : Constructor
             // When mapping, await the value first, then apply mapfn
             var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(value);
 
-            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
-            {
-                var resolvedValue = args.At(0);
-                ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator);
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunction(_engine, "", (_, args) =>
-            {
-                AsyncIteratorClose(_engine, iterator);
-                promiseCapability.Reject(args.At(0));
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+            PromiseOperations.UponPromise(_engine, (JsPromise) valuePromise,
+                resolvedValue => ProcessMappedValue(resolvedValue, target, callable, thisArg, promiseCapability, k, continueLoop, iterator),
+                reason =>
+                {
+                    AsyncIteratorClose(_engine, iterator);
+                    promiseCapability.Reject(reason);
+                });
         }
         else
         {
@@ -435,9 +424,8 @@ public sealed partial class ArrayConstructor : Constructor
                 var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
 
                 var capturedIterator = iterator;
-                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                PromiseOperations.UponPromise(_engine, (JsPromise) mappedPromise, resolvedMapped =>
                 {
-                    var resolvedMapped = args.At(0);
                     try
                     {
                         target.CreateDataPropertyOrThrow(k, resolvedMapped);
@@ -446,20 +434,16 @@ public sealed partial class ArrayConstructor : Constructor
                     {
                         if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
                         promiseCapability.Reject(e2.Error);
-                        return Undefined;
+                        return;
                     }
-                    _engine.AddToEventLoop(continueLoop);
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable);
 
-                var onRejected = new ClrFunction(_engine, "", (_, args) =>
+                    continueLoop();
+                },
+                reason =>
                 {
                     if (capturedIterator is not null) AsyncIteratorClose(_engine, capturedIterator);
-                    promiseCapability.Reject(args.At(0));
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable);
-
-                PromiseOperations.PerformPromiseThen(_engine, (JsPromise) mappedPromise, onFulfilled, onRejected, null!);
+                    promiseCapability.Reject(reason);
+                });
             }
             else
             {
@@ -473,7 +457,8 @@ public sealed partial class ArrayConstructor : Constructor
                     promiseCapability.Reject(e.Error);
                     return;
                 }
-                _engine.AddToEventLoop(continueLoop);
+
+                continueLoop();
             }
         }
         catch (JavaScriptException e)
@@ -574,20 +559,9 @@ public sealed partial class ArrayConstructor : Constructor
             var valuePromise = _realm.Intrinsics.Promise.PromiseResolve(kValue);
 
             var capturedK = k;
-            var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
-            {
-                var resolvedValue = args.At(0);
-                ProcessArrayLikeMappedValue(arrayLike, resolvedValue, target, callable, thisArg, promiseCapability, capturedK, len);
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunction(_engine, "", (_, args) =>
-            {
-                promiseCapability.Reject(args.At(0));
-                return Undefined;
-            }, 1, PropertyFlag.Configurable);
-
-            PromiseOperations.PerformPromiseThen(_engine, (JsPromise) valuePromise, onFulfilled, onRejected, null!);
+            PromiseOperations.UponPromise(_engine, (JsPromise) valuePromise,
+                resolvedValue => ProcessArrayLikeMappedValue(arrayLike, resolvedValue, target, callable, thisArg, promiseCapability, capturedK, len),
+                reason => promiseCapability.Reject(reason));
         }
         catch (JavaScriptException e)
         {
@@ -616,28 +590,20 @@ public sealed partial class ArrayConstructor : Constructor
                 var mappedPromise = _realm.Intrinsics.Promise.PromiseResolve(mappedValue);
 
                 var capturedK = k;
-                var onFulfilled = new ClrFunction(_engine, "", (_, args) =>
+                PromiseOperations.UponPromise(_engine, (JsPromise) mappedPromise, resolvedMapped =>
                 {
-                    var resolvedMapped = args.At(0);
                     target.CreateDataPropertyOrThrow(capturedK, resolvedMapped);
-                    // Queue next iteration to prevent stack overflow
-                    _engine.AddToEventLoop(() => FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, capturedK + 1, len));
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable);
 
-                var onRejected = new ClrFunction(_engine, "", (_, args) =>
-                {
-                    promiseCapability.Reject(args.At(0));
-                    return Undefined;
-                }, 1, PropertyFlag.Configurable);
-
-                PromiseOperations.PerformPromiseThen(_engine, (JsPromise) mappedPromise, onFulfilled, onRejected, null!);
+                    // The next turn of the repeat loop, in this very job: the loop's job boundaries are its
+                    // Awaits and nothing else, and the next turn's own Await keeps this from recursing.
+                    FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, capturedK + 1, len);
+                },
+                reason => promiseCapability.Reject(reason));
             }
             else
             {
                 target.CreateDataPropertyOrThrow(k, value);
-                // Queue next iteration to prevent stack overflow
-                _engine.AddToEventLoop(() => FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, k + 1, len));
+                FromAsyncArrayLikeLoop(arrayLike, target, callable, thisArg, promiseCapability, k + 1, len);
             }
         }
         catch (JavaScriptException e)

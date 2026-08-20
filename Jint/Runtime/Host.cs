@@ -483,6 +483,28 @@ public class Host
         Engine.AddToEventLoop(job);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-host-enqueue-finalization-registry-cleanup-job
+    /// <para>
+    /// "An implementation of HostEnqueueFinalizationRegistryCleanupJob schedules cleanupJob to be performed
+    /// at some future time, if possible." Jint schedules it on the event loop, so the callback runs on the
+    /// engine's thread on a later turn — never on the CLR finalizer thread that discovered the collection,
+    /// which is the only thread the discovery is available on and the one thread that must never enter the
+    /// engine.
+    /// </para>
+    /// </summary>
+    /// <param name="cleanupJob">The job, which runs <c>CleanupFinalizationRegistry</c> for one registry.</param>
+    /// <param name="generation">
+    /// The evaluation cycle the collected cell was registered in, so that a collection observed after a
+    /// <c>RestoreGlobalSnapshot</c> is dropped rather than run against the restored globals. Callable from
+    /// any thread for exactly that reason: the stamp is read at registration on the engine's thread and
+    /// checked at dequeue on the engine's thread, and this enqueue in between is the only cross-thread step.
+    /// </param>
+    internal void HostEnqueueFinalizationRegistryCleanupJob(Action cleanupJob, int generation)
+    {
+        Engine.AddToEventLoop(cleanupJob, generation);
+    }
+
     internal virtual List<string> GetSupportedImportAttributes()
     {
         return _supportedImportAttributes;

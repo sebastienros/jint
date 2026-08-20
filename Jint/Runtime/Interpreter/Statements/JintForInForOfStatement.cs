@@ -1161,9 +1161,11 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
             // the request was already dequeued by AsyncGeneratorResumeNext() before
             // reaching here, so the queue is now empty. On resume we must continue
             // THIS request's execution, not start a new one via AsyncGeneratorResumeNext().
-            // The continuation re-enqueues via AddToEventLoop (like the async-function path)
-            // so the actual resumption happens in a distinct event-loop turn, matching spec
-            // microtask ordering.
+            //
+            // Per spec Await step 3, exactly as the async-function branch above: the continuation resumes
+            // inside the reaction job. Await's fulfilledClosure pushes the suspended context back on and
+            // resumes it there and then, so the reaction job *is* the resumption and a hop of its own would
+            // be a job boundary the algorithm does not have.
             PromiseOperations.PerformPromiseThen(
                 engine,
                 promise,
@@ -1229,8 +1231,9 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
     /// <summary>
     /// Await continuation for a for-await-of running inside an async generator: hands the
-    /// settled value to the suspend data and resumes the current request in a distinct
-    /// event-loop turn (see the enqueueing comment at the PerformPromiseThen call site).
+    /// settled value to the suspend data and resumes the current request, inside this reaction
+    /// job — the same shape as <see cref="ForAwaitFunctionContinuation"/>, and the same shape
+    /// https://tc39.es/ecma262/#await gives every other Await.
     /// </summary>
     private sealed class ForAwaitGeneratorContinuation : IPromiseContinuation
     {
@@ -1250,23 +1253,20 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
 
         public void Invoke(Engine engine, JsValue value, ReactionType type)
         {
-            engine.AddToEventLoop(() =>
+            var resumeSuspendData = _asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
+            if (type == ReactionType.Fulfill)
             {
-                var resumeSuspendData = _asyncGenerator.Data.GetOrCreate<ForAwaitSuspendData>(_statement);
-                if (type == ReactionType.Fulfill)
-                {
-                    // Store the resolved iterator result so the for-await-of loop can use it
-                    resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
-                }
-                else
-                {
-                    // Store the rejection so ExecuteInternal can propagate it as a throw
-                    resumeSuspendData.RejectedValue = value;
-                }
+                // Store the resolved iterator result so the for-await-of loop can use it
+                resumeSuspendData.ResolvedIteratorResult = value as ObjectInstance;
+            }
+            else
+            {
+                // Store the rejection so ExecuteInternal can propagate it as a throw
+                resumeSuspendData.RejectedValue = value;
+            }
 
-                // Resume the current request's execution (queue is empty – cannot use AsyncGeneratorResumeNext)
-                _asyncGenerator.AsyncGeneratorContinueForAwait(_capability);
-            });
+            // Resume the current request's execution (queue is empty – cannot use AsyncGeneratorResumeNext)
+            _asyncGenerator.AsyncGeneratorContinueForAwait(_capability);
         }
     }
 
