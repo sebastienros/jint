@@ -81,7 +81,7 @@ internal sealed record EventLoop
     internal volatile int _waitingThreadId = -1;
 
     /// <summary>
-    /// Async wake signals registered by callers of <see cref="WaitForEventAsync"/>.
+    /// Async wake signals registered by callers of <see cref="WaitForEventAsync(CancellationToken)"/>.
     /// Each call appends its own TCS so that <see cref="Enqueue(in EventLoopJob)"/> can wake every
     /// outstanding waiter — supporting concurrent awaiters on a single engine
     /// (e.g. a caller that <c>await</c>s two engine-internal promises in parallel
@@ -180,8 +180,8 @@ internal sealed record EventLoop
     /// <summary>
     /// Blocks until new work is enqueued, <paramref name="completedEvent"/> is signaled, cancellation is
     /// requested, or <paramref name="timeout"/> elapses — whichever comes first. The synchronous sibling of
-    /// <see cref="WaitForEventAsync"/>, used by the drain loops that hold the calling thread. Only the single
-    /// draining thread may call this, because it resets <see cref="_workArrived"/>.
+    /// <see cref="WaitForEventAsync(CancellationToken)"/>, used by the drain loops that hold the calling
+    /// thread. Only the single draining thread may call this, because it resets <see cref="_workArrived"/>.
     /// </summary>
     /// <remarks>
     /// The reset-then-check order closes the race with a producer: an enqueue before the reset is seen by the
@@ -255,6 +255,36 @@ internal sealed record EventLoop
     }
 
     /// <summary>
+    /// The bounded form of <see cref="WaitForEventAsync(CancellationToken)"/>: also completes once
+    /// <paramref name="timeout"/> has elapsed. Needed because a timer coming due enqueues nothing and so
+    /// wakes nobody — the only thing that knows it is time to pump again is the clock.
+    /// </summary>
+    /// <remarks>
+    /// One <see cref="Task.Delay(TimeSpan, CancellationToken)"/> per idle wait, and only while a timer is
+    /// actually pending; an engine with no timers keeps taking the unbounded overload and allocates nothing
+    /// extra. If the delay wins the race, the wake registration the wait made stays in the waiter list until
+    /// the next <see cref="Enqueue(in EventLoopJob)"/> clears it. That is deliberately harmless: the
+    /// broadcast completes an already-completed or abandoned <see cref="TaskCompletionSource{TResult}"/> as
+    /// a no-op, so a stale entry costs one GC root and nothing else — the same trade the double-check in the
+    /// unbounded overload already makes.
+    /// </remarks>
+    /// <param name="timeout">How long to wait at most.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public async Task WaitForEventAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var waitTask = WaitForEventAsync(cancellationToken);
+        if (waitTask.IsCompleted)
+        {
+            return;
+        }
+
+        // Neither task is awaited directly, so neither can throw here: cancellation of either one leaves a
+        // cancelled task that WhenAny simply reports as the winner, and the caller re-checks its own
+        // condition and its own token on resume, exactly as it does after an unbounded wait.
+        await Task.WhenAny(waitTask, Task.Delay(timeout, cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Discards every currently queued job without running it. Used by
     /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/>: a reaction left behind by an
     /// evaluation's unsettled promise would otherwise run during the next evaluation's drain, against
@@ -289,8 +319,26 @@ internal sealed record EventLoop
 
         try
         {
-            while (_events.TryDequeue(out var job))
+            while (true)
             {
+                if (!_events.TryDequeue(out var job))
+                {
+#if NET8_0_OR_GREATER
+                    // The queue is empty, so this is the moment — and the only moment — a timer may join it.
+                    // Promoting exactly one due timer per exhaustion is what makes this single queue behave as
+                    // the microtask queue HTML specifies: everything a job queues, transitively, runs before
+                    // the next timer is even looked at, so Promise.resolve().then(f) beats setTimeout(g, 0)
+                    // and a chain of reactions can never be starved by a due interval. The check costs one
+                    // predictable null test per drain on an engine without timers, never one per job.
+                    if (engine.TryPromoteDueTimerJob())
+                    {
+                        continue;
+                    }
+#endif
+
+                    break;
+                }
+
                 // Work registered before a RestoreGlobalSnapshot belongs to a cycle the engine has ended.
                 // Running it would resume a previous evaluation's continuation against the restored global
                 // surface — the cross-cycle channel a fresh-engine-per-evaluation host never had. Dropping

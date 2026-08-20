@@ -51,6 +51,12 @@ public partial class Options
         /// <see cref="WebApiFeatures.Console"/>.
         /// </summary>
         public ConsoleOptions Console { get; } = new();
+
+        /// <summary>
+        /// Settings for the timer functions, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.Timers"/>.
+        /// </summary>
+        public TimerOptions Timers { get; } = new();
     }
 
     /// <summary>
@@ -71,6 +77,50 @@ public partial class Options
         /// </remarks>
         public ConsoleSink Sink { get; set; } = ConsoleSink.Null;
     }
+
+    /// <summary>
+    /// Settings for <c>setTimeout</c>, <c>setInterval</c> and their <c>clear</c> counterparts. Requires
+    /// .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Timers fire only while the engine is being pumped, and Jint never starts a thread to pump it.</b>
+    /// A callback runs on the first drain of the event loop at or after its due time — a blocking
+    /// <c>UnwrapIfPromise</c>, an <c>await</c> of <c>EvaluateAsync</c>, or the host's own
+    /// <c>engine.Advanced.ProcessTasks()</c> loop. An engine nobody pumps never fires a timer, which is what
+    /// makes this safe in a request handler that returns as soon as the script does.
+    /// </para>
+    /// </remarks>
+    public class TimerOptions
+    {
+        /// <summary>
+        /// The clock the timers are scheduled against. Defaults to <see cref="TimeProvider.System"/>; a fake
+        /// one makes a suite that exercises timers deterministic and instant.
+        /// </summary>
+        /// <remarks>
+        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
+        /// already exists. Only <see cref="TimeProvider.GetTimestamp"/> and
+        /// <see cref="TimeProvider.GetElapsedTime(long, long)"/> are ever called:
+        /// <see cref="TimeProvider.CreateTimer"/> is deliberately not, because a background timer would run
+        /// script off the engine's thread. Assigning <see langword="null"/> is read back as
+        /// <see cref="TimeProvider.System"/>.
+        /// </remarks>
+        public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+        /// <summary>
+        /// The most timers one engine may have registered at once. Defaults to 1000. A
+        /// <c>setTimeout</c> or <c>setInterval</c> call that would exceed it throws a <c>DOMException</c>
+        /// named <c>QuotaExceededError</c> — the script sees a normal exception it can catch, and the engine
+        /// stays usable.
+        /// </summary>
+        /// <remarks>
+        /// Counts timers that are <i>registered</i>, so a <c>setInterval</c> occupies one slot for as long as
+        /// it runs and a fired <c>setTimeout</c> frees its slot before its callback runs. Read once, when the
+        /// engine is built. There is no "unlimited" sentinel: <see cref="int.MaxValue"/> is the way to spell
+        /// effectively unbounded, and a value of zero or less refuses every timer.
+        /// </remarks>
+        public int MaxActiveTimers { get; set; } = 1000;
+    }
 }
 
 /// <summary>
@@ -85,7 +135,7 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>Timers = 1 &lt;&lt; 1</c>, <c>Encoding = 1 &lt;&lt; 2</c>, <c>Base64 = 1 &lt;&lt; 3</c>,
+/// <c>Encoding = 1 &lt;&lt; 2</c>, <c>Base64 = 1 &lt;&lt; 3</c>,
 /// <c>StructuredClone = 1 &lt;&lt; 4</c>, <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
 /// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c>, <c>Files = 1 &lt;&lt; 9</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
@@ -113,9 +163,17 @@ public enum WebApiFeatures
     Console = 1 << 0,
 
     /// <summary>
-    /// The web APIs a host normally wants: everything except outbound network access. Today that is
-    /// <see cref="Console"/>; it grows as further features land, and never comes to include fetch.
+    /// <c>setTimeout</c>, <c>setInterval</c>, <c>clearTimeout</c>, <c>clearInterval</c> and
+    /// <c>queueMicrotask</c>. Timers fire only while the engine is being pumped and no thread is ever started
+    /// to pump it — see <see cref="Options.TimerOptions"/>.
     /// </summary>
-    Default = Console,
+    Timers = 1 << 1,
+
+    /// <summary>
+    /// The web APIs a host normally wants: everything except outbound network access. Today that is
+    /// <see cref="Console"/> and <see cref="Timers"/>; it grows as further features land, and never comes to
+    /// include fetch.
+    /// </summary>
+    Default = Console | Timers,
 }
 #endif

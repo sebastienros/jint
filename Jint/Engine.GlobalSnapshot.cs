@@ -268,6 +268,13 @@ public partial class Engine
         // deliberately not part of what a restore reverts.
         Modules?.DiscardPendingLoads();
 
+#if NET8_0_OR_GREATER
+        // A timer registered by the cycle that is ending must never fire into the globals just restored. The
+        // queue is the engine's, not the event loop's, so clearing the loop above does not reach it; the
+        // generation each entry carries is the second line of defence for one already promoted into a job.
+        _webApi?.ResetTransientState();
+#endif
+
         _error = null;
         _lastSyntaxElement = null;
 

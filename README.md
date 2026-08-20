@@ -213,7 +213,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | --- | --- | --- |
 | `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`) | `WebApiFeatures.Console` | ✔ shipped |
 | `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
-| `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `Timers` | in progress |
+| `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` / `TextDecoder` | `Encoding` | in progress |
 | `atob` / `btoa` | `Base64` | in progress |
 | `structuredClone` | `StructuredClone` | in progress |
@@ -226,6 +226,43 @@ its own `console` (or any other name in the table below), enabling the feature l
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
+
+### Timers fire only while the engine is being pumped
+
+**Jint never starts a thread, and never a `System.Threading.Timer`, to run your script.** A `setTimeout`
+callback runs on the first drain of the event loop at or after its due time, and a drain only happens where
+one always happened: at the end of an `Execute`/`Evaluate`, inside a blocking `UnwrapIfPromise`, while
+`await`ing `EvaluateAsync`, or when the host calls `engine.Advanced.ProcessTasks()` itself.
+
+```csharp
+var engine = new Engine(options => options.UseWebApis());
+
+// Blocking: the drain waits out the timer and returns 42.
+var answer = engine.Evaluate("(async () => { await new Promise(r => setTimeout(r, 100)); return 42; })()")
+    .UnwrapIfPromise();
+
+// Or without holding a thread.
+answer = await engine.EvaluateAsync("(async () => { await new Promise(r => setTimeout(r, 100)); return 42; })()");
+
+// Or from your own loop — a game loop, a message pump — where every turn provably runs on your thread.
+engine.Execute("setTimeout(() => console.log('later'), 50);");
+while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }
+```
+
+An engine nobody pumps never fires a timer, which is what makes this safe in a request handler that returns
+as soon as the script does — a scheduled callback cannot surprise you later, on a thread you did not expect,
+against state you have moved on from. The corollary is that a timer outlasting the wait around it is simply
+never reached: `new Promise(r => setTimeout(r, 15000))` under the default ten-second `UnwrapIfPromise` times
+out, by design.
+
+The engine's single job queue *is* the microtask queue: a due timer is promoted onto it only once it has run
+dry, so `Promise.resolve().then(f)` always beats `setTimeout(g, 0)`, each timer gets its own microtask
+checkpoint, and no interval can starve promise reactions. Timers are scheduled against
+`Options.WebApi.Timers.TimeProvider`, so handing the engine a fake clock makes a suite that exercises them
+deterministic and instant; `MaxActiveTimers` (1000 by default) bounds how many a script may register at once
+and turns the excess into a catchable `QuotaExceededError` `DOMException`. A callback that throws erupts out
+of whatever was pumping — the same contract a promise reaction has — and the rest of the queue runs on the
+next pump.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them

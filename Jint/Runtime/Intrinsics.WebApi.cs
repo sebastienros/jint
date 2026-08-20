@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using Jint.WebApi.Console;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Timers;
 
 namespace Jint.Runtime;
 
@@ -18,11 +19,19 @@ public sealed partial class Intrinsics
 {
     private DomExceptionConstructor? _domException;
     private ConsoleInstance? _console;
+    private TimerFunctions? _timers;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
 
     internal ConsoleInstance Console =>
         _console ??= new ConsoleInstance(_engine, _realm, Object.PrototypeObject);
+
+    /// <summary>
+    /// The timer globals, which are five ordinary functions rather than one object — this holder exists only
+    /// so that a realm builds one of each, and each of the five is itself built on first access.
+    /// </summary>
+    internal TimerFunctions Timers =>
+        _timers ??= TimerFunctions.Create(_engine, _realm);
 }
 #endif

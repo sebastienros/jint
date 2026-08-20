@@ -1172,6 +1172,32 @@ public sealed partial class Engine : IDisposable
                     }
                 }
 
+#if NET8_0_OR_GREATER
+                // A timer coming due enqueues nothing, so nothing wakes this thread when it does: the wait
+                // has to end by itself. The 10ms poll above already made timers of 10ms and more correct;
+                // clamping to the next due time is what buys a 1ms timer 1ms of latency instead of 10.
+                var untilNextTimer = _webApi?.TimeUntilNextDueTimer();
+                if (untilNextTimer is { } untilDue)
+                {
+                    if (untilDue <= TimeSpan.Zero)
+                    {
+                        // Already due. If this thread can pump, promoting it beats idling first, and the
+                        // timeout deadline checked immediately above stops the loop running past its bound.
+                        // Nested inside a job it cannot pump — the re-entrancy guard makes the queue
+                        // unrunnable from here — so fall through to the bounded wait rather than spinning on
+                        // a timer nobody present can promote.
+                        if (!_eventLoop.IsRunningJob)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (untilDue < waitInterval)
+                    {
+                        waitInterval = untilDue;
+                    }
+                }
+#endif
+
                 try
                 {
                     // Waking on enqueue is what keeps the interval a backstop rather than a latency floor: a
