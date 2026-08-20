@@ -262,18 +262,69 @@ public class RequestTests
     }
 
     [Fact]
-    public void BodyIsAlwaysNullAndBodyUsedTracksConsumption()
+    public void BodyIsAStreamAndBodyUsedTracksConsumption()
     {
         var engine = WebEngine();
         engine.Execute("var a = new Request('https://example.org', { method: 'POST', body: 'hi' });");
 
-        // Streams are a follow-up; the attribute is present and answers null, which is a meaningful answer.
-        engine.Evaluate("a.body").Should().Be(JsValue.Null);
+        // https://fetch.spec.whatwg.org/#dom-body-body — the body's stream, and null only when there is no
+        // body at all, which every GET necessarily has not.
+        engine.Evaluate("Object.prototype.toString.call(a.body)").AsString().Should().Be("[object ReadableStream]");
         engine.Evaluate("new Request('https://example.org').body").Should().Be(JsValue.Null);
+
+        // [SameObject]-like in practice: the stream is created once and kept.
+        engine.Evaluate("a.body === a.body").AsBoolean().Should().BeTrue();
 
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeFalse();
         engine.Evaluate("a.arrayBuffer()").UnwrapIfPromise();
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void ReadingTheBodyStreamDirectlyIsWhatDisturbsIt()
+    {
+        // bodyUsed is the stream's disturbed flag, so touching the stream is what flips it — not calling one
+        // of the mixin's consumers.
+        var engine = WebEngine();
+        engine.Execute("var a = new Request('https://example.org', { method: 'POST', body: 'hi' }); var s = a.body;");
+
+        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var r = s.getReader();");
+
+        // Locked but not yet disturbed: bodyUsed is still false, and a consumer already rejects.
+        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("a.text().then(() => 'resolved', e => e.constructor.name)").UnwrapIfPromise().AsString().Should().Be("TypeError");
+
+        engine.Evaluate("r.read().then(x => x.value.length)").UnwrapIfPromise().AsNumber().Should().Be(2);
+        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void AcceptsAReadableStreamAsTheBody()
+    {
+        var engine = WebEngine();
+        engine.Execute(@"
+            var source = new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104, 105])); c.close(); } });
+            var a = new Request('https://example.org', { method: 'POST', body: source });");
+
+        // https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the ReadableStream arm becomes the
+        // body's stream itself, and implies no Content-Type.
+        engine.Evaluate("a.body === source").AsBoolean().Should().BeTrue();
+        engine.Evaluate("a.headers.has('content-type')").AsBoolean().Should().BeFalse();
+
+        engine.Evaluate("a.text()").UnwrapIfPromise().AsString().Should().Be("hi");
+        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void RefusesAReadableStreamThatIsAlreadyDisturbedOrLocked()
+    {
+        var engine = WebEngine();
+        engine.Execute("var locked = new ReadableStream(); locked.getReader();");
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: locked })"))
+            .Message.Should().Contain("disturbed or locked");
     }
 
     [Fact]

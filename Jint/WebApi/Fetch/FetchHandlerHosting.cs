@@ -117,7 +117,7 @@ internal static class FetchHandlerHosting
         // all: consumable any number of times, and bodyUsed never flipping.
         if (body is { Length: > 0 })
         {
-            request.Body = new ReadOnlyMemory<byte>(body);
+            request.SetBufferedBody(new ReadOnlyMemory<byte>(body));
         }
 
         return request;
@@ -160,7 +160,16 @@ internal static class FetchHandlerHosting
             message.ReasonPhrase = response.StatusText;
         }
 
-        HttpContent? content = response.Body is { } body ? new ByteArrayContent(body.ToArray()) : null;
+        // A handler's response is read from its buffered source. A body that only ever existed as a stream
+        // has no source to read synchronously and would need the engine pumped to produce its chunks; that
+        // integration is deliberately out of scope here, and refusing loudly beats sending an empty body.
+        if (response.HasBody && response.Source is null)
+        {
+            throw new InvalidOperationException(
+                "The fetch handler answered with a streaming response body, which fetch-handler hosting does not support yet. Buffer the body in script — for example 'return new Response(await upstream.arrayBuffer(), upstream)' — before returning it.");
+        }
+
+        HttpContent? content = response.Source is { } body ? new ByteArrayContent(body.ToArray()) : null;
 
         foreach (var header in response.Headers.List.Entries)
         {

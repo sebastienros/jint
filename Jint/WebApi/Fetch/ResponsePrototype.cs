@@ -104,15 +104,17 @@ internal sealed partial class ResponsePrototype : Prototype
     private JsHeaders HeadersGet(JsValue thisObject) => Brand(thisObject).Headers;
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#dom-body-body — <b>always null in this version</b>; see
-    /// <see cref="RequestPrototype"/> for why it is present rather than absent.
+    /// https://fetch.spec.whatwg.org/#dom-body-body — the body's <c>ReadableStream</c>, or <c>null</c> when
+    /// the response has no body at all (a bodyless <c>new Response()</c>, a 204, <c>Response.error()</c>).
     /// </summary>
+    /// <remarks>
+    /// A response that came off the network streams its bytes as they arrive; one built from a string or a
+    /// <c>Blob</c> answers a stream over the bytes it already holds, created here on first ask — see
+    /// <see cref="FetchBodyObject.GetOrCreateStream"/>.
+    /// </remarks>
     [JsAccessor("body", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue BodyGet(JsValue thisObject)
-    {
-        Brand(thisObject);
-        return Null;
-    }
+        => Brand(thisObject).GetOrCreateStream(_realm) ?? (JsValue) Null;
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-bodyused
@@ -155,7 +157,9 @@ internal sealed partial class ResponsePrototype : Prototype
     /// body, because <c>clone</c> does not return a promise to reject.
     /// </summary>
     /// <remarks>
-    /// The clone shares the original's bytes and carries its own used flag, which is what makes the
+    /// The body is cloned per https://fetch.spec.whatwg.org/#concept-body-clone: a streaming body is
+    /// <c>tee()</c>d, so each object gets its own branch with its own queue, and a body still held as bytes
+    /// simply shares them. Either way the used flag is the clone's own, which is what makes the
     /// <c>const copy = response.clone(); await response.json(); await copy.text();</c> pattern work.
     /// </remarks>
     [JsFunction(Name = "clone", Length = 0)]
@@ -170,7 +174,7 @@ internal sealed partial class ResponsePrototype : Prototype
         var headers = _realm.Intrinsics.Headers.CreateInstance(response.Headers.List.Clone());
         headers.List.Guard = response.Headers.List.Guard;
 
-        return new JsResponse(_engine, headers)
+        var clone = new JsResponse(_engine, headers)
         {
             _prototype = _realm.Intrinsics.Response.PrototypeObject,
             Status = response.Status,
@@ -178,8 +182,10 @@ internal sealed partial class ResponsePrototype : Prototype
             Kind = response.Kind,
             Url = response.Url,
             Redirected = response.Redirected,
-            Body = response.Body,
         };
+
+        FetchBody.CloneBody(response, clone);
+        return clone;
     }
 
     private JsValue Consume(JsValue thisObject, BodyConsumeKind kind)

@@ -71,7 +71,6 @@ internal sealed class RequestConstructor : Constructor
         var method = "GET";
         var redirect = JsRequest.RedirectFollow;
         HeaderList headerList;
-        ReadOnlyMemory<byte>? inputBody = null;
         JsAbortSignal? signal = null;
 
         if (inputRequest is not null)
@@ -80,7 +79,6 @@ internal sealed class RequestConstructor : Constructor
             method = inputRequest.Method;
             redirect = inputRequest.Redirect;
             headerList = inputRequest.Headers.List.Clone();
-            inputBody = inputRequest.Body;
             signal = inputRequest.Signal;
         }
         else
@@ -168,9 +166,10 @@ internal sealed class RequestConstructor : Constructor
         }
 
         var hasInitBody = bodyInit is not null && !bodyInit.IsNull();
+        var hasInputBody = inputRequest is { HasBody: true };
 
         // Step 37: a body — from either source — is refused for the two methods that cannot carry one.
-        if ((hasInitBody || inputBody is not null) && method is "GET" or "HEAD")
+        if ((hasInitBody || hasInputBody) && method is "GET" or "HEAD")
         {
             Throw.TypeError(_realm, "Failed to construct 'Request': Request with GET/HEAD method cannot have body.");
         }
@@ -179,20 +178,19 @@ internal sealed class RequestConstructor : Constructor
         {
             // Steps 38-40: extract, then append the implied Content-Type unless the header list — which the
             // step above has already filled — carries one of its own.
-            var (bytes, type) = FetchBody.Extract(_realm, bodyInit!);
-            FetchBody.SetBody(request, bytes, type);
+            var extracted = FetchBody.Extract(_realm, bodyInit!);
+            FetchBody.SetBody(request, in extracted);
         }
-        else if (inputBody is not null)
+        else if (hasInputBody)
         {
-            // Step 43: "create a proxy for inputBody". A buffered body has nothing to tee, so the two share
-            // the bytes and each carries its own used flag; what survives the reduction is the check that the
-            // input still had a body to share.
+            // Step 42: "create a proxy for inputBody", which is the clone-a-body algorithm — a tee when the
+            // input has a stream, and a shared source when it does not.
             if (inputRequest!.IsUnusable)
             {
                 Throw.TypeError(_realm, "Failed to construct 'Request': Request body is already used");
             }
 
-            request.Body = inputBody;
+            FetchBody.CloneBody(inputRequest, request);
         }
 
         return request;

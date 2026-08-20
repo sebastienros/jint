@@ -85,6 +85,16 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<EventSourceConnection>? _eventSources;
 
+    /// <summary>
+    /// The response bodies still arriving over the wire. Engine-thread-only for the same reason
+    /// <see cref="_fetches"/> is: a body is registered when its stream is built and removed when the stream
+    /// closes, errors or is cancelled, all of which happen on the engine's thread. Separate from
+    /// <see cref="_fetches"/> because a request stops counting against
+    /// <c>Options.FetchOptions.MaxConcurrentRequests</c> when its promise settles, which is before its body
+    /// has finished.
+    /// </summary>
+    private List<FetchBodyStream>? _fetchBodies;
+
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null)
     {
         _engine = engine;
@@ -138,6 +148,10 @@ internal sealed class WebApiEngineState
     internal void RegisterFetch(FetchOperation operation) => (_fetches ??= new List<FetchOperation>()).Add(operation);
 
     internal void UnregisterFetch(FetchOperation operation) => _fetches?.Remove(operation);
+
+    internal void RegisterBodyStream(FetchBodyStream body) => (_fetchBodies ??= new List<FetchBodyStream>()).Add(body);
+
+    internal void UnregisterBodyStream(FetchBodyStream body) => _fetchBodies?.Remove(body);
 
     /// <summary>
     /// The engine's prioritized task queues, or <see langword="null"/> when the scheduler feature is off.
@@ -250,15 +264,21 @@ internal sealed class WebApiEngineState
     /// A request in flight is cancelled rather than merely forgotten: the generation fence already stops its
     /// response reaching the restored engine, but forgetting it would leave the socket open until the server
     /// answered. Its promise stays pending — settling it is exactly what the fence forbids — which is the
-    /// same contract a promise registered before a restore has always had. The sink is deliberately not
-    /// reset: it is configuration the engine was built with, like the time origin beside it, and a pooled
-    /// engine reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
+    /// same contract a promise registered before a restore has always had. A response body still streaming is
+    /// the same story one step later: its promise has already settled, so what has to be ended is the
+    /// <c>ReadableStream</c>. Its controller is <b>errored</b>, which is the honest answer to a host still
+    /// holding the response — a stream that reports failure beats one that silently never produces another
+    /// byte — and the reactions that erroring schedules carry the ending cycle's generation, so the fence
+    /// discards them exactly as it discards a chunk still on its way. The sink is deliberately not reset: it
+    /// is configuration the engine was built with, like the time origin beside it, and a pooled engine
+    /// reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
     /// </remarks>
     internal void ResetTransientState()
     {
         Timers?.Clear();
         Scheduler?.Clear();
         AbandonFetches();
+        AbandonFetchBodies();
         AbandonEventSources();
     }
 
@@ -281,7 +301,7 @@ internal sealed class WebApiEngineState
     }
 
     /// <summary>
-    /// The same for the event streams, and for the same reasons — with one addition: an abandoned connection
+    /// The same for the event streams, and for the same reasons â with one addition: an abandoned connection
     /// leaves its <c>EventSource</c> object <c>CLOSED</c>, and fires nothing, because the evaluation cycle
     /// those listeners belonged to has ended. The reconnect delay a stream may have been holding is on the
     /// timer queue <see cref="Timers"/> has just cleared.
@@ -299,6 +319,22 @@ internal sealed class WebApiEngineState
         foreach (var source in pending)
         {
             source.Abandon();
+        }
+    }
+
+    private void AbandonFetchBodies()
+    {
+        if (_fetchBodies is not { Count: > 0 } bodies)
+        {
+            return;
+        }
+
+        var pendingBodies = bodies.ToArray();
+        bodies.Clear();
+
+        foreach (var body in pendingBodies)
+        {
+            body.Abandon();
         }
     }
 }

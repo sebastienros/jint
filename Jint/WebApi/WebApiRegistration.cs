@@ -260,7 +260,9 @@ internal static class WebApiRegistration
     {
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
         {
-            features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+            // Streams joined the closure when bodies became streams: response.body is a ReadableStream, so
+            // installing fetch without it would ship an interface returning an unnameable object.
+            features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams;
         }
 
         // Deliberately not the other way round: fetch does not bring server-sent events and server-sent

@@ -336,13 +336,56 @@ public class BlobTests
     }
 
     [Fact]
-    public void HasNoStreamMethod()
+    public void StreamProducesTheBytesAsOneChunkAndThenCloses()
     {
-        // Absent rather than throwing: Jint has no streams yet, and feature detection is written against
-        // absence.
-        Eval("typeof Blob.prototype.stream").AsString().Should().Be("undefined");
-        Eval("'stream' in Blob.prototype").AsBoolean().Should().BeFalse();
-        Eval("typeof Blob.prototype.textStream").AsString().Should().Be("undefined");
+        // https://w3c.github.io/FileAPI/#blob-get-stream. The bytes are already in memory, so they are one
+        // chunk rather than the implementation-defined slices a browser's loop reads.
+        var engine = WebEngine();
+        engine.Execute("var read = []; var s = new Blob(['hello']).stream(); var r = s.getReader();");
+
+        engine.Evaluate("r.read().then(x => x.done + ':' + (x.value instanceof Uint8Array) + ':' + x.value.length)")
+            .UnwrapIfPromise().AsString().Should().Be("false:true:5");
+
+        engine.Evaluate("r.read().then(x => x.done + ':' + (x.value === undefined))")
+            .UnwrapIfPromise().AsString().Should().Be("true:true");
+    }
+
+    [Fact]
+    public void StreamOfAnEmptyBlobIsDoneAtOnce()
+    {
+        Eval("new Blob([]).stream().getReader().read().then(x => x.done + ':' + (x.value === undefined))")
+            .UnwrapIfPromise().AsString().Should().Be("true:true");
+    }
+
+    [Fact]
+    public void StreamIsAReadableStreamEvenWithoutTheStreamsFeature()
+    {
+        // This engine asked for Files and nothing else, so the ReadableStream *global* is absent — but the
+        // object stream() answers is the real interface, reached through its prototype. Naming it takes the
+        // Streams feature (or WebApiFeatures.Default, which has both).
+        var engine = WebEngine();
+
+        engine.Evaluate("typeof ReadableStream").AsString().Should().Be("undefined");
+        engine.Evaluate("Object.prototype.toString.call(new Blob(['x']).stream())").AsString().Should().Be("[object ReadableStream]");
+        engine.Evaluate("new Blob(['x']).stream().locked").AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void StreamHandsEachCallItsOwnStreamOverACopyOfTheBytes()
+    {
+        var engine = WebEngine();
+        engine.Execute("var b = new Blob(['ab']); var s1 = b.stream(); var s2 = b.stream();");
+
+        engine.Evaluate("s1 === s2").AsBoolean().Should().BeFalse();
+
+        // Writing through one chunk cannot reach the blob or the other stream: a blob is immutable and what
+        // crosses into script is a copy.
+        engine.Execute("s1.getReader().read().then(x => { x.value[0] = 0x7A; });");
+        engine.Advanced.ProcessTasks();
+
+        engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("ab");
+        engine.Evaluate("s2.getReader().read().then(x => String.fromCharCode.apply(null, Array.from(x.value)))")
+            .UnwrapIfPromise().AsString().Should().Be("ab");
     }
 
     [Fact]
@@ -354,6 +397,7 @@ public class BlobTests
         engine.Evaluate("Blob.prototype.text.length").AsNumber().Should().Be(0);
         engine.Evaluate("Blob.prototype.arrayBuffer.length").AsNumber().Should().Be(0);
         engine.Evaluate("Blob.prototype.bytes.length").AsNumber().Should().Be(0);
+        engine.Evaluate("Blob.prototype.stream.length").AsNumber().Should().Be(0);
     }
 }
 #endif

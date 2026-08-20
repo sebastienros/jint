@@ -187,10 +187,16 @@ public class WebApiFetchTests
     }
 
     [Fact]
-    public void CapsTheResponseBodyWithoutAContentLength()
+    public void CapsTheResponseBodyWithoutAContentLengthWhileItStreams()
     {
         // A server that lies about the length, or uses chunked encoding, is caught by the running total
         // rather than by the declared one.
+        //
+        // Where that failure surfaces changed when response bodies became streams: the fetch promise
+        // resolves as soon as the headers are in — which is what the standard prescribes and what a browser
+        // does — so a cap that is only broken later can no longer reject it. It errors the body stream
+        // instead, and every consumer of that body reports it. The connection is still dropped at the chunk
+        // that crossed the line, so what the cap actually bounds is unchanged.
         var handler = new StubHandler
         {
             Responder = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new UnknownLengthContent(4096) },
@@ -198,8 +204,39 @@ public class WebApiFetchTests
 
         var engine = WebEngine(handler, f => f.MaxResponseBytes = 1024);
 
-        engine.Evaluate("fetch('https://example.org/').then(() => 'resolved', e => e.message)")
-            .UnwrapIfPromise().AsString().Should().Contain("exceeded the 1024 byte limit");
+        engine.Evaluate("fetch('https://example.org/').then(r => r.text()).then(() => 'resolved', e => e.constructor.name + '|' + e.message)")
+            .UnwrapIfPromise().AsString().Should().Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
+    }
+
+    [Fact]
+    public void TheCapReachesAConsumerThatReadsTheStreamItself()
+    {
+        // The same failure through the other door: a script draining response.body chunk by chunk sees the
+        // reader's promise reject rather than a body mixin method's.
+        var handler = new StubHandler
+        {
+            Responder = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new UnknownLengthContent(4096) },
+        };
+
+        var engine = WebEngine(handler, f => f.MaxResponseBytes = 1024);
+
+        engine.Evaluate(@"(async () => {
+                const r = await fetch('https://example.org/');
+                const reader = r.body.getReader();
+                let seen = 0;
+                try
+                {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) return 'closed after ' + seen;
+                        seen += value.length;
+                    }
+                }
+                catch (e) { return e.constructor.name + ' after ' + seen; }
+            })()")
+            // How many bytes arrived first depends on how the transport chunked them; that the read ends in
+            // a TypeError rather than in a close is the pin.
+            .UnwrapIfPromise().AsString().Should().StartWith("TypeError after ");
     }
 
     /// <summary>
