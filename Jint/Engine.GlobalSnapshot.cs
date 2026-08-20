@@ -268,6 +268,15 @@ public partial class Engine
         // deliberately not part of what a restore reverts.
         Modules?.DiscardPendingLoads();
 
+        // An Atomics.waitAsync registered by the cycle that is ending must never have its timeout settled
+        // into the globals just restored. The deadlines are the engine's, not the event loop's, so clearing
+        // the loop above does not reach them; the generation each waiter captured at registration is the
+        // second line of defence for a settlement already promoted into a job. What deliberately does not
+        // happen is removing those waits from the waiter lists of their shared data blocks: a wait asking for
+        // no timeout has always stayed there across a restore, and what Atomics.notify counts should not
+        // depend on whether a wait happened to have a timeout.
+        DiscardAtomicsWaiterDeadlines();
+
 #if NET8_0_OR_GREATER
         // A timer registered by the cycle that is ending must never fire into the globals just restored. The
         // queue is the engine's, not the event loop's, so clearing the loop above does not reach it; the
