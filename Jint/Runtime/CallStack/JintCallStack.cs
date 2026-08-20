@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Function;
+using Jint.Profiling;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -44,6 +45,19 @@ internal sealed class JintCallStack
     private readonly RefStack<CallStackElement> _stack = new();
     private readonly Dictionary<CallStackElement, int>? _statistics;
 
+    /// <summary>
+    /// The profiling session recording this stack's activations, or <see langword="null"/> — which it is
+    /// unless a host has called <see cref="Engine.AdvancedOperations.StartProfiling"/>. Every mutation of
+    /// <see cref="_stack"/> happens in this class, so hooking the four of them here is what makes a
+    /// profile's enter/exit stream balanced by construction, exceptions included: an unwinding throw pops
+    /// through the same <c>finally</c>s a return does.
+    /// </summary>
+    /// <remarks>
+    /// The cost of not profiling is exactly this: one field load and one null test per push and per pop,
+    /// on a field of an object the push is already writing to.
+    /// </remarks>
+    internal ScriptProfiler? _profiler;
+
     // Internal for use by DebugHandler
     internal RefStack<CallStackElement> Stack => _stack;
 
@@ -68,6 +82,7 @@ internal sealed class JintCallStack
     private int Push(in CallStackElement item)
     {
         _stack.Push(in item);
+        _profiler?.RecordEnter(item.Function);
         if (_statistics is not null)
         {
 #pragma warning disable CA1854
@@ -96,6 +111,7 @@ internal sealed class JintCallStack
     public CallStackElement Pop()
     {
         var item = _stack.Pop();
+        _profiler?.RecordExit();
         if (_statistics is not null)
         {
             if (_statistics[item] == 0)
@@ -154,6 +170,7 @@ internal sealed class JintCallStack
         ref var top = ref _stack._array[_stack._size - 1];
         var replacement = new CallStackElement(function, expression, in top.CallingExecutionContext);
         top = replacement;
+        _profiler?.RecordTailReplace(function);
 
         if (_statistics is null)
         {
@@ -218,6 +235,7 @@ internal sealed class JintCallStack
     {
         _stack.Clear();
         _statistics?.Clear();
+        _profiler?.RecordAbandon();
     }
 
     public override string ToString()

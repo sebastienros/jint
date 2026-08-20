@@ -578,6 +578,47 @@ and realm that created it, and passing one to a different engine is not supporte
 nor made safe. `Prepared<Script>` / `Prepared<Module>` and `ModuleBuilder` are the supported ways to share
 work between engines; convert to CLR values (`ToObject()`) to move data.
 
+## Profiling scripts (opt-in)
+
+When a script is slow and you want to know which of *its* functions is responsible, opt the engine in and
+bracket the run. The profiler is **evented, not sampling** — it records at the call boundary on the engine's
+own thread, because inspecting a running engine from another thread is not something Jint supports.
+
+```csharp
+var engine = new Engine(options => options.Profiling.Enabled = true);
+
+engine.Advanced.StartProfiling();
+engine.Execute(script);
+var profile = engine.Advanced.StopProfiling();
+
+using var file = File.Create("run.speedscope.json");
+profile.WriteSpeedscopeJson(file);
+```
+
+Drop the file onto [speedscope.app](https://www.speedscope.app) — it is written in that tool's
+[evented profile format](https://www.speedscope.app/file-format-schema.json), in nanoseconds. The
+`ScriptProfile` is also readable directly: `Frames` (name, file, line, column), `Events` (open/close plus a
+timestamp), `Truncated` and `Duration`. It holds strings and numbers only, so keeping a profile does not keep
+the engine that produced it alive.
+
+Worth knowing before you read a profile:
+
+- **It costs.** Every recorded call pays a frame lookup and a 16-byte event, so a profiled run is slower than
+  an unprofiled one. An engine that is not profiling pays one null test per call-stack push and pop.
+- **`Options.Profiling.MaxEvents`** (default one million) caps a session. Reaching it stops recording, closes
+  whatever was open and sets `Truncated`; the event stream stays balanced and replayable either way — through
+  exceptions, through `ResetCallStack()`, and through a session stopped mid-call.
+- **A tail call is a close followed by an open**, since it replaces its caller's frame rather than nesting in
+  it. Unbounded tail recursion therefore profiles as a flat run of siblings, not as a bottomless tree.
+- **Some calls are elided**, and always in a way that keeps the tree coherent rather than merely incomplete —
+  the eliding call has no frame either, so anything it calls is still recorded at the depth the call stack
+  really has. Those are: trivial built-ins taken through the frameless fast-call lane (`Math.abs(1)` on a warm
+  call site), callbacks a built-in invokes per element (`arr.map(cb)` records `map`, not `cb`), and promise
+  reaction handlers (`p.then(cb)` records `then`, not `cb`).
+
+`StartProfiling()` throws `InvalidOperationException` when `Options.Profiling.Enabled` is false, which is the
+default — an engine running untrusted script can refuse profiling outright.
+
 ## Discussion
 
 Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
