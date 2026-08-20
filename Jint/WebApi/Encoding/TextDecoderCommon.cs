@@ -1,9 +1,7 @@
 #if NET8_0_OR_GREATER
-using System.Text;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
-using SystemEncoding = System.Text.Encoding;
 
 namespace Jint.WebApi.Encoding;
 
@@ -18,47 +16,47 @@ namespace Jint.WebApi.Encoding;
 /// <para>
 /// Both interfaces that include the mixin — <c>TextDecoder</c> and <c>TextDecoderStream</c> — keep their
 /// state here rather than each carrying a copy, which is what makes the two decode the same bytes to the
-/// same string by construction. The specification's decoder state maps onto a BCL <see cref="Decoder"/>
-/// plus two booleans: the <see cref="Decoder"/> is what holds the bytes of a sequence split across two
-/// calls, which is why it is created once per stream and kept until a non-streaming call ends it.
+/// same string by construction, and what gives <c>TextDecoderStream</c> every label <c>TextDecoder</c>
+/// resolves — the legacy single-byte table included.
 /// </para>
 /// <para>
-/// <c>fatal</c> is the BCL's <see cref="DecoderExceptionFallback"/> and the default error mode is its
-/// <see cref="DecoderReplacementFallback"/>, so the U+FFFD substitution follows the Unicode
-/// "maximal subpart" recommendation that https://encoding.spec.whatwg.org/#error-mode also describes.
+/// The specification's decoder state — the encoding's decoder instance, the bytes of an incomplete
+/// sequence, the "do not flush" flag and the "BOM seen" flag — maps onto a
+/// <see cref="TextDecoderHandler"/> plus two booleans. The handler is what holds anything carried from one
+/// <c>decode(…, { stream: true })</c> call to the next, which is why it is reset only when a non-streaming
+/// call ends the stream.
 /// </para>
 /// </remarks>
 internal sealed class TextDecoderCommon
 {
-    // One encoding object per (encoding, error mode). They are immutable and thread-safe; only the
-    // Decoder they hand out is stateful, and that one is per instance.
-    private static readonly SystemEncoding _utf8Replacement = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false);
-    private static readonly SystemEncoding _utf8Fatal = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-    private static readonly SystemEncoding _utf16LeReplacement = new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: false);
-    private static readonly SystemEncoding _utf16LeFatal = new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true);
-    private static readonly SystemEncoding _utf16BeReplacement = new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: false);
-    private static readonly SystemEncoding _utf16BeFatal = new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: true);
-
     private static readonly JsString _fatal = new("fatal");
     private static readonly JsString _ignoreBom = new("ignoreBOM");
 
     /// <summary>U+FEFF, the code point "serialize I/O queue" drops when it leads the stream.</summary>
     private const char ByteOrderMark = (char) 0xFEFF;
 
-    private readonly SystemEncoding _encoding;
+    private readonly TextDecoderHandler _handler;
     private readonly string _encodingName;
+    private readonly bool _stripsByteOrderMark;
 
-    private Decoder? _decoder;
     private bool _doNotFlush;
     private bool _bomSeen;
 
-    internal TextDecoderCommon(string encodingName, bool fatal, bool ignoreBom)
+    internal TextDecoderCommon(in EncodingEntry encoding, bool fatal, bool ignoreBom)
     {
-        Name = JsString.Create(encodingName);
+        Name = JsString.Create(encoding.Name);
         Fatal = fatal;
         IgnoreBom = ignoreBom;
-        _encodingName = encodingName;
-        _encoding = Resolve(encodingName, fatal);
+        _encodingName = encoding.Name;
+        _handler = TextDecoderHandler.Create(in encoding, fatal);
+
+        // "Serialize I/O queue" step 2.3 applies to UTF-8 and UTF-16BE/LE and to nothing else, so a legacy
+        // decoder hands a leading U+FEFF straight through. That is not observable for the legacy encodings
+        // implemented here — no single-byte index maps a byte to U+FEFF and x-user-defined cannot produce
+        // one either — which is exactly why the condition is the specification's own rather than something
+        // derived from what happens to be decodable today: a legacy multi-byte decoder can produce a U+FEFF,
+        // and would silently lose it.
+        _stripsByteOrderMark = encoding.Kind is EncodingKind.Utf8 or EncodingKind.Utf16Le or EncodingKind.Utf16Be;
     }
 
     /// <summary>The encoding's name, already ASCII-lowercase — https://encoding.spec.whatwg.org/#dom-textdecoder-encoding.</summary>
@@ -106,14 +104,28 @@ internal sealed class TextDecoderCommon
             ignoreBom = TypeConverter.ToBoolean(optionsObject.Get(_ignoreBom));
         }
 
-        // Step 1 and 2: get an encoding from the label, and refuse anything the table does not name.
-        var encoding = EncodingLabels.Lookup(labelText);
-        if (encoding is null)
+        // Step 1: get an encoding from the label, and refuse anything the table does not name.
+        if (!EncodingLabels.TryLookup(labelText, out var encoding))
         {
             Throw.RangeError(realm, interfaceName + ": the encoding label provided ('" + labelText + "') is invalid");
         }
 
-        return new TextDecoderCommon(encoding!, fatal, ignoreBom);
+        // Step 2: a label for the replacement encoding is a RangeError too. The encoding exists to keep a
+        // charset the server and the client disagree about from being decoded at all, so handing out a
+        // decoder for it — even one that only ever errors — is precisely what must not happen.
+        if (encoding.Kind == EncodingKind.Replacement)
+        {
+            Throw.RangeError(realm, interfaceName + ": the encoding label provided ('" + labelText + "') is a label for the replacement encoding");
+        }
+
+        // Jint's own deviation, kept apart from the two steps above because it is not one of them: the
+        // legacy multi-byte encodings are named by the table but not implemented.
+        if (encoding.Kind == EncodingKind.Unsupported)
+        {
+            Throw.RangeError(realm, interfaceName + ": the encoding '" + encoding.Name + "' is not supported");
+        }
+
+        return new TextDecoderCommon(in encoding, fatal, ignoreBom);
     }
 
     /// <summary>
@@ -125,45 +137,32 @@ internal sealed class TextDecoderCommon
     /// <param name="stream">The <c>stream</c> option, which becomes the new "do not flush" flag.</param>
     internal JsString Decode(Realm realm, ReadOnlySpan<byte> input, bool stream)
     {
-        // Step 1: a decode that follows a non-streaming one starts a new stream, which is what discarding
-        // the decoder does — the next call builds a fresh one, holding no bytes over and having seen no BOM.
+        // Step 1: a decode that follows a non-streaming one starts a new stream, which is what resetting
+        // the handler does — the next call holds no bytes over and has seen no BOM.
         if (!_doNotFlush)
         {
-            _decoder = null;
+            _handler.Reset();
             _bomSeen = false;
         }
 
         _doNotFlush = stream;
 
-        var decoder = _decoder ??= _encoding.GetDecoder();
-
-        char[] chars;
-        int charCount;
-        try
+        if (!_handler.TryDecode(input, flush: !stream, out var decoded))
         {
-            // GetCharCount does not advance the decoder, so this is the documented two-pass shape rather
-            // than a double decode.
-            chars = new char[decoder.GetCharCount(input, flush: !stream)];
-            charCount = decoder.GetChars(input, chars, flush: !stream);
-        }
-        catch (DecoderFallbackException)
-        {
-            // The instance is reset rather than left holding a decoder whose state after a fallback
-            // exception the BCL does not define, so the next decode starts a clean stream.
-            _decoder = null;
+            // The instance is reset rather than left holding a decoder whose state after a fatal failure
+            // is not defined, so the next decode starts a clean stream.
+            _handler.Reset();
             _doNotFlush = false;
             _bomSeen = false;
             Throw.TypeError(realm, "The encoded data was not valid for encoding " + _encodingName);
             return null!;
         }
 
-        var decoded = chars.AsSpan(0, charCount);
-
-        // "Serialize I/O queue" step 2.3: for utf-8, utf-16le and utf-16be — which is all three we
-        // implement — the very first scalar value of the stream is dropped when it is U+FEFF. BOM seen is
-        // set by looking, not by finding one, so at most one leading BOM is ever removed and only once per
-        // stream, which is what makes a BOM split across two chunks work.
-        if (!IgnoreBom && !_bomSeen && decoded.Length > 0)
+        // "Serialize I/O queue" step 2.3: for utf-8, utf-16le and utf-16be — and for nothing else, per the
+        // step's own condition — the very first scalar value of the stream is dropped when it is U+FEFF.
+        // BOM seen is set by looking, not by finding one, so at most one leading BOM is ever removed and
+        // only once per stream, which is what makes a BOM split across two chunks work.
+        if (_stripsByteOrderMark && !IgnoreBom && !_bomSeen && decoded.Length > 0)
         {
             _bomSeen = true;
             if (decoded[0] == ByteOrderMark)
@@ -173,21 +172,6 @@ internal sealed class TextDecoderCommon
         }
 
         return decoded.Length == 0 ? JsString.Empty : JsString.Create(decoded.ToString());
-    }
-
-    private static SystemEncoding Resolve(string encodingName, bool fatal)
-    {
-        if (string.Equals(encodingName, EncodingLabels.Utf16Le, StringComparison.Ordinal))
-        {
-            return fatal ? _utf16LeFatal : _utf16LeReplacement;
-        }
-
-        if (string.Equals(encodingName, EncodingLabels.Utf16Be, StringComparison.Ordinal))
-        {
-            return fatal ? _utf16BeFatal : _utf16BeReplacement;
-        }
-
-        return fatal ? _utf8Fatal : _utf8Replacement;
     }
 }
 #endif

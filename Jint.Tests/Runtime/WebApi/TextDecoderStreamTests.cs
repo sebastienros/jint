@@ -61,7 +61,10 @@ public class TextDecoderStreamTests
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('windows-1252')"))
+        // windows-1252 became a supported single-byte encoding when the legacy tables landed, so the
+        // still-refused boundary is a legacy multi-byte label — RangeError, exactly as TextDecoder reports it.
+        engine.Evaluate("new TextDecoderStream('windows-1252').encoding").AsString().Should().Be("windows-1252");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('big5')"))
             .Error.Get("name").AsString().Should().Be("RangeError");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('utf-8', 42)"))
             .Error.Get("name").AsString().Should().Be("TypeError");

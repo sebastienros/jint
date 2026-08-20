@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using Jint;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -96,6 +97,37 @@ public class WebApiEncodingTests
 
         engine.Evaluate("new TextEncoder().encode('Grüße').join(',')").AsString().Should().Be("71,114,195,188,195,159,101");
         engine.Evaluate("new TextDecoder().decode(new Uint8Array([71, 114, 195, 188, 195, 159, 101]))").AsString().Should().Be("Grüße");
+    }
+
+    [Fact]
+    public void DecodesTheLegacyEncodingsForTheHost()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
+
+        // The bytes a host reads out of a legacy file or an old HTTP response, decoded through the index
+        // the Encoding Standard gives windows-1252.
+        engine.Evaluate("new TextDecoder('windows-1252').decode(new Uint8Array([0x93, 0x47, 0x72, 0xFC, 0xDF, 0x65, 0x94]))")
+            .AsString().Should().Be("\u201CGrüße\u201D");
+
+        // ISO-8859-1 and every one of its aliases are labels for windows-1252. That is the standard's own
+        // rule and the one embedders are most often surprised by, so it is pinned from out here too.
+        engine.Evaluate("new TextDecoder('iso-8859-1').encoding").AsString().Should().Be("windows-1252");
+        engine.Evaluate("new TextDecoder('latin1').decode(new Uint8Array([0x80])).charCodeAt(0)")
+            .AsNumber().Should().Be(0x20AC);
+
+        // x-user-defined maps the upper half into the private use area instead, which is how a script gets
+        // arbitrary bytes through a string unharmed.
+        engine.Evaluate("new TextDecoder('x-user-defined').decode(new Uint8Array([0xFF])).charCodeAt(0)")
+            .AsNumber().Should().Be(0xF7FF);
+
+        // The legacy multi-byte encodings are not implemented, and say so rather than decoding as something
+        // else; nor is the replacement encoding, which the specification itself requires be refused.
+        foreach (var label in new[] { "shift_jis", "gbk", "big5", "replacement", "iso-2022-kr" })
+        {
+            engine.SetValue("label", label);
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))
+                .Error.Get("name").AsString().Should().Be("RangeError");
+        }
     }
 
     [Fact]
