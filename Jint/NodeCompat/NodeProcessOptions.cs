@@ -1,7 +1,3 @@
-#if !NET8_0_OR_GREATER && !NETFRAMEWORK
-using System.Runtime.InteropServices;
-#endif
-
 namespace Jint.NodeCompat;
 
 /// <summary>
@@ -36,7 +32,7 @@ public sealed class NodeProcessOptions
     internal const string JintVersionString = "v0.0.0-jint";
 
     private IReadOnlyCollection<string> _environmentVariableAllowlist = [];
-    private string _platform = DefaultPlatform();
+    private string _platform = NodePlatform.Default();
     private string _version = JintVersionString;
     private string _workingDirectory = "/";
 
@@ -110,7 +106,7 @@ public sealed class NodeProcessOptions
     public string Platform
     {
         get => _platform;
-        set => _platform = value ?? DefaultPlatform();
+        set => _platform = value ?? NodePlatform.Default();
     }
 
     /// <summary>
@@ -160,34 +156,5 @@ public sealed class NodeProcessOptions
     {
         get => _workingDirectory;
         set => _workingDirectory = value ?? "/";
-    }
-
-    /// <summary>
-    /// The running platform as one of Node's platform strings.
-    /// </summary>
-    /// <remarks>
-    /// Not an API gap but a genuine three-way, and the same one <c>DefaultTimeZoneProvider</c> answers:
-    /// <see cref="OperatingSystem"/>'s predicates arrived in .NET 5, netstandard has to ask the runtime, and
-    /// <c>net462</c> only ever runs on Windows.
-    /// </remarks>
-    private static string DefaultPlatform()
-    {
-#if NET8_0_OR_GREATER
-        if (OperatingSystem.IsWindows())
-        {
-            return "win32";
-        }
-
-        return OperatingSystem.IsMacOS() ? "darwin" : "linux";
-#elif NETFRAMEWORK
-        return "win32";
-#else
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            return "win32";
-        }
-
-        return RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "darwin" : "linux";
-#endif
     }
 }

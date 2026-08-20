@@ -163,6 +163,13 @@ internal static class Throw
         throw new JavaScriptException(realm.Intrinsics.RangeError, message).SetJavaScriptLocation(in location);
     }
 
+    [DoesNotReturn]
+    public static void UriError(Realm realm, string? message = null)
+    {
+        var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+        throw new JavaScriptException(realm.Intrinsics.UriError, message).SetJavaScriptLocation(in location);
+    }
+
     public static ErrorDispatchInfo CreateUriError(Realm realm, string message)
     {
         return new ErrorDispatchInfo(realm.Intrinsics.UriError, message);
