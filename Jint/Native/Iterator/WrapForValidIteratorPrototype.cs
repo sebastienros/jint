@@ -36,9 +36,20 @@ internal sealed partial class WrapForValidIteratorPrototype : Prototype
         }
 
         // 3. Let iteratorRecord be O.[[Iterated]].
+        var iterated = wrapper.Iterated;
+
         // 4. Return ? Call(iteratorRecord.[[NextMethod]], iteratorRecord.[[Iterator]]).
-        wrapper.Iterated.TryIteratorStep(out var result);
-        return result;
+        // The step hands the wrapped iterator's answer straight back: it neither requires the
+        // result to be an Object nor reads `done` off it. Both of those belong to IteratorNext
+        // (https://tc39.es/ecma262/#sec-iteratornext step 3), performed by whoever consumes this
+        // wrapper as an iterator -- calling .next() on it directly is not such a consumption.
+        var nextMethod = iterated.NextMethod;
+        if (nextMethod is null)
+        {
+            Throw.TypeError(_realm, "Iterator does not have a next method");
+        }
+
+        return nextMethod.Call(iterated.Instance);
     }
 
     /// <summary>

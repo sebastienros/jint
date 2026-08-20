@@ -426,7 +426,7 @@ public static class AstExtensions
             switch (specifier)
             {
                 case ImportNamespaceSpecifier namespaceSpecifier:
-                    importEntries.Add(new ImportEntry(moduleRequest, "*", namespaceSpecifier.Local.GetModuleKey(), phase));
+                    importEntries.Add(new ImportEntry(moduleRequest, ImportName: null, namespaceSpecifier.Local.GetModuleKey(), phase, ModuleImportName.Namespace));
                     break;
                 case ImportSpecifier importSpecifier:
                     importEntries.Add(new ImportEntry(moduleRequest, importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()!, phase));
@@ -465,7 +465,7 @@ public static class AstExtensions
             case ExportAllDeclaration allDeclaration:
                 //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
                 requestedModules.Add(new ModuleRequest(allDeclaration.Source.Value, []));
-                exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.Value, []), "*", null));
+                exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.Value, []), ImportName: null, LocalName: null, ModuleImportName.Namespace));
                 break;
             case ExportNamedDeclaration namedDeclaration:
                 ref readonly var specifiers = ref namedDeclaration.Specifiers;

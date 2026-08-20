@@ -60,7 +60,7 @@ internal sealed partial class WeakMapPrototype : Prototype
 
     private JsValue AssertCanBeHeldWeakly(JsValue key)
     {
-        if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!key.CanBeHeldWeakly())
         {
             Throw.TypeError(_realm, "Invalid value used as weak map key");
         }

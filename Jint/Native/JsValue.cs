@@ -104,22 +104,27 @@ public abstract partial class JsValue : IEquatable<JsValue>
         GeneratorKind hint = GeneratorKind.Sync,
         ICallable? method = null)
     {
+        // GetIterator (https://tc39.es/ecma262/#sec-getiterator) reads the method with GetMethod,
+        // which is GetV: the lookup goes through ToObject, but the [[Get]] receiver -- and the this
+        // value GetIteratorFromMethod (https://tc39.es/ecma262/#sec-getiteratorfrommethod) then
+        // calls it with -- is the *original* value. A primitive therefore reaches a strict-mode
+        // @@iterator as a primitive, not as the wrapper this lookup had to build.
         var obj = TypeConverter.ToObject(realm, this);
 
         if (method is null)
         {
             if (hint == GeneratorKind.Async)
             {
-                method = obj.GetMethod(GlobalSymbolRegistry.AsyncIterator);
+                method = GetMethod(realm, obj, this, GlobalSymbolRegistry.AsyncIterator);
                 if (method is null)
                 {
-                    var syncMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                    var syncMethod = GetMethod(realm, obj, this, GlobalSymbolRegistry.Iterator);
                     if (syncMethod is null)
                     {
                         iterator = null;
                         return false;
                     }
-                    var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncMethod);
+                    var syncIteratorRecord = GetIterator(realm, GeneratorKind.Sync, syncMethod);
                     // CreateAsyncFromSyncIterator - wrap the sync iterator in an async adapter
                     var asyncFromSync = new AsyncFromSyncIterator(obj.Engine, syncIteratorRecord);
                     iterator = new IteratorInstance.ObjectIterator(asyncFromSync);
@@ -128,7 +133,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
             }
             else
             {
-                method = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                method = GetMethod(realm, obj, this, GlobalSymbolRegistry.Iterator);
             }
         }
 
@@ -138,7 +143,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return false;
         }
 
-        var iteratorResult = method.Call(obj, Arguments.Empty) as ObjectInstance;
+        var iteratorResult = method.Call(this, Arguments.Empty) as ObjectInstance;
         if (iteratorResult is null)
         {
             Throw.TypeError(realm, "Result of the Symbol.iterator method is not an object");
@@ -365,7 +370,19 @@ public abstract partial class JsValue : IEquatable<JsValue>
         // GetMethod uses GetV which converts primitives to objects
         // https://tc39.es/ecma262/#sec-getv
         var target = v is ObjectInstance obj ? obj : TypeConverter.ToObject(realm, v);
-        var jsValue = target.Get(p, v);
+        return GetMethod(realm, target, v, p);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getmethod
+    /// GetMethod for a caller that has already performed GetV's ToObject step. The
+    /// <paramref name="receiver"/> is the original value, which is what [[Get]] takes as its
+    /// receiver -- an accessor therefore sees the primitive rather than the wrapper the lookup
+    /// had to build.
+    /// </summary>
+    internal static ICallable? GetMethod(Realm realm, ObjectInstance target, JsValue receiver, JsValue p)
+    {
+        var jsValue = target.Get(p, receiver);
         if (jsValue.IsNullOrUndefined())
         {
             return null;

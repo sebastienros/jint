@@ -151,12 +151,15 @@ public static class JsValueExtensions
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-canbeheldweakly
+    /// Every Object, and every Symbol that is not a registered symbol -- one appended to the
+    /// GlobalSymbolRegistry by Symbol.for, which lives as long as the agent does and so can never
+    /// be collected. Sharing a description with a registered symbol does not make one.
     /// </summary>
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool CanBeHeldWeakly(this JsValue value, GlobalSymbolRegistry symbolRegistry)
+    internal static bool CanBeHeldWeakly(this JsValue value)
     {
-        return value.IsObject() || (value.IsSymbol() && symbolRegistry.KeyForSymbol(value).IsUndefined());
+        return value.IsObject() || (value.IsSymbol() && GlobalSymbolRegistry.KeyForSymbol(value).IsUndefined());
     }
 
     [Pure]

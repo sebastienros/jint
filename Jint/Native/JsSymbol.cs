@@ -7,6 +7,17 @@ public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
 {
     internal readonly JsValue _value;
 
+    /// <summary>
+    /// True once this symbol has been appended to the GlobalSymbolRegistry by Symbol.for
+    /// (https://tc39.es/ecma262/#sec-symbol.for). The registry record's [[Key]] is the description
+    /// the symbol was created with, so <see cref="_value"/> <em>is</em> that key; what a description
+    /// on its own cannot say is whether <em>this</em> symbol is the one the registry holds under it.
+    /// That is exactly what KeyForSymbol (https://tc39.es/ecma262/#sec-keyforsymbol) and
+    /// CanBeHeldWeakly (https://tc39.es/ecma262/#sec-canbeheldweakly) ask, and a symbol from
+    /// <c>Symbol("x")</c> must answer no even when <c>Symbol.for("x")</c> has also run.
+    /// </summary>
+    internal bool _registered;
+
     internal JsSymbol(string value) : this(new JsString(value))
     {
     }

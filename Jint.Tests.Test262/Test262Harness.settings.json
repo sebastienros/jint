@@ -122,14 +122,6 @@
     "staging/sm/extensions/quote-string-for-nul-character.js",
     "staging/sm/misc/builtin-methods-reject-null-undefined-this.js",
 
-    // Remaining one-offs, each its own gap: Iterator.from's next() result validation, the Map
-    // constructor's per-entry type check, Symbol.keyFor over a cross-realm registry, and a module
-    // namespace re-exported under a string name.
-    "staging/sm/Iterator/from/wrap-next-not-object-throws.js",
-    "staging/sm/Map/iterable.js",
-    "staging/sm/Symbol/keyFor.js",
-    "staging/sm/module/module-export-name-star.js",
-
     // === PERMANENT EXCLUSIONS ===
     //
     // Everything above this banner is debt: a gap somebody is expected to pay down, each entry saying
