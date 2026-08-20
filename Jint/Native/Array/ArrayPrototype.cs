@@ -1345,7 +1345,9 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 if (o.HasProperty(from))
                 {
                     var fromValue = o.Get(from);
-                    o.Set(to, fromValue, throwOnError: false);
+                    // https://tc39.es/ecma262/#sec-array.prototype.splice step 15.b.iv is the throwing
+                    // Set, exactly as the growing branch below already performs.
+                    o.Set(to, fromValue, throwOnError: true);
                 }
                 else
                 {
@@ -1724,7 +1726,10 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var to = k - 1;
             if (o.TryGetValue(k, out var fromVal))
             {
-                o.Set(to, fromVal, throwOnError: false);
+                // https://tc39.es/ecma262/#sec-array.prototype.shift step 6.d.ii is
+                // Perform ? Set(O, to, fromValue, true) -- a non-writable element, or a Proxy set trap
+                // answering false, has to surface as a TypeError in both modes rather than be dropped.
+                o.Set(to, fromVal, throwOnError: true);
             }
             else
             {

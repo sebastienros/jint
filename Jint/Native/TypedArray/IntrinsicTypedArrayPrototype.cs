@@ -1807,7 +1807,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
     private static JsValue[] SortArray(JsArrayBuffer buffer, ICallable? compareFn, JsTypedArray obj)
     {
         var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
-        var operations = ArrayOperations.For(obj, forWrite: false);
+        var operations = ArrayOperations.ForIntrinsicLength(obj);
         try
         {
             // StableOrder, not a BCL sort: the sort must be stable (spec, since ES2019) and must
