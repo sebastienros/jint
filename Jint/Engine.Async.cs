@@ -32,22 +32,22 @@ public partial class Engine
     public Task<JsValue> EvaluateAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
         var owner = ReserveAsyncHostOperation();
+        Task<JsValue> task;
         try
         {
-            Task<JsValue> task;
             using (EnterHostCall(owner))
             {
                 var result = Evaluate(code, source);
                 task = UnwrapResultAsync(result, owner, cancellationToken);
             }
-
-            return CompleteAsyncHostOperation(task, owner);
         }
         catch
         {
             ReleaseAsyncHostOperation(owner);
             throw;
         }
+
+        return CompleteAsyncHostOperation(task, owner);
     }
 
     /// <summary>
@@ -69,22 +69,22 @@ public partial class Engine
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
         var owner = ReserveAsyncHostOperation();
+        Task<JsValue> task;
         try
         {
-            Task<JsValue> task;
             using (EnterHostCall(owner))
             {
                 var result = Evaluate(in preparedScript);
                 task = UnwrapResultAsync(result, owner, cancellationToken);
             }
-
-            return CompleteAsyncHostOperation(task, owner);
         }
         catch
         {
             ReleaseAsyncHostOperation(owner);
             throw;
         }
+
+        return CompleteAsyncHostOperation(task, owner);
     }
 
     /// <summary>
@@ -103,25 +103,25 @@ public partial class Engine
     /// <param name="source">Optional source identifier for debugging.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
-    public Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
+    public async Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
         var owner = ReserveAsyncHostOperation();
+        Task<JsValue> task;
         try
         {
-            Task<JsValue> task;
             using (EnterHostCall(owner))
             {
                 var result = Evaluate(code, source);
                 task = UnwrapResultAsync(result, owner, cancellationToken);
             }
-
-            return CompleteExecuteAsync(task, owner);
         }
         catch
         {
             ReleaseAsyncHostOperation(owner);
             throw;
         }
+
+        return await CompleteExecuteAsync(task, owner).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -153,22 +153,22 @@ public partial class Engine
     public Task<JsValue> InvokeAsync(string propertyName, CancellationToken cancellationToken, params object?[] arguments)
     {
         var owner = ReserveAsyncHostOperation();
+        Task<JsValue> task;
         try
         {
-            Task<JsValue> task;
             using (EnterHostCall(owner))
             {
                 var result = Invoke(propertyName, arguments);
                 task = UnwrapResultAsync(result, owner, cancellationToken);
             }
-
-            return CompleteAsyncHostOperation(task, owner);
         }
         catch
         {
             ReleaseAsyncHostOperation(owner);
             throw;
         }
+
+        return CompleteAsyncHostOperation(task, owner);
     }
 
     private async Task<JsValue> CompleteAsyncHostOperation(Task<JsValue> task, object owner)

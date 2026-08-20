@@ -47,7 +47,8 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
-    private static readonly MethodInfo enterHostCallback = engineType.GetMethod("EnterHostCallback", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo enterHostCallback = engineType.GetMethod("EnterTransferredHostCallback", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo getHostCallbackOwner = engineType.GetMethod("GetHostCallbackOwner", BindingFlags.Instance | BindingFlags.NonPublic)!;
     private static readonly MethodInfo exitHostCallback = typeof(Engine.HostCallScope).GetMethod(nameof(IDisposable.Dispose))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
@@ -97,6 +98,7 @@ public class DefaultTypeConverter : ITypeConverter
 
     private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
     private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
+    private static readonly ConditionalWeakTable<Delegate, ObjectInstance> _hostCallbackDelegates = new();
 
     private bool TryConvertInternal(
         object? value,
@@ -207,6 +209,10 @@ public class DefaultTypeConverter : ITypeConverter
             {
                 var func = (JsCallDelegate) value;
                 var functionInstance = func.Target;
+                if (functionInstance is ObjectInstance callback)
+                {
+                    callback.Engine.AuthorizeHostCallback(callback);
+                }
 
                 // caching of .NET delegates per function instance is required to be able to support
                 // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged)
@@ -223,6 +229,11 @@ public class DefaultTypeConverter : ITypeConverter
                         return targetBinder(target)!;
                     }) :
                     BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+
+                if (functionInstance is ObjectInstance callbackTarget)
+                {
+                    _hostCallbackDelegates.GetValue(d, _ => callbackTarget);
+                }
 
                 converted = d;
                 return true;
@@ -419,6 +430,33 @@ public class DefaultTypeConverter : ITypeConverter
         return (Func<object, Delegate>) curried.Compile();
     }
 
+    internal static bool ContainsHostCallback(object?[] parameters)
+    {
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (IsHostCallback(parameters[i]))
+            {
+                return true;
+            }
+
+            if (parameters[i] is Array callbacks)
+            {
+                foreach (var callback in callbacks)
+                {
+                    if (IsHostCallback(callback))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    internal static bool IsHostCallback(object? value)
+        => value is Delegate callback && _hostCallbackDelegates.TryGetValue(callback, out _);
+
     private static LambdaExpression BuildDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
         JsCallDelegate function,
@@ -495,7 +533,15 @@ public class DefaultTypeConverter : ITypeConverter
         var ownership = Expression.Variable(typeof(Engine.HostCallScope), "ownership");
         var guardedBody = Expression.Block(
             [ownership],
-            Expression.Assign(ownership, Expression.Call(targetEngine, enterHostCallback)),
+            Expression.Assign(
+                ownership,
+                Expression.Call(
+                    targetEngine,
+                    enterHostCallback,
+                    Expression.Call(
+                        targetEngine,
+                        getHostCallbackOwner,
+                        Expression.Convert(targetExpression, typeof(ObjectInstance))))),
             Expression.TryFinally(body, Expression.Call(ownership, exitHostCallback)));
 
         return Expression.Lambda(

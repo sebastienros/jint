@@ -309,6 +309,8 @@ internal sealed class DelegateWrapper : Function
 #endif
         try
         {
+            using var suspension = Engine.SuspendHostCallForCallbacks(
+                _metadata.MayReceiveHostCallback && DefaultTypeConverter.ContainsHostCallback(parameters));
 #if NET8_0_OR_GREATER
             result = viaCompiledLane ? invoker!(_d, parameters) : _d.DynamicInvoke(parameters);
 #else
@@ -337,6 +339,8 @@ internal sealed class DelegateWrapper : Function
         object? result;
         try
         {
+            using var suspension = Engine.SuspendHostCallForCallbacks(
+                _metadata.MayReceiveHostCallback && DefaultTypeConverter.IsHostCallback(argument0));
             result = invoker(_d, argument0);
         }
         catch (Exception exception)
@@ -353,6 +357,9 @@ internal sealed class DelegateWrapper : Function
         object? result;
         try
         {
+            using var suspension = Engine.SuspendHostCallForCallbacks(
+                _metadata.MayReceiveHostCallback
+                && (DefaultTypeConverter.IsHostCallback(argument0) || DefaultTypeConverter.IsHostCallback(argument1)));
             result = invoker(_d, argument0, argument1);
         }
         catch (Exception exception)
@@ -467,6 +474,7 @@ internal sealed class DelegateMetadata
 
         ParameterMetadata[] parameters = parameterInfos.Length == 0 ? [] : new ParameterMetadata[parameterInfos.Length];
         var hasParamsArray = false;
+        var mayReceiveHostCallback = false;
         for (var i = 0; i < parameterInfos.Length; i++)
         {
             var parameterInfo = parameterInfos[i];
@@ -478,10 +486,13 @@ internal sealed class DelegateMetadata
                 IsValueType: parameterType.IsValueType);
 
             hasParamsArray |= Attribute.IsDefined(parameterInfo, typeof(ParamArrayAttribute));
+            mayReceiveHostCallback |= typeof(Delegate).IsAssignableFrom(parameterType)
+                || (parameterType.IsArray && typeof(Delegate).IsAssignableFrom(parameterType.GetElementType()!));
         }
 
         Parameters = parameters;
         HasParamsArray = hasParamsArray;
+        MayReceiveHostCallback = mayReceiveHostCallback;
 
         if (hasParamsArray)
         {
@@ -493,6 +504,8 @@ internal sealed class DelegateMetadata
     internal ParameterMetadata[] Parameters { get; }
 
     internal bool HasParamsArray { get; }
+
+    internal bool MayReceiveHostCallback { get; }
 
     /// <summary>Element type of the trailing params array; only meaningful when <see cref="HasParamsArray"/>.</summary>
     internal Type? ParamsElementType { get; }

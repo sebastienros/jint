@@ -484,6 +484,8 @@ internal sealed class MethodInfoFunction : Function
                 object? result;
                 try
                 {
+                    using var suspension = _engine.SuspendHostCallForCallbacks(
+                        DefaultTypeConverter.ContainsHostCallback(parameters));
                     result = resolvedMethod.Invoke(thisObj, parameters);
                 }
                 catch (ArgumentException)
@@ -503,7 +505,12 @@ internal sealed class MethodInfoFunction : Function
                 return true;
             }
 
-            var invokeResult = method.Invoke(thisObj, parameters);
+            object? invokeResult;
+            using (Engine.SuspendHostCallForCallbacks(
+                       DefaultTypeConverter.ContainsHostCallback(parameters)))
+            {
+                invokeResult = method.Invoke(thisObj, parameters);
+            }
             callResult = FromObjectWithType(Engine, invokeResult, type: method.ReturnType);
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return true;

@@ -151,6 +151,69 @@ public class HostEngineConcurrencyTests
     }
 
     [Fact]
+    public void HostCanSynchronouslyDispatchAJsCallbackToAnotherThread()
+    {
+        var engine = new Engine();
+        engine.SetValue("onOtherThread", new Func<Func<int, int>, int>(callback =>
+        {
+            Exception? error = null;
+            var result = 0;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    result = callback(41);
+                }
+                catch (Exception exception)
+                {
+                    error = exception;
+                }
+            });
+            thread.Start();
+            thread.Join();
+            if (error is not null)
+            {
+                throw error;
+            }
+
+            return result;
+        }));
+
+        engine.Evaluate("onOtherThread(x => x + 1)").AsNumber().Should().Be(42);
+        engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void ReflectedHostMethodCanDispatchAJsCallbackToAnotherThread()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new CallbackHost());
+
+        engine.Evaluate("host.OnOtherThread(x => x + 1)").AsNumber().Should().Be(42);
+        engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void ReflectedHostMethodCanDispatchAJsCallbackFromAParamsArray()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new CallbackHost());
+
+        engine.Evaluate("host.OnOtherThreadFromArray(() => 42)").AsNumber().Should().Be(42);
+        engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public void HostReceivingAJsCallbackCanReenterOnTheSameThread()
+    {
+        var engine = new Engine();
+        engine.SetValue("reenter", new Func<Func<int>, int>(callback =>
+            (int) engine.Evaluate("20 + 21").AsNumber() + callback()));
+
+        engine.Evaluate("reenter(() => 1)").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
     public void AsyncEntryFromAHostCallbackFailsBeforeStartingWork()
     {
         var engine = new Engine();
@@ -187,6 +250,61 @@ public class HostEngineConcurrencyTests
         await Task.Run(() => gate.SetResult(41));
         (await pending).AsNumber().Should().Be(42);
         engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
+    public async Task AsyncHostMethodCanInvokeItsJsCallbackFromAnotherThread()
+    {
+        var callbackReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var invokeCallback = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new Engine();
+        engine.SetValue("schedule", new Func<Func<int>, Task<int>>(callback =>
+        {
+            callbackReady.SetResult(true);
+            return Task.Run(async () =>
+            {
+                await invokeCallback.Task;
+                return callback();
+            });
+        }));
+
+        var pending = engine.EvaluateAsync("(async () => (await schedule(() => 42)))()");
+        await callbackReady.Task;
+        invokeCallback.SetResult(true);
+
+        (await pending).AsNumber().Should().Be(42);
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ImmediateCrossThreadCallbacksDoNotLeakAsyncOwnership()
+    {
+        var engine = new Engine();
+        engine.SetValue("schedule", new Func<Func<int>, Task<int>>(callback => Task.Run(callback)));
+
+        for (var i = 0; i < 50; i++)
+        {
+            (await engine.EvaluateAsync("(async () => await schedule(() => 42))()"))
+                .AsNumber().Should().Be(42);
+        }
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public void DelayedCrossThreadCallbackReleasesBlockingPromiseOwnership()
+    {
+        var engine = new Engine();
+        engine.SetValue("later", new Action<Action>(callback =>
+            Task.Delay(50).ContinueWith(_ => callback(), TaskScheduler.Default)));
+
+        engine.Evaluate("new Promise(resolve => later(() => resolve(42)))")
+            .UnwrapIfPromise()
+            .AsNumber()
+            .Should()
+            .Be(42);
+
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
     [Fact]
@@ -235,6 +353,32 @@ public class HostEngineConcurrencyTests
         var module = await pending;
         module.Get("value").AsNumber().Should().Be(42);
         engine.Evaluate("1").AsNumber().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ExecuteAsyncReportsInitialFailureThroughItsTask()
+    {
+        Task<Engine>? task = null;
+        Action start = () => task = new Engine().ExecuteAsync("const =");
+
+        Invoking(start)
+            .Should().NotThrow();
+
+        await Awaiting(() => task!).Should().ThrowAsync<Exception>();
+    }
+
+    [Fact]
+    public async Task ImportAsyncReportsInitialFailureThroughItsTask()
+    {
+        var engine = new Engine(options => options.EnableModules(new RejectingModuleLoader()));
+        Task<Jint.Native.Object.ObjectInstance>? task = null;
+        Action start = () => task = engine.Modules.ImportAsync("blocked");
+
+        Invoking(start)
+            .Should().NotThrow();
+
+        await Awaiting(() => task!).Should().ThrowAsync<PromiseRejectedException>();
+        engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
     [Fact]
@@ -423,6 +567,68 @@ public class HostEngineConcurrencyTests
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
         {
             Completion = completion;
+        }
+    }
+
+    private sealed class RejectingModuleLoader : IModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => throw new ModuleResolutionException("blocked", moduleRequest.Specifier, referencingModuleLocation, filePath: null);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("Resolve should reject the import.");
+    }
+
+    private sealed class CallbackHost
+    {
+        public int OnOtherThread(Func<int, int> callback)
+        {
+            Exception? error = null;
+            var result = 0;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    result = callback(41);
+                }
+                catch (Exception exception)
+                {
+                    error = exception;
+                }
+            });
+            thread.Start();
+            thread.Join();
+            if (error is not null)
+            {
+                throw error;
+            }
+
+            return result;
+        }
+
+        public int OnOtherThreadFromArray(params Func<int>[] callbacks)
+        {
+            Exception? error = null;
+            var result = 0;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    result = callbacks[0]();
+                }
+                catch (Exception exception)
+                {
+                    error = exception;
+                }
+            });
+            thread.Start();
+            thread.Join();
+            if (error is not null)
+            {
+                throw error;
+            }
+
+            return result;
         }
     }
 }

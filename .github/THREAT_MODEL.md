@@ -414,6 +414,10 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 - Same-thread synchronous callback re-entry is allowed. Async entry from inside an active
   engine call is rejected before work starts; top-level async APIs reserve ownership for the
   lifetime of their returned `Task` and transfer the active thread when a continuation resumes.
+- JavaScript callbacks converted to CLR delegates carry operation-scoped authorization. A host
+  may dispatch one to another thread while its CLR call or async operation is outstanding; Jint
+  yields and transfers the reserved engine one callback turn at a time without admitting unrelated
+  public callers.
 - Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**
@@ -422,6 +426,9 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
   already handed to the host, such as mutating `engine.Global` or a retained `ObjectInstance`.
 - Fail-fast detection prevents concurrent state corruption; it does not make one engine a
   tenant-isolation boundary or repair host state mutated before an exception.
+- Authorized callback transfers may wait for the preceding callback turn to release ownership.
+  The fail-fast guarantee applies to unrelated public host entries, not this explicitly serialized
+  continuation of the operation that already owns the engine.
 - A host can still share projected CLR objects across otherwise separate engines.
 
 **Required host action.** Give an engine exclusive ownership for each complete operation and

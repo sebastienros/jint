@@ -75,8 +75,9 @@ public partial class Engine
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
-        /// NOTE: that resolve and reject need to be called withing the same thread as "ExecuteWithEventLoop".
-        /// The API assumes that the Engine is called from a single thread.
+        /// Resolve and reject may be called from another thread. Settlement is enqueued safely and drains
+        /// inline only when that thread can claim exclusive engine ownership; otherwise the owning host turn
+        /// or a later <see cref="ProcessTasks"/> call drains it.
         /// </summary>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()

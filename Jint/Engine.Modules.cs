@@ -813,25 +813,25 @@ public partial class Engine
             => ImportAsync(specifier, referencingModuleLocation: null, cancellationToken);
 
         /// <inheritdoc cref="ImportAsync(string,CancellationToken)" />
-        public Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
+        public async Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
         {
             var owner = _engine.ReserveAsyncHostOperation();
+            Task<JsValue> task;
             try
             {
-                Task<JsValue> task;
                 using (_engine.EnterHostCall(owner))
                 {
                     var promise = StartImport(specifier, referencingModuleLocation).Promise;
                     task = _engine.UnwrapResultAsync(promise, owner, cancellationToken);
                 }
-
-                return CompleteImportAsync(task, _engine, owner);
             }
             catch
             {
                 _engine.ReleaseAsyncHostOperation(owner);
                 throw;
             }
+
+            return await CompleteImportAsync(task, _engine, owner).ConfigureAwait(false);
         }
 
         private static async Task<ObjectInstance> CompleteImportAsync(Task<JsValue> task, Engine engine, object owner)
