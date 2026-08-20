@@ -81,6 +81,312 @@ internal static class ConsoleFormatter
         return builder.ToString();
     }
 
+    /// <summary>
+    /// <c>console.table</c>'s renderer: "Try to construct a table with the columns of the properties of
+    /// tabularData (or use properties) and rows of tabularData", https://console.spec.whatwg.org/#table.
+    /// </summary>
+    /// <param name="tabularData">The value to tabulate.</param>
+    /// <param name="properties">
+    /// The <c>properties</c> argument, already converted from its WebIDL <c>sequence&lt;DOMString&gt;</c>, or
+    /// <see langword="null"/> when it was not given. When given it is the column set outright, in its own
+    /// order, and a name it lists that a row does not have simply renders an empty cell.
+    /// </param>
+    /// <param name="text">The rendered table, when there is one.</param>
+    /// <returns>
+    /// Whether the value could be parsed as tabular. <see langword="false"/> is the standard's "fall back to
+    /// just logging the argument", which is the caller's job.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The standard's whole normative text for this method is the sentence quoted above, followed by "TODO:
+    /// This will need a good algorithm." So the shape below is an interpretation, and it is the one every
+    /// implementation converged on: one row per own enumerable property of <paramref name="tabularData"/>,
+    /// keyed in an <c>(index)</c> column; one column per own enumerable property of the row <i>values</i> that
+    /// are objects, unioned across rows in first-seen order; and a <c>Values</c> column for the rows whose
+    /// value is not an object, which is what makes <c>console.table(['a', 'b'])</c> show anything at all.
+    /// </para>
+    /// <para>
+    /// The drawing is deliberately plain ASCII rather than the box-drawing characters a terminal-oriented
+    /// implementation uses: a <see cref="ConsoleSink"/> may be a log file, a structured logger or a test
+    /// assertion, and none of those is a UTF-8 terminal by assumption.
+    /// </para>
+    /// <para>
+    /// It inherits the rest of this class's discipline: no script-visible getter is ever invoked (an accessor
+    /// cell reads <c>[Getter]</c>), cells are rendered by <see cref="Inspect(JsValue)"/> and so are
+    /// depth-capped and cycle-safe, and both the row and the column count are bounded by
+    /// <see cref="MaxEntries"/> with the remainder reported on a trailing line. A console that can be made to
+    /// emit a gigabyte because a script built a large array is a liability, and a table is the easiest way to
+    /// ask for one.
+    /// </para>
+    /// </remarks>
+    internal static bool TryFormatTable(JsValue tabularData, List<string>? properties, out string text)
+    {
+        // "if it can't be parsed as tabular": a primitive has no rows, and a function is an object whose own
+        // properties (`length`, `name`) are not a table anybody wanted.
+        if (tabularData is not ObjectInstance data || data is Native.Function.Function)
+        {
+            text = string.Empty;
+            return false;
+        }
+
+        var rowKeys = new List<string>();
+        var rowValues = new List<PropertyDescriptor>();
+        var droppedRows = CollectRows(data, rowKeys, rowValues);
+
+        var columns = new List<string>();
+        var droppedColumns = CollectColumns(rowValues, properties, columns, out var needsValuesColumn);
+
+        text = Draw(rowKeys, rowValues, columns, needsValuesColumn, droppedRows, droppedColumns);
+        return true;
+    }
+
+    /// <summary>
+    /// One row per own enumerable string-keyed property, in own-key order — which for an array is its
+    /// indices, since <c>length</c> is not enumerable.
+    /// </summary>
+    /// <returns>How many rows were dropped for exceeding <see cref="MaxEntries"/>.</returns>
+    private static int CollectRows(ObjectInstance data, List<string> rowKeys, List<PropertyDescriptor> rowValues)
+    {
+        var dropped = 0;
+        var keys = data.GetOwnPropertyKeys(Types.String);
+
+        for (var i = 0; i < keys.Count; i++)
+        {
+            var descriptor = data.GetOwnProperty(keys[i]);
+            if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined) || !descriptor.Enumerable)
+            {
+                continue;
+            }
+
+            if (rowKeys.Count >= MaxEntries)
+            {
+                dropped++;
+                continue;
+            }
+
+            rowKeys.Add(keys[i].ToString());
+            rowValues.Add(descriptor);
+        }
+
+        return dropped;
+    }
+
+    /// <summary>
+    /// The column set: the caller's <paramref name="properties"/> when it gave one, otherwise the union of
+    /// every object row's own enumerable keys in first-seen order.
+    /// </summary>
+    /// <returns>How many columns were dropped for exceeding <see cref="MaxEntries"/>.</returns>
+    private static int CollectColumns(
+        List<PropertyDescriptor> rowValues,
+        List<string>? properties,
+        List<string> columns,
+        out bool needsValuesColumn)
+    {
+        var dropped = 0;
+        needsValuesColumn = false;
+
+        if (properties is not null)
+        {
+            for (var i = 0; i < properties.Count; i++)
+            {
+                dropped += AddColumn(columns, properties[i]);
+            }
+        }
+
+        for (var i = 0; i < rowValues.Count; i++)
+        {
+            var row = RowObject(rowValues[i]);
+            if (row is null)
+            {
+                // A primitive, a function, or an accessor whose getter must not run: it has no columns of its
+                // own and belongs in the Values column.
+                needsValuesColumn = true;
+                continue;
+            }
+
+            if (properties is not null)
+            {
+                continue;
+            }
+
+            var keys = row.GetOwnPropertyKeys(Types.String);
+            for (var k = 0; k < keys.Count; k++)
+            {
+                var descriptor = row.GetOwnProperty(keys[k]);
+                if (ReferenceEquals(descriptor, PropertyDescriptor.Undefined) || !descriptor.Enumerable)
+                {
+                    continue;
+                }
+
+                dropped += AddColumn(columns, keys[k].ToString());
+            }
+        }
+
+        return dropped;
+    }
+
+    private static int AddColumn(List<string> columns, string name)
+    {
+        if (columns.Contains(name))
+        {
+            return 0;
+        }
+
+        if (columns.Count >= MaxEntries)
+        {
+            return 1;
+        }
+
+        columns.Add(name);
+        return 0;
+    }
+
+    /// <summary>
+    /// The object whose properties become this row's cells, or <see langword="null"/> when the row has no
+    /// such object and so belongs in the <c>Values</c> column.
+    /// </summary>
+    private static ObjectInstance? RowObject(PropertyDescriptor descriptor)
+    {
+        if (descriptor.IsAccessorDescriptor())
+        {
+            return null;
+        }
+
+        return descriptor.Value is ObjectInstance obj && obj is not Native.Function.Function ? obj : null;
+    }
+
+    private static string Draw(
+        List<string> rowKeys,
+        List<PropertyDescriptor> rowValues,
+        List<string> columns,
+        bool needsValuesColumn,
+        int droppedRows,
+        int droppedColumns)
+    {
+        var width = columns.Count + (needsValuesColumn ? 2 : 1);
+
+        var header = new string[width];
+        header[0] = "(index)";
+        for (var i = 0; i < columns.Count; i++)
+        {
+            header[i + 1] = columns[i];
+        }
+
+        if (needsValuesColumn)
+        {
+            header[width - 1] = "Values";
+        }
+
+        var rows = new List<string[]>(rowKeys.Count);
+        for (var r = 0; r < rowKeys.Count; r++)
+        {
+            var cells = new string[width];
+            cells[0] = rowKeys[r];
+
+            var row = RowObject(rowValues[r]);
+            for (var c = 0; c < columns.Count; c++)
+            {
+                cells[c + 1] = row is null ? string.Empty : Cell(row, columns[c]);
+            }
+
+            if (needsValuesColumn)
+            {
+                cells[width - 1] = row is null ? DescriptorText(rowValues[r]) : string.Empty;
+            }
+
+            rows.Add(cells);
+        }
+
+        var widths = new int[width];
+        for (var c = 0; c < width; c++)
+        {
+            var max = header[c].Length;
+            for (var r = 0; r < rows.Count; r++)
+            {
+                max = System.Math.Max(max, rows[r][c].Length);
+            }
+
+            widths[c] = max;
+        }
+
+        var builder = new StringBuilder();
+        AppendBorder(builder, widths);
+        AppendRow(builder, header, widths);
+        AppendBorder(builder, widths);
+
+        // With no rows the separator just drawn IS the closing border; drawing another would put two
+        // identical lines under the header for what is simply an empty table.
+        for (var r = 0; r < rows.Count; r++)
+        {
+            AppendRow(builder, rows[r], widths);
+        }
+
+        if (rows.Count > 0)
+        {
+            AppendBorder(builder, widths);
+        }
+
+        if (droppedRows > 0)
+        {
+            builder.Append('\n').Append("... ").Append(droppedRows.ToString(CultureInfo.InvariantCulture)).Append(" more rows");
+        }
+
+        if (droppedColumns > 0)
+        {
+            builder.Append('\n').Append("... ").Append(droppedColumns.ToString(CultureInfo.InvariantCulture)).Append(" more columns");
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// One cell of an object row. A name the row does not own renders empty, which is what makes a ragged
+    /// array of objects tabulate at all.
+    /// </summary>
+    /// <remarks>
+    /// Enumerability is not re-checked here: an auto-derived column is enumerable by construction, and a
+    /// column the caller named explicitly is shown even when the property behind it is not enumerable,
+    /// because asking for it by name is the whole point of the argument.
+    /// </remarks>
+    private static string Cell(ObjectInstance row, string column)
+    {
+        var descriptor = row.GetOwnProperty(JsString.Create(column));
+        return ReferenceEquals(descriptor, PropertyDescriptor.Undefined) ? string.Empty : DescriptorText(descriptor);
+    }
+
+    private static string DescriptorText(PropertyDescriptor descriptor)
+    {
+        var builder = new StringBuilder();
+        AppendDescriptorValue(builder, descriptor, depth: 0, seen: new List<ObjectInstance>());
+        return builder.ToString();
+    }
+
+    private static void AppendBorder(StringBuilder builder, int[] widths)
+    {
+        if (builder.Length > 0)
+        {
+            builder.Append('\n');
+        }
+
+        for (var c = 0; c < widths.Length; c++)
+        {
+            builder.Append('+').Append('-', widths[c] + 2);
+        }
+
+        builder.Append('+');
+    }
+
+    private static void AppendRow(StringBuilder builder, string[] cells, int[] widths)
+    {
+        builder.Append('\n');
+        for (var c = 0; c < cells.Length; c++)
+        {
+            builder.Append("| ").Append(cells[c]).Append(' ', widths[c] - cells[c].Length + 1);
+        }
+
+        builder.Append('|');
+    }
+
     private static void AppendWithSpecifiers(StringBuilder builder, string target, ReadOnlySpan<JsValue> data, ref int next)
     {
         for (var i = 0; i < target.Length; i++)

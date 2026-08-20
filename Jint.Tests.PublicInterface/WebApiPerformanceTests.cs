@@ -166,6 +166,53 @@ public class WebApiPerformanceTests
     }
 
     [Fact]
+    public void MarksAndMeasuresRunOnTheHostsClockToo()
+    {
+        var clock = new ManualClock();
+        var engine = new Engine(options => options.UseWebApis(webApi =>
+        {
+            webApi.Features = WebApiFeatures.Performance;
+            webApi.Timers.TimeProvider = clock;
+        }));
+
+        engine.Execute("performance.mark('start');");
+        clock.Advance(250);
+        engine.Execute("var m = performance.measure('work', 'start');");
+
+        // Everything a mark or a measure is stamped with comes from the same reading performance.now() gives,
+        // so a host that fakes the clock gets an exact duration instead of a tolerance.
+        engine.Evaluate("m.startTime").AsNumber().Should().Be(0);
+        engine.Evaluate("m.duration").AsNumber().Should().Be(250);
+        engine.Evaluate("performance.getEntriesByType('measure')[0] === m").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void TheEntryInterfacesAreReachableFromScript()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
+
+        engine.Evaluate("performance.mark('a') instanceof PerformanceMark").AsBoolean().Should().BeTrue();
+        engine.Evaluate("performance.measure('a', 'a') instanceof PerformanceEntry").AsBoolean().Should().BeTrue();
+
+        // No observer, so a library that feature-detects one takes its fallback path.
+        engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
+    }
+
+    [Fact]
+    public void TheTimelineIsBoundedSoALoopCannotGrowItForever()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
+
+        // A browser's mark buffer is unbounded because the page it belongs to eventually goes away; an
+        // embedded engine has no such event, so the buffer is capped and the overflow is dropped rather than
+        // thrown. mark() still answers with the entry it built.
+        engine.Execute("for (let i = 0; i < 10050; i++) { performance.mark('m'); }");
+
+        engine.Evaluate("performance.getEntries().length").AsNumber().Should().Be(10000);
+        engine.Evaluate("performance.mark('over') instanceof PerformanceMark").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public void OneOptionsInstanceGivesEachEngineItsOwnTimeOrigin()
     {
         var clock = new ManualClock();

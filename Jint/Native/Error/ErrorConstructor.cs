@@ -94,8 +94,16 @@ public sealed partial class ErrorConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-is-error/
+    /// https://tc39.es/ecma262/#sec-error.iserror — "If arg is not an Object, return false. If arg does not
+    /// have an [[ErrorData]] internal slot, return false. Return true."
     /// </summary>
+    /// <remarks>
+    /// <see cref="JsError"/> is tested first and by its sealed exact type, which is a single cheap check and
+    /// answers every ECMAScript error; the <see cref="IErrorData"/> arm behind it is what a platform object
+    /// carrying the slot is recognized by — a <c>DOMException</c>, which
+    /// https://webidl.spec.whatwg.org/#internally-create-a-new-object-implementing-the-interface gives
+    /// <c>[[ErrorData]]</c> ("If interface is DOMException, append [[ErrorData]] to slots").
+    /// </remarks>
     [JsFunction]
-    private static JsValue IsError(JsValue thisObject, JsValue arg) => arg is JsError;
+    private static JsValue IsError(JsValue thisObject, JsValue arg) => arg is JsError or IErrorData;
 }

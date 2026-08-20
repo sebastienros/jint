@@ -204,24 +204,28 @@ engine.Execute("console.log('hello %s', 'world')");
 `console` output goes to a `ConsoleSink`, which defaults to `ConsoleSink.Null` and discards everything —
 enabling the feature never starts writing to your process's standard output by surprise. `ConsoleSink.FromTextWriter`
 covers the common case; implement the abstract class to route records to your own logger, where the
-`ConsoleLogLevel` tells you how loud each one is.
+`ConsoleLogLevel` tells you how loud each one is. Every method emits exactly one `Write` call per record, so a
+`console.table(rows)` reaches your sink as one multi-line ASCII table rather than as a line per row, and the
+formatter never invokes a script-visible getter — an accessor renders as `[Getter]`, because a console must
+not be a way to run arbitrary script.
 
 A global you registered yourself always wins: the install is non-clobbering, so if your host already exposes
 its own `console` (or any other name in the table below), enabling the feature leaves yours exactly as it is.
 
 | API | Feature flag | Status |
 | --- | --- | --- |
-| `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`) | `WebApiFeatures.Console` | ✔ shipped |
+| `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`/`table`) | `WebApiFeatures.Console` | ✔ shipped |
 | `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle.digest` (SHA-1/256/384/512) | `WebApiFeatures.Crypto` | ✔ shipped |
-| `performance.now` / `performance.timeOrigin` | `WebApiFeatures.Performance` | ✔ shipped |
+| `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
+| `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -294,6 +298,38 @@ and the target stay usable.
 being pumped and it counts against `MaxActiveTimers`; that queue exists whenever the `Events` feature does,
 whether or not you also asked for `setTimeout`. `AbortSignal.any(signals)` builds a composite that is
 retained by its sources until one of them aborts, at which point every link is dropped.
+
+### The performance timeline is bounded
+
+`performance.mark` and `performance.measure` behave as [User Timing](https://w3c.github.io/user-timing/)
+describes them — the whole overload matrix, mark names or raw timestamps, `detail` deep-copied through the
+same structured-clone algorithm `structuredClone` uses, and `PerformanceEntry` / `PerformanceMark` /
+`PerformanceMeasure` as real interface objects so `entry instanceof PerformanceMark` works. Entries come back
+from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by `startTime`, and
+`clearMarks(name?)` / `clearMeasures(name?)` remove them.
+
+```js
+performance.mark('parse');
+// ... work ...
+const m = performance.measure('parse-to-now', 'parse');
+console.log(m.duration);
+```
+
+One thing is deliberately not the browser's: the entry buffer holds **10,000 entries**, not an unbounded
+number. A page's timeline dies with the page, and an engine embedded in a long-lived host has no such event —
+`while (true) performance.mark('x')` would otherwise be a memory leak that no execution constraint describes.
+Once the buffer is full, further entries are dropped exactly as the Performance Timeline standard says a full
+buffer drops them: nothing throws, `mark()` and `measure()` still return the entry they built, and
+`getEntries()` simply stops growing until you clear it. There is no `PerformanceObserver`, and it is absent
+rather than present-and-throwing so feature detection takes its fallback path. Readings are **not coarsened** —
+an embedded engine has no cross-origin data for a fine clock to help steal, and a host that wants a coarse one
+supplies a coarse `TimeProvider`.
+
+`navigator` carries `userAgent` and nothing else. It reports `Jint/<version>` — a single RFC 7231 product
+token with no comment component, so nothing about your operating system or your application leaks into it —
+and it is there because [WinterTC's Minimum Common API](https://min-common-api.proposal.wintertc.org/)
+requires `globalThis.navigator.userAgent` of a conforming runtime. Everything else a browser's `Navigator`
+carries describes a user agent with a user, a document and a network stack, so it is absent rather than faked.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them

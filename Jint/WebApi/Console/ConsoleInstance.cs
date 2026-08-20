@@ -36,8 +36,8 @@ namespace Jint.WebApi.Console;
 /// property attributes.
 /// </para>
 /// <para>
-/// Not implemented: <c>table</c>, <c>dirxml</c>, <c>timeStamp</c>, <c>profile</c> and <c>profileEnd</c>,
-/// none of which has behaviour a string sink can carry.
+/// Not implemented: <c>clear</c>, <c>dirxml</c>, <c>profile</c> and <c>profileEnd</c>, none of which acts on
+/// anything a string sink has.
 /// </para>
 /// </remarks>
 [JsObject]
@@ -188,6 +188,58 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     {
         // `options` is part of the IDL signature and has no member a string sink could honour.
         Emit(ConsoleLogLevel.Log, ConsoleFormatter.Inspect(item));
+        return Undefined;
+    }
+
+    /// <summary>
+    /// https://console.spec.whatwg.org/#table — "Try to construct a table with the columns of the properties
+    /// of tabularData (or use properties) and rows of tabularData and log it with a logLevel of 'log'. Fall
+    /// back to just logging the argument if it can't be parsed as tabular."
+    /// </summary>
+    /// <remarks>
+    /// That sentence, followed by "TODO: This will need a good algorithm", is the entire normative text; the
+    /// table itself is drawn by <see cref="ConsoleFormatter.TryFormatTable"/>, whose documentation states the
+    /// interpretation. Either way it is one <see cref="ConsoleSink.Write(ConsoleLogLevel, string)"/> call at
+    /// <see cref="ConsoleLogLevel.Log"/> — a table is a single record however many lines it occupies, and
+    /// group indentation applies to all of them.
+    /// </remarks>
+    [JsFunction(Name = "table", Length = 0)]
+    private JsValue Table(JsValue thisObject, JsValue tabularData, JsValue properties)
+    {
+        // The sequence conversion runs first and can raise a TypeError, exactly as WebIDL specifies, so a
+        // non-iterable second argument fails before anything is logged.
+        var columns = ReadProperties(properties);
+
+        if (ConsoleFormatter.TryFormatTable(tabularData, columns, out var table))
+        {
+            Emit(ConsoleLogLevel.Log, table);
+            return Undefined;
+        }
+
+        Emit(ConsoleLogLevel.Log, ConsoleFormatter.Format(new[] { tabularData }));
+        return Undefined;
+    }
+
+    /// <summary>
+    /// <c>console.timeStamp(label)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not part of the Console Standard.</b> https://console.spec.whatwg.org/ specifies <c>time</c>,
+    /// <c>timeLog</c> and <c>timeEnd</c> and nothing else about timing; <c>timeStamp</c> is a de-facto member
+    /// every browser and Node exposes, where it drops a marker onto a profiler's timeline and prints nothing.
+    /// There is no timeline here, so the only thing a string sink can do with the marker is emit it, which is
+    /// also the only behaviour a script can verify.
+    /// </para>
+    /// <para>
+    /// The label defaults to <c>"default"</c>, which is the IDL default every labelled method in the standard
+    /// carries and therefore the least surprising choice for one that has no IDL.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "timeStamp", Length = 0)]
+    private JsValue TimeStamp(JsValue thisObject, JsValue label)
+    {
+        Emit(ConsoleLogLevel.Log, Label(label));
         return Undefined;
     }
 
@@ -398,6 +450,39 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     private static string Label(JsValue label)
     {
         return label.IsUndefined() ? DefaultLabel : TypeConverter.ToString(label);
+    }
+
+    /// <summary>
+    /// The <c>sequence&lt;DOMString&gt;</c> conversion of <c>table</c>'s second argument,
+    /// https://webidl.spec.whatwg.org/#es-sequence: the value is iterated with the iterator protocol and each
+    /// element is stringified. The argument is optional with no default value, so an omitted or explicitly
+    /// <see langword="undefined"/> one is <see langword="null"/> — "not given" — rather than an empty column
+    /// list, which would render a table with no columns at all.
+    /// </summary>
+    private List<string>? ReadProperties(JsValue properties)
+    {
+        if (properties.IsUndefined())
+        {
+            return null;
+        }
+
+        var result = new List<string>();
+        var iterator = properties.GetIterator(_realm);
+
+        try
+        {
+            while (iterator.TryIteratorStepValue(out var value))
+            {
+                result.Add(TypeConverter.ToString(value));
+            }
+        }
+        catch
+        {
+            iterator.CloseIfNotDone(CompletionType.Throw);
+            throw;
+        }
+
+        return result;
     }
 
     private static string FormatDuration(long startTimestamp)

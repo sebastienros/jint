@@ -112,6 +112,20 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
         {
             Install(global, engine, "performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // The entry types are ordinary WebIDL interface objects — a script holds a mark and asks
+            // `entry instanceof PerformanceMark`, which only works if the interface object is reachable.
+            Install(global, engine, "PerformanceEntry", static e => e.Realm.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
+            Install(global, engine, "PerformanceMark", static e => e.Realm.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
+            Install(global, engine, "PerformanceMeasure", static e => e.Realm.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
+        }
+
+        if ((features & WebApiFeatures.Navigator) != WebApiFeatures.None)
+        {
+            // WebIDL exposes navigator through a [Replaceable] accessor pair; an ordinary enumerable data
+            // property is the same simplification console and crypto are installed with, documented on
+            // NavigatorInstance.
+            Install(global, engine, "navigator", static e => e.Realm.Intrinsics.Navigator, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)

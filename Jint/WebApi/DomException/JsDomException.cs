@@ -21,13 +21,26 @@ namespace Jint.WebApi.DomException;
 /// </para>
 /// <para>
 /// It derives from <see cref="ErrorInstance"/> for the <c>[[ErrorData]]</c>-shaped behaviour a host expects
-/// of an error object — notably <see cref="object.ToString"/> rendering as <c>name: message</c>. It is not a
-/// <see cref="JsError"/>, which is sealed, so <c>Error.isError(domException)</c> answers <see langword="false"/>
-/// where a browser answers <see langword="true"/>; the prototype chain, <c>instanceof Error</c> and
-/// <c>stack</c> all behave as they should.
+/// of an error object — notably <see cref="object.ToString"/> rendering as <c>name: message</c> — and it
+/// asserts the slot itself through <see cref="IErrorData"/>, because
+/// https://webidl.spec.whatwg.org/#internally-create-a-new-object-implementing-the-interface says "If
+/// interface is DOMException, append [[ErrorData]] to slots". So <c>Error.isError(new DOMException())</c>
+/// answers <see langword="true"/>, as it does in a browser, and the prototype chain,
+/// <c>instanceof Error</c> and <c>stack</c> all behave as they should.
+/// </para>
+/// <para>
+/// One deliberate divergence, in the direction of ECMAScript rather than WebIDL:
+/// https://webidl.spec.whatwg.org/#js-DOMException-specialness also gives the <i>interface prototype
+/// object</i> <c>[[ErrorData]]</c> and <c>[[Stack]]</c> slots, "like all built-in exceptions". Every
+/// ECMAScript built-in exception prototype is in fact an ordinary object that "is not an Error instance and
+/// does not have an [[ErrorData]] internal slot"
+/// (https://tc39.es/ecma262/#sec-properties-of-the-nativeerror-prototype-objects), so the analogy argues the
+/// other way; <c>DOMException.prototype</c> is left an ordinary object here and
+/// <c>Error.isError(DOMException.prototype)</c> answers <see langword="false"/>, the same as
+/// <c>Error.isError(Error.prototype)</c>.
 /// </para>
 /// </remarks>
-internal sealed class JsDomException : ErrorInstance
+internal sealed class JsDomException : ErrorInstance, IErrorData
 {
     internal JsDomException(Engine engine, JsString name, JsString message)
         : base(engine, ObjectClass.Error)

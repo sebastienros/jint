@@ -10,6 +10,29 @@ namespace Jint.Native.Error;
 /// </summary>
 internal sealed record ClrErrorContext(Type? ResolutionType, string? ResolutionMemberName, Exception? ClrException);
 
+/// <summary>
+/// Marks an object that carries the specification's <c>[[ErrorData]]</c> internal slot, which is the brand
+/// <c>Error.isError</c> tests — https://tc39.es/ecma262/#sec-error.iserror.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The slot is <b>not</b> a property of <see cref="ErrorInstance"/>: <c>%Error.prototype%</c> and every
+/// <c>%NativeError.prototype%</c> derive from it and must answer <see langword="false"/>, because
+/// https://tc39.es/ecma262/#sec-properties-of-the-error-prototype-object says such a prototype "is an
+/// ordinary object" and "is not an Error instance and does not have an [[ErrorData]] internal slot". So the
+/// slot is asserted by exactly the types that have it, one of which — <see cref="JsError"/> — is sealed and
+/// cannot simply be widened to cover the other.
+/// </para>
+/// <para>
+/// A marker interface rather than an <c>InternalTypes</c> bit: <c>InternalTypes</c> says of itself that "no
+/// int flag bits remain" — <c>FastCallGuard</c> already borrows the two above its top — and the only consumer
+/// is <c>Error.isError</c>, which is on no hot path and would not repay a bit even if one were free. The
+/// check keeps <see cref="JsError"/>'s sealed exact-type test first, so the interface-map scan is reached
+/// only by the rare error object that is not a <see cref="JsError"/>.
+/// </para>
+/// </remarks>
+internal interface IErrorData;
+
 public class ErrorInstance : ObjectInstance
 {
     private protected ErrorInstance(Engine engine, ObjectClass objectClass)
