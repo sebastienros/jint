@@ -189,9 +189,10 @@ internal class JsAbortSignal : JsEventTarget
             }
         }
 
-        // Step 3. A listener that throws erupts from here — see JsEventTarget's remarks — which for
-        // controller.abort() is its caller and for AbortSignal.timeout() is the event-loop pump. Every
-        // algorithm above has already run by then, so the abort itself is complete either way.
+        // Step 3. A listener that throws is reported to the host's DiagnosticsSink, or — with no sink —
+        // erupts from here, which for controller.abort() is its caller and for AbortSignal.timeout() is the
+        // event-loop pump; see JsEventTarget's remarks. Every algorithm above has already run by then, so the
+        // abort itself is complete in either case.
         FireEvent(_abortEventName);
     }
 

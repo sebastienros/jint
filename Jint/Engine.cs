@@ -1044,6 +1044,14 @@ public sealed partial class Engine : IDisposable
     internal void OnPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
     {
         Advanced.RaisePromiseRejectionTracker(promise, operation);
+
+#if NET8_0_OR_GREATER
+        // Additively, and strictly after the event above: a host that wired both channels must see the
+        // pre-existing one behave exactly as it always did, which it cannot if a sink can run first. Null on
+        // every engine whose host set no diagnostics sink, which is one predictable null test on a path that
+        // only runs when a rejection had no handler.
+        _webApi?.ReportPromiseRejection(promise, operation);
+#endif
     }
 
     internal void AddToKeptObjects(JsValue target)

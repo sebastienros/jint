@@ -364,8 +364,10 @@ public class EventTargetTests
     [Fact]
     public void AListenerThatThrowsEruptsFromDispatchEvent()
     {
-        // The specification says to report the exception and carry on; Jint has no reportError channel yet, so
-        // it propagates instead — the same choice the timer callbacks make, and documented on JsEventTarget.
+        // The specification says to report the exception and carry on, which needs somewhere to report to.
+        // This engine has no DiagnosticsSink, so the exception propagates instead — the same choice the timer
+        // callbacks make, and documented on JsEventTarget. The report-and-continue half is
+        // DiagnosticsTests.AThrowingListenerIsReportedAndTheDispatchContinues.
         var engine = WebEngine();
 
         engine.Execute("""

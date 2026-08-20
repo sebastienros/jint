@@ -1,4 +1,7 @@
 #if NET8_0_OR_GREATER
+using Jint.Native;
+using Jint.Native.Promise;
+using Jint.WebApi;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.Timers;
@@ -64,13 +67,14 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<FetchOperation>? _fetches;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler)
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics)
     {
         _engine = engine;
         _timeProvider = timeProvider;
         Timers = timers;
         FetchOptions = fetchOptions;
         Scheduler = scheduler;
+        Diagnostics = diagnostics;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -105,6 +109,14 @@ internal sealed class WebApiEngineState
     /// timers it needs no hook in the pump.
     /// </summary>
     internal SchedulerQueue? Scheduler { get; }
+
+    /// <summary>
+    /// Where uncaught script errors are reported, or <see langword="null"/> when the host set no sink — which
+    /// is also what says a <c>JavaScriptException</c> escaping an engine-invoked callback must erupt rather
+    /// than be reported. Snapshotted when the engine was built, so the contract cannot change under a script
+    /// that is already running.
+    /// </summary>
+    internal DiagnosticsSink? Diagnostics { get; }
 
     /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
@@ -151,13 +163,30 @@ internal sealed class WebApiEngineState
     internal TimeSpan? TimeUntilNextDueTimer() => Timers?.TimeUntilNextDue();
 
     /// <summary>
+    /// <c>reportError(e)</c>: HTML's <i>report an exception</i> reduced to its last step, since this engine's
+    /// global object is not an <c>EventTarget</c> and so has no <c>error</c> event to fire first. See
+    /// <c>ReportErrorFunction</c>.
+    /// </summary>
+    internal void ReportError(JsValue value) => Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
+
+    /// <summary>
+    /// The sink's half of <c>HostPromiseRejectionTracker</c>. Additive to
+    /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/>, which has already been raised by the
+    /// time this runs: a host with both channels wired sees the pre-existing event behave exactly as it did.
+    /// </summary>
+    internal void ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
+        => Diagnostics?.Report(DiagnosticEvent.ForPromiseRejection(promise, operation));
+
+    /// <summary>
     /// Drops the state that belongs to the evaluation cycle a <c>RestoreGlobalSnapshot</c> has just ended.
     /// </summary>
     /// <remarks>
     /// A request in flight is cancelled rather than merely forgotten: the generation fence already stops its
     /// response reaching the restored engine, but forgetting it would leave the socket open until the server
     /// answered. Its promise stays pending — settling it is exactly what the fence forbids — which is the
-    /// same contract a promise registered before a restore has always had.
+    /// same contract a promise registered before a restore has always had. The sink is deliberately not
+    /// reset: it is configuration the engine was built with, like the time origin beside it, and a pooled
+    /// engine reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
     /// </remarks>
     internal void ResetTransientState()
     {

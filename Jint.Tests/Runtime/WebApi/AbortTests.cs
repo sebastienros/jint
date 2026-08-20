@@ -146,9 +146,11 @@ public class AbortTests
     [Fact]
     public void AnAbortListenerThatThrowsEruptsFromAbortButTheAbortIsComplete()
     {
-        // The same choice dispatchEvent makes: with no reportError channel the exception propagates rather
-        // than being swallowed. Every abort algorithm has already run by then, because they run before the
-        // event does — which is what makes an operation observing the signal stop regardless.
+        // The same choice dispatchEvent makes: with no DiagnosticsSink there is nowhere to report to, so the
+        // exception propagates rather than being swallowed. (With one it is reported and the abort returns
+        // normally — DiagnosticsTests.AThrowingAbortListenerIsReportedAndTheAbortCompletes.) Every abort
+        // algorithm has already run by then, because they run before the event does — which is what makes an
+        // operation observing the signal stop regardless.
         var engine = WebEngine();
 
         engine.Execute("""

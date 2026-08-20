@@ -41,6 +41,14 @@ internal static class WebApiRegistration
 
         CreateEngineState(options, engine, features);
 
+        if (features == WebApiFeatures.None)
+        {
+            // Reachable only for an engine whose host set a diagnostics sink and named no feature: it gets the
+            // reporting channel the state above carries and no globals whatever — not even DOMException, which
+            // exists to let a web API report a failure to script and here there is no web API to have one.
+            return;
+        }
+
         // DOMException has no feature flag of its own: it is how every other web API reports a failure, so it
         // exists whenever any of them does. As a WebIDL interface object it is writable and configurable but
         // NOT enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
@@ -175,6 +183,14 @@ internal static class WebApiRegistration
             Install(global, engine, "MessagePort", static e => e.Realm.Intrinsics.MessagePort, PropertyFlag.NonEnumerable);
             Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.Reporting) != WebApiFeatures.None)
+        {
+            // A WebIDL operation on the global — https://webidl.spec.whatwg.org/#es-operations. Installed
+            // whether or not a sink exists to hear it, so that feature detection sees the same surface either
+            // way and a script written for a browser does not have to guard the call.
+            Install(global, engine, "reportError", static e => e.Realm.Intrinsics.ReportError, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>
@@ -228,7 +244,12 @@ internal static class WebApiRegistration
         // wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
             WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging;
-        if ((features & NeedsEngineState) == WebApiFeatures.None)
+
+        // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
+        // channel whatever else it did or did not ask for, which is why it is read before the flags are.
+        var diagnostics = options.WebApi.Diagnostics.Sink;
+
+        if ((features & NeedsEngineState) == WebApiFeatures.None && diagnostics is null)
         {
             return;
         }
@@ -242,7 +263,7 @@ internal static class WebApiRegistration
         // all.
         const WebApiFeatures NeedsTimerQueue = WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler;
         var timers = (features & NeedsTimerQueue) != WebApiFeatures.None
-            ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers)
+            ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers, diagnostics)
             : null;
 
         // The fetch settings are read here, once, so that nothing on a background thread ever reaches into
@@ -253,7 +274,7 @@ internal static class WebApiRegistration
             ? new SchedulerQueue(engine)
             : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler);
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics);
     }
 
     /// <summary>

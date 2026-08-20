@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.WebApi.Timers;
 
@@ -42,10 +43,11 @@ internal sealed class TimerQueue
     /// <summary>Breaks ties between timers due at the same instant, so equal due times fire FIFO.</summary>
     private long _nextSequence;
 
-    internal TimerQueue(TimeProvider timeProvider, int maxActiveTimers)
+    internal TimerQueue(TimeProvider timeProvider, int maxActiveTimers, DiagnosticsSink? diagnostics)
     {
         _timeProvider = timeProvider;
         MaxActiveTimers = maxActiveTimers;
+        Diagnostics = diagnostics;
     }
 
     /// <summary>
@@ -56,6 +58,13 @@ internal sealed class TimerQueue
 
     /// <summary>How many timers are registered right now, which is what <see cref="MaxActiveTimers"/> caps.</summary>
     internal int Count => _active.Count;
+
+    /// <summary>
+    /// Where a callback's exception is reported, or <see langword="null"/> when the host set no sink and the
+    /// exception must therefore erupt instead. Held here rather than reached through the engine so that
+    /// <see cref="TimerEntry.Fire"/> costs one field read and an entry costs no extra reference at all.
+    /// </summary>
+    internal DiagnosticsSink? Diagnostics { get; }
 
     /// <summary>
     /// HTML's <i>timer nesting level</i>, https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timer-nesting-level.
@@ -316,10 +325,21 @@ internal sealed class TimerEntry
                 _queue.Reschedule(this);
             }
 
-            // A throw from here erupts out of whatever is pumping the event loop, exactly as one from a
-            // promise reaction handler without a capability does. Everything still queued runs on the next
-            // pump.
+            // Step 8.4: "If handler is a Function, then invoke handler given arguments and "report"". WebIDL's
+            // "report" exception behavior is to report the exception and return undefined, which is what the
+            // catch below does whenever the host gave the engine somewhere to report to.
             _callback.Call(JsValue.Undefined, _arguments);
+        }
+        catch (JavaScriptException exception) when (_queue.Diagnostics is { } diagnostics)
+        {
+            // Only a JavaScriptException, which is exactly the class of failure a script could have caught
+            // itself. Everything that exists to bound execution — ExecutionCanceledException,
+            // TimeoutException, the statement, memory and recursion budgets — is a JintException but not a
+            // JavaScriptException, so none of it is caught here and a constraint still stops the engine. With
+            // no sink there is no catch at all and the throw erupts out of whatever is pumping the event
+            // loop, exactly as one from a promise reaction handler without a capability does; everything still
+            // queued runs on the next pump either way.
+            diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.Timer));
         }
         finally
         {

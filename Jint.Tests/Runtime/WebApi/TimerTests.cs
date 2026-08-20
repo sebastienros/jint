@@ -291,6 +291,8 @@ public class TimerTests
     [Fact]
     public void AThrowingCallbackEruptsFromThePumpAndTheRestOfTheQueueSurvives()
     {
+        // No DiagnosticsSink here, which is what makes the throw erupt rather than be reported — the
+        // report-and-continue half lives in DiagnosticsTests.
         var (engine, clock) = TimerEngine();
 
         engine.Execute("""

@@ -12,6 +12,7 @@ using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
+using Jint.WebApi.Reporting;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
@@ -279,5 +280,10 @@ public sealed partial class Intrinsics
     /// <summary><c>TaskPriorityChangeEvent</c> inherits from <c>Event</c>.</summary>
     internal TaskPriorityChangeEventConstructor TaskPriorityChangeEvent =>
         _taskPriorityChangeEvent ??= new TaskPriorityChangeEventConstructor(_engine, _realm, Event);
+
+    private ReportErrorFunction? _reportError;
+
+    internal ReportErrorFunction ReportError =>
+        _reportError ??= new ReportErrorFunction(_engine, _realm, Function.PrototypeObject);
 }
 #endif

@@ -232,8 +232,10 @@ public partial class Options
         // host registered itself is never replaced by one of ours: WebApiRegistration skips every name the
         // global object already owns. Nothing is installed while Features is None, which is the default.
         // The backing field rather than the property, so an engine built from options that never mentioned a
-        // web API does not allocate the group just to find out that it is empty.
-        if (_webApi is not null && _webApi.Features != WebApiFeatures.None)
+        // web API does not allocate the group just to find out that it is empty. A diagnostics sink counts as
+        // having asked for something even with no feature named: it installs no global, but it does arm the
+        // channel unhandled promise rejections are reported through.
+        if (_webApi is not null && (_webApi.Features != WebApiFeatures.None || _webApi.Diagnostics.Sink is not null))
         {
             Jint.WebApi.WebApiRegistration.Apply(this, engine);
         }

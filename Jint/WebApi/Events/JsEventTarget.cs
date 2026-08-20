@@ -41,15 +41,17 @@ namespace Jint.WebApi.Events;
 /// </description></item>
 /// </list>
 /// <para>
-/// <b>A listener that throws erupts from <c>dispatchEvent</c>.</b> The specification says to <i>report</i> the
-/// exception and carry on to the next listener, which presumes a global error-reporting channel —
-/// <c>reportError</c> and <c>window.onerror</c> — that Jint does not have yet. Swallowing the exception
-/// instead would lose it entirely on an engine whose host never enabled <c>console</c>, so the honest
-/// behaviour for now is the one the timer callbacks already have: the <c>JavaScriptException</c> propagates
-/// out of whatever ran the callback. For <c>dispatchEvent</c> that is the caller; for the <c>abort</c> event
-/// it is <c>controller.abort()</c>, or the event-loop pump when the abort came from
-/// <c>AbortSignal.timeout()</c>. The dispatch state is unwound either way, so the event and the target stay
-/// usable. When <c>reportError</c> lands this becomes report-and-continue and the divergence goes away.
+/// <b>What a throwing listener does depends on whether the host set a
+/// <see cref="DiagnosticsSink"/>.</b> The specification says to <i>report</i> the exception and carry on to
+/// the next listener (inner invoke step 2.10), which presumes a global error-reporting channel; with a sink
+/// that channel exists, so the <c>JavaScriptException</c> is reported as a
+/// <see cref="DiagnosticEventKind.UncaughtCallbackError"/> and the dispatch continues, exactly as specified.
+/// With no sink there is nowhere to report to and swallowing the exception would lose it entirely, so it
+/// propagates instead — out of <c>dispatchEvent</c> for a script-driven dispatch, out of
+/// <c>controller.abort()</c> for an <c>abort</c> event, out of the event-loop pump when the abort came from
+/// <c>AbortSignal.timeout()</c>. Only a <c>JavaScriptException</c> is ever reported: a constraint failure is
+/// a <c>JintException</c> but not one of those, so it erupts whatever the host configured. The dispatch state
+/// is unwound in every case, so the event and the target stay usable.
 /// </para>
 /// </remarks>
 internal class JsEventTarget : ObjectInstance
@@ -266,6 +268,16 @@ internal class JsEventTarget : ObjectInstance
             try
             {
                 InvokeCallback(listener, ev);
+            }
+            catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
+            {
+                // Inner invoke step 2.10: "If this throws an exception exception: Report exception for
+                // listener's callback's ... global object." Reporting it is what lets the dispatch carry on to
+                // the next listener, which is the behaviour a page relies on and which is only honest once
+                // there is somewhere for the report to go. Only a JavaScriptException: everything that bounds
+                // execution is a JintException but not one of these, so a constraint still stops the dispatch
+                // dead. With no sink there is no catch at all — see the class remarks.
+                diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.EventListener));
             }
             finally
             {
