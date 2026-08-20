@@ -61,6 +61,23 @@ internal abstract class JintStatement
 
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
 
+    /// <summary>
+    /// Builds a statement that sits directly in the StatementList of a Block, a CaseClause or a
+    /// DefaultClause - the position Annex B B.3.2 gives a sloppy-mode function declaration its
+    /// var-scope alias in. A LabelledStatement is transparent for that purpose: <c>l: function f(){}</c>
+    /// there is treated exactly as the unlabelled form, which is what every web implementation does and
+    /// what B.3.1 legalizes the form for.
+    /// </summary>
+    protected internal static JintStatement BuildBlockLevel(Statement statement)
+    {
+        return statement.Type switch
+        {
+            NodeType.FunctionDeclaration => new JintFunctionDeclarationStatement((FunctionDeclaration) statement, blockLevel: true),
+            NodeType.LabeledStatement => new JintLabeledStatement((LabeledStatement) statement, blockLevel: true),
+            _ => Build(statement)
+        };
+    }
+
     protected internal static JintStatement Build(Statement statement)
     {
         // INVARIANT: statement handlers may carry per-engine mutable state (JintBlockStatement._cachedEnv,

@@ -728,7 +728,11 @@ internal sealed class JintFunctionDefinition
 
         state.VarsToInitialize = varsToInitialize;
 
-        // B.3.3.1: AnnexB block-level function declarations need var bindings
+        // https://tc39.es/ecma262/#sec-functiondeclarationinstantiation, the Normative Optional
+        // "Block-Level Function Declarations Web Legacy Compatibility Semantics" step: a sloppy-mode
+        // block-level function declaration also gets a var binding in the function's variable
+        // environment, initialized to undefined. The value is written when the declaration is
+        // evaluated - see JintFunctionDeclarationStatement.
         var annexBFunctions = hoistingScope._annexBFunctionDeclarations;
         if (annexBFunctions != null)
         {
@@ -743,12 +747,17 @@ internal sealed class JintFunctionDefinition
                 var f = annexBFunctions[i];
                 Key fn = f.Id!.Name;
 
-                // Skip if name conflicts with parameter or lexical declaration
-                if (state.ParameterBindings!.Contains(fn))
+                // "...and paramNames does not contain funcName". paramNames, not paramBindings: the
+                // implicit "arguments" binding does NOT disqualify a block function called
+                // `arguments`, it only means no *new* var binding is created for it (below). Testing
+                // ParameterBindings here made `{ function arguments() {} }` a no-op.
+                if (System.Array.IndexOf(state.ParameterNames, fn) >= 0)
                 {
                     continue;
                 }
 
+                // Skip if the name conflicts with a lexical declaration - "replacing the
+                // FunctionDeclaration with a VariableStatement ... would not produce any Early Errors"
                 if (lexicalNames?.Contains(fn) == true)
                 {
                     continue;
@@ -760,7 +769,10 @@ internal sealed class JintFunctionDefinition
                 state.AnnexBFunctionDeclarations ??= [];
                 state.AnnexBFunctionDeclarations.Add(f);
 
-                if (instantiatedVarNames.Add(fn))
+                // "If instantiatedVariableNames does not contain funcName and funcName is not
+                // 'arguments'": the arguments binding already exists and must not be re-created here,
+                // but the declaration's evaluation still assigns over it.
+                if (fn != KnownKeys.Arguments && instantiatedVarNames.Add(fn))
                 {
                     varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: JsValue.Undefined));
                 }

@@ -34,11 +34,13 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
         if (blockStatement.Body.Count == 1)
         {
-            _singleStatement = Build(blockStatement.Body[0]);
+            // BuildBlockLevel: a Block's own StatementList is the position Annex B B.3.2 gives a
+            // function declaration its var-scope alias in - see JintFunctionDeclarationStatement.
+            _singleStatement = BuildBlockLevel(blockStatement.Body[0]);
         }
         else
         {
-            _statementList = new JintStatementList(blockStatement, blockStatement.Body);
+            _statementList = new JintStatementList(blockStatement, blockStatement.Body, blockLevel: true);
         }
     }
 

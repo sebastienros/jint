@@ -211,7 +211,13 @@ internal sealed class HoistingScope
             _module = module;
         }
 
-        public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null)
+        // labelHost / labelHostParent: when `node` is a LabelledStatement, the statement-list container
+        // the label chain sits in and that container's own parent. A LabelledStatement is transparent
+        // for the FunctionDeclaration classification below - TopLevelVarScopedDeclarations sees through
+        // the label (so `l: function f(){}` at the top level of a script or function body hoists like
+        // any other function declaration) while VarScopedDeclarations does not (so inside a Block it is
+        // scoped to that Block).
+        public void Visit(Node node, Node? parent, HashSet<string>? enclosingLexicalNames = null, Node? labelHost = null, Node? labelHostParent = null)
         {
             if (++_depth > MaxDepth)
             {
@@ -220,7 +226,7 @@ internal sealed class HoistingScope
             }
             try
             {
-                VisitCore(node, parent, enclosingLexicalNames);
+                VisitCore(node, parent, enclosingLexicalNames, labelHost, labelHostParent);
             }
             finally
             {
@@ -228,7 +234,7 @@ internal sealed class HoistingScope
             }
         }
 
-        private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames)
+        private void VisitCore(Node node, Node? parent, HashSet<string>? enclosingLexicalNames, Node? labelHost = null, Node? labelHostParent = null)
         {
             // Collect lexical names from this scope level for AnnexB conflict checking.
             // These are let/const/class declarations in non-root scopes (blocks, for headers, etc.)
@@ -327,7 +333,14 @@ internal sealed class HoistingScope
                     // block-level positions (blocks, switch cases, if statement clauses).
                     // Per B.3.2/B.3.3, block-level function declarations in sloppy mode get
                     // special AnnexB hoisting behavior.
-                    if (parent is null || node.Type is not (NodeType.BlockStatement or NodeType.SwitchCase or NodeType.IfStatement))
+                    // A LabelledStatement is transparent here (Annex B.3.1 legalizes the form and
+                    // every web implementation gives it the same treatment as an unlabelled one):
+                    // `l: function f(){}` hoists like any other declaration at the top level of a
+                    // script or function body, and is a block-level declaration when it appears in a
+                    // Block or CaseClause - see the labelHost parameter.
+                    var host = labelHost ?? node;
+                    var hostParent = labelHost is not null ? labelHostParent : parent;
+                    if (hostParent is null || host.Type is not (NodeType.BlockStatement or NodeType.SwitchCase or NodeType.IfStatement))
                     {
                         _functions ??= [];
                         _functions.Add((FunctionDeclaration) childNode);
@@ -391,7 +404,16 @@ internal sealed class HoistingScope
                     && childType != NodeType.StaticBlock
                     && !childNode.ChildNodes.IsEmpty())
                 {
-                    Visit(childNode, node, effectiveLexicalNames);
+                    // Carry this statement list's container into a label chain so the classification
+                    // above can see through it (labels nest, so an already-set host wins).
+                    if (childType == NodeType.LabeledStatement)
+                    {
+                        Visit(childNode, node, effectiveLexicalNames, labelHost ?? node, labelHost is not null ? labelHostParent : parent);
+                    }
+                    else
+                    {
+                        Visit(childNode, node, effectiveLexicalNames);
+                    }
                 }
             }
         }
