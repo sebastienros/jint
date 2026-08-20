@@ -147,9 +147,7 @@ internal static class WebApiRegistration
 
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
         {
-            Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
-            Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
-            Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+            InstallFetchModel(engine);
 
             // A WebIDL operation on the global is a writable, enumerable, configurable data property, unlike
             // the interface objects above — https://webidl.spec.whatwg.org/#es-operations.
@@ -215,6 +213,25 @@ internal static class WebApiRegistration
             // both flags gets one object either way.
             Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
         }
+    }
+
+    /// <summary>
+    /// Installs the three interface objects of the fetch object model, and deliberately not <c>fetch</c>
+    /// itself.
+    /// </summary>
+    /// <remarks>
+    /// Split out because the model has a second door: <c>Engine.Advanced.SetFetchHandler</c> routes an
+    /// inbound request into script, which needs <c>Response</c> to answer with and is no reason at all to
+    /// grant the script outbound network access. Both doors install the same three globals, the same way and
+    /// with the same WebIDL attributes — an interface object is writable and configurable but not enumerable,
+    /// https://webidl.spec.whatwg.org/#es-interfaces.
+    /// </remarks>
+    internal static void InstallFetchModel(Engine engine)
+    {
+        var global = engine.Realm.GlobalObject;
+        Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
+        Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
+        Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
     }
 
     /// <summary>

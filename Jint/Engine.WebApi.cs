@@ -26,12 +26,13 @@ public partial class Engine
     internal WebApiEngineState? _webApi;
 
     /// <summary>
-    /// Which opt-in web APIs this engine was built with, as <c>WebApiRegistration.Apply</c> recorded them, or
-    /// <see cref="WebApiFeatures.None"/> for an engine that asked for nothing. Read by the one host API that
-    /// has to refuse an engine which never opted in — <see cref="AdvancedOperations.CreateMessagePortPair"/> —
-    /// and by nothing on any hot path. It lives here rather than being read back from <c>Options</c> because
-    /// an <c>Options</c> instance is shareable and mutable, so the set an engine was actually built with is
-    /// only knowable at build time.
+    /// Which opt-in web APIs this engine was built with, as <c>WebApiRegistration.Apply</c> recorded them
+    /// after computing the feature closure, or <see cref="WebApiFeatures.None"/> for an engine that asked for
+    /// nothing. Read by the host APIs that have to refuse an engine which never opted in —
+    /// <see cref="AdvancedOperations.CreateMessagePortPair"/> and
+    /// <see cref="AdvancedOperations.SetFetchHandler"/> — and by nothing on any hot path. It lives here rather
+    /// than being read back from <c>Options</c> because an <c>Options</c> instance is shareable and mutable,
+    /// so the set an engine was actually built with is only knowable at build time.
     /// </summary>
     internal WebApiFeatures _webApiFeatures;
 
@@ -104,6 +105,18 @@ internal sealed class WebApiEngineState
         _originTimestamp = timeProvider.GetTimestamp();
         TimeOrigin = (timeProvider.GetUtcNow() - DateTimeOffset.UnixEpoch).TotalMilliseconds;
     }
+
+    /// <summary>
+    /// The script function inbound requests are routed to by <c>Engine.Advanced.InvokeFetchHandler</c>, or
+    /// <see langword="null"/> when the host has registered none.
+    /// </summary>
+    /// <remarks>
+    /// Host state rather than evaluation state, so — like <c>Engine.Advanced.HostDefined</c> — it is
+    /// deliberately not cleared by <see cref="ResetTransientState"/>: a pooled engine that restores its
+    /// globals between requests keeps the handler it was given, and the host replaces it when it wants to.
+    /// An invocation that was in flight at the restore is fenced off by its own generation instead.
+    /// </remarks>
+    internal FetchHandler? FetchHandler { get; set; }
 
     /// <summary>
     /// The engine's active timers, or <see langword="null"/> when nothing that schedules one is enabled.

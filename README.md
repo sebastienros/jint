@@ -610,6 +610,190 @@ long-lived and reconnects *on a delay the server chooses*, with no deadline to e
 [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-22 — the short version is to bound the engine's own lifetime
 for untrusted script rather than pooling an engine a script may leave streaming.
 
+### Hosting a fetch handler
+
+`Headers`, `Request` and `Response` work in both directions, so an engine can *be* a request handler: you
+hand it an `HttpRequestMessage` and get an `HttpResponseMessage` back, with the script in between written
+exactly the way a Cloudflare Workers or Deno script is.
+
+```js
+// worker.js
+export default {
+    async fetch(request) {
+        const body = await request.json();
+        return Response.json({ echoed: body, path: new URL(request.url).pathname });
+    }
+};
+```
+
+```csharp
+var engine = new Engine(options => options.UseWebApis(
+    WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Timers));
+
+engine.Advanced.SetFetchHandler(engine.Modules.Import("./worker.js"));
+
+using var response = await engine.Advanced.InvokeFetchHandlerAsync(request);
+```
+
+`SetFetchHandler` accepts three shapes, tried in this order: a **function**; an **object with a callable
+`fetch` property** (called with that object as `this`, so a handler written as a method can reach its
+siblings); or an object with a **`default`** property matching either — which is what a module namespace is,
+so the `export default { fetch }` convention above is registered in one call. A script that has no modules
+registers its handler just as directly:
+
+```csharp
+engine.Execute("function handle(request) { return new Response('hi'); }");
+engine.Advanced.SetFetchHandler(engine.GetValue("handle"));
+```
+
+**There is no feature flag for this, and registering a handler never grants network access.** What the object
+model needs is the three features its own interfaces are built out of — a `Request` has an `AbortSignal`, its
+URL is a WHATWG URL, `response.blob()` answers with a `Blob` — so an engine built without `Events | Url |
+Files` refuses the registration with a message naming them. Registering the handler is itself what installs
+the `Headers`, `Request` and `Response` globals, lazily and without replacing anything already under those
+names; `fetch` is deliberately *not* installed, because handling an inbound request is no reason to let the
+script make outbound ones. (`options.UseFetch()` satisfies the requirement too, and does grant them.) One
+ordering consequence: those globals appear when you register the handler, so a module that builds a `Response`
+at *top level* has to be evaluated after the registration — the ordinary shape, where the handler builds its
+response when it runs, does not care.
+
+Only the request is passed. A Workers handler takes `(request, env, ctx)`; per-request host state reaches this
+one the way it always has, through `engine.Advanced.AddLazyGlobal(...)` or a host function reading
+`engine.Advanced.HostDefined`.
+
+**Two invoke shapes**, and the difference is who owns the thread. `InvokeFetchHandlerAsync` is the one an
+ASP.NET Core host wants — `await` it and the continuations run wherever the await resumes.
+`InvokeFetchHandler` returns a `FetchHandlerOperation` and runs nothing on its own: you pump the engine and
+watch the operation, which is the shape a game loop or a UI thread needs, because then every turn provably
+runs where you decided. It is the same pair `Engine.Modules.ImportAsync` / `StartImport` offers, for the same
+reason.
+
+```csharp
+var operation = engine.Advanced.InvokeFetchHandler(request);
+while (!operation.IsCompleted)
+{
+    engine.Advanced.ProcessTasks();     // your loop, your thread
+}
+
+using var response = operation.GetResult();
+```
+
+A handler answering a `Response` synchronously produces an operation that is already complete; one answering
+a promise — every `async` handler, and anything that awaits a timer or an outbound `fetch` — needs turns. As
+everywhere else in these APIs, a `setTimeout` inside a handler only fires while somebody is pumping.
+
+**A failing handler is never turned into a 500 for you.** What a failure means on the wire is a policy
+question only the host can answer, so it arrives as the exception it was: a `JavaScriptException` when the
+handler threw, a `PromiseRejectedException` when its promise rejected, the constraint's own exception when an
+execution constraint fired, an `InvalidOperationException` when the handler answered with something that is
+not a `Response` (including `Response.error()`, which represents a network error and has no status line).
+All of Jint's own exceptions derive from `JintException`, so that is the one type to catch:
+
+```csharp
+try
+{
+    using var handled = await engine.Advanced.InvokeFetchHandlerAsync(request, context.RequestAborted);
+    // ... copy it onto the real response
+}
+catch (JintException ex)
+{
+    logger.LogWarning(ex, "the script handler failed");
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+}
+```
+
+With the polled shape the same failures arrive through the operation instead — `IsFaulted`, `Error`, or
+rethrown by `GetResult()` — including a failure of the invoke call itself, so a host written to
+poll-then-`GetResult` never has to guard the start call as well.
+
+The handler runs under the engine's execution constraints like every other host entry, so `MaxStatements`,
+`TimeoutInterval`, `LimitMemory` and any custom `Constraint` bound one invocation. Read
+[Execution Constraints](#execution-constraints) before relying on that: the budget is per *entry* into the
+engine, so each turn you pump afterwards gets a fresh one — a wall-clock bound over the whole request is what
+`Jint.Constraints.OperationDeadlineConstraint` is for, bracketed around the invoke and the pump. The
+`CancellationToken` taken by `InvokeFetchHandlerAsync` behaves exactly as `EvaluateAsync`'s does: it is
+observed at event-loop continuation boundaries and does **not** preempt the interpreter, so bounding a handler
+that never yields is a constraint's job.
+
+Request bodies are read in full before the handler runs — bodies here are buffered, not streamed. The
+awaitable shape reads them without blocking; the polled shape reads them on the calling thread, so buffer the
+content yourself (a `ByteArrayContent`) if it is still arriving off a socket. On the way out, `Content-Length`
+and `Transfer-Encoding` are dropped: those describe the message your HTTP stack is actually writing, and a
+script's claim about a body it is not sending would be a response-splitting primitive. Everything else is
+copied verbatim, with equally-named headers kept apart — several `Set-Cookie`s stay several.
+
+<details>
+<summary>ASP.NET Core: a sandboxed per-request script handler</summary>
+
+A documented sample rather than a package: Jint takes no dependency on ASP.NET Core, and this is all the glue
+there is. The engine comes from a pool the host owns — one engine per concurrent request, since an `Engine` is
+not thread-safe — and every one of them has had `SetFetchHandler` called on it.
+
+```csharp
+var scriptOptions = new Options()
+    .UseWebApis(WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Timers)
+    .MaxStatements(100_000)
+    .LimitMemory(16 * 1024 * 1024)
+    .TimeoutInterval(TimeSpan.FromSeconds(2));
+
+app.Map("/{**path}", async (HttpContext context, EnginePool pool, ILogger<Program> logger) =>
+{
+    using var lease = pool.Rent();                       // an engine with the handler already registered
+
+    var buffer = new MemoryStream();
+    await context.Request.Body.CopyToAsync(buffer, context.RequestAborted);
+
+    var inbound = new HttpRequestMessage(new HttpMethod(context.Request.Method), context.Request.GetEncodedUrl())
+    {
+        Content = new ByteArrayContent(buffer.ToArray()),
+    };
+
+    foreach (var header in context.Request.Headers)
+    {
+        // A content header is refused by the request collection and accepted by the content's, which is how
+        // the two halves of System.Net.Http's split are told apart. Jint merges them back into one list.
+        if (!inbound.Headers.TryAddWithoutValidation(header.Key, (IEnumerable<string>) header.Value))
+        {
+            inbound.Content.Headers.TryAddWithoutValidation(header.Key, (IEnumerable<string>) header.Value);
+        }
+    }
+
+    HttpResponseMessage handled;
+    try
+    {
+        handled = await lease.Engine.Advanced.InvokeFetchHandlerAsync(inbound, context.RequestAborted);
+    }
+    catch (JintException ex)
+    {
+        // The host's policy, not Jint's: a script failure is a 500 here, a rendered error page elsewhere.
+        logger.LogWarning(ex, "the script handler failed");
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        return;
+    }
+
+    using (handled)
+    {
+        context.Response.StatusCode = (int) handled.StatusCode;
+        foreach (var header in handled.Headers.Concat(handled.Content.Headers))
+        {
+            context.Response.Headers[header.Key] = new StringValues(header.Value.ToArray());
+        }
+
+        await handled.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
+    }
+});
+```
+
+Two things worth keeping when you adapt it. The engine must not be shared between concurrent requests, and a
+pooled one should have `engine.Advanced.RestoreGlobalSnapshot(...)` called on it between leases so one
+request's globals are not visible to the next. Take that snapshot **after** registering the handler, since
+registering is what installs `Request`/`Response`/`Headers` and a restore returns the global object to its
+state at capture; the handler itself is host state and survives the restore either way, so it never needs
+re-registering. And bound the script: the constraints above are what stand between a rented engine and a
+handler that decides to loop forever.
+
+</details>
+
 
 ## Node compatibility (opt-in)
 
