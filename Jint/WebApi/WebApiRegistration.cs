@@ -120,6 +120,10 @@ internal static class WebApiRegistration
             // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console is installed with, documented on CryptoInstance.
             Install(global, engine, "crypto", static e => e.Realm.Intrinsics.Crypto, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // The interface object of the keys crypto.subtle hands out, so that `key instanceof CryptoKey`
+            // works. It is not constructible, which is what its own IDL says.
+            Install(global, engine, "CryptoKey", static e => e.Realm.Intrinsics.CryptoKey, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)

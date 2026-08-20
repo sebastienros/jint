@@ -442,11 +442,15 @@ public enum WebApiFeatures
 
     /// <summary>
     /// The <c>crypto</c> object: <c>getRandomValues</c> and <c>randomUUID</c>, both backed by the BCL's
-    /// cryptographically secure generator, plus <c>crypto.subtle.digest</c> for SHA-1, SHA-256, SHA-384 and
-    /// SHA-512. Every other <c>SubtleCrypto</c> operation — everything needing key material — is not
-    /// implemented and is absent rather than present-and-throwing, so feature detection sees the truth.
-    /// <c>subtle</c> has no flag of its own because it is a readonly attribute of the very same
-    /// <c>Crypto</c> interface: asking for one is asking for the other.
+    /// cryptographically secure generator, plus <c>crypto.subtle</c> and the <c>CryptoKey</c> interface
+    /// object. <c>subtle</c> carries <c>digest</c> (SHA-1, SHA-256, SHA-384, SHA-512), <c>sign</c>,
+    /// <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and
+    /// <c>exportKey</c> over HMAC and AES-GCM, with <c>raw</c> and <c>jwk</c> key formats. Key derivation,
+    /// key wrapping and the asymmetric algorithms are not implemented and are absent rather than
+    /// present-and-throwing, so feature detection sees the truth. Neither <c>subtle</c> nor
+    /// <c>CryptoKey</c> has a flag of its own: <c>subtle</c> is a readonly attribute of the very same
+    /// <c>Crypto</c> interface and <c>CryptoKey</c> is the type of what it hands out, so asking for one is
+    /// asking for all three.
     /// </summary>
     Crypto = 1 << 5,
 

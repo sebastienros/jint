@@ -101,14 +101,19 @@ public class WebApiCryptoTests
         var engine = new Engine(options => options.UseWebApis());
 
         // `subtle` rides the Crypto flag rather than carrying one of its own — it is an attribute of the very
-        // same interface — so a host that asked for crypto has it.
+        // same interface — so a host that asked for crypto has it, and so is `CryptoKey`, which is the type of
+        // the keys it hands out.
         engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
         engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
+        engine.Evaluate("typeof crypto.subtle.sign").AsString().Should().Be("function");
+        engine.Evaluate("typeof crypto.subtle.importKey").AsString().Should().Be("function");
+        engine.Evaluate("typeof CryptoKey").AsString().Should().Be("function");
 
-        // Everything that needs key material is absent, not present-and-throwing.
-        engine.Evaluate("typeof crypto.subtle.sign").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof crypto.subtle.importKey").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof CryptoKey").AsString().Should().Be("undefined");
+        // Key derivation and key wrapping are absent, not present-and-throwing, so a library that checks
+        // before reaching for one takes its fallback path.
+        engine.Evaluate("""
+            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
+            """).AsString().Should().Be("undefined,undefined,undefined,undefined");
     }
 
     [Fact]

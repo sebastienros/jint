@@ -220,7 +220,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
-| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle.digest` (SHA-1/256/384/512) | `WebApiFeatures.Crypto` | ✔ shipped |
+| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
@@ -237,13 +237,27 @@ its own `console` (or any other name in the table below), enabling the feature l
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
 `Storage` is the other standing exception, for the reason in its own section below.
 
-`crypto.subtle` carries **`digest` and nothing else** so far. It is the one `SubtleCrypto` operation that
-needs no key material, which is what makes it shippable on its own; `sign`, `verify`, `encrypt`, `importKey`
-and the rest are *absent* rather than present-and-throwing, so `typeof crypto.subtle.sign` tells a library the
-truth and it takes its fallback path. `digest` never throws — a promise-returning WebIDL operation converts
-every failure into a rejection, so an unregistered algorithm name is a `NotSupportedError` `DOMException`
-rejection and a `data` argument that is not an `ArrayBuffer` or a view over one is a `TypeError` rejection.
-The work is synchronous, so the promise is already settled when you get it.
+`crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
+`exportKey`**, over SHA-1/256/384/512 (for `digest` and as HMAC's inner hash), **HMAC**, and **AES-GCM** at
+128, 192 and 256 bits. Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and
+`usages`; the key material is never reachable from script except through `exportKey` on an extractable key,
+as `raw` bytes or as a JSON Web Key (`kty: "oct"`). `deriveKey`, `deriveBits`, `wrapKey`, `unwrapKey` and
+every asymmetric algorithm are *absent* rather than present-and-throwing, so
+`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path.
+
+Nothing here ever throws: a promise-returning WebIDL operation converts every failure into a rejection. An
+algorithm that is not registered for the operation is a `NotSupportedError` `DOMException`, a key used
+against its own `usages` or against another algorithm is an `InvalidAccessError`, a malformed JWK is a
+`DataError`, a usage list an algorithm does not support is a `SyntaxError`, and anything an argument
+conversion refuses is a `TypeError`. An AES-GCM decryption that does not authenticate is one
+`OperationError` carrying nothing about which part of the input was wrong. The work is synchronous, so the
+promise is already settled when you get it.
+
+Two limits of .NET's AES-GCM are visible, and both are reported as the `OperationError` the algorithm's own
+steps end in: the `iv` must be the 96 bits NIST SP 800-38D recommends, and `tagLength` must be 96, 104, 112,
+120 or 128 — the specification also lists 32 and 64, which `System.Security.Cryptography.AesGcm` will not
+produce. The ciphertext is `ciphertext || tag`, exactly as the specification defines it, so a host reading a
+script's output with `AesGcm` splits the last `tagLength / 8` bytes off itself.
 
 ### Timers fire only while the engine is being pumped
 

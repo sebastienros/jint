@@ -45,6 +45,7 @@ public sealed partial class Intrinsics
     private UrlSearchParamsConstructor? _webApiUrlSearchParams;
     private CryptoInstance? _crypto;
     private SubtleCryptoInstance? _subtleCrypto;
+    private CryptoKeyConstructor? _cryptoKey;
     private PerformanceInstance? _performance;
     private PerformanceEntryConstructor? _performanceEntry;
     private PerformanceMarkConstructor? _performanceMark;
@@ -171,6 +172,14 @@ public sealed partial class Intrinsics
     /// </summary>
     internal SubtleCryptoInstance SubtleCrypto =>
         _subtleCrypto ??= new SubtleCryptoInstance(_engine, _realm, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>CryptoKey</c> interface object. It is reached both from the global of an engine with the crypto
+    /// feature and from the operations that build keys, so a key made before the script ever mentions
+    /// <c>CryptoKey</c> still has that very object's <c>prototype</c> as its <c>[[Prototype]]</c>.
+    /// </summary>
+    internal CryptoKeyConstructor CryptoKey =>
+        _cryptoKey ??= new CryptoKeyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
     /// The <c>performance</c> object, which reads the engine's time origin and therefore needs the web-API
