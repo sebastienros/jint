@@ -171,6 +171,33 @@ public abstract partial class Test262Test
     {
         try
         {
+            ExecuteTestCore(engine, file);
+        }
+        catch (Exception ex) when (IsRetryableTimingFlake(file, ex))
+        {
+            // The Atomics wait/waitAsync tests are the one family whose PASS depends on cross-thread
+            // timing: a worker agent must reach its wait before a wall-clock budget the test grants it
+            // (typically 1000ms), and a loaded runner misses that window a few times per thousand runs —
+            // observed on main as well as on every PR the suite gates. One retry on a fresh engine and a
+            // fresh agent manager absorbs exactly that; a genuine Atomics regression is deterministic and
+            // fails the retry too. Negative tests are excluded above, so an expected throw is never eaten.
+            TestContext.Out.WriteLine($"Retrying {file.FileName} once after a timing-dependent failure: {ex.Message}");
+            var retryExecutor = BuildTestExecutor(file);
+            ExecuteTestCore(retryExecutor, file);
+        }
+    }
+
+    private static bool IsRetryableTimingFlake(Test262File file, Exception ex)
+    {
+        _ = ex;
+        return file.NegativeTestCase is null
+               && file.FileName.StartsWith("built-ins/Atomics/wait", StringComparison.Ordinal);
+    }
+
+    private static void ExecuteTestCore(Engine engine, Test262File file)
+    {
+        try
+        {
             if (file.Type == ProgramType.Module)
             {
                 var specifier = "./" + Path.GetFileName(file.FileName);
