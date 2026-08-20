@@ -321,20 +321,29 @@ internal sealed record EventLoop
         {
             while (true)
             {
+                // An Atomics.waitAsync timeout is the one piece of scheduled work that cannot wait for the
+                // queue to run dry: the microtask spin test262's $262.agent.setTimeout polyfill is built from
+                // keeps the queue permanently non-empty for as long as the script is polling for the wait it
+                // is waiting on, so a timeout looked at only on exhaustion would never be looked at at all.
+                // Ordering is unaffected, because settling only *enqueues* the resolution, at the back of the
+                // queue behind everything already in it. Cost on every target framework: one predictable null
+                // test per job on an engine with no such wait pending, which is every engine that has not
+                // called Atomics.waitAsync with a timeout — see Engine.SettleTimedOutAtomicsWaiters.
+                engine.SettleTimedOutAtomicsWaiters();
+
                 if (!_events.TryDequeue(out var job))
                 {
-#if NET8_0_OR_GREATER
                     // The queue is empty, so this is the moment — and the only moment — a timer may join it.
                     // Promoting exactly one due timer per exhaustion is what makes this single queue behave as
                     // the microtask queue HTML specifies: everything a job queues, transitively, runs before
                     // the next timer is even looked at, so Promise.resolve().then(f) beats setTimeout(g, 0)
                     // and a chain of reactions can never be starved by a due interval. The check costs one
-                    // predictable null test per drain on an engine without timers, never one per job.
+                    // predictable null test per drain on an engine without timers, and on a target framework
+                    // that has no timers at all the call folds away to nothing.
                     if (engine.TryPromoteDueTimerJob())
                     {
                         continue;
                     }
-#endif
 
                     break;
                 }

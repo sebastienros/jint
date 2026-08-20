@@ -1,5 +1,4 @@
 #if NET8_0_OR_GREATER
-using System.Runtime.CompilerServices;
 using Jint.WebApi.Timers;
 
 namespace Jint;
@@ -10,23 +9,12 @@ public partial class Engine
     /// The per-engine state behind the opt-in web APIs, or <see langword="null"/> — which is what a default
     /// engine, and an engine that enabled only stateless features such as <c>console</c>, carries. Every hot
     /// path that consults it starts with this field being null, so an engine that has no timers pays one
-    /// predictable null check per event-loop drain and nothing else.
+    /// predictable null check per event-loop drain and nothing else. The pump reaches it through
+    /// <c>Engine.TryPromoteDueTimerJob</c> and <c>Engine.TimeUntilNextPumpScheduledWork</c>
+    /// (<c>Jint/Engine.Pump.cs</c>), which are declared on every target framework so that neither the event
+    /// loop nor the wait loops need a conditional-compilation directive of their own.
     /// </summary>
     internal WebApiEngineState? _webApi;
-
-    /// <summary>
-    /// Moves the next due timer onto the event loop, if one is due. Called by
-    /// <see cref="Runtime.EventLoop.RunAvailableContinuations"/> when the job queue has run dry — which is
-    /// what makes the single job queue behave as the microtask queue: every promise reaction already queued
-    /// runs before any timer, so <c>Promise.resolve().then(f)</c> beats <c>setTimeout(g, 0)</c>.
-    /// </summary>
-    /// <returns>Whether a timer was promoted, i.e. whether the pump has more work to do.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool TryPromoteDueTimerJob()
-    {
-        var webApi = _webApi;
-        return webApi is not null && webApi.TryPromoteDueTimerJob();
-    }
 }
 
 /// <summary>

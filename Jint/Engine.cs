@@ -1172,12 +1172,12 @@ public sealed partial class Engine : IDisposable
                     }
                 }
 
-#if NET8_0_OR_GREATER
-                // A timer coming due enqueues nothing, so nothing wakes this thread when it does: the wait
-                // has to end by itself. The 10ms poll above already made timers of 10ms and more correct;
-                // clamping to the next due time is what buys a 1ms timer 1ms of latency instead of 10.
-                var untilNextTimer = _webApi?.TimeUntilNextDueTimer();
-                if (untilNextTimer is { } untilDue)
+                // Work the engine scheduled for itself — an Atomics.waitAsync timeout, a web-API timer —
+                // enqueues nothing, so nothing wakes this thread when it comes due: the wait has to end by
+                // itself. The 10ms poll above already made anything of 10ms and more correct; clamping to the
+                // next due time is what buys a 1ms deadline 1ms of latency instead of 10.
+                var untilNextWork = TimeUntilNextPumpScheduledWork();
+                if (untilNextWork is { } untilDue)
                 {
                     if (untilDue <= TimeSpan.Zero)
                     {
@@ -1185,7 +1185,7 @@ public sealed partial class Engine : IDisposable
                         // timeout deadline checked immediately above stops the loop running past its bound.
                         // Nested inside a job it cannot pump — the re-entrancy guard makes the queue
                         // unrunnable from here — so fall through to the bounded wait rather than spinning on
-                        // a timer nobody present can promote.
+                        // work nobody present can promote.
                         if (!_eventLoop.IsRunningJob)
                         {
                             continue;
@@ -1196,7 +1196,6 @@ public sealed partial class Engine : IDisposable
                         waitInterval = untilDue;
                     }
                 }
-#endif
 
                 try
                 {

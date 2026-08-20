@@ -4,11 +4,17 @@ using System.Runtime.CompilerServices;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// A finite <c>Atomics.waitAsync</c> timeout is a thread-pool task, and the task used to be
+/// A finite <c>Atomics.waitAsync</c> timeout used to be a thread-pool task, and the task used to be
 /// unstoppable: it slept out the whole interval whatever happened to the wait, holding the waiter —
 /// and through it the engine, its realm and the promise capability — alive in its closure, then
 /// enqueued a resolution onto an event loop whose engine the host had long finished with. The
 /// interval is whatever the script asked for, so nothing bounded it but the script.
+/// <para>
+/// The timeout is a deadline on an engine-owned registry now, so the retention question is answered
+/// differently but has to be answered the same way: a woken wait leaves an entry behind in that heap
+/// until its deadline surfaces, and the heap belongs to the engine, so what is left is a cycle
+/// entirely inside the graph the host has dropped — collectable, where a live pool task was not.
+/// </para>
 /// </summary>
 // Shares the garbage-collection collection: the retention test below reads GC state, which cannot be
 // isolated from tests running in parallel with it.
@@ -93,9 +99,9 @@ public class AtomicsWaitAsyncTests
 
     /// <summary>
     /// Collects until <paramref name="reference"/> dies or <paramref name="timeout"/> elapses. The retry is
-    /// not a weaker assertion: the timer task observes its cancellation on a thread pool thread, so there is
-    /// a short window in which its state machine is still reachable. Without the fix the engine stays alive
-    /// for the wait's full three minutes, which no plausible window covers.
+    /// not a weaker assertion: it was written for the era when the timer task observed its cancellation on a
+    /// thread pool thread, leaving a short window in which its state machine was still reachable. Without the
+    /// fix the engine stayed alive for the wait's full three minutes, which no plausible window covers.
     /// </summary>
     private static bool CollectUntilDead(WeakReference reference, TimeSpan timeout)
     {
