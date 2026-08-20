@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Native.AsyncFunction;
 using Jint.Native.Disposable;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -302,7 +303,26 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         if (_forInVarInitializer is not null)
         {
             var lhs = engine.ResolveBinding(_forInVarName!);
-            var value = _forInVarInitializer.GetValue(context);
+
+            // The head is one of NamedEvaluation's positions: "If IsAnonymousFunctionDefinition(Initializer)
+            // is true, let value be ? NamedEvaluation of Initializer with argument bindingId."
+            // https://tc39.es/ecma262/#sec-runtime-semantics-forinofloopevaluation
+            JsValue value;
+            if (_forInVarInitializer is JintClassExpression classExpression
+                && _forInVarInitializer._expression.IsAnonymousFunctionDefinition())
+            {
+                value = classExpression.EvaluateWithName(context, _forInVarName!);
+            }
+            else
+            {
+                value = _forInVarInitializer.GetValue(context);
+                if (_forInVarInitializer._expression.IsFunctionDefinition())
+                {
+                    // A no-op when the definition already carries its own name.
+                    ((Function) value).SetFunctionName(_forInVarName!);
+                }
+            }
+
             engine.PutValue(lhs, value);
         }
 

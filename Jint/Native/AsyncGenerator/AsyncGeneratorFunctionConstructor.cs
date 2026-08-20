@@ -16,12 +16,15 @@ internal sealed class AsyncGeneratorFunctionConstructor : Constructor
     internal AsyncGeneratorFunctionConstructor(
         Engine engine,
         Realm realm,
-        FunctionPrototype prototype,
+        FunctionConstructor functionConstructor,
         AsyncIteratorPrototype asyncIteratorPrototype)
         : base(engine, realm, _functionName)
     {
-        PrototypeObject = new AsyncGeneratorFunctionPrototype(engine, this, prototype, asyncIteratorPrototype);
-        _prototype = PrototypeObject;
+        PrototypeObject = new AsyncGeneratorFunctionPrototype(engine, this, functionConstructor.PrototypeObject, asyncIteratorPrototype);
+        // https://tc39.es/ecma262/#sec-asyncgeneratorfunction-constructor
+        // The AsyncGeneratorFunction constructor has a [[Prototype]] internal slot whose value is %Function%,
+        // i.e. the Function constructor itself and not %AsyncGeneratorFunction.prototype%.
+        _prototype = functionConstructor;
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
     }

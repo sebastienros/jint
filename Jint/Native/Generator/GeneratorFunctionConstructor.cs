@@ -16,12 +16,15 @@ internal sealed class GeneratorFunctionConstructor : Constructor
     internal GeneratorFunctionConstructor(
         Engine engine,
         Realm realm,
-        FunctionPrototype prototype,
+        FunctionConstructor functionConstructor,
         IteratorPrototype iteratorPrototype)
         : base(engine, realm, _functionName)
     {
-        PrototypeObject = new GeneratorFunctionPrototype(engine, this, prototype, iteratorPrototype);
-        _prototype = PrototypeObject;
+        PrototypeObject = new GeneratorFunctionPrototype(engine, this, functionConstructor.PrototypeObject, iteratorPrototype);
+        // https://tc39.es/ecma262/#sec-generatorfunction-constructor
+        // The GeneratorFunction constructor has a [[Prototype]] internal slot whose value is %Function%,
+        // i.e. the Function constructor itself and not %GeneratorFunction.prototype%.
+        _prototype = functionConstructor;
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
     }

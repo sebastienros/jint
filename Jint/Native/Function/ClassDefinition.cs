@@ -197,7 +197,12 @@ internal sealed class ClassDefinition
         ScriptFunction F;
         try
         {
-            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class);
+            // The definition is keyed on the class BODY, not on the constructor's function node and not on
+            // the class node. Not the function node, because a class with no explicit constructor borrows a
+            // synthesized one that every such class shares. Not the class node, because a class expression is
+            // also a field initializer's own value node, which the field-initializer cache already keys on
+            // (`B = class {}` would collide). A ClassBody is unique per class and is never a cache key elsewhere.
+            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class, definitionCacheKey: _body);
             F = constructorInfo.Closure;
 
             F.SetFunctionName(_className ?? classBinding ?? "");

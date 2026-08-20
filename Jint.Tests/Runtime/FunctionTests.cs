@@ -897,6 +897,74 @@ assertEqual(booleanCount, 1);
     }
 
     [Fact]
+    public void ClassToStringReturnsTheClassSourceTextWhenRetained()
+    {
+        // https://tc39.es/ecma262/#sec-class-definitions-runtime-semantics-evaluation
+        // ClassExpression : class ClassTail -- "Set value.[[SourceText]] to the source text matched by
+        // ClassExpression." A class with no explicit constructor has no function node of its own: the
+        // engine substitutes one synthesized constructor AST that every such class shares, and that node
+        // was parsed apart from the script, so it carries no source text. The text has to come from the
+        // class node itself, which is what the parenthesized cases below also pin -- the parentheses of a
+        // CoverParenthesizedExpression are outside the ClassExpression production and must not be included.
+        var engine = new Engine(options => options.RetainFunctionSourceText());
+
+        engine.Evaluate("(class {}).toString()").AsString().Should().Be("class {}");
+        engine.Evaluate("((class {})).toString()").AsString().Should().Be("class {}");
+        engine.Evaluate("(class Named { m() {} }).toString()").AsString().Should().Be("class Named { m() {} }");
+        engine.Evaluate("(class extends Object {}).toString()").AsString().Should().Be("class extends Object {}");
+        engine.Evaluate("(class { constructor(a) {} }).toString()").AsString().Should().Be("class { constructor(a) {} }");
+    }
+
+    [Fact]
+    public void ClassesWithoutAnExplicitConstructorDoNotShareOneSourceText()
+    {
+        // They all borrow the same synthesized constructor AST, so the interpreter definition that carries
+        // the source-text node must be keyed on the class node and not on that shared function node.
+        var engine = new Engine(options => options.RetainFunctionSourceText());
+
+        engine.Evaluate("class D {} class E {} [D.toString(), E.toString()].join('|')")
+            .AsString().Should().Be("class D {}|class E {}");
+
+        // Derived classes borrow a second shared node (the one forwarding to super).
+        engine.Evaluate("class F extends Object {} class G extends Object {} [F.toString(), G.toString()].join('|')")
+            .AsString().Should().Be("class F extends Object {}|class G extends Object {}");
+    }
+
+    [Fact]
+    public void ClassToStringReturnsNativeCodePlaceholderByDefault()
+    {
+        // Source-text retention stays opt-in for classes exactly as it is for functions.
+        var engine = new Engine();
+
+        engine.Evaluate("(class Named {}).toString()").AsString().Should().Be("function Named() { [native code] }");
+        engine.Evaluate("(class {}).toString()").AsString().Should().Be("function () { [native code] }");
+    }
+
+    [Fact]
+    public void ForInHeadInitializerNamesAnAnonymousFunction()
+    {
+        // https://tc39.es/ecma262/#sec-runtime-semantics-forinofloopevaluation
+        // for ( var BindingIdentifier Initializer in Expression ) Statement:
+        // "If IsAnonymousFunctionDefinition(Initializer) is true, let value be ? NamedEvaluation of
+        // Initializer with argument bindingId."
+        var engine = new Engine();
+
+        engine.Evaluate("for (var a = function () {} in {}) {} a.name").AsString().Should().Be("a");
+        engine.Evaluate("for (var b = () => {} in {}) {} b.name").AsString().Should().Be("b");
+        engine.Evaluate("for (var c = class {} in {}) {} c.name").AsString().Should().Be("c");
+        engine.Evaluate("for (var d = function* () {} in {}) {} d.name").AsString().Should().Be("d");
+        engine.Evaluate("for (var e = async function () {} in {}) {} e.name").AsString().Should().Be("e");
+        engine.Evaluate("for (var h = async () => {} in {}) {} h.name").AsString().Should().Be("h");
+
+        // A definition that carries its own name keeps it.
+        engine.Evaluate("for (var i = function named() {} in {}) {} i.name").AsString().Should().Be("named");
+        engine.Evaluate("for (var j = class named {} in {}) {} j.name").AsString().Should().Be("named");
+
+        // A non-function initializer is unaffected.
+        engine.Evaluate("for (var k = 42 in {}) {} k").AsNumber().Should().Be(42);
+    }
+
+    [Fact]
     public void ClosureInParameterDefaultKeepsItsCapturedEnvironment()
     {
         // The environment-escape analysis must also scan parameter default expressions: a closure created
