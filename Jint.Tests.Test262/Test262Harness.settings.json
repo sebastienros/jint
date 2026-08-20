@@ -89,12 +89,6 @@
     "staging/sm/Array/species.js",
     "staging/sm/Reflect/has.js",
 
-    // String case mapping is done with the BCL's culture-aware tables rather than the Unicode
-    // Default Case Conversion the spec requires, so a handful of code points (dotless i, the
-    // supplementary planes) map differently. Removed by using the Unicode data directly.
-    "staging/sm/String/string-code-point-upper-lower-mapping.js",
-    "staging/sm/String/string-upper-lower-mapping.js",
-
     // Parser early errors that Acornima does not raise, or raises as the wrong error type: an
     // invalid parameter list, `super()` inside an arrow inside a direct eval in a derived
     // constructor, a destructuring pattern with a duplicate binding, a legacy octal literal in

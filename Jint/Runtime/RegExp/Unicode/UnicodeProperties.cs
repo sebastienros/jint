@@ -190,6 +190,25 @@ internal static class UnicodeProperties
         Span<uint> r = stackalloc uint[MaxCaseConvLen]; CaseConv(r, c, ct); return r[0];
     }
 
+    /// <summary>Maximum number of code points a single full case mapping can produce.</summary>
+    public const int MaxCaseConversionLength = MaxCaseConvLen;
+
+    /// <summary>
+    /// Full uppercase mapping of a single code point per the Unicode Default Case Conversion
+    /// algorithm, i.e. UnicodeData.txt plus the unconditional, language-insensitive expansions of
+    /// SpecialCasing.txt (U+00DF -> "SS", U+FB03 -> "FFI", the Greek ypogegrammeni forms).
+    /// <paramref name="res"/> must hold <see cref="MaxCaseConversionLength"/> code points; the
+    /// return value says how many were written.
+    /// </summary>
+    public static int ToUpperCase(Span<uint> res, uint c) => CaseConv(res, c, 0);
+
+    /// <summary>
+    /// Full lowercase mapping of a single code point per the Unicode Default Case Conversion
+    /// algorithm. The context-dependent Final_Sigma rule is not applied here — it needs the
+    /// surrounding text — so U+03A3 maps to the medial form and the caller decides.
+    /// </summary>
+    public static int ToLowerCase(Span<uint> res, uint c) => CaseConv(res, c, 1);
+
     /// <summary>Case-convert code point. convType: 0=upper, 1=lower, 2=casefold.</summary>
     public static int CaseConv(Span<uint> res, uint c, int convType)
     {
