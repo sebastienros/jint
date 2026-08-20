@@ -81,7 +81,7 @@ internal sealed record EventLoop
     internal volatile int _waitingThreadId = -1;
 
     /// <summary>
-    /// Async wake signals registered by callers of <see cref="WaitForEventAsync"/>.
+    /// Async wake signals registered by callers of <see cref="WaitForEventAsync(CancellationToken)"/>.
     /// Each call appends its own TCS so that <see cref="Enqueue(in EventLoopJob)"/> can wake every
     /// outstanding waiter — supporting concurrent awaiters on a single engine
     /// (e.g. a caller that <c>await</c>s two engine-internal promises in parallel
@@ -180,8 +180,8 @@ internal sealed record EventLoop
     /// <summary>
     /// Blocks until new work is enqueued, <paramref name="completedEvent"/> is signaled, cancellation is
     /// requested, or <paramref name="timeout"/> elapses — whichever comes first. The synchronous sibling of
-    /// <see cref="WaitForEventAsync"/>, used by the drain loops that hold the calling thread. Only the single
-    /// draining thread may call this, because it resets <see cref="_workArrived"/>.
+    /// <see cref="WaitForEventAsync(CancellationToken)"/>, used by the drain loops that hold the calling
+    /// thread. Only the single draining thread may call this, because it resets <see cref="_workArrived"/>.
     /// </summary>
     /// <remarks>
     /// The reset-then-check order closes the race with a producer: an enqueue before the reset is seen by the
@@ -255,6 +255,36 @@ internal sealed record EventLoop
     }
 
     /// <summary>
+    /// The bounded form of <see cref="WaitForEventAsync(CancellationToken)"/>: also completes once
+    /// <paramref name="timeout"/> has elapsed. Needed because an <c>Atomics.waitAsync</c> timeout coming due
+    /// enqueues nothing and so wakes nobody — the only thing that knows it is time to pump again is the clock.
+    /// </summary>
+    /// <remarks>
+    /// One <see cref="Task.Delay(TimeSpan, CancellationToken)"/> per idle wait, and only while such work is
+    /// actually pending; an engine with none keeps taking the unbounded overload and allocates nothing extra.
+    /// If the delay wins the race, the wake registration the wait made stays in the waiter list until the next
+    /// <see cref="Enqueue(in EventLoopJob)"/> clears it. That is deliberately harmless: the broadcast
+    /// completes an already-completed or abandoned <see cref="TaskCompletionSource{TResult}"/> as a no-op, so
+    /// a stale entry costs one GC root and nothing else — the same trade the double-check in the unbounded
+    /// overload already makes.
+    /// </remarks>
+    /// <param name="timeout">How long to wait at most.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public async Task WaitForEventAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var waitTask = WaitForEventAsync(cancellationToken);
+        if (waitTask.IsCompleted)
+        {
+            return;
+        }
+
+        // Neither task is awaited directly, so neither can throw here: cancellation of either one leaves a
+        // cancelled task that WhenAny simply reports as the winner, and the caller re-checks its own
+        // condition and its own token on resume, exactly as it does after an unbounded wait.
+        await Task.WhenAny(waitTask, Task.Delay(timeout, cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Discards every currently queued job without running it. Used by
     /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/>: a reaction left behind by an
     /// evaluation's unsettled promise would otherwise run during the next evaluation's drain, against
@@ -289,8 +319,23 @@ internal sealed record EventLoop
 
         try
         {
-            while (_events.TryDequeue(out var job))
+            while (true)
             {
+                // An Atomics.waitAsync timeout is the one piece of scheduled work that cannot wait for the
+                // queue to run dry: the microtask spin test262's $262.agent.setTimeout polyfill is built from
+                // keeps the queue permanently non-empty for as long as the script is polling for the wait it
+                // is waiting on, so a timeout looked at only on exhaustion would never be looked at at all.
+                // Ordering is unaffected, because settling only *enqueues* the resolution, at the back of the
+                // queue behind everything already in it. Cost: one predictable null test per job on an engine
+                // with no such wait pending, which is every engine that has not called Atomics.waitAsync with
+                // a timeout — see Engine.SettleTimedOutAtomicsWaiters.
+                engine.SettleTimedOutAtomicsWaiters();
+
+                if (!_events.TryDequeue(out var job))
+                {
+                    break;
+                }
+
                 // Work registered before a RestoreGlobalSnapshot belongs to a cycle the engine has ended.
                 // Running it would resume a previous evaluation's continuation against the restored global
                 // surface — the cross-cycle channel a fresh-engine-per-evaluation host never had. Dropping
