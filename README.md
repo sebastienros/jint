@@ -214,8 +214,8 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`) | `WebApiFeatures.Console` | ✔ shipped |
 | `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
-| `TextEncoder` / `TextDecoder` | `Encoding` | in progress |
-| `atob` / `btoa` | `Base64` | in progress |
+| `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
+| `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` | `StructuredClone` | in progress |
 | `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
 | `performance.now` / `performance.timeOrigin` | `Performance` | in progress |

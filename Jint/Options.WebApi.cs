@@ -135,7 +135,6 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>Encoding = 1 &lt;&lt; 2</c>, <c>Base64 = 1 &lt;&lt; 3</c>,
 /// <c>StructuredClone = 1 &lt;&lt; 4</c>, <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
 /// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c>, <c>Files = 1 &lt;&lt; 9</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
@@ -170,10 +169,22 @@ public enum WebApiFeatures
     Timers = 1 << 1,
 
     /// <summary>
-    /// The web APIs a host normally wants: everything except outbound network access. Today that is
-    /// <see cref="Console"/> and <see cref="Timers"/>; it grows as further features land, and never comes to
-    /// include fetch.
+    /// <c>TextEncoder</c> and <c>TextDecoder</c> — https://encoding.spec.whatwg.org/#api. The encoder is
+    /// UTF-8 only, as the standard requires; the decoder reads UTF-8, UTF-16LE and UTF-16BE.
     /// </summary>
-    Default = Console | Timers,
+    Encoding = 1 << 2,
+
+    /// <summary>
+    /// The <c>atob</c> and <c>btoa</c> functions —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#atob.
+    /// </summary>
+    Base64 = 1 << 3,
+
+    /// <summary>
+    /// The web APIs a host normally wants: everything except outbound network access. Today that is
+    /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/> and <see cref="Base64"/>; it grows
+    /// as further features land, and never comes to include fetch.
+    /// </summary>
+    Default = Console | Timers | Encoding | Base64,
 }
 #endif
