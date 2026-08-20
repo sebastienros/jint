@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using Jint.WebApi.Abort;
 using Jint.WebApi.Base64;
+using Jint.WebApi.Compression;
 using Jint.WebApi.Console;
 using Jint.WebApi.Crypto;
 using Jint.WebApi.DomException;
@@ -322,5 +323,27 @@ public sealed partial class Intrinsics
     /// <inheritdoc cref="LocalStorage" />
     internal JsStorage SessionStorage =>
         _sessionStorage ??= JsStorage.Create(_engine, _realm, Storage, StorageKind.Session);
+
+    private TextEncoderStreamConstructor? _textEncoderStream;
+    private TextDecoderStreamConstructor? _textDecoderStream;
+    private CompressionStreamConstructor? _compressionStream;
+    private DecompressionStreamConstructor? _decompressionStream;
+
+    /// <summary>
+    /// The four transform streams other standards define. Each is an interface of its own rather than a
+    /// <c>TransformStream</c> subclass, so none of them shares a prototype with <see cref="TransformStream"/>
+    /// — but each owns one, which is why reaching any of these builds the streams intrinsics too.
+    /// </summary>
+    internal TextEncoderStreamConstructor TextEncoderStream =>
+        _textEncoderStream ??= new TextEncoderStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal TextDecoderStreamConstructor TextDecoderStream =>
+        _textDecoderStream ??= new TextDecoderStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal CompressionStreamConstructor CompressionStream =>
+        _compressionStream ??= new CompressionStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal DecompressionStreamConstructor DecompressionStream =>
+        _decompressionStream ??= new DecompressionStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 }
 #endif

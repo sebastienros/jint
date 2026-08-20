@@ -227,6 +227,8 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `Blob` (incl. `stream()`) / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
+| `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
+| `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
@@ -825,6 +827,36 @@ re-registering. And bound the script: the constraints above are what stand betwe
 handler that decides to loop forever.
 
 </details>
+
+### Text and compression transform streams need two flags
+
+`TextEncoderStream`, `TextDecoderStream`, `CompressionStream` and `DecompressionStream` are each one
+standard's algorithm running inside the Streams Standard's machinery, so each needs **both** flags: the text
+pair wants `Encoding | Streams`, the compression pair `Compression | Streams`. Naming one half installs
+neither global, which is the honest answer for feature detection — and `UseWebApis()` enables all four
+anyway. None of them is a `TransformStream` subclass: like a browser, each is its own interface exposing a
+`readable` and a `writable`, and the transform behind it is never handed to script.
+
+```javascript
+const bytes = textReadable.pipeThrough(new TextEncoderStream()).pipeThrough(new CompressionStream('gzip'));
+const text = bytes.pipeThrough(new DecompressionStream('gzip')).pipeThrough(new TextDecoderStream());
+```
+
+`TextEncoderStream` carries the standard's leading-surrogate slot, so a surrogate pair split across two
+chunks is reassembled into the one scalar value it denotes rather than becoming two U+FFFDs, and
+`TextDecoderStream` is the same decoder `TextDecoder` uses with `stream: true` — a UTF-8 sequence, a UTF-16
+code unit or a byte order mark split across chunks all decode as if the bytes had arrived in one piece. A
+`fatal` decoder errors *both* sides with a `TypeError`, as the standard prescribes.
+
+For compression, note that the standard's `deflate` is **RFC 1950's ZLIB container**, named that way for
+consistency with HTTP `Content-Encoding`; raw RFC 1951 DEFLATE is the separate `deflate-raw`. Jint maps them
+onto `ZLibStream` and `DeflateStream` accordingly (and `gzip` onto `GZipStream`), so bytes produced here are
+the bytes every other implementation expects. `brotli`, which the standard's enumeration also names, is not
+implemented and — like any unsupported value — raises a `TypeError`. Input a format rejects (a bad header, a
+failed CRC32 or ADLER32, a malformed block) errors both sides with a `TypeError`; two truncation cases the
+standard also calls errors are the documented exception, because .NET exposes no incremental inflater that
+could report them: a stream that ends mid-member closes cleanly instead, and bytes following a complete
+member are ignored. A stream that ends with no compressed bytes at all *is* refused.
 
 
 ## Node compatibility (opt-in)
