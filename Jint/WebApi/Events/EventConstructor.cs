@@ -122,7 +122,7 @@ internal sealed partial class EventConstructor : Constructor
     /// specification is a browser's fingerprinting defence, and an embedded engine has no cross-origin script
     /// to defend against.
     /// </summary>
-    internal static double TimeStampNow(Engine engine) => engine._webApi?.RelativeHighResolutionTime() ?? 0;
+    internal static double TimeStampNow(Engine engine) => engine._webApi?.CurrentHighResolutionTime ?? 0;
 }
 
 /// <summary>

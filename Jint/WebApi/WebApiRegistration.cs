@@ -101,6 +101,18 @@ internal static class WebApiRegistration
             Install(global, engine, "AbortController", static e => e.Realm.Intrinsics.AbortController, PropertyFlag.NonEnumerable);
             Install(global, engine, "AbortSignal", static e => e.Realm.Intrinsics.AbortSignal, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.Crypto) != WebApiFeatures.None)
+        {
+            // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
+            // property is the same simplification console is installed with, documented on CryptoInstance.
+            Install(global, engine, "crypto", static e => e.Realm.Intrinsics.Crypto, PropertyFlag.ConfigurableEnumerableWritable);
+        }
+
+        if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
+        {
+            Install(global, engine, "performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>
@@ -116,9 +128,10 @@ internal static class WebApiRegistration
     private static void CreateEngineState(Options options, Engine engine, WebApiFeatures features)
     {
         // The timer globals are the obvious reason for a queue; AbortSignal.timeout() is the other, and it
-        // needs one whether or not the host also asked for setTimeout. The events feature additionally reads
-        // the time origin for Event.timeStamp, which is why it wants the state even without the timers flag.
-        const WebApiFeatures NeedsEngineState = WebApiFeatures.Timers | WebApiFeatures.Events;
+        // needs one whether or not the host also asked for setTimeout. The events and performance features
+        // additionally read the time origin (Event.timeStamp, performance.now), which is why they want the state
+        // even without the timers flag.
+        const WebApiFeatures NeedsEngineState = WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance;
         if ((features & NeedsEngineState) == WebApiFeatures.None)
         {
             return;
@@ -126,7 +139,13 @@ internal static class WebApiRegistration
 
         var timerOptions = options.WebApi.Timers;
         var timeProvider = timerOptions.TimeProvider ?? TimeProvider.System;
-        var timers = new TimerQueue(timeProvider, timerOptions.MaxActiveTimers);
+
+        // The queue exists for the timer globals and for AbortSignal.timeout(), which needs it whether or
+        // not the host also asked for setTimeout; a performance-only engine reads just the time origin and
+        // never schedules, so it carries no queue at all.
+        var timers = (features & (WebApiFeatures.Timers | WebApiFeatures.Events)) != WebApiFeatures.None
+            ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers)
+            : null;
 
         engine._webApi = new WebApiEngineState(engine, timeProvider, timers);
     }

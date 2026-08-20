@@ -2,11 +2,13 @@
 using Jint.WebApi.Abort;
 using Jint.WebApi.Base64;
 using Jint.WebApi.Console;
+using Jint.WebApi.Crypto;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Files;
 using Jint.WebApi.StructuredClone;
+using Jint.WebApi.Performance;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
 
@@ -34,6 +36,8 @@ public sealed partial class Intrinsics
     private StructuredCloneFunction? _structuredClone;
     private UrlConstructor? _webApiUrl;
     private UrlSearchParamsConstructor? _webApiUrlSearchParams;
+    private CryptoInstance? _crypto;
+    private PerformanceInstance? _performance;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -110,5 +114,14 @@ public sealed partial class Intrinsics
 
     internal AbortControllerConstructor AbortController =>
         _abortController ??= new AbortControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, AbortSignal);
+    internal CryptoInstance Crypto =>
+        _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>performance</c> object, which reads the engine's time origin and therefore needs the web-API
+    /// state <c>WebApiRegistration</c> created alongside the global.
+    /// </summary>
+    internal PerformanceInstance Performance =>
+        _performance ??= PerformanceInstance.Create(_engine, _realm, Object.PrototypeObject);
 }
 #endif

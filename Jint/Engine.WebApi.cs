@@ -18,25 +18,36 @@ public partial class Engine
     /// <c>AbortSignal.timeout()</c> schedules on.
     /// </summary>
     internal WebApiEngineState? _webApi;
+
 }
 
 /// <summary>
 /// Mutable per-engine state for the opt-in web APIs. Created by <c>WebApiRegistration</c> when a feature that
 /// needs it is enabled, and engine-affine like everything else on <see cref="Engine"/> — two engines built
-/// from one shared <see cref="Options"/> instance get one of these each, so their timers are independent.
+/// from one shared <see cref="Options"/> instance get one of these each, so their timers and their time
+/// origin are independent.
 /// </summary>
 internal sealed class WebApiEngineState
 {
     private readonly Engine _engine;
     private readonly TimeProvider _timeProvider;
-    private readonly long _timeOrigin;
+
+    /// <summary>
+    /// The monotonic reading taken when this state was created, which is the instant
+    /// <see cref="TimeOrigin"/> names and the one <see cref="CurrentHighResolutionTime"/> counts from.
+    /// </summary>
+    private readonly long _originTimestamp;
 
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers)
     {
         _engine = engine;
         _timeProvider = timeProvider;
-        _timeOrigin = timeProvider.GetTimestamp();
         Timers = timers;
+
+        // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
+        // duration from, and the wall-clock moment that reading corresponds to.
+        _originTimestamp = timeProvider.GetTimestamp();
+        TimeOrigin = (timeProvider.GetUtcNow() - DateTimeOffset.UnixEpoch).TotalMilliseconds;
     }
 
     /// <summary>
@@ -45,13 +56,23 @@ internal sealed class WebApiEngineState
     internal TimerQueue? Timers { get; }
 
     /// <summary>
-    /// Milliseconds since this engine's <i>time origin</i>, which is the instant the web APIs were installed
-    /// on it — https://w3c.github.io/hr-time/#dfn-relative-high-resolution-time. It is what
-    /// <c>Event.timeStamp</c> is measured in, and it reads the same <see cref="TimeProvider"/> the timers do,
-    /// so a fake clock makes both deterministic together.
+    /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
+    /// epoch, https://w3c.github.io/hr-time/#dom-performance-timeorigin.
     /// </summary>
-    internal double RelativeHighResolutionTime()
-        => _timeProvider.GetElapsedTime(_timeOrigin, _timeProvider.GetTimestamp()).TotalMilliseconds;
+    /// <remarks>
+    /// Per engine, and deliberately not reset by <see cref="ResetTransientState"/>: a pooled engine keeps the
+    /// origin it was built with, so <c>performance.now()</c> can never go backwards across an evaluation
+    /// cycle.
+    /// </remarks>
+    internal double TimeOrigin { get; }
+
+    /// <summary>
+    /// <c>performance.now()</c>: https://w3c.github.io/hr-time/#dfn-current-high-resolution-time, the
+    /// duration from <see cref="TimeOrigin"/> to now in milliseconds, read from the same monotonic clock the
+    /// timers are scheduled against and deliberately not coarsened.
+    /// </summary>
+    internal double CurrentHighResolutionTime =>
+        _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job. One per call rather than all of them, so that
