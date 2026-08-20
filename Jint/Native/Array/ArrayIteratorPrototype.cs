@@ -153,12 +153,23 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
+            // https://tc39.es/ecma262/#sec-createarrayiterator - the abstract closure is a generator
+            // body, so once it has returned the generator is completed and a further `next` answers
+            // { value: undefined, done: true } without running a single step again. Nothing here may
+            // observe the array after that: no ValidateTypedArray (which would raise a TypeError for a
+            // buffer detached in the meantime) and no `length` read on an array-like.
+            if (_closed)
+            {
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
+                return false;
+            }
+
             uint len;
             if (_typedArray is not null)
             {
                 _typedArray._viewedArrayBuffer.AssertNotDetached();
                 var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(_typedArray, ArrayBufferOrder.SeqCst);
-                if (!_closed && taRecord.IsTypedArrayOutOfBounds)
+                if (taRecord.IsTypedArrayOutOfBounds)
                 {
                     Throw.TypeError(_typedArray.Engine.Realm, "TypedArray is out of bounds");
                 }
@@ -169,7 +180,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                 len = _operations!.GetLength();
             }
 
-            if (!_closed && _position < len)
+            if (_position < len)
             {
                 if (_typedArray is not null)
                 {
@@ -211,8 +222,14 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         {
             if (_kind == ArrayIteratorType.Value && _typedArray is null)
             {
+                if (_closed)
+                {
+                    value = null;
+                    return false;
+                }
+
                 var len = _operations!.GetLength();
-                if (!_closed && _position < len)
+                if (_position < len)
                 {
                     var stepped = _operations!.Get(_position);
                     _position++;

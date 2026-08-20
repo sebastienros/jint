@@ -1534,22 +1534,8 @@ internal static class IntlUtilities
 
     /// <summary>
     /// https://tc39.es/ecma402/#sec-resolvelocale
-    /// </summary>
-    internal static ResolvedLocale ResolveLocale(
-        Engine engine,
-        HashSet<string> availableLocales,
-        List<string> requestedLocales,
-        JsValue options,
-        string[] relevantExtensionKeys)
-    {
-        // 1. Let matcher be options.[[localeMatcher]].
-        var matcher = options.IsObject() ? options.Get("localeMatcher").ToString() : "best fit";
-        return ResolveLocaleCore(engine, availableLocales, requestedLocales, matcher, relevantExtensionKeys);
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-resolvelocale
-    /// Overload that accepts pre-read localeMatcher to avoid reading the option twice.
+    /// The localeMatcher is passed in already read and validated: step 1 takes it from the internal
+    /// [[localeMatcher]] slot the caller filled in, never from the options object a second time.
     /// </summary>
     internal static ResolvedLocale ResolveLocale(
         Engine engine,

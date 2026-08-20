@@ -174,13 +174,15 @@ internal sealed partial class CollatorConstructor : Constructor
         // Get options object
         var optionsObj = IntlUtilities.CoerceOptionsToObject(_engine, options);
 
-        // Validate localeMatcher option first (must be done before other processing)
-        GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
+        // Validate localeMatcher option first (must be done before other processing). The resolved
+        // value is threaded through rather than re-read inside ResolveLocale: the spec reads the
+        // option exactly once, so a second Get would run a user-supplied getter a second time.
+        var localeMatcher = GetStringOption(optionsObj, "localeMatcher", in LocaleMatcherValues, "best fit");
 
         // Resolve locale
         var requestedLocales = IntlUtilities.CanonicalizeLocaleList(_engine, locales);
         var availableLocales = IntlUtilities.GetAvailableLocales();
-        var resolvedLocale = ResolveCollatorLocale(_engine, availableLocales, requestedLocales, optionsObj);
+        var resolvedLocale = ResolveCollatorLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
         // Parse Unicode extensions from the first requested locale (if any) since resolved locale may strip them
         string? uCollation = null;
@@ -532,9 +534,9 @@ internal sealed partial class CollatorConstructor : Constructor
         return options;
     }
 
-    private static string ResolveCollatorLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, ObjectInstance options)
+    private static string ResolveCollatorLocale(Engine engine, HashSet<string> availableLocales, List<string> requestedLocales, string localeMatcher)
     {
-        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, options, []);
+        var resolved = IntlUtilities.ResolveLocale(engine, availableLocales, requestedLocales, localeMatcher, []);
         return resolved.Locale;
     }
 
