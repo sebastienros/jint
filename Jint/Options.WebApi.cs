@@ -154,6 +154,19 @@ public partial class Options
     /// what <see cref="UrlFilter"/> is for, and a deployment exposed to untrusted script wants one.
     /// </para>
     /// <para>
+    /// <b><see cref="WebApiFeatures.WebSocket"/> reads this group too</b>, because a socket is outbound
+    /// access to the same hosts from the same process. <see cref="AllowedSchemes"/> admits <c>ws</c> wherever
+    /// it admits <c>http</c> and <c>wss</c> wherever it admits <c>https</c> (naming <c>ws</c> or <c>wss</c>
+    /// outright works too); <see cref="UrlFilter"/> is shown the <c>ws:</c> URL itself;
+    /// <see cref="MaxResponseBytes"/> is the ceiling on one incoming message and on the bytes <c>send()</c>
+    /// may have unwritten; <see cref="MaxConcurrentRequests"/> is how many sockets one engine may have open,
+    /// counted separately from the requests in flight; and <see cref="Timeout"/> bounds the opening and
+    /// closing handshakes rather than the connection, which is meant to be long-lived. The other three
+    /// members are about HTTP alone and a socket ignores them: <see cref="HttpClient"/>,
+    /// <see cref="HttpClientFactory"/> and <see cref="MaxRedirects"/> — the WebSocket handshake is not
+    /// allowed to be redirected at all.
+    /// </para>
+    /// <para>
     /// Like every other option group this may be shared by any number of engines, including concurrent ones:
     /// nothing on it is engine-affine. Two members carry a thread-safety obligation, because they are called
     /// from whichever thread the HTTP stack happens to be on — see <see cref="UrlFilter"/> and
@@ -622,6 +635,27 @@ public enum WebApiFeatures
     /// </list>
     /// </remarks>
     EventSource = 1 << 17,
+
+    /// <summary>
+    /// <c>WebSocket</c>, and the <c>CloseEvent</c> and <c>MessageEvent</c> interfaces its events are —
+    /// a long-lived two-way connection from script.
+    /// <b>Never part of <see cref="Default"/>:</b> like <see cref="Fetch"/> this is outbound network access,
+    /// so it is only ever set by naming it or by calling <c>options.UseWebSocket()</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/> — a <c>WebSocket</c> <i>is</i> an <c>EventTarget</c> — and
+    /// <see cref="Files"/>, because <c>binaryType = "blob"</c> answers a binary message with a <c>Blob</c>.
+    /// </para>
+    /// <para>
+    /// The policy is <see cref="Options.FetchOptions"/>, the same group <see cref="Fetch"/> reads: a socket
+    /// reaches the same hosts from the same process. Read it before enabling this — in particular
+    /// <see cref="Options.FetchOptions.UrlFilter"/>, which is shown the <c>ws:</c> or <c>wss:</c> URL, and
+    /// <see cref="Options.FetchOptions.AllowedSchemes"/>, where <c>http</c> admits <c>ws</c> and
+    /// <c>https</c> admits <c>wss</c>.
+    /// </para>
+    /// </remarks>
+    WebSocket = 1 << 18,
 
     /// <summary>
     /// <c>CompressionStream</c> and <c>DecompressionStream</c> — https://compression.spec.whatwg.org/ — for

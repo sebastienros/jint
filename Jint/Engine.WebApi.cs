@@ -6,6 +6,7 @@ using Jint.WebApi.Fetch;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.Timers;
+using Jint.WebApi.WebSockets;
 
 namespace Jint;
 
@@ -95,6 +96,13 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<FetchBodyStream>? _fetchBodies;
 
+    /// <summary>
+    /// The sockets this engine has open, in the order they were created. Engine-thread-only for the same
+    /// reason the fetch list is: a socket is added by the <c>WebSocket</c> constructor and removed by its own
+    /// close job, both of which run on the engine's thread.
+    /// </summary>
+    private List<JsWebSocket>? _webSockets;
+
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null)
     {
         _engine = engine;
@@ -178,6 +186,29 @@ internal sealed class WebApiEngineState
         => (_eventSources ??= new List<EventSourceConnection>()).Add(connection);
 
     internal void UnregisterEventSource(EventSourceConnection connection) => _eventSources?.Remove(connection);
+
+    /// <summary>
+    /// How many sockets are open, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c> bounds for
+    /// this feature. Counted separately from the requests in flight: a socket is a long-lived thing and a
+    /// fetch is not, so one kind must not exhaust the other's budget.
+    /// </summary>
+    internal int ActiveWebSocketCount => _webSockets?.Count ?? 0;
+
+    /// <summary>
+    /// Where a <c>WebSocket</c>'s transport comes from, or <see langword="null"/> for the in-box
+    /// <c>ClientWebSocket</c> one.
+    /// </summary>
+    /// <remarks>
+    /// The seam the test suite replaces so that the whole state machine — handshake, messages,
+    /// <c>bufferedAmount</c>, the closing handshake, every event — can be driven with no network anywhere. It
+    /// is deliberately not a host-facing option: a transport a host supplied would want headers, proxies,
+    /// certificates and a keep-alive policy with it, which is a larger design than this field.
+    /// </remarks>
+    internal IWebSocketConnectionFactory? WebSocketConnections { get; set; }
+
+    internal void RegisterWebSocket(JsWebSocket socket) => (_webSockets ??= new List<JsWebSocket>()).Add(socket);
+
+    internal void UnregisterWebSocket(JsWebSocket socket) => _webSockets?.Remove(socket);
 
     /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
@@ -269,8 +300,10 @@ internal sealed class WebApiEngineState
     /// <c>ReadableStream</c>. Its controller is <b>errored</b>, which is the honest answer to a host still
     /// holding the response — a stream that reports failure beats one that silently never produces another
     /// byte — and the reactions that erroring schedules carry the ending cycle's generation, so the fence
-    /// discards them exactly as it discards a chunk still on its way. The sink is deliberately not reset: it
-    /// is configuration the engine was built with, like the time origin beside it, and a pooled engine
+    /// discards them exactly as it discards a chunk still on its way. A <c>WebSocket</c> is abandoned the
+    /// same way and for the same reason, and fires no further event: its connection is dropped, and its
+    /// <c>close</c> event belongs to a cycle that has ended. The sink is deliberately not reset: it is
+    /// configuration the engine was built with, like the time origin beside it, and a pooled engine
     /// reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
     /// </remarks>
     internal void ResetTransientState()
@@ -280,6 +313,7 @@ internal sealed class WebApiEngineState
         AbandonFetches();
         AbandonFetchBodies();
         AbandonEventSources();
+        AbandonWebSockets();
     }
 
     private void AbandonFetches()
@@ -289,14 +323,30 @@ internal sealed class WebApiEngineState
             return;
         }
 
-        // Copied before the walk: Abandon cancels a token source, and a synchronous continuation on this very
-        // thread would otherwise reach UnregisterFetch and mutate the list under the enumerator.
+        // Copied before the walk: Abandon cancels a token source, and a synchronous continuation on this
+        // very thread would otherwise reach UnregisterFetch and mutate the list under the enumerator.
         var pending = fetches.ToArray();
         fetches.Clear();
 
         foreach (var fetch in pending)
         {
             fetch.Abandon();
+        }
+    }
+
+    private void AbandonWebSockets()
+    {
+        if (_webSockets is not { Count: > 0 } sockets)
+        {
+            return;
+        }
+
+        var open = sockets.ToArray();
+        sockets.Clear();
+
+        foreach (var socket in open)
+        {
+            socket.Operation?.Abandon();
         }
     }
 

@@ -178,6 +178,49 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables <c>WebSocket</c>, together with the <c>CloseEvent</c> and <c>MessageEvent</c> interfaces its
+    /// events are — and with <see cref="WebApiFeatures.Events"/> and <see cref="WebApiFeatures.Files"/>,
+    /// which its own surface is built out of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This grants a script outbound network access</b>, and <see cref="UseWebApis(Options)"/> deliberately
+    /// never does. A socket answers to the same policy a fetch does — the <see cref="Options.FetchOptions"/>
+    /// group, which <paramref name="configure"/> hands over — with the scheme list read in its WebSocket
+    /// sense: <c>http</c> admits <c>ws</c> and <c>https</c> admits <c>wss</c>. The
+    /// <see cref="Options.FetchOptions.UrlFilter"/> is shown the <c>ws:</c> URL, so a filter that tests the
+    /// scheme needs to know about both.
+    /// </para>
+    /// <para>
+    /// Enabling this does <b>not</b> enable <c>fetch</c>, and enabling <c>fetch</c> does not enable this:
+    /// they share their settings, not their permission.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseWebSocket(net =>
+    /// {
+    ///     net.AllowedSchemes.Remove("http");                   // wss only
+    ///     net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">Optional configuration of the network settings, run after the feature is enabled.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWebSocket(this Options options, Action<Options.FetchOptions>? configure = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.WebSocket;
+        configure?.Invoke(options.WebApi.Fetch);
+        return options;
+    }
+
+    /// <summary>
     /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
     /// </summary>
     /// <param name="options">Options to modify.</param>
