@@ -202,7 +202,15 @@ public partial class Options
         // Modules must exist before the configuration callbacks run: a host's
         // options.Configure(e => e.Modules.Add(...)) is the documented way to
         // register programmatic modules at construction time.
-        engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
+        //
+        // The opt-in node: builtins are a decorator over whatever loader the host configured, applied here
+        // rather than in UseNodeBuiltinModules so that the order of that call and EnableModules cannot
+        // matter, and so that options.Modules.ModuleLoader keeps reading back what the host set.
+        var moduleLoader = _nodeBuiltinModules is null
+            ? Modules.ModuleLoader
+            : NodeCompat.NodeBuiltinModuleLoader.Wrap(Modules.ModuleLoader, _nodeBuiltinModules);
+
+        engine.Modules = new Engine.ModuleOperations(engine, moduleLoader);
 
         foreach (var configuration in _configurations)
         {

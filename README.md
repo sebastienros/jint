@@ -603,6 +603,51 @@ option is read once, when `UseNodeProcess` returns, so one `Options` instance st
 engines. **Unlike the web APIs above, this needs no particular target framework**: it compiles for every one
 Jint targets.
 
+### `node:` builtin modules (opt-in)
+
+After resolution, the next wall a package published for Node runs into is `import 'node:path'`.
+`UseNodeBuiltinModules()` supplies the ones that are pure string utilities — no file system, no process, no
+network, no clock — and nothing else.
+
+```csharp
+var engine = new Engine(options => options
+    .EnableModules(new NodeStyleModuleLoader(@"C:\app"))
+    .UseNodeBuiltinModules());
+
+engine.Modules.Import("./main.js"); // main.js, and anything in node_modules, may import 'node:path'
+```
+
+| Module | What it provides |
+| --- | --- |
+| `node:path` | `resolve`, `normalize`, `isAbsolute`, `join`, `relative`, `dirname`, `basename`, `extname`, `format`, `parse`, `toNamespacedPath`, `sep`, `delimiter`, and both flavours as `posix` and `win32`. `matchesGlob` is absent — it is the one member that is not string arithmetic. |
+| `node:path/posix`, `node:path/win32` | The two flavours as modules of their own. |
+| `node:querystring` | `parse`/`decode`, `stringify`/`encode`, `escape`, `unescape`. `unescapeBuffer` is absent: it answers with a `Buffer`. |
+| `node:url` | `URL` and `URLSearchParams` (the engine's own WHATWG implementations, re-exported), `fileURLToPath`, `pathToFileURL`, `domainToASCII`, `domainToUnicode`. The legacy `url.parse`/`url.resolve`/`url.format` API is absent. |
+
+**Nothing that touches a platform resource is provided, and that is not a gap to be filled later.**
+`node:fs`, `node:buffer`, `node:crypto`, `node:os`, `node:child_process`, `node:http` and their kind are
+deliberately absent, so a script feature-detecting one takes its other branch instead of walking into a stub.
+An unknown `node:` specifier fails with a message naming what *is* available.
+
+Both spellings work — `import 'path'` as well as `import 'node:path'` — and both name one module, because a
+builtin outranks a `node_modules` package of the same name exactly as it does in Node
+([ESM_RESOLVE](https://nodejs.org/api/esm.html#resolution-algorithm-specification), PACKAGE_RESOLVE step 3).
+Set `AllowUnprefixedSpecifiers = false` for a tree that really does depend on an npm package called `path`,
+`url` or `querystring`.
+
+A module you register yourself wins: `engine.Modules.Add("node:path", …)` — or `Add("path", …)`, which
+resolves to the same key — replaces the builtin, and is also how you supply one of the modules Jint does not
+provide. Everything that is not a builtin keeps going to whichever loader you configured, in whichever order
+you called the two methods, and `options.Modules.ModuleLoader` still reads back exactly what you set.
+
+Two options are worth setting. `Platform` decides which flavour `node:path` defaults to and defaults to the
+platform you are on, the same answer `process.platform` gives. `WorkingDirectory` is what `path.resolve()` and
+`path.relative()` use where Node reads `process.cwd()`; like the `process` shim's, it defaults to `"/"` and
+**never** answers the real current directory.
+
+`node:querystring` and `node:url` need .NET 8 or newer, because both build on the engine's WHATWG URL
+implementation. `node:path` is available on every target framework Jint has.
+
 
 ## Performance
 

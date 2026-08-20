@@ -126,6 +126,38 @@ internal static class Idna
         }
     }
 
+    /// <summary>
+    /// Unicode ToUnicode: the inverse mapping, which turns every <c>xn--</c> label back into the characters it
+    /// encodes. Returns <see langword="false"/> when the platform reports the domain as invalid, which is the
+    /// failure value <c>url.domainToUnicode</c> reports as an empty string.
+    /// </summary>
+    /// <remarks>
+    /// The URL Standard never needs this direction — a URL record stores the ASCII form — so it exists for
+    /// <c>node:url</c>'s <c>domainToUnicode</c> and for the UNC host of <c>fileURLToPath</c>, which is the one
+    /// place Node decodes a host back before handing it to the file system. The same platform divergences
+    /// listed above apply.
+    /// </remarks>
+    internal static bool TryToUnicode(string domain, out string result)
+    {
+        try
+        {
+            var mapping = _mapping ??= new IdnMapping { AllowUnassigned = true, UseStd3AsciiRules = false };
+            result = mapping.GetUnicode(domain);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            result = string.Empty;
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            // Globalization-invariant mode, or a platform without the ICU data. Reported by Fidelity.
+            result = string.Empty;
+            return false;
+        }
+    }
+
     private static IdnaFidelity Probe()
     {
         if (!TryToAscii(ProbeDomain, out var result))
