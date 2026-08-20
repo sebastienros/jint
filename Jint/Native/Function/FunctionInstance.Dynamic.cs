@@ -94,54 +94,30 @@ public partial class Function
         JintFunctionDefinition? definition = null;
         try
         {
-            string? functionExpression = null;
-            if (argCount == 0)
+            string? prefix = null;
+            switch (kind)
             {
-                switch (kind)
-                {
-                    case FunctionKind.Normal:
-                        functionExpression = "function anonymous(\n) {\n\n}";
-                        break;
-                    case FunctionKind.Generator:
-                        functionExpression = "function* anonymous(\n) {\n\n}";
-                        break;
-                    case FunctionKind.Async:
-                        functionExpression = "async function anonymous(\n) {\n\n}";
-                        break;
-                    case FunctionKind.AsyncGenerator:
-                        functionExpression = "async function* anonymous(\n) {\n\n}";
-                        break;
-                    default:
-                        Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
-                        break;
-                }
+                case FunctionKind.Normal:
+                    prefix = "function anonymous(";
+                    break;
+                case FunctionKind.Async:
+                    prefix = "async function anonymous(";
+                    break;
+                case FunctionKind.Generator:
+                    prefix = "function* anonymous(";
+                    break;
+                case FunctionKind.AsyncGenerator:
+                    prefix = "async function* anonymous(";
+                    break;
+                default:
+                    Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
+                    break;
             }
-            else
-            {
-                switch (kind)
-                {
-                    case FunctionKind.Normal:
-                        functionExpression = "function anonymous(";
-                        break;
-                    case FunctionKind.Async:
-                        functionExpression = "async function anonymous(";
-                        break;
-                    case FunctionKind.Generator:
-                        functionExpression = "function* anonymous(";
-                        break;
-                    case FunctionKind.AsyncGenerator:
-                        functionExpression = "async function* anonymous(";
-                        break;
-                    default:
-                        Throw.ArgumentOutOfRangeException(nameof(kind), kind.ToString());
-                        break;
-                }
 
-                // Per spec (CreateDynamicFunction step 29), a line feed follows the parameters,
-                // and the body is wrapped with line feeds (step 16). This ensures HTML-like
-                // comments (<!-- and -->) are correctly handled as line comments.
-                functionExpression += p + "\n) {\n" + body + "\n}";
-            }
+            // Per spec (CreateDynamicFunction step 15), a line feed follows the parameters, and the
+            // body is wrapped with line feeds (step 14). This ensures HTML-like comments (<!-- and -->)
+            // are correctly handled as line comments.
+            var functionExpression = prefix + p + "\n) {\n" + body + "\n}";
 
             var parserOptions = _engine.GetActiveParserOptions();
             if (!parserOptions.AllowReturnOutsideFunction)
@@ -152,7 +128,7 @@ public partial class Function
             // Compilation cache for repeated new Function(...) with identical sources: the parsed
             // function definition is shared (like closures sharing one definition); the resulting
             // Function object below is always a fresh instance. Parse failures are never cached.
-            var cacheable = functionExpression!.Length <= DynamicFunctionCacheMaxSourceLength;
+            var cacheable = functionExpression.Length <= DynamicFunctionCacheMaxSourceLength;
             var cacheKey = new DynamicFunctionCacheKey(functionExpression, _engine._isStrict);
             var cache = _realm._dynamicFunctionCache;
             if (cacheable
@@ -165,11 +141,12 @@ public partial class Function
             else
             {
                 Parser parser = new(parserOptions);
-                // CreateDynamicFunction step 21 throws its SyntaxError in the current realm, and the
+                // CreateDynamicFunction step 24 throws its SyntaxError in the current realm, and the
                 // current realm while a built-in runs is the built-in's own [[Realm]] — not the caller's.
                 // Jint does not push an execution context for a built-in call, so _engine.ExecutionContext
                 // still describes the caller here and only _realm names the callee.
-                var function = (IFunction) parser.ParseScriptGuarded(_realm, functionExpression, strict: _engine._isStrict).Body[0];
+                var script = parser.ParseScriptGuarded(_realm, functionExpression, strict: _engine._isStrict);
+                var function = ValidateDynamicFunctionShape(script, prefix!.Length, p.Length);
                 definition = new JintFunctionDefinition(function)
                 {
                     IsDynamic = true,
@@ -223,6 +200,52 @@ public partial class Function
         }
 
         return F;
+    }
+
+    /// <summary>
+    /// Enforces CreateDynamicFunction steps 17-24 for a source assembled by
+    /// <see cref="CreateDynamicFunction"/>: the spec parses <c>paramString</c> and
+    /// <c>bodyParseString</c> on their own (steps 17-20) before parsing the assembled source as a
+    /// single function expression (steps 23-24), "to ensure that each is valid alone. For example,
+    /// new Function("/*", "*/ ) {") does not evaluate to a function."
+    /// https://tc39.es/ecma262/#sec-createdynamicfunction
+    /// </summary>
+    /// <remarks>
+    /// Reparsing both halves would cost two extra parses on every <c>new Function(...)</c> that misses
+    /// the compilation cache, so the single parse is checked against the two source positions the
+    /// assembled text fixed in advance — which is exactly as strict, because the assembly interleaves
+    /// nothing else with the two argument strings.
+    /// <list type="bullet">
+    /// <item>The body's <c>{</c> can only sit at <c>prefixLength + parameterLength + 3</c> when the
+    /// <c>)</c> the spec inserted after the parameters is the one that closed the parameter list, so
+    /// the text the parser accepted as parameters is exactly the parameter string. A smaller offset
+    /// means the parameter string closed the list itself; a larger one means it swallowed the inserted
+    /// <c>)</c> inside an unterminated comment, template or nested parenthesis.</item>
+    /// <item>A parse yielding more than one statement is a body string that closed the function early
+    /// and continued with statements of its own, which a standalone <c>FunctionBody</c> parse rejects
+    /// and which step 23's single <c>FunctionExpression</c> goal rejects as well.</item>
+    /// </list>
+    /// </remarks>
+    private IFunction ValidateDynamicFunctionShape(Script script, int prefixLength, int parameterLength)
+    {
+        var parsed = script.Body.Count == 1 ? script.Body[0] as IFunction : null;
+        if (parsed is null)
+        {
+            Throw.SyntaxError(_realm, "Function body string is not a complete function body");
+        }
+
+        // prefixLength + parameterLength addresses the line feed the assembly inserted after the
+        // parameters; the ')' and the space follow it, so the body's '{' is three characters further on.
+        var expectedBodyStart = prefixLength + parameterLength + 3;
+        var actualBodyStart = parsed.Body.Start;
+        if (actualBodyStart != expectedBodyStart)
+        {
+            Throw.SyntaxError(_realm, actualBodyStart < expectedBodyStart
+                ? "Function parameter string terminates the parameter list early"
+                : "Function parameter string is not a complete parameter list");
+        }
+
+        return parsed;
     }
 
     /// <summary>
