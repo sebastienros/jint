@@ -66,6 +66,7 @@ public class WebApiStreamsTests
                  {
                      "ReadableStreamDefaultReader", "ReadableStreamDefaultController", "WritableStreamDefaultWriter",
                      "WritableStreamDefaultController", "TransformStreamDefaultController",
+                     "ReadableStreamBYOBReader", "ReadableByteStreamController", "ReadableStreamBYOBRequest",
                  })
         {
             engine.Evaluate($"typeof {name}").AsString().Should().Be("undefined", name);
@@ -78,17 +79,27 @@ public class WebApiStreamsTests
     }
 
     [Fact]
-    public void ByteStreamsAreAbsentRatherThanBroken()
+    public void ByteStreamsWorkFromOutsideTheAssembly()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
 
-        engine.Evaluate("typeof ReadableByteStreamController").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof ReadableStreamBYOBReader").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof ReadableStreamBYOBRequest").AsString().Should().Be("undefined");
+        // A host reads a byte stream the way a browser script does: supply the buffer, get it back filled,
+        // and keep using the view the read handed over — the one it passed in has been transferred away.
+        engine.Execute("""
+            globalThis.log = [];
+            const stream = new ReadableStream({
+                type: 'bytes',
+                autoAllocateChunkSize: 8,
+                pull(c) { c.byobRequest.view.set([1, 2, 3]); c.byobRequest.respond(3); c.close(); }
+            });
 
-        // Asking for one is refused rather than quietly downgraded.
-        engine.Evaluate("(() => { try { new ReadableStream({ type: 'bytes' }); return 'no throw'; } catch (e) { return e.name; } })()")
-            .AsString().Should().Be("TypeError");
+            const reader = stream.getReader({ mode: 'byob' });
+            reader.read(new Uint8Array(4)).then(r => log.push(Array.from(r.value).join('-') + ':' + r.value.buffer.byteLength));
+            """);
+
+        engine.Evaluate("log.join(',')").AsString().Should().Be("1-2-3:4");
+
+        // Asking for a BYOB reader from a stream that is not a byte stream is still the TypeError it was.
         engine.Evaluate("(() => { try { new ReadableStream().getReader({ mode: 'byob' }); return 'no throw'; } catch (e) { return e.name; } })()")
             .AsString().Should().Be("TypeError");
     }

@@ -1,6 +1,5 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.WebApi.Streams;
@@ -17,18 +16,11 @@ namespace Jint.WebApi.Streams;
 /// specifically so that a stream stops retaining the underlying source's closures once it is closed or
 /// errored.
 /// </remarks>
-internal sealed class JsReadableStreamDefaultController : ObjectInstance
+internal sealed class JsReadableStreamDefaultController : JsReadableStreamController
 {
-    internal JsReadableStreamDefaultController(Engine engine, Realm realm) : base(engine, ObjectClass.Object)
+    internal JsReadableStreamDefaultController(Engine engine, Realm realm) : base(engine, realm)
     {
-        Realm = realm;
     }
-
-    /// <summary>The realm the controller was created in.</summary>
-    internal Realm Realm { get; }
-
-    /// <summary>https://streams.spec.whatwg.org/#readablestreamdefaultcontroller-stream</summary>
-    internal JsReadableStream Stream { get; set; } = null!;
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readablestreamdefaultcontroller-queue and
@@ -59,5 +51,26 @@ internal sealed class JsReadableStreamDefaultController : ObjectInstance
 
     /// <summary>https://streams.spec.whatwg.org/#readablestreamdefaultcontroller-cancelalgorithm</summary>
     internal Func<JsValue, JsPromise>? CancelAlgorithm { get; set; }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#rs-default-controller-private-pull
+    /// </summary>
+    internal override void PullSteps(ReadRequest readRequest)
+        => ReadableStreamDefaultControllerOperations.PullSteps(this, readRequest);
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#rs-default-controller-private-cancel
+    /// </summary>
+    internal override JsPromise CancelSteps(JsValue reason)
+        => ReadableStreamDefaultControllerOperations.CancelSteps(this, reason);
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#abstract-opdef-readablestreamdefaultcontroller-releasesteps — the
+    /// default controller has nothing to do when a reader releases the lock. The byte controller's
+    /// counterpart, which downgrades its head pull-into descriptor, is what this member exists for.
+    /// </summary>
+    internal override void ReleaseSteps()
+    {
+    }
 }
 #endif

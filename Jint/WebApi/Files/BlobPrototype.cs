@@ -164,13 +164,15 @@ internal sealed partial class BlobPrototype : Prototype
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Two reductions against the algorithm as written, both forced by there being no byte streams here.
-    /// The stream is an ordinary (non-byte) <c>ReadableStream</c> rather than one "set up with byte reading
-    /// support", so it has no BYOB reader — which is exactly what <c>getReader()</c> already answers for
-    /// every other stream in this implementation. And the blob's bytes are one chunk rather than the
-    /// implementation-defined slices the algorithm's loop reads: the bytes are already in memory, so
-    /// slicing them would manufacture event-loop turns rather than model any I/O. An empty blob enqueues
-    /// nothing and closes, so its first <c>read()</c> is done.
+    /// Two reductions against the algorithm as written. The stream is an ordinary (non-byte)
+    /// <c>ReadableStream</c> rather than one "set up with byte reading support", so
+    /// <c>getReader({ mode: "byob" })</c> on it raises the standard's TypeError for a stream that was not
+    /// constructed with a byte source. That is a gap in <i>this caller</i> rather than in the engine —
+    /// readable byte streams are implemented, and a script can build one with
+    /// <c>new ReadableStream({ type: "bytes" })</c> — so moving a blob onto one is a change here alone. And
+    /// the blob's bytes are one chunk rather than the implementation-defined slices the algorithm's loop
+    /// reads: the bytes are already in memory, so slicing them would manufacture event-loop turns rather
+    /// than model any I/O. An empty blob enqueues nothing and closes, so its first <c>read()</c> is done.
     /// </para>
     /// <para>
     /// The chunk is a <c>Uint8Array</c> over a fresh copy, like every other way a blob's bytes cross into

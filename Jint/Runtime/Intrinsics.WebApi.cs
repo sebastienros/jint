@@ -255,6 +255,9 @@ public sealed partial class Intrinsics
     private ReadableStreamConstructor? _readableStream;
     private ReadableStreamDefaultReaderConstructor? _readableStreamDefaultReader;
     private ReadableStreamDefaultControllerConstructor? _readableStreamDefaultController;
+    private ReadableStreamBYOBReaderConstructor? _readableStreamBYOBReader;
+    private ReadableByteStreamControllerConstructor? _readableByteStreamController;
+    private ReadableStreamBYOBRequestConstructor? _readableStreamBYOBRequest;
     private ReadableStreamAsyncIteratorPrototype? _readableStreamAsyncIteratorPrototype;
     private WritableStreamConstructor? _writableStream;
     private WritableStreamDefaultWriterConstructor? _writableStreamDefaultWriter;
@@ -279,6 +282,21 @@ public sealed partial class Intrinsics
 
     internal ReadableStreamDefaultControllerConstructor ReadableStreamDefaultController =>
         _readableStreamDefaultController ??= new ReadableStreamDefaultControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The three byte-stream interfaces, which follow the same rule: not globals, reachable through their
+    /// instances' prototypes. A byte stream is asked for with <c>new ReadableStream({ type: "bytes" })</c>
+    /// and a BYOB reader with <c>stream.getReader({ mode: "byob" })</c>, so nothing but feature detection
+    /// ever names them.
+    /// </summary>
+    internal ReadableStreamBYOBReaderConstructor ReadableStreamBYOBReader =>
+        _readableStreamBYOBReader ??= new ReadableStreamBYOBReaderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal ReadableByteStreamControllerConstructor ReadableByteStreamController =>
+        _readableByteStreamController ??= new ReadableByteStreamControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal ReadableStreamBYOBRequestConstructor ReadableStreamBYOBRequest =>
+        _readableStreamBYOBRequest ??= new ReadableStreamBYOBRequestConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
     /// <c>%ReadableStreamAsyncIteratorPrototype%</c>, whose <c>[[Prototype]]</c> is

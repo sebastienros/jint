@@ -169,7 +169,7 @@ internal sealed class FetchBodyStream : IDisposable
         CancelTransport();
 
         ReadableStreamDefaultControllerOperations.Error(
-            _stream.Controller,
+            _stream.DefaultController,
             _realm.Intrinsics.TypeError.Construct("Failed to fetch: the engine's globals were restored while the response body was still streaming"));
 
         ResolvePull();
@@ -292,7 +292,7 @@ internal sealed class FetchBodyStream : IDisposable
         {
             _finished = true;
             _engine._webApi?.UnregisterBodyStream(this);
-            ReadableStreamDefaultControllerOperations.Error(_stream.Controller, FetchOperation.NetworkError(_realm, failure));
+            ReadableStreamDefaultControllerOperations.Error(_stream.DefaultController, FetchOperation.NetworkError(_realm, failure));
             ResolvePull();
             return;
         }
@@ -301,12 +301,12 @@ internal sealed class FetchBodyStream : IDisposable
         {
             _finished = true;
             _engine._webApi?.UnregisterBodyStream(this);
-            ReadableStreamDefaultControllerOperations.Close(_stream.Controller);
+            ReadableStreamDefaultControllerOperations.Close(_stream.DefaultController);
             ResolvePull();
             return;
         }
 
-        ReadableStreamDefaultControllerOperations.Enqueue(_stream.Controller, ByteStreams.NewUint8Array(_engine, _realm, chunk));
+        ReadableStreamDefaultControllerOperations.Enqueue(_stream.DefaultController, ByteStreams.NewUint8Array(_engine, _realm, chunk));
 
         // Resolved after the enqueue, so the reaction that lets the controller pull again observes the chunk
         // already in the queue.

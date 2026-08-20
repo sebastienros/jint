@@ -602,7 +602,7 @@ failures apart; the real cause rides the error value and is readable by the host
 `JintException.TryGetClrException`. See [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-21 for the full
 analysis, including what these controls do *not* cover.
 
-### Streams are the default (non-byte) half of the standard
+### Streams, including byte streams
 
 `ReadableStream`, `WritableStream` and `TransformStream` implement the WHATWG Streams Standard operation by
 operation: queuing strategies and `desiredSize`, the `pull` reentrancy rules, `tee()` with its composite
@@ -613,16 +613,26 @@ promise and every callback you supply — `start`, `pull`, `cancel`, `write`, `c
 `flush`, `size` — runs on the engine's thread from the same job queue that runs promise reactions, so the
 microtask ordering the standard prescribes is the ordering you get, and nothing here ever starts a thread.
 
-Two deliberate reductions:
+**Byte streams are there too.** `new ReadableStream({ type: 'bytes' })` gives its underlying source a
+`ReadableByteStreamController`, with `byobRequest`, `autoAllocateChunkSize` and a `desiredSize` counted in
+bytes; `stream.getReader({ mode: 'byob' })` gives the consumer a `ReadableStreamBYOBReader` whose
+`read(view, { min })` fills the buffer the caller supplied. Buffers are *transferred* across every crossing,
+exactly as the standard requires — hand a view to `enqueue()` or to a BYOB `read()` and yours is detached,
+while the one you get back owns the memory — so a read loop recycles one allocation instead of allocating per
+chunk. `tee()` on a byte stream produces two byte streams, and swaps between a default and a BYOB reader on
+the original depending on how each branch is being read.
 
-- **Byte streams are absent, not broken.** There is no `ReadableByteStreamController`, no BYOB reader and no
-  `ReadableStreamBYOBRequest`, and `new ReadableStream({ type: 'bytes' })` raises a `TypeError` rather than
-  handing back something that is not a byte stream. `getReader({ mode: 'byob' })` raises the same `TypeError`
-  the standard gives for a stream that was not constructed with a byte source.
-- **Only the five interfaces a script constructs by name are globals.** `ReadableStreamDefaultReader`,
-  `WritableStreamDefaultWriter` and the three controllers exist as ordinary interface objects — a reader's
-  `constructor` is the real thing, and `new` on it behaves as the standard says — but they are not installed
-  on `globalThis`, where a browser would expose them.
+The streams the *engine* hands out are not byte streams yet: `response.body`, `request.body` and
+`Blob.stream()` are ordinary streams carrying `Uint8Array` chunks, so `getReader({ mode: 'byob' })` on one of
+them raises the `TypeError` the standard gives for a stream that was not constructed with a byte source. A
+byte stream is something script builds today.
+
+One deliberate reduction: **only the five interfaces a script constructs by name are globals.**
+`ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four
+controllers and `ReadableStreamBYOBRequest` exist as ordinary interface objects — a reader's `constructor` is
+the real thing, and `new` on it behaves as the standard says — but they are not installed on `globalThis`,
+where a browser would expose them. Transferring a stream through `postMessage()` is the one part of the
+standard that is absent, there being nothing to transfer it to.
 
 ### Storage is opt-in on its own, and you decide where the data lives
 

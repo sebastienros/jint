@@ -38,8 +38,18 @@ internal static class StreamDictionaries
     /// <summary>
     /// The <c>UnderlyingSource</c> dictionary — https://streams.spec.whatwg.org/#dictdef-underlyingsource.
     /// </summary>
+    /// <remarks>
+    /// <c>TypeExists</c> is the whole of the <c>type</c> member: the <c>ReadableStreamType</c> enumeration
+    /// has exactly one value, so a member that exists is <c>"bytes"</c> and anything else has already been
+    /// refused by the enumeration conversion.
+    /// </remarks>
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct UnderlyingSourceRecord(ICallable? Start, ICallable? Pull, ICallable? Cancel, bool TypeExists);
+    internal readonly record struct UnderlyingSourceRecord(
+        ICallable? Start,
+        ICallable? Pull,
+        ICallable? Cancel,
+        bool TypeExists,
+        ulong? AutoAllocateChunkSize);
 
     /// <summary>
     /// The <c>UnderlyingSink</c> dictionary — https://streams.spec.whatwg.org/#dictdef-underlyingsink.
@@ -141,10 +151,10 @@ internal static class StreamDictionaries
     /// <c>autoAllocateChunkSize</c>, <c>cancel</c>, <c>pull</c>, <c>start</c>, <c>type</c>.
     /// </summary>
     /// <remarks>
-    /// <c>autoAllocateChunkSize</c> is read and converted even though it is meaningless without
-    /// <c>type: "bytes"</c>: the conversion is observable — it is an <c>[EnforceRange] unsigned long long</c>,
-    /// so a getter that throws, or a value out of range, is reported from here — and the specification
-    /// simply ignores the converted value for a non-byte stream.
+    /// <c>autoAllocateChunkSize</c> is read and converted even for a stream that is not a byte stream: the
+    /// conversion is observable — it is an <c>[EnforceRange] unsigned long long</c>, so a getter that
+    /// throws, or a value out of range, is reported from here — and the specification simply ignores the
+    /// converted value in that case.
     /// </remarks>
     internal static UnderlyingSourceRecord ReadUnderlyingSource(Realm realm, JsValue value)
     {
@@ -155,13 +165,13 @@ internal static class StreamDictionaries
             return default;
         }
 
-        ReadEnforcedUnsignedLongLong(realm, dictionary, "autoAllocateChunkSize", What);
+        var autoAllocateChunkSize = ReadEnforcedUnsignedLongLong(realm, dictionary, "autoAllocateChunkSize", What);
         var cancel = ReadCallback(realm, dictionary, "cancel", What);
         var pull = ReadCallback(realm, dictionary, "pull", What);
         var start = ReadCallback(realm, dictionary, "start", What);
         var typeExists = ReadReadableStreamType(realm, dictionary);
 
-        return new UnderlyingSourceRecord(start, pull, cancel, typeExists);
+        return new UnderlyingSourceRecord(start, pull, cancel, typeExists, autoAllocateChunkSize);
     }
 
     /// <summary>
@@ -321,6 +331,24 @@ internal static class StreamDictionaries
     }
 
     /// <summary>
+    /// The <c>ReadableStreamBYOBReaderReadOptions</c> conversion —
+    /// https://streams.spec.whatwg.org/#dictdef-readablestreambyobreaderreadoptions. Its single member
+    /// <c>min</c> is an <c>[EnforceRange] unsigned long long</c> with a default of 1, so an absent member
+    /// and an explicit <see langword="undefined"/> both mean "as soon as one element is available".
+    /// </summary>
+    internal static ulong ReadMinimumFill(Realm realm, JsValue value)
+    {
+        const string What = "The read options";
+        var dictionary = AsDictionary(realm, value, What);
+        if (dictionary is null)
+        {
+            return 1;
+        }
+
+        return ReadEnforcedUnsignedLongLong(realm, dictionary, "min", What) ?? 1;
+    }
+
+    /// <summary>
     /// The <c>ReadableStreamIteratorOptions</c> conversion —
     /// https://streams.spec.whatwg.org/#dictdef-readablestreamiteratoroptions. <c>preventCancel</c> has a
     /// default of false, so an absent member and an explicit <see langword="undefined"/> both mean false.
@@ -389,25 +417,36 @@ internal static class StreamDictionaries
     /// https://webidl.spec.whatwg.org/#js-unsigned-long-long: a value that is not a finite number, or whose
     /// integer part falls outside the type, is a <c>TypeError</c> rather than a wrap.
     /// </summary>
-    private static void ReadEnforcedUnsignedLongLong(Realm realm, ObjectInstance dictionary, string name, string what)
+    private static ulong? ReadEnforcedUnsignedLongLong(Realm realm, ObjectInstance dictionary, string name, string what)
     {
         var value = dictionary.Get(name);
         if (value.IsUndefined())
         {
-            return;
+            return null;
         }
 
+        return ToEnforcedUnsignedLongLong(realm, value, $"{what}.{name}");
+    }
+
+    /// <summary>
+    /// The <c>[EnforceRange] unsigned long long</c> conversion of an argument rather than of a dictionary
+    /// member, https://webidl.spec.whatwg.org/#js-unsigned-long-long.
+    /// </summary>
+    internal static ulong ToEnforcedUnsignedLongLong(Realm realm, JsValue value, string what)
+    {
         var number = TypeConverter.ToNumber(value);
         if (!double.IsFinite(number))
         {
-            Throw.TypeError(realm, $"{what}.{name} is not a finite number");
+            Throw.TypeError(realm, $"{what} is not a finite number");
         }
 
         var integer = Math.Truncate(number);
         if (integer < 0 || integer > 18446744073709551615d)
         {
-            Throw.TypeError(realm, $"{what}.{name} is outside the range of an unsigned long long");
+            Throw.TypeError(realm, $"{what} is outside the range of an unsigned long long");
         }
+
+        return (ulong) integer;
     }
 }
 #endif

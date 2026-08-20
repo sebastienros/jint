@@ -32,11 +32,10 @@ internal enum ReadableStreamState
 /// <c>Object.getOwnPropertyNames(new ReadableStream())</c> is empty, exactly as in a browser.
 /// </para>
 /// <para>
-/// The <c>[[controller]]</c> slot is always a <see cref="JsReadableStreamDefaultController"/>: byte streams
-/// (<c>type: "bytes"</c>, <c>ReadableByteStreamController</c>, BYOB readers) are not implemented, and the
-/// constructor refuses <c>type: "bytes"</c> rather than pretending. <c>[[Detached]]</c> has no counterpart
-/// either, because a stream can only become detached by being transferred through <c>postMessage()</c>, and
-/// there is nothing to transfer it to.
+/// The <c>[[controller]]</c> slot is a <see cref="JsReadableStreamDefaultController"/> or, for a stream
+/// constructed with <c>type: "bytes"</c>, a <see cref="JsReadableByteStreamController"/>. <c>[[Detached]]</c>
+/// has no counterpart, because a stream can only become detached by being transferred through
+/// <c>postMessage()</c>, and there is nothing to transfer it to.
 /// </para>
 /// </remarks>
 internal sealed class JsReadableStream : ObjectInstance
@@ -72,13 +71,23 @@ internal sealed class JsReadableStream : ObjectInstance
     /// https://streams.spec.whatwg.org/#readablestream-reader — the reader the stream is locked to, or
     /// <see langword="null"/> when it is not locked.
     /// </summary>
-    internal JsReadableStreamDefaultReader? Reader { get; set; }
+    internal JsReadableStreamReader? Reader { get; set; }
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readablestream-controller. Assigned by
-    /// <see cref="ReadableStreamOperations.SetUpDefaultController"/> before the stream can be reached by
+    /// <see cref="ReadableStreamOperations.SetUpDefaultController"/> or
+    /// <see cref="ReadableByteStreamControllerOperations.SetUp"/> before the stream can be reached by
     /// anything, which is what makes the non-nullable declaration honest.
     /// </summary>
-    internal JsReadableStreamDefaultController Controller { get; set; } = null!;
+    internal JsReadableStreamController Controller { get; set; } = null!;
+
+    /// <summary>
+    /// The controller of a stream the engine built itself through
+    /// <see cref="ReadableStreamOperations.CreateReadableStream"/> — a tee branch, a transform stream's
+    /// readable side, <c>ReadableStream.from</c>. Those are default controllers by construction, which is
+    /// what makes the cast safe; a stream reached from script goes through the polymorphic members on
+    /// <see cref="JsReadableStreamController"/> instead.
+    /// </summary>
+    internal JsReadableStreamDefaultController DefaultController => (JsReadableStreamDefaultController) Controller;
 }
 #endif

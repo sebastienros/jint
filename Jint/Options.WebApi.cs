@@ -618,10 +618,12 @@ public enum WebApiFeatures
 
     /// <summary>
     /// <c>ReadableStream</c>, <c>WritableStream</c>, <c>TransformStream</c> and the two queuing strategies
-    /// — the whole of the WHATWG Streams Standard's default (non-byte) surface, including <c>tee()</c>,
-    /// <c>pipeTo()</c>/<c>pipeThrough()</c> with <c>AbortSignal</c> support, and asynchronous iteration of a
-    /// readable stream. Byte streams (<c>type: "bytes"</c>, <c>ReadableByteStreamController</c>, BYOB
-    /// readers) are not implemented and are absent rather than present-and-broken.
+    /// — the WHATWG Streams Standard, including <c>tee()</c>, <c>pipeTo()</c>/<c>pipeThrough()</c> with
+    /// <c>AbortSignal</c> support, asynchronous iteration of a readable stream, and readable byte streams:
+    /// <c>new ReadableStream({ type: "bytes" })</c>, <c>ReadableByteStreamController</c> with
+    /// <c>autoAllocateChunkSize</c> and <c>byobRequest</c>, and BYOB reading through
+    /// <c>getReader({ mode: "byob" })</c>. Transferring a stream through <c>postMessage()</c> is the one
+    /// part that is absent, there being nothing to transfer it to.
     /// </summary>
     Streams = 1 << 12,
 

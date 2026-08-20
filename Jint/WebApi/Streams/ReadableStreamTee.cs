@@ -65,8 +65,8 @@ internal sealed class ReadableStreamTee
         // only channel that reports an error arriving while no read is outstanding.
         StreamPromises.UponRejection(tee._engine, tee._reader.ClosedPromise, error =>
         {
-            ReadableStreamDefaultControllerOperations.Error(tee._branch1.Controller, error);
-            ReadableStreamDefaultControllerOperations.Error(tee._branch2.Controller, error);
+            ReadableStreamDefaultControllerOperations.Error(tee._branch1.DefaultController, error);
+            ReadableStreamDefaultControllerOperations.Error(tee._branch2.DefaultController, error);
             if (!tee._canceled1 || !tee._canceled2)
             {
                 tee._cancelCapability.Resolve(JsValue.Undefined);
@@ -157,12 +157,12 @@ internal sealed class ReadableStreamTee
                 // Both branches receive the very same chunk: this tee never clones.
                 if (!_tee._canceled1)
                 {
-                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch1.Controller, chunk);
+                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch1.DefaultController, chunk);
                 }
 
                 if (!_tee._canceled2)
                 {
-                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch2.Controller, chunk);
+                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch2.DefaultController, chunk);
                 }
 
                 _tee._reading = false;
@@ -179,12 +179,12 @@ internal sealed class ReadableStreamTee
 
             if (!_tee._canceled1)
             {
-                ReadableStreamDefaultControllerOperations.Close(_tee._branch1.Controller);
+                ReadableStreamDefaultControllerOperations.Close(_tee._branch1.DefaultController);
             }
 
             if (!_tee._canceled2)
             {
-                ReadableStreamDefaultControllerOperations.Close(_tee._branch2.Controller);
+                ReadableStreamDefaultControllerOperations.Close(_tee._branch2.DefaultController);
             }
 
             if (!_tee._canceled1 || !_tee._canceled2)
