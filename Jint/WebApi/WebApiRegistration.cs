@@ -35,6 +35,10 @@ internal static class WebApiRegistration
         var global = engine.Realm.GlobalObject;
         var features = ExpandFeatures(options.WebApi.Features);
 
+        // Recorded on the engine because one host API — Engine.Advanced.CreateMessagePortPair — has to be
+        // able to refuse an engine that never opted in, and Options is shareable so it cannot be asked later.
+        engine._webApiFeatures = features;
+
         CreateEngineState(options, engine, features);
 
         // DOMException has no feature flag of its own: it is how every other web API reports a failure, so it
@@ -164,6 +168,13 @@ internal static class WebApiRegistration
             Install(global, engine, "TaskSignal", static e => e.Realm.Intrinsics.TaskSignal, PropertyFlag.NonEnumerable);
             Install(global, engine, "TaskPriorityChangeEvent", static e => e.Realm.Intrinsics.TaskPriorityChangeEvent, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.Messaging) != WebApiFeatures.None)
+        {
+            Install(global, engine, "MessageChannel", static e => e.Realm.Intrinsics.MessageChannel, PropertyFlag.NonEnumerable);
+            Install(global, engine, "MessagePort", static e => e.Realm.Intrinsics.MessagePort, PropertyFlag.NonEnumerable);
+            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
@@ -211,12 +222,12 @@ internal static class WebApiRegistration
     {
         // The timer globals are the obvious reason for a queue; AbortSignal.timeout() and a delayed
         // scheduler.postTask() are the others, and they need one whether or not the host also asked for
-        // setTimeout. The events and performance features additionally read the time origin
-        // (Event.timeStamp, performance.now), fetch keeps its settings and its in-flight set here, and the
-        // scheduler keeps its own task queues here, which is why each of them wants the state even without
-        // the timers flag.
+        // setTimeout. The events, messaging and performance features additionally read the time origin
+        // (Event.timeStamp, MessageEvent.timeStamp, performance.now), fetch keeps its settings and its
+        // in-flight set here, and the scheduler keeps its own task queues here, which is why each of them
+        // wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging;
         if ((features & NeedsEngineState) == WebApiFeatures.None)
         {
             return;

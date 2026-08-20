@@ -171,7 +171,7 @@ internal static class UserTiming
             return JsValue.Null;
         }
 
-        return new StructuredCloner(engine, realm).Clone(detail, transferList: null);
+        return StructuredCloner.Clone(engine, realm, detail, transferList: null);
     }
 
     /// <summary>
