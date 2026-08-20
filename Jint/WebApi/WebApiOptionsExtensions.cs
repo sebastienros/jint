@@ -90,6 +90,49 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables <c>fetch</c>, <c>Headers</c>, <c>Request</c> and <c>Response</c> — and with them
+    /// <see cref="WebApiFeatures.Events"/>, <see cref="WebApiFeatures.Url"/> and
+    /// <see cref="WebApiFeatures.Files"/>, which are part of fetch's own surface.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the only call that grants a script outbound network access</b>, and
+    /// <see cref="UseWebApis(Options)"/> deliberately never does. What the script can then reach is whatever
+    /// the host process can reach: read <see cref="Options.FetchOptions"/> — in particular
+    /// <see cref="Options.FetchOptions.UrlFilter"/> — before enabling this in anything that runs untrusted
+    /// script.
+    /// </para>
+    /// <para>
+    /// Only the <see cref="WebApiFeatures.Fetch"/> flag is recorded; the three it implies are added when the
+    /// engine is built, so <c>options.WebApi.Features</c> still reads back exactly what was asked for.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseFetch(f =>
+    /// {
+    ///     f.AllowedSchemes.Remove("http");
+    ///     f.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    ///     f.MaxResponseBytes = 1024 * 1024;
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">Optional configuration of the fetch settings, run after the feature is enabled.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseFetch(this Options options, Action<Options.FetchOptions>? configure = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Fetch;
+        configure?.Invoke(options.WebApi.Fetch);
+        return options;
+    }
+
+    /// <summary>
     /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
     /// </summary>
     /// <param name="options">Options to modify.</param>

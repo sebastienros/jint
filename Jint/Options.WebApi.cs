@@ -57,6 +57,147 @@ public partial class Options
         /// <see cref="WebApiFeatures.Timers"/>.
         /// </summary>
         public TimerOptions Timers { get; } = new();
+
+        /// <summary>
+        /// Settings for <c>fetch</c>, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.Fetch"/> — which <see cref="WebApiFeatures.Default"/> never does.
+        /// </summary>
+        public FetchOptions Fetch { get; } = new();
+    }
+
+    /// <summary>
+    /// Settings for <c>fetch</c>: which requests it may make, how large an answer it will read and how long it
+    /// will wait. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Enabling <c>fetch</c> gives the script the host's network position.</b> Anything the host process can
+    /// reach — an internal service, a cloud metadata endpoint, a database admin port — a script can reach too
+    /// unless something here says otherwise. The defaults bound the obvious resource questions (size, time,
+    /// concurrency) and restrict the scheme, but they cannot know which <i>hosts</i> are legitimate: that is
+    /// what <see cref="UrlFilter"/> is for, and a deployment exposed to untrusted script wants one.
+    /// </para>
+    /// <para>
+    /// Like every other option group this may be shared by any number of engines, including concurrent ones:
+    /// nothing on it is engine-affine. Two members carry a thread-safety obligation, because they are called
+    /// from whichever thread the HTTP stack happens to be on — see <see cref="UrlFilter"/> and
+    /// <see cref="HttpClientFactory"/>.
+    /// </para>
+    /// </remarks>
+    public class FetchOptions
+    {
+        /// <summary>
+        /// The <see cref="System.Net.Http.HttpClient"/> every request goes through, or <see langword="null"/>
+        /// to use a lazily-created client Jint shares process-wide.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Supplying one is how a host takes control of the transport: a <c>DelegatingHandler</c> is the seam
+        /// for authentication, per-tenant headers, logging and test doubles, and owning the client is how a
+        /// host controls its lifetime — the shared default is deliberately never disposed.
+        /// </para>
+        /// <para>
+        /// Jint drives redirects itself so that every hop is re-checked against <see cref="AllowedSchemes"/>
+        /// and <see cref="UrlFilter"/>; a client whose handler has <c>AllowAutoRedirect</c> left on would
+        /// follow them underneath that check, so set it to <see langword="false"/> on a handler you supply.
+        /// </para>
+        /// </remarks>
+        public System.Net.Http.HttpClient? HttpClient { get; set; }
+
+        /// <summary>
+        /// A per-request source of <see cref="System.Net.Http.HttpClient"/>s, which wins over
+        /// <see cref="HttpClient"/> when both are set.
+        /// </summary>
+        /// <remarks>
+        /// Called on the engine's thread, once per <c>fetch</c> call, before anything is sent — so it may read
+        /// per-request host state through <c>engine.Advanced.HostDefined</c>, which is how a multi-tenant host
+        /// hands each tenant its own <c>IHttpClientFactory</c>-managed client. It must not return
+        /// <see langword="null"/>, and it must not block: it runs while the calling script is suspended.
+        /// </remarks>
+        public Func<Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
+
+        /// <summary>
+        /// The URL schemes a request may use. Defaults to <c>https</c> and <c>http</c>; a request to anything
+        /// else is refused with a <c>TypeError</c> before a socket is opened.
+        /// </summary>
+        /// <remarks>
+        /// Compared ASCII-case-insensitively against the scheme the WHATWG URL parser produced, which is
+        /// already lowercased. Emptying the list refuses every request. Read once per request, so a host may
+        /// change it between evaluations; it is not read on a background thread.
+        /// </remarks>
+        public List<string> AllowedSchemes { get; } = new() { "https", "http" };
+
+        /// <summary>
+        /// The last word on whether a request may be made. Defaults to allowing everything the scheme list
+        /// already admitted.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Re-run on every redirect hop</b>, which is the point: a filter that only saw the first URL would
+        /// be defeated by a server answering <c>302 Location: http://169.254.169.254/</c>. The <see cref="Uri"/>
+        /// passed is the absolute URL about to be requested.
+        /// </para>
+        /// <para>
+        /// <b>Must be thread-safe and must not block.</b> The first call is on the engine's thread; the
+        /// redirect calls are on whichever thread the HTTP stack completed the previous hop on. It must not
+        /// touch the <see cref="Engine"/> — the engine is not thread-safe, and the script that started the
+        /// fetch may be running.
+        /// </para>
+        /// <para>
+        /// Refusing is a <c>TypeError</c> rejection carrying no detail about why, which is deliberate: a
+        /// message naming the rule would let a script map the host's internal network by probing it.
+        /// </para>
+        /// </remarks>
+        public Func<Uri, bool> UrlFilter { get; set; } = static _ => true;
+
+        /// <summary>
+        /// The most bytes a response body may decompress to. Defaults to 32 MiB; a response that exceeds it is
+        /// abandoned and the promise rejects with a <c>TypeError</c>.
+        /// </summary>
+        /// <remarks>
+        /// Counted after decompression, so a compression bomb is bounded by the number a host actually chose
+        /// rather than by its compressed size. The bytes are buffered in memory, so this is also the ceiling on
+        /// what one request can cost the process.
+        /// <para>
+        /// <b><see cref="long.MaxValue"/> means unlimited</b>, and zero or less refuses every body. This is
+        /// deliberately unlike the execution constraints' saturated sentinels, where
+        /// <c>LimitMemory(long.MaxValue)</c> removes the constraint: there is no constraint to remove here, and
+        /// a cap that quietly meant "no cap" would be the more dangerous reading of the two.
+        /// </para>
+        /// </remarks>
+        public long MaxResponseBytes { get; set; } = 32 * 1024 * 1024;
+
+        /// <summary>
+        /// How many redirects one request may follow before the promise rejects with a <c>TypeError</c>.
+        /// Defaults to 20, which is what browsers use.
+        /// </summary>
+        public int MaxRedirects { get; set; } = 20;
+
+        /// <summary>
+        /// How long one <c>fetch</c> may take, from the call to the last byte of the body. Defaults to 30
+        /// seconds; exceeding it rejects with a <c>TimeoutError</c> <c>DOMException</c>, the same failure
+        /// <c>AbortSignal.timeout()</c> produces.
+        /// </summary>
+        /// <remarks>
+        /// Enforced CLR-side, on the request's cancellation token, deliberately: it must fire even for an
+        /// engine nobody is pumping, so that an abandoned request cannot hold a socket open forever.
+        /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> and any non-positive value mean no timeout, which leaves the
+        /// underlying <see cref="System.Net.Http.HttpClient"/>'s own timeout as the only bound.
+        /// </remarks>
+        public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// How many requests one engine may have in flight at once. Defaults to 10; a <c>fetch</c> call that
+        /// would exceed it rejects with a <c>TypeError</c> rather than queueing.
+        /// </summary>
+        /// <remarks>
+        /// Rejecting rather than queueing is the honest answer: a queue would turn a script's burst into an
+        /// unbounded backlog of held sockets, and a script that wants to throttle itself can already do so with
+        /// the promise it gets back. Counted per engine, and a request stops counting when its promise settles
+        /// or when the engine's globals are restored. <see cref="int.MaxValue"/> is the way to spell
+        /// effectively unbounded; zero or less refuses every request.
+        /// </remarks>
+        public int MaxConcurrentRequests { get; set; } = 10;
     }
 
     /// <summary>
@@ -141,9 +282,8 @@ public partial class Options
 /// </para>
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
-/// as the surface grows. The bits reserved for the features still to land are
-/// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
-/// that naming one can never compile into an engine that silently does not have it.
+/// as the surface grows. A flag is declared here only once the feature behind it actually exists, so that
+/// naming one can never compile into an engine that silently does not have it.
 /// </para>
 /// <para>
 /// <see cref="Default"/> grows as each non-network feature lands, and <b>will never include the fetch
@@ -225,6 +365,27 @@ public enum WebApiFeatures
     /// <c>multipart/form-data</c> serialization, which arrives with fetch.
     /// </summary>
     Files = 1 << 9,
+
+    /// <summary>
+    /// <c>fetch</c>, <c>Headers</c>, <c>Request</c> and <c>Response</c> — outbound HTTP from script.
+    /// <b>Never part of <see cref="Default"/>:</b> a host asking for "the web APIs" must not inherit the
+    /// ability to make network requests, so this flag is only ever set by naming it or by calling
+    /// <c>options.UseFetch()</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/>, <see cref="Url"/> and <see cref="Files"/>, whose interfaces are part of
+    /// fetch's own surface rather than optional extras: a <c>Request</c> always has an <c>AbortSignal</c>, its
+    /// URL is a WHATWG URL, and <c>response.blob()</c> answers with a <c>Blob</c>. The closure is computed
+    /// when the engine is built, so <c>options.WebApi.Features</c> still reads back exactly what the host
+    /// asked for — <c>Features == WebApiFeatures.Fetch</c> stays true — while the engine carries all four.
+    /// </para>
+    /// <para>
+    /// Read <see cref="Options.FetchOptions"/> before enabling this: what a script can reach is the host
+    /// process's network position, and the defaults bound resources rather than destinations.
+    /// </para>
+    /// </remarks>
+    Fetch = 1 << 10,
 
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
