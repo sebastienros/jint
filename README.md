@@ -226,6 +226,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
+| `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -385,6 +386,28 @@ not carry CR or LF, and a URL with credentials in it is refused. Every network-c
 failures apart; the real cause rides the error value and is readable by the host through
 `JintException.TryGetClrException`. See [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-21 for the full
 analysis, including what these controls do *not* cover.
+
+### Streams are the default (non-byte) half of the standard
+
+`ReadableStream`, `WritableStream` and `TransformStream` implement the WHATWG Streams Standard operation by
+operation: queuing strategies and `desiredSize`, the `pull` reentrancy rules, `tee()` with its composite
+cancellation, `pipeTo()` / `pipeThrough()` with `preventClose` / `preventAbort` / `preventCancel` and an
+`AbortSignal`, asynchronous iteration of a readable stream (`for await…of`, and `values({ preventCancel })`),
+and `ReadableStream.from()` for any sync or async iterable. Every promise they hand out is an ordinary engine
+promise and every callback you supply — `start`, `pull`, `cancel`, `write`, `close`, `abort`, `transform`,
+`flush`, `size` — runs on the engine's thread from the same job queue that runs promise reactions, so the
+microtask ordering the standard prescribes is the ordering you get, and nothing here ever starts a thread.
+
+Two deliberate reductions:
+
+- **Byte streams are absent, not broken.** There is no `ReadableByteStreamController`, no BYOB reader and no
+  `ReadableStreamBYOBRequest`, and `new ReadableStream({ type: 'bytes' })` raises a `TypeError` rather than
+  handing back something that is not a byte stream. `getReader({ mode: 'byob' })` raises the same `TypeError`
+  the standard gives for a stream that was not constructed with a byte source.
+- **Only the five interfaces a script constructs by name are globals.** `ReadableStreamDefaultReader`,
+  `WritableStreamDefaultWriter` and the three controllers exist as ordinary interface objects — a reader's
+  `constructor` is the real thing, and `new` on it behaves as the standard says — but they are not installed
+  on `globalThis`, where a browser would expose them.
 
 
 ## Node compatibility (opt-in)

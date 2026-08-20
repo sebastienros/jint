@@ -138,6 +138,19 @@ internal static class WebApiRegistration
             // the interface objects above — https://webidl.spec.whatwg.org/#es-operations.
             Install(global, engine, "fetch", static e => e.Realm.Intrinsics.Fetch, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((features & WebApiFeatures.Streams) != WebApiFeatures.None)
+        {
+            // Only the five interfaces a script constructs directly are globals. ReadableStreamDefaultReader,
+            // the three controllers and WritableStreamDefaultWriter exist as ordinary interface objects and
+            // are reached through their instances' prototypes — a deliberate, documented narrowing of the
+            // browser surface, since nothing but feature detection ever names them.
+            Install(global, engine, "ReadableStream", static e => e.Realm.Intrinsics.ReadableStream, PropertyFlag.NonEnumerable);
+            Install(global, engine, "WritableStream", static e => e.Realm.Intrinsics.WritableStream, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TransformStream", static e => e.Realm.Intrinsics.TransformStream, PropertyFlag.NonEnumerable);
+            Install(global, engine, "ByteLengthQueuingStrategy", static e => e.Realm.Intrinsics.ByteLengthQueuingStrategy, PropertyFlag.NonEnumerable);
+            Install(global, engine, "CountQueuingStrategy", static e => e.Realm.Intrinsics.CountQueuingStrategy, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
