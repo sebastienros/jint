@@ -5,6 +5,7 @@ using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Timers;
+using Jint.WebApi.Files;
 
 namespace Jint.Runtime;
 
@@ -55,5 +56,21 @@ public sealed partial class Intrinsics
 
     internal StructuredCloneFunction StructuredClone =>
         _structuredClone ??= new StructuredCloneFunction(_engine, _realm, Function.PrototypeObject);
+    private BlobConstructor? _blob;
+    private FileConstructor? _file;
+    private FormDataConstructor? _formData;
+    private FormDataIteratorPrototype? _formDataIteratorPrototype;
+
+    internal BlobConstructor Blob =>
+        _blob ??= new BlobConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal FileConstructor File =>
+        _file ??= new FileConstructor(_engine, _realm, Blob);
+
+    internal FormDataConstructor FormData =>
+        _formData ??= new FormDataConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal FormDataIteratorPrototype FormDataIteratorPrototype =>
+        _formDataIteratorPrototype ??= new FormDataIteratorPrototype(_engine, _realm, IteratorPrototype);
 }
 #endif

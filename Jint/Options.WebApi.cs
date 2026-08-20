@@ -136,7 +136,7 @@ public partial class Options
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
 /// <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
-/// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c>, <c>Files = 1 &lt;&lt; 9</c> and
+/// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
 /// that naming one can never compile into an engine that silently does not have it.
 /// </para>
@@ -187,10 +187,18 @@ public enum WebApiFeatures
     StructuredClone = 1 << 4,
 
     /// <summary>
-    /// The web APIs a host normally wants: everything except outbound network access. Today that is
-    /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/> and
-    /// <see cref="StructuredClone"/>; it grows as further features land, and never comes to include fetch.
+    /// <c>Blob</c>, <c>File</c> and <c>FormData</c> — in-memory byte sequences and the ordered entry list a
+    /// form submission is made of. No streaming (<c>Blob.stream()</c> is absent) and no
+    /// <c>multipart/form-data</c> serialization, which arrives with fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone,
+    Files = 1 << 9,
+
+    /// <summary>
+    /// The web APIs a host normally wants: everything except outbound network access. Today that is
+    /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
+    /// <see cref="StructuredClone"/> and <see cref="Files"/>; it grows as further features land, and never
+    /// comes to include fetch.
+    /// </summary>
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Files,
 }
 #endif
