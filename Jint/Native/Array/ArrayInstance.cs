@@ -62,6 +62,13 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private Dictionary<uint, PropertyDescriptor?>? _sparse;
 
+    /// <summary>
+    /// The sparse element storage, or <see langword="null"/> while the array is still dense. Read by
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>'s object census, which walks the values
+    /// an array is already holding rather than asking for one key object per element.
+    /// </summary>
+    internal Dictionary<uint, PropertyDescriptor?>? SparseElements => _sparse;
+
     private ObjectChangeFlags _objectChangeFlags;
 
     private ArrayConstructor? _constructor;

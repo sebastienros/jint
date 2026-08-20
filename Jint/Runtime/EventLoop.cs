@@ -153,6 +153,12 @@ internal sealed record EventLoop
 
     public bool IsEmpty => _events.IsEmpty;
 
+    /// <summary>
+    /// How many jobs are queued right now, for <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>.
+    /// A sample rather than a stable value: a background thread settling a promise enqueues from there.
+    /// </summary>
+    internal int QueueDepth => _events.Count;
+
     public void Enqueue(Action continuation) => Enqueue(new EventLoopJob(continuation, Generation));
 
     public void Enqueue(in EventLoopJob job)

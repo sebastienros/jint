@@ -130,6 +130,20 @@ public partial class Engine
 
         internal Engine Engine => _engine;
 
+        /// <summary>
+        /// Module records this engine has loaded, for
+        /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Deliberately the module map and not the
+        /// builder registrations: a registration that nothing imported has produced no module and retains
+        /// only what the host handed it.
+        /// </summary>
+        internal int RegisteredModuleCount => _modules.Count;
+
+        /// <summary>
+        /// Loads an asynchronous loader has started and not yet finished, for
+        /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>.
+        /// </summary>
+        internal int PendingModuleLoadCount => _pendingLoads?.Count ?? 0;
+
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);

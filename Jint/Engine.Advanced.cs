@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Jint.Diagnostics;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -358,6 +359,78 @@ public partial class Engine
         /// </remarks>
         public InteropConversionDiagnostics GetInteropConversionDiagnostics()
             => new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+
+        /// <summary>
+        /// Counts what this engine is currently holding on to — global bindings, queued and scheduled work,
+        /// the handler-tree and interop caches, the object pools, and a bounded census of the object graph
+        /// reachable from <c>globalThis</c>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>This is a diagnostic, and it is not part of Jint's compatibility contract.</b> Which internal
+        /// collections are counted, and how, may be refined in any release, and
+        /// <see cref="EngineMemoryReport"/> and the report types nested in it may gain members. Neither is a
+        /// breaking change, and neither will be treated as one. Use it for audits, assertions, logging and
+        /// regression tests; do not branch on it in production code.
+        /// </para>
+        /// <para>
+        /// <b>The motivating case is the pooled engine.</b> An engine reused across requests keeps things a
+        /// fresh one never had: warmed handler trees (and through them one retained receiver per warmed
+        /// member-read site and one retained callee per warmed call site), a module registry that
+        /// <see cref="RestoreGlobalSnapshot"/> deliberately does not revert, timers a previous cycle
+        /// scheduled, globals a script installed. Each of those is documented, and none of them was
+        /// <em>observable</em> — a host that suspected its pool was accumulating had no way to ask, short of
+        /// attaching a heap profiler to production. This is the ask.
+        /// </para>
+        /// <para>
+        /// <b>Counts, not bytes.</b> Jint does not track the allocation size of what it builds, and this
+        /// report will not invent one; see <see cref="EngineMemoryReport"/> for the reasoning and for what
+        /// each figure means exactly. The one number that comes close to a size,
+        /// <see cref="PoolReport.PooledJsValueArraySlots"/>, is a slot count and says so.
+        /// </para>
+        /// <para>
+        /// <b>It observes without perturbing.</b> No getter is invoked, no lazy property factory is run, and
+        /// no built-in's function object is created in order to be counted — so an engine that has never
+        /// touched <c>Array</c> still reports it as untouched afterwards, and two consecutive calls on an
+        /// idle engine produce two equal reports. The report types are records, so that is directly
+        /// assertable. The engine carries no state for any of this: the report is derived on demand from
+        /// collections that already exist, and an engine nobody asks pays nothing.
+        /// </para>
+        /// <para>
+        /// <b>Threading.</b> Call it from the thread that owns the engine, like everything else on
+        /// <see cref="Engine"/>, and not from inside a running evaluation — it walks collections a script
+        /// would be mutating underneath it. <see cref="EngineMemoryReport.EventLoopQueueDepth"/> is the one
+        /// figure another thread can change while it is read, since a
+        /// <see cref="System.Threading.Tasks.Task"/> completing on the thread pool enqueues its settle from
+        /// there.
+        /// </para>
+        /// <para>
+        /// <b>Cost.</b> Everything but the census is a handful of field reads. The census is a breadth-first
+        /// walk bounded by <paramref name="objectCensusBound"/>, so it is linear in that bound and allocates
+        /// a visited set of at most that size; the default is meant to be cheap enough to call between
+        /// requests, and a host logging on every request should still measure it against its own budget.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// The shape a pooling host uses it in — compare a pooled engine against itself over time, not
+        /// against an absolute figure:
+        /// <code>
+        /// var before = engine.Advanced.GetMemoryReport();
+        /// RunRequest(engine);
+        /// engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        /// var after = engine.Advanced.GetMemoryReport();
+        /// // A module registry or a global-property count that climbs every request is the leak.
+        /// </code>
+        /// </example>
+        /// <param name="objectCensusBound">
+        /// How many distinct objects the census may visit before it stops.
+        /// <see cref="ObjectCensusReport.BoundReached"/> reports whether it did stop, in which case the
+        /// category counts are a lower bound. Zero or less skips the census entirely, which is what a host
+        /// that only wants the cheap counts should pass.
+        /// </param>
+        /// <returns>The counts, as of the moment of the call.</returns>
+        public EngineMemoryReport GetMemoryReport(int objectCensusBound = 10_000)
+            => EngineMemoryReportBuilder.Build(_engine, objectCensusBound);
 
         /// <summary>
         /// Installs a global on <em>this</em> engine whose value is produced the first time script reads it,

@@ -162,6 +162,14 @@ public sealed partial class Engine : IDisposable
         return list;
     }
 
+    // The three handler-tree cache sizes, for Engine.Advanced.GetMemoryReport. Read-only views over the
+    // collections above — nothing is recorded for them, so an engine that is never asked pays nothing.
+    internal int FunctionDefinitionCacheCount => _functionDefinitions.Count;
+
+    internal int ScriptStatementListCacheCount => _scriptStatementLists?.Count ?? 0;
+
+    internal int EvaluatedScriptCount => _evaluatedScripts.Count;
+
     internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
     {
         if (!TryGetFunctionDefinition(declaration, out var definition))
