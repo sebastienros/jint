@@ -342,7 +342,7 @@ internal sealed class HeaderList
     /// <summary>
     /// RFC 9110 <c>tchar</c>, https://www.rfc-editor.org/rfc/rfc9110#name-tokens.
     /// </summary>
-    private static bool IsTokenChar(char c) => c switch
+    internal static bool IsTokenChar(char c) => c switch
     {
         >= 'a' and <= 'z' => true,
         >= 'A' and <= 'Z' => true,
@@ -355,6 +355,6 @@ internal sealed class HeaderList
     private static bool IsTabOrSpace(char c) => c is '\t' or ' ';
 
     /// <summary>https://fetch.spec.whatwg.org/#http-whitespace</summary>
-    private static bool IsHttpWhitespace(char c) => c is '\t' or '\n' or '\r' or ' ';
+    internal static bool IsHttpWhitespace(char c) => c is '\t' or '\n' or '\r' or ' ';
 }
 #endif

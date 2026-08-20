@@ -16,7 +16,7 @@ namespace Jint.WebApi.Files;
 /// The list is ordered and admits duplicate names, so it is a <see cref="List{T}"/> and not a dictionary:
 /// <c>getAll</c>, the iteration order and <c>set</c>'s "replace the first, remove the rest" all depend on
 /// position. Nothing here serializes: turning an entry list into a <c>multipart/form-data</c> body is the
-/// business of a request body, and arrives with <c>fetch</c>.
+/// business of a request body, and lives with <c>fetch</c> in <c>Jint.WebApi.Fetch.MultipartFormData</c>.
 /// </remarks>
 internal sealed class JsFormData : ObjectInstance
 {

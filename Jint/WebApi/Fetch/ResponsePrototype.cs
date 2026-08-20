@@ -21,8 +21,7 @@ namespace Jint.WebApi.Fetch;
 /// <para>
 /// The <c>Body</c> mixin's members are declared here as well as on <see cref="RequestPrototype"/>, because a
 /// mixin's members are copied onto every interface that includes it: the two <c>text</c> functions are
-/// different objects, exactly as in a browser. <c>formData()</c> is absent — see
-/// <see cref="RequestPrototype"/>.
+/// different objects, exactly as in a browser.
 /// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
@@ -151,6 +150,12 @@ internal sealed partial class ResponsePrototype : Prototype
     /// </summary>
     [JsFunction(Name = "text", Length = 0)]
     private JsValue Text(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Text);
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-body-formdata
+    /// </summary>
+    [JsFunction(Name = "formData", Length = 0)]
+    private JsValue FormData(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.FormData);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-response-clone — a synchronous <c>TypeError</c> for an already-read

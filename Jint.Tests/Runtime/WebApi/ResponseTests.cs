@@ -78,9 +78,21 @@ public class ResponseTests
     public void ExtractsTheBodyBeforeTheRangeCheck()
     {
         // https://fetch.spec.whatwg.org/#dom-response steps 3-5: the body is extracted before "initialize a
-        // response" runs its checks, so the unsupported body is what is reported.
-        Assert.Throws<JavaScriptException>(() => Eval("new Response(new FormData(), { status: 999 })"))
-            .Message.Should().Contain("multipart/form-data");
+        // response" runs its checks, so what the extraction raises is what is reported — the status never
+        // gets as far as being called out of range.
+        Assert.Throws<JavaScriptException>(() => Eval("new Response({ toString() { throw new Error('extracted first'); } }, { status: 999 })"))
+            .Message.Should().Contain("extracted first");
+    }
+
+    [Fact]
+    public void TakesAFormDataBodyAsMultipart()
+    {
+        var engine = WebEngine();
+        engine.Execute("var fd = new FormData(); fd.append('a', '1'); var r = new Response(fd);");
+
+        engine.Evaluate("r.headers.get('content-type').startsWith('multipart/form-data; boundary=')")
+            .AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.formData().then(parsed => parsed.get('a'))").UnwrapIfPromise().AsString().Should().Be("1");
     }
 
     [Fact]
@@ -243,9 +255,10 @@ public class ResponseTests
     }
 
     [Fact]
-    public void HasNoFormDataMember()
+    public void HasAFormDataMember()
     {
-        Eval("'formData' in Response.prototype").AsBoolean().Should().BeFalse();
+        // What it does with a body is MultipartTests' business; that it exists is this file's.
+        Eval("typeof Response.prototype.formData").AsString().Should().Be("function");
     }
 
     [Fact]

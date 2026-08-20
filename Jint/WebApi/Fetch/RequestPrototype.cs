@@ -22,9 +22,7 @@ namespace Jint.WebApi.Fetch;
 /// <para>
 /// The <c>Body</c> mixin's members are declared here too, because a mixin's members are copied onto every
 /// interface that includes it — <c>Request.prototype.text</c> and <c>Response.prototype.text</c> are two
-/// different function objects, exactly as in a browser. <c>formData()</c> is absent: reading one back needs a
-/// <c>multipart/form-data</c> parser Jint does not have yet, and an absent method is what feature detection
-/// is written against.
+/// different function objects, exactly as in a browser.
 /// </para>
 /// <para>
 /// One documented simplification, the same one every other web-API prototype here carries: the operations are
@@ -138,6 +136,12 @@ internal sealed partial class RequestPrototype : Prototype
     /// </summary>
     [JsFunction(Name = "text", Length = 0)]
     private JsValue Text(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Text);
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-body-formdata
+    /// </summary>
+    [JsFunction(Name = "formData", Length = 0)]
+    private JsValue FormData(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.FormData);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-request-clone — the one member of the pair that throws
