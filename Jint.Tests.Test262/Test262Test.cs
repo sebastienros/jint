@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Diagnostics;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -43,10 +44,17 @@ public abstract partial class Test262Test
     [ThreadStatic]
     private static string? _asyncResult;
 
+    // Pending harness setTimeout callbacks, promoted by the async wait loop on the test's own thread.
+    // Thread-static for the same reason _asyncResult is: tests run in parallel, and a timeout registered by
+    // one test must never be promoted into another test's engine.
+    [ThreadStatic]
+    private static List<(long Due, ICallable Callback)>? _pendingTimeouts;
+
     private static Engine BuildTestExecutor(Test262File file, Test262AgentManager? agentManager)
     {
         // Reset async result tracking
         _asyncResult = null;
+        _pendingTimeouts?.Clear();
 
         var engine = new Engine(cfg =>
         {
@@ -89,23 +97,26 @@ public abstract partial class Test262Test
             return message;
         }));
 
-        // Provide a basic setTimeout for async tests that need it
+        // Provide a basic setTimeout for async tests that need it. Deliberately pump-driven rather than
+        // Task.Run + Task.Delay: the tests that poll for an outcome via $262.agent.setTimeout(cb, 0) give
+        // themselves a wall-clock budget, and on a loaded runner a thread-pool hop per poll iteration can
+        // starve the polling itself past that budget — the same mechanism the engine's own waitAsync
+        // timeouts stopped depending on. A zero delay enqueues straight onto the event loop; a positive one
+        // is promoted by the wait loop below, so no thread but the test's own is ever involved.
         engine.SetValue("setTimeout", new ClrFunction(engine, "setTimeout", (thisObj, args) =>
         {
             var callback = args.At(0);
             var delay = (int)TypeConverter.ToNumber(args.At(1));
             if (callback is ICallable callable)
             {
-                _ = Task.Run(async () =>
+                if (delay <= 0)
                 {
-                    await Task.Delay(delay);
-                    // Queue callback to event loop instead of calling directly from background thread
-                    // to avoid race conditions with concurrent JavaScript execution
-                    engine.AddToEventLoop(() =>
-                    {
-                        callable.Call(JsValue.Undefined, Arguments.Empty);
-                    });
-                });
+                    engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty));
+                }
+                else
+                {
+                    (_pendingTimeouts ??= new()).Add((Stopwatch.GetTimestamp() + (long)(delay * (Stopwatch.Frequency / 1000.0)), callable));
+                }
             }
             return JsValue.Undefined;
         }));
@@ -303,6 +314,22 @@ public abstract partial class Test262Test
 
                 while (_asyncResult is null)
                 {
+                    // Promote due setTimeout callbacks before pumping, on this very thread: see the shim
+                    // above for why the thread pool must not be part of this.
+                    if (_pendingTimeouts is { Count: > 0 } duePending)
+                    {
+                        var now = Stopwatch.GetTimestamp();
+                        for (var i = duePending.Count - 1; i >= 0; i--)
+                        {
+                            var (due, callable) = duePending[i];
+                            if (due <= now)
+                            {
+                                duePending.RemoveAt(i);
+                                engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty));
+                            }
+                        }
+                    }
+
                     engine.RunAvailableContinuations();
 
                     if (_asyncResult is not null)
