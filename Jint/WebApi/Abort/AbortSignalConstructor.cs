@@ -107,7 +107,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
     [JsFunction(Name = "any", Length = 1)]
     private JsAbortSignal StaticAny(JsValue thisObject, JsValue signals)
     {
-        var sources = ReadSignalSequence(signals);
+        var sources = ReadSignalSequence(signals, "AbortSignal");
         return JsAbortSignal.CreateDependent(_engine, _realm, sources);
     }
 
@@ -142,8 +142,13 @@ internal sealed partial class AbortSignalConstructor : Constructor
     /// <summary>
     /// The <c>sequence&lt;AbortSignal&gt;</c> conversion, https://webidl.spec.whatwg.org/#es-sequence: the
     /// argument is iterated with the iterator protocol and every element must be an <c>AbortSignal</c>.
+    /// <para>
+    /// Shared with <c>TaskSignal.any()</c>, whose first argument is the same <c>sequence&lt;AbortSignal&gt;</c>
+    /// — hence the interface name, which is only there so the <c>TypeError</c> names the operation the script
+    /// actually called.
+    /// </para>
     /// </summary>
-    private List<JsAbortSignal> ReadSignalSequence(JsValue signals)
+    internal List<JsAbortSignal> ReadSignalSequence(JsValue signals, string interfaceName)
     {
         var result = new List<JsAbortSignal>();
         var iterator = signals.GetIterator(_realm);
@@ -154,7 +159,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
             {
                 if (value is not JsAbortSignal signal)
                 {
-                    Throw.TypeError(_realm, "Failed to execute 'any' on 'AbortSignal': the provided value is not of type 'AbortSignal'.");
+                    Throw.TypeError(_realm, $"Failed to execute 'any' on '{interfaceName}': the provided value is not of type 'AbortSignal'.");
                     return result;
                 }
 

@@ -227,6 +227,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
+| `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -276,6 +277,22 @@ deterministic and instant; `MaxActiveTimers` (1000 by default) bounds how many a
 and turns the excess into a catchable `QuotaExceededError` `DOMException`. A callback that throws erupts out
 of whatever was pumping — the same contract a promise reaction has — and the rest of the queue runs on the
 next pump.
+
+### Prioritized tasks: `scheduler.postTask` and `scheduler.yield`
+
+`scheduler.postTask(callback, { priority, signal, delay })` runs a callback as its own task and hands back a
+promise for what it returned; `scheduler.yield()` hands back a promise that resolves in a fresh *continuation*
+task, which is how a long piece of work breaks itself up and still resumes ahead of the work queued behind it.
+Priorities are the standard's three — `user-blocking` > `user-visible` (the default) > `background` — and a
+`TaskController` can abort a batch of tasks or reprioritize the ones still waiting, firing `prioritychange` at
+its `TaskSignal` as it does. Neither method ever throws: a bad argument, an aborted signal or a callback that
+throws all become a rejection of the promise you were handed.
+
+Tasks run only while the engine is being pumped, exactly as timers do, and a `delay` rides the very same timer
+queue. Three ordering guarantees, which the tests pin: every microtask runs before the next task, whichever
+order the two were queued in; among the tasks pending together the highest priority wins, ties going to the
+oldest; and every runnable task runs before any *due* timer — the one place this deliberately differs from a
+browser, which is free to make the opposite choice for a `background` task and typically does.
 
 ### Events dispatch to one target, because there is no tree
 

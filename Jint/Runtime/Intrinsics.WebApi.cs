@@ -11,6 +11,7 @@ using Jint.WebApi.Files;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
+using Jint.WebApi.Scheduling;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
@@ -235,5 +236,32 @@ public sealed partial class Intrinsics
 
     internal ByteLengthQueuingStrategyConstructor ByteLengthQueuingStrategy =>
         _byteLengthQueuingStrategy ??= new ByteLengthQueuingStrategyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    private SchedulerInstance? _scheduler;
+    private TaskSignalConstructor? _taskSignal;
+    private TaskControllerConstructor? _taskController;
+    private TaskPriorityChangeEventConstructor? _taskPriorityChangeEvent;
+
+    /// <summary>
+    /// The <c>scheduler</c> object, which reaches the engine's prioritized task queues and the timer queue a
+    /// delayed <c>postTask</c> waits on — both created by <c>WebApiRegistration</c> alongside the global.
+    /// </summary>
+    internal SchedulerInstance Scheduler =>
+        _scheduler ??= SchedulerInstance.Create(_engine, _realm, Object.PrototypeObject);
+
+    /// <summary>
+    /// <c>TaskSignal</c> inherits from <c>AbortSignal</c>, so reaching it builds <c>AbortSignal</c> — and
+    /// therefore <c>EventTarget</c> — too, whether or not the events feature installed their globals.
+    /// </summary>
+    internal TaskSignalConstructor TaskSignal =>
+        _taskSignal ??= new TaskSignalConstructor(_engine, _realm, AbortSignal);
+
+    /// <summary><c>TaskController</c> inherits from <c>AbortController</c>.</summary>
+    internal TaskControllerConstructor TaskController =>
+        _taskController ??= new TaskControllerConstructor(_engine, _realm, AbortController, TaskSignal);
+
+    /// <summary><c>TaskPriorityChangeEvent</c> inherits from <c>Event</c>.</summary>
+    internal TaskPriorityChangeEventConstructor TaskPriorityChangeEvent =>
+        _taskPriorityChangeEvent ??= new TaskPriorityChangeEventConstructor(_engine, _realm, Event);
 }
 #endif
