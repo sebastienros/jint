@@ -174,7 +174,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 
 ### Test projects
 
-- **`Jint.Tests`** — Main unit tests (xUnit v3, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. Use a 30-second timeout when invoking the runner.
+- **`Jint.Tests`** — Main unit tests (xUnit v3, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. `Wpt/` is the web-platform-tests area — see [Web platform tests](#web-platform-tests). Use a 30-second timeout when invoking the runner.
 - **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit). `Test262Harness.settings.json` holds exclusions/inclusions and, in `SubDirectories`, which of test262's `test/` sub-directories are generated at all — `annexB`, `built-ins`, `intl402`, `language` and `staging` (see [Updating the test262 suite](#updating-the-test262-suite); `staging/` is an explicit opt-in, not the tool's default). Test sources live in `..\test262\test`, which you may always read, and the harness scripts a test `includes` in `..\test262\harness` — including `harness/sm/` for the staged SpiderMonkey ports. Failure output contains the failing script — strip the line numbers to reproduce. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
 - **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
 - **`Jint.Tests.PublicInterface`** — API contract tests (xUnit v3). See the integration-surface section below.
@@ -456,6 +456,28 @@ Feature flags live in `WebApiFeatures`, whose bit layout is fixed ahead of the i
 **`DiagnosticsSink` (`Jint/WebApi/DiagnosticsSink.cs`) is the one channel for the script errors a host cannot catch**, and the only web-API surface no feature flag governs: `Options.WebApi.Diagnostics.Sink` arms it on its own, so an engine that named no feature at all still gets it (`Options.Apply`'s condition, and the early return at the top of `WebApiRegistration.Apply` that gives such an engine the channel and *no* globals — not even `DOMException`). `WebApiFeatures.Reporting` (`1 << 15`) governs only the `reportError` global, whose whole implementation is HTML's *report an exception* reduced to its last step: this engine's global object is not an `EventTarget`, so nothing is fired, *notHandled* stays true, and "the user agent may report exception to a developer console" is the sink. Without a sink `reportError` is a no-op that never throws; its one failure is WebIDL's arity error for a bare `reportError()`.
 
 Three things to hold on to when touching it. **The sink decides erupt-versus-report, so it is snapshotted at engine build time** into `Engine._webApi.Diagnostics` (and into `TimerQueue.Diagnostics`, so `TimerEntry.Fire` costs a field read and an entry costs no extra reference) — deliberately unlike `ConsoleOptions.Sink`, which is read afresh per emit: a contract that flips mid-script would be unreasonable, and reading `Options.WebApi` from `Engine.OnPromiseRejectionTracker` would force the lazy options group on a *default* engine and mutate shared `Options` from an engine thread. **Only a `JavaScriptException` is ever reported.** Both catch sites (`TimerEntry.Fire`, `JsEventTarget.InvokePass`) key on that type alone with a `when (… is { } diagnostics)` filter, which is precisely the MustPropagate rule stated positively: `ExecutionCanceledException`, `TimeoutException`, `MemoryLimitExceededException`, `StatementsCountOverflowException`, `RecursionDepthOverflowException` and `OperationCanceledException` are all `JintException` but none is a `JavaScriptException`, so a budget still bounds. With no sink there is no `catch` clause at all, which is what keeps the sinkless engine byte-identical. **The promise half is additive and ordered:** `Engine.OnPromiseRejectionTracker` raises `Advanced.PromiseRejectionTracker` first and *then* calls `_webApi?.ReportPromiseRejection`, so the pre-existing public event cannot be perturbed by a sink. It reports at the tracker's cadence, not HTML's — `Promise.reject(e).catch(f)` produces a `RejectionHandled: false` report followed by a `true` one where a browser's deferred checkpoint would raise nothing, which is documented on the property rather than papered over.
+
+### Web platform tests
+
+The web APIs have a conformance suite the way the language has test262: `Jint.Tests/Wpt/` runs vendored
+web-platform-tests `.any.js` files, one xUnit theory case per file, against an engine built with
+`UseWebApis(WebApiFeatures.Default)`. `Vendor/` is copied verbatim from a pinned upstream commit — provenance,
+the pin, and the table of files deliberately *not* vendored are in `Vendor/README.md`, and the driver enforces
+that table. `Prelude/testharness-shim.js` is Jint's own file, not a vendored one: it implements the slice of
+upstream's `testharness.js` these suites use, and `WptHarnessTests` exercises every assertion in it from both
+sides, because a shim that quietly passed everything would make five thousand cases green and mean nothing.
+
+Four things to know before touching it. **The exclusion table is the artefact**: a test that does not pass is
+named in `WptTestRunner._exclusions` with a `WptDivergence` category, and an entry must match at least one
+failing test and no passing one — so a fix, a rename, or a corpus bump makes the run fail until the table is
+brought back in line, and a `*` glob can never widen into a blanket. **`NeedsTriage` is the debt**: those are
+genuine defects the harness found, recorded rather than fixed so that the change which first ran a suite is
+not also the change that moved the engine. **The engine supplies its own `setTimeout`** — unlike the test262
+harness, which has no web APIs to enable and shims one onto the event loop, this driver enables
+`WebApiFeatures.Timers` and pumps with `Advanced.ProcessTasks()` bounded by `TimeUntilNextPumpScheduledWork()`,
+so a suite that schedules a timer exercises the shipped `TimerQueue`. And **`// META: variant=` sharding is
+ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
+run of a file is the union of all of its variants.
 
 ## Modules
 
