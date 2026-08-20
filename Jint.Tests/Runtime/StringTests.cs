@@ -525,6 +525,56 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     }
 
     /// <summary>
+    /// toUpperCase and toLowerCase are defined over the Unicode Default Case Conversion algorithm
+    /// (https://tc39.es/ecma262/#sec-string.prototype.tolowercase), which the framework's
+    /// ToUpperInvariant/ToLowerInvariant do not implement: they keep U+0131 unchanged by design,
+    /// supply only the simple mappings, and carry whichever Unicode version the host's ICU — or
+    /// Windows NLS, on .NET Framework — happens to ship, so a script added in a recent version
+    /// maps differently from machine to machine. Both sides are evaluated so the supplementary
+    /// expectations stay readable; String.fromCodePoint is independent of case conversion.
+    /// </summary>
+    [Theory]
+    // U+0131 LATIN SMALL LETTER DOTLESS I. ToUpperInvariant deliberately maps it to itself.
+    [InlineData("'\\u0131'.toUpperCase()", "'I'")]
+    // The locale entry points must agree with the language-insensitive ones when no locale tailors casing.
+    [InlineData("'\\u0131'.toLocaleUpperCase()", "'I'")]
+    [InlineData("'\\u0131'.toLocaleUpperCase('en')", "'I'")]
+    // GARAY, added in Unicode 16.0 — newer than the ICU most hosts carry.
+    [InlineData("String.fromCodePoint(0x10D70).toUpperCase()", "String.fromCodePoint(0x10D50)")]
+    [InlineData("String.fromCodePoint(0x10D50).toLowerCase()", "String.fromCodePoint(0x10D70)")]
+    // VITHKUQI, added in Unicode 14.0.
+    [InlineData("String.fromCodePoint(0x10597).toUpperCase()", "String.fromCodePoint(0x10570)")]
+    // A supplementary code point in a string that also needs a SpecialCasing expansion: the
+    // expansion path used to pass every surrogate pair through unmapped.
+    [InlineData("('\\u00DF' + String.fromCodePoint(0x10428)).toUpperCase()", "'SS' + String.fromCodePoint(0x10400)")]
+    [InlineData("('\\u0130' + String.fromCodePoint(0x10400)).toLowerCase()", "'i\\u0307' + String.fromCodePoint(0x10428)")]
+    public void CaseConversionUsesTheUnicodeDefaultCaseConversionAlgorithm(string actual, string expected)
+    {
+        var actualValue = _engine.Evaluate(actual).AsString();
+        var expectedValue = _engine.Evaluate(expected).AsString();
+        actualValue.Should().Be(expectedValue);
+    }
+
+    /// <summary>
+    /// Turkish, Azeri and Lithuanian are the languages the Unicode Character Database tailors case
+    /// mapping for, and ECMA-402's toLocale{Upper,Lower}Case must keep honouring them even though
+    /// every other locale now goes through the language-insensitive tables.
+    /// https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
+    /// </summary>
+    [Theory]
+    [InlineData("'i'.toLocaleUpperCase('tr')", "İ")]
+    [InlineData("'i'.toLocaleUpperCase('tr-TR')", "İ")]
+    [InlineData("'i'.toLocaleUpperCase('az')", "İ")]
+    [InlineData("'I'.toLocaleLowerCase('tr')", "ı")]
+    [InlineData("'I'.toLocaleLowerCase('az')", "ı")]
+    [InlineData("'İ'.toLocaleLowerCase('tr')", "i")]
+    [InlineData("'İ'.toLocaleLowerCase('und')", "i̇")]
+    public void LocaleTailoredCasingIsPreserved(string expression, string expected)
+    {
+        _engine.Evaluate(expression).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
     /// lastIndexOf's position argument bounds where a match may <em>start</em>, not where the search
     /// begins, which is easy to get off by one. Every expectation here was verified against V8.
     /// </summary>

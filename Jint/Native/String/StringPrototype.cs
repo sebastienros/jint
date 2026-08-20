@@ -14,6 +14,9 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using FunctionInstance = Jint.Native.Function.Function;
+// Aliased because Acornima, whose namespace is a global using, has an inaccessible type of the
+// same name, so the unqualified name resolves to that one and fails to compile.
+using JintUnicode = Jint.Runtime.RegExp.Unicode.UnicodeProperties;
 
 namespace Jint.Native.String;
 
@@ -213,6 +216,13 @@ internal sealed partial class StringPrototype : StringInstance
             culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
         }
 
+        // Every locale outside the tailored set maps exactly as the language-insensitive default
+        // does, so it goes through the same Unicode tables rather than the framework's.
+        if (!HasTailoredCasing(culture))
+        {
+            return new JsString(ToUpperCaseDefault(s));
+        }
+
         if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
         {
             s = StringInlHelper.LithuanianStringProcessor(s);
@@ -233,7 +243,21 @@ internal sealed partial class StringPrototype : StringInstance
     private JsValue ToUpperCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
-        return new JsString(ToUpperCaseWithSpecialCasing(s, CultureInfo.InvariantCulture));
+        return new JsString(ToUpperCaseDefault(s));
+    }
+
+    /// <summary>
+    /// The only languages for which the Unicode Character Database tailors case mapping away from
+    /// the language-insensitive default: Turkish and Azeri (dotted and dotless i) and Lithuanian
+    /// (the retained dot above). Everything else — including the framework's own culture-aware
+    /// conversion, which only ever special-cases Turkish — agrees with the default algorithm.
+    /// </summary>
+    private static bool HasTailoredCasing(CultureInfo culture)
+    {
+        var language = culture.TwoLetterISOLanguageName;
+        return string.Equals(language, "tr", StringComparison.Ordinal)
+               || string.Equals(language, "az", StringComparison.Ordinal)
+               || string.Equals(language, "lt", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -438,6 +462,13 @@ internal sealed partial class StringPrototype : StringInstance
             culture = IntlUtilities.GetCultureInfo(requestedLocales[0]) ?? CultureInfo.InvariantCulture;
         }
 
+        // Every locale outside the tailored set maps exactly as the language-insensitive default
+        // does, so it goes through the same Unicode tables rather than the framework's.
+        if (!HasTailoredCasing(culture))
+        {
+            return new JsString(ToLowerCaseDefault(s));
+        }
+
         return ToLowerCaseWithSpecialCasing(s, culture);
     }
 
@@ -446,7 +477,122 @@ internal sealed partial class StringPrototype : StringInstance
     private JsValue ToLowerCase(JsValue thisObject)
     {
         var s = TypeConverter.ToString(thisObject);
-        return ToLowerCaseWithSpecialCasing(s, CultureInfo.InvariantCulture);
+        return new JsString(ToLowerCaseDefault(s));
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string.prototype.touppercase — the Unicode Default Case
+    /// Conversion toUppercase algorithm, applied to the string's code points.
+    /// </summary>
+    private string ToUpperCaseDefault(string s)
+    {
+        // Fast path: an all-ASCII string maps within ASCII, where the Unicode mapping is exactly
+        // a-z -> A-Z. Both the scan and the framework's invariant conversion are vectorized, so
+        // this costs the same two passes the SpecialCasing pre-scan used to.
+        if (!s.AsSpan().ContainsAnyExceptInRange('\0', '\u007F'))
+        {
+            return s.ToUpperInvariant();
+        }
+
+        return ConvertCaseDefault(s, toLower: false);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string.prototype.tolowercase — the Unicode Default Case
+    /// Conversion toLowercase algorithm, applied to the string's code points.
+    /// </summary>
+    private string ToLowerCaseDefault(string s)
+    {
+        if (!s.AsSpan().ContainsAnyExceptInRange('\0', '\u007F'))
+        {
+            return s.ToLowerInvariant();
+        }
+
+        return ConvertCaseDefault(s, toLower: true);
+    }
+
+    /// <summary>
+    /// Walks the string by code point and applies the full case mapping from Jint's own Unicode
+    /// tables (UnicodeData.txt plus the unconditional entries of SpecialCasing.txt, so a mapping
+    /// may produce up to three code points and change the string's length).
+    /// <para>
+    /// The framework's <c>ToUpperInvariant</c>/<c>ToLowerInvariant</c> cannot serve here: they
+    /// supply the <em>simple</em> mappings only, they deviate from the Unicode default for a few
+    /// code points on purpose (U+0131 dotless i upper-cases to itself), and their Unicode version
+    /// is whatever ICU — or, on .NET Framework, Windows NLS — happens to ship, so newer scripts
+    /// such as Garay or Vithkuqi map differently from host to host and from target framework to
+    /// target framework. Reading the tables directly makes the answer the same everywhere.
+    /// </para>
+    /// </summary>
+    private string ConvertCaseDefault(string s, bool toLower)
+    {
+        // Stack buffer covers most strings; ValueStringBuilder rents from ArrayPool if it grows beyond.
+        Span<char> stackBuffer = stackalloc char[128];
+        var sb = new ValueStringBuilder(stackBuffer);
+        Span<uint> mapped = stackalloc uint[JintUnicode.MaxCaseConversionLength];
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            var c = s[i];
+            if (c < 0x80)
+            {
+                // ASCII neither expands nor leaves ASCII, so the whole table lookup is one range test.
+                if (toLower)
+                {
+                    sb.Append((uint) (c - 'A') <= 'Z' - 'A' ? (char) (c + 0x20) : c);
+                }
+                else
+                {
+                    sb.Append((uint) (c - 'a') <= 'z' - 'a' ? (char) (c - 0x20) : c);
+                }
+                continue;
+            }
+
+            // Final_Sigma is the one conditional mapping SpecialCasing.txt declares
+            // language-insensitive, so it belongs to the default algorithm and needs the
+            // surrounding text the per-code-point table cannot see.
+            if (toLower && c == '\u03A3')
+            {
+                sb.Append(IsFinalSigmaContext(s, i) ? '\u03C2' : '\u03C3');
+                continue;
+            }
+
+            int codePoint = c;
+            if (char.IsHighSurrogate(c) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                codePoint = char.ConvertToUtf32(c, s[i + 1]);
+                i++;
+            }
+
+            var count = toLower
+                ? JintUnicode.ToLowerCase(mapped, (uint) codePoint)
+                : JintUnicode.ToUpperCase(mapped, (uint) codePoint);
+
+            for (var k = 0; k < count; k++)
+            {
+                AppendCodePoint(ref sb, mapped[k]);
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static void AppendCodePoint(ref ValueStringBuilder sb, uint codePoint)
+    {
+        if (codePoint <= 0xFFFF)
+        {
+            sb.Append((char) codePoint);
+            return;
+        }
+
+        codePoint -= 0x10000;
+        sb.Append((char) (0xD800 + (codePoint >> 10)));
+        sb.Append((char) (0xDC00 + (codePoint & 0x3FF)));
     }
 
     /// <summary>
