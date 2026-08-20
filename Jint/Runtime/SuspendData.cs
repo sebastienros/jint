@@ -413,6 +413,39 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// is resumed.
     /// </summary>
     public Completion DisposeResult { get; set; }
+
+    /// <summary>
+    /// True while AsyncIteratorClose's Await — step 4.d of
+    /// https://tc39.es/ecma262/#sec-asynciteratorclose — is in flight. On resume, the for-await-of
+    /// statement finishes steps 5-8 from <see cref="CloseCompletion"/> and the settled value below
+    /// instead of resuming the loop.
+    /// </summary>
+    public bool CloseInProgress { get; set; }
+
+    /// <summary>
+    /// The completion AsyncIteratorClose was called with: the loop's own completion, which steps 5
+    /// and 8 hand back when the close produces none of its own.
+    /// <para>
+    /// Parked whole rather than as a type and a value, for the reason
+    /// <see cref="TrySuspendData.PendingCompletion"/> documents: a Break or Continue keeps its
+    /// [[Target]] in the jump statement the record carries, so a type-and-value pair could not
+    /// express it.
+    /// </para>
+    /// </summary>
+    public Completion CloseCompletion { get; set; }
+
+    /// <summary>
+    /// The value AsyncIteratorClose's Await settled with, recorded by the close continuation.
+    /// </summary>
+    public JsValue? CloseSettledValue { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="CloseSettledValue"/> arrived as a rejection — step 6's "If innerResult is
+    /// a throw completion". It is deliberately not carried in the suspendable's own
+    /// <c>_resumeWithThrow</c>: a rejected close is not always a throw, since step 5 discards it
+    /// when the loop already has a throw completion of its own.
+    /// </summary>
+    public bool CloseSettledRejected { get; set; }
 }
 
 /// <summary>
