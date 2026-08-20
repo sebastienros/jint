@@ -578,7 +578,11 @@ public class TimerTests
     [Fact]
     public void ATimerLongerThanTheUnwrapTimeoutTimesOutByDesign()
     {
-        var engine = new Engine(options => options.UseWebApis());
+        // The timer rides a clock this test never advances, so it can never come due — a wall-clock margin
+        // ("5000 ms is much longer than 200 ms") is still a race on a CI runner that can stall this thread
+        // for seconds inside the drain, at which point the timer fires and the unwrap succeeds instead of
+        // timing out. The unwrap's own budget is real time by design, which is exactly the half under test.
+        var (engine, _) = TimerEngine();
 
         var pending = engine.Evaluate("new Promise(r => setTimeout(r, 5000))");
 
