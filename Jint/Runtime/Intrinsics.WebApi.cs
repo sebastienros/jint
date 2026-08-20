@@ -11,6 +11,7 @@ using Jint.WebApi.Files;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
+using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
 
@@ -177,5 +178,62 @@ public sealed partial class Intrinsics
 
     internal NavigatorInstance Navigator =>
         _navigator ??= new NavigatorInstance(_engine, _realm, Object.PrototypeObject);
+
+    private ReadableStreamConstructor? _readableStream;
+    private ReadableStreamDefaultReaderConstructor? _readableStreamDefaultReader;
+    private ReadableStreamDefaultControllerConstructor? _readableStreamDefaultController;
+    private ReadableStreamAsyncIteratorPrototype? _readableStreamAsyncIteratorPrototype;
+    private WritableStreamConstructor? _writableStream;
+    private WritableStreamDefaultWriterConstructor? _writableStreamDefaultWriter;
+    private WritableStreamDefaultControllerConstructor? _writableStreamDefaultController;
+    private TransformStreamConstructor? _transformStream;
+    private TransformStreamDefaultControllerConstructor? _transformStreamDefaultController;
+    private CountQueuingStrategyConstructor? _countQueuingStrategy;
+    private ByteLengthQueuingStrategyConstructor? _byteLengthQueuingStrategy;
+
+    internal ReadableStreamConstructor ReadableStream =>
+        _readableStream ??= new ReadableStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// <c>ReadableStreamDefaultReader</c>, <c>ReadableStreamDefaultController</c> and the writable and
+    /// transform interfaces beside them are deliberately <b>not</b> installed as globals — a browser exposes
+    /// every one of them, and Jint exposes only the five a script constructs directly. They are still
+    /// ordinary interface objects reachable as <c>Object.getPrototypeOf(reader).constructor</c>, which is
+    /// where an <c>instanceof</c> check or a prototype patch goes.
+    /// </summary>
+    internal ReadableStreamDefaultReaderConstructor ReadableStreamDefaultReader =>
+        _readableStreamDefaultReader ??= new ReadableStreamDefaultReaderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal ReadableStreamDefaultControllerConstructor ReadableStreamDefaultController =>
+        _readableStreamDefaultController ??= new ReadableStreamDefaultControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// <c>%ReadableStreamAsyncIteratorPrototype%</c>, whose <c>[[Prototype]]</c> is
+    /// <c>%AsyncIteratorPrototype%</c> — which is what gives an iterator obtained from a stream the async
+    /// iterator helpers.
+    /// </summary>
+    internal ReadableStreamAsyncIteratorPrototype ReadableStreamAsyncIteratorPrototype =>
+        _readableStreamAsyncIteratorPrototype ??= new ReadableStreamAsyncIteratorPrototype(_engine, _realm, AsyncIteratorPrototype);
+
+    internal WritableStreamConstructor WritableStream =>
+        _writableStream ??= new WritableStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal WritableStreamDefaultWriterConstructor WritableStreamDefaultWriter =>
+        _writableStreamDefaultWriter ??= new WritableStreamDefaultWriterConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal WritableStreamDefaultControllerConstructor WritableStreamDefaultController =>
+        _writableStreamDefaultController ??= new WritableStreamDefaultControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal TransformStreamConstructor TransformStream =>
+        _transformStream ??= new TransformStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal TransformStreamDefaultControllerConstructor TransformStreamDefaultController =>
+        _transformStreamDefaultController ??= new TransformStreamDefaultControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal CountQueuingStrategyConstructor CountQueuingStrategy =>
+        _countQueuingStrategy ??= new CountQueuingStrategyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal ByteLengthQueuingStrategyConstructor ByteLengthQueuingStrategy =>
+        _byteLengthQueuingStrategy ??= new ByteLengthQueuingStrategyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 }
 #endif

@@ -402,12 +402,21 @@ public enum WebApiFeatures
     Navigator = 1 << 11,
 
     /// <summary>
+    /// <c>ReadableStream</c>, <c>WritableStream</c>, <c>TransformStream</c> and the two queuing strategies
+    /// — the whole of the WHATWG Streams Standard's default (non-byte) surface, including <c>tee()</c>,
+    /// <c>pipeTo()</c>/<c>pipeThrough()</c> with <c>AbortSignal</c> support, and asynchronous iteration of a
+    /// readable stream. Byte streams (<c>type: "bytes"</c>, <c>ReadableByteStreamController</c>, BYOB
+    /// readers) are not implemented and are absent rather than present-and-broken.
+    /// </summary>
+    Streams = 1 << 12,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
-    /// <see cref="Url"/>, <see cref="Files"/> and <see cref="Navigator"/>; it grows as further features land,
-    /// and never comes to include fetch.
+    /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/> and <see cref="Streams"/>; it grows as
+    /// further features land, and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams,
 }
 #endif
