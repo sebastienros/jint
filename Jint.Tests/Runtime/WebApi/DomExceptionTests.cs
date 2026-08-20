@@ -192,5 +192,38 @@ public class DomExceptionTests
         engine.Evaluate("DOMException.length").AsNumber().Should().Be(0);
         engine.Evaluate("DOMException.name").AsString().Should().Be("DOMException");
     }
+
+    [Fact]
+    public void CarriesTheErrorDataInternalSlot()
+    {
+        var engine = WebEngine();
+
+        // https://webidl.spec.whatwg.org/#internally-create-a-new-object-implementing-the-interface — "If
+        // interface is DOMException, append [[ErrorData]] to slots" — and
+        // https://tc39.es/ecma262/#sec-error.iserror is the brand check on exactly that slot.
+        engine.Evaluate("Error.isError(new DOMException())").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Error.isError(new DOMException('x', 'AbortError'))").AsBoolean().Should().BeTrue();
+
+        // Still an Error by every other measure it already was.
+        engine.Evaluate("new DOMException() instanceof Error").AsBoolean().Should().BeTrue();
+
+        // A prototype object is not an instance, whichever hierarchy it belongs to: %Error.prototype% is
+        // "an ordinary object … not an Error instance" per
+        // https://tc39.es/ecma262/#sec-properties-of-the-error-prototype-object, and DOMException.prototype is
+        // left ordinary here for the same reason.
+        engine.Evaluate("Error.isError(Error.prototype)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError(TypeError.prototype)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError(DOMException.prototype)").AsBoolean().Should().BeFalse();
+
+        // ... and neither is anything merely shaped like one.
+        engine.Evaluate("Error.isError({ name: 'AbortError', message: 'x' })").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError(Object.create(DOMException.prototype))").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError('AbortError')").AsBoolean().Should().BeFalse();
+
+        // The ECMAScript errors are unaffected.
+        engine.Evaluate("Error.isError(new Error())").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Error.isError(new TypeError())").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Error.isError(new AggregateError([]))").AsBoolean().Should().BeTrue();
+    }
 }
 #endif

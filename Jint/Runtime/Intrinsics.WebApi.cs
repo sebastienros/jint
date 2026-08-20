@@ -8,6 +8,7 @@ using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.Navigator;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
 using Jint.WebApi.Timers;
@@ -40,6 +41,10 @@ public sealed partial class Intrinsics
     private CryptoInstance? _crypto;
     private SubtleCryptoInstance? _subtleCrypto;
     private PerformanceInstance? _performance;
+    private PerformanceEntryConstructor? _performanceEntry;
+    private PerformanceMarkConstructor? _performanceMark;
+    private PerformanceMeasureConstructor? _performanceMeasure;
+    private NavigatorInstance? _navigator;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -153,5 +158,24 @@ public sealed partial class Intrinsics
     /// </summary>
     internal PerformanceInstance Performance =>
         _performance ??= PerformanceInstance.Create(_engine, _realm, Object.PrototypeObject);
+
+    internal PerformanceEntryConstructor PerformanceEntry =>
+        _performanceEntry ??= new PerformanceEntryConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// <c>PerformanceMark</c> inherits from <c>PerformanceEntry</c>, so reaching it builds
+    /// <c>PerformanceEntry</c> too — which is what makes
+    /// <c>Object.getPrototypeOf(PerformanceMark) === PerformanceEntry</c> hold however the two were first
+    /// touched.
+    /// </summary>
+    internal PerformanceMarkConstructor PerformanceMark =>
+        _performanceMark ??= new PerformanceMarkConstructor(_engine, _realm, PerformanceEntry);
+
+    /// <summary><c>PerformanceMeasure</c> inherits from <c>PerformanceEntry</c>.</summary>
+    internal PerformanceMeasureConstructor PerformanceMeasure =>
+        _performanceMeasure ??= new PerformanceMeasureConstructor(_engine, _realm, PerformanceEntry);
+
+    internal NavigatorInstance Navigator =>
+        _navigator ??= new NavigatorInstance(_engine, _realm, Object.PrototypeObject);
 }
 #endif

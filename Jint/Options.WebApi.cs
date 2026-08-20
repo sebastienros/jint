@@ -342,9 +342,12 @@ public enum WebApiFeatures
     Crypto = 1 << 5,
 
     /// <summary>
-    /// The <c>performance</c> object: <c>now()</c> and <c>timeOrigin</c>. Both read the clock in
-    /// <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the timers together.
-    /// Marks, measures and the performance timeline are not implemented.
+    /// The <c>performance</c> object — <c>now()</c>, <c>timeOrigin</c>, and the User Timing surface
+    /// (<c>mark</c>, <c>measure</c>, <c>getEntries</c> and friends) with the <c>PerformanceEntry</c>,
+    /// <c>PerformanceMark</c> and <c>PerformanceMeasure</c> interface objects behind it. Every reading comes
+    /// from the clock in <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the
+    /// timers together. There is no <c>PerformanceObserver</c>, and the entry buffer is bounded rather than
+    /// unbounded — see <c>PerformanceInstance</c>.
     /// </summary>
     Performance = 1 << 6,
 
@@ -391,12 +394,20 @@ public enum WebApiFeatures
     Fetch = 1 << 10,
 
     /// <summary>
+    /// The <c>navigator</c> object, whose single member is <c>userAgent</c> — the one thing WinterTC's
+    /// Minimum Common API (https://min-common-api.proposal.wintertc.org/) requires of it and the one a script
+    /// identifies a runtime by. Everything else a browser's <c>Navigator</c> carries describes a user agent
+    /// with a user, a document and a network stack, so it is absent rather than faked.
+    /// </summary>
+    Navigator = 1 << 11,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
-    /// <see cref="Url"/> and <see cref="Files"/>; it grows as further features land, and never comes to
-    /// include fetch.
+    /// <see cref="Url"/>, <see cref="Files"/> and <see cref="Navigator"/>; it grows as further features land,
+    /// and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator,
 }
 #endif

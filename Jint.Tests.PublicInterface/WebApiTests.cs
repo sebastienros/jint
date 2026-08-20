@@ -168,5 +168,26 @@ public class WebApiTests
         exception.Get("code").AsNumber().Should().Be(20);
         engine.Evaluate("new DOMException('gone', 'AbortError') instanceof Error").AsBoolean().Should().BeTrue();
     }
+
+    [Fact]
+    public void ErrorIsErrorAnswersTrueForADomException()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        // WebIDL gives a DOMException the [[ErrorData]] internal slot that Error.isError brands on, so a
+        // library that routes errors through it treats a platform exception as the error it is.
+        engine.Evaluate("Error.isError(new DOMException())").AsBoolean().Should().BeTrue();
+
+        // ... and nothing else about the predicate moved: a prototype is not an instance and a look-alike is
+        // not an error.
+        engine.Evaluate("Error.isError(Error.prototype)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError(DOMException.prototype)").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError({ name: 'AbortError' })").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Error.isError(new Error())").AsBoolean().Should().BeTrue();
+
+        // A default engine has no DOMException at all, and the predicate is unchanged there.
+        new Engine().Evaluate("Error.isError(new Error()) && !Error.isError(Error.prototype) && !Error.isError({})")
+            .AsBoolean().Should().BeTrue();
+    }
 }
 #endif

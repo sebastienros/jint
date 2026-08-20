@@ -244,16 +244,29 @@ public class PerformanceTests
     }
 
     [Fact]
-    public void HasNoPerformanceTimeline()
+    public void CarriesTheUserTimingSurface()
     {
         var (engine, _) = PerformanceEngine();
 
-        // Absent rather than present-and-throwing, so a library that feature-detects marks takes its
+        foreach (var member in new[] { "mark", "measure", "getEntries", "getEntriesByType", "getEntriesByName", "clearMarks", "clearMeasures" })
+        {
+            engine.Evaluate($"typeof performance.{member}").AsString().Should().Be("function");
+        }
+    }
+
+    [Fact]
+    public void HasNoObserverAndNoResourceTiming()
+    {
+        var (engine, _) = PerformanceEngine();
+
+        // Absent rather than present-and-throwing, so a library that feature-detects an observer takes its
         // fallback path instead of crashing.
-        foreach (var member in new[] { "mark", "measure", "getEntries", "getEntriesByName", "clearMarks", "toJSON" })
+        foreach (var member in new[] { "toJSON", "setResourceTimingBufferSize", "getEntriesByObserver", "eventCounts", "addEventListener" })
         {
             engine.Evaluate($"typeof performance.{member}").AsString().Should().Be("undefined");
         }
+
+        engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
     }
 
     [Fact]

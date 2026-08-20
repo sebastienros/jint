@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
-public sealed class JsError : ErrorInstance
+public sealed class JsError : ErrorInstance, IErrorData
 {
     /// <summary>
     /// The rendered implementation-defined stack trace string, materialized on first read from
