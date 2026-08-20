@@ -4,6 +4,7 @@ using Jint.Native.Promise;
 using Jint.WebApi;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Scheduling;
+using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.Timers;
 
 namespace Jint;
@@ -76,6 +77,13 @@ internal sealed class WebApiEngineState
     private StorageProvider? _localStorageProvider;
     private StorageProvider? _sessionStorageProvider;
 
+    /// <summary>
+    /// The event streams this engine has open, in registration order. Engine-thread-only for the same reason
+    /// <see cref="_fetches"/> is, and bounded by the same <c>Options.FetchOptions.MaxConcurrentRequests</c> —
+    /// separately, because a stream holds its socket for as long as it lives rather than for one exchange.
+    /// </summary>
+    private List<EventSourceConnection>? _eventSources;
+
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null)
     {
         _engine = engine;
@@ -132,6 +140,17 @@ internal sealed class WebApiEngineState
     /// that is already running.
     /// </summary>
     internal DiagnosticsSink? Diagnostics { get; }
+
+    /// <summary>
+    /// How many event streams are open, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
+    /// bounds for <c>EventSource</c>.
+    /// </summary>
+    internal int ActiveEventSourceCount => _eventSources?.Count ?? 0;
+
+    internal void RegisterEventSource(EventSourceConnection connection)
+        => (_eventSources ??= new List<EventSourceConnection>()).Add(connection);
+
+    internal void UnregisterEventSource(EventSourceConnection connection) => _eventSources?.Remove(connection);
 
     /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
@@ -226,7 +245,12 @@ internal sealed class WebApiEngineState
     {
         Timers?.Clear();
         Scheduler?.Clear();
+        AbandonFetches();
+        AbandonEventSources();
+    }
 
+    private void AbandonFetches()
+    {
         if (_fetches is not { Count: > 0 } fetches)
         {
             return;
@@ -240,6 +264,28 @@ internal sealed class WebApiEngineState
         foreach (var fetch in pending)
         {
             fetch.Abandon();
+        }
+    }
+
+    /// <summary>
+    /// The same for the event streams, and for the same reasons — with one addition: an abandoned connection
+    /// leaves its <c>EventSource</c> object <c>CLOSED</c>, and fires nothing, because the evaluation cycle
+    /// those listeners belonged to has ended. The reconnect delay a stream may have been holding is on the
+    /// timer queue <see cref="Timers"/> has just cleared.
+    /// </summary>
+    private void AbandonEventSources()
+    {
+        if (_eventSources is not { Count: > 0 } sources)
+        {
+            return;
+        }
+
+        var pending = sources.ToArray();
+        sources.Clear();
+
+        foreach (var source in pending)
+        {
+            source.Abandon();
         }
     }
 }

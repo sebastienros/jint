@@ -159,6 +159,11 @@ public partial class Options
     /// from whichever thread the HTTP stack happens to be on — see <see cref="UrlFilter"/> and
     /// <see cref="HttpClientFactory"/>.
     /// </para>
+    /// <para>
+    /// <b>Not only <c>fetch</c> reads this.</b> <see cref="WebApiFeatures.EventSource"/> is a second, separate
+    /// grant of outbound network access and takes its transport and its policy from here too; three members
+    /// mean something different for a stream than for a document, and that flag's documentation says which.
+    /// </para>
     /// </remarks>
     public class FetchOptions
     {
@@ -559,6 +564,48 @@ public enum WebApiFeatures
     /// database — is <see cref="Options.StorageOptions.LocalStorageProvider"/>'s business.
     /// </summary>
     Storage = 1 << 16,
+
+    /// <summary>
+    /// <c>EventSource</c> and <c>MessageEvent</c> — server-sent events,
+    /// https://html.spec.whatwg.org/multipage/server-sent-events.html. <b>Never part of
+    /// <see cref="Default"/>:</b> like <see cref="Fetch"/> it is outbound network access, and it is a
+    /// <i>separate</i> decision — enabling fetch does not enable this, and enabling this does not enable
+    /// fetch.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/>, whose <c>EventTarget</c> an <c>EventSource</c> is and on whose timer
+    /// queue the reconnect delay rides.
+    /// </para>
+    /// <para>
+    /// <b>It reads its transport and its policy from <see cref="Options.FetchOptions"/></b>, the same group
+    /// <c>fetch</c> uses — <see cref="Options.FetchOptions.HttpClient"/> or
+    /// <see cref="Options.FetchOptions.HttpClientFactory"/>, <see cref="Options.FetchOptions.AllowedSchemes"/>,
+    /// <see cref="Options.FetchOptions.UrlFilter"/> (re-run on every redirect hop <i>and</i> on every
+    /// reconnection) and <see cref="Options.FetchOptions.MaxRedirects"/>. So a host that has written a policy
+    /// for fetch has already written this one, and a host that enables only this still configures it through
+    /// <c>options.WebApi.Fetch</c>. Two members mean something different here, because a connection is a
+    /// stream rather than a document:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="Options.FetchOptions.Timeout"/> is <b>not</b> applied. A connection that is idle for an
+    /// hour is what an event stream is for, so a deadline on the whole exchange would end every one of them.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="Options.FetchOptions.MaxResponseBytes"/> does <b>not</b> bound the stream, which is
+    /// unbounded by nature. It bounds <i>one event</i>: the data a single event accumulates before its blank
+    /// line, which is what actually has to be held in memory. Exceeding it fails the connection, and — like
+    /// every other failure the host's own limits produce — that failure does not reconnect.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="Options.FetchOptions.MaxConcurrentRequests"/> bounds the streams one engine may have open,
+    /// counted separately from the fetches in flight. A stream holds its socket for as long as it lives, so
+    /// this is the setting that stops a script from opening them without end.
+    /// </description></item>
+    /// </list>
+    /// </remarks>
+    EventSource = 1 << 17,
 
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.

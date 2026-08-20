@@ -232,6 +232,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
+| `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
@@ -554,6 +555,60 @@ engines that run concurrently must be thread-safe.
 **There is no `storage` event.** Every mutating step ends in "broadcast", which notifies *other* browsing
 contexts sharing an origin — a multi-context feature, and an engine has one context. `StorageEvent` is absent
 rather than present-and-never-firing, so feature detection sees the truth.
+
+### `EventSource` is a second, separate grant
+
+Server-sent events are their own opt-in: `UseFetch()` does not enable `EventSource`, `UseEventSource()` does
+not enable `fetch`, and `UseWebApis()` enables neither.
+
+```csharp
+var engine = new Engine(options => options.UseWebApis().UseEventSource(net =>
+{
+    net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    net.MaxResponseBytes = 64 * 1024;   // the largest single event, not the largest stream
+    net.MaxConcurrentRequests = 2;      // at most two streams open at once
+}));
+
+engine.Execute("""
+    const events = new EventSource('https://api.example.org/updates');
+    events.onmessage = e => console.log(e.lastEventId, e.data);
+    """);
+
+while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
+```
+
+It is the standard's own object: `url`, `readyState` with `CONNECTING`/`OPEN`/`CLOSED`, `onopen`/`onmessage`/
+`onerror`, `close()`, and `addEventListener` for the custom types an `event:` field names. The stream is
+parsed exactly as the specification writes it — UTF-8 with a leading BOM stripped, CRLF/CR/LF line endings,
+`data`/`event`/`id`/`retry` fields, one leading space removed after the colon, comment lines as keep-alives,
+`data` values joined with a newline, and an event dispatched only at a blank line. `withCredentials` is
+accepted, remembered and ignored, the same treatment `fetch` gives `credentials`: there is no origin, cookie
+jar or credential store here for it to select.
+
+**It reads `Options.WebApi.Fetch`** — the same transport (`HttpClient` / `HttpClientFactory`) and the same
+policy (`AllowedSchemes`, `UrlFilter`, `MaxRedirects`) that `fetch` uses, so a filter you have already written
+covers both, and every redirect hop is re-checked exactly as it is for a fetch. Three of those settings mean
+something different for a stream:
+
+- **`Timeout` does not apply.** A connection that is idle for an hour is what an event stream is *for*.
+- **`MaxResponseBytes` does not bound the stream** — nothing could — it bounds **one event**: the data buffer
+  plus the line being read, which is what actually has to be held in memory. Exceeding it fails the connection.
+- **`MaxConcurrentRequests` bounds the streams one engine may have open**, counted separately from the
+  fetches in flight, because a stream holds its socket for as long as it lives.
+
+**Reconnection rides the timer queue**, so it too happens only while you are pumping, and it counts against
+`MaxActiveTimers`. A stream that ends, or a network error, sets `readyState` back to `CONNECTING`, fires
+`error`, waits the server's `retry:` value (3 seconds by default) and connects again — re-running the URL
+policy from scratch and sending `Last-Event-ID` so the server can resume. A response that is not `200
+text/event-stream`, a URL your policy refuses and an event over the size cap all *fail* the connection
+instead: `readyState` becomes `CLOSED` and nothing retries. `close()` cancels the request in flight, and so
+does `Engine.Advanced.RestoreGlobalSnapshot` — after a restore the connection is gone, its pending
+reconnection with it, and nothing from the ended cycle is ever dispatched into the restored engine.
+
+**Security.** Everything TM-21 says about destinations applies here, and one thing more: a connection is
+long-lived and reconnects *on a delay the server chooses*, with no deadline to end it. See
+[THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-22 — the short version is to bound the engine's own lifetime
+for untrusted script rather than pooling an engine a script may leave streaming.
 
 
 ## Node compatibility (opt-in)

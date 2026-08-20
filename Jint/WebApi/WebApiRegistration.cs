@@ -205,6 +205,16 @@ internal static class WebApiRegistration
             Install(global, engine, "localStorage", static e => e.Realm.Intrinsics.LocalStorage, PropertyFlag.ConfigurableEnumerableWritable);
             Install(global, engine, "sessionStorage", static e => e.Realm.Intrinsics.SessionStorage, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((features & WebApiFeatures.EventSource) != WebApiFeatures.None)
+        {
+            Install(global, engine, "EventSource", static e => e.Realm.Intrinsics.EventSource, PropertyFlag.NonEnumerable);
+
+            // MessageEvent is the interface an event source dispatches with, so it exists wherever one does.
+            // The messaging feature installs the same intrinsic; Install is non-clobbering, so an engine with
+            // both flags gets one object either way.
+            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
@@ -221,11 +231,12 @@ internal static class WebApiRegistration
     /// features — while the engine carries the closure.
     /// </para>
     /// <para>
-    /// Fetch is the only feature with implications today. <c>Request</c> always has an <c>AbortSignal</c>
-    /// (<see cref="WebApiFeatures.Events"/>), its URL is a WHATWG URL record
-    /// (<see cref="WebApiFeatures.Url"/>) and <c>response.blob()</c> answers with a <c>Blob</c>
-    /// (<see cref="WebApiFeatures.Files"/>); none of the three is optional to the implementation, so
-    /// installing fetch without them would ship an interface that throws on its own members.
+    /// <c>Request</c> always has an <c>AbortSignal</c> (<see cref="WebApiFeatures.Events"/>), its URL is a
+    /// WHATWG URL record (<see cref="WebApiFeatures.Url"/>) and <c>response.blob()</c> answers with a
+    /// <c>Blob</c> (<see cref="WebApiFeatures.Files"/>); none of the three is optional to the implementation,
+    /// so installing fetch without them would ship an interface that throws on its own members. An
+    /// <c>EventSource</c> is an <c>EventTarget</c> for the same kind of reason, and the reconnect delay it
+    /// schedules rides the queue that flag creates.
     /// </para>
     /// </remarks>
     private static WebApiFeatures ExpandFeatures(WebApiFeatures features)
@@ -233,6 +244,13 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
+        // Deliberately not the other way round: fetch does not bring server-sent events and server-sent
+        // events do not bring fetch. They are two separate grants of outbound network access.
+        if ((features & WebApiFeatures.EventSource) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
         }
 
         return features;
@@ -282,7 +300,10 @@ internal static class WebApiRegistration
 
         // The fetch settings are read here, once, so that nothing on a background thread ever reaches into
         // Options — and so that a host mutating them afterwards does not change an engine that already exists.
-        var fetch = (features & WebApiFeatures.Fetch) != WebApiFeatures.None ? options.WebApi.Fetch : null;
+        // EventSource reads the same group: it is a second grant of network access over the same transport
+        // and the same policy, so either flag is reason enough to keep them.
+        const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource;
+        var fetch = (features & NeedsFetchOptions) != WebApiFeatures.None ? options.WebApi.Fetch : null;
 
         var scheduler = (features & WebApiFeatures.Scheduler) != WebApiFeatures.None
             ? new SchedulerQueue(engine)

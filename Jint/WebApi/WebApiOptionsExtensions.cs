@@ -133,6 +133,51 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables <c>EventSource</c> and <c>MessageEvent</c> — server-sent events — and with them
+    /// <see cref="WebApiFeatures.Events"/>, whose <c>EventTarget</c> an <c>EventSource</c> is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is a grant of outbound network access</b>, separate from <see cref="UseFetch"/>: neither
+    /// implies the other, and <see cref="UseWebApis(Options)"/> grants neither. It reads its transport and
+    /// its policy from the same <see cref="Options.FetchOptions"/> group <c>fetch</c> does — which is what
+    /// <paramref name="configure"/> hands you — so a host that has already written a
+    /// <see cref="Options.FetchOptions.UrlFilter"/> has written this one too. Three of those settings mean
+    /// something different for a stream than for a document; see <see cref="WebApiFeatures.EventSource"/>.
+    /// </para>
+    /// <para>
+    /// A connection delivers, and reconnects, only while the engine is being pumped. Nothing arrives in an
+    /// engine nobody pumps, and nothing arrives on a thread the host did not choose.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseEventSource(net =>
+    /// {
+    ///     net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    ///     net.MaxResponseBytes = 64 * 1024;      // the largest single event, not the largest stream
+    ///     net.MaxConcurrentRequests = 2;         // at most two streams open at once
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">
+    /// Optional configuration of the shared network settings, run after the feature is enabled.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseEventSource(this Options options, Action<Options.FetchOptions>? configure = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.EventSource;
+        configure?.Invoke(options.WebApi.Fetch);
+        return options;
+    }
+
+    /// <summary>
     /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
     /// </summary>
     /// <param name="options">Options to modify.</param>

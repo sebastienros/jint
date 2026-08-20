@@ -201,20 +201,15 @@ internal sealed class FetchOperation
 
     private static HttpClient ResolveClient(Engine engine, Realm realm, Options.FetchOptions options)
     {
-        if (options.HttpClientFactory is { } factory)
+        // Called on the engine thread, once per fetch, so a host factory may read per-request state through
+        // engine.Advanced.HostDefined.
+        var client = FetchTransport.ResolveClient(engine, options);
+        if (client is null)
         {
-            // Called on the engine thread, once per fetch, so it may read per-request host state through
-            // engine.Advanced.HostDefined.
-            var client = factory(engine);
-            if (client is null)
-            {
-                Throw.TypeError(realm, "Failed to fetch: Options.WebApi.Fetch.HttpClientFactory returned null.");
-            }
-
-            return client;
+            Throw.TypeError(realm, "Failed to fetch: Options.WebApi.Fetch.HttpClientFactory returned null.");
         }
 
-        return options.HttpClient ?? FetchTransport.SharedClient;
+        return client;
     }
 
     private void Run(HttpClient client, FetchRequestSnapshot snapshot, FetchPolicy policy)
