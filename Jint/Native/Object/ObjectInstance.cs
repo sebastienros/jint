@@ -2293,7 +2293,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 break;
 
             case ObjectClass.Function:
-                if (this is ICallable function)
+                if (this is ICallable)
                 {
                     converted = (JsCallDelegate) CallFromHost;
                 }
