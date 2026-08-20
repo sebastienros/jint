@@ -229,6 +229,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
+| `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -277,7 +278,8 @@ checkpoint, and no interval can starve promise reactions. Timers are scheduled a
 deterministic and instant; `MaxActiveTimers` (1000 by default) bounds how many a script may register at once
 and turns the excess into a catchable `QuotaExceededError` `DOMException`. A callback that throws erupts out
 of whatever was pumping — the same contract a promise reaction has — and the rest of the queue runs on the
-next pump.
+next pump, unless you installed a `DiagnosticsSink`, in which case it is reported to that instead and the
+pump carries on.
 
 ### Prioritized tasks: `scheduler.postTask` and `scheduler.yield`
 
@@ -307,11 +309,11 @@ current pass and `stopImmediatePropagation()` also skips the rest of it, `once` 
 they run, a duplicate `(type, callback, capture)` registration is ignored, and `removeEventListener` matches
 on the object identity your script passed.
 
-**A listener that throws erupts from `dispatchEvent`.** The standard says to *report* the exception and carry
-on to the next listener, which presumes the `reportError` / `window.onerror` channel Jint does not have yet;
-swallowing it would lose it entirely on an engine whose host never enabled `console`, so for now it
-propagates — the same contract a timer callback has. The dispatch state is unwound either way, so the event
-and the target stay usable.
+**A listener that throws erupts from `dispatchEvent` — unless you set a `DiagnosticsSink`.** The standard
+says to *report* the exception and carry on to the next listener, which needs somewhere to report to.
+Install a sink and that is exactly what happens; without one, swallowing the exception would lose it
+entirely, so it propagates instead — the same contract a timer callback has. The dispatch state is unwound
+either way, so the event and the target stay usable.
 
 `AbortSignal.timeout(ms)` schedules on the same queue the timers use, so it aborts only while the engine is
 being pumped and it counts against `MaxActiveTimers`; that queue exists whenever the `Events` feature does,
@@ -387,6 +389,43 @@ and the listeners all run on whichever thread pumps that engine, so nothing on t
 its own pump. The receiver must actually be pumped, exactly as for timers: an engine nobody pumps never
 delivers a message. And a `RestoreGlobalSnapshot` on either engine ends that channel permanently — a port's
 listeners are closures over the cycle it was created in — so a pooled engine wants a fresh pair per cycle.
+
+### Uncaught script errors go to a `DiagnosticsSink`
+
+A script's failures are not all catchable by the host: a promise rejects with nobody listening, a `setTimeout`
+callback throws long after `Execute` returned, a script calls `reportError`. `Options.WebApi.Diagnostics.Sink`
+is the one place all of that arrives.
+
+```csharp
+sealed class LogSink : DiagnosticsSink
+{
+    public override void Report(DiagnosticEvent report) =>
+        logger.LogWarning("{Kind}: {Message}", report.Kind, report.Exception?.Message ?? report.Value.ToString());
+}
+
+var engine = new Engine(options => options.UseWebApis().UseDiagnostics(new LogSink()));
+```
+
+There are three kinds of report. `ReportedError` is what a script handed `reportError(e)`.
+`UnhandledPromiseRejection` is `HostPromiseRejectionTracker`'s two operations, told apart by
+`RejectionHandled` — and it is *additive*: the long-standing `engine.Advanced.PromiseRejectionTracker` event
+still fires exactly as it did, first. `UncaughtCallbackError` is an exception that escaped a callback the
+engine invoked for you.
+
+**That last one is the reason a sink changes behaviour, so install one deliberately.** With no sink a timer
+callback or an event listener that throws erupts out of whatever was running it, because the alternative
+would be to lose the error entirely. With a sink there is somewhere for it to go, so the engine reports it
+and carries on — which is what the standards actually specify (HTML invokes a timer handler with exception
+behaviour `"report"`; DOM's *inner invoke* reports a throwing listener and moves to the next one). Errors that
+exist to **bound** execution are never reported and always erupt: a timeout, a cancellation, the statement,
+memory and recursion budgets. `DiagnosticsSink.Null` is therefore not the same as no sink — it means "carry
+on, and tell me nothing".
+
+A sink alone is enough; the `Reporting` feature flag only decides whether script can *call* `reportError`, and
+`reportError` without a sink is a documented no-op that never throws. The sink is read once, when the engine is
+built. It is called synchronously, on the engine's thread, and must be thread-safe if the same `Options` builds
+engines that run concurrently. The `JsValue`s on a report belong to the reporting engine: read them inside the
+call rather than stashing them.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them

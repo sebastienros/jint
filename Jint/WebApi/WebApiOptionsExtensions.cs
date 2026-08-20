@@ -165,5 +165,38 @@ public static class WebApiOptionsExtensions
     {
         return UseConsole(options, ConsoleSink.FromTextWriter(writer));
     }
+
+    /// <summary>
+    /// Sends the engine's uncaught script errors to <paramref name="sink"/> and enables the
+    /// <c>reportError</c> function script uses to add to them.
+    /// </summary>
+    /// <remarks>
+    /// The sink is what turns an exception escaping a timer callback or an event listener from something that
+    /// erupts into something that is reported — read <see cref="DiagnosticsSink"/> before installing one. Only
+    /// <c>reportError</c> needs the feature flag; a host that wants the reports without giving script a way to
+    /// add to them can assign <c>options.WebApi.Diagnostics.Sink</c> on its own.
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="sink">
+    /// Where uncaught script errors go. See <see cref="DiagnosticsSink"/> for the thread-safety obligation and
+    /// for how long the values a report carries may be used.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseDiagnostics(this Options options, DiagnosticsSink sink)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        if (sink is null)
+        {
+            Throw.ArgumentNullException(nameof(sink));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Reporting;
+        options.WebApi.Diagnostics.Sink = sink;
+        return options;
+    }
 }
 #endif

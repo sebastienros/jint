@@ -63,6 +63,14 @@ public partial class Options
         /// <see cref="WebApiFeatures.Fetch"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
         public FetchOptions Fetch { get; } = new();
+
+        /// <summary>
+        /// Where the engine reports script errors nobody caught. Unlike everything else in this group it is
+        /// not tied to a feature flag: setting <see cref="DiagnosticsOptions.Sink"/> arms the channel by
+        /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
+        /// <c>reportError</c> function that feeds it.
+        /// </summary>
+        public DiagnosticsOptions Diagnostics { get; } = new();
     }
 
     /// <summary>
@@ -269,6 +277,39 @@ public partial class Options
         /// </remarks>
         public int MaxActiveTimers { get; set; } = 1000;
     }
+
+    /// <summary>
+    /// Settings for the engine's diagnostics channel — the script errors nobody caught. Requires .NET 8 or
+    /// higher.
+    /// </summary>
+    public class DiagnosticsOptions
+    {
+        /// <summary>
+        /// Where an unhandled promise rejection, a value handed to <c>reportError</c>, and an exception that
+        /// escaped a timer callback or an event listener are reported. Defaults to <see langword="null"/>,
+        /// which is not a sink that discards but the absence of a channel: nothing is reported, and an
+        /// exception escaping a callback the engine invoked erupts as it always did.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Setting this changes behaviour, which is why it has no default.</b> With a sink, a
+        /// <c>JavaScriptException</c> from a timer handler or an event listener is reported and the engine
+        /// carries on — the exception behaviour HTML and DOM specify for those callbacks. Errors that bound
+        /// execution (a timeout, a cancellation, the statement, memory and recursion budgets) are never
+        /// reported and always erupt. <see cref="DiagnosticsSink.Null"/> is the way to say "report and
+        /// continue, and discard the report".
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
+        /// already exists — unlike <see cref="ConsoleOptions.Sink"/>, because this one also decides whether a
+        /// callback's exception erupts, and that contract has to hold still for an engine's lifetime. A sink
+        /// on an <see cref="Options"/> instance shared by concurrently running engines is called from each of
+        /// their threads and must be thread-safe; see <see cref="DiagnosticsSink"/> for that and for what may
+        /// be done with the values a report carries.
+        /// </para>
+        /// </remarks>
+        public DiagnosticsSink? Sink { get; set; }
+    }
 }
 
 /// <summary>
@@ -429,13 +470,23 @@ public enum WebApiFeatures
     Messaging = 1 << 14,
 
     /// <summary>
+    /// The <c>reportError</c> function, which hands a value to the engine's diagnostics channel as though it
+    /// were an uncaught exception —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#dom-reporterror. Where the report goes is
+    /// <see cref="Options.DiagnosticsOptions.Sink"/>; with no sink the call is a no-op, and it never throws.
+    /// The flag governs only whether script can <i>call</i> it: the sink itself is armed by being set, and
+    /// reports unhandled promise rejections and callback failures whether or not this is enabled.
+    /// </summary>
+    Reporting = 1 << 15,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
-    /// <see cref="Scheduler"/> and <see cref="Messaging"/>; it grows as further features land, and never
-    /// comes to include fetch.
+    /// <see cref="Scheduler"/>, <see cref="Messaging"/> and <see cref="Reporting"/>; it grows as further
+    /// features land, and never comes to include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting,
 }
 #endif
