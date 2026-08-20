@@ -974,29 +974,63 @@ internal sealed class JintAssignmentExpression : JintExpression
                 return fastResult;
             }
 
-            // slower version
-            var lref = _left.Evaluate(context) as Reference;
-            if (lref is null)
-            {
-                Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
-            }
+            var suspendable = engine.ExecutionContext.Suspendable;
 
-            lref.AssertValid(engine.Realm);
+            // slower version
+            Reference? lref;
+            if (suspendable is { IsResuming: true }
+                && suspendable.Data.TryGet(this, out AssignmentSuspendData? suspendData))
+            {
+                // Resuming: the left-hand side ran to completion before the suspension and may have
+                // observable side effects in its base or its computed key (`o[f()] = await x`), so
+                // the parked Reference is consumed instead of re-evaluating it. Mirrors the compound
+                // path in JintAssignmentExpression.EvaluateMaterialized.
+                lref = suspendData!.Lref;
+            }
+            else
+            {
+                lref = _left.Evaluate(context) as Reference;
+                if (lref is null)
+                {
+                    Throw.ReferenceError(engine.Realm, "Invalid left-hand side in assignment");
+                }
+
+                lref.AssertValid(engine.Realm);
+            }
 
             // sum-of-products right-hand sides compute on raw doubles and box once
             var rval = _rightSumOfProducts is not null && _rightSumOfProducts.TryEvaluate(context, out var unboxedProductSum)
                 ? JsNumber.Create(unboxedProductSum)
                 : _right.GetValue(context);
 
-            // If generator suspended or return requested during right-hand side evaluation, don't assign.
-            // IsSuspended also covers an async function suspending at an `await` in the right-hand side:
-            // the RHS value at that point is the suspension sentinel (undefined), and storing it would
-            // clobber the target's previous value - visible forever if the awaited promise then REJECTS,
-            // because the resumed re-entry throws before it can re-assign.
-            if (context.IsGeneratorAborted() || context.IsSuspended())
+            // Neither state below is reachable without a suspendable frame — ExecutionContext.Generator
+            // is one of the three the Suspendable property folds together — so one null test replaces
+            // the two execution-context reads the checks would otherwise do on every assignment.
+            if (suspendable is not null)
             {
-                engine._referencePool.Return(lref);
-                return rval;
+                // If the right-hand side suspended, don't assign: its value at that point is the
+                // suspension sentinel (undefined), and storing it would clobber the target's previous
+                // value - visible forever if the awaited promise then REJECTS, because the resumed
+                // re-entry throws before it can re-assign. The Reference is parked rather than pooled;
+                // the resume above owns it from here.
+                if (context.IsSuspended())
+                {
+                    suspendable.Data.GetOrCreate<AssignmentSuspendData>(this).Lref = lref;
+                    return rval;
+                }
+
+                // A requested generator return abandons the assignment outright — nothing will resume
+                // into it, so the Reference goes straight back to the pool.
+                if (context.IsGeneratorAborted())
+                {
+                    engine._referencePool.Return(lref);
+                    suspendable.Data.Clear(this);
+                    return rval;
+                }
+
+                // Cleared before the store rather than after it, so a throwing setter cannot leave a
+                // consumed entry behind for a later replay of this node to pick up.
+                suspendable.Data.Clear(this);
             }
 
             // Fast path for dense array element writes: arr[intIndex] = rval. Overwrite of an
