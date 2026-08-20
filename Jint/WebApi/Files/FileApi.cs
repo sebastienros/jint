@@ -69,29 +69,57 @@ internal static class FileApi
 
     private static void AppendBlobPart(ArrayBufferWriter<byte> writer, JsValue element)
     {
-        switch (element)
+        if (TryGetBufferSourceBytes(element, out var bytes))
         {
-            // A detached buffer holds no bytes to copy, so it contributes none. Nothing here can observe
-            // the difference between that and an empty buffer.
+            Append(writer, bytes);
+            return;
+        }
+
+        if (element is JsBlob blob)
+        {
+            Append(writer, blob.Data.Span);
+            return;
+        }
+
+        AppendUtf8(writer, TypeConverter.ToString(element));
+    }
+
+    /// <summary>
+    /// The WebIDL <c>BufferSource</c> typedef, https://webidl.spec.whatwg.org/#BufferSource — an
+    /// <c>ArrayBuffer</c> or any view over one — and the bytes it currently holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The span is a window onto the buffer script still owns, so a caller that keeps the bytes must copy
+    /// them. A detached buffer holds none, so it answers <see langword="true"/> with an empty span: nothing
+    /// here can observe the difference between that and an empty buffer.
+    /// </para>
+    /// <para>
+    /// A <c>SharedArrayBuffer</c> is deliberately not one. The typedef covers <c>ArrayBuffer</c> and the
+    /// views, and sharing is only admitted where <c>[AllowShared]</c> says so, which neither <c>BlobPart</c>
+    /// nor <c>XMLHttpRequestBodyInit</c> does — so it falls through to the string arm of whichever union is
+    /// being converted and is stringified, exactly as in a browser.
+    /// </para>
+    /// </remarks>
+    internal static bool TryGetBufferSourceBytes(JsValue value, out ReadOnlySpan<byte> bytes)
+    {
+        switch (value)
+        {
             case JsArrayBuffer { IsSharedArrayBuffer: false } buffer:
-                Append(writer, buffer.ArrayBufferData.AsSpan());
-                return;
+                bytes = buffer.ArrayBufferData.AsSpan();
+                return true;
 
             case JsTypedArray typedArray:
-                Append(writer, ViewBytes(typedArray));
-                return;
+                bytes = ViewBytes(typedArray);
+                return true;
 
             case JsDataView dataView:
-                Append(writer, ViewBytes(dataView));
-                return;
-
-            case JsBlob blob:
-                Append(writer, blob.Data.Span);
-                return;
+                bytes = ViewBytes(dataView);
+                return true;
 
             default:
-                AppendUtf8(writer, TypeConverter.ToString(element));
-                return;
+                bytes = default;
+                return false;
         }
     }
 

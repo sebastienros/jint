@@ -6,6 +6,7 @@ using Jint.WebApi.Crypto;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
+using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
 using Jint.WebApi.StructuredClone;
 using Jint.WebApi.Performance;
@@ -114,6 +115,19 @@ public sealed partial class Intrinsics
 
     internal AbortControllerConstructor AbortController =>
         _abortController ??= new AbortControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, AbortSignal);
+    private HeadersConstructor? _headers;
+    private RequestConstructor? _request;
+    private ResponseConstructor? _response;
+
+    internal HeadersConstructor Headers =>
+        _headers ??= new HeadersConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal RequestConstructor Request =>
+        _request ??= new RequestConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal ResponseConstructor Response =>
+        _response ??= new ResponseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
     internal CryptoInstance Crypto =>
         _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);
 

@@ -125,6 +125,55 @@ public class WebApiRegistrationTests
     }
 
     [Fact]
+    public void InstallsTheFetchInterfaceObjectsBehindTheFetchFlag()
+    {
+        var engine = new Engine(options => options.UseFetch());
+
+        foreach (var name in new[] { "Headers", "Request", "Response" })
+        {
+            engine.Evaluate($"typeof {name}").AsString().Should().Be("function");
+
+            var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
+            descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+            descriptor.Enumerable.Should().BeFalse();
+            descriptor.Writable.Should().BeTrue();
+            descriptor.Configurable.Should().BeTrue();
+
+            // ... and only behind the flag: the default set never carries it.
+            new Engine(options => options.UseWebApis())
+                .Evaluate($"typeof {name}").AsString().Should().Be("undefined");
+
+            // ... and never inside a shadow realm.
+            engine.Evaluate($"new ShadowRealm().evaluate('typeof {name}')").AsString().Should().Be("undefined");
+        }
+    }
+
+    [Fact]
+    public void FetchBringsTheFeaturesItsSurfaceIsBuiltFrom()
+    {
+        // The closure is computed at install, so it catches a host that assigned Features directly rather
+        // than calling UseFetch.
+        foreach (var options in new[] { new Options().UseFetch(), Assigned() })
+        {
+            var engine = new Engine(options);
+
+            engine.Evaluate("typeof AbortController").AsString().Should().Be("function");
+            engine.Evaluate("typeof URL").AsString().Should().Be("function");
+            engine.Evaluate("typeof Blob").AsString().Should().Be("function");
+
+            // ... and the option value still reads back exactly what the host asked for.
+            options.WebApi.Features.Should().Be(WebApiFeatures.Fetch);
+        }
+
+        static Options Assigned()
+        {
+            var options = new Options();
+            options.WebApi.Features = WebApiFeatures.Fetch;
+            return options;
+        }
+    }
+
+    [Fact]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own");

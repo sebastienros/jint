@@ -32,7 +32,7 @@ internal static class WebApiRegistration
     internal static void Apply(Options options, Engine engine)
     {
         var global = engine.Realm.GlobalObject;
-        var features = options.WebApi.Features;
+        var features = ExpandFeatures(options.WebApi.Features);
 
         CreateEngineState(options, engine, features);
 
@@ -113,6 +113,44 @@ internal static class WebApiRegistration
         {
             Install(global, engine, "performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
+        {
+            Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
+            Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
+            Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
+        }
+    }
+
+    /// <summary>
+    /// The feature closure: a feature whose own surface is built out of another feature's interfaces brings
+    /// that one with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Computed here rather than in <c>UseFetch</c> because this is the only place every door leads through:
+    /// a host may also assign <c>options.WebApi.Features</c> outright, and a closure applied in one extension
+    /// method would leave that host with a <c>fetch</c> whose <c>Request</c> has no <c>AbortSignal</c> to
+    /// build. The consequence is deliberate and worth stating: <c>options.WebApi.Features</c> keeps reading
+    /// back exactly what the host asked for — enabling fetch does not silently rewrite it to name four
+    /// features — while the engine carries the closure.
+    /// </para>
+    /// <para>
+    /// Fetch is the only feature with implications today. <c>Request</c> always has an <c>AbortSignal</c>
+    /// (<see cref="WebApiFeatures.Events"/>), its URL is a WHATWG URL record
+    /// (<see cref="WebApiFeatures.Url"/>) and <c>response.blob()</c> answers with a <c>Blob</c>
+    /// (<see cref="WebApiFeatures.Files"/>); none of the three is optional to the implementation, so
+    /// installing fetch without them would ship an interface that throws on its own members.
+    /// </para>
+    /// </remarks>
+    private static WebApiFeatures ExpandFeatures(WebApiFeatures features)
+    {
+        if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
+        return features;
     }
 
     /// <summary>
