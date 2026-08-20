@@ -85,6 +85,13 @@ internal static class WebApiRegistration
             // https://webidl.spec.whatwg.org/#es-operations.
             Install(global, engine, "structuredClone", static e => e.Realm.Intrinsics.StructuredClone, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((options.WebApi.Features & WebApiFeatures.Files) != WebApiFeatures.None)
+        {
+            Install(global, engine, "Blob", static e => e.Realm.Intrinsics.Blob, PropertyFlag.NonEnumerable);
+            Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
+            Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>

@@ -221,7 +221,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | in progress |
 | `URL` / `URLSearchParams` | `Url` | in progress |
-| `Blob` / `File` / `FormData` | `Files` | in progress |
+| `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
