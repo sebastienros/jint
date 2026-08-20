@@ -98,7 +98,7 @@ internal static class StreamPromises
         Action<JsValue>? onFulfilled,
         Action<JsValue>? onRejected)
     {
-        PromiseOperations.PerformPromiseThen(engine, promise, new VoidReaction(onFulfilled, onRejected));
+        PromiseOperations.UponPromise(engine, promise, onFulfilled, onRejected);
     }
 
     /// <summary>"Upon fulfillment of <paramref name="promise"/>".</summary>
@@ -153,36 +153,6 @@ internal static class StreamPromises
         catch (JavaScriptException e)
         {
             return RejectedWith(engine, realm, e.Error);
-        }
-    }
-
-    /// <summary>
-    /// The reaction behind <see cref="UponPromise"/>: engine-internal handlers, no result promise. A
-    /// JavaScript exception raised by a handler has nowhere to go — the specification asserts these handlers
-    /// do not throw — and is dropped by the reaction job, which is what a JavaScript handler with no result
-    /// capability does too.
-    /// </summary>
-    private sealed class VoidReaction : IPromiseContinuation
-    {
-        private readonly Action<JsValue>? _onFulfilled;
-        private readonly Action<JsValue>? _onRejected;
-
-        internal VoidReaction(Action<JsValue>? onFulfilled, Action<JsValue>? onRejected)
-        {
-            _onFulfilled = onFulfilled;
-            _onRejected = onRejected;
-        }
-
-        public void Invoke(Engine engine, JsValue value, ReactionType type)
-        {
-            if (type == ReactionType.Fulfill)
-            {
-                _onFulfilled?.Invoke(value);
-            }
-            else
-            {
-                _onRejected?.Invoke(value);
-            }
         }
     }
 
