@@ -135,7 +135,7 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>StructuredClone = 1 &lt;&lt; 4</c>, <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
+/// <c>Crypto = 1 &lt;&lt; 5</c>, <c>Performance = 1 &lt;&lt; 6</c>,
 /// <c>Events = 1 &lt;&lt; 7</c>, <c>Url = 1 &lt;&lt; 8</c>, <c>Files = 1 &lt;&lt; 9</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
 /// that naming one can never compile into an engine that silently does not have it.
@@ -181,10 +181,16 @@ public enum WebApiFeatures
     Base64 = 1 << 3,
 
     /// <summary>
-    /// The web APIs a host normally wants: everything except outbound network access. Today that is
-    /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/> and <see cref="Base64"/>; it grows
-    /// as further features land, and never comes to include fetch.
+    /// The global <c>structuredClone</c> function, which deep-clones a value through the HTML Standard's
+    /// structured-clone algorithm and can transfer <c>ArrayBuffer</c>s into the clone.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64,
+    StructuredClone = 1 << 4,
+
+    /// <summary>
+    /// The web APIs a host normally wants: everything except outbound network access. Today that is
+    /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/> and
+    /// <see cref="StructuredClone"/>; it grows as further features land, and never comes to include fetch.
+    /// </summary>
+    Default = Console | Timers | Encoding | Base64 | StructuredClone,
 }
 #endif

@@ -216,7 +216,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
-| `structuredClone` | `StructuredClone` | in progress |
+| `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
 | `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | in progress |

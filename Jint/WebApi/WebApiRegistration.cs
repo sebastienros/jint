@@ -78,6 +78,13 @@ internal static class WebApiRegistration
             Install(global, engine, "atob", static e => e.Realm.Intrinsics.Atob, PropertyFlag.ConfigurableEnumerableWritable);
             Install(global, engine, "btoa", static e => e.Realm.Intrinsics.Btoa, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((options.WebApi.Features & WebApiFeatures.StructuredClone) != WebApiFeatures.None)
+        {
+            // A WebIDL operation on the global is a writable, enumerable, configurable data property —
+            // https://webidl.spec.whatwg.org/#es-operations.
+            Install(global, engine, "structuredClone", static e => e.Realm.Intrinsics.StructuredClone, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>

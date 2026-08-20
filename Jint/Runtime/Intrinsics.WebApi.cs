@@ -2,8 +2,9 @@
 using Jint.WebApi.Base64;
 using Jint.WebApi.Console;
 using Jint.WebApi.DomException;
-using Jint.WebApi.Timers;
 using Jint.WebApi.Encoding;
+using Jint.WebApi.StructuredClone;
+using Jint.WebApi.Timers;
 
 namespace Jint.Runtime;
 
@@ -26,6 +27,7 @@ public sealed partial class Intrinsics
     private TextDecoderConstructor? _textDecoder;
     private Base64Function? _atob;
     private Base64Function? _btoa;
+    private StructuredCloneFunction? _structuredClone;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -50,5 +52,8 @@ public sealed partial class Intrinsics
 
     internal Base64Function Btoa =>
         _btoa ??= new Base64Function(_engine, _realm, Function.PrototypeObject, isAtob: false);
+
+    internal StructuredCloneFunction StructuredClone =>
+        _structuredClone ??= new StructuredCloneFunction(_engine, _realm, Function.PrototypeObject);
 }
 #endif
