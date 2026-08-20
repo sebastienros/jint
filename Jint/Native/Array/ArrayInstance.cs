@@ -1686,17 +1686,21 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
     }
 
-    internal JsArray Map(JsCallArguments arguments)
+    /// <param name="calleeRealm">
+    /// The realm of the <c>Array.prototype.map</c> that delegated here -- <c>this</c> is only the receiver,
+    /// so it cannot supply it. Both the callback's TypeError and the result array belong to the called
+    /// built-in's [[Realm]], which for a cross-realm call is not the running one.
+    /// </param>
+    /// <param name="arguments">The <c>map</c> arguments: the callback and its <c>thisArg</c>.</param>
+    internal JsArray Map(Realm calleeRealm, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
         var len = GetLength();
 
-        // `this` is the receiver, not the built-in that owns the algorithm (ArrayPrototype delegates
-        // here), so no callee realm is reachable and the running one is the best available answer.
-        var callable = callbackfn.GetCallable(_engine.Realm);
-        var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
+        var callable = callbackfn.GetCallable(calleeRealm);
+        var a = calleeRealm.Intrinsics.Array.ArrayCreate(len);
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, this);
         for (uint k = 0; k < len; k++)
         {
@@ -1718,16 +1722,18 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         return a;
     }
 
-    internal JsArray Filter(JsCallArguments arguments)
+    /// <param name="calleeRealm">
+    /// The realm of the <c>Array.prototype.filter</c> that delegated here; see <see cref="Map"/>.
+    /// </param>
+    /// <param name="arguments">The <c>filter</c> arguments: the callback and its <c>thisArg</c>.</param>
+    internal JsArray Filter(Realm calleeRealm, JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
         var len = GetLength();
 
-        // `this` is the receiver, not the built-in that owns the algorithm (ArrayPrototype delegates
-        // here), so no callee realm is reachable and the running one is the best available answer.
-        var callable = callbackfn.GetCallable(_engine.Realm);
+        var callable = callbackfn.GetCallable(calleeRealm);
 
         // Output size is unknown (only bounded by len); accumulate into a pooled buffer and
         // materialize an exact-size result instead of growing the result's dense backing by
@@ -1756,7 +1762,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
                 }
             }
 
-            return _engine.Realm.Intrinsics.Array.ConstructFromBuilder(ref builder);
+            return calleeRealm.Intrinsics.Array.ConstructFromBuilder(ref builder);
         }
         finally
         {
