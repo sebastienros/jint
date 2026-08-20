@@ -82,15 +82,42 @@
     "staging/sm/Set/intersection.js",
     "staging/sm/Set/is-subset-of.js",
 
-    // Parser early errors that Acornima does not raise, or raises as the wrong error type: an
-    // invalid parameter list, `super()` inside an arrow inside a direct eval in a derived
-    // constructor, a destructuring pattern with a duplicate binding, a legacy octal literal in
-    // strict mode, and a field initializer's TDZ.
-    "staging/sm/Function/invalid-parameter-list.js",
+    // Acornima (the external parser) rejects a SuperCall inside a direct eval. Jint already parses
+    // eval code with AllowSuperOutsideMethod, but that covers SuperProperty only; Acornima 1.7.0 has
+    // no separate switch for a direct `super()`, so `eval("super()")` in a derived constructor fails
+    // to parse with "'super' keyword unexpected here" instead of running. PerformEval only forbids it
+    // when inDerivedConstructor is false (https://tc39.es/ecma262/#sec-performeval), which Jint
+    // already computes. Removed by adams85/acornima#44 (ParserOptions.AllowDirectSuperOutsideMethod,
+    // still a draft) plus a release and wiring the option in EvalFunction. bug1587574 is the same
+    // defect and not a field initializer's TDZ: its `class Q { f = 1; }` exists only to defeat
+    // SpiderMonkey's lazy parsing, and the ReferenceError it expects is the derived constructor's
+    // `this` TDZ, raised because the eval'd `super()` sits inside arrows that are never called.
     "staging/sm/class/derivedConstructorArrowEvalNestedSuperCall.js",
     "staging/sm/class/derivedConstructorArrowEvalSuperCall.js",
-    "staging/sm/destructuring/bug1396261.js",
     "staging/sm/fields/bug1587574.js",
+
+    // Acornima does not re-raise the CoverInitializedName early error when an object literal carrying
+    // a shorthand-with-initializer ends up as the *object of a member expression* inside a
+    // destructuring target. `[{a = 0}] = []` is valid because `{a = 0}` is refined into an
+    // ObjectAssignmentPattern, but in `[{a = 0}.x] = []` the element is the member expression
+    // `{a = 0}.x`, so `{a = 0}` stays an ObjectLiteral and
+    // https://tc39.es/ecma262/#sec-object-initializer-static-semantics-early-errors applies:
+    // "PropertyDefinition : CoverInitializedName - It is a Syntax Error if any source text is matched
+    // by this production." Jint accepts all four such forms. Reported as adams85/acornima#46; the
+    // valid halves of this file already pass.
+    "staging/sm/destructuring/bug1396261.js",
+
+    // Acornima scans the token immediately after an ASI-terminated `"use strict"` directive before it
+    // applies the directive, so a legacy octal literal or a legacy-octal/\8/\9 escape appearing in
+    // exactly that token escapes the strict-mode early errors of
+    // https://tc39.es/ecma262/#sec-numeric-literals-early-errors and
+    // https://tc39.es/ecma262/#sec-string-literals-early-errors. A `"use strict"` line followed by a
+    // line holding just `0755` is accepted, while the same pair with an explicit semicolon after the
+    // directive, or with any statement between the two, is correctly rejected — the strictness itself
+    // is applied either way (`with`, duplicate parameters and `arguments =` are all caught).
+    // Only the sloppy run fails; in the strict run the harness's own prologue makes the tokenizer
+    // strict from the first character. The file's checkPrologue half already passes. Reported as
+    // adams85/acornima#47.
     "staging/sm/strict/deprecated-octal-noctal-tokens.js",
 
     // Argument validation raising no error, or the wrong one: a bad this or a bad index reaching a
