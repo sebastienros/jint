@@ -323,9 +323,9 @@ public sealed class JsArguments : ObjectInstance
         return desc.Enumerable ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
     }
 
-    /// Implementation from ObjectInstance official specs as the one
-    /// in ObjectInstance is optimized for the general case and wouldn't work
-    /// for arrays
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-arguments-exotic-objects-set-p-v-receiver
+    /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
         // Mapped-index writes go straight to the parameter binding (matching the
@@ -349,37 +349,21 @@ public sealed class JsArguments : ObjectInstance
 
         EnsureInitialized();
 
-        if (!CanPut(property))
+        // Steps 1-3: the parameter map is consulted only when the receiver IS this arguments object.
+        // A write that reaches here through a *different* receiver - `var x = Object.create(arguments);
+        // x[0] = 3` - must not write through to the formal parameter; OrdinarySet installs an own
+        // property on the receiver instead.
+        if (ReferenceEquals(this, receiver) && ParameterMap is { } map && map.HasOwnProperty(property))
         {
-            return false;
+            // a mapped formal parameter is always writable, so this cannot fail
+            map.Set(property, value, throwOnError: false);
         }
 
-        var ownDesc = GetOwnProperty(property);
-
-        if (ownDesc.IsDataDescriptor())
-        {
-            var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-            return DefineOwnProperty(property, valueDesc);
-        }
-
-        // property is an accessor or inherited
-        var desc = GetOwnProperty(property);
-
-        if (desc.IsAccessorDescriptor())
-        {
-            if (desc.Set is not ICallable setter)
-            {
-                return false;
-            }
-            setter.Call(receiver, value);
-        }
-        else
-        {
-            var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-            return DefineOwnProperty(property, newDesc);
-        }
-
-        return true;
+        // Step 4: OrdinarySet(args, P, V, Receiver). ObjectInstance.Set is
+        // OrdinarySetWithOwnDescriptor and honors the receiver; this type's GetOwnProperty overlays
+        // the (already updated) mapped value, and its DefineOwnProperty keeps the map in sync for
+        // the receiver-is-this case.
+        return base.Set(property, value, receiver);
     }
 
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
