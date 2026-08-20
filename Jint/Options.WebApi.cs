@@ -412,6 +412,31 @@ public partial class Options
         /// effectively unbounded, and a value of zero or less refuses every timer.
         /// </remarks>
         public int MaxActiveTimers { get; set; } = 1000;
+
+        /// <summary>
+        /// How much of a pump an engine may spend running <c>requestIdleCallback</c> callbacks. Defaults to
+        /// 50 milliseconds, which is the ceiling the standard itself recommends for an idle deadline.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// It lives beside the timer settings because it is measured on the same
+        /// <see cref="TimeProvider"/>, and because the <c>timeout</c> option of an idle callback rides the
+        /// same queue and counts against the same <see cref="MaxActiveTimers"/> cap.
+        /// </para>
+        /// <para>
+        /// An idle period begins when a pump has run out of everything else — every queued job, every
+        /// scheduler task, every due timer — and ends when this budget elapses or the callbacks run out,
+        /// whichever comes first; whatever is left waits for the next pump. It is what
+        /// <c>IdleDeadline.timeRemaining()</c> counts down from, so a callback that chunks its work against
+        /// that value is really being told how much of this budget is left.
+        /// </para>
+        /// <para>
+        /// <b>Zero or less means the host has no idle time</b>, and then an idle callback runs only if it was
+        /// requested with a <c>timeout</c> — which is the honest setting for a host that pumps the engine on a
+        /// hard deadline it does not want script to eat into. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public TimeSpan IdleBudget { get; set; } = TimeSpan.FromMilliseconds(50);
     }
 
     /// <summary>
@@ -740,6 +765,15 @@ public enum WebApiFeatures
     Compression = 1 << 20,
 
     /// <summary>
+    /// <c>requestIdleCallback</c> and <c>cancelIdleCallback</c>, with <c>IdleDeadline</c> —
+    /// https://w3c.github.io/requestidlecallback/. An engine has no frames, so an idle period is a pump that
+    /// has run out of everything else and its deadline is
+    /// <see cref="Options.TimerOptions.IdleBudget"/>; the <c>timeout</c> option rides the timer queue and
+    /// counts against <see cref="Options.TimerOptions.MaxActiveTimers"/>.
+    /// </summary>
+    IdleCallback = 1 << 21,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
@@ -748,6 +782,6 @@ public enum WebApiFeatures
     /// <see cref="Scheduler"/>, <see cref="Messaging"/> <see cref="Reporting"/> and <see cref="Compression"/>; it grows as further
     /// features land, and never comes to include fetch or <see cref="Storage"/>.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback,
 }
 #endif

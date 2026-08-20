@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.WebApi.Idle;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.Timers;
 
@@ -259,6 +260,16 @@ internal static class WebApiRegistration
             // property is the same simplification console, crypto and performance are installed with.
             Install(global, engine, "caches", static e => e.Realm.Intrinsics.Caches, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((features & WebApiFeatures.IdleCallback) != WebApiFeatures.None)
+        {
+            Install(global, engine, "requestIdleCallback", static e => e.Realm.Intrinsics.IdleCallbacks.RequestIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "cancelIdleCallback", static e => e.Realm.Intrinsics.IdleCallbacks.CancelIdleCallback, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // Exposed even though nothing but the engine can create one: it is what makes
+            // `deadline instanceof IdleDeadline` and feature detection work.
+            Install(global, engine, "IdleDeadline", static e => e.Realm.Intrinsics.IdleDeadline, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
@@ -355,7 +366,7 @@ internal static class WebApiRegistration
         // in-flight set here, the scheduler keeps its own task queues here, and storage keeps its providers
         // here, which is why each of them wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback;
 
         // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
         // channel whatever else it did or did not ask for, which is why it is read before the flags are.
@@ -373,7 +384,8 @@ internal static class WebApiRegistration
         // scheduler.postTask(), each of which needs it whether or not the host also asked for setTimeout; a
         // performance-only engine reads just the time origin and never schedules, so it carries no queue at
         // all.
-        const WebApiFeatures NeedsTimerQueue = WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler;
+        const WebApiFeatures NeedsTimerQueue =
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback;
         var timers = (features & NeedsTimerQueue) != WebApiFeatures.None
             ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers, diagnostics)
             : null;
@@ -399,7 +411,15 @@ internal static class WebApiRegistration
             ? options.WebApi.Cache.Provider ?? new InMemoryCacheStorageProvider()
             : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache);
+        // The idle queue needs the timer queue for the `timeout` option, and the realm so it can build an
+        // IdleDeadline for each invocation. Engine.Realm is the principal realm here — Options.Apply runs
+        // during construction, long before any ShadowRealm can exist — and the principal realm is the only
+        // one these globals are installed in.
+        var idleCallbacks = (features & WebApiFeatures.IdleCallback) != WebApiFeatures.None
+            ? new IdleCallbackQueue(engine, engine.Realm, timeProvider, timers!, timerOptions.IdleBudget)
+            : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks);
     }
 
     /// <summary>

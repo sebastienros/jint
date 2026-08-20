@@ -1,8 +1,10 @@
 #if NET8_0_OR_GREATER
-using Jint.Native;
 using Jint.Native.Promise;
-using Jint.WebApi;
+using Jint.Native;
+using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Idle;
+using Jint.WebApi;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.Timers;
@@ -103,7 +105,9 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<JsWebSocket>? _webSockets;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null)
+    private List<HostAbortSignalBridge>? _hostAbortBridges;
+
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null)
     {
         _engine = engine;
         _timeProvider = timeProvider;
@@ -118,6 +122,7 @@ internal sealed class WebApiEngineState
         _sessionStorageProvider = storage?.SessionStorageProvider;
         _storageQuotaBytes = storage?.MaxTotalBytes ?? Options.StorageOptions.DefaultMaxTotalBytes;
         CacheProvider = cacheProvider;
+        IdleCallbacks = idleCallbacks;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -225,6 +230,21 @@ internal sealed class WebApiEngineState
     internal void UnregisterWebSocket(JsWebSocket socket) => _webSockets?.Remove(socket);
 
     /// <summary>
+    /// The engine's <c>requestIdleCallback</c> queue, or <see langword="null"/> when that feature is off. It
+    /// is drained from the same pump exhaustion point the timers are promoted at, one callback at a time and
+    /// only once no timer is due — see <see cref="IdleCallbackQueue"/> for what "idle" means for an engine
+    /// that has no frames.
+    /// </summary>
+    internal IdleCallbackQueue? IdleCallbacks { get; }
+
+    /// <summary>
+    /// Whether an idle callback is waiting for a pump. Read only by
+    /// <see cref="Engine.AdvancedOperations.TimeUntilNextScheduledWork"/>, which reports such a callback as
+    /// work available now.
+    /// </summary>
+    internal bool HasPendingIdleWork => IdleCallbacks is { HasPendingWork: true };
+
+    /// <summary>
     /// <c>performance.timeOrigin</c>: the moment this state was created, as milliseconds since the Unix
     /// epoch, https://w3c.github.io/hr-time/#dom-performance-timeorigin.
     /// </summary>
@@ -263,22 +283,58 @@ internal sealed class WebApiEngineState
         _sessionStorageProvider ??= new InMemoryStorageProvider(_storageQuotaBytes);
 
     /// <summary>
-    /// Promotes at most one due timer into an event-loop job. One per call rather than all of them, so that
-    /// the reactions a timer's callback queues are run before the next timer is even looked at.
+    /// Promotes at most one due timer into an event-loop job, and failing that runs at most one idle callback.
+    /// One per call rather than all of them, so that the reactions a callback queues are run before the next
+    /// one is even looked at.
     /// </summary>
-    internal bool TryPromoteDueTimerJob()
+    /// <remarks>
+    /// The order is the priority: a due timer is a task, and idle callbacks are what a browser runs in the
+    /// slack after the tasks are done, so nothing idle may overtake a timer that is already due.
+    /// </remarks>
+    internal bool TryPromoteDeferredWork()
     {
         var timers = Timers;
-        if (timers is null || !timers.TryTakeDue(out var entry))
+        if (timers is not null && timers.TryTakeDue(out var entry))
         {
-            return false;
+            // Enqueued with the timer's own registration generation rather than the current one: a timer
+            // registered before a RestoreGlobalSnapshot is already gone from the queue that restore cleared,
+            // and this is the belt to that braces.
+            _engine.AddToEventLoop(entry.Job, entry.Generation);
+            return true;
         }
 
-        // Enqueued with the timer's own registration generation rather than the current one: a timer
-        // registered before a RestoreGlobalSnapshot is already gone from the queue that restore cleared, and
-        // this is the belt to that braces.
-        _engine.AddToEventLoop(entry.Job, entry.Generation);
-        return true;
+        return IdleCallbacks is { } idle && idle.TryRunIdleCallback();
+    }
+
+    /// <summary>
+    /// Records a host <c>CancellationToken</c> bridged to an <c>AbortSignal</c> by
+    /// <see cref="Engine.AdvancedOperations.CreateAbortSignal"/>, so the token registration can be released
+    /// again when the cycle ends or the engine is disposed.
+    /// </summary>
+    internal void AddHostAbortBridge(HostAbortSignalBridge bridge) =>
+        (_hostAbortBridges ??= new List<HostAbortSignalBridge>()).Add(bridge);
+
+    /// <summary>Forgets one bridge, which is what a bridge does to itself once its abort has landed.</summary>
+    internal void RemoveHostAbortBridge(HostAbortSignalBridge bridge) => _hostAbortBridges?.Remove(bridge);
+
+    /// <summary>
+    /// Releases every host token registration. A long-lived host token — a request's, an application
+    /// lifetime's — would otherwise keep a finished engine reachable through its registration list.
+    /// </summary>
+    internal void ReleaseHostAbortBridges()
+    {
+        if (_hostAbortBridges is not { } bridges)
+        {
+            return;
+        }
+
+        foreach (var bridge in bridges)
+        {
+            // Detach deliberately does not touch this list, so walking it here is safe.
+            bridge.Detach();
+        }
+
+        bridges.Clear();
     }
 
     /// <summary>
@@ -328,6 +384,12 @@ internal sealed class WebApiEngineState
         AbandonFetchBodies();
         AbandonEventSources();
         AbandonWebSockets();
+        IdleCallbacks?.Clear();
+
+        // A signal bridged to a host token belongs to the cycle it was created in: its abort job carries that
+        // cycle's generation and would be dropped at dequeue anyway, so keeping the registration alive could
+        // only accumulate one per cycle on a pooled engine.
+        ReleaseHostAbortBridges();
     }
 
     private void AbandonFetches()
@@ -401,5 +463,12 @@ internal sealed class WebApiEngineState
             body.Abandon();
         }
     }
+
+    /// <summary>
+    /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which
+    /// today is the host token registrations. The queues need nothing — they hold no unmanaged resource and no
+    /// timer, and die with the engine.
+    /// </summary>
+    internal void Dispose() => ReleaseHostAbortBridges();
 }
 #endif

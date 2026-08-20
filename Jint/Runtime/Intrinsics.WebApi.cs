@@ -10,6 +10,7 @@ using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.Idle;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
 using Jint.WebApi.ServerSentEvents;
@@ -375,5 +376,18 @@ public sealed partial class Intrinsics
 
     internal DecompressionStreamConstructor DecompressionStream =>
         _decompressionStream ??= new DecompressionStreamConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    private IdleCallbackFunctions? _idleCallbacks;
+    private IdleDeadlineConstructor? _idleDeadline;
+
+    /// <summary>
+    /// The two idle-callback globals, which are ordinary functions rather than one object — this holder exists
+    /// only so that a realm builds one of each, and each of the two is itself built on first access.
+    /// </summary>
+    internal IdleCallbackFunctions IdleCallbacks =>
+        _idleCallbacks ??= IdleCallbackFunctions.Create(_engine, _realm);
+
+    internal IdleDeadlineConstructor IdleDeadline =>
+        _idleDeadline ??= new IdleDeadlineConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 }
 #endif

@@ -238,6 +238,9 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
 | `caches` / `Cache` / `CacheStorage` | `CacheApi` — **opt-in on its own, see below** | ✔ shipped |
 
+| `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
+| `fetch` / `Headers` / `Request` / `Response` | `Fetch` | in progress |
+
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
 `Storage` is one standing exception, for the reason in its own section below, and `CacheApi` is the
@@ -449,6 +452,62 @@ A sink alone is enough; the `Reporting` feature flag only decides whether script
 built. It is called synchronously, on the engine's thread, and must be thread-safe if the same `Options` builds
 engines that run concurrently. The `JsValue`s on a report belong to the reporting engine: read them inside the
 call rather than stashing them.
+
+### Idle callbacks: `requestIdleCallback`
+
+`requestIdleCallback(callback, { timeout })` runs a callback when the engine has nothing better to do, handing
+it an `IdleDeadline` with `didTimeout` and `timeRemaining()`. A browser means "the slack before the next frame
+is due"; Jint has no frames, so the mapping is stated plainly:
+
+- **An idle period starts when a pump has run out of everything else** — every queued job, every
+  `scheduler.postTask` task at every priority including `background`, every *due* timer. It is the lowest band
+  the engine has.
+- **Its deadline is `Options.WebApi.Timers.IdleBudget`**, 50 ms by default, which is the ceiling the standard
+  itself recommends. One pump spends at most one budget on idle work, however many callbacks are waiting; the
+  rest run on the next pump. Set it to `TimeSpan.Zero` if your host has no idle time to give, and then only a
+  callback requested *with* a `timeout` ever runs.
+- **A callback requested from inside a callback belongs to the next period**, so a self-re-arming
+  `requestIdleCallback` cannot monopolise the pump it started in.
+- **A `timeout` rides the timer queue**, so it counts against `MaxActiveTimers` and — like every timer — only
+  elapses while the engine is being pumped. A callback it reaches runs with `didTimeout === true` and a
+  `timeRemaining()` of zero. A callback with no `timeout` costs no timer slot at all.
+
+### Driving the engine from your own loop
+
+`engine.Advanced.TimeUntilNextScheduledWork` answers the question a host loop actually has — *when should I
+pump?* — and `engine.Advanced.ProcessTasks()` is the pump. There is deliberately no third method that drains
+for a budget: Jint never starts a thread, so the work always runs on your thread anyway; what was missing was
+the timing, not another way to run it.
+
+```csharp
+while (running)
+{
+    var until = engine.Advanced.TimeUntilNextScheduledWork;
+    if (until is null || until <= frameBudget)
+    {
+        engine.Advanced.ProcessTasks();
+    }
+
+    RenderFrame();
+}
+```
+
+`TimeSpan.Zero` means there is work to run right now (a queued job, a due timer, a waiting idle callback); a
+positive span is how long until the earliest *timed* work — a `setTimeout`, an `AbortSignal.timeout()`, a
+delayed `postTask`, a `requestIdleCallback` timeout, an `Atomics.waitAsync` deadline — comes due; `null` means
+nothing is scheduled. It is available on **every** target framework, not just .NET 8: the atomics deadline it
+reports is a core-engine one. It describes the engine's own schedule and not the outside world, so a `null` is
+"nothing timed is pending" rather than "nothing will ever happen" — keep a cadence of your own for the work
+that arrives from a background thread.
+
+**`engine.Advanced.CreateAbortSignal(cancellationToken)`** bridges your cancellation into script: hand the
+returned `AbortSignal` to `fetch`, to `scheduler.postTask`, or to a listener the script adds itself. Requires
+the `Events` feature. Cancelling the token **never runs script on the cancelling thread** — it enqueues, and
+the abort happens on the next pump, the same contract `setTimeout` has — so an engine nobody pumps never
+observes it. A token that is *already* cancelled yields an already-aborted signal on the spot, so
+`fetch(url, { signal })` rejects without issuing a request. The registration is released when the abort lands,
+when `RestoreGlobalSnapshot` ends the cycle, and when the engine is disposed, so a long-lived host token does
+not retain a finished engine.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them
