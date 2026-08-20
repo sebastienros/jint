@@ -38,6 +38,7 @@ public sealed partial class Intrinsics
     private UrlConstructor? _webApiUrl;
     private UrlSearchParamsConstructor? _webApiUrlSearchParams;
     private CryptoInstance? _crypto;
+    private SubtleCryptoInstance? _subtleCrypto;
     private PerformanceInstance? _performance;
 
     internal DomExceptionConstructor DomException =>
@@ -137,6 +138,14 @@ public sealed partial class Intrinsics
 
     internal CryptoInstance Crypto =>
         _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);
+
+    /// <summary>
+    /// The object <c>crypto.subtle</c> answers with. It has no global of its own — the only way to reach it
+    /// is through the <c>crypto</c> object, whose accessor returns this one every time, which is what makes
+    /// <c>crypto.subtle === crypto.subtle</c> hold.
+    /// </summary>
+    internal SubtleCryptoInstance SubtleCrypto =>
+        _subtleCrypto ??= new SubtleCryptoInstance(_engine, _realm, Object.PrototypeObject);
 
     /// <summary>
     /// The <c>performance</c> object, which reads the engine's time origin and therefore needs the web-API

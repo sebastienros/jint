@@ -333,8 +333,11 @@ public enum WebApiFeatures
 
     /// <summary>
     /// The <c>crypto</c> object: <c>getRandomValues</c> and <c>randomUUID</c>, both backed by the BCL's
-    /// cryptographically secure generator. <c>crypto.subtle</c> is not implemented and is absent rather than
-    /// present-and-throwing, so feature detection sees the truth.
+    /// cryptographically secure generator, plus <c>crypto.subtle.digest</c> for SHA-1, SHA-256, SHA-384 and
+    /// SHA-512. Every other <c>SubtleCrypto</c> operation — everything needing key material — is not
+    /// implemented and is absent rather than present-and-throwing, so feature detection sees the truth.
+    /// <c>subtle</c> has no flag of its own because it is a readonly attribute of the very same
+    /// <c>Crypto</c> interface: asking for one is asking for the other.
     /// </summary>
     Crypto = 1 << 5,
 
