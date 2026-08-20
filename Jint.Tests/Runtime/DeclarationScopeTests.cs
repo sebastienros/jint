@@ -145,4 +145,47 @@ public class DeclarationScopeTests
         moduleWalk._lexicalDeclarations.Should().NotBeNull().And.HaveCount(3);
         programWalk._lexicalDeclarations.Should().NotBeNull().And.HaveCount(3);
     }
+
+    // https://tc39.es/ecma262/#sec-functiondeclarationinstantiation step 28: when the parameter list
+    // contains expressions the body's vars live in a variableEnv of their own, and a var whose name
+    // is also a parameter binding gets a binding *there*, seeded with the parameter's value. Jint
+    // skipped those names entirely, so the var resolved to the parameter environment's binding and a
+    // write to it was visible to a closure created in the parameter list.
+
+    [Fact]
+    public void AVarNamedLikeAParameterIsReboundInTheBodyWhenParametersHaveExpressions()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("function f(a = 1, g = () => a) { var a = 2; return g() + ',' + a; } f();")
+            .AsString().Should().Be("1,2");
+    }
+
+    [Fact]
+    public void AVarNamedArgumentsIsReboundInTheBodyWhenParametersHaveExpressions()
+    {
+        var engine = new Engine();
+
+        // `var arguments;` with no initializer still creates the body binding, seeded with the
+        // parameter environment's arguments object, so the two start out identical...
+        engine.Evaluate("function f(h = () => arguments) { var arguments; return arguments === h(); } f();")
+            .AsBoolean().Should().BeTrue();
+
+        // ...and diverge as soon as the body writes to its own binding.
+        engine.Evaluate("function f(h = () => arguments) { var arguments; arguments = 0; return arguments === h(); } f();")
+            .AsBoolean().Should().BeFalse();
+        engine.Evaluate("function f(h = () => arguments) { var arguments = 0; return arguments === h(); } f();")
+            .AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void AVarNamedLikeAParameterIsNotReboundWhenTheParameterListIsSimple()
+    {
+        var engine = new Engine();
+
+        // The other arm of the same step: without parameter expressions there is a single
+        // environment, so `var a` is the parameter and keeps its value.
+        engine.Evaluate("function f(a) { var a; return a; } f(1);").AsNumber().Should().Be(1);
+    }
 }
+

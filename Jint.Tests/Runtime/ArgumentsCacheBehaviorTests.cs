@@ -261,4 +261,38 @@ public class ArgumentsCacheBehaviorTests
             JsValue.Undefined,
         ]);
     }
+
+    [Fact]
+    public void MappedArgumentWriteThroughAnotherReceiverDoesNotReachTheParameter()
+    {
+        // https://tc39.es/ecma262/#sec-arguments-exotic-objects-set-p-v-receiver step 1: the
+        // parameter map is consulted only when the receiver IS the arguments object. Writing "0" on
+        // an object that merely INHERITS from arguments must create an own property on that object
+        // and leave the formal parameter alone; Jint used to write straight through to the binding.
+        var engine = new Engine();
+
+        engine.Evaluate("(function(y){ var x = Object.create(arguments); x[0] = 3; return x[0] + ',' + y + ',' + arguments[0]; })(1)")
+            .AsString().Should().Be("3,1,1");
+    }
+
+    [Fact]
+    public void MappedArgumentWriteThroughAReflectSetReceiverDoesNotReachTheParameter()
+    {
+        // Same rule reached without a prototype chain: Reflect.set names the receiver directly.
+        var engine = new Engine();
+
+        engine.Evaluate("(function(y){ var t = {}; Reflect.set(arguments, 0, 5, t); return t[0] + ',' + y; })(1)")
+            .AsString().Should().Be("5,1");
+    }
+
+    [Fact]
+    public void MappedArgumentWriteOnTheArgumentsObjectItselfStillReachesTheParameter()
+    {
+        // The other half of the same step: with the arguments object as its own receiver the write
+        // does go through the map, so the formal parameter sees it.
+        var engine = new Engine();
+
+        engine.Evaluate("(function(y){ arguments[0] = 7; return y; })(1)").AsNumber().Should().Be(7);
+    }
 }
+

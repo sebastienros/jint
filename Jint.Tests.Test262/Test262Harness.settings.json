@@ -157,11 +157,6 @@
     "staging/sm/lexical-environment/block-scoped-functions-deprecated-redecl.js",
     "staging/sm/regress/regress-602621.js",
 
-    // Mapped arguments: the exotic object's link to the formal parameters (and what an object
-    // created *from* it inherits) does not match the spec's mapping.
-    "staging/sm/Function/arguments-parameter-shadowing.js",
-    "staging/sm/regress/regress-552432.js",
-
     // Argument validation raising no error, or the wrong one: a bad this or a bad index reaching a
     // built-in, a NUL-bearing string reaching one, and the order in which a super reference is
     // evaluated against its side effects.

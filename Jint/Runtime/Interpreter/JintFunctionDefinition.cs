@@ -691,37 +691,36 @@ internal sealed class JintFunctionDefinition
         }
         else
         {
-            var instantiatedVarNames = state.VarNames != null
-                ? new HashSet<Key>(state.ParameterBindings)
-                : null;
+            // https://tc39.es/ecma262/#sec-functiondeclarationinstantiation step 28: with parameter
+            // expressions the body's vars live in a variableEnv of their own, and
+            // instantiatedVariableNames starts out as a *new empty List* - not as a copy of
+            // paramBindings, which is what the hasParamExprs=false arm above uses. So a var whose
+            // name is also a parameter (or "arguments") still gets its own binding in variableEnv,
+            // seeded with the parameter's already-initialized value. Seeding this set with
+            // paramBindings instead left `var arguments` resolving straight to the parameter
+            // environment's binding, so a later write to it was visible to a closure created in the
+            // parameter list.
+            var instantiatedVarNames = new HashSet<Key>();
 
             // Add function names first (they take precedence over var declarations with same name)
             foreach (var fn in state.FunctionNames)
             {
-                if (instantiatedVarNames?.Add(fn) != false)
+                if (instantiatedVarNames.Add(fn))
                 {
-                    instantiatedVarNames ??= new HashSet<Key>();
-                    instantiatedVarNames.Add(fn);
-                    JsValue? initialValue = null;
-                    if (!state.ParameterBindings.Contains(fn))
-                    {
-                        initialValue = JsValue.Undefined;
-                    }
-                    varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: initialValue));
+                    // step 28.f.iv: funcNames contains the name, so the initial value is undefined
+                    varsToInitialize.Add(new State.VariableValuePair(Name: fn, InitialValue: JsValue.Undefined));
                 }
             }
 
             for (var i = 0; i < state.VarNames?.Count; i++)
             {
                 var n = state.VarNames[i];
-                if (instantiatedVarNames!.Add(n))
+                if (instantiatedVarNames.Add(n))
                 {
-                    JsValue? initialValue = null;
-                    if (!state.ParameterBindings.Contains(n) || state.FunctionNames.Contains(n))
-                    {
-                        initialValue = JsValue.Undefined;
-                    }
-
+                    // step 28.f.iv/v: undefined unless the name is also a parameter binding, in
+                    // which case the var starts out with that parameter's value (a null InitialValue
+                    // tells FunctionDeclarationInstantiation to read it out of the parameter env)
+                    var initialValue = state.ParameterBindings.Contains(n) ? null : JsValue.Undefined;
                     varsToInitialize.Add(new State.VariableValuePair(Name: n, InitialValue: initialValue));
                 }
             }
