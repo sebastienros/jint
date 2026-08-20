@@ -198,5 +198,57 @@ public static class WebApiOptionsExtensions
         options.WebApi.Diagnostics.Sink = sink;
         return options;
     }
+
+    /// <summary>
+    /// Enables <c>localStorage</c> and <c>sessionStorage</c>, each over its own in-memory store that dies
+    /// with the engine.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="WebApiFeatures.Storage"/> is not part of <see cref="WebApiFeatures.Default"/>, so this call
+    /// — or naming the flag — is the only way to get it. See <see cref="Options.StorageOptions"/> for why,
+    /// and <see cref="UseStorage(Options, StorageProvider, StorageProvider)"/> for putting the data
+    /// somewhere that outlives the engine.
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseStorage(this Options options)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Storage;
+        return options;
+    }
+
+    /// <summary>
+    /// Enables <c>localStorage</c> and <c>sessionStorage</c> over the host's own stores.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(o => o.UseStorage(new MyDatabaseStorage(tenantId), new InMemoryStorageProvider()));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="localStorageProvider">
+    /// The map behind <c>localStorage</c>, or <see langword="null"/> to let each engine default its own.
+    /// </param>
+    /// <param name="sessionStorageProvider">
+    /// The map behind <c>sessionStorage</c>, or <see langword="null"/> to let each engine default its own.
+    /// Pass the same instance as <paramref name="localStorageProvider"/> to make the two globals one store.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseStorage(
+        this Options options,
+        StorageProvider? localStorageProvider,
+        StorageProvider? sessionStorageProvider = null)
+    {
+        UseStorage(options);
+
+        options.WebApi.Storage.LocalStorageProvider = localStorageProvider;
+        options.WebApi.Storage.SessionStorageProvider = sessionStorageProvider;
+        return options;
+    }
 }
 #endif

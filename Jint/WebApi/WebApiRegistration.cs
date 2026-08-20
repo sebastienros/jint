@@ -191,6 +191,16 @@ internal static class WebApiRegistration
             // way and a script written for a browser does not have to guard the call.
             Install(global, engine, "reportError", static e => e.Realm.Intrinsics.ReportError, PropertyFlag.ConfigurableEnumerableWritable);
         }
+
+        if ((features & WebApiFeatures.Storage) != WebApiFeatures.None)
+        {
+            Install(global, engine, "Storage", static e => e.Realm.Intrinsics.Storage, PropertyFlag.NonEnumerable);
+
+            // WebIDL exposes both of these through a [Replaceable] accessor pair on Window; an ordinary
+            // enumerable data property is the same simplification console and crypto are installed with.
+            Install(global, engine, "localStorage", static e => e.Realm.Intrinsics.LocalStorage, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "sessionStorage", static e => e.Realm.Intrinsics.SessionStorage, PropertyFlag.ConfigurableEnumerableWritable);
+        }
     }
 
     /// <summary>
@@ -240,10 +250,10 @@ internal static class WebApiRegistration
         // scheduler.postTask() are the others, and they need one whether or not the host also asked for
         // setTimeout. The events, messaging and performance features additionally read the time origin
         // (Event.timeStamp, MessageEvent.timeStamp, performance.now), fetch keeps its settings and its
-        // in-flight set here, and the scheduler keeps its own task queues here, which is why each of them
-        // wants the state even without the timers flag.
+        // in-flight set here, the scheduler keeps its own task queues here, and storage keeps its providers
+        // here, which is why each of them wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage;
 
         // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
         // channel whatever else it did or did not ask for, which is why it is read before the flags are.
@@ -274,7 +284,11 @@ internal static class WebApiRegistration
             ? new SchedulerQueue(engine)
             : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics);
+        // The storage group is passed whole rather than resolved here: which of the two maps an engine ever
+        // needs is decided by the global a script touches, so defaulting one costs nothing until then.
+        var storage = (features & WebApiFeatures.Storage) != WebApiFeatures.None ? options.WebApi.Storage : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage);
     }
 
     /// <summary>

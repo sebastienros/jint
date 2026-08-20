@@ -67,7 +67,16 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<FetchOperation>? _fetches;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics)
+    /// <summary>
+    /// The quota a defaulted <see cref="InMemoryStorageProvider"/> is built with, captured when the engine
+    /// was, so that mutating the options afterwards cannot change an engine that already exists.
+    /// </summary>
+    private readonly long _storageQuotaBytes;
+
+    private StorageProvider? _localStorageProvider;
+    private StorageProvider? _sessionStorageProvider;
+
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null)
     {
         _engine = engine;
         _timeProvider = timeProvider;
@@ -75,6 +84,12 @@ internal sealed class WebApiEngineState
         FetchOptions = fetchOptions;
         Scheduler = scheduler;
         Diagnostics = diagnostics;
+
+        // Read once, here, exactly as the clock and the timer cap above are: a provider the host assigned is
+        // the one this engine uses forever, and one it did not assign is defaulted per engine on first use.
+        _localStorageProvider = storage?.LocalStorageProvider;
+        _sessionStorageProvider = storage?.SessionStorageProvider;
+        _storageQuotaBytes = storage?.MaxTotalBytes ?? Options.StorageOptions.DefaultMaxTotalBytes;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -136,6 +151,25 @@ internal sealed class WebApiEngineState
     /// </summary>
     internal double CurrentHighResolutionTime =>
         _timeProvider.GetElapsedTime(_originTimestamp, _timeProvider.GetTimestamp()).TotalMilliseconds;
+
+    /// <summary>
+    /// The map behind <c>localStorage</c>, and behind <c>sessionStorage</c> — two separate stores, and two
+    /// separate <see cref="InMemoryStorageProvider"/> instances when the host supplied neither.
+    /// </summary>
+    /// <remarks>
+    /// Defaulted on first use rather than at construction, so an engine that enabled the feature and never
+    /// touched the global has still allocated nothing. Deliberately <b>not</b> touched by
+    /// <see cref="ResetTransientState"/>: what a storage holds is host state, like the module registry and
+    /// like <c>Engine.Advanced.HostDefined</c>, and a restore reverts the global binding table rather than
+    /// the world behind it. A host that wants a pooled engine to forget the previous cycle's storage swaps
+    /// the provider, or clears it, itself.
+    /// </remarks>
+    internal StorageProvider LocalStorageProvider =>
+        _localStorageProvider ??= new InMemoryStorageProvider(_storageQuotaBytes);
+
+    /// <inheritdoc cref="LocalStorageProvider" />
+    internal StorageProvider SessionStorageProvider =>
+        _sessionStorageProvider ??= new InMemoryStorageProvider(_storageQuotaBytes);
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job. One per call rather than all of them, so that
