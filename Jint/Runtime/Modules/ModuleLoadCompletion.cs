@@ -343,20 +343,14 @@ public sealed class ModuleLoadCompletion
     /// script observes it as an ordinary failed import and carries on, in a loop if it likes.
     /// </summary>
     /// <remarks>
-    /// <see cref="RecursionDepthOverflowException"/> belongs here for the same reason as the rest, and reaches
-    /// these paths whenever the loader itself re-enters the engine — a resolve hook or a virtual file system
-    /// written in script, which is a shape hosts really do use. It is not raised by anything the load pipeline
-    /// does on its own; a module <em>body</em> that recurses too deeply fails outside every one of these
-    /// catches.
+    /// The list itself lives on <see cref="ConstraintFailure"/>, because <c>fetch</c>'s settle job needs the
+    /// same one and the two must not be able to drift. <see cref="RecursionDepthOverflowException"/> is on it
+    /// for the same reason as the rest, and reaches <i>these</i> paths whenever the loader itself re-enters
+    /// the engine — a resolve hook or a virtual file system written in script, which is a shape hosts really
+    /// do use. It is not raised by anything the load pipeline does on its own; a module <em>body</em> that
+    /// recurses too deeply fails outside every one of these catches.
     /// </remarks>
-    internal static bool MustPropagate(Exception exception) => exception
-        is ExecutionCanceledException
-        or MemoryLimitExceededException
-        or StatementsCountOverflowException
-        or RecursionDepthOverflowException
-        or TimeoutException
-        or OperationCanceledException
-        or OutOfMemoryException;
+    internal static bool MustPropagate(Exception exception) => ConstraintFailure.MustPropagate(exception);
 
     private Native.Object.ObjectInstance CreateError(string message) => Engine.Realm.Intrinsics.Error.Construct(message);
 

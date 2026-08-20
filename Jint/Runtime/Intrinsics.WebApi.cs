@@ -118,6 +118,13 @@ public sealed partial class Intrinsics
     private HeadersConstructor? _headers;
     private RequestConstructor? _request;
     private ResponseConstructor? _response;
+    private FetchFunction? _fetch;
+
+    /// <summary>
+    /// The global <c>fetch</c> function — one per realm, built on first access like every intrinsic beside it.
+    /// </summary>
+    internal FetchFunction Fetch =>
+        _fetch ??= FetchFunction.Create(_engine, _realm, Function.PrototypeObject);
 
     internal HeadersConstructor Headers =>
         _headers ??= new HeadersConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

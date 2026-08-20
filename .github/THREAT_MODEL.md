@@ -82,6 +82,8 @@ Defaults are compatibility choices, not a hardened profile.
 | CLR array conversion | Live view | Script writes can mutate a projected CLR array |
 | Modules | Disabled | The fail-fast loader rejects imports |
 | `require` | Disabled | No CommonJS-like loader global |
+| Web platform APIs (`Options.WebApi.Features`) | `None` | No `console`, timers, `URL`, `Blob`, … globals exist |
+| `fetch` | Disabled, and never part of `WebApiFeatures.Default` | Only `UseFetch()` grants script outbound HTTP |
 | Timeout, statement, memory, recursion limits | None | Untrusted execution is unbounded unless the host opts in |
 | Stack overflow guard | Disabled | Native stack exhaustion can terminate the process |
 | Maximum array size | `uint.MaxValue` | Effectively unbounded for hostile input |
@@ -560,6 +562,81 @@ malformed input into a crash, denial of service, information leak, or sandbox es
 scan dependencies, fuzz the application-specific integration, and retain process isolation
 and least privilege as defense in depth.
 
+### TM-21: `fetch` turns script into a client of the host's network position
+
+**Threat.** Enabling `WebApiFeatures.Fetch` gives script outbound HTTP with the worker's own
+network identity. Whatever the process can reach, script can reach: an internal service, a
+database admin port, a service mesh sidecar, a cloud instance-metadata endpoint. A redirect
+is part of the attack surface, not just of the transport — a reachable server the script is
+allowed to call can answer `302 Location: http://169.254.169.254/latest/meta-data/` and
+launder the request past a first-hop check. A response is attacker-influenced in size: a
+compression bomb or an endless stream buffers into the worker's heap. Concurrency is
+attacker-controlled too, so a loop of `fetch` calls holds sockets, connections, and
+buffers without bound. URLs, headers, and bodies the script composes can carry the host's
+credentials to a destination the script chose, and header values it controls could splice a
+second request into the connection.
+
+This is the same class of threat as [TM-11](#tm-11-module-loaders-expose-files-networks-and-secrets),
+which covers the loader-shaped version of it. The difference is that a module loader is
+host-written and `fetch` is not: the policy has to live in Jint, because there is no host
+code between the script and the socket.
+
+**Existing mitigations.**
+
+- The feature is **off by default and not part of `WebApiFeatures.Default`**. `UseWebApis()`
+  never enables it; `UseFetch()` is the only call that does.
+- `Options.WebApi.Fetch.AllowedSchemes` defaults to `https` and `http`, checked before a
+  socket is opened.
+- `Options.WebApi.Fetch.UrlFilter` is the host's allow-list, and is **re-run on every
+  redirect hop**: Jint drives redirects itself with `AllowAutoRedirect` off, so no hop
+  escapes the check.
+- `Options.WebApi.Fetch.MaxRedirects` (20) bounds the hop count.
+- `Options.WebApi.Fetch.MaxResponseBytes` (32 MiB) bounds the **decompressed** body, checked
+  against the declared `Content-Length` and again as a running total, so a lying or chunked
+  response is caught too.
+- `Options.WebApi.Fetch.Timeout` (30 s) is enforced CLR-side on the request's cancellation
+  token, so it fires even for an engine nobody is pumping.
+- `Options.WebApi.Fetch.MaxConcurrentRequests` (10) bounds in-flight requests per engine, and
+  the excess is refused rather than queued.
+- `Authorization`, `Cookie`, and `Proxy-Authorization` are stripped when a redirect crosses
+  origin; a `303`, and a `301`/`302` on a `POST`, drop the body and its content headers.
+- A URL carrying credentials (`https://user:pass@host/`) is refused by the `Request`
+  constructor.
+- Header names must be RFC 9110 tokens and header values may not contain NUL, CR, or LF, so
+  script cannot splice a second request into the connection.
+- Every network-class failure is one `TypeError` whose message is only `Failed to fetch`; the
+  originating CLR exception rides the error *value* and is readable by the host through
+  `JintException.TryGetClrException`, never by script.
+- The default client has `UseCookies = false`, so no cookie jar is shared between engines or
+  tenants.
+- A request in flight is cancelled by `Engine.Advanced.RestoreGlobalSnapshot`, and its promise
+  never settles into the restored engine.
+- Timer flooding is covered separately by `Options.WebApi.Timers.MaxActiveTimers` (1000), and
+  timers only fire while the host pumps the engine.
+
+**Missing or residual mitigation.**
+
+- `UrlFilter` sees a URL, not a resolved IP. It cannot by itself stop DNS rebinding or a
+  hostname that resolves to a link-local or private address.
+- There is no per-request or per-engine byte, connection, or bandwidth budget beyond the
+  per-response cap and the concurrency cap; a script may still issue many bounded requests in
+  sequence.
+- `credentials`, `cache`, `mode`, `referrer`, and `integrity` are accepted and ignored, so a
+  script cannot rely on them for protection and neither can a host reading the request.
+- The default shared `HttpClient` is process-wide and never disposed; its connection pool is
+  shared by every engine that did not supply a client.
+- Response bodies are buffered in memory, so `MaxResponseBytes` is also the per-request heap
+  cost.
+
+**Required host action.** Do not enable `UseFetch` for untrusted script unless the deployment
+needs it. When it is needed, set a `UrlFilter` that allow-lists destinations rather than
+denying known-bad ones, drop `http` from `AllowedSchemes`, lower `MaxResponseBytes`,
+`MaxRedirects`, `Timeout`, and `MaxConcurrentRequests` to what the workload actually needs,
+and supply an `HttpClient` (or `HttpClientFactory`) whose handler applies the deployment's
+proxy, DNS, and TLS policy. Resolve-and-check the destination address in the handler if
+rebinding is in scope. Keep the worker's egress restricted at the network layer as well:
+`UrlFilter` is a policy inside the process, not a firewall.
+
 ## Hardened deployment baseline
 
 The numbers below are examples only. Measure normal workloads and choose smaller limits that
@@ -629,6 +706,10 @@ Before deploying a host that executes untrusted scripts:
   domains.
 - [ ] Custom module loaders enforce scheme, origin, IP, path, redirect, size, and timeout
   policies and disclose no secrets in names or errors.
+- [ ] `fetch` is off, or its `UrlFilter`, `AllowedSchemes`, `MaxResponseBytes`,
+  `MaxRedirects`, `Timeout`, and `MaxConcurrentRequests` allow-list the destinations and the
+  budgets the workload actually needs, and worker egress is restricted at the network layer
+  as well.
 - [ ] Worker identity, filesystem, network, CPU, memory, and lifetime are restricted outside
   Jint.
 - [ ] Timeout, cancellation, memory, stack, loader, and serialization failures are exercised
