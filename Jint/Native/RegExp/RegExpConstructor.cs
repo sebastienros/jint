@@ -617,9 +617,10 @@ public sealed partial class RegExpConstructor : Constructor
 
         // Case-insensitive matching that reaches across the ASCII boundary: .NET IgnoreCase groups
         // characters that the spec's Canonicalize keeps apart in non-unicode mode, where it is
-        // toUpperCase with a hard barrier rather than Unicode case folding. See HasCaseFoldingHazard
-        // for exactly which pattern content that covers.
-        if (flags.Contains('i') && HasCaseFoldingHazard(pattern))
+        // toUpperCase with a hard barrier rather than Unicode case folding. Only the verdict that holds
+        // for every subject takes the pattern away from .NET here; the subject-dependent one keeps the
+        // .NET engine and is resolved per match, see JsRegExp.NeedsCaseFoldingFallback.
+        if (flags.Contains('i') && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.Always)
         {
             return true;
         }
@@ -1083,41 +1084,66 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// Detect pattern content whose case-insensitive matching .NET resolves differently from
+    /// How far .NET's case-insensitive matching of a pattern can drift from
     /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
-    /// in non-Unicode mode, which is what routes such a pattern to the custom engine. Two kinds:
+    /// in non-Unicode mode. Ordered by severity: a scan keeps the most severe verdict it finds.
+    /// </summary>
+    internal enum CaseFoldingHazard : byte
+    {
+        /// <summary>The two agree on every subject, so the pattern keeps the .NET engine unconditionally.</summary>
+        None,
+
+        /// <summary>
+        /// They agree on every subject free of <see cref="JsRegExp.CaseFoldingTriggers"/>. The pattern keeps
+        /// the .NET engine and only the rare subject that carries a trigger is diverted per match.
+        /// </summary>
+        SubjectDependent,
+
+        /// <summary>They can disagree on any subject at all, so the custom engine takes the pattern outright.</summary>
+        Always,
+    }
+
+    /// <summary>
+    /// Classify pattern content whose case-insensitive matching .NET resolves differently from
+    /// <see href="https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch">Canonicalize</see>
+    /// in non-Unicode mode, where Canonicalize is toUpperCase plus a hard barrier: a character at or
+    /// above U+0080 whose uppercase is a single code unit below U+0080 canonicalizes to itself (step 9).
+    /// .NET instead closes every character set in the pattern under its own case-equivalence relation.
     /// <list type="bullet">
     /// <item><description>
-    /// Any non-ASCII code point, whether written literally or as a <c>\uXXXX</c>, <c>\u{XXXX}</c> or
-    /// <c>\xNN</c> escape. Canonicalize is toUpperCase plus a hard barrier — a character at or above
-    /// U+0080 whose uppercase is a single code unit below U+0080 canonicalizes to itself (step 9) — so
-    /// U+00DF and U+1E9E, or U+00E5 and U+212B, are distinct to the spec while .NET groups them.
+    /// <see cref="CaseFoldingHazard.Always"/> for any non-ASCII code point, written literally or as a
+    /// <c>\uXXXX</c>, <c>\u{XXXX}</c> or <c>\xNN</c> escape: there the barrier keeps U+00DF and U+1E9E,
+    /// or U+00E5 and U+212B, distinct while .NET groups them. Also for a decimal escape, which is either
+    /// a backreference or an Annex B legacy octal escape denoting any code point up to U+00FF (telling
+    /// the two apart needs the capture-group count). And for <c>\W</c>, which is the one construct the
+    /// adapter expands into a *positive* class spanning the whole BMP while excluding the ASCII word
+    /// characters, so closing it pulls those characters back in and <c>/\W/i</c> matches <c>k</c> on
+    /// .NET 7+ and <c>I</c> on .NET Framework - a divergence an all-ASCII subject already shows, which
+    /// no check on the subject could catch.
     /// </description></item>
     /// <item><description>
-    /// The letters <c>K</c> and <c>k</c>, which .NET 7 and later group with U+212A KELVIN SIGN while the
-    /// barrier keeps the spec from doing so. They are the only ASCII code points .NET pairs with a
-    /// non-ASCII one under <c>RegexOptions.ECMAScript | IgnoreCase | CultureInvariant</c>, so no other
-    /// ASCII character needs the custom engine on account of a subject character it never mentions.
-    /// A range inside a character class counts when it covers one of them.
+    /// <see cref="CaseFoldingHazard.SubjectDependent"/> for an all-ASCII pattern that can match <c>K</c>
+    /// or <c>k</c> - as a literal, through a class range covering one, or through <c>\w</c> - and for the
+    /// word-boundary assertions. Closing an all-ASCII set can only ever add a
+    /// <see cref="JsRegExp.CaseFoldingTriggers">trigger</see> to it, and the barrier keeps the spec from
+    /// mapping any non-ASCII subject character onto an ASCII one, so the two engines provably agree on
+    /// every subject that carries no trigger.
     /// </description></item>
     /// </list>
-    /// A decimal escape is hazardous outright: it is either a backreference, whose matched text is not
-    /// known here and is compared through that same Canonicalize, or an Annex B legacy octal escape that
-    /// can denote any code point up to U+00FF — and telling the two apart needs the capture-group count.
-    /// So is <c>\w</c> / <c>\W</c>, whose set contains <c>k</c> and <c>K</c>.
     /// <para>
     /// Only consulted for a pattern that already carries the <c>i</c> flag and neither <c>u</c> nor
     /// <c>v</c> (those go to the custom engine regardless), so a pattern without <c>i</c> never pays for
     /// this scan and never loses the .NET engine over a character that only matters when folding.
     /// </para>
     /// </summary>
-    private static bool HasCaseFoldingHazard(string pattern)
+    private static CaseFoldingHazard GetCaseFoldingHazard(string pattern)
     {
         // Kelvin sign folding partners: the only ASCII characters .NET puts in a case-equivalence class
         // with a non-ASCII one.
         const int KelvinPartnerUpper = 'K';
         const int KelvinPartnerLower = 'k';
 
+        var worst = CaseFoldingHazard.None;
         var inClass = false;
 
         // Code point a following '-' would open a class range from, or -1 when the preceding element
@@ -1132,11 +1158,16 @@ public sealed partial class RegExpConstructor : Constructor
 
             if (ch == '\\')
             {
-                if (!TryDecodeEscape(pattern, ref i, out codePoint))
+                if (!TryDecodeEscape(pattern, ref i, out codePoint, out var escapeHazard))
                 {
-                    if (codePoint < 0)
+                    if (escapeHazard == CaseFoldingHazard.Always)
                     {
-                        return true;
+                        return CaseFoldingHazard.Always;
+                    }
+
+                    if (escapeHazard > worst)
+                    {
+                        worst = escapeHazard;
                     }
 
                     // A class escape (\d, \w, ...) stands for a set, so it cannot be a range bound.
@@ -1169,14 +1200,18 @@ public sealed partial class RegExpConstructor : Constructor
                 codePoint = ch;
             }
 
+            if (codePoint > 0x7F)
+            {
+                return CaseFoldingHazard.Always;
+            }
+
             if (inRange)
             {
                 // An inverted range is a SyntaxError the parser rejects, so it needs no special care here.
-                if (codePoint > 0x7F
-                    || (rangeStart <= KelvinPartnerUpper && KelvinPartnerUpper <= codePoint)
+                if ((rangeStart <= KelvinPartnerUpper && KelvinPartnerUpper <= codePoint)
                     || (rangeStart <= KelvinPartnerLower && KelvinPartnerLower <= codePoint))
                 {
-                    return true;
+                    worst = CaseFoldingHazard.SubjectDependent;
                 }
 
                 rangeStart = -1;
@@ -1184,27 +1219,39 @@ public sealed partial class RegExpConstructor : Constructor
                 continue;
             }
 
-            if (codePoint > 0x7F || codePoint == KelvinPartnerUpper || codePoint == KelvinPartnerLower)
+            if (codePoint == KelvinPartnerUpper || codePoint == KelvinPartnerLower)
             {
-                return true;
+                worst = CaseFoldingHazard.SubjectDependent;
             }
 
             rangeStart = codePoint;
         }
 
-        return false;
+        return worst;
     }
+
+    /// <summary>
+    /// Whether a case-insensitive pattern keeps the .NET engine but has to be diverted to the custom one
+    /// for a subject carrying a <see cref="JsRegExp.CaseFoldingTriggers">trigger</see>.
+    /// </summary>
+    internal static bool HasSubjectDependentCaseFoldingHazard(string pattern, string flags)
+        => flags.Contains('i')
+           && !flags.Contains('u')
+           && !flags.Contains('v')
+           && GetCaseFoldingHazard(pattern) == CaseFoldingHazard.SubjectDependent;
 
     /// <summary>
     /// Decode the escape sequence starting at the backslash <paramref name="i"/> points at, leaving
     /// <paramref name="i"/> on its last character. Returns <see langword="true"/> with the single code
-    /// point the escape denotes. Returns <see langword="false"/> with <paramref name="codePoint"/> set to
-    /// -1 for an escape that is hazardous on its own (a decimal escape — backreference or legacy octal —
-    /// or a named backreference), and to 0 for one that denotes a set of characters rather than one
-    /// (<c>\d</c>, <c>\w</c>, <c>\s</c>, <c>\p{…}</c>, the assertions).
+    /// point the escape denotes and <paramref name="hazard"/> set to <see cref="CaseFoldingHazard.None"/>,
+    /// leaving the caller to judge that code point. Returns <see langword="false"/> for an escape that
+    /// denotes no single character, with <paramref name="hazard"/> carrying its own verdict.
     /// </summary>
-    private static bool TryDecodeEscape(string pattern, ref int i, out int codePoint)
+    private static bool TryDecodeEscape(string pattern, ref int i, out int codePoint, out CaseFoldingHazard hazard)
     {
+        hazard = CaseFoldingHazard.None;
+        codePoint = 0;
+
         if (i + 1 >= pattern.Length)
         {
             // Trailing backslash: not a valid pattern, and the parser has the final say on that.
@@ -1218,19 +1265,28 @@ public sealed partial class RegExpConstructor : Constructor
         switch (ch)
         {
             case >= '0' and <= '9':
-                codePoint = -1;
+                hazard = CaseFoldingHazard.Always;
+                return false;
+
+            case 'W':
+                hazard = CaseFoldingHazard.Always;
+                return false;
+
+            case 'w':
+                // The word-character set contains 'k' and 'K'.
+                hazard = CaseFoldingHazard.SubjectDependent;
+                return false;
+
+            case 'b' or 'B':
+                // The word-boundary assertions classify their neighbours with .NET's own word-character
+                // set, which under IgnoreCase takes in U+0130 on every target framework.
+                hazard = CaseFoldingHazard.SubjectDependent;
                 return false;
 
             case 'k':
-                // Either a named backreference or, under Annex B, an IdentityEscape for 'k' — and 'k' is
-                // itself a hazard, so the two readings agree.
-                codePoint = -1;
-                return false;
-
-            case 'w' or 'W':
-                // The word-character set contains 'k' and 'K', so it carries the hazard the same way an
-                // explicit class covering them does: /\w/i matches U+212A on .NET where the spec does not.
-                codePoint = -1;
+                // Either a named backreference or, under Annex B, an IdentityEscape for 'k'. Both carry
+                // the same hazard as a literal 'k', so the two readings agree.
+                hazard = CaseFoldingHazard.SubjectDependent;
                 return false;
 
             case 'u' when i + 1 < pattern.Length && pattern[i + 1] == '{':
@@ -1255,11 +1311,9 @@ public sealed partial class RegExpConstructor : Constructor
             case 'c' when i + 1 < pattern.Length && char.IsAsciiLetter(pattern[i + 1]):
                 // ControlLetter: always below U+0020.
                 i++;
-                codePoint = 0;
                 return false;
 
-            case 'd' or 'D' or 's' or 'S' or 'b' or 'B' or 'p' or 'P':
-                codePoint = 0;
+            case 'd' or 'D' or 's' or 'S' or 'p' or 'P':
                 return false;
 
             default:

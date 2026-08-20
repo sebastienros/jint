@@ -846,4 +846,109 @@ public class RegExpTests
 
         result.AsString().Should().Be("[\"aſ\",\"ſa\"]");
     }
+    [Theory]
+    // The word-boundary assertions classify their neighbours with .NET's own word-character set,
+    // which under IgnoreCase takes in U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE. The spec's
+    // WordCharacters gains nothing in non-Unicode mode, so U+0130 is a boundary on both sides.
+    [InlineData(@"/a\b/i", "aİ", true)]
+    [InlineData(@"/a\B/i", "aİ", false)]
+    [InlineData(@"/\bk/i", "İk", true)]
+    [InlineData(@"/\Bk/i", "İk", false)]
+    public void WordBoundariesTreatTheDottedCapitalIAsANonWordCharacter(string pattern, string subject, bool expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"{pattern}.test({ToJsLiteral(subject)})");
+
+        result.AsBoolean().Should().Be(expected);
+    }
+
+    [Theory]
+    // \W is the one construct the .NET adaptation expands into a positive class spanning the whole
+    // BMP while excluding the ASCII word characters. Closing that class under IgnoreCase pulls the
+    // partners of its non-ASCII members back in, so /\W/i matched 'k' on .NET 7+ and 'I' on .NET
+    // Framework - a divergence a pure-ASCII subject already shows.
+    [InlineData(@"/\W/i", "k", false)]
+    [InlineData(@"/\W/i", "K", false)]
+    [InlineData(@"/\W/i", "i", false)]
+    [InlineData(@"/\W/i", "I", false)]
+    [InlineData(@"/[\W]/i", "k", false)]
+    [InlineData(@"/\W/i", "-", true)]
+    public void NegatedWordClassDoesNotTakeInItsMembersCasePartners(string pattern, string subject, bool expected)
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate($"{pattern}.test({ToJsLiteral(subject)})");
+
+        result.AsBoolean().Should().Be(expected);
+    }
+
+    [Fact]
+    public void OneRegExpAlternatesBetweenEnginesAcrossSubjects()
+    {
+        // The engine is chosen per subject, so the same instance has to answer correctly whichever
+        // subject it sees next - including after a compile() drops what it had determined.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var kelvin = String.fromCharCode(0x212A);
+            var re = /[a-z]/i;
+            var answers = [re.test('Q'), re.test(kelvin), re.test('Q'), re.test(kelvin), re.test('4')];
+            re.compile('[0-9]', 'i');
+            answers.push(re.test(kelvin), re.test('4'), re.test('Q'));
+            JSON.stringify(answers)
+            """);
+
+        result.AsString().Should().Be("[true,false,true,false,false,false,true,false]");
+    }
+
+    [Fact]
+    public void GlobalMatchOverASubjectCarryingATriggerStaysCorrectForEveryMatch()
+    {
+        // The per-subject probe is memoized by string instance so a match loop scans the subject once;
+        // the memo must not let the first answer stand for a different subject.
+        var engine = new Engine();
+        var result = engine.Evaluate("""
+            var kelvin = String.fromCharCode(0x212A);
+            var re = /[a-z]+/gi;
+            var withTrigger = 'ab' + kelvin + 'cd';
+            var first = withTrigger.match(re);
+            var second = 'abcd'.match(re);
+            var third = withTrigger.match(re);
+            JSON.stringify([first, second, third])
+            """);
+
+        result.AsString().Should().Be("""[["ab","cd"],["abcd"],["ab","cd"]]""");
+    }
+
+    [Theory]
+    // Routing pin. A case-insensitive pattern that merely mentions 'k', covers it with a range, or
+    // uses \w keeps the .NET engine and is diverted per subject; only the verdict that holds for
+    // every subject takes a pattern away from it. Losing this would put the most common
+    // case-insensitive patterns in real scripts on the bytecode interpreter for every match.
+    [InlineData("[a-z0-9]+", "i", false)]
+    [InlineData(@"\w+", "i", false)]
+    [InlineData("k", "i", false)]
+    [InlineData("check", "i", false)]
+    [InlineData(@"\bfoo\b", "i", false)]
+    [InlineData(@"\x6B", "i", false)]
+    // ... while non-ASCII pattern content and \W do, on every subject.
+    [InlineData(@"\xB5", "i", true)]
+    [InlineData(@"Μ", "i", true)]
+    [InlineData(@"\W", "i", true)]
+    [InlineData("[a-z]", "u", true)]
+    public void CaseInsensitivePatternsKeepTheDotNetEngineUnlessTheyDivergeOnEverySubject(
+        string pattern, string flags, bool needsCustomEngine)
+    {
+        Jint.Native.RegExp.RegExpConstructor.NeedCustomEngine(pattern, flags).Should().Be(needsCustomEngine);
+    }
+
+    private static string ToJsLiteral(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length * 6 + 2);
+        builder.Append('\'');
+        foreach (var c in value)
+        {
+            builder.Append("\\u").Append(((int) c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        return builder.Append('\'').ToString();
+    }
 }
