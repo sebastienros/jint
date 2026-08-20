@@ -73,14 +73,6 @@
     "staging/sm/class/parenExprToString.js",
     "staging/sm/generators/runtime.js",
 
-    // Number conversion and formatting. toFixed/toPrecision lose the exact mathematical value for
-    // extreme magnitudes and subnormals, and ToPrimitive on a Number wrapper consults the wrong
-    // method. Removed by exact-value formatting and a spec-order OrdinaryToPrimitive.
-    "staging/sm/Number/20.1.3.3-toFixed.js",
-    "staging/sm/Number/defaultvalue.js",
-    "staging/sm/Number/toFixed-values.js",
-    "staging/sm/Number/toPrecision-values.js",
-
     // Set.prototype.intersection / .isSubsetOf let the *receiver* be mutated while they traverse it
     // (a set-like's has/keys callback calling this.delete(v) or this.clear()), and the spec models
     // that with the [[SetData]] tombstone: a deleted entry becomes EMPTY in place rather than being

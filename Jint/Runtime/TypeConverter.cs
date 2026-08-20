@@ -13,9 +13,6 @@ namespace Jint.Runtime;
 
 public static class TypeConverter
 {
-    // how many decimals to check when determining if double is actually an int
-    private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
-
     private static readonly string[] intToString = new string[1024];
     private static readonly string[] charToString = new string[256];
 
@@ -920,7 +917,12 @@ public static class TypeConverter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool CanBeStringifiedAsLong(double d)
     {
-        return d > long.MinValue && d < long.MaxValue && Math.Abs(d % 1) <= DoubleIsIntegerTolerance;
+        // `d % 1` is exact for every finite double, so comparing it against zero *is* the integrality
+        // test — there is no rounding error for a tolerance to absorb. Comparing against one
+        // (double.Epsilon * 100, i.e. ~4.94e-322) instead classified every subnormal below it as the
+        // integer zero, so String(Number.MIN_VALUE) answered "0" while (5e-324).toString(), which does
+        // not come through here, answered "5e-324". JSON.stringify had the same hole.
+        return d > long.MinValue && d < long.MaxValue && d % 1 == 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,4 +1,6 @@
-﻿namespace Jint.Tests.Runtime;
+﻿using Jint.Runtime;
+
+namespace Jint.Tests.Runtime;
 
 public class NumberTests
 {
@@ -462,5 +464,153 @@ public class NumberTests
         engine.Evaluate("(5n).typ()").AsString().Should().Be("object");
         engine.Execute("BigInt.prototype.styp = function () { 'use strict'; return typeof this; };");
         engine.Evaluate("(5n).styp()").AsString().Should().Be("bigint");
+    }
+
+    // The following tests cover Number.prototype's exact-value formatting and its ThisNumberValue
+    // step. They run on net472 as well as net10.0, which is the point of several of them: the BCL
+    // "F" format specifier carries only 15 significant digits on .NET Framework and refuses a
+    // precision above 99 there, so routing toFixed through it produced a different string per target
+    // framework.
+
+    [Theory]
+    // The double nearest 3.141592653589793 is exactly 3.14159265358979311599796346854418516159057617187500.
+    [InlineData("(3.141592653589793).toFixed(50)", "3.14159265358979311599796346854418516159057617187500")]
+    [InlineData("(3.141592653589793).toFixed(20)", "3.14159265358979311600")]
+    // ... and the one nearest 123456.78 is exactly 123456.77999999999883584678173065185546875.
+    [InlineData("(123456.78).toFixed(50)", "123456.77999999999883584678173065185546875000000000000000")]
+    [InlineData("(-123456.78).toFixed(10)", "-123456.7800000000")]
+    [InlineData("(3.141592653589793).toFixed(100)", "3.1415926535897931159979634685441851615905761718750000000000000000000000000000000000000000000000000000")]
+    public void ToFixedProducesTheExactMathematicalValueOfTheDouble(string source, string expected)
+    {
+        new Engine().Evaluate(source).AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // Casting through long saturated here: .NET answered long.MaxValue and .NET Framework long.MinValue.
+    [InlineData("(1e20).toFixed(0)", "100000000000000000000")]
+    [InlineData("(1e20).toFixed()", "100000000000000000000")]
+    [InlineData("(1e19).toFixed(0)", "10000000000000000000")]
+    [InlineData("(-1e20).toFixed(0)", "-100000000000000000000")]
+    [InlineData("(1e20).toFixed(1)", "100000000000000000000.0")]
+    // 2^63 is where the exact-integer shortcut has to hand over to the digit generator.
+    [InlineData("(9223372036854775807).toFixed(0)", "9223372036854775808")]
+    [InlineData("(9223372036854775807).toFixed(2)", "9223372036854775808.00")]
+    [InlineData("(9.9e18).toFixed(0)", "9900000000000000000")]
+    // At 10^21 the fixed notation gives way to Number::toString.
+    [InlineData("(1e21).toFixed(2)", "1e+21")]
+    public void ToFixedIsExactPastTheRangeOfLong(string source, string expected)
+    {
+        new Engine().Evaluate(source).AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // toFixed step 8 works on the real value, for which -0 is not negative, but -Number.MIN_VALUE is.
+    [InlineData("(-0).toFixed(0)", "0")]
+    [InlineData("(-0).toFixed(3)", "0.000")]
+    [InlineData("(-Number.MIN_VALUE).toFixed(0)", "-0")]
+    [InlineData("(-Number.MIN_VALUE).toFixed(3)", "-0.000")]
+    [InlineData("(Number.MIN_VALUE).toFixed(3)", "0.000")]
+    [InlineData("(0.5).toFixed(0)", "1")]
+    [InlineData("(-0.5).toFixed(0)", "-1")]
+    [InlineData("(1.45).toFixed(1)", "1.4")]
+    [InlineData("(-0.4).toFixed(0)", "-0")]
+    [InlineData("(-1e-7).toFixed(0)", "-0")]
+    [InlineData("(-0.000001).toFixed(2)", "-0.00")]
+    // The stored double is a hair above 930.9805, so exact rounding goes up.
+    [InlineData("(930.9805).toFixed(3)", "930.981")]
+    // ... and a hair below 1.005, so exact rounding goes down.
+    [InlineData("(1.005).toFixed(2)", "1.00")]
+    public void ToFixedRoundsTiesToTheLargerIntegerAndKeepsTheSignOfTheValue(string source, string expected)
+    {
+        new Engine().Evaluate(source).AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // The integrality test behind ToString(double) used to accept anything below ~4.94e-322 as zero.
+    [InlineData("String(Number.MIN_VALUE)", "5e-324")]
+    [InlineData("String(-Number.MIN_VALUE)", "-5e-324")]
+    [InlineData("JSON.stringify(Number.MIN_VALUE)", "5e-324")]
+    [InlineData("(Number.MIN_VALUE).toPrecision()", "5e-324")]
+    [InlineData("(Number.MIN_VALUE).toPrecision(10)", "4.940656458e-324")]
+    [InlineData("`${1e-323}`", "1e-323")]
+    public void SubnormalsKeepTheirValueWhenStringified(string source, string expected)
+    {
+        new Engine().Evaluate(source).AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("(Number.MAX_VALUE).toString()", "1.7976931348623157e+308")]
+    [InlineData("(Number.MAX_VALUE).toString(10)", "1.7976931348623157e+308")]
+    [InlineData("(-Number.MAX_VALUE).toString()", "-1.7976931348623157e+308")]
+    [InlineData("(Number.MAX_VALUE).toString(16).length", "256")]
+    public void TheLargestFiniteDoubleDoesNotReportItselfAsInfinity(string source, string expected)
+    {
+        new Engine().Evaluate(source + ".toString()").AsString().Should().Be(expected);
+    }
+
+    [Theory]
+    // ThisNumberValue reads [[NumberData]] out of the wrapper, so an own valueOf cannot hijack it.
+    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toString()", "0")]
+    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toFixed(1)", "0.0")]
+    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toPrecision(2)", "0.0")]
+    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toExponential(1)", "0.0e+0")]
+    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; String(n)", "0")]
+    // ... while ToPrimitive with a string hint still consults the (unmodified) toString first, so an
+    // own valueOf does not decide a property key either.
+    [InlineData("var o = { 0: 17, 8: 42 }; var n = new Number(); n.valueOf = function () { return 8; }; o[n]", "17")]
+    [InlineData("var o = { 0: 17, 9: 42 }; var n = new Number(); n.toString = function () { return 9; }; o[n]", "42")]
+    // ... and the default hint does consult valueOf, which is what makes these two differ.
+    [InlineData("var n = new Number(); n.valueOf = function () { return 8.5; }; n + n", "17")]
+    [InlineData("var n = new Number(); n.toString = function () { return 5; }; n + n", "0")]
+    public void NumberPrototypeMethodsReadTheSlotRatherThanCallingValueOf(string source, string expected)
+    {
+        new Engine().Evaluate(source).ToString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("Number.prototype.toFixed.call('Hello')")]
+    [InlineData("Number.prototype.toFixed.call({})")]
+    // ThisNumberValue is step 1, so it outranks the fractionDigits range check of step 4.
+    [InlineData("Number.prototype.toFixed.call('Hello', 555)")]
+    [InlineData("Number.prototype.toLocaleString.call('Hello')")]
+    public void NumberPrototypeMethodsRejectANonNumberReceiver(string source)
+    {
+        var engine = new Engine();
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
+        exception.Error.Get("constructor").Get("name").AsString().Should().Be("TypeError");
+    }
+
+    [Theory]
+    [InlineData("Number.prototype.toFixed.call(NaN, 555)")]
+    [InlineData("Number.prototype.toFixed.call(1, -1)")]
+    [InlineData("Number.prototype.toFixed.call(1, 101)")]
+    [InlineData("Number.prototype.toFixed.call(1, Infinity)")]
+    public void ToFixedRejectsFractionDigitsOutsideZeroToOneHundred(string source)
+    {
+        var engine = new Engine();
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
+        exception.Error.Get("constructor").Get("name").AsString().Should().Be("RangeError");
+    }
+
+    [Fact]
+    public void ToStringConvertsItsRadixArgumentExactlyOnce()
+    {
+        var engine = new Engine();
+        engine.Execute("var calls = 0; var radix = { valueOf: function () { calls++; return 16; } };");
+
+        // The negative case used to recurse into toString with the original argument, converting twice.
+        engine.Evaluate("(-255).toString(radix)").AsString().Should().Be("-ff");
+        engine.Evaluate("calls").AsNumber().Should().Be(1d);
+    }
+
+    [Theory]
+    [InlineData("Number.prototype.toFixed.call(NaN)", "NaN")]
+    [InlineData("Number.prototype.toFixed.call(Infinity)", "Infinity")]
+    [InlineData("Number.prototype.toFixed.call(-Infinity)", "-Infinity")]
+    [InlineData("Number.prototype.toExponential.call(new Number(Infinity))", "Infinity")]
+    [InlineData("Number.prototype.toPrecision.call(new Number(-Infinity), 3)", "-Infinity")]
+    public void NonFiniteValuesFormatAsNumberToString(string source, string expected)
+    {
+        new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
 }

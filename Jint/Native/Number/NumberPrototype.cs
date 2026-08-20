@@ -39,18 +39,38 @@ internal sealed partial class NumberPrototype : NumberInstance
     protected override void Initialize() => CreateProperties_Generated();
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-thisnumbervalue
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <c>TypeConverter.ToNumber(thisObject)</c>: [[NumberData]] is read out of the
+    /// wrapper directly, so a <c>valueOf</c> installed on a Number object cannot hijack the built-in
+    /// (<c>new Number()</c> with <c>valueOf = () =&gt; 17</c> still stringifies as "0"), and a receiver
+    /// that is neither a Number nor a Number object is a TypeError rather than a silent NaN.
+    /// </remarks>
+    private double ThisNumberValue(JsValue value, string errorMessage)
+    {
+        if (value is JsNumber number)
+        {
+            return number._value;
+        }
+
+        if (value is NumberInstance instance)
+        {
+            return instance.NumberData._value;
+        }
+
+        Throw.TypeError(_realm, errorMessage);
+        return 0;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
     /// https://tc39.es/ecma402/#sup-number.prototype.tolocalestring
     /// </summary>
     [JsFunction]
     private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
-        if (!thisObject.IsNumber() && thisObject is not NumberInstance)
-        {
-            Throw.TypeError(_realm, "Number.prototype.toLocaleString requires that 'this' be a Number");
-        }
-
-        var x = TypeConverter.ToNumber(thisObject);
+        var x = ThisNumberValue(thisObject, "Number.prototype.toLocaleString requires that 'this' be a Number");
 
         // Use Intl.NumberFormat if available
         var locales = arguments.At(0);
@@ -79,143 +99,159 @@ internal sealed partial class NumberPrototype : NumberInstance
 
     private const double Ten21 = 1e21;
 
-    // FastCall only: the body raises a RangeError for out-of-range digits and coerces the receiver
-    // through ToNumber, so the frame has to stay — matching toExponential/toPrecision.
-    [JsFunction(FastCall = true)]
-    private JsValue ToFixed(JsValue thisObject, [ToInteger] double fAsDouble)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number.prototype.tofixed
+    /// </summary>
+    // FastCall only: the body raises TypeError/RangeError and coerces the argument through
+    // ToIntegerOrInfinity, so the frame has to stay — matching toExponential/toPrecision.
+    [JsFunction(Length = 1, FastCall = true)]
+    private JsValue ToFixed(JsValue thisObject, JsValue arg0)
     {
-        var f = (int) fAsDouble;
-        if (f < 0 || f > 100)
+        // Step 1 is ThisNumberValue, so `toFixed.call("Hello")` is a TypeError — and stays one even
+        // when the fractionDigits argument is itself out of range, which the old ordering reported as
+        // a RangeError instead.
+        var x = ThisNumberValue(thisObject, "Number.prototype.toFixed requires that 'this' be a Number");
+
+        // Steps 2-4.
+        var fAsDouble = TypeConverter.ToIntegerOrInfinity(arg0);
+        if (!double.IsFinite(fAsDouble) || fAsDouble < 0 || fAsDouble > 100)
         {
             Throw.RangeError(_realm, "toFixed() digits argument must be between 0 and 100");
         }
 
-        var x = TypeConverter.ToNumber(thisObject);
+        var f = (int) fAsDouble;
 
-        if (double.IsNaN(x))
-        {
-            return "NaN";
-        }
-
-        if (x >= Ten21 || x <= -Ten21)
+        // Step 5, and step 9: at 10^21 and above the fixed form is the ordinary Number::toString.
+        if (!double.IsFinite(x) || x >= Ten21 || x <= -Ten21)
         {
             return ToNumberString(x);
         }
 
-        bool negative = false;
-        if (x < 0)
-        {
-            negative = true;
-            x = -x;
-        }
-
-        if (f == 0)
-        {
-            // Fast path: no fractional digits
-            var rounded = System.Math.Round(x, MidpointRounding.AwayFromZero);
-            var result = negative ? "-" + ((long) rounded).ToString(CultureInfo.InvariantCulture) : ((long) rounded).ToString(CultureInfo.InvariantCulture);
-            return result;
-        }
-
-        // Use .NET formatting for f <= 99 (fast path)
-        if (f <= 99)
-        {
-            // handle non-decimal with greater precision
-            if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
-            {
-                var result = ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
-                return negative ? "-" + result : result;
-            }
-
-            var formatted = x.ToString("f" + f, CultureInfo.InvariantCulture);
-            return negative ? "-" + formatted : formatted;
-        }
-
-        // Use Dtoa infrastructure for f == 100 (avoids .NET format specifier limitation)
-        return ToFixedDtoa(x, f, negative);
+        return ToFixedString(x, f);
     }
 
-    private static string ToFixedDtoa(double x, int fractionDigits, bool negative)
+    /// <summary>
+    /// Steps 8-11 of https://tc39.es/ecma262/#sec-number.prototype.tofixed: the integer n for which
+    /// n / 10^f - x is closest to zero (ties taking the larger n), rendered with the decimal point put
+    /// back in.
+    /// </summary>
+    /// <remarks>
+    /// The digits come from the exact-value bignum generator rather than from a BCL <c>"F"</c> format.
+    /// The spec is written over the *exact* mathematical value of the double, and no target framework
+    /// formats that on request: .NET Framework's <c>"F"</c> carries 15 significant digits and pads the
+    /// rest with zeros (so <c>(3.141592653589793).toFixed(50)</c> lost everything past
+    /// <c>...58979</c>), and caps the precision specifier at 99, which is why <c>f == 100</c> already
+    /// had to detour through here. The old integer shortcut also cast through <c>long</c>, which
+    /// saturates at 2^63: <c>(1e20).toFixed(0)</c> answered "9223372036854775807" on .NET and
+    /// "-9223372036854775808" on .NET Framework.
+    /// </remarks>
+    private static string ToFixedString(double x, int fractionDigits)
     {
-        if (x == 0)
+        // Both shortcuts below need the value to fit a long exactly — 2^63 is the smallest double
+        // above long.MaxValue — so anything larger goes to the digit generator, which is exactly the
+        // guard the old integer shortcut was missing when it answered long.MaxValue for (1e20).toFixed(0).
+        if (x > -9223372036854775808.0 && x < 9223372036854775808.0)
         {
-            var sb = new ValueStringBuilder(stackalloc char[128]);
-            if (negative)
+            // An integral double has no fractional part to round, so n is exactly x * 10^f and the
+            // answer is the integer's own digits followed by f zeros — no digit generation needed.
+            // -0 casts to 0, which is the sign step 8 wants for it.
+            if (x % 1 == 0)
             {
-                sb.Append('-');
+                var integral = ((long) x).ToString(CultureInfo.InvariantCulture);
+                if (fractionDigits == 0)
+                {
+                    return integral;
+                }
+
+                var integralResult = new ValueStringBuilder(stackalloc char[128]);
+                integralResult.Append(integral);
+                integralResult.Append('.');
+                integralResult.Append('0', fractionDigits);
+                return integralResult.ToString();
             }
-            sb.Append("0.");
-            sb.Append('0', fractionDigits);
-            return sb.ToString();
+
+            // Reaching here x has a fractional part, so |x| < 2^52 and rounding cannot leave the
+            // range of long. Round-half-away-from-zero on the magnitude is exactly step 10a's "as
+            // close to zero as possible, ties taking the larger n" applied to the negated value, and
+            // the sign is carried separately so a value rounding to zero still reports "-0".
+            if (fractionDigits == 0)
+            {
+                var rounded = ((long) System.Math.Round(System.Math.Abs(x), MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture);
+                return x < 0 ? "-" + rounded : rounded;
+            }
         }
 
-        var dtoaBuilder = new DtoaBuilder(stackalloc char[fractionDigits + 50]);
+        // |x| < 10^21, so the integer part is at most 21 digits (22 if rounding carries out of the
+        // leading digit) and the fraction contributes at most 100.
+        var builder = new DtoaBuilder(stackalloc char[128]);
         DtoaNumberFormatter.DoubleToAscii(
-            ref dtoaBuilder,
+            ref builder,
             x,
             DtoaMode.Fixed,
             fractionDigits,
-            out _,
+            out var negative,
             out var decimalPoint);
 
-        var result2 = new ValueStringBuilder(stackalloc char[fractionDigits + 50]);
+        var result = new ValueStringBuilder(stackalloc char[128]);
         if (negative)
         {
-            result2.Append('-');
+            // Step 8 works on ℝ(x) and takes the sign before rounding, which is why a value that
+            // rounds away to zero still reports one: (-Number.MIN_VALUE).toFixed(0) is "-0".
+            result.Append('-');
         }
 
+        var digits = builder._chars.Slice(0, builder.Length);
         if (decimalPoint <= 0)
         {
-            // 0.000...digits
-            result2.Append("0.");
-            result2.Append('0', -decimalPoint);
-            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
-            int remaining = fractionDigits - (-decimalPoint + dtoaBuilder.Length);
-            if (remaining > 0)
-            {
-                result2.Append('0', remaining);
-            }
-        }
-        else if (decimalPoint >= dtoaBuilder.Length)
-        {
-            // Integer part only, pad with zeros
-            result2.Append(dtoaBuilder._chars.Slice(0, dtoaBuilder.Length));
-            result2.Append('0', decimalPoint - dtoaBuilder.Length);
+            // 0.000ddd — the value rounds to something below 1.
+            result.Append('0');
             if (fractionDigits > 0)
             {
-                result2.Append('.');
-                result2.Append('0', fractionDigits);
+                result.Append('.');
+                result.Append('0', -decimalPoint);
+                result.Append(digits);
+                AppendZeros(ref result, fractionDigits + decimalPoint - digits.Length);
+            }
+        }
+        else if (decimalPoint >= digits.Length)
+        {
+            // ddd000.000 — every generated digit belongs to the integer part.
+            result.Append(digits);
+            result.Append('0', decimalPoint - digits.Length);
+            if (fractionDigits > 0)
+            {
+                result.Append('.');
+                result.Append('0', fractionDigits);
             }
         }
         else
         {
-            // digits split across integer and fractional part
-            result2.Append(dtoaBuilder._chars.Slice(0, decimalPoint));
-            result2.Append('.');
-            int fracDigitsFromDtoa = dtoaBuilder.Length - decimalPoint;
-            result2.Append(dtoaBuilder._chars.Slice(decimalPoint, fracDigitsFromDtoa));
-            int remaining = fractionDigits - fracDigitsFromDtoa;
-            if (remaining > 0)
-            {
-                result2.Append('0', remaining);
-            }
+            // dd.ddd — the digits straddle the point.
+            result.Append(digits.Slice(0, decimalPoint));
+            result.Append('.');
+            result.Append(digits.Slice(decimalPoint));
+            AppendZeros(ref result, fractionDigits - (digits.Length - decimalPoint));
         }
 
-        return result2.ToString();
+        return result.ToString();
+    }
+
+    private static void AppendZeros(ref ValueStringBuilder builder, int count)
+    {
+        // The generator never hands back more digits than the requested fraction can hold, so a
+        // negative count would mean a broken generator rather than a reachable input.
+        Debug.Assert(count >= 0);
+        builder.Append('0', System.Math.Max(0, count));
     }
 
     /// <summary>
-    /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
+    /// https://tc39.es/ecma262/#sec-number.prototype.toexponential
     /// </summary>
     [JsFunction(Length = 1, FastCall = true)]
     private JsValue ToExponential(JsValue thisObject, JsValue arg0)
     {
-        if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
-        {
-            Throw.TypeError(_realm, "Number.prototype.toExponential requires that 'this' be a Number");
-        }
+        var x = ThisNumberValue(thisObject, "Number.prototype.toExponential requires that 'this' be a Number");
 
-        var x = TypeConverter.ToNumber(thisObject);
         var fractionDigits = arg0;
         if (fractionDigits.IsUndefined())
         {
@@ -224,14 +260,9 @@ internal sealed partial class NumberPrototype : NumberInstance
 
         var f = (int) TypeConverter.ToInteger(fractionDigits);
 
-        if (double.IsNaN(x))
+        if (!double.IsFinite(x))
         {
-            return "NaN";
-        }
-
-        if (double.IsInfinity(x))
-        {
-            return thisObject.ToString();
+            return ToNumberString(x);
         }
 
         if (f < 0 || f > 100)
@@ -284,15 +315,14 @@ internal sealed partial class NumberPrototype : NumberInstance
         return result;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number.prototype.toprecision
+    /// </summary>
     [JsFunction(Length = 1, FastCall = true)]
     private JsValue ToPrecision(JsValue thisObject, JsValue arg0)
     {
-        if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
-        {
-            Throw.TypeError(_realm, "Number.prototype.toPrecision requires that 'this' be a Number");
-        }
+        var x = ThisNumberValue(thisObject, "Number.prototype.toPrecision requires that 'this' be a Number");
 
-        var x = TypeConverter.ToNumber(thisObject);
         var precisionArgument = arg0;
 
         if (precisionArgument.IsUndefined())
@@ -302,14 +332,9 @@ internal sealed partial class NumberPrototype : NumberInstance
 
         var p = (int) TypeConverter.ToInteger(precisionArgument);
 
-        if (double.IsNaN(x))
+        if (!double.IsFinite(x))
         {
-            return "NaN";
-        }
-
-        if (double.IsInfinity(x))
-        {
-            return thisObject.ToString();
+            return ToNumberString(x);
         }
 
         if (p < 1 || p > 100)
@@ -405,13 +430,16 @@ internal sealed partial class NumberPrototype : NumberInstance
         return sb.ToString();
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number.prototype.tostring
+    /// </summary>
     [JsFunction(Length = 1, Name = "toString", FastCall = true)]
     private JsValue ToNumberString(JsValue thisObject, JsValue arg0)
     {
-        if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
-        {
-            Throw.TypeError(_realm, "Number.prototype.toString requires that 'this' be a Number");
-        }
+        // Step 1 is ThisNumberValue, and steps 2-3 convert the radix exactly once — the negative case
+        // used to recurse into this method with the original argument and so ran a user-supplied
+        // `valueOf` on it a second time.
+        var x = ThisNumberValue(thisObject, "Number.prototype.toString requires that 'this' be a Number");
 
         var radix = arg0.IsUndefined()
             ? 10
@@ -422,8 +450,20 @@ internal sealed partial class NumberPrototype : NumberInstance
             Throw.RangeError(_realm, "toString() radix argument must be between 2 and 36");
         }
 
-        var x = TypeConverter.ToNumber(thisObject);
+        if (radix == 10)
+        {
+            return ToNumberString(x);
+        }
 
+        return ToRadixString(x, radix);
+    }
+
+    /// <summary>
+    /// Number::toString(x, radix) for a radix other than 10.
+    /// https://tc39.es/ecma262/#sec-numeric-types-number-tostring
+    /// </summary>
+    private static string ToRadixString(double x, int radix)
+    {
         if (double.IsNaN(x))
         {
             return "NaN";
@@ -431,22 +471,20 @@ internal sealed partial class NumberPrototype : NumberInstance
 
         if (x == 0)
         {
-            return JsString.NumberZeroString;
+            return "0";
         }
 
-        if (double.IsPositiveInfinity(x) || x >= double.MaxValue)
+        if (double.IsInfinity(x))
         {
-            return "Infinity";
+            // The guard here used to be `x >= double.MaxValue`, which made the largest finite double
+            // report itself as Infinity: (Number.MAX_VALUE).toString() answered "Infinity" and
+            // (Number.MAX_VALUE).toString(16) answered "Infinity" instead of 257 hex digits.
+            return double.IsNegativeInfinity(x) ? "-Infinity" : "Infinity";
         }
 
         if (x < 0)
         {
-            return "-" + ToNumberString(-x, arg0);
-        }
-
-        if (radix == 10)
-        {
-            return ToNumberString(x);
+            return "-" + ToRadixString(-x, radix);
         }
 
         var truncated = System.Math.Truncate(x);
