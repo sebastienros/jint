@@ -22,6 +22,7 @@ internal sealed class EvaluationContext
     internal const int AmortizedConstraintCheckInterval = 64;
 
     private readonly bool _shouldRunPerStatementChecks;
+    private readonly bool _bypassStatementFastPaths;
     private readonly bool _hasAmortizedConstraints;
     private readonly MaxStatementsConstraint? _statementCounter;
 
@@ -29,12 +30,18 @@ internal sealed class EvaluationContext
     {
         Engine = engine;
 
+        // Debug mode and coverage collection both need every executed statement to reach
+        // RunPerStatementChecks - the debugger's step hook and the coverage counters both ride along
+        // there - so both force the generic path and disarm the statement fast paths. Engine._isDebugMode
+        // and Engine._coverage are settled before this context is built and never change afterwards, so
+        // snapshotting them here is exact.
+        _bypassStatementFastPaths = engine._isDebugMode || engine._coverage is not null;
+
         // A lone statement counter does not have to disarm the statement fast paths: it is charged
         // inline instead (see ChargeStatement), once per executed statement, at the same points
-        // RunPerStatementChecks would have reached. Debug mode still forces the generic path, because
-        // the debugger's step hook rides along in RunPerStatementChecks.
-        _statementCounter = engine._isDebugMode ? null : engine._inlineStatementCounter;
-        _shouldRunPerStatementChecks = (engine._exactConstraints.Length > 0 || engine._isDebugMode)
+        // RunPerStatementChecks would have reached.
+        _statementCounter = _bypassStatementFastPaths ? null : engine._inlineStatementCounter;
+        _shouldRunPerStatementChecks = (engine._exactConstraints.Length > 0 || _bypassStatementFastPaths)
                                        && _statementCounter is null;
         _hasAmortizedConstraints = engine._amortizedConstraints.Length > 0;
     }
@@ -44,6 +51,7 @@ internal sealed class EvaluationContext
     {
         Engine = null!;
         _shouldRunPerStatementChecks = false;
+        _bypassStatementFastPaths = false;
         _hasAmortizedConstraints = false;
         _statementCounter = null;
     }
@@ -59,6 +67,18 @@ internal sealed class EvaluationContext
     /// once per statement they execute.
     /// </summary>
     internal bool ShouldRunPerStatementChecks => _shouldRunPerStatementChecks;
+
+    /// <summary>
+    /// Whether a statement whose result the interpreter can produce without executing it must be executed
+    /// anyway. Set for debug mode (the debugger has to step onto the statement) and for coverage collection
+    /// (the statement has to be counted). Frozen per context from engine state that is fixed for the engine's
+    /// lifetime, so the read is one field rather than a hop through <see cref="Engine"/>.
+    /// <para>
+    /// The one such shortcut today is <see cref="JintStatementList"/>'s pre-resolved
+    /// <c>return &lt;literal&gt;;</c>.
+    /// </para>
+    /// </summary>
+    internal bool BypassStatementFastPaths => _bypassStatementFastPaths;
 
     /// <summary>
     /// Returns true if the generator is suspended (yielded) or a return was requested.

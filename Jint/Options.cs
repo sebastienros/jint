@@ -9,6 +9,7 @@ using Jint.Native.Object;
 using Jint.Native.Temporal;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
+using Jint.Runtime.Coverage;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -54,6 +55,11 @@ public partial class Options
     /// Debugger configuration.
     /// </summary>
     public DebuggerOptions Debugger { get; } = new();
+
+    /// <summary>
+    /// Script code coverage configuration. Off by default.
+    /// </summary>
+    public CoverageOptions Coverage { get; } = new();
 
     /// <summary>
     /// Host options.
@@ -339,6 +345,36 @@ public partial class Options
         /// Configures the step mode used when entering the script.
         /// </summary>
         public StepMode InitialStepMode { get; set; } = StepMode.None;
+    }
+
+    /// <summary>
+    /// Script code coverage configuration. Read once, while the engine is being constructed; changing it
+    /// afterwards only reaches engines built later.
+    /// </summary>
+    /// <remarks>
+    /// Nothing here is engine-affine, so an <see cref="Options"/> instance carrying it stays shareable across
+    /// engines — each engine gets its own counters, and reading one engine's report never sees another's.
+    /// </remarks>
+    public class CoverageOptions
+    {
+        /// <summary>
+        /// Whether the engine counts what it executes, defaults to false. When set, the engine collects hit
+        /// counts readable through <see cref="Engine.AdvancedOperations.GetCoverage"/>; when not set — the
+        /// default — the interpreter contains no coverage work of any kind, since the per-statement lane the
+        /// counting rides on is not armed.
+        /// </summary>
+        /// <remarks>
+        /// Enabling it disarms the interpreter's tight-loop lane for the engine, the same way registering an
+        /// exact execution constraint or enabling the debugger does, so measured code runs the instrumented
+        /// path. See <see cref="Engine.AdvancedOperations.GetCoverage"/>.
+        /// </remarks>
+        public bool Enabled { get; set; }
+
+        /// <summary>
+        /// What is counted, defaults to <see cref="CoverageGranularity.Statements"/>. The granularity decides
+        /// what the report contains, not how the engine executes: both values collect through the same lane.
+        /// </summary>
+        public CoverageGranularity Granularity { get; set; } = CoverageGranularity.Statements;
     }
 
     public class InteropOptions

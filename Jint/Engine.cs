@@ -13,6 +13,7 @@ using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
+using Jint.Runtime.Coverage;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -427,6 +428,10 @@ public sealed partial class Engine : IDisposable
         // gather some options as fields for faster checks
         _isDebugMode = Options.Debugger.Enabled;
         _isStrict = Options.Strict;
+
+        // Must be settled before the EvaluationContext below is built: the context folds this into the
+        // per-statement-lane decision, and that lane is the only thing that ever reaches the counters.
+        _coverage = Options.Coverage.Enabled ? new CoverageCollector(Options.Coverage.Granularity) : null;
 
         _objectConverters = Options.Interop.ObjectConverters.Count > 0
             ? Options.Interop.ObjectConverters.ToArray()
@@ -1253,7 +1258,13 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// The exactly-once-per-statement slice of the before-statement checks: constraints whose
-    /// call frequency is observable (statement counting, user-derived) and the debugger step hook.
+    /// call frequency is observable (statement counting, user-derived), the code-coverage counters and
+    /// the debugger step hook.
+    /// <para>
+    /// Nothing calls this unless <see cref="EvaluationContext.ShouldRunPerStatementChecks"/> is set, which
+    /// takes an exact constraint, debug mode or coverage collection. That is what keeps the coverage counting
+    /// below free for every engine that did not ask for it: not a folded branch, an uncalled method.
+    /// </para>
     /// </summary>
     internal void RunPerStatementChecks(StatementOrExpression? statement)
     {
@@ -1261,6 +1272,12 @@ public sealed partial class Engine : IDisposable
         foreach (var constraint in _exactConstraints)
         {
             constraint.Check();
+        }
+
+        // After the constraints on purpose: a statement a constraint refused is a statement that never ran.
+        if (_coverage is not null && statement is not null)
+        {
+            _coverage.Record(statement);
         }
 
         if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
