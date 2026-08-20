@@ -126,6 +126,42 @@ public class FetchTests
     }
 
     [Fact]
+    public void AStreamRequestBodyIsReadInFullBeforeAnythingIsSent()
+    {
+        // Streaming uploads (the standard's `duplex: "half"`) are out of scope: the stream is drained first
+        // and the request carries the bytes it produced.
+        var handler = new StubHandler();
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'POST',
+            body: new ReadableStream({
+                start(c) { c.enqueue(new Uint8Array([104])); c.enqueue(new Uint8Array([105])); c.close(); },
+            }),
+        })");
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be("POST");
+        request.Body.Should().Be("hi");
+
+        // https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the ReadableStream arm implies no type.
+        request.Header("content-type").Should().BeNull();
+    }
+
+    [Fact]
+    public void AStreamRequestBodyThatErrorsRejectsBeforeASocketIsOpened()
+    {
+        var handler = new StubHandler();
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'POST',
+            body: new ReadableStream({ start(c) { c.error(new TypeError('boom')); } }),
+        }).then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
+            .AsString().Should().Be("TypeError: boom");
+
+        handler.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
     public void MapsEveryResponseHeaderIncludingRepeatedOnes()
     {
         var handler = new StubHandler
@@ -337,9 +373,13 @@ public class FetchTests
         engine.Advanced.ProcessTasks();
 
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
-        engine.Evaluate("r.body").Should().Be(JsValue.Null);
 
+        // A network response streams: body is the live ReadableStream, not null.
+        engine.Evaluate("Object.prototype.toString.call(r.body)").AsString().Should().Be("[object ReadableStream]");
+
+        // clone() tees, so each object gets its own branch — https://fetch.spec.whatwg.org/#concept-body-clone.
         engine.Execute("var copy = r.clone();");
+        engine.Evaluate("r.body === copy.body").AsBoolean().Should().BeFalse();
 
         engine.Evaluate("r.json()").UnwrapIfPromise().AsObject().Get("a").AsNumber().Should().Be(1);
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();

@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using SystemEncoding = System.Text.Encoding;
+using System.Buffers;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Native.Object;
@@ -7,6 +8,7 @@ using Jint.Native.Promise;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.WebApi.Files;
+using Jint.WebApi.Streams;
 using Jint.WebApi.Url;
 using Jint.WebApi.Url.Parsing;
 
@@ -18,16 +20,32 @@ namespace Jint.WebApi.Fetch;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Bodies are buffered, not streamed.</b> The standard's body is a <c>ReadableStream</c>, which Jint does
-/// not have; a body here is a byte array that already exists in full, which is why every consumer answers an
-/// already-resolved promise and why <c>body</c> is always <see langword="null"/> (see
-/// <c>RequestPrototype.BodyGet</c>). What the standard's <i>disturbed</i> flag buys is kept exactly:
-/// <see cref="BodyUsed"/> flips on the first consume and every later one rejects, so a script that reads a
-/// response twice fails the way it would in a browser rather than silently succeeding here and failing there.
+/// The standard's body is a record of a <c>ReadableStream</c> and an optional <i>source</i> — the bytes the
+/// stream was built from, kept so that a body can be re-extracted. Both halves are here, and which one is
+/// present decides how a consumer is served:
+/// </para>
+/// <list type="bullet">
+/// <item>
+/// A body extracted from bytes — a string, a <c>Blob</c>, a <c>BufferSource</c>, <c>URLSearchParams</c> —
+/// keeps its <see cref="Source"/> and creates no stream at all until something asks for
+/// <see cref="Stream"/>. <c>text()</c> on such a body answers an already-resolved promise off the source, so
+/// the common <c>new Response('…').text()</c> costs no stream, no reader and no event-loop turn.
+/// </item>
+/// <item>
+/// A body that arrived as a stream — a network response, or a <c>ReadableStream</c> handed to a constructor
+/// — has no source, and every consumer reads it through the standard's fully-read steps.
+/// </item>
+/// </list>
+/// <para>
+/// <see cref="HasBody"/> distinguishes both from the standard's <i>null body</i>, which is not the same as an
+/// empty one: it can be consumed any number of times and never flips <c>bodyUsed</c>.
 /// </para>
 /// <para>
-/// A <see langword="null"/> <see cref="Body"/> is the standard's null body, which is not the same as an empty
-/// one: it can be consumed any number of times and never flips <see cref="BodyUsed"/>.
+/// <c>bodyUsed</c> and "body is unusable" are the stream's <i>disturbed</i> and <i>locked</i> flags, exactly
+/// as https://fetch.spec.whatwg.org/#dom-body-bodyused defines them. A body that never materialized a stream
+/// has no flags to read, so <see cref="SourceDisturbed"/> stands in for the disturbance the extraction-time
+/// stream would have recorded — the two are indistinguishable from script, because the only way to observe
+/// the stream is to ask for it, which materializes it.
 /// </para>
 /// </remarks>
 internal abstract class FetchBodyObject : ObjectInstance
@@ -44,22 +62,110 @@ internal abstract class FetchBodyObject : ObjectInstance
     internal JsHeaders Headers { get; }
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#concept-body — the bytes, or <see langword="null"/> for a null body.
-    /// A clone shares the array with its original, which a buffered body's immutability makes safe.
+    /// https://fetch.spec.whatwg.org/#concept-body-source — the bytes the body was extracted from, or
+    /// <see langword="null"/> when there is no body or the body only ever existed as a stream. A clone shares
+    /// the array with its original, which a buffered body's immutability makes safe.
     /// </summary>
-    internal ReadOnlyMemory<byte>? Body { get; set; }
+    internal ReadOnlyMemory<byte>? Source { get; private set; }
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#dom-body-bodyused — whether the body has been consumed. Per object, so
-    /// a clone starts unused however often the original was read.
+    /// https://fetch.spec.whatwg.org/#concept-body-stream — the body's stream, or <see langword="null"/>
+    /// while a buffered body has not been asked for one.
     /// </summary>
-    internal bool BodyUsed { get; set; }
+    internal JsReadableStream? Stream { get; private set; }
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#body-unusable — a non-null body that has already been consumed. What
-    /// makes a second <c>text()</c> reject and a <c>clone()</c> after one throw.
+    /// Whether the body concept is non-null at all, which is what
+    /// https://fetch.spec.whatwg.org/#body-unusable and <c>bodyUsed</c> both key on.
     /// </summary>
-    internal bool IsUnusable => Body is not null && BodyUsed;
+    internal bool HasBody { get; private set; }
+
+    /// <summary>
+    /// Stands in for the disturbance of the stream a buffered body never had to create. Only ever read while
+    /// <see cref="Stream"/> is <see langword="null"/>.
+    /// </summary>
+    private bool SourceDisturbed { get; set; }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-body-bodyused — "this's body is non-null and this's body's stream
+    /// is disturbed".
+    /// </summary>
+    internal bool BodyUsed => HasBody && (Stream is not null ? Stream.Disturbed : SourceDisturbed);
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#body-unusable — a non-null body whose stream is disturbed or locked.
+    /// What makes a second <c>text()</c> reject and a <c>clone()</c> after one throw.
+    /// </summary>
+    internal bool IsUnusable => HasBody && (BodyUsed || (Stream is not null && ReadableStreamOperations.IsLocked(Stream)));
+
+    /// <summary>Sets the body to one extracted from a byte sequence.</summary>
+    internal void SetBufferedBody(ReadOnlyMemory<byte> bytes)
+    {
+        Source = bytes;
+        Stream = null;
+        SourceDisturbed = false;
+        HasBody = true;
+    }
+
+    /// <summary>
+    /// Sets the body to one that only exists as a stream — a network response, or a <c>ReadableStream</c>
+    /// passed as a <c>BodyInit</c>.
+    /// </summary>
+    internal void SetStreamBody(JsReadableStream stream)
+    {
+        Source = null;
+        Stream = stream;
+        SourceDisturbed = false;
+        HasBody = true;
+    }
+
+    /// <summary>
+    /// Replaces the stream in place, which is what <c>clone</c> does with the first branch of its tee —
+    /// https://fetch.spec.whatwg.org/#concept-body-clone step 2.
+    /// </summary>
+    internal void ReplaceStream(JsReadableStream stream) => Stream = stream;
+
+    /// <summary>
+    /// Records that a buffered body's source has been consumed. Never called once a stream exists, because
+    /// the stream's own <c>disturbed</c> flag is then the authority.
+    /// </summary>
+    internal void MarkSourceDisturbed() => SourceDisturbed = true;
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-body-body — the stream, materializing it from the buffered source
+    /// on first ask. <see langword="null"/> for a null body.
+    /// </summary>
+    /// <remarks>
+    /// A body extracted from bytes has a stream from the moment it is extracted, per the standard; deferring
+    /// its creation to the first read of <c>body</c> is invisible, because asking is the only way to observe
+    /// it. What the deferral buys is the buffered fast path in <see cref="FetchBody.Consume"/>: a script that
+    /// only ever calls <c>text()</c> never builds a stream, a controller or a reader.
+    /// </remarks>
+    internal JsReadableStream? GetOrCreateStream(Realm realm)
+    {
+        if (!HasBody)
+        {
+            return null;
+        }
+
+        if (Stream is not null)
+        {
+            return Stream;
+        }
+
+        var bytes = Source!.Value;
+        var stream = ByteStreams.CreateFromBytes(Engine, realm, bytes);
+
+        // A source that has already been consumed hands back a stream that is disturbed to match, so
+        // `r.text(); r.body.locked` and `r.bodyUsed` keep telling the same story.
+        if (SourceDisturbed)
+        {
+            ReadableStreamOperations.Cancel(stream, Undefined);
+        }
+
+        Stream = stream;
+        return stream;
+    }
 }
 
 /// <summary>
@@ -96,27 +202,50 @@ internal static class FetchBody
     private const string JsonType = "application/json";
 
     /// <summary>
-    /// The extract-a-body algorithm, https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the bytes plus
-    /// the <c>Content-Type</c> the source implies, which is <see langword="null"/> when it implies none.
+    /// One arm of the extract-a-body algorithm's result: either the bytes a source was reduced to, or the
+    /// stream the source <i>is</i>.
+    /// </summary>
+    /// <remarks>
+    /// A <c>readonly record struct</c> rather than a tuple because both constructors pass it around and one
+    /// of them stores it, and because <c>Bytes</c>/<c>Stream</c>/<c>Type</c> read better than three
+    /// positional items at those call sites.
+    /// </remarks>
+    internal readonly record struct ExtractedBody(ReadOnlyMemory<byte> Bytes, JsReadableStream? Stream, string? Type);
+
+    /// <summary>
+    /// The extract-a-body algorithm, https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the bytes (or
+    /// the stream) plus the <c>Content-Type</c> the source implies, which is <see langword="null"/> when it
+    /// implies none.
     /// </summary>
     /// <remarks>
     /// The union arms are tried in the order the IDL declares them, which is what makes a <c>Blob</c> a blob
-    /// rather than a stringified object. <c>ReadableStream</c> is absent, and a <c>FormData</c> is refused
-    /// rather than silently stringified — see <see cref="ThrowFormDataUnsupported"/>.
+    /// rather than a stringified object. A <c>FormData</c> is refused rather than silently stringified — see
+    /// <see cref="ThrowFormDataUnsupported"/>.
     /// </remarks>
-    internal static (ReadOnlyMemory<byte> Bytes, string? Type) Extract(Realm realm, JsValue body)
+    internal static ExtractedBody Extract(Realm realm, JsValue body)
     {
         switch (body)
         {
             case JsBlob blob:
-                return (blob.Data.ToArray(), blob.MediaType.Length == 0 ? null : blob.MediaType);
+                return new ExtractedBody(blob.Data.ToArray(), null, blob.MediaType.Length == 0 ? null : blob.MediaType);
 
             case JsFormData:
                 ThrowFormDataUnsupported(realm);
                 return default;
 
             case JsUrlSearchParams parameters:
-                return (SystemEncoding.UTF8.GetBytes(FormUrlEncoded.Serialize(parameters.List)), FormUrlEncodedType);
+                return new ExtractedBody(SystemEncoding.UTF8.GetBytes(FormUrlEncoded.Serialize(parameters.List)), null, FormUrlEncodedType);
+
+            case JsReadableStream stream:
+                // "If object is disturbed or locked, then throw a TypeError" — the stream becomes this
+                // body's stream, so a stream something else is already reading cannot also be one.
+                if (stream.Disturbed || ReadableStreamOperations.IsLocked(stream))
+                {
+                    Throw.TypeError(realm, "The provided ReadableStream is disturbed or locked");
+                }
+
+                // A stream implies no Content-Type: the standard's ReadableStream arm sets no type.
+                return new ExtractedBody(default, stream, null);
         }
 
         if (FileApi.TryGetBufferSourceBytes(body, out var buffered))
@@ -124,11 +253,11 @@ internal static class FetchBody
             // "Set source to a copy of the bytes held by object" — the buffer stays script-writable, and a
             // request body that changed under the engine after it was set would be a request-smuggling
             // primitive rather than a curiosity.
-            return (buffered.ToArray(), null);
+            return new ExtractedBody(buffered.ToArray(), null, null);
         }
 
         // The USVString arm: every unpaired surrogate becomes U+FFFD, which is what UTF8.GetBytes does.
-        return (SystemEncoding.UTF8.GetBytes(UrlValues.ToUsvString(body)), TextPlainType);
+        return new ExtractedBody(SystemEncoding.UTF8.GetBytes(UrlValues.ToUsvString(body)), null, TextPlainType);
     }
 
     /// <summary>
@@ -137,16 +266,23 @@ internal static class FetchBody
     internal const string JsonContentType = JsonType;
 
     /// <summary>
-    /// The tail of the two constructors' body handling: store the extracted bytes, and append the implied
+    /// The tail of the two constructors' body handling: store the extracted body, and append the implied
     /// <c>Content-Type</c> unless the header list already carries one — steps 39 and 40 of
     /// https://fetch.spec.whatwg.org/#dom-request and step 6 of
     /// https://fetch.spec.whatwg.org/#initialize-a-response.
     /// </summary>
-    internal static void SetBody(FetchBodyObject target, ReadOnlyMemory<byte> bytes, string? type)
+    internal static void SetBody(FetchBodyObject target, in ExtractedBody body)
     {
-        target.Body = bytes;
+        if (body.Stream is { } stream)
+        {
+            target.SetStreamBody(stream);
+        }
+        else
+        {
+            target.SetBufferedBody(body.Bytes);
+        }
 
-        if (type is not null && !target.Headers.List.Contains("content-type"))
+        if (body.Type is { } type && !target.Headers.List.Contains("content-type"))
         {
             target.Headers.List.Append("content-type", type);
         }
@@ -159,7 +295,36 @@ internal static class FetchBody
     /// </summary>
     internal static void ThrowFormDataUnsupported(Realm realm)
     {
-        Throw.TypeError(realm, "A FormData body is not supported yet: Jint has no multipart/form-data serializer. Send a string, a Blob, a BufferSource or a URLSearchParams instead.");
+        Throw.TypeError(realm, "A FormData body is not supported yet: Jint has no multipart/form-data serializer. Send a string, a Blob, a BufferSource, a URLSearchParams or a ReadableStream instead.");
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-body-clone — "tee body's stream, keep the first branch and give
+    /// the second to the clone".
+    /// </summary>
+    /// <remarks>
+    /// A body that has not materialized a stream is cloned by <i>sharing its source</i> instead, which is
+    /// indistinguishable: neither object has a stream to tee, and each carries its own disturbance. Tee is
+    /// used the moment a stream exists — for a network response, or for a body a script has already asked
+    /// <c>body</c> for — because from then on the two objects' streams have to be different objects with
+    /// independent queues.
+    /// </remarks>
+    internal static void CloneBody(FetchBodyObject source, FetchBodyObject target)
+    {
+        if (!source.HasBody)
+        {
+            return;
+        }
+
+        if (source.Stream is not { } stream)
+        {
+            target.SetBufferedBody(source.Source!.Value);
+            return;
+        }
+
+        var (branch1, branch2) = ReadableStreamTee.Tee(stream);
+        source.ReplaceStream(branch1);
+        target.SetStreamBody(branch2);
     }
 
     /// <summary>
@@ -178,15 +343,69 @@ internal static class FetchBody
         }
 
         // A null body is not disturbed by being read, so bodyUsed stays false and a second read is fine.
-        var bytes = target.Body ?? default;
-        if (target.Body is not null)
+        if (!target.HasBody)
         {
-            target.BodyUsed = true;
+            Settle(engine, realm, target, kind, default, capability);
+            return capability.PromiseInstance;
         }
 
+        if (target.Stream is null)
+        {
+            // The buffered fast path: the bytes are here, so nothing has to wait for an event-loop turn.
+            target.MarkSourceDisturbed();
+            Settle(engine, realm, target, kind, target.Source!.Value.Span, capability);
+            return capability.PromiseInstance;
+        }
+
+        // https://fetch.spec.whatwg.org/#concept-body-fully-read — get a reader and read all bytes.
+        FullyRead(
+            engine,
+            realm,
+            target.Stream!,
+            bytes => Settle(engine, realm, target, kind, bytes.WrittenSpan, capability),
+            capability.Reject);
+
+        return capability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// Reads a request body that only exists as a stream into the bytes the transport has to send.
+    /// </summary>
+    /// <remarks>
+    /// <b>A request body is uploaded buffered.</b> The standard allows a <c>ReadableStream</c> to be streamed
+    /// to the server (<c>duplex: "half"</c>), which needs a request-side <c>HttpContent</c> the transport can
+    /// pull from and a server willing to read it before answering; that is deliberately out of scope, and
+    /// <c>duplex</c> is absent rather than accepted and ignored. What is supported is the shape a script
+    /// actually writes — a stream that produces the bytes, which are collected here and then sent as one
+    /// body. The stream is disturbed by this, exactly as it would be by a streaming upload.
+    /// </remarks>
+    internal static void ReadRequestBody(
+        Engine engine,
+        Realm realm,
+        FetchBodyObject request,
+        Action<ReadOnlyMemory<byte>> onBytes,
+        Action<JsValue> onError)
+    {
+        if (request.IsUnusable)
+        {
+            onError(realm.Intrinsics.TypeError.Construct("Body has already been consumed"));
+            return;
+        }
+
+        FullyRead(engine, realm, request.Stream!, bytes => onBytes(bytes.WrittenSpan.ToArray()), onError);
+    }
+
+    private static void Settle(
+        Engine engine,
+        Realm realm,
+        FetchBodyObject target,
+        BodyConsumeKind kind,
+        ReadOnlySpan<byte> bytes,
+        PromiseCapability capability)
+    {
         try
         {
-            capability.Resolve(Package(engine, realm, target, bytes.Span, kind));
+            capability.Resolve(Package(engine, realm, target, bytes, kind));
         }
         catch (JavaScriptException ex)
         {
@@ -194,8 +413,131 @@ internal static class FetchBody
             // the standard's "if parsing fails, reject with that exception" asks for.
             capability.Reject(ex.Error);
         }
+    }
 
-        return capability.PromiseInstance;
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-body-fully-read, whose read-all-bytes half is
+    /// https://streams.spec.whatwg.org/#readablestream-read-all-bytes.
+    /// </summary>
+    private static void FullyRead(
+        Engine engine,
+        Realm realm,
+        JsReadableStream stream,
+        Action<ArrayBufferWriter<byte>> onBytes,
+        Action<JsValue> onError)
+    {
+        JsReadableStreamDefaultReader reader;
+        try
+        {
+            reader = ReadableStreamOperations.AcquireDefaultReader(stream);
+        }
+        catch (JavaScriptException ex)
+        {
+            // "If acquiring a reader throws, reject promise with that exception" — the locked case, which
+            // IsUnusable above has already ruled out for every caller here.
+            onError(ex.Error);
+            return;
+        }
+
+        new FullyReadRequest(realm, reader, onBytes, onError).Run();
+    }
+
+    /// <summary>
+    /// The read request behind <see cref="FullyRead"/>: accumulate every chunk, then package the bytes.
+    /// </summary>
+    /// <remarks>
+    /// The standard's read-loop is written as recursion — each chunk's steps read again — which for a stream
+    /// whose queue is already full would recurse once per queued chunk. <see cref="Run"/> turns that into a
+    /// loop with the same reentrancy pair a tee uses: a chunk delivered <i>inside</i> the read sets
+    /// <c>readAgain</c> and the loop goes round, while one delivered later starts a fresh loop of its own.
+    /// </remarks>
+    private sealed class FullyReadRequest : ReadRequest
+    {
+        private readonly Realm _realm;
+        private readonly JsReadableStreamDefaultReader _reader;
+        private readonly Action<ArrayBufferWriter<byte>> _onBytes;
+        private readonly Action<JsValue> _onError;
+        private readonly ArrayBufferWriter<byte> _bytes = new();
+
+        private bool _reading;
+        private bool _readAgain;
+        private bool _done;
+
+        internal FullyReadRequest(
+            Realm realm,
+            JsReadableStreamDefaultReader reader,
+            Action<ArrayBufferWriter<byte>> onBytes,
+            Action<JsValue> onError)
+        {
+            _realm = realm;
+            _reader = reader;
+            _onBytes = onBytes;
+            _onError = onError;
+        }
+
+        internal void Run()
+        {
+            do
+            {
+                _readAgain = false;
+                _reading = true;
+                try
+                {
+                    ReadableStreamOperations.DefaultReaderRead(_reader, this);
+                }
+                finally
+                {
+                    _reading = false;
+                }
+            }
+            while (_readAgain && !_done);
+        }
+
+        internal override void ChunkSteps(JsValue chunk)
+        {
+            // "If chunk is not a Uint8Array object, call failureSteps with a TypeError" — a stream carrying
+            // strings or plain objects is not a body, and saying so beats coercing it into one.
+            if (chunk is not JsTypedArray { _arrayElementType: TypedArrayElementType.Uint8 })
+            {
+                Fail(_realm.Intrinsics.TypeError.Construct("The body stream produced a chunk that is not a Uint8Array"));
+                return;
+            }
+
+            if (FileApi.TryGetBufferSourceBytes(chunk, out var bytes) && !bytes.IsEmpty)
+            {
+                _bytes.Write(bytes);
+            }
+
+            if (_reading)
+            {
+                _readAgain = true;
+                return;
+            }
+
+            Run();
+        }
+
+        internal override void CloseSteps()
+        {
+            _done = true;
+            _onBytes(_bytes);
+        }
+
+        internal override void ErrorSteps(JsValue error)
+        {
+            _done = true;
+            _onError(error);
+        }
+
+        private void Fail(JsValue error)
+        {
+            _done = true;
+
+            // The standard's failure steps for a non-Uint8Array chunk release the reader's lock before
+            // reporting, so the stream is left usable rather than pinned by a reader nobody holds.
+            ReadableStreamOperations.DefaultReaderRelease(_reader);
+            _onError(error);
+        }
     }
 
     private static JsValue Package(Engine engine, Realm realm, FetchBodyObject target, ReadOnlySpan<byte> bytes, BodyConsumeKind kind)
@@ -209,10 +551,7 @@ internal static class FetchBody
                 };
 
             case BodyConsumeKind.Bytes:
-                var uint8Array = realm.Intrinsics.Uint8Array;
-                var array = uint8Array.AllocateTypedArray(uint8Array, (uint) bytes.Length);
-                TypedArrayConstructor.FillTypedArrayInstance(array, bytes);
-                return array;
+                return ByteStreams.NewUint8Array(engine, realm, bytes);
 
             case BodyConsumeKind.Blob:
                 return new JsBlob(engine, bytes.ToArray(), MimeType(target))

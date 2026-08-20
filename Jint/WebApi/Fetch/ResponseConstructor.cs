@@ -61,13 +61,13 @@ internal sealed partial class ResponseConstructor : Constructor
         // Steps 3 and 4: the body is extracted *before* initialize runs its range checks, so
         // `new Response(new FormData(), { status: 999 })` reports the unsupported body rather than the
         // status. body is optional and nullable, so an omitted argument and an explicit null both mean none.
-        (ReadOnlyMemory<byte> Bytes, string? Type)? bodyWithType = null;
+        FetchBody.ExtractedBody? extracted = null;
         if (!body.IsNullOrUndefined())
         {
-            bodyWithType = FetchBody.Extract(_realm, body);
+            extracted = FetchBody.Extract(_realm, body);
         }
 
-        Initialize(response, init, bodyWithType);
+        Initialize(response, init, extracted);
         return response;
     }
 
@@ -135,7 +135,7 @@ internal sealed partial class ResponseConstructor : Constructor
         }
 
         var response = NewResponse();
-        Initialize(response, init, (writer.WrittenMemory, FetchBody.JsonContentType));
+        Initialize(response, init, new FetchBody.ExtractedBody(writer.WrittenMemory, null, FetchBody.JsonContentType));
         return response;
     }
 
@@ -144,7 +144,7 @@ internal sealed partial class ResponseConstructor : Constructor
     /// message, headers and body a <c>ResponseInit</c> carries, shared by the constructor and by
     /// <c>Response.json</c>.
     /// </summary>
-    private void Initialize(JsResponse response, JsValue init, (ReadOnlyMemory<byte> Bytes, string? Type)? body)
+    private void Initialize(JsResponse response, JsValue init, FetchBody.ExtractedBody? body)
     {
         var initObject = ToInit(init);
 
@@ -174,7 +174,7 @@ internal sealed partial class ResponseConstructor : Constructor
             response.Headers.Fill(_realm, headersInit);
         }
 
-        if (body is not { } bodyWithType)
+        if (body is not { } extracted)
         {
             return;
         }
@@ -186,7 +186,7 @@ internal sealed partial class ResponseConstructor : Constructor
             Throw.TypeError(_realm, "Failed to construct 'Response': Response with null body status cannot have body");
         }
 
-        FetchBody.SetBody(response, bodyWithType.Bytes, bodyWithType.Type);
+        FetchBody.SetBody(response, in extracted);
     }
 
     private ObjectInstance? ToInit(JsValue init)

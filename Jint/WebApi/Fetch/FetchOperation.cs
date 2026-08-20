@@ -72,7 +72,21 @@ internal sealed class FetchOperation
     private readonly CancellationTokenSource _cancellation;
     private readonly TimeSpan _timeout;
 
+    /// <summary>
+    /// When the deadline started, so that the body half of the request can be given what is left of it. The
+    /// documented contract is that <c>Options.WebApi.Fetch.Timeout</c> bounds the whole call "from the call
+    /// to the last byte of the body", and the body no longer shares the header phase's token source.
+    /// </summary>
+    private readonly long _startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+
     private int _settled;
+
+    /// <summary>
+    /// The response body the transport handed back, between the pool thread that produced it and the engine
+    /// thread that turns it into a stream. Taken by whichever of <see cref="ResolveWithResponse"/> and
+    /// <see cref="Abandon"/> gets there first, so the connection is let go exactly once.
+    /// </summary>
+    private FetchBodyStream? _pendingBody;
 
     private FetchOperation(Engine engine, Realm realm, PromiseCapability capability, JsAbortSignal signal, TimeSpan timeout)
     {
@@ -185,18 +199,70 @@ internal sealed class FetchOperation
         }
 
         var operation = new FetchOperation(engine, realm, capability, request.Signal, options.Timeout);
-        var snapshot = new FetchRequestSnapshot
+        state.RegisterFetch(operation);
+
+        FetchRequestSnapshot Snapshot(ReadOnlyMemory<byte>? body) => new()
         {
             Method = request.Method,
             Url = request.Url,
             Headers = new List<HeaderEntry>(request.Headers.List.Entries),
-            Body = request.Body,
+            Body = body,
             Redirect = request.Redirect,
         };
 
-        state.RegisterFetch(operation);
-        operation.Run(client, snapshot, policy);
+        // A request body given as a ReadableStream is read in full before anything is sent: a streaming
+        // upload is the standard's `duplex: "half"`, which needs a request-side body the transport can pull
+        // from and is deliberately out of scope. Everything else already holds its bytes.
+        if (request is { HasBody: true, Source: null })
+        {
+            // Reading the stream can take any number of event-loop turns, so both callbacks have to allow for
+            // the operation having been abandoned in between — which is what Abandoned() answers.
+            FetchBody.ReadRequestBody(
+                engine,
+                realm,
+                request,
+                bytes =>
+                {
+                    if (!operation.Abandoned)
+                    {
+                        operation.Run(client, Snapshot(bytes), policy);
+                    }
+                },
+                error =>
+                {
+                    state.UnregisterFetch(operation);
+                    operation.RejectBeforeSending(error);
+                });
+
+            return capability.PromiseInstance;
+        }
+
+        operation.Run(client, Snapshot(request.Source), policy);
         return capability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// Whether the operation has already been settled or abandoned, which is the only thing a callback
+    /// arriving on a later event-loop turn can safely act on.
+    /// </summary>
+    private bool Abandoned => Volatile.Read(ref _settled) != 0;
+
+    /// <summary>
+    /// Fails the fetch before a socket was ever opened, which is what a request body stream that errored
+    /// leaves. The token source has nothing to cancel and is released here rather than by a settle job that
+    /// will never run.
+    /// </summary>
+    private void RejectBeforeSending(JsValue error)
+    {
+        if (Interlocked.Exchange(ref _settled, 1) != 0)
+        {
+            // Abandoned while the request body was still being read: the restore's generation fence is what
+            // this promise is behind now, and settling it is exactly what that forbids.
+            return;
+        }
+
+        _cancellation.Dispose();
+        _capability.Reject(error);
     }
 
     private static HttpClient ResolveClient(Engine engine, Realm realm, Options.FetchOptions options)
@@ -248,9 +314,19 @@ internal sealed class FetchOperation
     /// </summary>
     private void Complete(Task<FetchResponseSnapshot> task)
     {
+        var body = task.Status == TaskStatus.RanToCompletion ? task.Result.Body : null;
+
         if (Interlocked.CompareExchange(ref _settled, 1, 0) != 0)
         {
+            // Abandoned while the headers were in flight. The connection has nobody left to read it, and the
+            // settle job that would have taken ownership of it will never run.
+            body?.Dispose();
             return;
+        }
+
+        if (body is not null)
+        {
+            Interlocked.Exchange(ref _pendingBody, body);
         }
 
         if (task.IsCanceled || task.Exception?.InnerException is OperationCanceledException)
@@ -348,14 +424,32 @@ internal sealed class FetchOperation
         response.Url = snapshot.Url;
         response.Redirected = snapshot.Redirected;
 
-        // A null body status carries no body, and the transport's zero-byte read is not the same thing: a
-        // 204's bodyUsed must stay false however often the script reads it.
-        if (!FetchValues.IsNullBodyStatus(snapshot.Status))
+        // The transport gives no body at all for a null body status, and a zero-byte read would not be the
+        // same thing: a 204's bodyUsed must stay false however often the script reads it.
+        if (Interlocked.Exchange(ref _pendingBody, null) is { } body)
         {
-            response.Body = snapshot.Body;
+            // The body gets a token source of its own rather than sharing the header phase's, which this
+            // settle job is about to dispose: an abort or an engine cancellation still reaches it, and the
+            // rest of the deadline is re-armed on it.
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_signalToken, _engineToken);
+            response.SetStreamBody(body.Attach(_engine, _realm, cancellation, RemainingTimeout()));
         }
 
         _capability.Resolve(response);
+    }
+
+    /// <summary>
+    /// What is left of <c>Options.WebApi.Fetch.Timeout</c> once the headers are in, or <see langword="null"/>
+    /// when the host asked for no deadline at all.
+    /// </summary>
+    private TimeSpan? RemainingTimeout()
+    {
+        if (_timeout <= TimeSpan.Zero || _timeout == Timeout.InfiniteTimeSpan)
+        {
+            return null;
+        }
+
+        return _timeout - System.Diagnostics.Stopwatch.GetElapsedTime(_startedAt);
     }
 
     /// <summary>
@@ -403,7 +497,7 @@ internal sealed class FetchOperation
     /// <c>JintException.TryGetClrException</c> while the script cannot see it at all.
     /// </para>
     /// </remarks>
-    private static JsValue NetworkError(Realm realm, Exception failure)
+    internal static JsValue NetworkError(Realm realm, Exception failure)
     {
         var message = failure is FetchFailureException { Kind: FetchFailureKind.RedirectLimit or FetchFailureKind.ResponseTooLarge } bounded
             ? "Failed to fetch: " + bounded.Message
@@ -441,6 +535,10 @@ internal sealed class FetchOperation
         }
 
         _cancellation.Dispose();
+
+        // A response whose headers arrived but whose settle job the fence will discard: nothing will ever
+        // read the body, so the connection is let go here rather than waiting for a finalizer.
+        Interlocked.Exchange(ref _pendingBody, null)?.Dispose();
     }
 
     private bool EnterFetchRealm()

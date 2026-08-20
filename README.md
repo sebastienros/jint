@@ -224,7 +224,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
-| `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
+| `Blob` (incl. `stream()`) / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
@@ -466,24 +466,56 @@ var engine = new Engine(options => options.UseWebApis().UseFetch(fetch =>
 var body = engine.Evaluate("fetch('https://api.example.org/x').then(r => r.json())").UnwrapIfPromise();
 ```
 
-Enabling it also brings `Events`, `Url` and `Files`, because fetch's own surface is built out of them: a
-`Request` always has an `AbortSignal`, its URL is a WHATWG URL, and `response.blob()` answers with a `Blob`.
+Enabling it also brings `Events`, `Url`, `Files` and `Streams`, because fetch's own surface is built out of
+them: a `Request` always has an `AbortSignal`, its URL is a WHATWG URL, `response.blob()` answers with a
+`Blob`, and `response.body` is a `ReadableStream`.
 
 `Headers`, `Request` and `Response` are the standard's own classes — the full `Headers` (sorted, combined
 iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `Response.error()`,
-`Response.redirect()`, `Response.json()`. Bodies are **buffered rather than streamed**: `text()`, `json()`,
-`arrayBuffer()`, `bytes()` and `blob()` answer already-resolved promises, `bodyUsed` flips on the first read
-and a second one rejects, and `response.body` is always `null` because Jint has no streams yet. `formData()`
-is absent and a `FormData` request body is a `TypeError` — the `multipart/form-data` serializer is a
-follow-up. `credentials`, `cache`, `mode`, `referrer` and `integrity` are accepted and ignored, the same
-convention Node and workerd follow, because there is no origin, cookie jar or HTTP cache here to honour them
-with.
+`Response.redirect()`, `Response.json()`. `formData()` is absent and a `FormData` request body is a
+`TypeError` — the `multipart/form-data` serializer is a follow-up. `credentials`, `cache`, `mode`, `referrer`
+and `integrity` are accepted and ignored, the same convention Node and workerd follow, because there is no
+origin, cookie jar or HTTP cache here to honour them with.
+
+### Response bodies stream
+
+`response.body` is a real `ReadableStream`, and a network response is read **on demand**: the promise
+resolves as soon as the headers are in, and the socket is only read when a consumer asks for the next chunk.
+
+```js
+const r = await fetch('https://api.example.org/big.ndjson');
+for await (const chunk of r.body) {
+    // one Uint8Array per read; the transport is not read again until this loop comes back for more
+}
+```
+
+The stream's high water mark is zero, so a script that takes the response and never reads its body never
+touches the socket again — and `body.cancel()`, or a reader's `cancel()`, drops the connection. Chunks are
+delivered as generation-stamped event-loop jobs, exactly like every other cross-thread completion in Jint,
+so nothing about a body arrives on a thread the host did not pump. `MaxResponseBytes` is enforced on the
+running total per chunk; because the promise has already resolved by the time a body byte is read, a body
+that breaks the cap **errors the stream** rather than rejecting the `fetch` promise (a `Content-Length` that
+already exceeds it is still refused before the promise settles).
+
+The `Body` mixin sits on top of that and is unchanged in behaviour: `text()`, `json()`, `arrayBuffer()`,
+`bytes()` and `blob()` read the stream to the end and answer with the whole body, `bodyUsed` is the stream's
+*disturbed* flag, and a body that is disturbed or locked makes the next consumer reject. `clone()` `tee()`s
+the stream, so each half has its own queue and its own flags. A body built from bytes — `new Response('…')`,
+a `Blob`, a `BufferSource` — keeps its bytes and only materializes a stream if something reads `body`, so the
+common `new Response(x).text()` costs no stream at all.
+
+`Blob.stream()` is there too, and a `ReadableStream` is accepted as a `BodyInit` for both `Request` and
+`Response`. **Uploads are still buffered:** a request body given as a stream is read in full before anything
+is sent, so the standard's `duplex: 'half'` streaming upload is out of scope and `duplex` is absent rather
+than accepted and ignored.
 
 Like every other web API, `fetch` settles only while the engine is being pumped: the promise resolves inside a
 blocking `UnwrapIfPromise`, an `await` of `EvaluateAsync`, or your own `engine.Advanced.ProcessTasks()` loop.
 The deadline is the one exception, and deliberately so — it is enforced CLR-side, so an engine nobody pumps
-still lets go of its socket. An in-flight request is cancelled by `Engine.Advanced.RestoreGlobalSnapshot`, and
-its promise never settles into the restored engine.
+still lets go of its socket, and it covers the body as well as the headers. An in-flight request is cancelled
+by `Engine.Advanced.RestoreGlobalSnapshot`, and its promise never settles into the restored engine; a body
+still arriving when that happens has its connection dropped and its stream errored, so a host holding the
+response is told rather than left waiting.
 
 **Security.** Enabling `fetch` gives the script your process's network position: anything the worker can
 reach, the script can reach. The defaults bound the resource questions — 32 MiB per response body (counted

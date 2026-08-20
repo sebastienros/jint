@@ -232,13 +232,20 @@ public partial class Options
         public Func<Uri, bool> UrlFilter { get; set; } = static _ => true;
 
         /// <summary>
-        /// The most bytes a response body may decompress to. Defaults to 32 MiB; a response that exceeds it is
-        /// abandoned and the promise rejects with a <c>TypeError</c>.
+        /// The most bytes a response body may decompress to. Defaults to 32 MiB; a body that exceeds it is
+        /// abandoned and reported as a <c>TypeError</c>.
         /// </summary>
         /// <remarks>
         /// Counted after decompression, so a compression bomb is bounded by the number a host actually chose
-        /// rather than by its compressed size. The bytes are buffered in memory, so this is also the ceiling on
-        /// what one request can cost the process.
+        /// rather than by its compressed size, and enforced on the running total as the body streams — the
+        /// connection is dropped at the chunk that crosses the line.
+        /// <para>
+        /// <b>Where the failure surfaces depends on when it is known.</b> A <c>Content-Length</c> that already
+        /// exceeds the cap is refused while the headers are being read, so the <c>fetch</c> promise itself
+        /// rejects. A body that only breaks the cap later cannot reject that promise, because it has already
+        /// resolved with the response — as the standard prescribes and as a browser does — so it <i>errors the
+        /// response's body stream</i> instead, and every consumer of that body reports it.
+        /// </para>
         /// <para>
         /// <b><see cref="long.MaxValue"/> means unlimited</b>, and zero or less refuses every body. This is
         /// deliberately unlike the execution constraints' saturated sentinels, where
@@ -485,9 +492,13 @@ public enum WebApiFeatures
 
     /// <summary>
     /// <c>Blob</c>, <c>File</c> and <c>FormData</c> — in-memory byte sequences and the ordered entry list a
-    /// form submission is made of. No streaming (<c>Blob.stream()</c> is absent) and no
-    /// <c>multipart/form-data</c> serialization, which arrives with fetch.
+    /// form submission is made of. No <c>multipart/form-data</c> serialization, which arrives with fetch.
     /// </summary>
+    /// <remarks>
+    /// <c>Blob.stream()</c> answers a real <c>ReadableStream</c> whether or not <see cref="Streams"/> is also
+    /// enabled — the interface is always there, and the flag only decides whether <c>ReadableStream</c> is a
+    /// global a script can name. <see cref="Default"/> has both.
+    /// </remarks>
     Files = 1 << 9,
 
     /// <summary>

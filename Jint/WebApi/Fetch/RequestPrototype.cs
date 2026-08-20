@@ -90,21 +90,18 @@ internal sealed partial class RequestPrototype : Prototype
     private JsAbortSignal SignalGet(JsValue thisObject) => Brand(thisObject).Signal;
 
     /// <summary>
-    /// https://fetch.spec.whatwg.org/#dom-body-body — <b>always null in this version.</b>
+    /// https://fetch.spec.whatwg.org/#dom-body-body — the body's <c>ReadableStream</c>, or <c>null</c> when
+    /// the request has no body, which every <c>GET</c> and <c>HEAD</c> necessarily has not.
     /// </summary>
     /// <remarks>
-    /// The attribute's type is <c>ReadableStream?</c> and Jint has no streams, so there is nothing truthful to
-    /// answer with. It is present rather than absent because null is a meaningful answer the standard itself
-    /// gives — every request and response without a body has it — and because a script that guards on
-    /// <c>if (response.body)</c> then takes the buffered path rather than crashing. Streams, and with them a
-    /// real body, are a follow-up.
+    /// A body given as bytes materializes its stream here, on first ask. <b>A request body is still uploaded
+    /// buffered:</b> a <c>ReadableStream</c> handed to the constructor is read in full before the request is
+    /// sent, so a streaming upload — the standard's <c>duplex: 'half'</c> — is out of scope, and
+    /// <c>duplex</c> is absent rather than present and ignored.
     /// </remarks>
     [JsAccessor("body", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue BodyGet(JsValue thisObject)
-    {
-        Brand(thisObject);
-        return Null;
-    }
+        => Brand(thisObject).GetOrCreateStream(_realm) ?? (JsValue) Null;
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-bodyused
@@ -158,7 +155,7 @@ internal sealed partial class RequestPrototype : Prototype
         var headers = _realm.Intrinsics.Headers.CreateInstance(request.Headers.List.Clone());
         headers.List.Guard = request.Headers.List.Guard;
 
-        return new JsRequest(_engine, headers)
+        var clone = new JsRequest(_engine, headers)
         {
             _prototype = _realm.Intrinsics.Request.PrototypeObject,
             Method = request.Method,
@@ -168,11 +165,12 @@ internal sealed partial class RequestPrototype : Prototype
             // Step 4: "set clonedRequestObject's signal to the result of creating a dependent abort signal
             // given « this's signal »" — the clone aborts with the original, never the other way round.
             Signal = JsAbortSignal.CreateDependent(_engine, _realm, [request.Signal]),
-
-            // The bytes are shared; only the used flag is the clone's own, which is the whole point of
-            // cloning a response before reading it twice.
-            Body = request.Body,
         };
+
+        // A streaming body is teed and a buffered one shares its bytes; only the used flag is the clone's
+        // own, which is the whole point of cloning before reading twice.
+        FetchBody.CloneBody(request, clone);
+        return clone;
     }
 
     private JsValue Consume(JsValue thisObject, BodyConsumeKind kind)

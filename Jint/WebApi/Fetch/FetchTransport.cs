@@ -1,5 +1,4 @@
 #if NET8_0_OR_GREATER
-using System.Buffers;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -159,7 +158,13 @@ internal sealed class FetchResponseSnapshot
 
     internal required List<HeaderEntry> Headers { get; init; }
 
-    internal required byte[] Body { get; init; }
+    /// <summary>
+    /// The body still on the wire, or <see langword="null"/> for a status the standard gives no body —
+    /// https://fetch.spec.whatwg.org/#null-body-status. The connection is <b>still open</b> when this
+    /// reaches the engine thread: <see cref="FetchBodyStream.Attach"/> is what starts reading it, and
+    /// <see cref="FetchBodyStream.Dispose"/> is what lets it go if nothing ever will.
+    /// </summary>
+    internal required FetchBodyStream? Body { get; init; }
 
     /// <summary>The last URL the request reached, serialized without its fragment.</summary>
     internal required string Url { get; init; }
@@ -185,6 +190,12 @@ internal sealed class FetchResponseSnapshot
 /// the loop: an automatic redirect would be followed underneath the scheme and <c>UrlFilter</c> checks, so a
 /// server answering <c>302 Location: http://169.254.169.254/latest/meta-data/</c> would reach the cloud
 /// metadata endpoint however carefully the host had written its filter.
+/// </para>
+/// <para>
+/// <b>The final response's body is not read here.</b> Only its headers are: the snapshot carries a
+/// <see cref="FetchBodyStream"/> that still owns the open <see cref="HttpResponseMessage"/>, and the engine
+/// thread turns it into a <c>ReadableStream</c> whose <c>pull</c> drives the reading. Every response the loop
+/// walks <i>past</i> — a redirect — is disposed here as before.
 /// </para>
 /// </remarks>
 internal static class FetchTransport
@@ -256,7 +267,8 @@ internal static class FetchTransport
     }
 
     /// <summary>
-    /// Runs the request, following redirects itself, and reads the body under the size cap.
+    /// Runs the request, following redirects itself, and begins the response: headers in hand, the body left
+    /// on the wire behind a <see cref="FetchBodyStream"/> that owns the connection from here on.
     /// </summary>
     internal static async Task<FetchResponseSnapshot> SendAsync(
         HttpClient client,
@@ -265,13 +277,21 @@ internal static class FetchTransport
         CancellationToken cancellationToken)
     {
         var exchange = await SendForStreamAsync(client, request, policy, cancellationToken).ConfigureAwait(false);
+        var handedOver = false;
         try
         {
-            return await ReadResponseAsync(exchange.Response, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
+            var snapshot = await BeginResponseAsync(exchange.Response, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
+            handedOver = snapshot.Body is not null;
+            return snapshot;
         }
         finally
         {
-            exchange.Dispose();
+            // Cleared only once the body stream has taken ownership of the connection; a bodyless response,
+            // and every path that throws, still disposes here exactly as the buffered path always did.
+            if (!handedOver)
+            {
+                exchange.Dispose();
+            }
         }
     }
 
@@ -482,16 +502,24 @@ internal static class FetchTransport
     }
 
     /// <summary>
-    /// Reads the body under <c>MaxResponseBytes</c> and collects the headers.
+    /// Collects the headers and hands the still-open body over to a <see cref="FetchBodyStream"/>, which the
+    /// engine thread turns into the response's <c>ReadableStream</c>.
     /// </summary>
     /// <remarks>
-    /// The bytes counted are the <b>decompressed</b> ones, because the handler decompresses before this sees
-    /// the stream — so the cap bounds what the process actually spends rather than what the server sent, and
-    /// a compression bomb is refused at the number the host chose. A <c>Content-Length</c> that already
-    /// exceeds the cap short-circuits the read, but it is only a shortcut: a server that lies, or that uses
-    /// chunked encoding, is caught by the running total.
+    /// <para>
+    /// The only body check made here is the declared length: a <c>Content-Length</c> that already exceeds
+    /// <c>MaxResponseBytes</c> is refused before the <c>fetch</c> promise settles, which is worth keeping
+    /// because it costs nothing and it is the one case the cap can still report as a failed fetch. Everything
+    /// else is the running total inside <see cref="FetchBodyStream"/>, which is what catches a server that
+    /// lies about the length or answers with chunked encoding.
+    /// </para>
+    /// <para>
+    /// The bytes counted either way are the <b>decompressed</b> ones, because the handler decompresses before
+    /// anything here sees the stream — so the cap bounds what the process actually spends rather than what
+    /// the server sent, and a compression bomb is refused at the number the host chose.
+    /// </para>
     /// </remarks>
-    private static async Task<FetchResponseSnapshot> ReadResponseAsync(
+    private static async Task<FetchResponseSnapshot> BeginResponseAsync(
         HttpResponseMessage response,
         UrlRecord url,
         bool redirected,
@@ -504,60 +532,39 @@ internal static class FetchTransport
             throw TooLarge(policy);
         }
 
-        byte[] body;
-        try
-        {
-            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            body = await ReadBoundedAsync(stream, policy, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
-        {
-            throw new FetchFailureException(FetchFailureKind.Network, $"Reading the response body of '{url.Serialize()}' failed: {ex.Message}", ex);
-        }
-
         var headers = new List<HeaderEntry>();
         Collect(headers, response.Headers);
         Collect(headers, response.Content.Headers);
 
+        var status = (int) response.StatusCode;
+
+        FetchBodyStream? body = null;
+        if (!FetchValues.IsNullBodyStatus(status))
+        {
+            Stream content;
+            try
+            {
+                content = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
+            {
+                throw new FetchFailureException(FetchFailureKind.Network, $"Reading the response body of '{url.Serialize()}' failed: {ex.Message}", ex);
+            }
+
+            // From here the connection belongs to the body stream: the caller sees a non-null body and stops
+            // disposing the message underneath it.
+            body = new FetchBodyStream(response, content, policy.MaxResponseBytes);
+        }
+
         return new FetchResponseSnapshot
         {
-            Status = (int) response.StatusCode,
+            Status = status,
             StatusText = response.ReasonPhrase ?? string.Empty,
             Headers = headers,
             Body = body,
             Url = url.Serialize(excludeFragment: true),
             Redirected = redirected,
         };
-    }
-
-    private static async Task<byte[]> ReadBoundedAsync(Stream stream, FetchPolicy policy, CancellationToken cancellationToken)
-    {
-        var writer = new ArrayBufferWriter<byte>();
-        var buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
-        try
-        {
-            while (true)
-            {
-                var read = await stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
-                if (read == 0)
-                {
-                    return writer.WrittenSpan.ToArray();
-                }
-
-                // Checked before the copy, so the cap is never overshot by a whole chunk and the connection
-                // is dropped as soon as the limit is known to be broken.
-                if (writer.WrittenCount + (long) read > policy.MaxResponseBytes)
-                {
-                    throw TooLarge(policy);
-                }
-
-                writer.Write(buffer.AsSpan(0, read));
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
     }
 
     private static FetchFailureException TooLarge(FetchPolicy policy)

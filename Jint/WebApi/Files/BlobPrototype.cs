@@ -22,12 +22,11 @@ namespace Jint.WebApi.Files;
 /// not a <c>Blob</c> — including <c>Blob.prototype</c> itself, which is not one.
 /// </para>
 /// <para>
-/// <c>stream()</c> and <c>textStream()</c> are <b>absent</b>, not throwing: Jint has no streams yet, and an
-/// absent method is what feature detection is written against. <c>text()</c>, <c>arrayBuffer()</c> and
-/// <c>bytes()</c> are the whole of the read surface, and each answers an already-resolved promise — the
+/// <c>text()</c>, <c>arrayBuffer()</c> and <c>bytes()</c> each answer an already-resolved promise — the
 /// bytes are in memory, so there is nothing for an event-loop turn to wait for. They are still real
 /// promises: <c>await blob.text()</c> works exactly as it does in a browser, and the value arrives on the
-/// microtask turn a <c>then</c> would give it.
+/// microtask turn a <c>then</c> would give it. <c>stream()</c> is the fourth, and answers a
+/// <c>ReadableStream</c> over those same bytes.
 /// </para>
 /// <para>
 /// One documented simplification against WebIDL: the operations are non-enumerable, where a WebIDL
@@ -157,6 +156,31 @@ internal sealed partial class BlobPrototype : Prototype
     private JsValue ArrayBuffer(JsValue thisObject)
     {
         return Resolved(NewArrayBuffer(Brand(thisObject)));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#dom-blob-stream, which is the "get stream" algorithm,
+    /// https://w3c.github.io/FileAPI/#blob-get-stream.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two reductions against the algorithm as written, both forced by there being no byte streams here.
+    /// The stream is an ordinary (non-byte) <c>ReadableStream</c> rather than one "set up with byte reading
+    /// support", so it has no BYOB reader — which is exactly what <c>getReader()</c> already answers for
+    /// every other stream in this implementation. And the blob's bytes are one chunk rather than the
+    /// implementation-defined slices the algorithm's loop reads: the bytes are already in memory, so
+    /// slicing them would manufacture event-loop turns rather than model any I/O. An empty blob enqueues
+    /// nothing and closes, so its first <c>read()</c> is done.
+    /// </para>
+    /// <para>
+    /// The chunk is a <c>Uint8Array</c> over a fresh copy, like every other way a blob's bytes cross into
+    /// script: a blob is immutable and what script is handed is writable.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "stream", Length = 0)]
+    private Streams.JsReadableStream Stream(JsValue thisObject)
+    {
+        return Streams.ByteStreams.CreateFromBytes(_engine, _realm, Brand(thisObject).Data);
     }
 
     /// <summary>
