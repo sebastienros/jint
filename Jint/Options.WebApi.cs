@@ -98,8 +98,15 @@ public partial class Options
         /// one makes a suite that exercises timers deterministic and instant.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// <c>performance.now()</c> and <c>performance.timeOrigin</c> read this same clock, so a fake one
+        /// drives the timers and the high-resolution readings coherently. It is deliberately not the engine's
+        /// <see cref="Options.TimeSystem"/>, which is what <c>Date</c> is built on: one is a monotonic clock
+        /// for measuring durations, the other a wall clock for naming instants.
+        /// </para>
         /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists. Only <see cref="TimeProvider.GetTimestamp"/> and
+        /// already exists. Only <see cref="TimeProvider.GetTimestamp"/>,
+        /// <see cref="TimeProvider.GetUtcNow"/> (once, for the time origin) and
         /// <see cref="TimeProvider.GetElapsedTime(long, long)"/> are ever called:
         /// <see cref="TimeProvider.CreateTimer"/> is deliberately not, because a background timer would run
         /// script off the engine's thread. Assigning <see langword="null"/> is read back as
@@ -135,7 +142,6 @@ public partial class Options
 /// <para>
 /// The bit layout is fixed ahead of the implementations so that a value persisted by a host keeps its meaning
 /// as the surface grows. The bits reserved for the features still to land are
-/// <c>Crypto = 1 &lt;&lt; 5</c> and <c>Performance = 1 &lt;&lt; 6</c> and
 /// <c>Fetch = 1 &lt;&lt; 10</c>. A flag is declared here only once the feature behind it actually exists, so
 /// that naming one can never compile into an engine that silently does not have it.
 /// </para>
@@ -186,6 +192,20 @@ public enum WebApiFeatures
     StructuredClone = 1 << 4,
 
     /// <summary>
+    /// The <c>crypto</c> object: <c>getRandomValues</c> and <c>randomUUID</c>, both backed by the BCL's
+    /// cryptographically secure generator. <c>crypto.subtle</c> is not implemented and is absent rather than
+    /// present-and-throwing, so feature detection sees the truth.
+    /// </summary>
+    Crypto = 1 << 5,
+
+    /// <summary>
+    /// The <c>performance</c> object: <c>now()</c> and <c>timeOrigin</c>. Both read the clock in
+    /// <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the timers together.
+    /// Marks, measures and the performance timeline are not implemented.
+    /// </summary>
+    Performance = 1 << 6,
+
+    /// <summary>
     /// <c>Event</c>, <c>CustomEvent</c>, <c>EventTarget</c>, <c>AbortController</c> and <c>AbortSignal</c> —
     /// the DOM event and cancellation model, without the node tree a browser dispatches events through.
     /// <c>AbortSignal.timeout()</c> schedules on the same queue the timers use, so it too fires only while the
@@ -209,9 +229,10 @@ public enum WebApiFeatures
     /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access. Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
-    /// <see cref="StructuredClone"/>, <see cref="Events"/>, <see cref="Url"/> and <see cref="Files"/>; it
-    /// grows as further features land, and never comes to include fetch.
+    /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
+    /// <see cref="Url"/> and <see cref="Files"/>; it grows as further features land, and never comes to
+    /// include fetch.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Events | Url | Files,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files,
 }
 #endif

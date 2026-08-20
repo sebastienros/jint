@@ -217,8 +217,8 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
-| `crypto.getRandomValues` / `crypto.randomUUID` | `Crypto` | in progress |
-| `performance.now` / `performance.timeOrigin` | `Performance` | in progress |
+| `crypto.getRandomValues` / `crypto.randomUUID` | `WebApiFeatures.Crypto` | ✔ shipped |
+| `performance.now` / `performance.timeOrigin` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` | `Url` | ✔ shipped |
 | `Blob` / `File` / `FormData` | `Files` | ✔ shipped |
@@ -907,7 +907,7 @@ var ns = engine.Modules.Import("./my-module.js");
 var value = ns.Get("value").AsString();
 ```
 
-By default, the module resolution algorithm will be restricted to the base path specified in `EnableModules`, and that loader has no package support. You can serve an npm-style `node_modules` tree with [`NodeStyleModuleLoader`](#npm-style-packages-opt-in), or provide your own packages in two further ways.
+By default, the module resolution algorithm will be restricted to the base path specified in `EnableModules`, and there is no package support. However you can provide your own packages in two ways.
 
 Defining modules using JavaScript source code:
 
@@ -947,62 +947,6 @@ Note that you don't need to `EnableModules` if you only use modules created usin
 If you serve the same modules from a pool of engines, see **Sharing a module graph across pooled engines**
 under [Embedding performance](#embedding-performance): a loader that caches prepared modules keeps every
 engine but the first from parsing them again.
-
-### npm-style packages (opt-in)
-
-`NodeStyleModuleLoader` resolves bare specifiers — `import 'lodash'`, `import '@scope/pkg/feature.js'` — the way
-Node.js resolves them for ES modules, so an ordinary `node_modules` tree works as it does everywhere else:
-
-```c#
-var engine = new Engine(options =>
-{
-    options.EnableModules(new NodeStyleModuleLoader(@"C:\app"));
-});
-
-var ns = engine.Modules.Import("./main.js"); // main.js may `import 'some-package'`
-```
-
-It implements [ESM_RESOLVE](https://nodejs.org/api/esm.html#resolution-algorithm-specification) and the
-functions it calls: the `node_modules` walk upwards from the importing module, `"exports"` (string, subpath map,
-[conditional](https://nodejs.org/api/packages.html#conditional-exports), `*` patterns, fallback arrays,
-`null` to block a subpath), its precedence over `"main"`, the encapsulation that makes an unexported subpath an
-error, `"main"` with an `index.js` fallback when there is no `"exports"`, scoped packages, nested
-`node_modules` shadowing, and
-[self-reference](https://nodejs.org/api/packages.html#self-referencing-a-package-using-its-name) by the
-package's own `"name"`. Refusals arrive as `ModuleResolutionException`, whose `ResolverAlgorithmError` carries
-that algorithm's own error name — `Package Path Not Exported`, `Invalid Package Target`,
-`Invalid Package Configuration`, `Module Not Found` — followed by the rule that refused.
-
-Relative and absolute specifiers behave exactly as `DefaultModuleLoader` resolves them, base-path restriction
-included; here that restriction is not optional, because it is also what bounds the `node_modules` walk. Nothing
-outside the base path is read, and no path outside it appears in an error message.
-
-```c#
-new NodeStyleModuleLoader(basePath, new NodeModuleLoaderOptions
-{
-    // Which export conditions match. The default is ["import", "default"]. Order here means nothing:
-    // the package's own key order decides, per the specification. Add "node" to consume packages that
-    // ship a Node-specific entry point — knowing that branch may expect APIs Jint has no counterpart for.
-    Conditions = ["import", "default"],
-
-    // Whether a specifier may resolve to a .json file at all (default true). The `with { type: 'json' }`
-    // attribute is mandatory either way, exactly as it is in Node.
-    AllowJsonModules = true,
-
-    // CommonJS-shaped probing: './util' also finding util.js, or a directory's index.js (default false,
-    // because ES module resolution deliberately does no extension searching).
-    ExtensionProbing = false,
-})
-```
-
-Three things it deliberately does not do. There are no Node builtins, so a `node:` specifier is refused rather
-than resolved; `#imports` are not supported, the same posture `DefaultModuleLoader` takes; and there are no
-module formats — Jint has no CommonJS loader, so a package offering only a `"require"` branch is unusable, as
-it would be in any ESM-only host. A bare specifier matching no package on disk is handed back unresolved
-instead of raising `Module Not Found`, which is what keeps `Engine.Modules.Add` usable alongside it; a package
-that *is* found and then refuses fails there and then. Nothing is cached, so a package edited between two
-imports is picked up — wrap the loader and memoize `Resolve` if a large immutable tree makes those reads worth
-amortizing. The loader holds no mutable state and may be shared by several engines.
 
 ### How a module is named
 
