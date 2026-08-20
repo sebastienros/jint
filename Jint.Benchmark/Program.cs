@@ -29,6 +29,16 @@ if (args.Length > 0 && args[0] == "--profile-alloc-types")
     return AllocTypeProbe.Run(args);
 }
 
+if (args.Length > 0 && args[0] == "--smoke-webapi")
+{
+    // Runs every web-API class's [GlobalSetup] and then each of its rows three times, reporting pass/fail
+    // per class. Measures nothing: it exists so a Jint/WebApi/ change can prove the rows still run — and
+    // still produce the same answer on every operation — in seconds, rather than finding out half an hour
+    // into a benchmark session. See Jint.Benchmark/README.md.
+    Console.WriteLine("== WEB-API ROW SMOKE TEST — correctness only, no measurement ==");
+    return WebApiBenchmarkSupport.Smoke();
+}
+
 if (args.Length > 0 && args[0] == "--smoke-comparison")
 {
     // Runs one Scripts/<name>.js once per comparison engine and reports pass/fail + wall time.
