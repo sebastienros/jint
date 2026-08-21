@@ -508,10 +508,10 @@ public partial class Options
         /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
         /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
-        /// Also covers CLR arrays: repeated conversions of the same array instance return the same result — the live
-        /// wrapper view under <see cref="ArrayConversionMode.LiveView"/> (the default), or the same JsArray snapshot
-        /// under <see cref="ArrayConversionMode.Copy"/> (script-side mutations persist across reads; CLR-side mutations
-        /// after the first conversion are not re-copied) — instead of re-converting on every read.
+        /// Also covers CLR arrays: repeated conversions of the same array instance return the same result — the same
+        /// JsArray snapshot under the default <see cref="ArrayConversionMode.Copy"/> mode (script-side mutations persist
+        /// across reads; CLR-side mutations after the first conversion are not re-copied), or the live wrapper view
+        /// under <see cref="ArrayConversionMode.LiveView"/> — instead of re-converting on every read.
         /// Defaults to false.
         /// </summary>
         public bool TrackObjectWrapperIdentity { get; set; }
@@ -532,14 +532,16 @@ public partial class Options
         public bool CacheRecentObjectWrappers { get; set; } = true;
 
         /// <summary>
-        /// How CLR arrays (<c>T[]</c>) are exposed to script code, defaults to <see cref="Jint.ArrayConversionMode.LiveView"/>
-        /// (changed from <see cref="Jint.ArrayConversionMode.Copy"/> in 4.14), which exposes single-rank arrays as live,
-        /// fixed-size wrapper views over the underlying array — the same way wrapped <see cref="System.Collections.Generic.List{T}"/>
-        /// already behaves. <see cref="Jint.ArrayConversionMode.Copy"/> instead copies the array contents into a new
-        /// JavaScript array on each conversion; select it to preserve the pre-4.14 behavior. See the enum members for
-        /// the exact semantic differences (write-through, identity, <c>Array.isArray</c>, resizing).
+        /// How CLR arrays (<c>T[]</c>) are exposed to script code. Defaults to
+        /// <see cref="Jint.ArrayConversionMode.Copy"/>, which snapshots the contents into a native JavaScript array.
+        /// <see cref="Jint.ArrayConversionMode.LiveView"/> remains available as an explicit opt-in for a fixed-size
+        /// view that avoids the copy and its allocation, and whose element reads stay connected to the CLR array.
+        /// Writes reach the CLR array only when <see cref="AllowWrite"/> is also enabled.
+        /// This default is a breaking change for hosts that relied on the live-view default introduced in 4.14.
+        /// See the enum members for the exact semantic differences (write-through, identity, wrapper caches,
+        /// <c>Array.isArray</c>, resizing and multidimensional arrays).
         /// </summary>
-        public ArrayConversionMode ArrayConversion { get; set; } = ArrayConversionMode.LiveView;
+        public ArrayConversionMode ArrayConversion { get; set; } = ArrayConversionMode.Copy;
 
         /// <summary>
         /// How a CLR sequence that is <em>only</em> an <see cref="System.Collections.Generic.IEnumerable{T}"/> — a LINQ
@@ -1168,22 +1170,31 @@ public enum EnumConversionMode
 public enum ArrayConversionMode
 {
     /// <summary>
-    /// Each conversion copies the array contents into a new JavaScript array (<c>Array.isArray</c> returns <c>true</c>).
-    /// Script-side mutations affect only the copy and CLR-side mutations after the conversion are not visible
-    /// through it. Each crossing produces a new independent snapshot unless
+    /// The default. Each conversion copies the array contents into a native JavaScript array
+    /// (<c>Array.isArray</c> returns <c>true</c>) that script can mutate and resize normally. Script-side mutations
+    /// affect only the copy, and CLR-side mutations after the conversion are not visible through it. Each crossing
+    /// produces a new independent snapshot unless
     /// <see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> or
-    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/> reuses the earlier one.
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/> reuses the earlier one; when reused, script-side
+    /// mutations and object identity persist for that cached snapshot, but CLR-side changes are still not re-copied.
+    /// Self- and mutually referential CLR arrays preserve those cycles in the JavaScript snapshot.
+    /// Multidimensional and non-zero-based CLR arrays are unsupported: non-empty instances throw during
+    /// conversion, while zero-length instances currently produce an empty snapshot.
     /// </summary>
     Copy,
 
     /// <summary>
-    /// Single-rank arrays are exposed as live wrapper views over the underlying CLR array, the same way wrapped
+    /// The explicit opt-in. Single-rank arrays are exposed as live wrapper views over the underlying CLR array,
+    /// avoiding the copy and its allocation, the same way wrapped
     /// <see cref="System.Collections.Generic.List{T}"/> instances already behave: element reads and writes go
-    /// straight to the array in both directions, and wrapper identity across repeated crossings follows the same
-    /// caches as other wrapped objects (<see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> /
-    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>). An array crossing under a non-array
-    /// declared type keeps honoring that contract (for example a member typed <c>IReadOnlyList&lt;T&gt;</c>
-    /// produces a read-only view).
+    /// straight to the array in both directions when <see cref="Options.InteropOptions.AllowWrite"/> is enabled.
+    /// With writes disabled, reads remain live but mutations that would reach the backing array are denied. Repeated
+    /// views over the same CLR array compare strictly equal by wrapped-target identity even when caches are disabled;
+    /// whether the same wrapper instance is returned follows
+    /// the same caches as other wrapped objects (<see cref="Options.InteropOptions.TrackObjectWrapperIdentity"/> /
+    /// <see cref="Options.InteropOptions.CacheRecentObjectWrappers"/>). An array crossing under a non-array declared
+    /// type keeps honoring that contract (for example a member typed <c>IReadOnlyList&lt;T&gt;</c> produces a read-only
+    /// view).
     /// <para>
     /// The view is array-like — iteration, <c>Array.prototype</c> methods, index-key enumeration
     /// (<c>Object.keys</c> / <c>for-in</c>), out-of-range reads yielding <c>undefined</c> and JSON
@@ -1192,7 +1203,9 @@ public enum ArrayConversionMode
     /// CLR arrays are fixed-size the view behaves like an integer-indexed exotic object: resizing attempts
     /// (growing writes, <c>push</c>/<c>pop</c>, <c>length</c> writes) throw a <c>TypeError</c>, and like for
     /// typed arrays, <c>shift</c>/<c>splice</c> may move elements before their length change throws.
-    /// Multi-dimensional arrays are not supported by the view and behave as under <see cref="Copy"/>.
+    /// Multidimensional and non-zero-based CLR arrays are unsupported in both modes. They fall back to the
+    /// <see cref="Copy"/> path, where non-empty instances throw during conversion and zero-length instances
+    /// currently produce an empty snapshot.
     /// </para>
     /// </summary>
     LiveView,

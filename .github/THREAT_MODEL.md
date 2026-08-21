@@ -80,7 +80,7 @@ Defaults are compatibility choices, not a hardened profile.
 | `AllowGetType`, `AllowSystemReflection` | Disabled | Blocks instance type discovery, type widening, and reflection namespace/object access |
 | `AllowedAssemblies` | Empty until `AllowClr` adds entries | Closed allow-list for `System` / `importNamespace` type discovery, not for what admitted APIs can do |
 | Writes through projected CLR objects | Disabled | Fields, properties, indexers, dictionary/list entries, and live array elements require explicit `AllowClrWrite()` opt-in |
-| CLR array conversion | Live view | Script observes the CLR array directly; element writes remain blocked unless CLR writes are enabled |
+| CLR array conversion | Copy | Script receives a detached native JavaScript array snapshot |
 | Modules | Disabled | The fail-fast loader rejects imports |
 | Module graph limits | Unlimited | Count, source bytes, graph depth, and resolution hops are unbounded unless configured |
 | Module load policy | None | A custom loader's resolved targets are unrestricted unless a policy is configured |
@@ -178,19 +178,20 @@ cancellation, and avoid returning powerful objects.
 
 ### TM-03: Script mutates host state
 
-**Threat.** Direct writes through an `ObjectWrapper` are disabled by default, but a host can
-explicitly enable them with `AllowClrWrite()`. Projected CLR arrays are live views by
-default, so enabling writes lets script alter host properties, fields, indexers,
-dictionaries, lists, arrays, or objects reachable from them. Independently of that option,
-calling an exposed instance, static, or extension method can mutate host state and violate
-host invariants.
+**Threat.** Direct writes through an `ObjectWrapper` are disabled by default, and CLR arrays
+cross as detached copies by default. A host can explicitly enable writes with
+`AllowClrWrite()` and independently select `ArrayConversionMode.LiveView`; doing both lets
+script alter host properties, fields, indexers, dictionaries, lists, live arrays, or objects
+reachable from them. Calling an exposed instance, static, or extension method can mutate host
+state regardless of the direct-write option.
 
 **Existing mitigations.**
 
 - Direct writes through CLR wrappers are disabled by default; `AllowClrWrite()` is an
   explicit opt-in.
-- `ArrayConversionMode.Copy`, immutable DTOs, and Jint-owned record layouts avoid live
-  write-through.
+- `ArrayConversionMode.Copy` is the default and disconnects the JavaScript array container
+  from later CLR mutations and script writes.
+- Immutable DTOs and Jint-owned record layouts avoid live write-through.
 
 **Missing or residual mitigation.**
 
@@ -198,12 +199,19 @@ host invariants.
   Jint.
 - Calling exposed methods or extension methods can still mutate state even when direct
   writes are disabled.
+- A copied CLR array is only a shallow projection boundary: reference-type elements can still
+  expose mutable host objects.
+- `ArrayConversionMode.LiveView` restores live reads and avoids the initial O(N) copy and
+  allocation, but does not grant write authority; `AllowClrWrite()` is additionally required
+  for write-through.
+- Wrapper caches can reuse a copied snapshot, preserving script-side mutations and identity
+  across crossings, but they never make later CLR-side array mutations visible through it.
 
-**Required host action.** Leave CLR writes disabled and do not call `AllowClrWrite()` unless
-direct mutation is an intentional capability. Pin `AllowClrWrite(false)` in hardened
-configuration, use copied arrays where a live view is unnecessary, and expose immutable
-snapshots. Do not expose mutating methods unless they are intentional, authorized
-capabilities.
+**Required host action.** Leave CLR writes disabled and keep `ArrayConversionMode.Copy`
+explicitly pinned in hardened configurations. Expose immutable snapshots whose elements are
+also safe to project. Use `LiveView` only when live observation is intentional, and enable CLR
+writes only when shared mutation is a separately authorized capability. Do not expose
+mutating methods unless they are intentional, authorized capabilities.
 
 ### TM-04: Infinite loops and computational denial of service
 
@@ -1201,6 +1209,7 @@ var engine = new Engine(options =>
     options.AgentCanSuspend = false;
     // Pin the safe default explicitly so configuration reviews cannot miss this boundary.
     options.AllowClrWrite(false);
+    // Pin the hardened behavior even though Copy is the compatibility default.
     options.Interop.ArrayConversion = ArrayConversionMode.Copy;
     options.ResultLimits = ResultLimits.Conservative;
     options.Interop.ExposeDetailedExceptionMessages = false;
@@ -1262,6 +1271,8 @@ Before deploying a host that executes untrusted scripts:
 - [ ] CLR namespace access, `AllowGetType`, reflection, debugger, and `Atomics.wait` are off.
 - [ ] Direct CLR writes remain disabled, and projected host objects are immutable or intentionally
   capability-scoped with no unintended mutating instance, static, or extension methods.
+- [ ] CLR arrays use `Copy`; any `LiveView` opt-in is intentional, remains read-only unless
+  write-through is separately authorized, and does not expose mutable element objects accidentally.
 - [ ] Initial source, callback, external serializer, HTTP response, and log limits are enforced
   outside Jint; `ResultLimits` is configured for Jint-owned conversion and JSON output, and all
   four Jint module graph limits are configured when modules are enabled.

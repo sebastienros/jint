@@ -893,7 +893,6 @@ public partial class InteropTests : IDisposable
         // an element must throw a TypeError in strict mode. Regression: it previously neither threw nor
         // assigned (the dense-write fast path bypassed the writability check).
         // This scenario is about a copied JS array's per-element descriptors, so it pins Copy mode
-        // (the LiveView default exposes a live wrapper whose element writability is handled differently).
         var engine = new Engine(x =>
         {
             x.Strict();

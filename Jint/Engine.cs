@@ -882,6 +882,9 @@ public sealed partial class Engine : IDisposable
     // cache for already wrapped CLR objects to keep object identity
     internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
+    // Reused while CLR array snapshots are built so cyclic graphs can point back to an in-progress JsArray.
+    internal ArrayCopyContext? _arrayCopyContext;
+
     // per-object private-element storage ([[PrivateElements]]). Kept off ObjectInstance in a weak table
     // (keyed by the owning object) so the 8-byte reference doesn't bloat every object on the heap — only
     // instances of JS classes that declare #private members ever allocate an entry here.
@@ -2133,6 +2136,27 @@ public sealed partial class Engine : IDisposable
         foreach (var constraint in _amortizedConstraints)
         {
             constraint.Check();
+        }
+    }
+
+    internal void CheckInteropProjectionConstraints()
+    {
+        _memoryLimitConstraint?.Check();
+
+        if (_executionContexts.Count > 1)
+        {
+            CheckAmortizedConstraints();
+            return;
+        }
+
+        // Host-side projection is not an execution entry, so an ordinary timeout has no active
+        // budget to enforce. Cancellation and a host-armed operation deadline do span entries.
+        foreach (var constraint in _amortizedConstraints)
+        {
+            if (constraint is CancellationConstraint or OperationDeadlineConstraint)
+            {
+                constraint.Check();
+            }
         }
     }
 

@@ -1,6 +1,9 @@
 #nullable enable
 
 using System.Collections.Generic;
+using System.Threading;
+using Jint.Constraints;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -9,15 +12,19 @@ namespace Jint.Tests.PublicInterface;
 /// Covers <see cref="Engine.AdvancedOperations.GetInteropConversionDiagnostics"/>, the answer to a question a
 /// host cannot otherwise ask: did any CLR array cross into script during this run, and under which semantics?
 /// <para>
-/// <see cref="ArrayConversionMode.LiveView"/> has been the default since 4.14, and the two modes differ in
-/// behavior a script can observe — a live view writes through to the CLR array, a copy does not. A host that
-/// does not own all of its Jint consumers therefore has a real audit to perform and, before these counters, no
-/// way to perform it except by reading every transitive caller. These tests live outside the Jint assembly on
-/// purpose: the project has no internals access, so the audit written here is one a third party can write.
+/// <see cref="ArrayConversionMode.Copy"/> is the default and <see cref="ArrayConversionMode.LiveView"/> remains
+/// an explicit performance opt-in. The modes differ in behavior a script can observe — a live view reads through
+/// to the CLR array and writes through only when CLR writes are separately enabled, while a copy does neither.
+/// A host that does not own all of its Jint consumers therefore has a real audit to perform and, before these
+/// counters, no way to perform it except by reading every transitive caller. These tests live outside the Jint
+/// assembly on purpose: the project has no internals access, so the audit written here is one a third party can
+/// write.
 /// </para>
 /// </summary>
 public class HostArrayConversionDiagnosticsTests
 {
+    public static bool MemoryAccountingAvailable => MemoryLimitConstraint.Accuracy != MemoryLimitAccuracy.Unavailable;
+
     private static Engine CreateEngine(ArrayConversionMode? mode = null) => new(options =>
     {
         options.AllowClr(typeof(HostWithArrays).Assembly);
@@ -41,6 +48,90 @@ public class HostArrayConversionDiagnosticsTests
     }
 
     // ---- the audit ----
+
+    [Fact]
+    public void CopyIsTheDefaultAndLiveViewRemainsAnExplicitOptIn()
+    {
+        new Options().Interop.ArrayConversion.Should().Be(ArrayConversionMode.Copy);
+
+        var copied = new HostWithArrays();
+        var defaultEngine = CreateEngine();
+        defaultEngine.SetValue("host", copied);
+        defaultEngine.Evaluate("Array.isArray(host.Values)").Should().BeTrue();
+        defaultEngine.Execute("host.Values[0] = 99;");
+        copied.Values[0].Should().Be(1);
+
+        var shared = new HostWithArrays();
+        var liveViewEngine = CreateEngine(ArrayConversionMode.LiveView);
+        liveViewEngine.SetValue("host", shared);
+        liveViewEngine.Evaluate("Array.isArray(host.Values)").Should().BeFalse();
+        liveViewEngine.Execute("host.Values[0] = 99;");
+        shared.Values[0].Should().Be(99);
+    }
+
+    [Fact]
+    public void CopyMutationRemainsAllowedWhileLiveViewWriteThroughRequiresBothOptIns()
+    {
+        var copied = new[] { 1, 2 };
+        var copyEngine = new Engine();
+        copyEngine.SetValue("values", copied);
+        copyEngine.Execute("values[0] = 9; values.push(3);");
+        copied.Should().Equal(1, 2);
+        copyEngine.Evaluate("values.join(',')").Should().Be("9,2,3");
+
+        var readOnlyLive = new[] { 1, 2 };
+        var readOnlyEngine = new Engine(options =>
+            options.Interop.ArrayConversion = ArrayConversionMode.LiveView);
+        readOnlyEngine.SetValue("values", readOnlyLive);
+        readOnlyLive[0] = 7;
+        readOnlyEngine.Evaluate("values[0]").Should().Be(7);
+        Invoking(() => readOnlyEngine.Execute("'use strict'; values[0] = 9;"))
+            .Should().Throw<JavaScriptException>();
+        readOnlyLive[0].Should().Be(7);
+
+        var writableLive = new[] { 1, 2 };
+        var writableEngine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
+        });
+        writableEngine.SetValue("values", writableLive);
+        writableEngine.Execute("values[0] = 9;");
+        writableLive[0].Should().Be(9);
+    }
+
+    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    public void FailedMemoryBoundCopyPublishesNothingAndLaterCopyCanRetry()
+    {
+        var engine = new Engine(options => options.LimitMemory(256_000));
+        var oversized = new object[100_000];
+
+        Invoking(() => engine.SetValue("oversized", oversized))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+
+        engine.SetValue("small", new[] { 1, 2, 3 });
+        engine.Evaluate("small.join(',')").Should().Be("1,2,3");
+        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+    }
+
+    [Fact]
+    public void FailedDeadlineBoundCopyPublishesNothingAndCanRetryAfterDisarm()
+    {
+        var deadline = new OperationDeadlineConstraint();
+        var engine = new Engine(options => options.Constraint(deadline));
+        deadline.Begin(TimeSpan.FromMilliseconds(1));
+        Thread.Sleep(10);
+
+        Invoking(() => engine.SetValue("timedOut", new object[100_000]))
+            .Should().ThrowExactly<TimeoutException>();
+        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+
+        deadline.End();
+        engine.SetValue("retry", new[] { 1, 2, 3 });
+        engine.Evaluate("retry.join(',')").Should().Be("1,2,3");
+        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+    }
 
     [Fact]
     public void AnAuditOfARunThatCrossesNoArrayAnswersZero()
@@ -126,7 +217,9 @@ public class HostArrayConversionDiagnosticsTests
 
         engine.Execute("for (var i = 0; i < 10; i++) { host.Values[0]; }");
 
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(1);
+        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        diagnostics.ArrayLiveViewConversions.Should().Be(0);
+        diagnostics.ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]
@@ -137,7 +230,9 @@ public class HostArrayConversionDiagnosticsTests
 
         engine.Execute("host.Values[0]; host.Others[0];");
 
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(2);
+        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        diagnostics.ArrayLiveViewConversions.Should().Be(0);
+        diagnostics.ArrayCopyConversions.Should().Be(2);
     }
 
     [Fact]
@@ -197,8 +292,8 @@ public class HostArrayConversionDiagnosticsTests
         first.Execute("host.Values[0]; host.Others[0];");
         second.Execute("host.Values[0];");
 
-        first.Advanced.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(2);
-        second.Advanced.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(1);
+        first.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(2);
+        second.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]
@@ -215,8 +310,8 @@ public class HostArrayConversionDiagnosticsTests
         engine.Execute("host.Values[0];");
         var afterSecond = engine.Advanced.GetInteropConversionDiagnostics();
 
-        afterFirst.ArrayLiveViewConversions.Should().Be(1);
-        afterSecond.ArrayLiveViewConversions.Should().Be(2);
+        afterFirst.ArrayCopyConversions.Should().Be(1);
+        afterSecond.ArrayCopyConversions.Should().Be(2);
     }
 
     [Fact]
@@ -231,8 +326,8 @@ public class HostArrayConversionDiagnosticsTests
         engine.Execute("host.Values[0];");
         var after = engine.Advanced.GetInteropConversionDiagnostics();
 
-        before.ArrayLiveViewConversions.Should().Be(0);
-        after.ArrayLiveViewConversions.Should().Be(1);
+        before.ArrayCopyConversions.Should().Be(0);
+        after.ArrayCopyConversions.Should().Be(1);
         before.Should().NotBe(after);
         engine.Advanced.GetInteropConversionDiagnostics().Should().Be(after);
     }

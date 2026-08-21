@@ -296,14 +296,15 @@ What the numbers show:
   Jint +2.6%). Allocation is Jint's on every row: 3.9×–12.4× less than the row's nearest managed
   competitor. (Three ClearScript_FastProxy rows show smaller KB figures, but those count
   interop-bridge overhead only — V8's working memory is on its native heap.)
-* **Collection traversal — last of all engines at 4.13.0 — stays transformed at
-  15,597 → 1,251 µs (12.5×, −99% allocation) with no script changes**: the 4.14.0
-  `ArrayConversionMode.LiveView` default exposes the host array as a live view instead of
+* **Historical 4.14.0 collection traversal result — last of all engines at 4.13.0 — was transformed at
+  15,597 → 1,251 µs (12.5×, −99% allocation) with no script changes**: in that release,
+  `ArrayConversionMode.LiveView` was the default and exposed the host array as a live view instead of
   re-copying it on every read, and a per-descriptor value memo
   ([#2756](https://github.com/sebastienros/jint/pull/2756)) skips re-converting the array on every
   read. NiL.JS took the row back by ~4% in the previous session; here the two are level (0.7%
-  apart, both rank 1) while NiL.JS allocates 12× more. Either way the old hoist-into-a-local
-  workaround is no longer needed.
+  apart, both rank 1) while NiL.JS allocates 12× more. The repeated copies in this historical table predate
+  the current recent-wrapper cache. `Copy` is now the default and normally reuses its first snapshot while
+  cached; explicitly opt into `LiveView` to retain shared mutation and avoid the initial O(N) projection.
 
 | Method                | FileName                     | Mean        | StdDev   | Rank | Allocated   |
 |---------------------- |----------------------------- |------------:|---------:|-----:|------------:|

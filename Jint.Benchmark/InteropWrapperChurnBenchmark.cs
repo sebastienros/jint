@@ -51,15 +51,15 @@ public class InteropWrapperChurnBenchmark
     private Engine _engineArrayHoistedDefault = null!;
     private Engine _engineArrayCopy = null!;
     private Engine _engineArrayIdentity = null!;
-    private Engine _engineArrayRecentCache = null!;
+    private Engine _engineArrayLiveView = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         var holder = new Holder(new Payload { Value = 42 });
 
-        // the out-of-the-box engine: since 4.14 ArrayConversion defaults to LiveView and
-        // CacheRecentObjectWrappers defaults to true (repeated crossings reuse the wrapper)
+        // the out-of-the-box engine: ArrayConversion defaults to Copy and
+        // CacheRecentObjectWrappers defaults to true (repeated crossings reuse the snapshot)
         Engine CreateDefault()
         {
             var engine = new Engine();
@@ -70,7 +70,11 @@ public class InteropWrapperChurnBenchmark
         // opt out of the recent-wrapper cache: every crossing builds a fresh wrapper
         Engine CreateNoCache()
         {
-            var engine = new Engine(cfg => cfg.Interop.CacheRecentObjectWrappers = false);
+            var engine = new Engine(cfg =>
+            {
+                cfg.Interop.ArrayConversion = ArrayConversionMode.LiveView;
+                cfg.Interop.CacheRecentObjectWrappers = false;
+            });
             engine.SetValue("h", holder);
             return engine;
         }
@@ -102,8 +106,15 @@ public class InteropWrapperChurnBenchmark
             return engine;
         }
 
-        // the pre-4.14 default: every array crossing deep-copies into a fresh JsArray snapshot
-        // (the cache opt-out keeps this row measuring the copy itself)
+        Engine CreateLiveView()
+        {
+            var engine = new Engine(cfg => cfg.Interop.ArrayConversion = ArrayConversionMode.LiveView);
+            engine.SetValue("h", holder);
+            return engine;
+        }
+
+        // Every array crossing deep-copies into a fresh JsArray snapshot (the cache opt-out keeps
+        // this row measuring the copy itself).
         Engine CreateCopy()
         {
             var engine = new Engine(cfg =>
@@ -144,8 +155,8 @@ public class InteropWrapperChurnBenchmark
         _engineArrayIdentity = CreateIdentity();
         _engineArrayIdentity.Execute(_arrayTraversal);
 
-        _engineArrayRecentCache = CreateRecentCache();
-        _engineArrayRecentCache.Execute(_arrayTraversal);
+        _engineArrayLiveView = CreateLiveView();
+        _engineArrayLiveView.Execute(_arrayTraversal);
     }
 
     [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
@@ -172,14 +183,14 @@ public class InteropWrapperChurnBenchmark
         for (var i = 0; i < OperationsPerInvoke; i++) _engineChurnRecentCache.Execute("h.Payload.Value");
     }
 
-    // A CLR array member read repeatedly inside the loop. Under the default (LiveView) each h.Numbers
-    // read wraps the array in a live fixed-size view without a per-read deep copy; the Copy-mode rows
-    // below deep-copy into a fresh JsArray unless an identity flag reuses the snapshot.
+    // A CLR array member read repeatedly inside the loop. The default Copy mode reuses its first
+    // snapshot through the recent-wrapper cache; the explicit LiveView row avoids a deep copy, and
+    // the uncached Copy row below measures a fresh snapshot on each crossing.
     private static readonly Prepared<Script> _arrayTraversal = Engine.PrepareScript(
         "var s = 0; for (var i = 0; i < 100; i++) { s += h.Numbers[i]; }");
 
     [Benchmark]
-    public void ArrayMemberTraversal_DefaultLiveView()
+    public void ArrayMemberTraversal_DefaultCopy()
     {
         _engineArrayDefault.Execute(_arrayTraversal);
     }
@@ -196,13 +207,13 @@ public class InteropWrapperChurnBenchmark
         "var arr = h.Numbers; var s = 0; for (var pass = 0; pass < 100; pass++) { for (var i = 0; i < 100; i++) { s += arr[i]; } }");
 
     [Benchmark]
-    public void ArrayHoistedTraversal_DefaultLiveView()
+    public void ArrayHoistedTraversal_DefaultCopy()
     {
         _engineArrayHoistedDefault.Execute(_arrayHoistedTraversal);
     }
 
     [Benchmark]
-    public void ArrayMemberTraversal_CopyMode()
+    public void ArrayMemberTraversal_CopyNoCache()
     {
         _engineArrayCopy.Execute(_arrayTraversal);
     }
@@ -214,8 +225,8 @@ public class InteropWrapperChurnBenchmark
     }
 
     [Benchmark]
-    public void ArrayMemberTraversal_CopyRecentCache()
+    public void ArrayMemberTraversal_LiveView()
     {
-        _engineArrayRecentCache.Execute(_arrayTraversal);
+        _engineArrayLiveView.Execute(_arrayTraversal);
     }
 }

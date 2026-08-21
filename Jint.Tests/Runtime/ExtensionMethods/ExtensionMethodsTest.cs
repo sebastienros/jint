@@ -65,8 +65,8 @@ public class ExtensionMethodsTest
         {
             opts.AddExtensionMethods(typeof(CustomStringExtensions));
             // this exercises extension-method dispatch producing a CLR array (string[]) that the test
-            // reads back as a JS array; pin Copy so the result is a native JsArray (the LiveView default
-            // would expose it as a live wrapper that AsArray() does not accept)
+            // reads back as a JS array; pin Copy so the test remains independent of the configured default
+            // and the result is a native JsArray that AsArray() accepts
             opts.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
 
@@ -153,7 +153,7 @@ public class ExtensionMethodsTest
     [Fact]
     public void LinqExtensionMethodWithMultipleGenericParameters()
     {
-        // Copy produces a native JsArray whose 'join' is the prototype method. The LiveView default
+        // Copy produces a native JsArray whose 'join' is the prototype method. Explicit LiveView
         // works too since #2976: the wrapper's pure-extension 'Enumerable.Join' candidate defers to
         // native 'Array.prototype.join' - ExtensionMethodShadowingTests covers that flavor.
         var engine = GetLinqEngine(opts => opts.Interop.ArrayConversion = ArrayConversionMode.Copy);
@@ -325,7 +325,7 @@ public class ExtensionMethodsTest
             // prevent ExpandoObject wrapping
             options.Interop.CreateClrObject = null;
             // '.ToArray()' results are read back as JS arrays via AsArray(); pin Copy so they are native
-            // JsArrays rather than the LiveView default's live wrapper views
+            // JsArrays independent of the configured array-conversion default
             options.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
         engine.Execute("var a = [ 2, 4 ];");

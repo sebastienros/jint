@@ -10,13 +10,12 @@ public partial class InteropTests
     }
 
     [Fact]
-    public void ArrayConversionCreatesFreshCopyInCopyMode()
+    public void ArrayConversionCreatesFreshCopyByDefaultWithoutCache()
     {
-        // Copy is no longer the default (LiveView since 4.14) and the recent-wrapper cache would
-        // reuse the first snapshot; opt out of both to lock the fresh-snapshot-per-crossing contract
+        // The recent-wrapper cache would reuse the first default Copy snapshot; opt out to lock the
+        // fresh-snapshot-per-crossing contract.
         var engine = new Engine(options =>
         {
-            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
             options.Interop.CacheRecentObjectWrappers = false;
         });
         engine.SetValue("host", new ArrayConversionHost());
@@ -33,7 +32,6 @@ public partial class InteropTests
         var host = new ArrayConversionHost();
         var engine = new Engine(options =>
         {
-            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
             options.Interop.TrackObjectWrapperIdentity = true;
         });
         engine.SetValue("host", host);
@@ -51,11 +49,7 @@ public partial class InteropTests
     [Fact]
     public void ArrayConversionReusesSnapshotWithRecentObjectWrapperCache()
     {
-        var engine = new Engine(options =>
-        {
-            options.Interop.ArrayConversion = ArrayConversionMode.Copy;
-            options.Interop.CacheRecentObjectWrappers = true;
-        });
+        var engine = new Engine();
         engine.SetValue("host", new ArrayConversionHost());
 
         engine.Evaluate("host.Numbers === host.Numbers").AsBoolean().Should().BeTrue();
@@ -68,6 +62,7 @@ public partial class InteropTests
         // a type-guard miss must replace the entry (last view wins), not throw on Add
         var engine = new Engine(options =>
         {
+            options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             options.Interop.TrackObjectWrapperIdentity = true;
             options.Interop.WrapObjectHandler = static (e, target, type) =>
                 ObjectWrapper.Create(e, target, target is int[] ? typeof(System.Collections.IList) : type);

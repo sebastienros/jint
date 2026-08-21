@@ -54,16 +54,16 @@ public partial class InteropTests
     }
 
     [Fact]
-    public void PropertyValueMemoDoesNotHideInPlaceMutation()
+    public void PropertyValueMemoDoesNotHideInPlaceMutationForLiveView()
     {
         var host = new PropertyMemoHost();
-        var engine = new Engine();
+        var engine = new Engine(options => options.Interop.ArrayConversion = ArrayConversionMode.LiveView);
         engine.SetValue("host", host);
 
         engine.Evaluate("host.stable[0]").AsNumber().Should().Be(10);
 
-        // a CLR-side in-place mutation of the same array instance must remain visible: the memo caches
-        // the wrapper, not element values, and the default wrapper is a live view
+        // A CLR-side in-place mutation of the same array instance must remain visible: the memo caches
+        // the explicitly selected live wrapper, not element values.
         host.stable[0] = 99;
         engine.Evaluate("host.stable[0]").AsNumber().Should().Be(99);
     }
