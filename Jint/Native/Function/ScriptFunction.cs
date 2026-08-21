@@ -166,9 +166,9 @@ public sealed class ScriptFunction : Function, IConstructor
         // CallExpression, and every one of those recursions ends as a native stack overflow when the
         // only probe in the engine is the call expression's. Being first also keeps it outside the
         // try/finally in CallOnce: a throw from inside it must not reach a finally that pops an
-        // execution context this frame never pushed. Off unless the host asked for it
-        // (Options.Constraints.StackOverflowGuard), in which case what is left here is one branch on a
-        // cached bool — see StackGuard.EnsureStackHeadroom.
+        // execution context this frame never pushed. On unless the host explicitly disables
+        // Options.Constraints.StackOverflowGuard or selects MaxExecutionStackCount; what is left here
+        // is one branch on a cached bool — see StackGuard.EnsureStackHeadroom.
         //
         // The probe belongs on the entry points that add a native frame, which is why it is here and in
         // CallWithStackFrame rather than inside CallOnce: ContinueTailCalls re-enters CallOnce and

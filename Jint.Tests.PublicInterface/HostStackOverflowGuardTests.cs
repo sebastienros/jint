@@ -4,15 +4,15 @@ using Jint.Runtime;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// What an embedder running untrusted script gets from <c>options.Constraints.StackOverflowGuard</c> when
-/// that script recurses without bound: the promise a browser makes, a catchable <c>RangeError</c> and an
-/// engine that is still usable afterwards, instead of a process that disappears.
+/// What an embedder running untrusted script gets by default from
+/// <c>options.Constraints.StackOverflowGuard</c> when that script recurses without bound: the promise a
+/// browser makes, a catchable <c>RangeError</c> and an engine that is still usable afterwards, instead of
+/// a process that disappears.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The guard is opt-in, so every engine here but one asks for it. The exception is
-/// <see cref="ADefaultEngineDoesNotProbeAtAll"/>, which pins the other half of the decision: a default
-/// engine pays nothing and therefore protects nothing.
+/// Every guarded engine here uses the default. <see cref="AnExplicitOptOutDoesNotProbeAtAll"/> pins that a
+/// host which owns and independently bounds every script can still recover the probe's cost.
 /// </para>
 /// <para>
 /// Every body runs on a dedicated thread with an explicit 1 MB stack, the size a thread-pool worker or an
@@ -24,7 +24,13 @@ public class HostStackOverflowGuardTests
 {
     private const int SmallStack = 1024 * 1024;
 
-    private static Engine Guarded() => new(options => options.Constraints.StackOverflowGuard = true);
+    private static Engine Guarded() => new();
+
+    [Fact]
+    public void TheGuardIsEnabledByDefault()
+    {
+        new Options().Constraints.StackOverflowGuard.Should().BeTrue();
+    }
 
     public static TheoryData<string, string> UnboundedRecursions => new()
     {
@@ -133,23 +139,23 @@ public class HostStackOverflowGuardTests
     }
 
     /// <summary>
-    /// The default is off, and this is the only way to say so from a test: a default engine is run past
+    /// The explicit opt-out is pinned by running an unguarded engine past
     /// the depth at which a guarded engine on the same 1 MB stack would have thrown, and must complete
     /// the recursion normally instead. The run itself happens on a 16 MB stack, sixteen times what that
     /// depth was measured against, because the assertion is about the absence of the guard's
-    /// <c>RangeError</c> and not about how much stack a default engine really has. Pinning the other
-    /// direction is impossible in-process: what a default engine does past its own limit is end the
+    /// <c>RangeError</c> and not about how much stack the unguarded engine really has. Pinning the other
+    /// direction is impossible in-process: what an unguarded engine does past its own limit is end the
     /// process, and no test can assert on that.
     /// </summary>
     [Fact]
-    public void ADefaultEngineDoesNotProbeAtAll()
+    public void AnExplicitOptOutDoesNotProbeAtAll()
     {
         var guardedDepth = (int) MeasureGuardedDepth(SmallStack);
 
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine();
+                var engine = new Engine(options => options.Constraints.StackOverflowGuard = false);
                 engine.Execute("function f(n) { return n === 0 ? 0 : 1 + f(n - 1); }");
 
                 engine.Evaluate($"f({guardedDepth})").AsNumber().Should().Be(guardedDepth);
