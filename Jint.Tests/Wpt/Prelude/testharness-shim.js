@@ -170,6 +170,66 @@
         }
     }
 
+    // Membership by `indexOf`, deliberately not by `same_value`: upstream documents that this one "doesn't
+    // handle NaN or ±0 correctly", and a shim that quietly handled them would accept a suite a browser fails.
+    function assert_in_array(actual, expected, description) {
+        assert(expected.indexOf(actual) !== -1,
+            'value ' + format_value(actual) + ' not in array ' + format_value(expected) + describe(description));
+    }
+
+    // Deprecated upstream since 2015 (https://github.com/web-platform-tests/wpt/issues/2033) and carrying its
+    // author's own "this needs to be improved a great deal", so it is copied as it is rather than as it ought
+    // to be. Three of its quirks are load-bearing for the suites that still call it: the walk is `for..in`,
+    // which reaches inherited enumerable properties as well as own ones, while the presence check on the other
+    // side is `hasOwnProperty`; a value already on the stack is not descended into again, so a cycle on the
+    // `actual` side terminates and one reachable only from `expected` does not; and the second loop is what
+    // catches a property `expected` has and `actual` does not, which the first loop cannot see.
+    function assert_object_equals(actual, expected, description) {
+        assert(typeof actual === 'object' && actual !== null,
+            'value is ' + format_value(actual) + ', expected object' + describe(description));
+
+        function check_equal(actual, expected, stack) {
+            stack.push(actual);
+            var p;
+            for (p in actual) {
+                // hasOwnProperty through Object.prototype rather than off the object, as everywhere else in
+                // this file: upstream calls it as a method, which a null-prototype object does not have.
+                assert(Object.prototype.hasOwnProperty.call(expected, p),
+                    'unexpected property ' + format_value(p) + describe(description));
+                if (typeof actual[p] === 'object' && actual[p] !== null) {
+                    if (stack.indexOf(actual[p]) === -1) {
+                        check_equal(actual[p], expected[p], stack);
+                    }
+                } else {
+                    assert(same_value(actual[p], expected[p]),
+                        'property ' + format_value(p) + ' expected ' + format_value(expected[p]) +
+                        ' got ' + format_value(actual[p]) + describe(description));
+                }
+            }
+            for (p in expected) {
+                assert(Object.prototype.hasOwnProperty.call(actual, p),
+                    'expected property ' + format_value(p) + ' missing' + describe(description));
+            }
+            stack.pop();
+        }
+
+        check_equal(actual, expected, []);
+    }
+
+    // https://webidl.spec.whatwg.org/#dfn-class-string — the string an interface's `@@toStringTag` makes
+    // `Object.prototype.toString` report, which is how a suite checks what it was handed actually is one.
+    function assert_class_string(object, class_string, description) {
+        var actual = Object.prototype.toString.call(object);
+        var expected = '[object ' + class_string + ']';
+        assert(same_value(actual, expected),
+            'expected ' + format_value(expected) + ' but got ' + format_value(actual) + describe(description));
+    }
+
+    function assert_own_property(object, property_name, description) {
+        assert(Object.prototype.hasOwnProperty.call(object, property_name),
+            'expected property ' + format_value(property_name) + ' missing' + describe(description));
+    }
+
     function assert_unreached(description) {
         throw new AssertionError('reached unreachable code' + describe(description));
     }
@@ -205,7 +265,14 @@
         InvalidNodeTypeError: 24, DataCloneError: 25
     };
 
+    // The synchronous form always means this global's DOMException. `promise_rejects_dom` may be told which
+    // global the exception is expected to come from, so the matching half takes the constructor as an
+    // argument — upstream splits the two the same way and for the same reason.
     function assert_throws_dom(type, func, description) {
+        assert_throws_dom_impl(type, func, description, global.DOMException);
+    }
+
+    function assert_throws_dom_impl(type, func, description, constructor) {
         try {
             func.call(this);
         } catch (e) {
@@ -214,7 +281,7 @@
             }
             assert(typeof e === 'object' && e !== null,
                 'threw ' + format_value(e) + ', not an object' + describe(description));
-            assert(e.constructor === global.DOMException,
+            assert(e.constructor === constructor,
                 'expected a DOMException but got ' + format_value(e) + describe(description));
             if (typeof type === 'number') {
                 assert(e.code === type,
@@ -388,6 +455,64 @@
         return t;
     }
 
+    // ---------------------------------------------------------------- promise rejections
+
+    // Upstream re-wraps the promise it was handed in one built here so that a promise from another realm can
+    // still be awaited. Jint has a single realm, so what this actually buys is thenable adoption — whatever a
+    // suite hands over is driven through its own `then` — and it is kept in that shape because upstream's
+    // contract is written against it.
+    function bring_promise_to_current_realm(promise) {
+        return new Promise(promise.then.bind(promise));
+    }
+
+    // Each of the three waits for the rejection and then hands the reason to the matching `assert_throws_*`
+    // through a thunk that re-throws it, so what counts as the right exception has exactly one implementation
+    // and the synchronous and asynchronous forms of an assertion can never drift apart.
+    //
+    // A promise that *resolves* fails through `test.unreached_func`, which is a step of the test: it records
+    // the failure on the test and returns normally, so the promise this hands back is fulfilled rather than
+    // rejected and the promise_test that returned it still settles.
+    function promise_rejects_js(test, constructor, promise, description) {
+        return bring_promise_to_current_realm(promise)
+            .then(test.unreached_func('Should have rejected: ' + description))
+            .catch(function (e) {
+                assert_throws_js(constructor, function () { throw e; }, description);
+            });
+    }
+
+    // Two ways to call this, exactly as upstream: with the promise third, or — when the DOMException is
+    // expected to come from another global — with that global's DOMException constructor third and the
+    // promise fourth. The two are told apart by the third argument being a function named "DOMException",
+    // which is also why the no-constructor form asserts that nothing was passed in the fifth position: a
+    // suite that spelled the constructor form wrong would otherwise silently lose its description.
+    function promise_rejects_dom(test, type, promiseOrConstructor, descriptionOrPromise, maybeDescription) {
+        var constructor, promise, description;
+        if (typeof promiseOrConstructor === 'function' && promiseOrConstructor.name === 'DOMException') {
+            constructor = promiseOrConstructor;
+            promise = descriptionOrPromise;
+            description = maybeDescription;
+        } else {
+            constructor = global.DOMException;
+            promise = promiseOrConstructor;
+            description = descriptionOrPromise;
+            assert(maybeDescription === undefined,
+                'Too many args passed to no-constructor version of promise_rejects_dom, or accidentally explicitly passed undefined');
+        }
+        return bring_promise_to_current_realm(promise)
+            .then(test.unreached_func('Should have rejected: ' + description))
+            .catch(function (e) {
+                assert_throws_dom_impl(type, function () { throw e; }, description, constructor);
+            });
+    }
+
+    function promise_rejects_exactly(test, exception, promise, description) {
+        return bring_promise_to_current_realm(promise)
+            .then(test.unreached_func('Should have rejected: ' + description))
+            .catch(function (e) {
+                assert_throws_exactly(exception, function () { throw e; }, description);
+            });
+    }
+
     // `setup` exists here for the one shape the corpus uses — a function run for its side effects before the
     // tests are registered. The properties form (`explicit_done`, `single_test`, timeouts) is a browser
     // scheduling concern the driver has no analogue for, so it is accepted and ignored.
@@ -456,10 +581,17 @@
     global.assert_equals = assert_equals;
     global.assert_not_equals = assert_not_equals;
     global.assert_array_equals = assert_array_equals;
+    global.assert_in_array = assert_in_array;
+    global.assert_object_equals = assert_object_equals;
+    global.assert_class_string = assert_class_string;
+    global.assert_own_property = assert_own_property;
     global.assert_unreached = assert_unreached;
     global.assert_throws_js = assert_throws_js;
     global.assert_throws_dom = assert_throws_dom;
     global.assert_throws_exactly = assert_throws_exactly;
+    global.promise_rejects_js = promise_rejects_js;
+    global.promise_rejects_dom = promise_rejects_dom;
+    global.promise_rejects_exactly = promise_rejects_exactly;
 
     // Both of these are the live arrays, and the driver reads them through the object model rather than by
     // evaluating a script. That is not a shortcut: `engine.Evaluate` drains the event loop on its way out,

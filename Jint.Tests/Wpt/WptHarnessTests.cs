@@ -52,10 +52,133 @@ public class WptHarnessTests
         "assert_throws_dom('NotFoundError', () => { var e = new Error(); e.name = 'NotFoundError'; e.code = 8; throw e; })")]
     [InlineData("assert_throws_exactly(1, () => { throw 1; })", "assert_throws_exactly(1, () => { throw 2; })")]
     [InlineData("if (false) assert_unreached('x')", "assert_unreached('x')")]
+    [InlineData("assert_in_array(2, [1, 2, 3])", "assert_in_array(4, [1, 2, 3])")]
+    // indexOf rather than same_value, which is upstream's own documented caveat: -0 finds 0, NaN finds nothing.
+    [InlineData("assert_in_array(-0, [0])", "assert_in_array(NaN, [NaN])")]
+    [InlineData("assert_object_equals({ a: 1, b: { c: 2 } }, { a: 1, b: { c: 2 } })", "assert_object_equals({ a: { b: 1 } }, { a: { b: 2 } })")]
+    // A property on one side and not the other, in both directions: the second walk is what catches the second.
+    [InlineData("assert_object_equals({ a: 1 }, { a: 1 })", "assert_object_equals({ a: 1, b: 2 }, { a: 1 })")]
+    [InlineData("assert_object_equals([1, 2], [1, 2])", "assert_object_equals({ a: 1 }, { a: 1, b: 2 })")]
+    // Leaves compare by same_value, exactly as assert_equals does.
+    [InlineData("assert_object_equals({ a: NaN }, { a: NaN })", "assert_object_equals({ a: 0 }, { a: -0 })")]
+    [InlineData("assert_object_equals({}, {})", "assert_object_equals(1, {})")]
+    // What upstream's `for..in` walk plus its `hasOwnProperty` check add up to: an enumerable property has to
+    // be an own property on *both* sides, because the walk reaches an inherited one and the check refuses it.
+    // Both directions, since the two loops are what catch the two of them.
+    [InlineData("assert_object_equals({ a: 'x' }, { a: 'x' })", "assert_object_equals(Object.create({ a: 1 }), { a: 1 })")]
+    [InlineData("assert_object_equals({ a: undefined }, { a: undefined })", "assert_object_equals({ a: 1 }, Object.create({ a: 1 }))")]
+    [InlineData("assert_class_string(new URL('https://example.com/'), 'URL')", "assert_class_string(new URL('https://example.com/'), 'Object')")]
+    [InlineData("assert_class_string(Math, 'Math')", "assert_class_string([], 'Object')")]
+    [InlineData("assert_own_property({ x: 1 }, 'x')", "assert_own_property({}, 'x')")]
+    // Own, so a property reached through the prototype chain does not satisfy it.
+    [InlineData("assert_own_property([], 'length')", "assert_own_property(Object.create({ x: 1 }), 'x')")]
     public void AnAssertionRecordsBothOutcomes(string passing, string failing)
     {
         StatusOf($"test(() => {{ {passing} }}, 'row');").Should().Be("PASS");
         StatusOf($"test(() => {{ {failing} }}, 'row');").Should().Be("FAIL");
+    }
+
+    /// <summary>
+    /// What every <c>promise_rejects_*</c> row runs before its assertion, so a row can name a value by
+    /// identity and can name a <c>DOMException</c> constructor that is not this global's.
+    /// </summary>
+    private const string RejectionPreamble = """
+        var sentinel = new Error('sentinel');
+        // What a cross-realm DOMException looks like to the overload check — a function named DOMException
+        // that is not the one this global exposes — without a second realm to obtain one from.
+        var foreignDOMException = function DOMException() {};
+        """;
+
+    [Theory]
+    // Each row is one rejection assertion inside a promise_test, a body that must be recorded PASS and a body
+    // that must be recorded FAIL. `t` is the test the shim passes the body.
+    [InlineData(
+        "promise_rejects_js(t, TypeError, Promise.reject(new TypeError()))",
+        "promise_rejects_js(t, TypeError, Promise.reject(new RangeError()))")]
+    // A promise that resolves has to fail the assertion rather than satisfy it by not rejecting.
+    [InlineData(
+        "promise_rejects_js(t, RangeError, Promise.reject(new RangeError()))",
+        "promise_rejects_js(t, TypeError, Promise.resolve('resolved'))")]
+    // The same sanity check assert_throws_js makes: a rejection reason that is not an object is not an error.
+    [InlineData(
+        "promise_rejects_js(t, TypeError, Promise.reject(new TypeError()))",
+        "promise_rejects_js(t, TypeError, Promise.reject('not an object'))")]
+    [InlineData(
+        "promise_rejects_dom(t, 'NotFoundError', Promise.reject(new DOMException('x', 'NotFoundError')))",
+        "promise_rejects_dom(t, 'NotFoundError', Promise.reject(new DOMException('x', 'DataCloneError')))")]
+    [InlineData(
+        "promise_rejects_dom(t, 'DataCloneError', Promise.reject(new DOMException('x', 'DataCloneError')))",
+        "promise_rejects_dom(t, 'NotFoundError', Promise.resolve())")]
+    // A plain Error wearing the right name and the right legacy code is still not a DOMException.
+    [InlineData(
+        "promise_rejects_dom(t, 'AbortError', Promise.reject(new DOMException('x', 'AbortError')))",
+        "promise_rejects_dom(t, 'NotFoundError', Promise.reject(Object.assign(new Error(), { name: 'NotFoundError', code: 8 })))")]
+    // The four-argument form names the global the exception must come from: this one satisfies it, and a
+    // DOMException constructor that is not this global's does not, however right the name and code are.
+    [InlineData(
+        "promise_rejects_dom(t, 'NotFoundError', DOMException, Promise.reject(new DOMException('x', 'NotFoundError')))",
+        "promise_rejects_dom(t, 'NotFoundError', foreignDOMException, Promise.reject(new DOMException('x', 'NotFoundError')))")]
+    [InlineData(
+        "promise_rejects_exactly(t, sentinel, Promise.reject(sentinel))",
+        "promise_rejects_exactly(t, sentinel, Promise.reject(new Error('sentinel')))")]
+    [InlineData(
+        "promise_rejects_exactly(t, 1, Promise.reject(1))",
+        "promise_rejects_exactly(t, 1, Promise.resolve(1))")]
+    public void ARejectionAssertionRecordsBothOutcomes(string passing, string failing)
+    {
+        StatusOf($"{RejectionPreamble}\npromise_test(t => {passing}, 'row');").Should().Be("PASS");
+        StatusOf($"{RejectionPreamble}\npromise_test(t => {failing}, 'row');").Should().Be("FAIL");
+    }
+
+    [Fact]
+    public void ARejectionAssertionReportsTheSameMismatchItsSynchronousTwinWould()
+    {
+        // The point of the promise_rejects_* family routing through assert_throws_* rather than repeating the
+        // matching rules: the message is the one assert_throws_js produces, character for character.
+        var rejected = Run("promise_test(t => promise_rejects_js(t, TypeError, Promise.reject(new RangeError()), 'why'), 'row');");
+        var thrown = Run("test(() => assert_throws_js(TypeError, () => { throw new RangeError(); }, 'why'), 'row');");
+
+        rejected.HarnessError.Should().BeNull();
+        rejected.Results[0].Status.Should().Be("FAIL");
+        rejected.Results[0].Message.Should().Be("expected TypeError but got object \"RangeError\" (why)");
+        rejected.Results[0].Message.Should().Be(thrown.Results[0].Message);
+    }
+
+    [Fact]
+    public void APromiseThatResolvesSaysThatIsWhyTheRejectionAssertionFailed()
+    {
+        var outcome = Run("promise_test(t => promise_rejects_exactly(t, 1, Promise.resolve(), 'the operation'), 'row');");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("Should have rejected: the operation");
+    }
+
+    [Fact]
+    public void TheNoConstructorFormOfPromiseRejectsDomRefusesAFifthArgument()
+    {
+        // A suite that meant the constructor form and spelled it wrong would otherwise have its description
+        // silently swallowed and the assertion still pass, which is what upstream's guard is for.
+        var outcome = Run(
+            "promise_test(t => promise_rejects_dom(t, 'NotFoundError', Promise.reject(new DOMException('x', 'NotFoundError')), 'why', 'extra'), 'row');");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("Too many args passed to no-constructor version of promise_rejects_dom");
+    }
+
+    [Fact]
+    public void ARejectionAssertionIsWaitedOnRatherThanFireAndForgotten()
+    {
+        // The assertion has to be part of what settles the test: if the returned promise were dropped, the
+        // test would be recorded before the rejection was ever observed and this row would read PASS.
+        var outcome = Run("""
+            promise_test(t => promise_rejects_js(t, TypeError, new Promise((resolve, reject) => setTimeout(() => reject(new RangeError()), 1))), 'row');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("RangeError");
     }
 
     [Fact]
@@ -66,6 +189,22 @@ public class WptHarnessTests
         outcome.Results.Should().HaveCount(1);
         outcome.Results[0].Status.Should().Be("FAIL");
         outcome.Results[0].Message.Should().Be("expected \"want\" but got \"got\" (why)");
+    }
+
+    [Fact]
+    public void TheValueAssertionsSayWhichPropertyDisagreedAndHow()
+    {
+        // Messages are what an exclusion is triaged from, and every one of these is a name the corresponding
+        // upstream assertion produces once its ${p}/${actual} substitutions have gone through format_value.
+        static string? MessageOf(string body) => Run($"test(() => {body}, 'row');").Results[0].Message;
+
+        MessageOf("assert_object_equals({ a: 1 }, { a: 2 }, 'why')").Should().Be("property \"a\" expected 2 got 1 (why)");
+        MessageOf("assert_object_equals({ a: 1, b: 2 }, { a: 1 })").Should().Be("unexpected property \"b\"");
+        MessageOf("assert_object_equals({ a: 1 }, { a: 1, b: 2 })").Should().Be("expected property \"b\" missing");
+        MessageOf("assert_object_equals(1, {})").Should().Be("value is 1, expected object");
+        MessageOf("assert_own_property({}, 'x')").Should().Be("expected property \"x\" missing");
+        MessageOf("assert_class_string([], 'URL')").Should().Be("expected \"[object URL]\" but got \"[object Array]\"");
+        MessageOf("assert_in_array(4, [1, 2, 3])").Should().Be("value 4 not in array [1, 2, 3]");
     }
 
     [Fact]
