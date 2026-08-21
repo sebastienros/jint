@@ -367,6 +367,140 @@ encoding, never decoded as something else. The label table and the single-byte i
 from the standard's own data files; `TextEncoder` is UTF-8 only, as the standard requires.
 
 
+### WinterTC's Minimum Common API, member by member
+
+The surface above is guided by [WinterTC's Minimum Common Web Platform API](https://min-common-api.proposal.wintertc.org/),
+the Ecma TC55 standard that names the slice of the web platform a non-browser runtime should carry. The two
+tables below are that standard's own index — §5.1 *Common interfaces* and §5.2 *Common methods and
+properties* of the 2025 snapshot — one row per member, against the `WebApiFeatures` flag that provides it.
+**Every flag named is part of `WebApiFeatures.Default` unless the row says otherwise**, so a bare
+`UseWebApis()` gets you the whole list bar the rows that say it does not.
+
+Five entries need more than a flag name, stated here rather than left to be discovered:
+
+* **`WebAssembly.*`** — 16 of the members below, and a recorded decline rather than a to-do. Implementing it
+  means shipping a *second* virtual machine beside the first: a decoder, a validator and an execution engine
+  for a bytecode a tree-walking AST interpreter shares nothing with, since Jint deliberately has no bytecode
+  and no code generation of its own. It would be larger than the ECMAScript implementation it stood next to
+  and would reuse none of it, so it is absent and will stay absent.
+* **`Crypto`, `SubtleCrypto` and `Performance`** — the *interface objects*. `crypto`, `crypto.subtle` and
+  `performance` are all there and carry every member the standards give them, but as objects whose members
+  are their own rather than an interface prototype's, so there is no constructor to name and
+  `x instanceof Crypto` cannot be written. That is a documented simplification (the same one `console`
+  carries), and what a script can otherwise observe is unchanged — `Object.keys(crypto)` answers the empty
+  array in a browser too, because there the members live one level up.
+* **Eight of the Streams interfaces** — the two readers, the writer, the four controllers and
+  `ReadableStreamBYOBRequest`.
+  These are implemented and their interface objects are real: a reader's `constructor` is the genuine thing
+  and `new` on it behaves as the standard says. They are simply not installed on `globalThis`, which is the
+  deliberate reduction described under [Streams](#streams-including-byte-streams).
+* **`onerror`, `onunhandledrejection` and `onrejectionhandled`** — absent, and §6 *The global scope* is why:
+  a runtime whose global object is not an `EventTarget` "shall not support" those three properties, and must
+  instead fire the events through a suitable alternative mechanism. Jint's global is not an `EventTarget`
+  (`GlobalEvents` puts `addEventListener` on it as an ordinary function bound to a synthetic target), so
+  their absence is what conformance asks for rather than a gap. The same clause excuses a runtime from
+  implementing `ErrorEvent` and `PromiseRejectionEvent`; those are here anyway, and so are the `error`,
+  `unhandledrejection` and `rejectionhandled` events themselves.
+* **`Headers`, `Request`, `Response` and `fetch()`** — present, but behind flags `Default` does not include,
+  for the reason the whole section opens with: network egress is a grant a host makes rather than inherits.
+  The three interfaces come with `Fetch`, `CacheApi` or `FetchEvents`; the function comes with `Fetch` alone.
+
+§5.3 *Web workers* asks for `onerror`, `onunhandledrejection`, `onrejectionhandled` and `self` on any global
+that maps to a `WorkerGlobalScope`. Jint's does not map to one, so only `self` applies, and the three
+handlers are the §6 case above.
+
+**§5.1 Common interfaces**
+
+| Member | Defined by | Provided by |
+| --- | --- | --- |
+| `AbortController` | DOM | `Events` |
+| `AbortSignal` | DOM | `Events` |
+| `Event` | DOM | `Events` |
+| `EventTarget` | DOM | `Events` |
+| `CustomEvent` | DOM | `Events` |
+| `ErrorEvent` | HTML | `GlobalEvents` |
+| `MessageChannel` | HTML | `Messaging` |
+| `MessageEvent` | HTML | `Messaging` (also `EventSource`, `WebSocket`) |
+| `MessagePort` | HTML | `Messaging` |
+| `PromiseRejectionEvent` | HTML | `GlobalEvents` |
+| `DOMException` | WebIDL | *no flag — installed whenever any feature is* |
+| `Headers` | Fetch | `Fetch`, `CacheApi` or `FetchEvents` — **not in `Default`** |
+| `Request` | Fetch | `Fetch`, `CacheApi` or `FetchEvents` — **not in `Default`** |
+| `Response` | Fetch | `Fetch`, `CacheApi` or `FetchEvents` — **not in `Default`** |
+| `FormData` | XHR | `Files` |
+| `Blob` | File API | `Files` |
+| `File` | File API | `Files` |
+| `CompressionStream` | Compression | `Compression` **and** `Streams` |
+| `DecompressionStream` | Compression | `Compression` **and** `Streams` |
+| `ByteLengthQueuingStrategy` | Streams | `Streams` |
+| `CountQueuingStrategy` | Streams | `Streams` |
+| `ReadableStream` | Streams | `Streams` |
+| `TransformStream` | Streams | `Streams` |
+| `WritableStream` | Streams | `Streams` |
+| `ReadableByteStreamController` | Streams | `Streams` — implemented, **not a global** |
+| `ReadableStreamBYOBReader` | Streams | `Streams` — implemented, **not a global** |
+| `ReadableStreamBYOBRequest` | Streams | `Streams` — implemented, **not a global** |
+| `ReadableStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
+| `ReadableStreamDefaultReader` | Streams | `Streams` — implemented, **not a global** |
+| `TransformStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
+| `WritableStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
+| `WritableStreamDefaultWriter` | Streams | `Streams` — implemented, **not a global** |
+| `TextDecoder` | Encoding | `Encoding` |
+| `TextEncoder` | Encoding | `Encoding` |
+| `TextDecoderStream` | Encoding | `Encoding` **and** `Streams` |
+| `TextEncoderStream` | Encoding | `Encoding` **and** `Streams` |
+| `URL` | URL | `Url` |
+| `URLSearchParams` | URL | `Url` |
+| `URLPattern` | URL Pattern | `Url` |
+| `Crypto` | Web Crypto | **absent** — `crypto` has no interface object |
+| `CryptoKey` | Web Crypto | `Crypto` |
+| `SubtleCrypto` | Web Crypto | **absent** — `crypto.subtle` has no interface object |
+| `Performance` | HR-Time | **absent** — `performance` has no interface object |
+| `WebAssembly.Global` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Instance` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Memory` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Module` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Table` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Tag` | Wasm JS API | **absent** — declined |
+| `WebAssembly.Exception` | Wasm JS API | **absent** — declined |
+| `WebAssembly.CompileError` | Wasm JS API | **absent** — declined |
+| `WebAssembly.LinkError` | Wasm JS API | **absent** — declined |
+| `WebAssembly.RuntimeError` | Wasm JS API | **absent** — declined |
+
+**§5.2 Common methods and properties**
+
+| Member | Defined by | Provided by |
+| --- | --- | --- |
+| `globalThis` | ECMAScript | the language — always there |
+| `atob()` | HTML | `Base64` |
+| `btoa()` | HTML | `Base64` |
+| `clearTimeout()` | HTML | `Timers` |
+| `clearInterval()` | HTML | `Timers` |
+| `navigator.userAgent` | HTML | `Navigator` |
+| `onerror` | HTML | **absent** — §6 asks for that; see above |
+| `onunhandledrejection` | HTML | **absent** — §6 asks for that; see above |
+| `onrejectionhandled` | HTML | **absent** — §6 asks for that; see above |
+| `queueMicrotask()` | HTML | `Timers` |
+| `reportError()` | HTML | `Reporting` |
+| `self` | HTML | `GlobalEvents` |
+| `setTimeout()` | HTML | `Timers` |
+| `setInterval()` | HTML | `Timers` |
+| `structuredClone()` | HTML | `StructuredClone` |
+| `fetch()` | Fetch | `Fetch` — **not in `Default`** |
+| `console` | Console | `Console` |
+| `crypto` | Web Crypto | `Crypto` |
+| `performance` | HR-Time | `Performance` |
+| `WebAssembly.compile()` | Wasm JS API | **absent** — declined |
+| `WebAssembly.compileStreaming()` | Wasm Web API | **absent** — declined |
+| `WebAssembly.instantiate()` | Wasm JS API | **absent** — declined |
+| `WebAssembly.instantiateStreaming()` | Wasm Web API | **absent** — declined |
+| `WebAssembly.JSTag` | Wasm JS API | **absent** — declined |
+| `WebAssembly.validate()` | Wasm JS API | **absent** — declined |
+
+§7 asks that `navigator.userAgent` be a single opaque RFC 7231 product token identifying the runtime; Jint
+answers `Jint/<version>`, which `Options.WebApi` does not let you change — a script that branches on the
+runtime should get the truth.
+
 ### Enabling web APIs on an engine that already exists
 
 `options.WebApi.Features` is read once, when the engine is built, so a pooled engine's feature set is fixed at
