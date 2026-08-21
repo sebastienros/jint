@@ -99,6 +99,20 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Inspects the effective security configuration after engine-construction callbacks have run.
+        /// </summary>
+        /// <remarks>
+        /// The callbacks are not replayed. Constraint factories are inspected through the instances this engine
+        /// already created, so the report neither invokes user code nor changes runtime policy.
+        /// </remarks>
+        public SecurityConfigurationReport ValidateSecurityConfiguration(
+            SecurityConfigurationPolicy policy = SecurityConfigurationPolicy.UntrustedScripts)
+        {
+            using var ownership = _engine.EnterHostCall();
+            return OptionsSecurityExtensions.CreateEngineReport(_engine, policy);
+        }
+
+        /// <summary>
         /// EXPERIMENTAL! Subject to change.
         ///
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).

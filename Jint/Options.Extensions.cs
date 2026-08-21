@@ -282,7 +282,9 @@ public static class OptionsExtensions
     /// </summary>
     public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)
     {
-        options._configurations.Add(engine => engine.TypeConverter = typeConverterFactory(engine));
+        options._configurations.Add(new EngineConfiguration(
+            engine => engine.TypeConverter = typeConverterFactory(engine),
+            EngineConfigurationProvenance.User));
         return options;
     }
 
@@ -308,7 +310,11 @@ public static class OptionsExtensions
     /// </summary>
     public static Options AllowClr(this Options options)
     {
-        return options.AllowClr(typeof(object).Assembly);
+        options.Interop.Enabled = true;
+        options.Interop.ClrAccessConfiguration = ClrAccessConfiguration.Compatibility;
+        options.Interop.AllowedAssemblies.Add(typeof(object).Assembly);
+        options.Interop.AllowedAssemblies = options.Interop.AllowedAssemblies.Distinct().ToList();
+        return options;
     }
 
     /// <summary>
@@ -322,6 +328,7 @@ public static class OptionsExtensions
     public static Options AllowClr(this Options options, params Assembly[] assemblies)
     {
         options.Interop.Enabled = true;
+        options.Interop.ClrAccessConfiguration = ClrAccessConfiguration.Explicit;
         options.Interop.AllowedAssemblies.AddRange(assemblies);
         options.Interop.AllowedAssemblies = options.Interop.AllowedAssemblies.Distinct().ToList();
         return options;
@@ -443,6 +450,7 @@ public static class OptionsExtensions
         if (constraint != null)
         {
             options.Constraints.Constraints.Add(constraint);
+            options.Constraints.OperationDeadlineConstraintRequested |= constraint is Constraints.OperationDeadlineConstraint;
         }
 
         return options;
@@ -473,6 +481,22 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Registers a typed constraint factory while preserving the declared constraint kind for configuration
+    /// diagnostics. The factory is still invoked exactly once per engine and is never invoked by diagnostics.
+    /// </summary>
+    public static Options Constraint<TConstraint>(this Options options, Func<TConstraint> constraintFactory)
+        where TConstraint : Constraint
+    {
+        if (constraintFactory is not null)
+        {
+            options.Constraints.ConstraintFactories.Add(() => constraintFactory());
+            options.Constraints.OperationDeadlineConstraintRequested |= typeof(TConstraint) == typeof(Constraints.OperationDeadlineConstraint);
+        }
+
+        return options;
+    }
+
+    /// <summary>
     /// Removes every registered constraint matching <paramref name="predicate"/>.
     /// </summary>
     /// <remarks>
@@ -486,12 +510,68 @@ public static class OptionsExtensions
     /// </remarks>
     public static Options WithoutConstraint(this Options options, Predicate<Constraint> predicate)
     {
-        options.Constraints.Constraints.RemoveAll(predicate);
+        var removedMaxStatements = false;
+        var removedMemoryLimit = false;
+        var removedTimeout = false;
+        var removedCancellation = false;
+        var removedOperationDeadline = false;
+
+        void RecordRemoval(Constraint constraint)
+        {
+            removedMaxStatements |= constraint is Constraints.MaxStatementsConstraint;
+            removedMemoryLimit |= constraint is Constraints.MemoryLimitConstraint;
+            removedTimeout |= constraint is Constraints.TimeConstraint;
+            removedCancellation |= constraint is Constraints.CancellationConstraint;
+            removedOperationDeadline |= constraint is Constraints.OperationDeadlineConstraint;
+        }
+
+        options.Constraints.Constraints.RemoveAll(constraint =>
+        {
+            if (!predicate(constraint))
+            {
+                return false;
+            }
+
+            RecordRemoval(constraint);
+            return true;
+        });
         options.Constraints.ConstraintFactories.RemoveAll(factory =>
         {
             var probe = factory();
-            return probe is not null && predicate(probe);
+            if (probe is null || !predicate(probe))
+            {
+                return false;
+            }
+
+            RecordRemoval(probe);
+            return true;
         });
+
+        if (removedMaxStatements)
+        {
+            options.Constraints.RequestedMaxStatements = null;
+        }
+
+        if (removedMemoryLimit)
+        {
+            options.Constraints.RequestedMemoryLimit = null;
+        }
+
+        if (removedTimeout)
+        {
+            options.Constraints.RequestedTimeoutInterval = null;
+        }
+
+        if (removedCancellation)
+        {
+            options.Constraints.CancellationConstraintRequested = false;
+        }
+
+        if (removedOperationDeadline)
+        {
+            options.Constraints.OperationDeadlineConstraintRequested = false;
+        }
+
         return options;
     }
 
@@ -667,9 +747,11 @@ public static class OptionsExtensions
             Throw.ArgumentNullException(nameof(valueFactory));
         }
 
-        options._configurations.Add(engine => engine.Realm.GlobalObject.SetProperty(
-            name,
-            new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags)));
+        options._configurations.Add(new EngineConfiguration(
+            engine => engine.Realm.GlobalObject.SetProperty(
+                name,
+                new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags)),
+            EngineConfigurationProvenance.FirstParty));
 
         return options;
     }
@@ -682,7 +764,13 @@ public static class OptionsExtensions
     /// <param name="configuration">The action to register.</param>
     public static Options Configure(this Options options, Action<Engine> configuration)
     {
-        options._configurations.Add(configuration);
+        options._configurations.Add(new EngineConfiguration(configuration, EngineConfigurationProvenance.User));
+        return options;
+    }
+
+    internal static Options ConfigureFirstParty(this Options options, Action<Engine> configuration)
+    {
+        options._configurations.Add(new EngineConfiguration(configuration, EngineConfigurationProvenance.FirstParty));
         return options;
     }
 
@@ -694,6 +782,7 @@ public static class OptionsExtensions
     /// </remarks>
     public static Options UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
     {
+        options.HasUserHostFactory = true;
         options.Host.Factory = factory;
         return options;
     }

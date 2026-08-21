@@ -68,9 +68,14 @@ public sealed class ModuleAllowlistPolicy : IModuleLoadPolicy
     /// </summary>
     public bool AllowBareSpecifiers { get; set; }
 
-    private bool HasAnyRestriction =>
+    internal bool HasAnyRestriction =>
         AllowedSchemes.Count > 0
         || AllowedHosts.Count > 0
+        || AllowedOrigins.Count > 0
+        || AllowedFileRoots.Count > 0;
+
+    internal bool HasDestinationBoundary =>
+        AllowedHosts.Count > 0
         || AllowedOrigins.Count > 0
         || AllowedFileRoots.Count > 0;
 

@@ -47,6 +47,7 @@ public static class ConstraintsOptionsExtensions
     public static Options MaxStatements(this Options options, int maxStatements = 0)
     {
         options.WithoutConstraint(x => x is MaxStatementsConstraint);
+        options.Constraints.RequestedMaxStatements = maxStatements;
 
         if (maxStatements > 0 && maxStatements < int.MaxValue)
         {
@@ -72,6 +73,7 @@ public static class ConstraintsOptionsExtensions
     public static Options LimitMemory(this Options options, long memoryLimit)
     {
         options.WithoutConstraint(x => x is MemoryLimitConstraint);
+        options.Constraints.RequestedMemoryLimit = memoryLimit;
 
         if (memoryLimit > 0 && memoryLimit < long.MaxValue)
         {
@@ -95,6 +97,7 @@ public static class ConstraintsOptionsExtensions
     public static Options TimeoutInterval(this Options options, TimeSpan timeoutInterval)
     {
         options.WithoutConstraint(x => x is TimeConstraint);
+        options.Constraints.RequestedTimeoutInterval = timeoutInterval;
 
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
         {
@@ -116,6 +119,7 @@ public static class ConstraintsOptionsExtensions
     public static Options CancellationToken(this Options options, CancellationToken cancellationToken)
     {
         options.WithoutConstraint(x => x is CancellationConstraint);
+        options.Constraints.CancellationConstraintRequested = cancellationToken != default;
 
         if (cancellationToken != default)
         {

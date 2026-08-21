@@ -2433,6 +2433,88 @@ Execution constraints are used during script execution to ensure that requiremen
 * Scripts should not use more than X memory.
 * Scripts should only run for a maximum amount of time.
 
+### Validating options for untrusted scripts
+
+Jint does not change its general-purpose defaults when a host runs untrusted source. A host can inspect its
+fully configured `Options` before constructing an engine and enforce the built-in untrusted-script policy
+explicitly:
+
+```c#
+var options = new Options()
+    .MaxStatements(100_000)
+    .LimitMemory(4_000_000)
+    .TimeoutInterval(TimeSpan.FromSeconds(2))
+    .CancellationToken(requestAborted)
+    .Constraint(static () => new OperationDeadlineConstraint())
+    .LimitRecursion(64)
+    .DisableStringCompilation()
+    .AllowClrWrite(false)
+    .MaxArraySize(100_000)
+    .RegexTimeoutInterval(TimeSpan.FromSeconds(1));
+
+options.AgentCanSuspend = false;
+options.Constraints.StackOverflowGuard = true;
+options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
+options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+options.Parsing.MaxSourceLength = 100_000;
+options.Parsing.MaxNodeCount = 25_000;
+options.ResultLimits = ResultLimits.Conservative;
+
+var report = options.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
+foreach (var diagnostic in report.Diagnostics)
+{
+    logger.LogWarning(
+        "{Code} {Severity}: {Message} {Guidance}",
+        diagnostic.Code,
+        diagnostic.Severity,
+        diagnostic.Message,
+        diagnostic.Guidance);
+}
+
+// Throws SecurityConfigurationException if the report contains an error.
+var engine = new Engine(options.EnsureSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts));
+var effectiveReport = engine.Advanced.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
+```
+
+Validation is read-only: it does not apply a hardened profile or change normal engine defaults, so it also
+works for `Options` assembled by direct property assignment or by application-specific helpers. Diagnostic
+codes are stable and results are ordered by code for deterministic logging. Warnings identify settings that
+need host-specific review (for example a custom module loader); they remain in the report but do not make
+`EnsureSecurityConfiguration` throw. Treat a validated `Options` as immutable and pass it directly to
+`Engine(Options)`. Public engine-construction callbacks registered by `Configure`, `SetTypeConverter`, or
+`UseHostFactory` produce `JINTSEC031`; inspect `engine.Advanced.ValidateSecurityConfiguration()` after
+construction to validate their final effects without replaying them. Custom constraint factories remain
+supported under their existing contract and are invoked only by engine construction, never by diagnostics.
+
+| Codes | Coverage |
+| --- | --- |
+| `JINTSEC001`-`009`, `036`-`037` | Statement, memory, per-entry timeout, cancellation, and cumulative operation deadline |
+| `JINTSEC010`-`014` | Recursion, native stack guard, legacy stack lane, and `Atomics.wait` suspension |
+| `JINTSEC015`-`020`, `030`, `048`-`055`, `057` | CLR access policy, `GetType`/unwrap, reflection, writes, array crossing, extension methods, error disclosure, callbacks, and compatibility mode |
+| `JINTSEC021`-`022`, `041`-`046`, `050`, `056` | Module loader trust, count/bytes/depth/hops, destination policy, per-load reset semantics, and detailed errors |
+| `JINTSEC023`-`029`, `032` | Debugger, arrays, regex, promise waits, and shared constraint instances |
+| `JINTSEC031` | User-provided deferred engine configuration |
+| `JINTSEC033`-`035`, `038`-`040` | Actual parsing/preparation regex settings, source and AST limits, and source retention |
+| `JINTSEC047` | Result conversion and Jint JSON serialization limits; external serializers, responses, and logs remain host responsibilities |
+
+A report with no findings is not proof of sandboxing. Jint remains in-process; worker isolation, least
+privilege, request/response limits, callback authorization, and correct operation bracketing are host
+architecture responsibilities.
+
+Explicit `ScriptParsingOptions` / `ModuleParsingOptions` can override the engine regex timeout, and
+prepared programs embed their preparation-time timeout instead of consulting the engine. Validate
+the actual pair before direct parsing, and validate every preparation configuration before preparing:
+
+```c#
+options.EnsureSecurityConfiguration(scriptParsingOptions);
+scriptPreparationOptions.EnsureSecurityConfiguration();
+modulePreparationOptions.EnsureSecurityConfiguration();
+```
+
+The default preparation options use Jint's 10-second regex timeout and unbounded parser size limits.
+Set `RegexTimeout`, `MaxSourceLength`, and `MaxNodeCount` on the actual nested parsing options used
+for untrusted source.
+
 You can configure them via the options:
 
 ```c#

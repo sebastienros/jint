@@ -103,6 +103,56 @@ Defaults are compatibility choices, not a hardened profile.
 | Function source retention | Disabled | Submitted function source is not retained solely for `toString()` |
 | Result conversion and JSON output limits | Unlimited | Compatibility default; hostile output is unbounded unless the host opts in |
 
+## Configuration diagnostics
+
+`Options.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts)` inspects the
+configured `Options` without invoking deferred callbacks or constraint factories. It returns an immutable report whose diagnostics
+have stable `JINTSECnnn` codes, an error or warning severity, a description, and remediation
+guidance. Results are sorted by code so deployment logs and policy tests are deterministic.
+`EnsureSecurityConfiguration` performs the same validation and throws
+`SecurityConfigurationException` when the report contains an error; ordinary engine construction
+does not validate or change defaults automatically.
+
+The untrusted-script policy reports:
+
+- missing per-entry and cumulative operation deadlines, statement, memory, cancellation, recursion,
+  native-stack, parser, result, and array limits;
+- non-positive and saturated statement, memory, and timeout values that remove a limit;
+- blocking `Atomics.wait`, dynamic string compilation, CLR access, reflection, `GetType`, CLR
+  writes, and live CLR array views;
+- module loaders, aggregate count/byte limits, per-load depth/hop limits, destination policies,
+  `require`, debugger behavior, and detailed CLR/module errors that require host review;
+- unbounded or long regex and synchronous promise waits; and
+- directly registered `Constraint` instances whose mutable state would be shared by engines built
+  from one `Options` object; and
+- host callbacks and converters, CLR compatibility access, live array/write combinations, decorators,
+  retained source, and callbacks registered to run during engine construction.
+
+Explicit parsing options and prepared programs are separate configuration surfaces:
+`ValidateSecurityConfiguration(options, parsingOptions)` checks an override together with the
+engine options, while `ValidateSecurityConfiguration` / `EnsureSecurityConfiguration` on
+`ScriptPreparationOptions` and `ModulePreparationOptions` check the regex timeout that will be
+embedded in prepared code. The actual source-length, AST-node, source-retention, and regex settings
+are validated together; the default preparation options therefore report unbounded parser limits and
+the 10-second regex warning.
+
+After construction, `engine.Advanced.ValidateSecurityConfiguration()` reads the effective options and
+the constraint instances the engine already created. It does not replay a callback or factory. Public
+`Configure`, `SetTypeConverter`, and `UseHostFactory` callbacks continue to produce `JINTSEC031`;
+Jint-owned configuration has separate internal provenance so a future first-party hardened profile can
+compose without suppressing user callbacks or relying on delegate names.
+
+This is a configuration check, not a capability proof or hardened-profile implementation.
+In particular, it cannot inspect the behavior of a projected delegate or object, prove that a
+custom `TypeResolver` is a complete allow-list, determine whether a module loader blocks SSRF or
+path traversal, infer whether a cancellation token has an outer deadline, or enforce process,
+transport redirects, callback behavior, external serialization, response, or log limits. A warning is
+not an approval: it means the setting can be legitimate only after the host verifies and tests the
+corresponding external policy. A clean report still requires the worker isolation and host controls
+in this document. Treat the validated `Options` as immutable and pass it directly to
+`Engine(Options)` and inspect the effective engine report when deferred configuration exists. Zero
+findings do not prove sandbox safety.
+
 ## Threat inventory
 
 ### TM-01: CLR access becomes process authority
@@ -223,6 +273,8 @@ BigInt/string arithmetic, and adversarial algorithms can monopolize a worker.
 - `TimeoutInterval`, `MaxStatements`, and `CancellationToken` constraints.
 - Long-running built-ins periodically call the constraint set.
 - Amortized timeout and cancellation checks are also made after CLR calls return.
+- The untrusted-script configuration report identifies missing limits and sentinel values that
+  remove them.
 
 **Missing or residual mitigation.**
 
@@ -308,6 +360,7 @@ most of its time in garbage collection.
 - `MaxArraySize` bounds Jint array creation when configured.
 - Some built-ins reject impossible allocations.
 - Recent-wrapper caching is bounded by default; the unbounded identity map is opt-in.
+- The untrusted-script configuration report identifies missing memory and practical array limits.
 
 **Missing or residual mitigation.**
 
@@ -339,6 +392,8 @@ quota.
   function entry and converts exhaustion to a catchable `RangeError`.
 - The older `Constraints.MaxExecutionStackCount` lane can move call-expression recursion
   to a fresh thread.
+- The untrusted-script configuration report identifies disabled, saturated, or shadowed stack
+  protections.
 
 **Missing or residual mitigation.**
 
@@ -567,9 +622,12 @@ from another thread. Use separate engines for mutually distrusting requests.
 - Ten seconds per regex is usually too high for a server request.
 - Repeated regex operations can consume the entire request budget.
 - A regex timeout does not replace the overall execution deadline.
+- Explicit parsing and preparation options override the engine timeout; prepared programs retain
+  that timeout when shared across engines.
 
 **Required host action.** Set a short, workload-tested regex timeout and retain the overall
-time, statement, and process CPU limits.
+time, statement, and process CPU limits. Validate every explicit parsing/preparation configuration
+and set the nested preparation `ParsingOptions.RegexTimeout` for untrusted source.
 
 ### TM-15: Debugger features bypass production assumptions
 
@@ -1193,41 +1251,37 @@ The numbers below are examples only. Measure normal workloads and choose smaller
 leave acceptable headroom.
 
 ```csharp
-var deadline = new OperationDeadlineConstraint();
+var options = new Options()
+    .Strict()
+    .DisableStringCompilation()
+    .TimeoutInterval(TimeSpan.FromSeconds(2))
+    .MaxStatements(50_000)
+    .LimitMemory(16_000_000)
+    .LimitRecursion(64)
+    .MaxArraySize(100_000)
+    .RegexTimeoutInterval(TimeSpan.FromMilliseconds(250))
+    .CancellationToken(requestAborted)
+    .Constraint(static () => new OperationDeadlineConstraint())
+    .AllowClrWrite(false);
 
-var engine = new Engine(options =>
-{
-    options.Strict();
-    options.DisableStringCompilation();
+options.Constraints.StackOverflowGuard = true;
+options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
+options.AgentCanSuspend = false;
+options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+options.Parsing.MaxSourceLength = 100_000;
+options.Parsing.MaxNodeCount = 25_000;
+options.ResultLimits = ResultLimits.Conservative;
+options.Interop.ExposeDetailedExceptionMessages = false;
+options.Interop.ExposeDetailedResolutionErrors = false;
+options.Modules.ExposeDetailedLoadErrors = false;
 
-    options.TimeoutInterval(TimeSpan.FromSeconds(2));
-    options.MaxStatements(50_000);
-    options.LimitMemory(16_000_000);
-    options.LimitRecursion(64);
-    options.MaxArraySize(100_000);
-    options.RegexTimeoutInterval(TimeSpan.FromMilliseconds(250));
-    options.CancellationToken(requestAborted);
-    options.Constraint(deadline);
-
-    options.Parsing.MaxSourceLength = 100_000;
-    options.Parsing.MaxNodeCount = 25_000;
-
-    // Enabled by default; keep it explicit in the hardened profile.
-    options.Constraints.StackOverflowGuard = true;
-    options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(2);
-
-    options.AgentCanSuspend = false;
-    // Pin the safe default explicitly so configuration reviews cannot miss this boundary.
-    options.AllowClrWrite(false);
-    // Pin the hardened behavior even though Copy is the compatibility default.
-    options.Interop.ArrayConversion = ArrayConversionMode.Copy;
-    options.ResultLimits = ResultLimits.Conservative;
-    options.Interop.ExposeDetailedExceptionMessages = false;
-    options.Interop.ExposeDetailedResolutionErrors = false;
-    options.Modules.ExposeDetailedLoadErrors = false;
-
-    // Do not call AllowClr(). Leave modules and the debugger disabled.
-});
+// Do not call AllowClr(). Leave modules and the debugger disabled.
+var report = options.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
+AuditWarnings(report.Diagnostics);
+var engine = new Engine(options.EnsureSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts));
+var effectiveReport = engine.Advanced.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
+AuditWarnings(effectiveReport.Diagnostics);
+var deadline = engine.Constraints.Find<OperationDeadlineConstraint>()!;
 
 deadline.Begin(TimeSpan.FromSeconds(3), requestAborted);
 try
@@ -1278,6 +1332,8 @@ This configuration is incomplete without host controls:
 
 Before deploying a host that executes untrusted scripts:
 
+- [ ] The fully configured `Options` object is validated before engine construction; every
+  reported warning is explicitly reviewed and the report is regression-tested by stable code.
 - [ ] CLR namespace access, `AllowGetType`, reflection, debugger, and `Atomics.wait` are off.
 - [ ] Direct CLR writes remain disabled, and projected host objects are immutable or intentionally
   capability-scoped with no unintended mutating instance, static, or extension methods.
@@ -1288,6 +1344,8 @@ Before deploying a host that executes untrusted scripts:
   four Jint module graph limits are configured when modules are enabled.
 - [ ] Time, statement, memory, recursion, stack, array, regex, promise, and operation limits
   are explicitly configured and tested with adversarial inputs.
+- [ ] Every explicit parsing option and script/module preparation option is validated with the
+  timeout that will actually be used.
 - [ ] Async API cancellation is paired with an engine cancellation constraint.
 - [ ] No engine, mutable host object, `JsValue`, module, or request context crosses trust
   domains.

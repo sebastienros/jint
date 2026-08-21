@@ -5,6 +5,8 @@ public class DefaultModuleLoader : ModuleLoader
     private readonly Uri _basePath;
     private readonly bool _restrictToBasePath;
 
+    internal bool RestrictsToBasePath => _restrictToBasePath;
+
     public DefaultModuleLoader(string basePath, bool restrictToBasePath = true)
     {
         if (string.IsNullOrWhiteSpace(basePath))

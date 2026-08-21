@@ -843,6 +843,9 @@ public sealed partial class Engine : IDisposable
     // track depth at all from the same value (see the JintCallStack construction below).
     internal readonly int _maxRecursionDepth;
 
+    internal Constraint[] ActiveConstraintsForSecurityDiagnostics => _constraints;
+    internal readonly EngineSecurityConfigurationSnapshot _securityConfigurationSnapshot;
+
     // Snapshot of Options.Interop.AllowOperatorOverloading, consulted by the arithmetic, comparison,
     // update and assignment expressions to decide whether an operand may have a CLR operator behind
     // it. Like _maxRecursionDepth it is read after Options.Apply, so a Configure callback can still
@@ -1059,6 +1062,7 @@ public sealed partial class Engine : IDisposable
         _parsingConstraints = ParsingConstraints.From(Options.Parsing);
         _defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
         _defaultParser = JintParser.Create(_defaultParserOptions, in _parsingConstraints);
+        _securityConfigurationSnapshot = EngineSecurityConfigurationSnapshot.Capture(this);
     }
 
     private static void ValidateModuleOptions(Options.ModuleOptions modules)
