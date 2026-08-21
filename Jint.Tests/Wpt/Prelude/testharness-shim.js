@@ -19,7 +19,8 @@
 //     `.any.js` file skip themselves the way they do in a global they were not written for.
 //   * `fetch` is a *resource loader* over the vendored tree, not the Fetch API. It is what
 //     `fetch("resources/urltestdata.json")` needs and nothing more.
-//   * Timers are the engine's own: this file installs no `setTimeout`. See WptHarness.cs.
+//   * Timers are the engine's own: this file installs no `setTimeout`, and its `step_timeout` is a thin
+//     forwarder onto the engine's, so a scheduled callback rides the shipped TimerQueue. See WptHarness.cs.
 (function (global) {
     'use strict';
 
@@ -165,6 +166,16 @@
     function assert_not_equals(actual, expected, description) {
         assert(!same_value(actual, expected),
             'got disallowed value ' + format_value(actual) + describe(description));
+    }
+
+    // The type check is upstream's and is not decoration: `undefined > 0` is false and `"10" > 9` is true, so
+    // without it a comparison against a non-number would report the wrong thing about the wrong value.
+    function assert_greater_than(actual, expected, description) {
+        assert(typeof actual === 'number',
+            'expected a number but got a ' + typeof actual + describe(description));
+        assert(actual > expected,
+            'expected a number greater than ' + format_value(expected) +
+            ' but got ' + format_value(actual) + describe(description));
     }
 
     function assert_array_equals(actual, expected, description) {
@@ -519,6 +530,25 @@
         throw new AssertionError('did not throw' + describe(description));
     }
 
+    // ---------------------------------------------------------------- scheduling
+
+    // Upstream's `step_timeout`, which exists so that a suite never names `setTimeout` itself: a browser
+    // multiplies every wpt timeout by a per-run factor, and a test that reached for the raw timer would
+    // ignore it. The factor is 1 here — there is no slow-device mode to accommodate — so this is
+    // `setTimeout` plus upstream's argument forwarding and nothing else.
+    //
+    // It is deliberately the *engine's* `setTimeout`, resolved at call time through the global exactly as
+    // upstream resolves it, so a scheduled callback rides the shipped TimerQueue that WptHarness pumps and
+    // HTML's ordering (one due timer per microtask checkpoint) is the ordering a suite sees. There is no
+    // timer implementation anywhere in this file; see WptHarness.cs.
+    function step_timeout(func, timeout) {
+        var outerThis = this;
+        var args = Array.prototype.slice.call(arguments, 2);
+        return global.setTimeout(function () {
+            func.apply(outerThis, args);
+        }, timeout);
+    }
+
     // ---------------------------------------------------------------- test objects
 
     function Test(name) {
@@ -528,6 +558,7 @@
         this.phase = 'started';
         this.status = 'PASS';
         this.message = null;
+        this.cleanupCallbacks = [];
         this.index = results.length;
         results.push({ name: this.name, status: 'NOTRUN', message: null });
     }
@@ -552,10 +583,40 @@
         this.record();
     };
 
+    // https://web-platform-tests.org/writing-tests/testharness-api.html#cleanup — a function to undo whatever
+    // the test did to shared state. The streams corpus is what makes this load-bearing rather than tidy: its
+    // `patched-global` suites replace `Object.prototype.then`, `Promise.prototype.then` and `ReadableStream`
+    // itself, and a cleanup that did not run would take every later test in the file down with it.
+    Test.prototype.add_cleanup = function (callback) {
+        this.cleanupCallbacks.push(callback);
+    };
+
+    // Run before the phase flips, so a throwing cleanup can still be recorded against the test that
+    // registered it. Two deliberate choices. Every callback runs even if an earlier one threw — they undo
+    // *different* pieces of shared state, and skipping the rest would poison the file exactly as not running
+    // them at all would. And a throw is attributed to this test rather than, as upstream, promoted to a
+    // harness-level ERROR: the driver's unit of report is the test, and only if the test is otherwise
+    // passing, so a real failure's message is never replaced by the wreckage it left behind.
+    // A cleanup that returns a promise is *not* awaited, which upstream does (`AsyncCleanup`); no vendored
+    // suite has one, and a shim that pretended to wait would be the kind of silence this file exists to avoid.
+    Test.prototype.cleanup = function () {
+        for (var i = 0; i < this.cleanupCallbacks.length; i++) {
+            try {
+                this.cleanupCallbacks[i]();
+            } catch (e) {
+                if (this.status === 'PASS') {
+                    this.fail(e);
+                }
+            }
+        }
+        this.cleanupCallbacks = [];
+    };
+
     Test.prototype.complete = function () {
         if (this.phase === 'complete') {
             return;
         }
+        this.cleanup();
         this.phase = 'complete';
         this.record();
     };
@@ -589,6 +650,13 @@
             }
             test.done();
         };
+    };
+
+    // The test-bound form of `step_timeout` above: the callback runs as a step of this test, so a throw
+    // inside it fails the test rather than erupting into whatever happened to be pumping the event loop.
+    Test.prototype.step_timeout = function (func, timeout) {
+        var args = Array.prototype.slice.call(arguments, 2);
+        return step_timeout.apply(this, [this.step_func(func), timeout].concat(args));
     };
 
     Test.prototype.unreached_func = function (description) {
@@ -777,6 +845,7 @@
 
     global.test = test;
     global.async_test = async_test;
+    global.step_timeout = step_timeout;
     global.promise_test = promise_test;
     global.setup = setup;
     global.done = done;
@@ -786,6 +855,7 @@
     global.assert_false = assert_false;
     global.assert_equals = assert_equals;
     global.assert_not_equals = assert_not_equals;
+    global.assert_greater_than = assert_greater_than;
     global.assert_array_equals = assert_array_equals;
     global.assert_in_array = assert_in_array;
     global.assert_object_equals = assert_object_equals;
