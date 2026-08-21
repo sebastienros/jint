@@ -135,25 +135,20 @@ internal enum WptDivergence
     /// say, and mixing engine fixes into the change that first ran them would have hidden which of the two
     /// moved. The four the first phase recorded — WebIDL constant order, <c>TextDecoder.decode()</c> reading
     /// its input before the options dictionary was converted, and the shared UTF-16 decoder's end-of-queue
-    /// step for both endiannesses — were fixed by https://github.com/sebastienros/jint/issues/3121, and
-    /// ECDH's two mismatched-curve rows by https://github.com/sebastienros/jint/issues/3180: the corpus was
-    /// asserting the browsers' order rather than the prose's, so <c>EcAlgorithm.DeriveBits</c> now runs the
-    /// key-agreement checks before the <i>maximumLength</i> ceiling and documents the divergence on itself.
-    /// <para>
-    /// What the WebCryptoAPI corpus filed and nobody has answered yet is one disagreement:
-    /// </para>
-    /// <list type="bullet">
-    /// <item><description>
-    /// <b>Every "… during call" row.</b> <c>SubtleCrypto</c> copies the caller's <c>data</c>/<c>keyData</c>
-    /// <i>before</i> normalizing the algorithm; the specification copies it after — for <c>encrypt</c>,
-    /// normalization is step 2 and "let data be the result of getting a copy of the bytes held by the data
-    /// parameter" is step 4 (https://w3c.github.io/webcrypto/#SubtleCrypto-method-encrypt, and the same shape
-    /// in <c>decrypt</c>, <c>sign</c>, <c>verify</c>, <c>digest</c> and <c>importKey</c>). The corpus makes
-    /// the order observable by putting a getter on the algorithm's <c>name</c> that rewrites or transfers the
-    /// buffer. Note <c>SubtleCryptoKeyTests.TheDataArgumentIsCopiedBeforeAnyGetterCanRun</c> pins the order
-    /// Jint has today, so fixing this moves that test too.
-    /// </description></item>
-    /// </list>
+    /// step for both endiannesses — were fixed by https://github.com/sebastienros/jint/issues/3121. The
+    /// WebCryptoAPI corpus filed two more, and both are fixed as well. <b>Every "… during call" row</b>
+    /// failed because <c>SubtleCrypto</c> copied the caller's <c>data</c>/<c>keyData</c> <i>before</i>
+    /// normalizing the algorithm where the specification copies it after — normalization is step 2 and
+    /// "let data be the result of getting a copy of the bytes held by the data parameter" is step 4
+    /// (https://w3c.github.io/webcrypto/#SubtleCrypto-method-encrypt, and the same shape in <c>decrypt</c>,
+    /// <c>sign</c>, <c>digest</c> and <c>importKey</c>, steps 4 and 5 for <c>verify</c>'s two buffers, and
+    /// step 6 for <c>unwrapKey</c>); https://github.com/sebastienros/jint/issues/3179 moved each copy to its
+    /// numbered step, and the <c>SubtleCryptoKeyTests</c> pin that used to assert the old order now asserts
+    /// the new one. And <b>ECDH's two mismatched-curve rows</b> were the corpus asserting the browsers' order
+    /// rather than the prose's, so https://github.com/sebastienros/jint/issues/3180 made
+    /// <c>EcAlgorithm.DeriveBits</c> run the key-agreement checks before the <i>maximumLength</i> ceiling,
+    /// documenting the divergence on itself and raising it upstream as
+    /// https://github.com/w3c/webcrypto/issues/560. The category is empty today, which is what it wants to be.
     /// </summary>
     NeedsTriage,
 }
@@ -181,10 +176,15 @@ internal enum WptDivergence
 /// </param>
 /// <param name="ExceptPlatform">
 /// The one operating system this entry does <b>not</b> apply on, or <see langword="null"/>. The mirror image
-/// of <paramref name="Platform"/>, and its worked example is the same file's copy-order rows: a
-/// <c>decryption … during call</c> test that fails everywhere else <i>passes</i> on macOS, because the
-/// platform's tag refusal produces the very <c>OperationError</c> the test asserts — for the wrong reason,
-/// which the assertion cannot see. The entry would be stale there, so it excuses itself from that leg.
+/// of <paramref name="Platform"/>, for a divergence that is everywhere <i>but</i> one platform.
+/// <para>
+/// <b>No entry uses it today</b>, and the one that did is worth recording because it is the shape that will
+/// want it again. Before https://github.com/sebastienros/jint/issues/3179, AES-GCM's
+/// <c>decryption … during call</c> rows failed on Windows and Linux for the copy order and <i>passed</i> on
+/// macOS, where the platform's tag refusal produced the very <c>OperationError</c> the test asserts — for the
+/// wrong reason, which the assertion cannot see. A platform-neutral entry would have been stale on that one
+/// leg, so it excused itself from it. The fix removed the divergence rather than the mechanism.
+/// </para>
 /// </param>
 internal sealed record WptExclusion(
     string File,

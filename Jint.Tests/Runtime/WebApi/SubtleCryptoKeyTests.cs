@@ -1200,17 +1200,170 @@ public class SubtleCryptoKeyTests
     }
 
     [Fact]
-    public void TheDataArgumentIsCopiedBeforeAnyGetterCanRun()
+    public void TheDataArgumentIsCopiedAfterTheAlgorithmIsNormalized()
     {
-        // The argument conversions run before the method body, and the body's first step normalizes an
-        // algorithm — which reads `name` and may run a script's getter, with the caller's buffer in scope. A
-        // window onto the engine's own array would hash what the getter left behind.
+        // Argument conversion and the method steps are two different times. Converting `data` to a
+        // BufferSource runs before the body, but *taking its bytes* does not: normalization is step 2 and
+        // "Let data be the result of getting a copy of the bytes held by the data parameter" is step 4 —
+        // https://w3c.github.io/webcrypto/#SubtleCrypto-method-digest. Normalizing reads `name`, so the
+        // getter below runs with the caller's buffer in scope and before the copy, and what it leaves behind
+        // is what gets hashed: this is the digest of '!!!', not of 'abc'.
         Run("""
             const data = ascii('abc');
             const digest = await crypto.subtle.digest({ get name() { data.fill(0x21); return 'SHA-256'; } }, data);
             return hex(digest) + '|' + hex(data);
             """).AsString().Should().Be(
+                "e84c538e7fe250730ef62de220c40dfa808d3008c0cdb437181564b88b8714b8|212121");
+    }
+
+    [Fact]
+    public void ADataArgumentTransferredDuringNormalizationIsDigestedAsEmpty()
+    {
+        // The same step 4, with the getter detaching the buffer rather than rewriting it. "Get a copy of the
+        // bytes held by" a detached buffer is the empty byte sequence —
+        // https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy step 7 — so what is hashed is nothing at
+        // all, and the answer is SHA-256 of the empty message.
+        Run("""
+            const data = ascii('abc');
+            const digest = await crypto.subtle.digest({ get name() { data.buffer.transfer(); return 'SHA-256'; } }, data);
+            return hex(digest);
+            """).AsString().Should().Be("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    }
+
+    [Fact]
+    public void TheDataArgumentIsNotReReadOnceTheCopyStepHasRun()
+    {
+        // The other half of the same step, and the one that was never in question: once step 4 has taken the
+        // bytes they are the operation's own, so a mutation the script makes after the call cannot reach
+        // them. Every operation here is synchronous CPU work, so this mutation lands between the call and the
+        // promise settling — the narrowest window there is.
+        Run("""
+            const data = ascii('abc');
+            const promise = crypto.subtle.digest('SHA-256', data);
+            data.fill(0x21);
+            return hex(await promise) + '|' + hex(data);
+            """).AsString().Should().Be(
                 "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad|212121");
+    }
+
+    [Fact]
+    public void VerifyCopiesBothOfItsBuffersAfterTheAlgorithmIsNormalized()
+    {
+        // verify is the only method with two BufferSource parameters, and the specification gives each its
+        // own step after normalization: signature at step 4 and data at step 5 —
+        // https://w3c.github.io/webcrypto/#SubtleCrypto-method-verify. A getter on `name` that repairs both
+        // is therefore in time for both, and a signature that was zeroed before the call verifies.
+        Run("""
+            const key = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+            const message = ascii('the message');
+            const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, message));
+
+            const signature = mac.slice();
+            const data = message.slice();
+            signature.fill(0);
+            data.fill(0);
+
+            const repaired = { get name() { signature.set(mac); data.set(message); return 'HMAC'; } };
+            return await crypto.subtle.verify(repaired, key, signature, data);
+            """).AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void VerifyOverBuffersTransferredDuringNormalizationDoesNotVerify()
+    {
+        // The same two steps with the getter detaching each buffer instead: both copies are empty, and an
+        // empty signature is not the MAC of an empty message. The corpus asserts exactly this shape.
+        Run("""
+            const key = await crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+            const message = ascii('the message');
+            const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, message));
+
+            const dropped = { get name() { signature.buffer.transfer(); message.buffer.transfer(); return 'HMAC'; } };
+            return await crypto.subtle.verify(dropped, key, signature, message);
+            """).AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void EncryptCopiesItsDataAfterTheAlgorithmIsNormalized()
+    {
+        // encrypt's step 4, made visible the same way: the plaintext is zeroed before the call and repaired
+        // by the `name` getter, so the ciphertext is the one the repaired bytes produce. The literal is the
+        // AES-CBC encryption of 'the message' under that key and iv, so a ciphertext of the zeroed bytes —
+        // or of nothing — cannot pass by agreeing with itself.
+        Run("""
+            const key = await crypto.subtle.importKey('raw', bytes('000102030405060708090a0b0c0d0e0f'), 'AES-CBC', false, ['encrypt']);
+            const iv = bytes('0f0e0d0c0b0a09080706050403020100');
+            const message = ascii('the message');
+
+            const plaintext = message.slice();
+            plaintext.fill(0);
+
+            const ciphertext = await crypto.subtle.encrypt(
+                { iv, get name() { plaintext.set(message); return 'AES-CBC'; } }, key, plaintext);
+
+            return hex(ciphertext);
+            """).AsString().Should().Be("6a3f7ea3473ed63281298b3e7c216409");
+    }
+
+    [Fact]
+    public void DecryptOverACiphertextTransferredDuringNormalizationFails()
+    {
+        // decrypt's step 4, with the getter detaching: the copy is the empty byte sequence, and AES-CBC's own
+        // step 2 refuses an empty ciphertext with an OperationError. Before the copy moved to its numbered
+        // place the detach came too late and the message decrypted perfectly well.
+        Settle(WebEngine(), Prelude + """
+
+            (async () => {
+                const key = await crypto.subtle.importKey('raw', bytes('000102030405060708090a0b0c0d0e0f'), 'AES-CBC', false, ['encrypt', 'decrypt']);
+                const iv = bytes('0f0e0d0c0b0a09080706050403020100');
+                const ciphertext = new Uint8Array(bytes('6a3f7ea3473ed63281298b3e7c216409'));
+
+                const dropped = { iv, get name() { ciphertext.buffer.transfer(); return 'AES-CBC'; } };
+                return await crypto.subtle.decrypt(dropped, key, ciphertext).then(() => 'decrypted', e => e.name);
+            })()
+            """).AsString().Should().Be("OperationError");
+    }
+
+    [Fact]
+    public void TheKeyDataIsCopiedAfterTheAlgorithmIsNormalized()
+    {
+        // importKey's step 4 carries both the format check and, for the BufferSource arm alone, "Let keyData
+        // be the result of getting a copy of the bytes held by the keyData parameter" —
+        // https://w3c.github.io/webcrypto/#SubtleCrypto-method-importKey. Step 2 normalized first, so a
+        // getter on `name` that rewrites the key material decides which key is imported; exporting it back is
+        // what makes the answer readable.
+        Run("""
+            const material = bytes('000102030405060708090a0b0c0d0e0f');
+            const keyData = material.slice();
+            keyData.fill(0xff);
+
+            const algorithm = { get name() { keyData.set(material); return 'AES-CBC'; } };
+            const key = await crypto.subtle.importKey('raw', keyData, algorithm, true, ['encrypt']);
+            return hex(await crypto.subtle.exportKey('raw', key));
+            """).AsString().Should().Be("000102030405060708090a0b0c0d0e0f");
+    }
+
+    [Fact]
+    public void TheWrappedKeyIsCopiedAfterBothOfUnwrapKeysAlgorithmsAreNormalized()
+    {
+        // unwrapKey normalizes twice — the unwrap algorithm at step 2 and the unwrapped key's own at step 4 —
+        // and only then reaches step 6, "Let wrappedKey be the result of getting a copy of the bytes held by
+        // the wrappedKey parameter": https://w3c.github.io/webcrypto/#SubtleCrypto-method-unwrapKey. It is
+        // the last of the three, so a getter on either `name` is still in time, and the key that comes out is
+        // the one the repaired bytes wrap.
+        Run("""
+            const wrappingKey = await crypto.subtle.importKey('raw', bytes('000102030405060708090a0b0c0d0e0f'), 'AES-KW', false, ['wrapKey', 'unwrapKey']);
+            const target = await crypto.subtle.importKey('raw', bytes('101112131415161718191a1b1c1d1e1f'), 'AES-CBC', true, ['encrypt']);
+            const wrapped = new Uint8Array(await crypto.subtle.wrapKey('raw', target, wrappingKey, 'AES-KW'));
+
+            const corrupted = wrapped.slice();
+            corrupted.fill(0);
+
+            const repaired = { get name() { corrupted.set(wrapped); return 'AES-KW'; } };
+            const unwrapped = await crypto.subtle.unwrapKey('raw', corrupted, wrappingKey, repaired, 'AES-CBC', true, ['encrypt']);
+
+            return hex(await crypto.subtle.exportKey('raw', unwrapped));
+            """).AsString().Should().Be("101112131415161718191a1b1c1d1e1f");
     }
 
     [Fact]

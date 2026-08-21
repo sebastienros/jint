@@ -22,10 +22,10 @@ namespace Jint.Tests.Wpt;
 /// expected and found; the ones that are not a missing feature are parked under
 /// <see cref="WptDivergence.NeedsTriage"/> rather than fixed there, so that the change which first runs a
 /// suite is not also the change that moves the engine. The four the URL and Encoding suites found were fixed
-/// by https://github.com/sebastienros/jint/issues/3121; of the two the WebCryptoAPI corpus found, ECDH's
-/// mismatched-curve error was fixed by https://github.com/sebastienros/jint/issues/3180 and the point at
-/// which <c>SubtleCrypto</c> copies its caller's bytes is still open, with the category's own documentation
-/// saying what it is.
+/// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
+/// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
+/// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
+/// https://github.com/sebastienros/jint/issues/3180. The category holds nothing today.
 /// </para>
 /// <para>
 /// <b>The WebCryptoAPI corpus is one suite per directory</b> rather than one for the lot, because
@@ -337,22 +337,13 @@ public class WptTestRunner
         // QuotaExceededError *interface*, and gets the name on a plain DOMException.
         new("WebCryptoAPI/getRandomValues.any.js", "Large length: *", WptDivergence.NeedsQuotaExceededErrorInterface),
 
-        // Every "… during call" family below is the same defect: the caller's bytes are copied before the
-        // algorithm is normalized rather than after, so a getter on the algorithm's `name` that rewrites or
-        // transfers the buffer is too late to be seen. The "… after call" siblings pass, which is what makes
-        // these globs safe: they name the half that the ordering decides. See WptDivergence.NeedsTriage.
-        new("WebCryptoAPI/digest/digest.https.any.js", "* and altered buffer during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_cbc.https.any.js", "AES-CBC * with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_cbc.https.any.js", "AES-CBC * decryption with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_ctr.https.any.js", "AES-CTR * with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_ctr.https.any.js", "AES-CTR * decryption with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/import_export/symmetric_importKey.https.any.js", "Key data altered during call: *", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/ecdsa.https.any.js", "ECDSA * with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/ecdsa.https.any.js", "ECDSA * verification with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/hmac.https.any.js", "HMAC * with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/hmac.https.any.js", "HMAC * verification with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/rsa_pkcs.https.any.js", "RSASSA-PKCS1-v1_5 * with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/rsa_pkcs.https.any.js", "RSASSA-PKCS1-v1_5 * verification with * during call", WptDivergence.NeedsTriage),
+        // Nothing here excludes a "… during call" row for the ordering any more. Those families — across
+        // digest, aes_cbc, aes_ctr, symmetric_importKey, ecdsa, hmac, rsa_pkcs, rsa_pss, rsa_oaep and
+        // aes_gcm — were one defect, the caller's bytes copied before the algorithm was normalized rather
+        // than after, and https://github.com/sebastienros/jint/issues/3179 moved each copy to the numbered
+        // step that performs it. The "… during call" globs that remain further down are all in the other
+        // category: the *platform* refuses the operation before the ordering could decide anything, so they
+        // would fail whatever order the bytes were taken in.
 
         // The X25519 rows of a file that is otherwise about the `length` parameter of deriveBits.
         new("WebCryptoAPI/derive_bits_keys/derived_bits_length.https.any.js", "X25519 derivation with *", WptDivergence.NeedsCurve25519),
@@ -382,49 +373,45 @@ public class WptTestRunner
         // AesGcm.TagByteSizes is 12 to 16 — and not on macOS, where Apple's implementation answers 16 to 16
         // and the engine's ask-the-platform gate refuses everything shorter. These rows therefore PASS on two
         // legs and FAIL on the third, which no platform-neutral entry can say; they are scoped to macOS, where
-        // the staleness rule still holds them to matching real failures. The "during call" variants are
-        // absent here deliberately: those rows fail on every OS for the copy-order reason and are the
-        // NeedsTriage entries below.
+        // the staleness rule still holds them to matching real failures.
+        //
+        // Each tag length gets the same six globs the 32- and 64-bit block above gets, and for the same
+        // reason: AesGcmAlgorithm resolves the tag length before it looks at anything else, so on macOS the
+        // refusal comes first and every row that wanted a result fails, whatever the rest of the request
+        // said. That includes the "… during call" rows, which is why they are *here* rather than under
+        // NeedsTriage — the copy order was never what decided them on this platform, and it decides nothing
+        // anywhere now that issue #3179 has moved the copy to its numbered step. One row of the family is
+        // deliberately in no entry, "decryption with transferred ciphertext during call": it asserts an
+        // OperationError and the tag refusal is one, so it passes here for a reason it cannot see, exactly as
+        // it does for the 32- and 64-bit tags.
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
-
-        // The altered-ciphertext decryption rows, which for the unsupported tag lengths mirror the 32- and
-        // 64-bit entries above exactly: the tag refusal fails them here where the copy-order defect fails
-        // them elsewhere. Their transferred-ciphertext siblings appear in no entry on this platform because
-        // the same refusal is the rejection they assert, so they pass — which is also why the copy-order
-        // globs below excuse themselves from macOS.
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
 
-        // The same file's copy-order rows, for the five tag lengths that do work. Spelled per tag rather than
-        // as one "* during call" so that the tag-length rows above are not silently filed under the wrong
-        // cause: those two fail before the ordering could ever matter.
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 128-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 128-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
+        // The 128-bit tag has no entry of any kind: it is the one length every platform's AES-GCM takes, so
+        // its rows pass on all three legs — including the four "… during call" ones, which were the last
+        // NeedsTriage entries this file carried.
 
         // The whole of the 256-bit-iv file bar the rows that expect a throw for another reason — the
         // usage-matrix rows, the illegal-tag-length rows, and again "decryption with transferred ciphertext
@@ -436,24 +423,21 @@ public class WptTestRunner
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm_256_iv.https.any.js", "AES-GCM *, 256-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm_256_iv.https.any.js", "AES-GCM *, 256-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters),
 
-        // RSA-OAEP's label. The "a label" rows fail for the label, the "no label" and "empty label" rows only
-        // for the copy order — which is why the two causes are told apart by the label rather than lumped
-        // under one "* during call".
+        // RSA-OAEP's label, in the same six-glob shape as an unsupported AES-GCM tag length and for the same
+        // reason: RsaAlgorithm refuses a present and non-empty label outright, so every "a label" row that
+        // wanted a result fails whatever else the request said. The "no label" and "empty label" rows carry
+        // no entry at all — they used to, for the copy order alone, and issue #3179 fixed that.
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label decryption", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label with * after call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and a label with * during call", WptDivergence.NeedsPlatformCryptoParameters),
-        new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and no label with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and no label decryption with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and empty label with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/rsa_oaep.https.any.js", "RSA-OAEP with SHA-* and empty label decryption with * during call", WptDivergence.NeedsTriage),
 
         // RSA-PSS's salt length. "no salt" is saltLength 0, which .NET cannot ask for, so every one of those
         // rows fails — except SHA-256's "wrong saltLength", whose wrong length happens to be SHA-256's own
-        // and is therefore the one .NET does accept. The ", salted" rows fail only where the *wrong* salt
-        // length is asked for, plus the copy-order family.
+        // and is therefore the one .NET does accept. The ", salted" rows now fail only where the *wrong* salt
+        // length is asked for: their copy-order family went with issue #3179.
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-* and no salt round trip", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-* and no salt verification", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-* and no salt verification failure with altered *", WptDivergence.NeedsPlatformCryptoParameters),
@@ -463,8 +447,6 @@ public class WptTestRunner
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-* and no salt verification with * call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-* and no salt with * call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-*, salted verification failure with wrong saltLength", WptDivergence.NeedsPlatformCryptoParameters),
-        new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-*, salted verification with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/sign_verify/rsa_pss.https.any.js", "RSA-PSS with SHA-*, salted with * during call", WptDivergence.NeedsTriage),
 
         // wrapKey/unwrapKey, where the two platform limits above meet: the corpus wraps under AES-GCM with a
         // 128-bit iv and under RSA-OAEP with a label, so those two wrapping algorithms fail outright. The
