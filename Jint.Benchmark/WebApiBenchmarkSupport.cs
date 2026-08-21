@@ -169,6 +169,7 @@ internal static class WebApiBenchmarkSupport
             new WebApiStreamsBenchmark(),
             new WebApiTimerBenchmark(),
             new WebApiCryptoBenchmark(),
+            new WebApiSubtleCryptoBenchmark(),
         ];
 
         var failures = 0;

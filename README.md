@@ -678,6 +678,16 @@ Four rules are worth knowing before you rely on it:
   divergence `DiagnosticEvent.RejectionHandled` carries, so `Promise.reject(e).catch(f)` raises
   `unhandledrejection` and then `rejectionhandled` where a browser would raise neither.
 
+**A script's own `error` listener is only as live as your sink.** `GlobalEvents` is part of
+`WebApiFeatures.Default`, so a script written for a browser registers `self.addEventListener('error', …)` on a
+default web-API engine quite happily — and then hears nothing when a timer callback or a listener throws,
+because firing the event is a step of *reporting* and an engine with no sink has nowhere to report to (a
+`reportError` call still fires the event, being itself a request to report). The browser-like recipe is
+`options.UseDiagnostics(DiagnosticsSink.Null)`, or `Options.WebApi.Diagnostics.Sink` set directly: the failure
+is reported rather than erupting, the script's handler runs, the pump carries on, and nothing is written on
+your side. Give it a real sink instead the moment you want those failures in your log — neither choice touches
+the constraints, which erupt past the event and the sink alike.
+
 An exception thrown *while* a report is being dispatched goes to the sink alone and starts no second dispatch,
 which is HTML's re-entrancy rule. And a `RestoreGlobalSnapshot` drops the listeners: they are closures over
 the cycle that just ended, over globals the restore has replaced.

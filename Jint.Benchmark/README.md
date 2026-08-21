@@ -515,12 +515,21 @@ which otherwise surface half an hour into a benchmark session:
 | `WebApiStreamsBenchmark` | `Streams` | `Streams/` | `PumpWithReader`, `PumpWithAsyncIteration`, `PipeThroughTransform` |
 | `WebApiTimerBenchmark` | `Timers` | `Timers/` | `ScheduleAndCancel`, `FanOutFiring`, `IntervalFiring` |
 | `WebApiCryptoBenchmark` | `Crypto` | `Crypto/` | `RandomValuesSmall`, `RandomValuesLarge`, `RandomUuid` |
+| `WebApiSubtleCryptoBenchmark` | `Crypto` | `Crypto/` | `DigestSha256`, `HmacSign`, `HmacVerify`, `RsaVerify`, `EcdsaVerify`, `AesGcmEncrypt` |
 
-**No row covers `Console`, `Base64`, `Performance`, `Files`, `Navigator`, `Scheduler` or
-`crypto.subtle` yet**, and `Events` is only reached incidentally, through the `AbortSignal` every
-`Request` carries. A PR touching one of those has nothing here to move, and saying so is the point of
-this paragraph — the alternative is a contributor running the category, seeing it flat, and reading
-that as evidence.
+The `crypto.subtle` rows are the operations an embedder runs per request rather than a tour of the
+interface — HS256 signing and verification, RS256 and ES256 token validation against fixed imported
+keys, and AES-GCM-128 sealing — all over the same 115-byte JWS signing input, so they differ by
+algorithm and by nothing else. Each measures **one call and its settlement**: the script is a single
+`crypto.subtle` call and the row unwraps the promise it returns host-side, which costs no event-loop
+turn (the operations are synchronous CPU work and the promise is already fulfilled) but does put the
+host-side unwrap ceremony inside the number. Keys are imported in `[GlobalSetup]`, on the row's own
+engine, and never in the measured script.
+
+**No row covers `Console`, `Base64`, `Performance`, `Files`, `Navigator` or `Scheduler` yet**, and
+`Events` is only reached incidentally, through the `AbortSignal` every `Request` carries. A PR
+touching one of those has nothing here to move, and saying so is the point of this paragraph — the
+alternative is a contributor running the category, seeing it flat, and reading that as evidence.
 
 Three properties of these rows are load-bearing and should survive any edit to them:
 
