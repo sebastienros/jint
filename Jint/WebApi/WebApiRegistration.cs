@@ -286,6 +286,11 @@ internal static class WebApiRegistration
             Install(global, engine, "MessageChannel", static e => e.Realm.Intrinsics.MessageChannel, PropertyFlag.NonEnumerable);
             Install(global, engine, "MessagePort", static e => e.Realm.Intrinsics.MessagePort, PropertyFlag.NonEnumerable);
             Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+
+            // BroadcastChannel rides this flag rather than carrying one of its own: it is the same section of
+            // the same standard, it delivers the same MessageEvent, and it is the same structured clone across
+            // the same event loop — the only difference is that it addresses a name instead of a peer.
+            Install(global, engine, "BroadcastChannel", static e => e.Realm.Intrinsics.BroadcastChannel, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Reporting) != WebApiFeatures.None)
@@ -539,7 +544,11 @@ internal static class WebApiRegistration
             ? new IdleCallbackQueue(engine, engine._mainRealm, timeProvider, timers!, timerOptions.IdleBudget)
             : null;
 
-        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks);
+        // The messaging group is passed whole rather than resolved here, exactly as the storage group is: a
+        // host that named no BroadcastChannelBroker gets one of its own, and only once a channel asks for it.
+        var messaging = (features & WebApiFeatures.Messaging) != WebApiFeatures.None ? options.WebApi.Messaging : null;
+
+        engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks, messaging);
     }
 
     /// <summary>
@@ -584,6 +593,11 @@ internal static class WebApiRegistration
         if ((added & WebApiFeatures.Storage) != WebApiFeatures.None)
         {
             state.AttachStorage(options.WebApi.Storage);
+        }
+
+        if ((added & WebApiFeatures.Messaging) != WebApiFeatures.None)
+        {
+            state.AttachMessaging(options.WebApi.Messaging);
         }
 
         if ((added & WebApiFeatures.CacheApi) != WebApiFeatures.None && state.CacheProvider is null)

@@ -179,6 +179,7 @@ public sealed partial class Intrinsics
     private MessagePortConstructor? _messagePort;
     private MessageChannelConstructor? _messageChannel;
     private MessageEventConstructor? _messageEvent;
+    private BroadcastChannelConstructor? _broadcastChannel;
 
     /// <summary><c>MessagePort</c> inherits from <c>EventTarget</c>.</summary>
     internal MessagePortConstructor MessagePort =>
@@ -190,6 +191,10 @@ public sealed partial class Intrinsics
     /// <summary><c>MessageEvent</c> inherits from <c>Event</c>.</summary>
     internal MessageEventConstructor MessageEvent =>
         _messageEvent ??= new MessageEventConstructor(_engine, _realm, Event);
+
+    /// <summary><c>BroadcastChannel</c> inherits from <c>EventTarget</c>.</summary>
+    internal BroadcastChannelConstructor BroadcastChannel =>
+        _broadcastChannel ??= new BroadcastChannelConstructor(_engine, _realm, EventTarget);
 
     private CacheConstructor? _cache;
     private CacheStorageConstructor? _cacheStorage;

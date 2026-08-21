@@ -26,10 +26,15 @@ namespace Jint.WebApi.StructuredClone;
 /// declarations and from a walk of an actual graph.
 /// </para>
 /// <para>
-/// <b>A record is consumed once.</b> Deserializing takes ownership of the byte arrays it finds — a
-/// transferred <c>ArrayBuffer</c>'s storage is moved rather than copied, which is the whole point of
-/// transferring — so deserializing one record twice would hand two engines one mutable buffer. Every producer
-/// here hands each record to exactly one <see cref="StructuredDeserializer"/>.
+/// <b>A record is consumed once, unless the reader is told otherwise.</b> Deserializing takes ownership of the
+/// byte arrays it finds — a transferred <c>ArrayBuffer</c>'s storage is moved rather than copied, which is the
+/// whole point of transferring — so deserializing one record twice would hand two engines one mutable buffer.
+/// <c>structuredClone</c> and <c>MessagePort</c> therefore hand each record to exactly one
+/// <see cref="StructuredDeserializer"/>. <c>BroadcastChannel</c> is the one thing that cannot: its
+/// <c>postMessage</c> serializes once and every destination deserializes that same record, which is what the
+/// standard's steps say, so it asks the deserializer to copy the storage instead
+/// (<see cref="StructuredDeserializer"/>'s <c>sharedRecord</c>). It has no transfer list, so there is never
+/// storage there that had to be moved rather than copied.
 /// </para>
 /// <para>
 /// Sharing and cycles are carried by CLR reference identity: two references to one source object serialize to

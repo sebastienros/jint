@@ -7,6 +7,7 @@ using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.Messaging;
 using Jint.WebApi;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
@@ -180,7 +181,22 @@ internal sealed class WebApiEngineState
     /// </summary>
     private GlobalEventTarget? _globalEventTarget;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null)
+    /// <summary>
+    /// The <c>BroadcastChannel</c> objects this engine has open, in creation order. Engine-thread-only for the
+    /// same reason the fetch list is: a channel is added by its own constructor and removed by <c>close()</c>,
+    /// both of which run on the engine's thread. It exists so a restore can end every channel this engine
+    /// created — the broker itself is shareable and has no idea which engine anything came from.
+    /// </summary>
+    private List<JsBroadcastChannel>? _broadcastChannels;
+
+    /// <summary>
+    /// Where this engine's <c>BroadcastChannel</c> objects find each other, or <see langword="null"/> until one
+    /// is needed. Seeded from <c>Options.WebApi.Messaging.Broker</c> when the engine was built, and defaulted
+    /// per engine on first use — see <see cref="BroadcastChannels"/>.
+    /// </summary>
+    private BroadcastChannelBroker? _broadcastChannelBroker;
+
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null, Options.MessagingOptions? messaging = null)
     {
         _engine = engine;
         _timeProvider = timeProvider;
@@ -196,6 +212,10 @@ internal sealed class WebApiEngineState
         _storageQuotaBytes = storage?.MaxTotalBytes ?? Options.StorageOptions.DefaultMaxTotalBytes;
         CacheProvider = cacheProvider;
         IdleCallbacks = idleCallbacks;
+
+        // Read once, here, exactly as the storage providers above are — and, like them, left null when the
+        // host named none so that an engine which never creates a channel allocates no broker at all.
+        _broadcastChannelBroker = messaging?.Broker;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -364,6 +384,32 @@ internal sealed class WebApiEngineState
         _sessionStorageProvider ??= new InMemoryStorageProvider(_storageQuotaBytes);
 
     /// <summary>
+    /// The <see cref="BroadcastChannelBroker"/> this engine's <c>BroadcastChannel</c> objects join: the host's,
+    /// when it assigned one to <see cref="Options.MessagingOptions.Broker"/>, and otherwise a private one of
+    /// this engine's own — so channels on one engine always hear each other and nothing crosses an engine
+    /// boundary unless the host deliberately shared a broker.
+    /// </summary>
+    /// <remarks>
+    /// Defaulted on first use rather than at construction, so an engine that enabled messaging and never
+    /// created a channel has still allocated nothing. Deliberately <b>not</b> reset by
+    /// <see cref="ResetTransientState"/>: a host's broker is host state like a storage provider, and the
+    /// private default is the identity of this engine's own cluster, which a restore has no business
+    /// replacing — what a restore ends is the channels, not the cluster they were in.
+    /// </remarks>
+    internal BroadcastChannelBroker BroadcastChannels =>
+        _broadcastChannelBroker ??= new BroadcastChannelBroker();
+
+    /// <summary>
+    /// Records a live <c>BroadcastChannel</c>, so that a restore or a dispose can end it — which is also what
+    /// takes it out of a broker the host may be sharing with engines that outlive this one.
+    /// </summary>
+    internal void RegisterBroadcastChannel(JsBroadcastChannel channel) =>
+        (_broadcastChannels ??= new List<JsBroadcastChannel>()).Add(channel);
+
+    /// <summary>Forgets one channel, which is what <c>close()</c> does to itself.</summary>
+    internal void UnregisterBroadcastChannel(JsBroadcastChannel channel) => _broadcastChannels?.Remove(channel);
+
+    /// <summary>
     /// Gives a state that was built without one the timer queue a feature enabled later needs. Called only by
     /// <c>WebApiRegistration.ExtendEngineState</c>, and only for a slot that is still empty — a queue the
     /// engine has already been scheduling on is never replaced.
@@ -422,6 +468,16 @@ internal sealed class WebApiEngineState
         _sessionStorageProvider ??= storage.SessionStorageProvider;
         _storageQuotaBytes = storage.MaxTotalBytes;
     }
+
+    /// <summary>
+    /// Reads the messaging group into a state that was built without it. Like <see cref="AttachStorage"/> and
+    /// unlike the <c>Debug.Assert</c>-ing siblings above, it has no slot of its own to test: the broker is
+    /// defaulted lazily on first use, so what it must not do is overwrite one that has already been resolved —
+    /// hence the <c>??=</c>. Nothing can have resolved one before the messaging feature was on, since only a
+    /// <c>BroadcastChannel</c> constructor reads it, so the assignment reaches exactly the engines the host is
+    /// enabling messaging for.
+    /// </summary>
+    internal void AttachMessaging(Options.MessagingOptions messaging) => _broadcastChannelBroker ??= messaging.Broker;
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job, and failing that runs at most one idle callback.
@@ -580,6 +636,11 @@ internal sealed class WebApiEngineState
     /// <c>error</c> fired afterwards must reach none of them. The sink is deliberately not reset: it is
     /// configuration the engine was built with, like the time origin beside it, and a pooled engine
     /// reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
+    /// A <c>BroadcastChannel</c> is <b>closed</b> rather than merely forgotten, which is the same rule a
+    /// <c>MessagePort</c> follows for the same reason — its listeners are closures over the cycle that is
+    /// ending — with one addition: the broker it joined may be the host's and may outlive this engine, so
+    /// leaving the subscription there would keep this engine reachable and go on costing every future sender a
+    /// job the generation fence then throws away.
     /// </remarks>
     internal void ResetTransientState()
     {
@@ -589,6 +650,7 @@ internal sealed class WebApiEngineState
         AbandonFetchBodies();
         AbandonEventSources();
         AbandonWebSockets();
+        CloseBroadcastChannels();
         IdleCallbacks?.Clear();
 
         // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
@@ -658,6 +720,28 @@ internal sealed class WebApiEngineState
         }
     }
 
+    /// <summary>
+    /// Closes every <c>BroadcastChannel</c> this engine created — which unsubscribes each from its broker, so
+    /// a broker the host shares between engines does not keep a finished one reachable.
+    /// </summary>
+    private void CloseBroadcastChannels()
+    {
+        if (_broadcastChannels is not { Count: > 0 } channels)
+        {
+            return;
+        }
+
+        // Copied before the walk, exactly as the fetches are: Close unregisters the channel, which would
+        // otherwise mutate the list under the enumerator.
+        var open = channels.ToArray();
+        channels.Clear();
+
+        foreach (var channel in open)
+        {
+            channel.Close();
+        }
+    }
+
     private void AbandonFetchBodies()
     {
         if (_fetchBodies is not { Count: > 0 } bodies)
@@ -675,10 +759,15 @@ internal sealed class WebApiEngineState
     }
 
     /// <summary>
-    /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which
-    /// today is the host token registrations. The queues need nothing — they hold no unmanaged resource and no
-    /// timer, and die with the engine.
+    /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which is
+    /// the host token registrations and the subscriptions in a <see cref="BroadcastChannelBroker"/> the host
+    /// may share with engines that outlive this one. The queues need nothing — they hold no unmanaged resource
+    /// and no timer, and die with the engine.
     /// </summary>
-    internal void Dispose() => ReleaseHostAbortBridges();
+    internal void Dispose()
+    {
+        ReleaseHostAbortBridges();
+        CloseBroadcastChannels();
+    }
 }
 #endif

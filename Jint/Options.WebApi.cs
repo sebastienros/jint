@@ -90,6 +90,46 @@ public partial class Options
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
         public CacheOptions Cache { get; } = new();
+
+        /// <summary>
+        /// Settings for channel messaging, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.Messaging"/>.
+        /// </summary>
+        public MessagingOptions Messaging { get; } = new();
+    }
+
+    /// <summary>
+    /// Settings for the <c>Messaging</c> feature — today, which <c>BroadcastChannel</c> objects can hear each
+    /// other. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// Nothing here is needed for <c>MessageChannel</c>, <c>MessagePort</c> or <c>MessageEvent</c>: a port pair
+    /// is entangled by construction, and the cross-engine form of one is
+    /// <c>Engine.Advanced.CreateMessagePortPair</c> rather than an option. A <c>BroadcastChannel</c> has no
+    /// pair to be entangled with — it addresses a <i>name</i> — so which channels are in earshot of each other
+    /// is the one thing about it a host has to be able to say.
+    /// </remarks>
+    public class MessagingOptions
+    {
+        /// <summary>
+        /// Which <c>BroadcastChannel</c> objects can hear each other: one broker is one agent cluster and one
+        /// origin. <see langword="null"/> — the default — gives each engine a private broker of its own, so
+        /// channels created on one engine hear each other and nothing crosses an engine boundary.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Assign one instance to an <see cref="Options"/> object several engines are built from — or the same
+        /// instance to several <see cref="Options"/> objects — and those engines broadcast to each other. A
+        /// broker is thread-safe, so the engines may run concurrently; what crosses between them is a
+        /// serialization record and never a <c>JsValue</c>, and delivery still happens on the receiving
+        /// engine's own pump. See <see cref="BroadcastChannelBroker"/>, including what it keeps alive.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
+        /// already exists.
+        /// </para>
+        /// </remarks>
+        public BroadcastChannelBroker? Broker { get; set; }
     }
 
     /// <summary>
@@ -643,12 +683,15 @@ public enum WebApiFeatures
     Scheduler = 1 << 13,
 
     /// <summary>
-    /// <c>MessageChannel</c>, <c>MessagePort</c> and <c>MessageEvent</c> — the HTML Standard's channel
-    /// messaging, https://html.spec.whatwg.org/multipage/web-messaging.html. A message is structured-cloned
-    /// when it is posted and delivered as an event-loop task, so a port fires only while the engine is being
-    /// pumped. The same ports can span <b>two</b> engines through
-    /// <c>Engine.Advanced.CreateMessagePortPair</c>, which needs this flag on both of them. Transferring a
-    /// port through a port is not supported.
+    /// <c>MessageChannel</c>, <c>MessagePort</c>, <c>MessageEvent</c> and <c>BroadcastChannel</c> — the HTML
+    /// Standard's web messaging, https://html.spec.whatwg.org/multipage/web-messaging.html. A message is
+    /// structured-cloned when it is posted and delivered as an event-loop task, so nothing fires except while
+    /// the engine is being pumped. The same ports can span <b>two</b> engines through
+    /// <c>Engine.Advanced.CreateMessagePortPair</c>, which needs this flag on both of them; a
+    /// <c>BroadcastChannel</c> spans as many engines as share a
+    /// <see cref="Options.MessagingOptions.Broker"/>, and reaches every other channel of its name rather than
+    /// one peer. Transferring a port through a port is not supported, and a broadcast has no transfer list at
+    /// all.
     /// </summary>
     Messaging = 1 << 14,
 
