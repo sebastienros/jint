@@ -407,6 +407,16 @@ public class WptTestRunner
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
 
+        // The altered-ciphertext decryption rows, which for the unsupported tag lengths mirror the 32- and
+        // 64-bit entries above exactly: the tag refusal fails them here where the copy-order defect fails
+        // them elsewhere. Their transferred-ciphertext siblings appear in no entry on this platform because
+        // the same refusal is the rejection they assert, so they pass — which is also why the copy-order
+        // globs below excuse themselves from macOS.
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+
         // The same file's copy-order rows, for the five tag lengths that do work. Spelled per tag rather than
         // as one "* during call" so that the tag-length rows above are not silently filed under the wrong
         // cause: those two fail before the ordering could ever matter.
