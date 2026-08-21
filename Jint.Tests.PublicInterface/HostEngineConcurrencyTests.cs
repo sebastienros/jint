@@ -1,17 +1,69 @@
 #nullable enable
 
+using System.Diagnostics;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
+using Xunit.Sdk;
 
 using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
+/// <summary>
+/// The engine's one-operation-at-a-time contract, from the outside: which public entries a second thread
+/// is refused, which authorized hand-offs it is granted, and that a refusal leaves the engine usable.
+/// </summary>
+/// <remarks>
+/// Every test here needs one thread parked inside the engine while another tries to enter, and none of
+/// them measures how long that takes. So the thread doing the parking is one the test starts itself, and
+/// the wait for it is released by a signal rather than by a clock — see <see cref="StartOwningThread"/>
+/// and <see cref="WaitUntilOwned"/>, and <see cref="HandoffCeiling"/> for the one clock left.
+/// </remarks>
 public class HostEngineConcurrencyTests
 {
     private const string ConcurrentUseMessage = "*already in use by another thread or has an asynchronous operation in progress*";
+
+    /// <summary>
+    /// Reached only by a genuine wedge. Every wait in this class is released by a thread the test owns, so
+    /// no amount of runner load can lose the race and only a hang can spend two minutes here.
+    /// </summary>
+    private static readonly TimeSpan HandoffCeiling = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Runs the call that takes the engine and parks inside <c>block()</c> on a thread of the test's own.
+    /// Deliberately not <c>Task.Run</c>: this body occupies its thread for as long as the test keeps it
+    /// blocked, and a saturated thread pool injects a worker at roughly one per 500 ms — which is what
+    /// turned "has the other thread entered the engine yet" into a wall-clock race the ten-second budget
+    /// could lose on a loaded runner (sebastienros/jint#3201).
+    /// </summary>
+    private static Task StartOwningThread(Action body) => DedicatedThread.RunAsync(body);
+
+    /// <summary>
+    /// Waits until <paramref name="running"/> is provably parked inside <c>block()</c>, which is when the
+    /// engine is genuinely owned by that thread and the assertions below mean what they say. It ends on
+    /// the signal, on that thread finishing without ever reaching <c>block()</c> — reporting whatever
+    /// stopped it rather than a timeout — or on <see cref="HandoffCeiling"/>.
+    /// </summary>
+    private static async Task WaitUntilOwned(ManualResetEventSlim entered, Task running)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (!entered.Wait(TimeSpan.FromMilliseconds(20)))
+        {
+            if (running.IsCompleted)
+            {
+                // Rethrows the owning thread's own exception, with its stack, when it had one.
+                await running;
+                throw new XunitException("the owning call returned without ever entering block()");
+            }
+
+            if (elapsed.Elapsed > HandoffCeiling)
+            {
+                throw new XunitException($"the owning thread did not enter block() within {HandoffCeiling}");
+            }
+        }
+    }
 
     [Fact]
     public async Task ConcurrentExecuteIsRejectedAndTheEngineRecovers()
@@ -19,9 +71,9 @@ public class HostEngineConcurrencyTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var engine = CreateBlockingEngine(entered, release);
-        var running = Task.Run(() => engine.Execute("block()"));
+        var running = StartOwningThread(() => engine.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.Execute("globalThis.concurrent = true"))
@@ -44,9 +96,9 @@ public class HostEngineConcurrencyTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var engine = CreateBlockingEngine(entered, release);
-        var running = Task.Run(() => engine.Evaluate("block()"));
+        var running = StartOwningThread(() => engine.Evaluate("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.Evaluate("40 + 2"))
@@ -68,9 +120,9 @@ public class HostEngineConcurrencyTests
         using var release = new ManualResetEventSlim();
         var engine = CreateBlockingEngine(entered, release);
         engine.Execute("function waitForHost() { return block(); }");
-        var running = Task.Run(() => engine.Invoke("waitForHost"));
+        var running = StartOwningThread(() => engine.Invoke("waitForHost"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.Invoke("waitForHost"))
@@ -91,9 +143,9 @@ public class HostEngineConcurrencyTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var engine = CreateBlockingEngine(entered, release);
-        var running = Task.Run(() => engine.Execute("block()"));
+        var running = StartOwningThread(() => engine.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.SetValue("leaked", 42))
@@ -118,9 +170,9 @@ public class HostEngineConcurrencyTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var engine = CreateBlockingEngine(entered, release);
-        var running = Task.Run(() => engine.Execute("block(); globalThis.finished = true"));
+        var running = StartOwningThread(() => engine.Execute("block(); globalThis.finished = true"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Action concurrent = () => _ = engine.EvaluateAsync("1");
@@ -390,9 +442,9 @@ public class HostEngineConcurrencyTests
         var engine = CreateBlockingEngine(entered, release);
         engine.SetValue("capture", new Action<Func<JsValue, JsValue[], JsValue>>(value => callback = value));
         engine.Execute("capture(() => 42)");
-        var running = Task.Run(() => engine.Execute("block()"));
+        var running = StartOwningThread(() => engine.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => callback!(JsValue.Undefined, []))
@@ -421,9 +473,9 @@ public class HostEngineConcurrencyTests
         engineB.SetValue("capture", new Action<Func<int>>(value => callbackB = value));
         engineA.Execute(prepared);
         engineB.Execute(prepared);
-        var running = Task.Run(() => engineA.Execute("block()"));
+        var running = StartOwningThread(() => engineA.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             callbackB!().Should().Be(42);
@@ -448,11 +500,11 @@ public class HostEngineConcurrencyTests
         engine.SetValue("block", new Action(() =>
         {
             entered.Set();
-            release.Wait();
+            release.Wait(HandoffCeiling);
         }));
-        var running = Task.Run(() => engine.Execute("block()"));
+        var running = StartOwningThread(() => engine.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.Debugger.Evaluate("1"))
@@ -476,11 +528,11 @@ public class HostEngineConcurrencyTests
         engine.SetValue("block", new Action(() =>
         {
             entered.Set();
-            release.Wait();
+            release.Wait(HandoffCeiling);
         }));
-        var running = Task.Run(() => engine.Execute("block()"));
+        var running = StartOwningThread(() => engine.Execute("block()"));
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             engine.Debugger.BreakPoints.Set(new BreakPoint(1, 0));
@@ -521,13 +573,13 @@ public class HostEngineConcurrencyTests
         engine.SetValue("block", new Action(() =>
         {
             entered.Set();
-            release.Wait();
+            release.Wait(HandoffCeiling);
         }));
         var operation = engine.Modules.StartImport("module");
         loader.Completion!.SetSource("block(); export const value = 42;");
-        var running = Task.Run(engine.Advanced.ProcessTasks);
+        var running = StartOwningThread(engine.Advanced.ProcessTasks);
 
-        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        await WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => _ = operation.IsCompleted)
@@ -549,7 +601,7 @@ public class HostEngineConcurrencyTests
         engine.SetValue("block", new Action(() =>
         {
             entered.Set();
-            release.Wait();
+            release.Wait(HandoffCeiling);
         }));
         return engine;
     }

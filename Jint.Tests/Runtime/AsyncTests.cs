@@ -984,6 +984,27 @@ public class AsyncTests
         asyncTestClass.StringToAppend.Should().Be("123");
     });
 
+    // The four "an async host method invokes a JavaScript callback" tests — these two, and the ValueTask
+    // pair under the !NETFRAMEWORK guard below — are what sebastienros/jint#3201 saw fail on net472 with
+    // "This Engine is already in use by another thread". Nothing here is racing the engine, and nothing
+    // here can fix it: the mechanism is in the engine's callback admission and is recorded as such.
+    //
+    // DelegateWrapper.Invoke reserves the engine (Engine.SuspendHostCallForCallbacks) around a host call
+    // that was handed a JavaScript callback, precisely so the host may dispatch that callback to another
+    // thread. An `async` host method returns at its first await, which disposes that reservation, so by
+    // the time the continuation calls the callback Engine._asyncOwner is null again. The authorized
+    // callback then takes EnterTransferredHostCallback's `owner is null` branch, which falls through to
+    // EnterHostCall() — fail-fast for any thread that is not the owner. Whether the owner thread has yet
+    // reached the drain's own reservation (the WaitForWork inside DrainEventLoopUntil, the only other
+    // place it is held) is a scheduling coin flip. README.md's Thread-safety section and THREAT_MODEL.md
+    // TM-13 both promise the opposite for an authorized callback — "such an authorized transfer may wait
+    // for the current callback turn" — and the waiting primitive (AcquireHostCall) already exists, on the
+    // branch this one never reaches.
+    //
+    // Measured at 18 failures in 3000 serial runs (0.6%) of the shape below on an idle 16-core machine,
+    // every one of them an authorized callback. Left alone deliberately: lengthening the delay before the
+    // callback would only move the race, and asserting less would stop these tests pinning the
+    // task-callback path at all.
     [Fact]
     public Task ShouldCompleteWithAsyncTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
