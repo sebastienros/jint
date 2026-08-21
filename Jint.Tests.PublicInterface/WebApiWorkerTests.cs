@@ -344,6 +344,138 @@ public class WebApiWorkerTests
     }
 
     /// <summary>
+    /// A startup failure reaches the host through the connection alone — no sink, no listener, nothing wired.
+    /// </summary>
+    /// <remarks>
+    /// The two channels carry different things and this pin is about the one a host gets for free: the reason
+    /// says <i>what</i> happened rather than blaming a <c>terminate()</c> nobody called, and the failure is a
+    /// CLR exception rather than a worker-realm value that could not have crossed the thread anyway. The
+    /// script-facing half — a plain <c>Event</c> named <c>error</c> at the <c>Worker</c> object — is asserted
+    /// beside it, because a host that does wire a listener gets both.
+    /// </remarks>
+    [Fact]
+    public void AHostSeesAStartupFailureWithoutWiringAnySink()
+    {
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>());
+
+        var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./missing.js', { type: 'module' });
+            w.onerror = e => seen.push(e.type + '|' + (e instanceof ErrorEvent));
+            """);
+
+        var connection = host.Connections.Should().ContainSingle().Subject;
+        connection.IsEnded.Should().BeFalse("nothing has pumped the worker yet");
+
+        host.Drain(parent);
+
+        connection.IsEnded.Should().BeTrue();
+        connection.EndReason.Should().Be(WorkerEndReason.StartupFailed);
+        connection.IsFaulted.Should().BeTrue();
+        connection.Error.Should().BeOfType<ModuleResolutionException>();
+        connection.TerminationToken.IsCancellationRequested.Should().BeTrue();
+
+        parent.Evaluate("seen.join(',')").AsString().Should().Be(
+            "error|false",
+            "the standard's step for a script that failed to fetch names no interface");
+    }
+
+    /// <summary>
+    /// A provider that chains its own <see cref="DiagnosticsSink"/> onto the worker's options still sees every
+    /// worker error, whatever the parent's script does about it — the sink's contract is that a script may not
+    /// switch it off, and the parent-side relay deliberately sits beside it rather than on it.
+    /// </summary>
+    /// <remarks>
+    /// Both directions are asserted from one run: the worker's own sink hears the failure as an
+    /// <c>UncaughtCallbackError</c> even though the parent cancelled the propagation, and the parent's sink
+    /// stays silent because cancelling is exactly what HTML's <i>notHandled</i> gate is for.
+    /// </remarks>
+    [Fact]
+    public void ADiagnosticsSinkChainedByTheProviderStillSeesWorkerErrors()
+    {
+        var workerSink = new CollectingSink();
+        var parentSink = new CollectingSink();
+
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
+        {
+            ["./worker.js"] = "addEventListener('message', () => { throw new TypeError('boom'); });",
+        })
+        {
+            Tune = options => options.WebApi.Diagnostics.Sink = workerSink,
+        };
+
+        var parent = new Engine(options =>
+        {
+            options.UseWebApis().UseWorkers(host);
+            options.WebApi.Diagnostics.Sink = parentSink;
+        });
+
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = e => { seen.push(e.message + '|' + (e.error === null)); e.preventDefault(); };
+            w.postMessage('go');
+            """);
+
+        host.Drain(parent);
+
+        parent.Evaluate("seen.join(',')").AsString().Should().Be("boom|true", "error is null for every worker error");
+
+        workerSink.Kinds.Should().Equal(DiagnosticEventKind.UncaughtCallbackError);
+        workerSink.Messages.Should().ContainSingle().Which.Should().Contain("boom");
+
+        parentSink.Kinds.Should().BeEmpty("the Worker object's listener cancelled, which is HTML's gate");
+    }
+
+    /// <summary>
+    /// The same failure with nothing cancelling it reaches the parent's sink as its own kind, so a host that
+    /// wires one sink for a parent and its workers can still tell the two reports apart.
+    /// </summary>
+    [Fact]
+    public void AnUnhandledWorkerErrorReachesTheParentsSinkAsItsOwnKind()
+    {
+        var sink = new CollectingSink();
+
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
+        {
+            ["./worker.js"] = "addEventListener('message', () => { throw new TypeError('boom'); });",
+        })
+        {
+            Tune = options => options.WebApi.Diagnostics.Sink = sink,
+        };
+
+        var parent = new Engine(options =>
+        {
+            options.UseWebApis().UseWorkers(host);
+            options.WebApi.Diagnostics.Sink = sink;
+        });
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' }); w.postMessage('go');");
+        host.Drain(parent);
+
+        sink.Kinds.Should().Equal(DiagnosticEventKind.UncaughtCallbackError, DiagnosticEventKind.WorkerError);
+        sink.Messages.Should().AllSatisfy(message => message.Should().Contain("boom"));
+    }
+
+    /// <summary>
+    /// A sink that keeps kinds and messages as CLR values, which is what the remarks on
+    /// <see cref="DiagnosticsSink"/> say to do with a report rather than stashing its <c>JsValue</c>s.
+    /// </summary>
+    private sealed class CollectingSink : DiagnosticsSink
+    {
+        public List<DiagnosticEventKind> Kinds { get; } = new();
+
+        public List<string> Messages { get; } = new();
+
+        public override void Report(DiagnosticEvent report)
+        {
+            Kinds.Add(report.Kind);
+            Messages.Add(report.Exception?.Message ?? report.Value.ToString());
+        }
+    }
+
+    /// <summary>
     /// A provider the test drives itself: it builds the worker engine over an in-memory module map, starts no
     /// thread, and lets the test decide when each worker gets a turn.
     /// </summary>
@@ -358,6 +490,9 @@ public class WebApiWorkerTests
 
         public Action<WorkerConnection>? OnStarted { get; set; }
 
+        /// <summary>Runs on the worker's options, after <c>CreateDefaultOptions</c> and before the engine.</summary>
+        public Action<Options>? Tune { get; set; }
+
         public List<WorkerConnection> Connections { get; } = new();
 
         public string Log => string.Join(",", _log);
@@ -368,6 +503,7 @@ public class WebApiWorkerTests
 
             var options = request.CreateDefaultOptions();
             options.Modules.ModuleLoader = new MapModuleLoader(_modules);
+            Tune?.Invoke(options);
 
             var engine = new Engine(options);
             engine.SetValue("report", new Action<string>(_log.Add));

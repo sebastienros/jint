@@ -1231,9 +1231,17 @@ public class WorkerMechanismTests
     /// than fired at listeners that are closures over globals the restore has just replaced.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The listener records through a CLR delegate it closed over, not through a global, so the assertion
-    /// survives the very restore it is about — which is what makes the pin about the fence rather than about
-    /// the binding.
+    /// survives the very restore it is about — which is what makes the pin about the mechanism rather than
+    /// about the binding.
+    /// </para>
+    /// <para>
+    /// Two things cover this and the pin holds them together. The parent-side event is a <b>job on the
+    /// parent's loop</b> rather than a dispatch on the worker's thread — the first assertion, which is what a
+    /// synchronous fire would break — and it carries the <b>generation</b> of the cycle that queued it, which
+    /// is what covers a failure landing after the loop has already been cleared.
+    /// </para>
     /// </remarks>
     [Fact]
     public void AParentRestoreDropsAQueuedErrorEvent()
