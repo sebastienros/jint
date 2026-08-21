@@ -6,6 +6,7 @@ using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.WebApi.Abort;
 
 namespace Jint.WebApi.Fetch;
 
@@ -53,6 +54,13 @@ public sealed class FetchHandlerOperation
     private bool _completed;
     private HttpResponseMessage? _response;
     private ExceptionDispatchInfo? _failure;
+
+    /// <summary>
+    /// The link from the host token this invocation was given to the <c>Request</c>'s signal, when there is
+    /// one. Held so the registration can be released the moment the invocation ends — see
+    /// <see cref="ReleaseHostAbortBridge"/>.
+    /// </summary>
+    private HostAbortSignalBridge? _hostAbortBridge;
 
     internal FetchHandlerOperation(Engine engine)
     {
@@ -200,6 +208,32 @@ public sealed class FetchHandlerOperation
         }
     }
 
+    /// <summary>
+    /// Records the host token registration behind this invocation's <c>request.signal</c>, so that it is
+    /// released when the invocation ends however it ends.
+    /// </summary>
+    /// <remarks>
+    /// A <see langword="null"/> bridge is the ordinary case — a token that can never be cancelled registers
+    /// nothing, and so does one that was already cancelled. An operation that has somehow completed before
+    /// this is called releases straight away rather than keeping a registration nothing would ever come back
+    /// for.
+    /// </remarks>
+    internal void AttachHostAbortBridge(HostAbortSignalBridge? bridge)
+    {
+        if (bridge is null)
+        {
+            return;
+        }
+
+        if (_completed)
+        {
+            bridge.Release();
+            return;
+        }
+
+        _hostAbortBridge = bridge;
+    }
+
     internal void Complete(HttpResponseMessage response)
     {
         if (_completed)
@@ -210,6 +244,7 @@ public sealed class FetchHandlerOperation
 
         _completed = true;
         _response = response;
+        ReleaseHostAbortBridge();
     }
 
     internal void Fail(Exception error)
@@ -221,6 +256,25 @@ public sealed class FetchHandlerOperation
 
         _completed = true;
         _failure = ExceptionDispatchInfo.Capture(error);
+        ReleaseHostAbortBridge();
+    }
+
+    /// <summary>
+    /// Gives the host's token registration back the moment the invocation is over — whether it was answered,
+    /// failed, or fenced off by a restore.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole of the lifetime contract: a request's token outlives no invocation, so a pooled
+    /// engine serving one request after another from a long-lived host token — an application lifetime's, or
+    /// a per-request token from a source the host reuses — accumulates no registrations and is retained by
+    /// none of them. It deliberately does not chase an abort that is already on the event loop; see
+    /// <see cref="HostAbortSignalBridge.Release"/>.
+    /// </remarks>
+    private void ReleaseHostAbortBridge()
+    {
+        var bridge = _hostAbortBridge;
+        _hostAbortBridge = null;
+        bridge?.Release();
     }
 
     /// <summary>

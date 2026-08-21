@@ -515,6 +515,13 @@ internal sealed class WebApiEngineState
     internal void RemoveHostAbortBridge(HostAbortSignalBridge bridge) => _hostAbortBridges?.Remove(bridge);
 
     /// <summary>
+    /// How many host token registrations this engine is currently holding. Nothing script-facing reads it: it
+    /// is what an in-assembly test asserts on to prove that a pooled engine serving request after request from
+    /// one long-lived host token accumulates no registrations.
+    /// </summary>
+    internal int HostAbortBridgeCount => _hostAbortBridges?.Count ?? 0;
+
+    /// <summary>
     /// Releases every host token registration. A long-lived host token — a request's, an application
     /// lifetime's — would otherwise keep a finished engine reachable through its registration list.
     /// </summary>

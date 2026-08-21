@@ -69,12 +69,30 @@ internal sealed class HostAbortSignalBridge
     /// </summary>
     private void Abort()
     {
-        Detach();
-        _engine._webApi?.RemoveHostAbortBridge(this);
+        Release();
 
         // Aborting is one-shot and the signal has no controller, so this is the only route to it — but a
         // second cancellation of a linked token could still enqueue twice, and SignalAbort is idempotent.
         _signal.SignalAbort(_constructor.DefaultedReason(JsValue.Undefined));
+    }
+
+    /// <summary>
+    /// Releases the registration <i>and</i> forgets the bridge, which is what a caller holding one bridge does
+    /// when it is finished with it: the bridge's own abort, and a fetch-handler invocation that has completed.
+    /// </summary>
+    /// <remarks>
+    /// <b>It does not un-enqueue an abort that has already been enqueued.</b> A token that fired before this
+    /// call has already put its job on the event loop, and that job still aborts the signal on whichever pump
+    /// runs it — which is deliberate: the abort is what cancels the outbound work an abandoned handler
+    /// started, and swallowing it would leave that work running until the cycle ended. What this call
+    /// guarantees is the thing the lifetime contract is about: a host token that <i>never</i> fires stops
+    /// retaining this engine the moment the invocation is over, so a pooled engine serving request after
+    /// request accumulates nothing.
+    /// </remarks>
+    internal void Release()
+    {
+        Detach();
+        _engine._webApi?.RemoveHostAbortBridge(this);
     }
 
     /// <summary>

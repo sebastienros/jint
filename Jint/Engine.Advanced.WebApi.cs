@@ -268,15 +268,16 @@ public partial class Engine
         /// it is the host's own record of what the host did, and a script must not be able to change the
         /// answer. It is therefore <b>not</b> the way to ask "can this engine serve a request": listeners come
         /// and go with the evaluation cycle, a script may add one after this was read, and one that exists may
-        /// still decline to respond. Call <see cref="InvokeFetchHandler"/> and let it fail — every other
-        /// failure of an invocation arrives that way too.
+        /// still decline to respond. Call <see cref="InvokeFetchHandler(HttpRequestMessage)"/> and let it
+        /// fail — every other failure of an invocation arrives that way too.
         /// </remarks>
         public bool HasFetchHandler => _engine._webApi?.FetchHandler is not null;
 
         /// <summary>
         /// Registers the script function inbound requests are routed to by
-        /// <see cref="InvokeFetchHandler"/> and <see cref="InvokeFetchHandlerAsync"/>, turning the engine into
-        /// a request handler in the style Cloudflare Workers established. Requires .NET 8 or higher.
+        /// <see cref="InvokeFetchHandler(HttpRequestMessage)"/> and <see cref="InvokeFetchHandlerAsync"/>,
+        /// turning the engine into a request handler in the style Cloudflare Workers established. Requires
+        /// .NET 8 or higher.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -325,8 +326,8 @@ public partial class Engine
         /// <para>
         /// <b>It outranks the script's own <c>fetch</c> listeners.</b> On an engine with
         /// <see cref="WebApiFeatures.FetchEvents"/> a script may register a handler itself with
-        /// <c>addEventListener('fetch', …)</c>, and <see cref="InvokeFetchHandler"/> dispatches to those
-        /// listeners <em>only</em> when nothing was registered here. A handler the host named is never taken
+        /// <c>addEventListener('fetch', …)</c>, and <see cref="InvokeFetchHandler(HttpRequestMessage)"/>
+        /// dispatches to those listeners <em>only</em> when nothing was registered here. A handler the host named is never taken
         /// away from it by script — clear it with <see langword="null"/> to hand the route over deliberately.
         /// </para>
         /// </remarks>
@@ -414,6 +415,68 @@ public partial class Engine
         /// Neither a fetch handler nor a <c>fetch</c> listener is registered on this engine.
         /// </exception>
         public FetchHandlerOperation InvokeFetchHandler(HttpRequestMessage request)
+            => InvokeFetchHandler(request, CancellationToken.None);
+
+        /// <summary>
+        /// The same invocation, with the host's own "this request has been abandoned" token wired to the
+        /// <c>Request</c>'s <c>signal</c>. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Everything <see cref="InvokeFetchHandler(HttpRequestMessage)"/> says holds here unchanged; this
+        /// overload adds one thing, which is that <c>request.signal</c> is a real signal rather than one that
+        /// can never fire. <c>HttpContext.RequestAborted</c> is the token this exists for.
+        /// </para>
+        /// <para>
+        /// <b>The abort lands on the engine's thread, on a pump.</b> Cancelling a
+        /// <see cref="CancellationTokenSource"/> runs its registrations on the cancelling thread, and aborting
+        /// a signal dispatches a JavaScript <c>abort</c> event, which is script — so the token registration
+        /// only enqueues an event-loop job and the abort happens when that job runs. It is the same contract
+        /// <see cref="CreateAbortSignal"/>, <c>setTimeout</c> and <c>AbortSignal.timeout()</c> have, and the
+        /// bridge is literally the same one: a host that cancels and then stops pumping has a signal that
+        /// never aborted. A token that is <b>already</b> cancelled when this is called needs no job — this
+        /// method runs on the engine's thread — so the handler is called with a request whose signal is
+        /// already aborted, which is what lets it refuse without doing any work.
+        /// </para>
+        /// <para>
+        /// <b>The abort is observational and settles nothing.</b> It does not complete or fail this operation,
+        /// and it does not stop the handler: what it does is tell the script, which then rejects (an outbound
+        /// <c>fetch</c> chained on <c>request.signal</c> rejects with the abort reason, and so does a handler
+        /// that checks <c>signal.aborted</c> itself), and that rejection fails the operation through the
+        /// ordinary contract — a <see cref="PromiseRejectedException"/> whose value is the <c>AbortError</c>
+        /// <c>DOMException</c>. A handler that ignores the abort and answers anyway is served, because the
+        /// host that went on pumping is the one that decided to let it finish. Stopping an invocation
+        /// outright is the host's own lever, not the script's: stop pumping, or end the cycle with
+        /// <see cref="RestoreGlobalSnapshot"/>.
+        /// </para>
+        /// <para>
+        /// <b>It is not an execution constraint.</b> A handler that never yields — <c>while (true) {}</c> —
+        /// never reaches a pump, so it never sees the abort; bounding the interpreter itself is what
+        /// <c>Options.Constraints</c> is for, and
+        /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> is the constraint that takes a token.
+        /// The two compose: the constraint stops the run, this tells the script.
+        /// </para>
+        /// <para>
+        /// <b>Lifetime.</b> The registration is released when this operation completes, however it completes,
+        /// and again when <see cref="RestoreGlobalSnapshot"/> or <see cref="Engine.Dispose"/> releases every
+        /// host bridge — so a long-lived token accumulates nothing across the requests a pooled engine serves,
+        /// and retains no finished engine. What it deliberately does not do is chase an abort already on the
+        /// event loop: a token that fired before the handler answered still aborts the signal on the next
+        /// pump, which is what cancels the outbound work an abandoned handler had started.
+        /// </para>
+        /// </remarks>
+        /// <param name="request">The inbound request; see <see cref="InvokeFetchHandler(HttpRequestMessage)"/>.</param>
+        /// <param name="requestAborted">
+        /// The host's "the client is gone" token. <see cref="CancellationToken.None"/> — and any other token
+        /// that can never be cancelled — gives exactly the invocation the single-argument overload gives, and
+        /// registers nothing.
+        /// </param>
+        /// <returns>The invocation in progress; see <see cref="FetchHandlerOperation"/>.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Neither a fetch handler nor a <c>fetch</c> listener is registered on this engine.
+        /// </exception>
+        public FetchHandlerOperation InvokeFetchHandler(HttpRequestMessage request, CancellationToken requestAborted)
         {
             if (request is null)
             {
@@ -430,7 +493,13 @@ public partial class Engine
             JsValue result;
             try
             {
-                result = InvokeRoute(in route, request, ReadBody(request));
+                // Before the body is read, so that a token cancelled while a still-arriving content is being
+                // pulled off the socket has somewhere to land, and an already-cancelled one produces a signal
+                // the handler sees as aborted from its very first statement.
+                var signal = CreateHostBridgedSignal(requestAborted, out var bridge);
+                operation.AttachHostAbortBridge(bridge);
+
+                result = InvokeRoute(in route, request, ReadBody(request), signal);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
@@ -454,7 +523,8 @@ public partial class Engine
         /// With a content still arriving off a socket it does not, and the handler runs on whichever thread
         /// resumed the read; every continuation afterwards likewise runs on whichever thread resumed the
         /// await. The engine is single-threaded and this does not change that — the turns are serialized —
-        /// but a host with a thread <em>affinity</em> wants <see cref="InvokeFetchHandler"/> and its own pump.
+        /// but a host with a thread <em>affinity</em> wants
+        /// <see cref="InvokeFetchHandler(HttpRequestMessage)"/> and its own pump.
         /// </para>
         /// <para>
         /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
@@ -467,14 +537,43 @@ public partial class Engine
         /// amortizable, so neither disarms the interpreter's tight-loop lane.
         /// </para>
         /// <para>
+        /// <b><paramref name="cancellationToken"/> is also wired to the <c>Request</c>'s <c>signal</c>.</b>
+        /// This is an addition to what an existing parameter does, made deliberately rather than by adding a
+        /// second one: a single token on a request invocation means "this request has been abandoned", which
+        /// is exactly what <c>HttpContext.RequestAborted</c> means and exactly what
+        /// <c>request.signal</c> is for, and a host holding one token for the two halves of one request would
+        /// have nothing to put in a second parameter. Everything
+        /// <see cref="InvokeFetchHandler(HttpRequestMessage, CancellationToken)"/> documents about that wiring
+        /// holds here — the abort lands on a pump, it settles nothing by itself, an already-cancelled token
+        /// gives a handler a request whose signal is already aborted, and the registration is released when
+        /// this call returns however it returns.
+        /// </para>
+        /// <para>
+        /// <b>One consequence is specific to this shape, and is why a host that wants a graceful answer on
+        /// abort should prefer the polled one.</b> The token ends the <c>await</c> as well as aborting the
+        /// signal, and the two are not ordered against each other: cancelling mid-flight normally ends this
+        /// call with an <see cref="OperationCanceledException"/> before the abort job has had a turn, so the
+        /// handler never gets to observe the abort and answer. The job is still there, and the abort lands on
+        /// whatever pump the engine is given next — which is what cancels the outbound <c>fetch</c> the
+        /// abandoned handler had in flight — but its response has nowhere left to go. With
+        /// <see cref="InvokeFetchHandler(HttpRequestMessage, CancellationToken)"/> the host decides when to
+        /// stop pumping, so a handler can be given the turn in which to notice and answer.
+        /// </para>
+        /// <para>
         /// The wait is additionally bounded by <c>Options.Constraints.PromiseTimeout</c> (ten seconds by
         /// default), exactly as an <c>await</c> of <see cref="EvaluateAsync(string, string, CancellationToken)"/>
         /// is: a handler whose promise never settles fails with a <see cref="PromiseRejectedException"/> naming
         /// the timeout rather than hanging the request forever.
         /// </para>
         /// </remarks>
-        /// <param name="request">The inbound request; see <see cref="InvokeFetchHandler"/> for what it must carry.</param>
-        /// <param name="cancellationToken">Observed while awaiting the response promise; see the remarks.</param>
+        /// <param name="request">
+        /// The inbound request; see <see cref="InvokeFetchHandler(HttpRequestMessage)"/> for what it must carry.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// The host's "the client is gone" token: it bounds the body read and the await, and it is what the
+        /// <c>Request</c>'s <c>signal</c> aborts from. See the remarks — the signal half is a behaviour this
+        /// parameter gained rather than one it always had.
+        /// </param>
         /// <returns>The response the handler produced. The caller owns it and disposes it.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
         /// <exception cref="InvalidOperationException">
@@ -498,20 +597,33 @@ public partial class Engine
                 ? null
                 : await content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
-            var result = InvokeRoute(in route, request, body);
-            var settled = await _engine.UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);
-            return FetchHandlerHosting.CreateResponse(settled);
+            // After the body read rather than before it: the read observes the token itself and throws, so a
+            // signal built ahead of it would be one nothing could ever release. From here on the engine's
+            // single-thread contract puts us on the engine's thread, which is what building a signal needs.
+            var signal = CreateHostBridgedSignal(cancellationToken, out var bridge);
+            try
+            {
+                var result = InvokeRoute(in route, request, body, signal);
+                var settled = await _engine.UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);
+                return FetchHandlerHosting.CreateResponse(settled);
+            }
+            finally
+            {
+                // However this call ends — answered, thrown, cancelled — the host's registration goes back.
+                // An abort already enqueued is not chased; see HostAbortSignalBridge.Release.
+                bridge?.Release();
+            }
         }
 
         /// <summary>
         /// Runs whichever of the two routes <see cref="RequireFetchRoute"/> chose, and answers with the value
         /// the operation settles from.
         /// </summary>
-        private JsValue InvokeRoute(in FetchRoute route, HttpRequestMessage request, byte[]? body)
+        private JsValue InvokeRoute(in FetchRoute route, HttpRequestMessage request, byte[]? body, JsAbortSignal signal)
         {
             return route.Handler is { } handler
-                ? CallHandler(handler, request, body)
-                : DispatchFetchEvent(route.Listeners!, request, body);
+                ? CallHandler(handler, request, body, signal)
+                : DispatchFetchEvent(route.Listeners!, request, body, signal);
         }
 
         /// <summary>
@@ -525,15 +637,17 @@ public partial class Engine
         /// true if a host ever invokes a handler from inside a <c>ShadowRealm</c> callback, whose intrinsics
         /// are a different set of objects and which deliberately carries none of these globals.
         /// </remarks>
-        private JsValue CallHandler(FetchHandler handler, HttpRequestMessage request, byte[]? body)
+        private JsValue CallHandler(FetchHandler handler, HttpRequestMessage request, byte[]? body, JsAbortSignal signal)
         {
-            var jsRequest = FetchHandlerHosting.CreateRequest(_engine, _engine._mainRealm, request, body);
+            var jsRequest = FetchHandlerHosting.CreateRequest(_engine, _engine._mainRealm, request, body, signal);
             return _engine.Call(handler.Callable, handler.ThisObject, [jsRequest]);
         }
 
         /// <summary>
-        /// The script-facing route: build the same <c>Request</c> the handler route builds, fire a trusted
-        /// <c>fetch</c> event at the global scope, and answer with the promise a listener responded with.
+        /// The script-facing route: build the same <c>Request</c> the handler route builds — the same
+        /// host-bridged <c>signal</c> included, so a Workers-shaped script reading
+        /// <c>event.request.signal</c> is told the truth about the client — fire a trusted <c>fetch</c> event
+        /// at the global scope, and answer with the promise a listener responded with.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -562,10 +676,10 @@ public partial class Engine
         /// preferring the response would lose the exception entirely.
         /// </para>
         /// </remarks>
-        private JsPromise DispatchFetchEvent(GlobalEventTarget listeners, HttpRequestMessage request, byte[]? body)
+        private JsPromise DispatchFetchEvent(GlobalEventTarget listeners, HttpRequestMessage request, byte[]? body, JsAbortSignal signal)
         {
             var realm = _engine._mainRealm;
-            var jsRequest = FetchHandlerHosting.CreateRequest(_engine, realm, request, body);
+            var jsRequest = FetchHandlerHosting.CreateRequest(_engine, realm, request, body, signal);
             var fetchEvent = realm.Intrinsics.FetchEvent.CreateTrustedFetchEvent(jsRequest);
 
             _engine.ExecuteWithConstraints(_engine.Options.Strict, () =>
@@ -744,12 +858,44 @@ public partial class Engine
                     "Engine.Advanced.CreateAbortSignal requires the WebApiFeatures.Events web API, which this engine did not enable. Build the engine with options.UseWebApis(WebApiFeatures.Events) — or any feature set that includes it, such as WebApiFeatures.Default.");
             }
 
-            // The principal realm, deliberately, and not Engine.Realm: that one follows the running execution
-            // context and would hand back a ShadowRealm's intrinsics when called from inside one. A host
-            // bridging its own cancellation means the engine's own realm, which is the only one these APIs are
-            // installed in.
+            // The bridge this hands back is nobody's to release here: a signal a host asked for by itself has
+            // no operation to end, so its registration lives until the cycle does — which is exactly what the
+            // remarks above promise, and what ResetTransientState and Dispose deliver.
+            return CreateHostBridgedSignal(cancellationToken, out _);
+        }
+
+        /// <summary>
+        /// Builds an <c>AbortSignal</c> in the principal realm and, when the token can still be cancelled,
+        /// the <see cref="HostAbortSignalBridge"/> that aborts it. Shared by <see cref="CreateAbortSignal"/>
+        /// and by the inbound-request signal a fetch-handler invocation is given, so that there is exactly one
+        /// implementation of "a host token becomes a signal".
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The principal realm, deliberately, and not <see cref="Engine.Realm"/>: that one follows the running
+        /// execution context and would hand back a <c>ShadowRealm</c>'s intrinsics when called from inside
+        /// one. A host bridging its own cancellation means the engine's own realm, which is the only one these
+        /// APIs are installed in.
+        /// </para>
+        /// <para>
+        /// Both callers have already established that this engine carries
+        /// <see cref="WebApiFeatures.Events"/> — <see cref="CreateAbortSignal"/> by testing it, the invocation
+        /// through <see cref="RequireFetchModel"/> — which is one of the features
+        /// <c>WebApiRegistration</c> builds the per-engine state for, so <c>_webApi</c> is not null here.
+        /// </para>
+        /// </remarks>
+        /// <param name="cancellationToken">The host's token.</param>
+        /// <param name="bridge">
+        /// The registration, so a caller that owns a bounded operation can release it when that operation
+        /// ends; <see langword="null"/> when there is nothing to release, which is a token that can never be
+        /// cancelled and one that already has been.
+        /// </param>
+        private JsAbortSignal CreateHostBridgedSignal(CancellationToken cancellationToken, out HostAbortSignalBridge? bridge)
+        {
+            var engine = _engine;
             var constructor = engine._mainRealm.Intrinsics.AbortSignal;
             var signal = constructor.CreateSignal();
+            bridge = null;
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -761,9 +907,7 @@ public partial class Engine
 
             if (cancellationToken.CanBeCanceled)
             {
-                // The state exists because the Events feature was checked above, and that is one of the
-                // features WebApiRegistration builds it for.
-                var bridge = new HostAbortSignalBridge(engine, constructor, signal, cancellationToken);
+                bridge = new HostAbortSignalBridge(engine, constructor, signal, cancellationToken);
                 engine._webApi!.AddHostAbortBridge(bridge);
             }
 

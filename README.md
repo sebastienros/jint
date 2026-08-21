@@ -746,7 +746,9 @@ the abort happens on the next pump, the same contract `setTimeout` has — so an
 observes it. A token that is *already* cancelled yields an already-aborted signal on the spot, so
 `fetch(url, { signal })` rejects without issuing a request. The registration is released when the abort lands,
 when `RestoreGlobalSnapshot` ends the cycle, and when the engine is disposed, so a long-lived host token does
-not retain a finished engine.
+not retain a finished engine. An inbound request has its own door onto the same bridge — see
+[Hosting a fetch handler](#hosting-a-fetch-handler), where the token you pass the invocation *is* the
+handler's `request.signal`.
 
 **A `ShadowRealm` does not get these globals.** Only the principal realm's global object is touched, which is
 deliberately more conservative than a browser (where these APIs are `[Exposed=*]`); a host that wants them
@@ -1217,9 +1219,55 @@ The handler runs under the engine's execution constraints like every other host 
 [Execution Constraints](#execution-constraints) before relying on that: the budget is per *entry* into the
 engine, so each turn you pump afterwards gets a fresh one — a wall-clock bound over the whole request is what
 `Jint.Constraints.OperationDeadlineConstraint` is for, bracketed around the invoke and the pump. The
-`CancellationToken` taken by `InvokeFetchHandlerAsync` behaves exactly as `EvaluateAsync`'s does: it is
-observed at event-loop continuation boundaries and does **not** preempt the interpreter, so bounding a handler
-that never yields is a constraint's job.
+`CancellationToken` taken by `InvokeFetchHandlerAsync` behaves exactly as `EvaluateAsync`'s does where the
+*await* is concerned: it is observed at event-loop continuation boundaries and does **not** preempt the
+interpreter, so bounding a handler that never yields is a constraint's job.
+
+#### Telling the handler the client is gone
+
+Pass the token you already hold and the handler's `request.signal` becomes a real `AbortSignal` instead of one
+that can never fire — which is what a script written for Workers or Deno expects, and what an outbound
+`fetch(upstream, { signal: request.signal })` needs in order to stop:
+
+```csharp
+var operation = engine.Advanced.InvokeFetchHandler(request, context.RequestAborted);
+```
+
+`InvokeFetchHandlerAsync`'s existing `CancellationToken` does this too. That is deliberately an addition to
+what an existing parameter does rather than a second parameter: one token on a request invocation means "this
+request has been abandoned", which is exactly what `HttpContext.RequestAborted` means and exactly what
+`request.signal` is for. Passing nothing, or `CancellationToken.None`, gives precisely the engine you had
+before.
+
+Four things follow from where the abort happens:
+
+- **It lands on a pump, on your thread.** Cancelling a `CancellationTokenSource` runs its callbacks on the
+  cancelling thread, and aborting a signal dispatches a JavaScript `abort` event — which is script. So the
+  registration only enqueues a job, and the abort happens the next time you pump. It is the same contract
+  `setTimeout`, `AbortSignal.timeout()` and `engine.Advanced.CreateAbortSignal` have, and it uses the same
+  bridge. Cancel and never pump again and the signal never aborted.
+- **A token that is *already* cancelled needs no pump**: the handler is called with a request whose
+  `signal.aborted` is true from its first statement, so it can refuse without doing any work. The reason is
+  the standard's default in both cases — a `DOMException` named `AbortError`.
+- **The abort is observational.** It does not complete or fail the operation and it does not stop the handler;
+  it tells the script, and what the script does next arrives through the ordinary failure contract — an
+  outbound `fetch` chained on the signal rejects, and that becomes a `PromiseRejectedException` whose value is
+  the abort reason. A handler that ignores it and answers anyway *is served*, because you are the one who went
+  on pumping. Ending an invocation outright is your lever, not the script's: stop pumping, or end the cycle
+  with `RestoreGlobalSnapshot`. And it is not an execution constraint — a handler stuck in `while (true) {}`
+  never reaches a pump, so bounding the interpreter is still `Options.Constraints`' job. The two compose.
+- **The registration is released when the invocation ends**, and again by `RestoreGlobalSnapshot` and
+  `Engine.Dispose`, so a long-lived token accumulates nothing across the requests a pooled engine serves. What
+  is deliberately *not* undone is an abort already on the event loop: it still lands on the next pump, because
+  that is what cancels the outbound work an abandoned handler had started.
+
+The polled shape is the one to prefer when a handler is meant to *answer* on abort. With the awaitable shape
+the same token also ends the `await`, and the two are not ordered against each other: cancelling mid-flight
+normally throws `OperationCanceledException` out of the call before the handler has had the turn in which to
+notice. With `InvokeFetchHandler` you decide when to stop pumping, so you can give it that turn.
+
+The `FetchEvent` route carries the same signal, so a Workers-shaped script reading `event.request.signal` is
+told the same truth.
 
 Request bodies are read in full before the handler runs — bodies here are buffered, not streamed. The
 awaitable shape reads them without blocking; the polled shape reads them on the calling thread, so buffer the
@@ -1296,7 +1344,9 @@ request's globals are not visible to the next. Take that snapshot **after** regi
 registering is what installs `Request`/`Response`/`Headers` and a restore returns the global object to its
 state at capture; the handler itself is host state and survives the restore either way, so it never needs
 re-registering. And bound the script: the constraints above are what stand between a rented engine and a
-handler that decides to loop forever.
+handler that decides to loop forever. Note that the `context.RequestAborted` already being passed to the
+invoke is what makes the handler's `request.signal` fire when the client disconnects — see
+[Telling the handler the client is gone](#telling-the-handler-the-client-is-gone).
 
 </details>
 
