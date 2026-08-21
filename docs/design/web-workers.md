@@ -593,11 +593,17 @@ proposed.
   cannot synchronize them. **Two Jint engines are always two agent clusters**, whatever threads they run on.
   This is a deliberate non-goal, not an oversight: a cross-engine `SharedArrayBuffer` would need a cross-engine
   waiter list and would make `Atomics.wait` on the parent's thread block a thread the host owns.
-- **Transferring a `MessagePort` is refused** (`StructuredSerializer.cs:460`), so `new MessageChannel()` cannot
-  be handed to a worker and `worker.postMessage(msg, [port])` is a `DataCloneError`. **This is the largest
-  observable gap against the web platform in the whole proposal** and should be named as such. It is also the
-  natural follow-up: the endpoint machinery already spans engines, so what is missing is a serialized form for
-  "an endpoint to re-entangle on the far side", not a new transport.
+- **Transferring a `MessagePort` works**, so `new MessageChannel()` *can* be handed to a worker and
+  `worker.postMessage(msg, [port])` is the way to give it a private channel. This was the largest observable
+  gap in the proposal as first written, and it was closed exactly as predicted here — the endpoint machinery
+  already spanned engines, so what was missing was a serialized form for "a channel side to re-entangle on the
+  far side" rather than a new transport. Two consequences for the worker design: the port message queue now
+  lives on `MessagePortEndpoint` rather than on `JsMessagePort` (which is what makes it travel, and is what
+  HTML's transfer steps describe), and `WebApiEngineState.ResetTransientState` **closes** this engine's ports
+  rather than relying on the generation fence alone — a transfer in flight to an engine that restores would
+  otherwise leave its peer posting into a queue nothing can ever drain. §8's "close both ports rather than
+  merely forgetting the local one" is therefore already the shipped rule for ports, not only the proposed one
+  for workers.
 - `Error` objects clone as data (name flattened to the seven standard names, plus message and stack); functions
   and symbols do not.
 

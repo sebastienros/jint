@@ -14,11 +14,20 @@ namespace Jint.Tests.Runtime.WebApi;
 /// engine, so it can be built on one engine's thread and consumed on another's.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Two independent checks, because either one alone can be fooled. The declaration check reads the record
 /// types' own fields, which catches a new record type that stores a <c>JsValue</c> outright; it cannot see
 /// through <see cref="SerializedValue"/>'s <c>object</c> payload. The graph walk serializes a deliberately
 /// rich value and follows every reference the result actually holds, which does see through it but can only
 /// speak for the shapes the sample covers. Together they cover the rule.
+/// </para>
+/// <para>
+/// <b>A transferred <c>MessagePort</c> is the one sanctioned exception</b>, and it has a check of its own
+/// rather than a hole in these two: the walk stops at <c>MessagePortEndpoint</c>, which is the class whose
+/// whole job is to be touched from another engine's thread, and
+/// <see cref="CarriesExactlyOneChannelSideForATransferredPortAndNothingElseEngineAffine"/> pins that a record
+/// transferring a port reaches exactly one of them and nothing else the rule forbids.
+/// </para>
 /// </remarks>
 public class SerializationRecordTests
 {
@@ -128,6 +137,34 @@ public class SerializationRecordTests
         other.Evaluate("new Uint8Array(revived)[2]").AsNumber().Should().Be(9);
     }
 
+    [Fact]
+    public void CarriesExactlyOneChannelSideForATransferredPortAndNothingElseEngineAffine()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging));
+
+        var channel = engine.Evaluate("new MessageChannel()");
+        var port = channel.Get("port2");
+
+        var record = new StructuredSerializer(engine, engine.Realm).Serialize(
+            engine.Evaluate("({ tag: 'with a port' })"),
+            [port]);
+
+        // The record does reach an Engine and a MessagePort — through the channel side, which is the one
+        // engine-crossing handle the design sanctions and whose members a foreign thread may touch. What must
+        // NOT be true is that anything else does, so the walk stops there and counts.
+        var sides = new List<object>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var reached = 0;
+        Walk(record, visited, ref reached, sides);
+
+        sides.Should().HaveCount(1);
+        reached.Should().BeGreaterThan(3);
+
+        // ... and it really is the side the transfer detached, not a copy: the port is now inert.
+        engine.SetValue("moved", port);
+        engine.Evaluate("moved.postMessage('inert') === undefined").AsBoolean().Should().BeTrue();
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static bool Forbidden(Type type) => Array.Exists(_forbidden, forbidden => forbidden.IsAssignableFrom(type));
@@ -158,13 +195,22 @@ public class SerializationRecordTests
     /// Follows every reference a live record graph holds.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The traversal stops at any type declared outside Jint's own assembly other than an array or a
     /// collection — a <see cref="System.Text.RegularExpressions.Regex"/>, an Acornima parse result — because
     /// such a type cannot name a Jint type in its own declarations. That is the one thing this check takes on
     /// trust, and it is the same thing the record types' documentation claims when they carry a compiled
     /// matcher across.
+    /// </para>
+    /// <para>
+    /// It also stops at <c>MessagePortEndpoint</c>, which is the deliberate exception described in the class
+    /// remarks: a channel side is engine-affine by definition, because re-pointing a channel is what a port
+    /// transfer <i>is</i>. Passing <paramref name="channelSides"/> collects them so that a caller can assert
+    /// how many a record actually holds; passing <see langword="null"/> forbids them outright, which is what
+    /// every other record in the suite has to satisfy.
+    /// </para>
     /// </remarks>
-    private static void Walk(object? node, HashSet<object> visited, ref int reached)
+    private static void Walk(object? node, HashSet<object> visited, ref int reached, List<object>? channelSides = null)
     {
         if (node is null)
         {
@@ -172,6 +218,14 @@ public class SerializationRecordTests
         }
 
         var type = node.GetType();
+
+        if (type.FullName == "Jint.WebApi.Messaging.MessagePortEndpoint")
+        {
+            channelSides.Should().NotBeNull("only a record that transferred a port may reach a channel side");
+            channelSides!.Add(node);
+            return;
+        }
+
         Forbidden(type).Should().BeFalse($"a {type.Name} was reachable from a serialization record");
 
         if (type == typeof(string) || type.IsPrimitive)
@@ -191,7 +245,7 @@ public class SerializationRecordTests
         {
             foreach (var item in enumerable)
             {
-                Walk(item, visited, ref reached);
+                Walk(item, visited, ref reached, channelSides);
             }
 
             return;
@@ -209,7 +263,7 @@ public class SerializationRecordTests
                 continue;
             }
 
-            Walk(field.GetValue(node), visited, ref reached);
+            Walk(field.GetValue(node), visited, ref reached, channelSides);
         }
     }
 }

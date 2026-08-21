@@ -219,7 +219,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
-| `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
+| `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s and `MessagePort`s) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
@@ -231,7 +231,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
-| `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) / `BroadcastChannel` | `Messaging` | ✔ shipped |
+| `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports and port transfer) / `BroadcastChannel` | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `addEventListener` / `removeEventListener` / `dispatchEvent` / `self` on the global scope, with `ErrorEvent` / `PromiseRejectionEvent` and the `error` / `unhandledrejection` / `rejectionhandled` events | `GlobalEvents` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
@@ -540,8 +540,31 @@ message is structured-cloned *when it is posted* — so a `DataCloneError` is th
 event-loop task, so every already-queued promise reaction runs first. A port's message queue starts
 **disabled**: nothing arrives until `start()` is called or `onmessage` is assigned, and
 `addEventListener('message', …)` on its own does not start it. `{ transfer: [buffer] }` moves an
-`ArrayBuffer` instead of copying it, exactly as `structuredClone` does; transferring a *port* is not
-supported and is refused with a `DataCloneError`.
+`ArrayBuffer` instead of copying it, exactly as `structuredClone` does.
+
+**A `MessagePort` can be transferred too**, which is how a script hands one channel's end over another
+channel:
+
+```js
+var side = new MessageChannel();
+side.port1.onmessage = e => log('reply: ' + e.data);
+side.port1.postMessage('queued before the handover');   // waits; nobody owns the far end yet
+
+port.postMessage('here is a private channel', [side.port2]);
+```
+
+The named port is **detached**: `postMessage` on it becomes a silent no-op and no event will ever fire on it
+again. Its *side* of the channel — including every message still queued on it, and every message the peer
+posts while it is in transit — travels in the message and is re-entangled with a fresh `MessagePort` created
+in the receiving realm, which arrives as `event.ports[0]`. The peer is untouched and never learns that the
+far end moved, so a port can be relayed through as many engines as you like and still talk to the one that
+created it. `structuredClone(port, { transfer: [port] })` does the same thing into the current realm.
+
+The specification's refusals are implemented as written: transferring a port through *itself* is a
+`DataCloneError`, naming one twice in a single transfer list or naming an already-closed or already-transferred
+one is a `DataCloneError`, transferring the port you are posting *to* dooms the message (the transfer happens,
+nothing is delivered, the channel is lost), and a port that is in the message but not in the transfer list is
+a `DataCloneError` — a port is transferable, not serializable.
 
 The same pair can also connect **two engines**, which is what makes a worker-style split possible without a
 second process:
@@ -569,6 +592,13 @@ and the listeners all run on whichever thread pumps that engine, so nothing on t
 its own pump. The receiver must actually be pumped, exactly as for timers: an engine nobody pumps never
 delivers a message. And a `RestoreGlobalSnapshot` on either engine ends that channel permanently — a port's
 listeners are closures over the cycle it was created in — so a pooled engine wants a fresh pair per cycle.
+
+Transferring a port works between engines too, and a transferred port is not tied to the two engines that
+happened to move it: engine A can create a pair, send one end to B, have B forward that same end to C without
+ever looking at it, and end up with A and C talking directly. The one thing that does cross in that case is
+the channel *side* — a small object holding the message queue, a lock and the peer — which is the same handle
+a sender has always held for its peer. A restore on the engine a transfer was in flight to **ends** that side
+rather than leaving it waiting, so the other end stops queueing into something that can never be drained.
 
 `BroadcastChannel` rides the same `Messaging` flag and is the same machinery addressed by *name* instead of by
 peer. `new BroadcastChannel('room')` joins a name; `postMessage(value)` reaches every **other** channel of that

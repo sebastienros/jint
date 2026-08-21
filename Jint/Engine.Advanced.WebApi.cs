@@ -212,7 +212,16 @@ public partial class Engine
         /// listeners are closures over the evaluation cycle it was created in, so delivering into it
         /// afterwards would run that dead cycle's code against the restored globals. Both ports record their
         /// engine's evaluation cycle when they are created, and every delivery job is dropped once that cycle
-        /// is over. A pooled engine wants a fresh pair per cycle.
+        /// is over; the restore additionally <i>closes</i> every port that engine still has, so the other end
+        /// stops queueing messages into a channel side nothing can ever drain. A pooled engine wants a fresh
+        /// pair per cycle.
+        /// </description></item>
+        /// <item><description>
+        /// <b>A port can be transferred over a port.</b> <c>postMessage(value, [somePort])</c> detaches
+        /// <c>somePort</c> and re-entangles its channel side with a fresh <c>MessagePort</c> in the receiving
+        /// engine's realm, which arrives as <c>event.ports[0]</c> — messages already queued on it included,
+        /// ahead of anything posted afterwards. The peer is untouched, so a port relayed through several
+        /// engines still talks to the one that created it.
         /// </description></item>
         /// </list>
         /// <para>

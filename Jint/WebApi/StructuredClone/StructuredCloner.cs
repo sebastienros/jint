@@ -28,6 +28,13 @@ namespace Jint.WebApi.StructuredClone;
 /// transfer steps still run after the whole walk, which is what lets a getter reached during the walk resize
 /// or write into a buffer the caller is transferring and have the clone see the result.
 /// </para>
+/// <para>
+/// <b>A <c>MessagePort</c> in the transfer list works here too, and falls straight out of the composition.</b>
+/// <c>structuredClone(port, { transfer: [port] })</c> detaches the argument and re-entangles its side with a
+/// fresh port of this same realm, which is exactly what a browser does — a transfer needs a target realm, not
+/// a target agent, and here the two realms happen to be one. The peer is untouched and goes on posting to the
+/// side it always talked to, which is now reached through the clone.
+/// </para>
 /// </remarks>
 internal static class StructuredCloner
 {
@@ -43,7 +50,7 @@ internal static class StructuredCloner
     internal static JsValue Clone(Engine engine, Realm realm, JsValue value, List<JsValue>? transferList)
     {
         var record = new StructuredSerializer(engine, realm).Serialize(value, transferList);
-        return new StructuredDeserializer(engine, realm).Deserialize(in record);
+        return new StructuredDeserializer(engine, realm).DeserializeWithTransfer(in record).Value;
     }
 }
 #endif
