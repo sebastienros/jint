@@ -399,33 +399,6 @@ internal static class FetchBody
         FullyRead(engine, realm, body.Stream!, bytes => onBytes(bytes.WrittenSpan.ToArray()), onError);
     }
 
-    /// <summary>
-    /// Reads a request body that only exists as a stream into the bytes the transport has to send.
-    /// </summary>
-    /// <remarks>
-    /// <b>A request body is uploaded buffered.</b> The standard allows a <c>ReadableStream</c> to be streamed
-    /// to the server (<c>duplex: "half"</c>), which needs a request-side <c>HttpContent</c> the transport can
-    /// pull from and a server willing to read it before answering; that is deliberately out of scope, and
-    /// <c>duplex</c> is absent rather than accepted and ignored. What is supported is the shape a script
-    /// actually writes — a stream that produces the bytes, which are collected here and then sent as one
-    /// body. The stream is disturbed by this, exactly as it would be by a streaming upload.
-    /// </remarks>
-    internal static void ReadRequestBody(
-        Engine engine,
-        Realm realm,
-        FetchBodyObject request,
-        Action<ReadOnlyMemory<byte>> onBytes,
-        Action<JsValue> onError)
-    {
-        if (request.IsUnusable)
-        {
-            onError(realm.Intrinsics.TypeError.Construct("Body has already been consumed"));
-            return;
-        }
-
-        FullyRead(engine, realm, request.Stream!, bytes => onBytes(bytes.WrittenSpan.ToArray()), onError);
-    }
-
     private static void Settle(
         Engine engine,
         Realm realm,

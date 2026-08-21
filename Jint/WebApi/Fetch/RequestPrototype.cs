@@ -88,14 +88,26 @@ internal sealed partial class RequestPrototype : Prototype
     private JsAbortSignal SignalGet(JsValue thisObject) => Brand(thisObject).Signal;
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request-duplex — "the getter steps are to return
+    /// <c>"half"</c>", which is what every request is: the whole request body reaches the wire before the
+    /// response body is read. <c>"full"</c> is reserved and nothing implements it.
+    /// </summary>
+    [JsAccessor("duplex", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString DuplexGet(JsValue thisObject)
+    {
+        Brand(thisObject);
+        return JsString.Create(JsRequest.DuplexHalf);
+    }
+
+    /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-body — the body's <c>ReadableStream</c>, or <c>null</c> when
     /// the request has no body, which every <c>GET</c> and <c>HEAD</c> necessarily has not.
     /// </summary>
     /// <remarks>
-    /// A body given as bytes materializes its stream here, on first ask. <b>A request body is still uploaded
-    /// buffered:</b> a <c>ReadableStream</c> handed to the constructor is read in full before the request is
-    /// sent, so a streaming upload — the standard's <c>duplex: 'half'</c> — is out of scope, and
-    /// <c>duplex</c> is absent rather than present and ignored.
+    /// A body given as bytes materializes its stream here, on first ask, as a readable <i>byte</i> stream —
+    /// so a BYOB reader works on it, exactly as https://fetch.spec.whatwg.org/#concept-body requires. A body
+    /// given as a <c>ReadableStream</c> is that stream, whatever kind it is, and <c>fetch</c> streams it to
+    /// the wire rather than collecting it first: see <see cref="FetchRequestBodyStream"/>.
     /// </remarks>
     [JsAccessor("body", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue BodyGet(JsValue thisObject)

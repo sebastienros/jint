@@ -50,8 +50,9 @@ internal sealed class FetchFailureException : Exception
 /// </summary>
 /// <remarks>
 /// Nothing here is engine state: the URL record and the header list are both from the deliberately
-/// engine-free layers, and the body is a byte window. That is what lets the whole of
-/// <see cref="FetchTransport"/> run on a thread pool thread while the engine goes on running script.
+/// engine-free layers, the body is a byte window, and a streaming body is an <see cref="HttpContent"/> whose
+/// engine half the transport never reaches. That is what lets the whole of <see cref="FetchTransport"/> run
+/// on a thread pool thread while the engine goes on running script.
 /// </remarks>
 internal sealed class FetchRequestSnapshot
 {
@@ -62,6 +63,15 @@ internal sealed class FetchRequestSnapshot
     internal required List<HeaderEntry> Headers { get; init; }
 
     internal required ReadOnlyMemory<byte>? Body { get; init; }
+
+    /// <summary>
+    /// The body as a live <see cref="HttpContent"/> rather than as bytes, for the one shape that has no
+    /// bytes to give: a <c>ReadableStream</c> body sent with <c>duplex: "half"</c>. Exactly one of this and
+    /// <see cref="Body"/> is ever non-null, and this one being non-null is the transport's way of knowing
+    /// the body has no <i>source</i> in the standard's sense — which is what decides whether a redirect can
+    /// be followed. See <see cref="FetchRequestBodyStream"/>.
+    /// </summary>
+    internal HttpContent? BodyContent { get; init; }
 
     /// <summary>One of <c>follow</c>, <c>error</c> or <c>manual</c>.</summary>
     internal required string Redirect { get; init; }
@@ -313,6 +323,7 @@ internal static class FetchTransport
         var url = request.Url;
         var method = request.Method;
         var body = request.Body;
+        var content = request.BodyContent;
         var headers = new List<HeaderEntry>(request.Headers);
         var redirectCount = 0;
 
@@ -330,7 +341,7 @@ internal static class FetchTransport
             HttpResponseMessage response;
             try
             {
-                using var message = BuildRequest(method, uri, headers, body);
+                using var message = BuildRequest(method, uri, headers, body, content);
                 response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
@@ -369,6 +380,17 @@ internal static class FetchTransport
                     return new FetchExchange { Response = response, Url = url, Redirected = redirectCount > 0 };
                 }
 
+                // https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status
+                // is not 303, request's body is non-null, and request's body's source is null, then return a
+                // network error." A streamed body has already gone down the wire and cannot go again; a 303
+                // is exempt because it drops the body along with the method.
+                if (content is not null && status != 303)
+                {
+                    throw new FetchFailureException(
+                        FetchFailureKind.Network,
+                        $"'{uri}' answered a {status} redirect, which would have to re-send a request body that is a ReadableStream.");
+                }
+
                 if (++redirectCount > policy.MaxRedirects)
                 {
                     throw new FetchFailureException(
@@ -376,7 +398,7 @@ internal static class FetchTransport
                         $"The request to '{request.Url.Serialize()}' exceeded the limit of {policy.MaxRedirects} redirects.");
                 }
 
-                Rewrite(status, ref method, ref body, headers, url, location);
+                Rewrite(status, ref method, ref body, ref content, headers, url, location);
                 url = location;
             }
             finally
@@ -431,7 +453,14 @@ internal static class FetchTransport
     /// The method and header rewrites a redirect performs —
     /// https://fetch.spec.whatwg.org/#http-redirect-fetch steps 11 to 13.
     /// </summary>
-    private static void Rewrite(int status, ref string method, ref ReadOnlyMemory<byte>? body, List<HeaderEntry> headers, UrlRecord from, UrlRecord to)
+    private static void Rewrite(
+        int status,
+        ref string method,
+        ref ReadOnlyMemory<byte>? body,
+        ref HttpContent? content,
+        List<HeaderEntry> headers,
+        UrlRecord from,
+        UrlRecord to)
     {
         var dropsBody = (status is 301 or 302 && string.Equals(method, "POST", StringComparison.Ordinal))
             || (status == 303 && method is not ("GET" or "HEAD"));
@@ -440,6 +469,10 @@ internal static class FetchTransport
         {
             method = "GET";
             body = null;
+
+            // The hop's request message has already been disposed, and with it this content — the check
+            // above is what guarantees only a 303 ever reaches here with one.
+            content = null;
             Remove(headers, _bodyHeaderNames);
         }
 
@@ -474,11 +507,22 @@ internal static class FetchTransport
         && string.Equals(a.SerializeHost(), b.SerializeHost(), StringComparison.Ordinal)
         && a.Port == b.Port;
 
-    private static HttpRequestMessage BuildRequest(string method, Uri uri, List<HeaderEntry> headers, ReadOnlyMemory<byte>? body)
+    private static HttpRequestMessage BuildRequest(
+        string method,
+        Uri uri,
+        List<HeaderEntry> headers,
+        ReadOnlyMemory<byte>? body,
+        HttpContent? content)
     {
         var message = new HttpRequestMessage(new HttpMethod(method), uri);
 
-        if (body is { } bytes)
+        if (content is not null)
+        {
+            // A streaming body: the content pulls from the engine as the socket drains it, and computes no
+            // length, so this goes out chunked.
+            message.Content = content;
+        }
+        else if (body is { } bytes)
         {
             message.Content = new ReadOnlyMemoryContent(bytes);
 

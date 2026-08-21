@@ -19,10 +19,15 @@ namespace Jint.WebApi.Fetch;
 /// <para>
 /// This is the <b>minimal</b> request of the plan's surface v1: the members <c>fetch</c> actually acts on.
 /// <c>destination</c>, <c>referrer</c>, <c>referrerPolicy</c>, <c>mode</c>, <c>credentials</c>, <c>cache</c>,
-/// <c>integrity</c>, <c>keepalive</c>, <c>isReloadNavigation</c>, <c>isHistoryNavigation</c> and
-/// <c>duplex</c> are deliberately absent rather than present and lying: every one of them describes a browser
-/// concept — an origin, a cookie jar, an HTTP cache, a navigation — that this engine does not have, and an
-/// absent member is what feature detection is written against.
+/// <c>integrity</c>, <c>keepalive</c>, <c>isReloadNavigation</c> and <c>isHistoryNavigation</c> are
+/// deliberately absent rather than present and lying: every one of them describes a browser concept — an
+/// origin, a cookie jar, an HTTP cache, a navigation — that this engine does not have, and an absent member
+/// is what feature detection is written against.
+/// </para>
+/// <para>
+/// <c>duplex</c> is the one that moved the other way. It describes no browser concept — it says whether the
+/// request is sent before the response is read — and it is the member a script must set for a
+/// <c>ReadableStream</c> body, so it is both read from <c>RequestInit</c> and exposed as an attribute.
 /// </para>
 /// </remarks>
 internal sealed class JsRequest : FetchBodyObject
@@ -59,5 +64,11 @@ internal sealed class JsRequest : FetchBodyObject
     internal const string RedirectFollow = "follow";
     internal const string RedirectError = "error";
     internal const string RedirectManual = "manual";
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request-duplex — <c>enum RequestDuplex { "half" };</c> has exactly
+    /// one value, and the attribute's getter steps are to return it, so no request carries any state for it.
+    /// </summary>
+    internal const string DuplexHalf = "half";
 }
 #endif
