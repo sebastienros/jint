@@ -7,9 +7,10 @@ using System.Text;
 namespace Jint.Tests.Wpt;
 
 /// <summary>
-/// Runs the vendored web-platform-tests suites for the URL, URL Pattern, Encoding, Web Cryptography,
-/// Streams, Compression, File API and Workers standards, one theory case per <c>.any.js</c> file, under the
-/// harness shim in <c>Prelude/testharness-shim.js</c>.
+/// Runs the vendored web-platform-tests suites — URL, URL Pattern, Encoding, Web Cryptography, Streams,
+/// Compression, File API, High Resolution Time, User Timing, HTML's workers, timers, microtask queuing and
+/// structured clone, DOM events and aborting, and the network-free half of the Fetch object model — one
+/// theory case per <c>.any.js</c> file, under the harness shim in <c>Prelude/testharness-shim.js</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,15 +30,16 @@ namespace Jint.Tests.Wpt;
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
 /// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed,
 /// the one the File API corpus did — an <c>Array.prototype.values</c> defect with no web API in it at all —
-/// and the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s definition
-/// for every global including a worker's. <c>Vendor/README.md</c> analyses each.
+/// the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s definition for
+/// every global including a worker's, and the ten that groups 3 and 4 of
+/// https://github.com/sebastienros/jint/issues/3185 did. <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
-/// <b>The WebCryptoAPI, streams, FileAPI and workers corpora are one suite per directory</b> rather than one
-/// for the lot, because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends.
-/// That is deliberate: a suite is a theory, a theory is a line in a test report, and twenty of them tell a
-/// reader which operation went red where four would not. <c>compression/</c> and <c>urlpattern/</c> have a
-/// single directory apiece and are therefore one suite apiece.
+/// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
+/// <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is deliberate: a
+/// suite is a theory, a theory is a line in a test report, and thirty-four of them tell a reader which
+/// operation went red where a dozen would not. <c>compression/</c>, <c>urlpattern/</c>, <c>hr-time/</c> and
+/// <c>user-timing/</c> have a single directory apiece and are therefore one suite apiece.
 /// </para>
 /// <para>
 /// <b>The <c>workers/</c> corpus runs in a lane of its own</b>: its files are the body of a real module
@@ -65,13 +67,13 @@ public class WptTestRunner
         // url and encoding suites use.
         ("*/idlharness*.any.js", "needs the WebIDL conformance harness"),
 
-        // The legacy multi-byte and single-byte decoders, which a sibling change implements:
-        // https://github.com/sebastienros/jint/issues/3106. Two of them also need XMLHttpRequest and
-        // data: URLs, through encoding/resources/decoding-helpers.js.
+        // The legacy multi-byte decoders, which a sibling change implements:
+        // https://github.com/sebastienros/jint/issues/3106. The single-byte families that used to sit here are
+        // implemented, and their two files are vendored now — single-byte-decoder.any.js keeps its
+        // XMLHttpRequest half excluded per test, because that half asks a wptserve handler to generate the
+        // bytes and their charset.
         ("encoding/legacy-mb-*", "legacy multi-byte decoders, issue #3106"),
         ("encoding/iso-2022-jp-decoder.any.js", "legacy multi-byte decoder, issue #3106"),
-        ("encoding/single-byte-decoder.any.js", "legacy single-byte decoders, issue #3106"),
-        ("encoding/textdecoder-fatal-single-byte.any.js", "legacy single-byte decoders, issue #3106"),
         ("encoding/replacement-encodings.any.js", "the replacement encoding, issue #3106; also needs XMLHttpRequest"),
         ("encoding/unsupported-encodings.any.js", "needs XMLHttpRequest and data: URLs"),
 
@@ -225,6 +227,67 @@ public class WptTestRunner
         // dynamic, and the two orders of the pair — is proved instead by WorkerMechanismTests' module pins.
         // The blob-url and data-url siblings need URL.createObjectURL and a data: module loader on top of that.
         ("workers/modules/*", "the fixtures sniff DedicatedWorkerGlobalScope, which Jint deliberately does not expose"),
+
+        // ---------------------------------------------------------------- hr-time and user-timing
+        // The file reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide whether to
+        // register its promise tests, so on an engine with no PerformanceObserver it throws a ReferenceError
+        // before the first test is registered — a harness error for the whole file, which no per-test
+        // exclusion can name. The rows that reach for an observer from inside a test body are excluded one by
+        // one instead, under WptDivergence.NeedsPerformanceObserver.
+        ("user-timing/supported-usertiming-types.any.js",
+            "reads PerformanceObserver at file scope; PerformanceInstance documents declining the observer"),
+
+        // ---------------------------------------------------------------- dom
+        // Fourteen of its fifteen tests are registered without a name, so every one of them is reported under
+        // the same name and no per-test exclusion can single out the two that fail — which is what puts this
+        // row here rather than in the exclusion table. The two are Event's legacy `srcElement` and
+        // `returnValue` members, which this engine does not have; both are recorded as defects in
+        // Vendor/README.md, and `returnValue` also has an exclusion of its own in
+        // AddEventListenerOptions-passive.any.js, where the test that finds it *is* named.
+        ("dom/events/Event-constructors.any.js",
+            "registers every test without a name, so its two failures cannot be named; see Vendor/README.md"),
+
+        // ---------------------------------------------------------------- html/webappapis
+        // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
+        // by another name and reachable even where a host disabled string compilation, so it is a TypeError
+        // here as it is in Node. This file's whole subject is that form, and it uses it at file scope.
+        ("html/webappapis/timers/evil-spec-example.any.js",
+            "setTimeout's string handler, which TimerFunctions declines"),
+
+        // The file's one test throws from a queueMicrotask callback and expects an `error` event at the global
+        // scope. HTML gives queueMicrotask WebIDL's "report" exception behaviour, and Jint lets the throw
+        // erupt from whatever is pumping instead, so the exception leaves the engine before the listener can
+        // see it and the file is a harness error rather than a failing test. Recorded as a defect in
+        // Vendor/README.md; it cannot be an exclusion, because there is no test left to name.
+        ("html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
+            "an exception from a queueMicrotask callback erupts instead of being reported; see Vendor/README.md"),
+
+        // ---------------------------------------------------------------- fetch
+        // Every file in request/ builds its Request from a *relative* url — "", "./", "../resources/…" — and
+        // RequestConstructor documents why that cannot work: the specification resolves such a string against
+        // "the entry settings object's API base URL", which is a document's url, and an embedded engine has no
+        // document. Most of them do it at file scope, so there is not even a test to exclude.
+        ("fetch/api/request/*", "constructs a Request from a relative url; there is no API base URL here"),
+
+        // The rest of fetch/api/ is a client talking to wptserve: .py handlers that echo headers, trickle
+        // bytes, redirect, stall, or check CORS preflights. There is no server in this driver and the shim's
+        // `fetch` is a reader over the vendored tree, so none of it can run.
+        ("fetch/api/abort/*", "needs a wpt server"),
+        ("fetch/api/basic/*", "needs a wpt server"),
+        ("fetch/api/body/*", "needs a wpt server"),
+        ("fetch/api/cors/*", "needs a wpt server"),
+        ("fetch/api/credentials/*", "needs a wpt server"),
+        ("fetch/api/policies/*", "needs a wpt server"),
+        ("fetch/api/redirect/*", "needs a wpt server"),
+        ("fetch/api/crashtests/*", "a crashtest rather than an assertion"),
+        ("fetch/api/headers/header-values.any.js", "needs a wpt server"),
+        ("fetch/api/headers/header-values-normalize.any.js", "needs a wpt server"),
+        ("fetch/api/headers/headers-no-cors.any.js", "needs a wpt server"),
+        ("fetch/api/response/json.any.js", "fetches a data: url"),
+        ("fetch/api/response/response-cancel-stream.any.js", "needs a wpt server"),
+        ("fetch/api/response/response-clone.any.js", "needs a wpt server"),
+        ("fetch/api/response/response-headers-guard.any.js", "needs a wpt server"),
+        ("fetch/api/response/response-blob-realm.any.js", "needs a document and a second realm"),
     ];
 
     /// <summary>
@@ -457,6 +520,90 @@ public class WptTestRunner
         ["workers/WorkerNavigator.any.js"] = 1,
         ["workers/interfaces/WorkerGlobalScope/self.any.js"] = 4,
         ["workers/semantics/multiple-workers/exposure.any.js"] = 2,
+
+        ["encoding/single-byte-decoder.any.js"] = 330,
+        ["encoding/textdecoder-fatal-single-byte.any.js"] = 7000,
+
+        ["hr-time/basic.any.js"] = 5,
+        ["hr-time/monotonic-clock.any.js"] = 2,
+
+        ["user-timing/buffered-flag.any.js"] = 2,
+        ["user-timing/case-sensitivity.any.js"] = 1,
+        ["user-timing/clear_all_marks.any.js"] = 1,
+        ["user-timing/clear_all_measures.any.js"] = 1,
+        ["user-timing/clear_non_existent_mark.any.js"] = 1,
+        ["user-timing/clear_non_existent_measure.any.js"] = 1,
+        ["user-timing/clear_one_mark.any.js"] = 1,
+        ["user-timing/clear_one_measure.any.js"] = 1,
+        ["user-timing/entry_type.any.js"] = 2,
+        ["user-timing/mark-entry-constructor.any.js"] = 6,
+        ["user-timing/mark-errors.any.js"] = 10,
+        ["user-timing/mark-l3.any.js"] = 1,
+        ["user-timing/mark-measure-return-objects.any.js"] = 5,
+        ["user-timing/mark.any.js"] = 22,
+        ["user-timing/measure-l3.any.js"] = 3,
+        ["user-timing/measure-with-dict.any.js"] = 2,
+        ["user-timing/measure_syntax_err.any.js"] = 5,
+        ["user-timing/structured-serialize-detail.any.js"] = 9,
+        ["user-timing/user_timing_exists.any.js"] = 4,
+
+        ["html/webappapis/timers/clearinterval-from-callback.any.js"] = 1,
+        ["html/webappapis/timers/cleartimeout-clearinterval.any.js"] = 2,
+        ["html/webappapis/timers/missing-timeout-setinterval.any.js"] = 2,
+        ["html/webappapis/timers/negative-setinterval.any.js"] = 1,
+        ["html/webappapis/timers/negative-settimeout.any.js"] = 1,
+        ["html/webappapis/timers/setinterval-settimeout-clamping.any.js"] = 2,
+        ["html/webappapis/timers/type-long-setinterval.any.js"] = 1,
+        ["html/webappapis/timers/type-long-settimeout.any.js"] = 1,
+
+        ["html/webappapis/microtask-queuing/queue-microtask.any.js"] = 5,
+
+        ["html/webappapis/structured-clone/structured-clone.any.js"] = 130,
+
+        ["dom/events/AddEventListenerOptions-once.any.js"] = 4,
+        ["dom/events/AddEventListenerOptions-passive.any.js"] = 5,
+        ["dom/events/AddEventListenerOptions-signal.any.js"] = 11,
+        ["dom/events/Event-isTrusted.any.js"] = 1,
+        ["dom/events/EventTarget-add-remove-listener.any.js"] = 1,
+        ["dom/events/EventTarget-addEventListener.any.js"] = 1,
+        ["dom/events/EventTarget-constructible.any.js"] = 3,
+        ["dom/events/EventTarget-removeEventListener.any.js"] = 1,
+
+        ["dom/abort/AbortSignal.any.js"] = 2,
+        ["dom/abort/abort-signal-any.any.js"] = 14,
+        ["dom/abort/event.any.js"] = 16,
+        ["dom/abort/timeout.any.js"] = 3,
+
+        ["fetch/api/headers/header-setcookie.any.js"] = 24,
+        ["fetch/api/headers/headers-basic.any.js"] = 23,
+        ["fetch/api/headers/headers-casing.any.js"] = 4,
+        ["fetch/api/headers/headers-combine.any.js"] = 6,
+        ["fetch/api/headers/headers-errors.any.js"] = 18,
+        ["fetch/api/headers/headers-forbidden-override.any.js"] = 90,
+        ["fetch/api/headers/headers-normalize.any.js"] = 3,
+        ["fetch/api/headers/headers-record.any.js"] = 13,
+        ["fetch/api/headers/headers-structure.any.js"] = 8,
+
+        ["fetch/api/response/response-consume-empty.any.js"] = 14,
+        ["fetch/api/response/response-consume-stream.any.js"] = 15,
+        ["fetch/api/response/response-error-from-stream.any.js"] = 14,
+        ["fetch/api/response/response-error.any.js"] = 10,
+        ["fetch/api/response/response-from-stream.any.js"] = 3,
+        ["fetch/api/response/response-init-001.any.js"] = 9,
+        ["fetch/api/response/response-init-002.any.js"] = 8,
+        ["fetch/api/response/response-init-contenttype.any.js"] = 18,
+        ["fetch/api/response/response-static-error.any.js"] = 2,
+        ["fetch/api/response/response-static-json.any.js"] = 16,
+        ["fetch/api/response/response-static-redirect.any.js"] = 11,
+        ["fetch/api/response/response-stream-bad-chunk.any.js"] = 6,
+        ["fetch/api/response/response-stream-disturbed-1.any.js"] = 12,
+        ["fetch/api/response/response-stream-disturbed-2.any.js"] = 12,
+        ["fetch/api/response/response-stream-disturbed-3.any.js"] = 12,
+        ["fetch/api/response/response-stream-disturbed-4.any.js"] = 12,
+        ["fetch/api/response/response-stream-disturbed-5.any.js"] = 12,
+        ["fetch/api/response/response-stream-disturbed-6.any.js"] = 5,
+        ["fetch/api/response/response-stream-disturbed-by-pipe.any.js"] = 2,
+        ["fetch/api/response/response-stream-with-broken-then.any.js"] = 6,
     };
 
     /// <summary>
@@ -830,6 +977,98 @@ public class WptTestRunner
         // shared with the top-level lane, so moving it is not a change this corpus gets to make. See
         // WptDivergence.NeedsTriage.
         new("workers/interfaces/WorkerGlobalScope/self.any.js", "self = 1", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- encoding, the XMLHttpRequest half
+        // The file runs each single-byte decoder twice: once through TextDecoder over a locally built
+        // Uint8Array, and once through XMLHttpRequest over resources/single-byte-raw.py, a wptserve handler
+        // that answers with the bytes 0x00..0xFE labelled with the charset from its query string. The
+        // TextDecoder half — the same 168 labels, the same expectations — passes.
+        new("encoding/single-byte-decoder.any.js", "*(XMLHttpRequest)", WptDivergence.NeedsWptServer),
+
+        // ---------------------------------------------------------------- hr-time and user-timing
+        new("hr-time/basic.any.js", "Performance interface extends EventTarget.", WptDivergence.NeedsPerformanceEventTarget),
+
+        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous marks", WptDivergence.NeedsPerformanceObserver),
+        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous measures", WptDivergence.NeedsPerformanceObserver),
+        new("user-timing/case-sensitivity.any.js", "getEntriesByType values are case sensitive", WptDivergence.NeedsPerformanceObserver),
+        new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
+        new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
+
+        // A defect, and a narrow one: the file runs each case twice, once through `performance.mark(name, x)`
+        // and once through `new PerformanceMark(name, x)`, and only the constructor accepts a non-object where
+        // WebIDL's dictionary conversion refuses one. The `[performance.mark]` half of all five rows passes,
+        // and so does the constructor's own `{startTime: -1}` row, so what is missing is exactly the
+        // "not an object and not null/undefined is a TypeError" step. See Vendor/README.md.
+        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Number should be rejected as the mark-options.", WptDivergence.NeedsTriage),
+        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: NaN should be rejected as the mark-options.", WptDivergence.NeedsTriage),
+        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Infinity should be rejected as the mark-options.", WptDivergence.NeedsTriage),
+        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: String should be rejected as the mark-options.", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- dom
+        // Event's two legacy members. `returnValue` is https://dom.spec.whatwg.org/#dom-event-returnvalue and
+        // `isTrusted` is [LegacyUnforgeable], so it must be an *own* property of every event rather than an
+        // accessor on the prototype. Both are defects rather than declines; Vendor/README.md analyses them,
+        // and Event-constructors.any.js is not vendored because its own two failures are the same pair and it
+        // registers every one of its tests without a name.
+        new("dom/events/AddEventListenerOptions-passive.any.js",
+            "returnValue should be ignored if-and-only-if the passive option is true", WptDivergence.NeedsTriage),
+        new("dom/events/Event-isTrusted.any.js", "undefined", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- fetch
+        // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"
+        // rows of the same file pass, which is what keeps the glob honest.
+        new("fetch/api/headers/headers-forbidden-override.any.js", "header * is forbidden to use value *", WptDivergence.NeedsForbiddenHeaderNames),
+        new("fetch/api/headers/header-setcookie.any.js", "Set-Cookie is a forbidden response header", WptDivergence.NeedsForbiddenHeaderNames),
+
+        // WebIDL gives an iterator prototype object's `next` { writable, enumerable, configurable }; Jint's is
+        // non-enumerable. The same defect the streams corpus filed against the async iterator prototype.
+        new("fetch/api/headers/headers-basic.any.js", "Check keys method", WptDivergence.NeedsTriage),
+        new("fetch/api/headers/headers-basic.any.js", "Check values method", WptDivergence.NeedsTriage),
+        new("fetch/api/headers/headers-basic.any.js", "Check entries method", WptDivergence.NeedsTriage),
+
+        // Two rows counting the operations a record<> conversion performs; Jint does one more than the
+        // specification's order allows. See Vendor/README.md.
+        new("fetch/api/headers/headers-record.any.js",
+            "Correct operation ordering with two properties one of which has an invalid name", WptDivergence.NeedsTriage),
+        new("fetch/api/headers/headers-record.any.js", "Basic operation with Symbol keys", WptDivergence.NeedsTriage),
+
+        new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
+
+        // Eight of the twelve rows of a file whose other four pass: after a Response whose body came from
+        // *bytes* — a string, or the loader's answer — has been consumed, `response.body.getReader()` must
+        // throw because the body is disturbed, and here it does not. The four rows whose body source is a
+        // ReadableStream the test built itself pass, which is what locates the defect. See Vendor/README.md.
+        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: string)", WptDivergence.NeedsTriage),
+        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: fetch)", WptDivergence.NeedsTriage),
+
+        new("fetch/api/response/response-consume-empty.any.js",
+            "Consume empty FormData response body as text", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- structured clone
+        new("html/webappapis/structured-clone/structured-clone.any.js", "Growable SharedArrayBuffer", WptDivergence.NeedsWebAssembly),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "ImageBitmap", WptDivergence.NeedsOffscreenCanvas),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "OffscreenCanvas", WptDivergence.NeedsOffscreenCanvas),
+
+        // Three defects, analysed in Vendor/README.md: an Error's `cause` is not carried, Blob and File are
+        // not serializable at all, and %Object.prototype% is refused where HTML clones it as an ordinary
+        // object. The Blob rows are named as three globs because that is how the battery names them.
+        new("html/webappapis/structured-clone/structured-clone.any.js", "Error object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "EvalError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "RangeError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "ReferenceError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "SyntaxError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "TypeError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "URIError object", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "Blob *", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "Array Blob object, *", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "Object Blob object, *", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js", "File basic", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js",
+            "An object whose interface is deleted from the global must still deserialize", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js",
+            "A subclass instance will deserialize as its closest serializable superclass", WptDivergence.NeedsTriage),
+        new("html/webappapis/structured-clone/structured-clone.any.js",
+            "ObjectPrototype must lose its exotic-ness when cloned", WptDivergence.NeedsTriage),
     ];
 
     public static IEnumerable<object[]> UrlSuiteFiles() => Cases("url");
@@ -943,6 +1182,53 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> MultipleWorkersSuiteFiles() => Cases("workers/semantics/multiple-workers");
 
+    /// <summary>
+    /// The HTML and DOM corpora, split the way the others are: one suite per directory, because
+    /// <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends.
+    /// </summary>
+    private static readonly string[] _htmlSuites =
+    [
+        "html/webappapis/timers",
+        "html/webappapis/microtask-queuing",
+        "html/webappapis/structured-clone",
+    ];
+
+    private static readonly string[] _domSuites =
+    [
+        "dom/events",
+        "dom/abort",
+    ];
+
+    /// <summary>
+    /// The network-free half of the Fetch corpus: the <c>Headers</c> suite and the <c>Response</c> files that
+    /// build their bodies themselves. <c>fetch/api/request</c> is not among them — see
+    /// <see cref="_notVendored"/> — because a <c>Request</c> needs a url and every file in it writes a
+    /// relative one.
+    /// </summary>
+    private static readonly string[] _fetchSuites =
+    [
+        "fetch/api/headers",
+        "fetch/api/response",
+    ];
+
+    public static IEnumerable<object[]> HrTimeSuiteFiles() => Cases("hr-time");
+
+    public static IEnumerable<object[]> UserTimingSuiteFiles() => Cases("user-timing");
+
+    public static IEnumerable<object[]> TimersSuiteFiles() => Cases("html/webappapis/timers");
+
+    public static IEnumerable<object[]> MicrotaskQueuingSuiteFiles() => Cases("html/webappapis/microtask-queuing");
+
+    public static IEnumerable<object[]> StructuredCloneSuiteFiles() => Cases("html/webappapis/structured-clone");
+
+    public static IEnumerable<object[]> DomEventsSuiteFiles() => Cases("dom/events");
+
+    public static IEnumerable<object[]> DomAbortSuiteFiles() => Cases("dom/abort");
+
+    public static IEnumerable<object[]> FetchHeadersSuiteFiles() => Cases("fetch/api/headers");
+
+    public static IEnumerable<object[]> FetchResponseSuiteFiles() => Cases("fetch/api/response");
+
     [Theory]
     [MemberData(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
@@ -1043,6 +1329,42 @@ public class WptTestRunner
     [MemberData(nameof(MultipleWorkersSuiteFiles))]
     public void RunsTheMultipleWorkersSuite(string file) => RunSuiteFile(file);
 
+    [Theory]
+    [MemberData(nameof(HrTimeSuiteFiles))]
+    public void RunsTheHrTimeSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(UserTimingSuiteFiles))]
+    public void RunsTheUserTimingSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(TimersSuiteFiles))]
+    public void RunsTheTimersSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(MicrotaskQueuingSuiteFiles))]
+    public void RunsTheMicrotaskQueuingSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(StructuredCloneSuiteFiles))]
+    public void RunsTheStructuredCloneSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(DomEventsSuiteFiles))]
+    public void RunsTheDomEventsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(DomAbortSuiteFiles))]
+    public void RunsTheDomAbortSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FetchHeadersSuiteFiles))]
+    public void RunsTheFetchHeadersSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FetchResponseSuiteFiles))]
+    public void RunsTheFetchResponseSuite(string file) => RunSuiteFile(file);
+
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.
     /// </summary>
@@ -1096,15 +1418,20 @@ public class WptTestRunner
         WptCorpus.TestFiles("encoding").Should().HaveCountGreaterThan(15);
         WptCorpus.TestFiles("compression").Should().HaveCountGreaterThan(10);
         WptCorpus.TestFiles("urlpattern").Should().HaveCountGreaterThan(2);
+        WptCorpus.TestFiles("hr-time").Should().HaveCount(2);
+        WptCorpus.TestFiles("user-timing").Should().HaveCountGreaterThan(15);
 
-        // And a WebCryptoAPI, streams or FileAPI sub-directory that lost its theory member would be a suite
-        // nothing runs, which the minimum-test check above cannot see: it proves a file is declared, not that
-        // a theory reaches it. Every declared suite must therefore produce cases, and every vendored .any.js
-        // must belong to one of the declared suites.
+        // And a sub-directory that lost its theory member would be a suite nothing runs, which the
+        // minimum-test check above cannot see: it proves a file is declared, not that a theory reaches it.
+        // Every declared suite must therefore produce cases, and every vendored .any.js must belong to one of
+        // the declared suites.
         CheckSuiteGroup("WebCryptoAPI/", _webCryptoSuites);
         CheckSuiteGroup("streams/", _streamsSuites);
         CheckSuiteGroup("FileAPI/", _fileApiSuites);
         CheckSuiteGroup("workers/", _workersSuites);
+        CheckSuiteGroup("html/", _htmlSuites);
+        CheckSuiteGroup("dom/", _domSuites);
+        CheckSuiteGroup("fetch/", _fetchSuites);
 
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
 
@@ -1306,6 +1633,16 @@ public class WptTestRunner
                      // Named as `../support/Blob.js` from both FileAPI suites, which is the one shape of
                      // META reference that leaves a suite's own directory.
                      "FileAPI/support/Blob.js",
+
+                     "user-timing/resources/user-timing-helper.js",
+                     "dom/abort/resources/abort-signal-any-tests.js",
+                     "html/webappapis/structured-clone/structured-clone-battery-of-tests.js",
+                     "html/webappapis/structured-clone/structured-clone-battery-of-tests-with-transferables.js",
+                     "html/webappapis/structured-clone/structured-clone-battery-of-tests-harness.js",
+                     "fetch/api/resources/utils.js",
+                     "fetch/api/resources/data.json",
+                     "fetch/api/response/response-stream-disturbed-util.js",
+                     "encoding/resources/single-byte-decoder.js",
                  })
         {
             WptCorpus.Contains(helper).Should().BeTrue($"{helper} must be embedded");

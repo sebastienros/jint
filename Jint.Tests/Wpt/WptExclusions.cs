@@ -243,6 +243,67 @@ internal enum WptDivergence
     NeedsIncrementalInflater,
 
     /// <summary>
+    /// The test needs <c>PerformanceObserver</c>. <c>PerformanceInstance</c> names it first in the list of
+    /// what it does not implement — "<c>PerformanceObserver</c> and everything that reports to one,
+    /// <c>toJSON</c>, <c>setResourceTimingBufferSize</c> and the resource-timing surface" — and says why it is
+    /// <i>absent</i> rather than present-and-throwing: so that a script's own feature detection sees the truth.
+    /// The user-timing corpus takes that at its word in some files and not in others, which is why these are
+    /// per-test entries: <c>mark.any.js</c>, <c>measure-l3.any.js</c> and the rest of the suite read the
+    /// timeline through <c>getEntries()</c> and pass. One file reads the observer at file scope and is not
+    /// vendored at all; see <c>Vendor/README.md</c>.
+    /// </summary>
+    NeedsPerformanceObserver,
+
+    /// <summary>
+    /// The test dispatches an event at the <c>performance</c> object. <c>Performance</c> inherits from
+    /// <c>EventTarget</c> in https://w3c.github.io/hr-time/#sec-performance, and
+    /// <c>PerformanceInstance</c> lists that inheritance in the same paragraph as the observer above: there is
+    /// no <c>Performance</c> interface object and no prototype here, the members are own properties of one
+    /// object, and nothing in the specification's event surface (<c>resourcetimingbufferfull</c>) has anything
+    /// to fire. One row of <c>hr-time/basic.any.js</c>; its other four pass.
+    /// </summary>
+    NeedsPerformanceEventTarget,
+
+    /// <summary>
+    /// The test needs an HTTP response that only a wpt server can produce — a <c>.py</c> handler that echoes
+    /// headers, generates bytes with a charset, trickles a body or redirects. The driver's <c>fetch</c> and
+    /// <c>XMLHttpRequest</c> are readers over the vendored tree and nothing else, so a row that asks for one
+    /// fails saying so. Whole files whose every test does this are not vendored; these entries are the rows
+    /// that sit inside a file which is otherwise about something else — the <c>(XMLHttpRequest)</c> half of
+    /// <c>encoding/single-byte-decoder.any.js</c>, whose <c>(TextDecoder)</c> half tests the same decoders and
+    /// passes.
+    /// </summary>
+    NeedsWptServer,
+
+    /// <summary>
+    /// The test hands a <b>relative</b> url to <c>Request</c>, <c>Response.redirect()</c> or another member
+    /// that parses one. <c>RequestConstructor</c> documents the decision: the specification parses such a
+    /// string against "the entry settings object's API base URL", which is a document's url, and an embedded
+    /// engine has no document — so a relative url does not parse and is a <c>TypeError</c>, and a host that
+    /// wants one resolves it itself with <c>new URL(relative, base).href</c>. The whole of
+    /// <c>fetch/api/request/</c> is out for this (see <c>Vendor/README.md</c>); this category is for the rows
+    /// inside a file that is otherwise about something else.
+    /// </summary>
+    NeedsApiBaseUrl,
+
+    /// <summary>
+    /// The test asserts the <i>forbidden header name</i> or <i>forbidden response header name</i> list —
+    /// https://fetch.spec.whatwg.org/#forbidden-request-header. <c>HeadersGuard</c> documents declining both:
+    /// they are a browser's protection of headers the user agent alone controls (<c>Host</c>, <c>Cookie</c>,
+    /// <c>Origin</c>, <c>Set-Cookie</c>, the method-override family), and Jint runs server-side, where those
+    /// headers are exactly what a script legitimately needs to set — the same choice Node and Deno make. The
+    /// guards themselves are tracked, so the two objects the standard makes immutable really are.
+    /// </summary>
+    NeedsForbiddenHeaderNames,
+
+    /// <summary>
+    /// The test clones an <c>ImageBitmap</c> or an <c>OffscreenCanvas</c>. Both are browser graphics objects
+    /// with no analogue in an embedded interpreter — the rows obtain one by drawing into a canvas — so this is
+    /// the corpus meeting an environment it was not written for rather than a gap to close.
+    /// </summary>
+    NeedsOffscreenCanvas,
+
+    /// <summary>
     /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
     /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
     /// suites up deliberately recorded them rather than fixing them: the point was to find out what they
@@ -313,6 +374,60 @@ internal enum WptDivergence
     /// <c>DedicatedWorkerGlobalScope.name</c> is the same shape and the same question.
     /// </description></item>
     /// </list>
+    /// <para>
+    /// <b>The hr-time, DOM, structured-clone and fetch corpora filed ten more</b>, and <c>Vendor/README.md</c>
+    /// analyses each with its citation. In one line apiece:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <c>new PerformanceMark(name, 123)</c> accepts a non-object where WebIDL's dictionary conversion refuses
+    /// one; <c>performance.mark(name, 123)</c> refuses it correctly, so the two halves of
+    /// <c>user-timing/mark-errors.any.js</c> disagree.
+    /// </description></item>
+    /// <item><description>
+    /// <c>Event.isTrusted</c> is a prototype accessor where https://dom.spec.whatwg.org/#dom-event-istrusted
+    /// declares it <c>[LegacyUnforgeable]</c> — an own, non-configurable accessor on every instance.
+    /// </description></item>
+    /// <item><description>
+    /// <c>Event</c> has neither <c>srcElement</c> nor <c>returnValue</c>, both of which the DOM Standard's own
+    /// interface declares.
+    /// </description></item>
+    /// <item><description>
+    /// An <c>Error</c>'s <c>cause</c> is not carried through <c>structuredClone</c>, where HTML's
+    /// serialization steps read it.
+    /// </description></item>
+    /// <item><description>
+    /// <c>Blob</c> and <c>File</c> are not serializable at all, though the File API declares both
+    /// <c>[Serializable]</c> and Jint has the interfaces.
+    /// </description></item>
+    /// <item><description>
+    /// <c>structuredClone(Object.prototype)</c> raises <c>DataCloneError</c> where HTML clones it as the
+    /// ordinary object it is.
+    /// </description></item>
+    /// <item><description>
+    /// The <c>Headers</c> iterator prototype's <c>next</c> is not enumerable — the same attribute on the same
+    /// kind of object as the streams corpus's async-iterator entry above.
+    /// </description></item>
+    /// <item><description>
+    /// A <c>Response</c> whose body came from bytes is not disturbed by consuming it, so
+    /// <c>response.body.getReader()</c> succeeds where https://fetch.spec.whatwg.org/#concept-body-disturbed
+    /// requires a <c>TypeError</c>; the rows whose body source is a <c>ReadableStream</c> pass.
+    /// </description></item>
+    /// <item><description>
+    /// A <c>record&lt;ByteString, ByteString&gt;</c> conversion performs one operation more than WebIDL's own
+    /// order allows — two rows of <c>headers-record.any.js</c>, which count them through a proxy.
+    /// </description></item>
+    /// <item><description>
+    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing. This
+    /// one wants https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
+    /// read before anything is changed, which is exactly why it is triage rather than a fix.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// One further defect is recorded in <c>Vendor/README.md</c> with no entry here, because the test that
+    /// finds it cannot be named: a throw from a <c>queueMicrotask</c> callback erupts from the pump instead of
+    /// being reported, which takes its whole file down and leaves no test for an exclusion to cover.
+    /// </para>
     /// </summary>
     NeedsTriage,
 }

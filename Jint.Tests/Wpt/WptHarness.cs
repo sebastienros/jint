@@ -50,11 +50,15 @@ internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, strin
 /// <b>The engine also carries the fetch object model, and pointedly not <c>fetch</c>.</b>
 /// <c>Headers</c>, <c>Request</c> and <c>Response</c> are not in <see cref="WebApiFeatures.Default"/> —
 /// they ship with <see cref="WebApiFeatures.Fetch"/> — but a corpus reaches an algorithm through every
-/// entry point the platform gives it, and for one file here that means the object model:
+/// entry point the platform gives it, and two vendored suites need exactly that entry point.
 /// <c>url/urlencoded-parser.any.js</c> runs each of its 35 inputs through <c>URLSearchParams</c>,
 /// <c>Request.formData()</c> <i>and</i> <c>Response.formData()</c>, because a browser parses
-/// <c>application/x-www-form-urlencoded</c> with one algorithm in all three places. Withholding the three
-/// interfaces would not test less of Jint, it would only turn a third of that file into an exclusion.
+/// <c>application/x-www-form-urlencoded</c> with one algorithm in all three places; and the two
+/// <c>fetch/api/</c> suites are about the three interfaces and nothing else — every file in them builds its
+/// own <c>Headers</c> or its own <c>Response</c> body, which is the property that let them be vendored while
+/// the rest of that corpus, which talks to a server, could not. Withholding the three interfaces would not
+/// test less of Jint, it would only turn a third of the url file into exclusions and leave the other 30
+/// files unrunnable.
 /// <c>WebApiRegistration.InstallFetchModel</c> is the same door <c>Engine.Advanced.SetFetchHandler</c>
 /// opens for a host that must build a <c>Response</c> without being granted the network, and no shipped
 /// feature flag names the model on its own — <see cref="WebApiFeatures.Fetch"/>,
@@ -336,6 +340,8 @@ internal static class WptHarness
 
         try
         {
+            // Before the shim, which reads it: `setup({single_test: true})` names its one test after the file.
+            engine.SetValue("__wptTestFile", sourceName);
             engine.Execute(WptCorpus.Prelude, source: "wpt-prelude/testharness-shim.js");
 
             foreach (var script in metaScripts)
@@ -419,20 +425,45 @@ internal static class WptHarness
 
     /// <summary>
     /// Installs the shim's <c>fetch</c> back-end: a reader over the vendored tree, so that a suite's
-    /// <c>fetch("resources/urltestdata.json")</c> finds its corpus.
+    /// <c>fetch("resources/urltestdata.json")</c> finds its corpus, and the askable form of the same question
+    /// that its <c>XMLHttpRequest</c> needs.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A path the corpus does not hold is a vendoring bug rather than a test failure, so it erupts as a CLR
     /// exception and is reported as a harness error for the whole file instead of becoming a rejected promise a
     /// test could mask. The worker lane installs the same reader on the worker engine, so a file's environment
     /// does not depend on which lane ran it.
+    /// </para>
+    /// <para>
+    /// <c>__wptResourceExists</c> is that rule's one exception, and it is why the shim's <c>XMLHttpRequest</c>
+    /// can exist at all. <c>fetch</c> deliberately has no failure path; XHR needs one, because the suites that
+    /// reach for it ask for wptserve endpoints and "there is no server here" has to arrive as a failing test
+    /// rather than as a dead file. So this answers <see langword="false"/> for a path that is not vendored
+    /// <i>and</i> for one that would leave the tree, which <c>ResolveReference</c> refuses outright.
+    /// </para>
     /// </remarks>
     internal static void InstallResourceReader(Engine engine, string directory)
-        => engine.SetValue("__wptReadResource", new ClrFunction(engine, "__wptReadResource", (_, args) =>
+    {
+        engine.SetValue("__wptReadResource", new ClrFunction(engine, "__wptReadResource", (_, args) =>
         {
             var reference = TypeConverter.ToString(args.At(0));
             return WptCorpus.Read(WptCorpus.ResolveReference(directory, reference));
         }));
+
+        engine.SetValue("__wptResourceExists", new ClrFunction(engine, "__wptResourceExists", (_, args) =>
+        {
+            var reference = TypeConverter.ToString(args.At(0));
+            try
+            {
+                return WptCorpus.Contains(WptCorpus.ResolveReference(directory, reference));
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }));
+    }
 
     /// <summary>
     /// Drives the engine until the shim reports every async test and promise test settled. Returns

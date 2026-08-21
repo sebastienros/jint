@@ -80,11 +80,14 @@ internal sealed class WptWorkerProvider : WorkerProvider
 
         var engine = new Engine(options);
 
-        // The same two things the driver gives its top-level engine, so a file's environment does not depend
+        // The same three things the driver gives its top-level engine, so a file's environment does not depend
         // on which lane it ran in: the fetch object model (Headers/Request/Response/FormData, which no feature
-        // flag names on its own — see WptHarness) and the shim's resource reader.
+        // flag names on its own — see WptHarness), the shim's resource reader, and the file's own name, which
+        // is what `setup({single_test: true})` names its one test after. The specifier *is* that name, which
+        // is what makes this a one-liner rather than another constructor parameter.
         WebApiRegistration.InstallFetchModel(engine);
         WptHarness.InstallResourceReader(engine, _directory);
+        engine.SetValue("__wptTestFile", request.Specifier);
 
         return engine;
     }
