@@ -61,6 +61,22 @@ namespace Jint.WebApi.Crypto;
 /// constraint that became a rejection would no longer bound anything.
 /// </para>
 /// <para>
+/// <b>Argument conversion and the method steps are two different times, and every <c>BufferSource</c>
+/// parameter is split across both.</b> WebIDL converts the arguments first — that is where a <c>data</c>
+/// which is not a buffer source, or one backed by a <c>SharedArrayBuffer</c>, earns its <c>TypeError</c>,
+/// and it is why <c>digest('nonsense', 42)</c> rejects for the second argument rather than for the first.
+/// <i>Taking the bytes</i> is not part of that: "Let data be the result of getting a copy of the bytes held
+/// by the data parameter" is a numbered step of the method, and in every one of these methods it comes
+/// <b>after</b> the algorithm has been normalized — step 4 where normalization is step 2 for <c>encrypt</c>,
+/// <c>decrypt</c>, <c>sign</c>, <c>digest</c> and <c>importKey</c>, steps 4 and 5 for <c>verify</c>'s two
+/// buffers, and step 6 for <c>unwrapKey</c>, which normalizes twice first. Normalization reads the
+/// algorithm's <c>name</c>, so it can run a script's getter with the caller's buffer in scope; what that
+/// getter leaves behind — rewritten bytes, or a transferred and therefore detached buffer — is what the
+/// operation must run over. So <see cref="RequireBufferSource"/> is called with the other conversions and
+/// <see cref="CopyBufferSourceBytes"/> at the step that copies, and the two are never collapsed back
+/// together.
+/// </para>
+/// <para>
 /// The promise is already resolved when it is handed back: every operation here is synchronous CPU work over
 /// bytes that are already in memory, so there is nothing for an event-loop turn to wait for. "Return promise
 /// and perform the remaining steps in parallel" exists so that a browser's main thread is not blocked by a
@@ -123,7 +139,8 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// of <c>algorithm</c> to <c>(object or DOMString)</c>, then the conversion of <c>data</c> to
     /// <c>BufferSource</c>, and only then step 2's normalization. So <c>digest('nonsense', 42)</c> rejects
     /// with the <c>TypeError</c> the second argument earns rather than the <c>NotSupportedError</c> the first
-    /// one would — argument conversion runs before a single step of the method body does.
+    /// one would — argument conversion runs before a single step of the method body does. The <i>bytes</i>
+    /// are a different matter and are step 4's, taken after normalization; see the remarks on this class.
     /// </remarks>
     [JsFunction(Name = "digest", Length = 2)]
     private JsValue Digest(JsValue thisObject, JsValue algorithm, JsValue data)
@@ -131,9 +148,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         return Perform(thisObject, CryptoOperation.Digest, what =>
         {
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
-            var message = GetBufferSourceBytes(data, what, "parameter 2");
+            RequireBufferSource(data, what, "parameter 2");
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Digest, what);
+
+            // Step 4: "Let data be the result of getting a copy of the bytes held by the data parameter
+            // passed to the digest() method."
+            var message = CopyBufferSourceBytes(data);
 
             return Context.CreateArrayBuffer(ComputeDigest(normalized.Name, message));
         });
@@ -150,9 +172,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
             var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
-            var message = GetBufferSourceBytes(data, what, "parameter 3");
+            RequireBufferSource(data, what, "parameter 3");
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Sign, what);
+
+            // Step 4: "Let data be the result of getting a copy of the bytes held by the data parameter
+            // passed to the sign() method."
+            var message = CopyBufferSourceBytes(data);
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Sign, "sign", what);
 
@@ -178,6 +205,15 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// <c>Promise&lt;boolean&gt; verify(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource signature,
     /// BufferSource data)</c>.
     /// </summary>
+    /// <remarks>
+    /// The only method with <b>two</b> buffer parameters, and the specification gives each its own step:
+    /// <c>signature</c> is copied at step 4 and <c>data</c> at step 5, both after normalization and in that
+    /// order. Both copies are therefore downstream of a getter on the algorithm's <c>name</c>, so one that
+    /// rewrites either buffer is honoured for that one and one that rewrites both is honoured for both. The
+    /// order between the two is not observable from script — the copies are consecutive and nothing runs in
+    /// between — but it is written the way the steps number it rather than the way the parameters happened to
+    /// be converted.
+    /// </remarks>
     [JsFunction(Name = "verify", Length = 4)]
     private JsValue Verify(JsValue thisObject, JsValue algorithm, JsValue key, JsValue signature, JsValue data)
     {
@@ -185,10 +221,16 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
             var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
-            var signatureBytes = GetBufferSourceBytes(signature, what, "parameter 3");
-            var message = GetBufferSourceBytes(data, what, "parameter 4");
+            RequireBufferSource(signature, what, "parameter 3");
+            RequireBufferSource(data, what, "parameter 4");
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Verify, what);
+
+            // Step 4: "Let signature be the result of getting a copy of the bytes held by the signature
+            // parameter passed to the verify() method." Then step 5, the same for data.
+            var signatureBytes = CopyBufferSourceBytes(signature);
+            var message = CopyBufferSourceBytes(data);
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Verify, "verify", what);
 
@@ -222,9 +264,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
             var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
-            var plaintext = GetBufferSourceBytes(data, what, "parameter 3");
+            RequireBufferSource(data, what, "parameter 3");
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Encrypt, what);
+
+            // Step 4: "Let data be the result of getting a copy of the bytes held by the data parameter
+            // passed to the encrypt() method."
+            var plaintext = CopyBufferSourceBytes(data);
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Encrypt, "encrypt", what);
 
@@ -266,9 +313,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
             var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
-            var ciphertext = GetBufferSourceBytes(data, what, "parameter 3");
+            RequireBufferSource(data, what, "parameter 3");
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.Decrypt, what);
+
+            // Step 4: "Let data be the result of getting a copy of the bytes held by the data parameter
+            // passed to the decrypt() method."
+            var ciphertext = CopyBufferSourceBytes(data);
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Decrypt, "decrypt", what);
 
@@ -415,8 +467,15 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// a buffer source is one, and anything else that is an object (or <c>null</c>, or <c>undefined</c>)
     /// becomes a <c>JsonWebKey</c> dictionary, which is read <i>here</i>, with the other arguments, and not
     /// when the algorithm's steps get to it. So the getters on a JWK run before the algorithm is even
-    /// normalized. Step 4 then rejects the mismatches: a JWK with a format that is not <c>"jwk"</c>, and a
-    /// buffer source with the format that is.
+    /// normalized.
+    /// <para>
+    /// Step 4 is where the two arms are held to the format, and — for the buffer-source arm alone — where the
+    /// bytes are taken: "Otherwise: … Let keyData be the result of getting a copy of the bytes held by the
+    /// keyData parameter". That is <i>after</i> normalization, so a getter on the algorithm's <c>name</c> that
+    /// rewrites the key material is honoured and the key imported is the one those bytes describe. The JWK arm
+    /// has no such step, because the dictionary was materialized at conversion time and holds no live window
+    /// onto anything.
+    /// </para>
     /// </remarks>
     [JsFunction(Name = "importKey", Length = 5)]
     private JsValue ImportKey(JsValue thisObject, JsValue format, JsValue keyData, JsValue algorithm, JsValue extractable, JsValue keyUsages)
@@ -424,22 +483,32 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         return Perform(thisObject, CryptoOperation.ImportKey, what =>
         {
             var keyFormat = ReadKeyFormat(format, what);
-            var (rawData, jwk) = ReadKeyData(keyData, what);
+            var jwk = ConvertKeyData(keyData, what);
             var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
             var isExtractable = TypeConverter.ToBoolean(extractable);
             var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
 
+            // Step 2.
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.ImportKey, what);
 
-            // Step 4, after normalization as the numbering says.
-            if (keyFormat == KeyFormat.Jwk && jwk is null)
-            {
-                Context.ThrowTypeError(what + ": the 'jwk' format needs a JsonWebKey object, not a buffer source.");
-            }
+            // Step 4, after normalization as the numbering says, and both of its arms in full.
+            byte[]? rawData = null;
 
-            if (keyFormat != KeyFormat.Jwk && jwk is not null)
+            if (keyFormat == KeyFormat.Jwk)
             {
-                Context.ThrowTypeError(what + ": the '" + KeyFormats.NameOf(keyFormat) + "' format needs a buffer source, not a JsonWebKey object.");
+                if (jwk is null)
+                {
+                    Context.ThrowTypeError(what + ": the 'jwk' format needs a JsonWebKey object, not a buffer source.");
+                }
+            }
+            else
+            {
+                if (jwk is not null)
+                {
+                    Context.ThrowTypeError(what + ": the '" + KeyFormats.NameOf(keyFormat) + "' format needs a buffer source, not a JsonWebKey object.");
+                }
+
+                rawData = CopyBufferSourceBytes(keyData);
             }
 
             return PerformImportKey(normalized, keyFormat, rawData, jwk, isExtractable, usages, what);
@@ -823,16 +892,21 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         return Perform(thisObject, CryptoOperation.UnwrapKey, what =>
         {
             var keyFormat = ReadKeyFormat(format, what);
-            var wrapped = GetBufferSourceBytes(wrappedKey, what, "parameter 2");
+            RequireBufferSource(wrappedKey, what, "parameter 2");
             var unwrapper = RequireCryptoKey(unwrappingKey, what, "parameter 3");
             var identifier = AlgorithmNormalization.ConvertIdentifier(unwrapAlgorithm);
             var keyIdentifier = AlgorithmNormalization.ConvertIdentifier(unwrappedKeyAlgorithm);
             var isExtractable = TypeConverter.ToBoolean(extractable);
             var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
 
-            // Steps 2 to 4, in the specification's order and all before any step of any algorithm.
+            // Steps 2 to 5, in the specification's order and all before any step of any algorithm.
             var normalized = NormalizeForWrapping(identifier, CryptoOperation.UnwrapKey, CryptoOperation.Decrypt, what);
             var normalizedKey = AlgorithmNormalization.Normalize(Context, keyIdentifier, CryptoOperation.ImportKey, what);
+
+            // Step 6: "Let wrappedKey be the result of getting a copy of the bytes held by the wrappedKey
+            // parameter passed to the unwrapKey() method." It comes after both normalizations, so a getter on
+            // either algorithm's `name` — and this method reads two of them — is still in time to be seen.
+            var wrapped = CopyBufferSourceBytes(wrappedKey);
 
             // Steps 9 and 10.
             RequireKeyFor(normalized, unwrapper, KeyUsage.UnwrapKey, "unwrapKey", what);
@@ -1245,51 +1319,55 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     }
 
     /// <summary>
-    /// The <c>(BufferSource or JsonWebKey)</c> union conversion. Exactly one of the two results is non-null.
+    /// The <c>(BufferSource or JsonWebKey)</c> union conversion, which is <c>importKey</c>'s alone.
+    /// <see langword="null"/> is the answer for the <c>BufferSource</c> arm.
     /// </summary>
     /// <remarks>
     /// <c>null</c> and <c>undefined</c> become a <c>JsonWebKey</c> with every member absent, which is what
     /// WebIDL does for a union containing a dictionary type; a number, a string or a boolean is a
     /// <c>TypeError</c>, because converting a non-object to a dictionary is one.
+    /// <para>
+    /// Only the <i>arm</i> is decided here. The bytes of the <c>BufferSource</c> arm are not taken, because
+    /// taking them is step 4 of <c>importKey</c> and runs after normalization — which is why this answers
+    /// with the dictionary or with nothing, rather than with one of two payloads.
+    /// </para>
     /// </remarks>
-    private (byte[]? Raw, JsonWebKeyData? Jwk) ReadKeyData(JsValue keyData, string what)
+    private JsonWebKeyData? ConvertKeyData(JsValue keyData, string what)
     {
-        if (BufferSource.TryGetBytes(keyData, out var bytes))
+        if (BufferSource.IsBufferSource(keyData))
         {
             if (AlgorithmNormalization.IsSharedBufferSource(keyData))
             {
                 Context.ThrowTypeError(what + ": parameter 2 is backed by a SharedArrayBuffer, which this operation does not accept.");
             }
 
-            return (bytes.ToArray(), null);
+            return null;
         }
 
         if (keyData.IsNull() || keyData.IsUndefined())
         {
-            return (null, new JsonWebKeyData());
+            return new JsonWebKeyData();
         }
 
         if (keyData is ObjectInstance source)
         {
-            return (null, JsonWebKeyData.Read(Context, source, what));
+            return JsonWebKeyData.Read(Context, source, what);
         }
 
         Context.ThrowTypeError(what + ": parameter 2 is neither a BufferSource nor a JsonWebKey object.");
-        return default;
+        return null;
     }
 
     /// <summary>
     /// WebIDL's conversion of a <c>BufferSource</c> argument, which is
-    /// <c>(ArrayBufferView or ArrayBuffer)</c> — https://webidl.spec.whatwg.org/#BufferSource — followed by
-    /// "getting a copy of the bytes" it holds.
+    /// <c>(ArrayBufferView or ArrayBuffer)</c> — https://webidl.spec.whatwg.org/#BufferSource. This is the
+    /// conversion and nothing else: it decides the type and refuses a shared buffer, and takes no bytes.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The copy is real, and it has to be: the argument conversions run before the method body, and the
-    /// first thing the body does is normalize an algorithm, which reads a <c>name</c> member and may
-    /// therefore run a script's getter — with the buffer this argument came from in scope. A window onto the
-    /// engine's own backing array would then be a window onto what that getter left behind, and the operation
-    /// would run over bytes the caller never passed.
+    /// It runs with the other argument conversions, before a single step of the method body, which is what
+    /// makes <c>digest('nonsense', 42)</c> a <c>TypeError</c> rather than a <c>NotSupportedError</c>. The
+    /// bytes are <see cref="CopyBufferSourceBytes"/>'s, at the numbered step that copies them.
     /// </para>
     /// <para>
     /// A view onto a <c>SharedArrayBuffer</c> is refused, and so is a <c>SharedArrayBuffer</c> itself: the
@@ -1304,13 +1382,13 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// One deliberate divergence, in the permissive direction: a <b>resizable</b> <c>ArrayBuffer</c>, or a
     /// view onto one, is accepted. WebIDL's conversion refuses those too for a type without
     /// <c>[AllowResizable]</c>, which <c>BufferSource</c> does not carry — but the bytes taken are exactly
-    /// the ones the view spans at the moment of the call, so the answer is right rather than merely
+    /// the ones the view spans at the moment the copy step runs, so the answer is right rather than merely
     /// tolerated, and no engine an embedder is likely to be replacing refuses it.
     /// </para>
     /// </remarks>
-    private byte[] GetBufferSourceBytes(JsValue data, string what, string parameter)
+    private void RequireBufferSource(JsValue data, string what, string parameter)
     {
-        if (!BufferSource.TryGetBytes(data, out var bytes))
+        if (!BufferSource.IsBufferSource(data))
         {
             Context.ThrowTypeError(what + ": " + parameter + " is not of type 'BufferSource'.");
         }
@@ -1319,7 +1397,32 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             Context.ThrowTypeError(what + ": " + parameter + " is backed by a SharedArrayBuffer, which this operation does not accept.");
         }
+    }
 
+    /// <summary>
+    /// "Getting a copy of the bytes held by" a buffer source —
+    /// https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy — which every one of these methods performs
+    /// as a numbered step of its own, after the algorithm has been normalized.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The copy is real, and where it is taken from is the whole point: normalization reads the algorithm's
+    /// <c>name</c> and may run a script's getter with this very buffer in scope, so the bytes are read
+    /// <i>now</i> rather than carried over from the conversion. A getter that rewrites them is honoured, and
+    /// one that transfers the buffer leaves a detached view, whose copy is the empty byte sequence — which
+    /// is what https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy step 7 says it should be.
+    /// </para>
+    /// <para>
+    /// After the copy the array is the operation's own, so a mutation the script makes once the call has
+    /// returned changes nothing — that half was never in question and is what the corpus's "… after call"
+    /// rows assert.
+    /// </para>
+    /// </remarks>
+    private static byte[] CopyBufferSourceBytes(JsValue data)
+    {
+        // The conversion proved this is a buffer source, and nothing a getter can do takes that away: a
+        // detach or a resize changes the bytes on offer, never the type of the object holding them.
+        BufferSource.TryGetBytes(data, out var bytes);
         return bytes.ToArray();
     }
 

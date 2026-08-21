@@ -13,8 +13,11 @@ namespace Jint.WebApi.Encoding;
 /// </summary>
 /// <remarks>
 /// The span returned is a window onto the engine's own backing array, not a copy: the specification's
-/// "get a copy of the buffer source" exists so that a later mutation cannot be observed, and every caller
-/// here consumes the bytes synchronously before returning to script, so the copy would be pure cost.
+/// "get a copy of the buffer source" exists so that a later mutation cannot be observed, and a caller that
+/// consumes the bytes synchronously before returning to script would pay for that copy and observe nothing.
+/// A caller whose bytes must survive something script can run — <c>crypto.subtle</c>'s operations, each of
+/// which normalizes an algorithm, and so may run a getter, before its copy step and again nowhere after it
+/// — asks for the span at the moment that step says to and takes its own <c>ToArray</c>.
 /// <para>
 /// A detached buffer yields the empty byte sequence rather than an error, which is what
 /// https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy step 7 says. A view left hanging outside
@@ -29,10 +32,12 @@ internal static class BufferSource
     /// <c>AllowSharedBufferSource</c> conversion decides, and it decides it before the operation runs.
     /// </summary>
     /// <remarks>
-    /// An operation whose <i>later</i> arguments can detach the buffer has to separate the two: the type
-    /// check belongs to the argument conversion, the bytes to the operation that follows it. Everything else
-    /// converts one buffer source and nothing that could run script, so it goes straight to
-    /// <see cref="TryGetBytes"/>.
+    /// An operation that can run script between converting its arguments and using the bytes has to separate
+    /// the two: the type check belongs to the argument conversion, the bytes to the numbered step that takes
+    /// them. That is <c>TextDecoder.decode</c>, whose <i>later</i> argument can detach the buffer, and every
+    /// byte-taking <c>crypto.subtle</c> method, whose algorithm normalization can run a getter with the
+    /// buffer in scope. A caller with no such gap converts one buffer source and nothing that could run
+    /// script, so it goes straight to <see cref="TryGetBytes"/>.
     /// </remarks>
     internal static bool IsBufferSource(JsValue value) => value is JsTypedArray or JsDataView or JsArrayBuffer;
 

@@ -67,7 +67,7 @@ settled; it is a change to `UrlCorpusTests` as well as to this directory, and it
 
 ## What the WebCryptoAPI corpus says about this engine
 
-2,839 of its ~24,000 assertions do not pass, and every one is named in the driver's table under one of six
+2,459 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of seven
 categories, whose own documentation in `WptExclusions.cs` carries the citation. Three are the platform:
 `NeedsPlatformCryptoParameters` (AES-GCM's 96-bit-only iv and 96-to-128-bit tag, RSA-OAEP's empty-only label,
 RSA-PSS's hash-length-only salt — all four are limits of the BCL primitives, documented on the classes that
@@ -76,10 +76,15 @@ specification: `NeedsKeyEncapsulation` (ML-KEM's `encapsulateKey`/`decapsulateKe
 the current `KeyUsage` enumeration does not declare) and `NeedsQuotaExceededErrorInterface`. One is the
 corpus meeting an environment it was not written for: `NeedsSecureContextModel`.
 
-The sixth is `NeedsTriage`, and it is **debt**: two genuine defects the corpus found, recorded rather than
-fixed so that the change which first ran these suites was not also the change that moved the engine.
-`SubtleCrypto` copies its caller's bytes before normalizing the algorithm where the specification copies them
-after, which is every "… during call" row; and ECDH's mismatched-curve rows get the `OperationError` of the
+That figure is Windows and Linux, whose AES-GCM takes a 96- to 128-bit tag. **macOS has 216 more**, all in
+`aes_gcm.https.any.js`: Apple's implementation takes a 128-bit tag and nothing else, so the four tag lengths
+between 96 and 120 bits are refused there and their rows are scoped to that platform in the table.
+
+The seventh is `NeedsTriage`, and it is **debt**. It held two genuine defects the corpus found, recorded
+rather than fixed so that the change which first ran these suites was not also the change that moved the
+engine. One is fixed: `SubtleCrypto` copied its caller's bytes before normalizing the algorithm where the
+specification copies them after, which was every "… during call" row, and issue #3179 moved each copy to its
+numbered step. The one still open is ECDH's mismatched-curve rows, which get the `OperationError` of the
 prose where a browser answers `InvalidAccessError`.
 
 ## Updating the pin
