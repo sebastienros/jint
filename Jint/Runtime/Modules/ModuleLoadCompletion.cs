@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using Jint.Constraints;
 using Jint.Native;
 
 namespace Jint.Runtime.Modules;
@@ -55,6 +56,7 @@ public sealed class ModuleLoadCompletion
     /// synchronously loaded one always has.
     /// </summary>
     private readonly Realm _realm;
+    private readonly MemoryLimitConstraint.OperationState? _memoryState;
 
     private readonly List<Waiter> _waiters = new();
     private int _settled;
@@ -78,6 +80,7 @@ public sealed class ModuleLoadCompletion
         Engine = modules.Engine;
         _generation = Engine.EventLoopGeneration;
         _realm = Engine.Realm;
+        _memoryState = Engine.CaptureMemoryLimitState();
     }
 
     /// <summary>The engine the module is being loaded for.</summary>
@@ -192,7 +195,7 @@ public sealed class ModuleLoadCompletion
             return;
         }
 
-        Engine.EnqueueModuleLoadCompletion(onEngineThread, _generation);
+        Engine.EnqueueModuleLoadCompletion(onEngineThread, _generation, _memoryState);
     }
 
     private void Build(Func<Module> build)

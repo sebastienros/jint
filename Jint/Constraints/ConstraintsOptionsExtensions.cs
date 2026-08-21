@@ -56,15 +56,17 @@ public static class ConstraintsOptionsExtensions
     }
 
     /// <summary>
-    /// Sets constraint based on memory usage in bytes, replacing any limit set by an earlier call.
+    /// Sets a managed-allocation budget in bytes, replacing any limit set by an earlier call.
     /// </summary>
     /// <param name="options">Options to modify.</param>
     /// <param name="memoryLimit">
-    /// The allowed allocation in bytes. Only <c>1</c> to <see cref="long.MaxValue"/> - 1 registers a
-    /// constraint; every other value removes it and leaves allocation unlimited. A non-positive limit
-    /// is removed because the constraint treats it as "no limit" internally, and
-    /// <see cref="long.MaxValue"/> because the measured allocation is itself a <see cref="long"/> and
-    /// so can never exceed it.
+    /// The allowed managed allocation in bytes for one top-level engine operation, including asynchronous
+    /// continuations and synchronous host callbacks it triggers. Only <c>1</c> to
+    /// <see cref="long.MaxValue"/> - 1 registers a constraint; every other value removes it and leaves
+    /// allocation unlimited. A non-positive limit is removed because the constraint treats it as "no limit"
+    /// internally, and <see cref="long.MaxValue"/> because the measured allocation is itself a
+    /// <see cref="long"/> and so can never exceed it. See <see cref="MemoryLimitConstraint"/> for the exact
+    /// accounting boundary and its multi-entry <c>Begin</c>/<c>End</c> mode.
     /// </param>
     /// <returns>Options instance for fluent syntax.</returns>
     public static Options LimitMemory(this Options options, long memoryLimit)

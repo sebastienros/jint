@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Promise;
 
@@ -14,6 +15,7 @@ internal readonly struct EventLoopJob
 {
     private readonly object _state;
     private readonly JsValue? _argument;
+    private readonly MemoryLimitConstraint.OperationState? _memoryState;
 
     /// <summary>
     /// The <see cref="EventLoop.Generation"/> this job belongs to. A job whose generation is no longer the
@@ -23,21 +25,31 @@ internal readonly struct EventLoopJob
     /// </summary>
     private readonly int _generation;
 
-    public EventLoopJob(Action continuation, int generation)
+    public EventLoopJob(
+        Action continuation,
+        int generation,
+        MemoryLimitConstraint.OperationState? memoryState)
     {
         _state = continuation;
         _argument = null;
         _generation = generation;
+        _memoryState = memoryState;
     }
 
-    public EventLoopJob(PromiseReaction reaction, JsValue argument, int generation)
+    public EventLoopJob(
+        PromiseReaction reaction,
+        JsValue argument,
+        int generation,
+        MemoryLimitConstraint.OperationState? memoryState)
     {
         _state = reaction;
         _argument = argument;
         _generation = generation;
+        _memoryState = memoryState;
     }
 
     public int Generation => _generation;
+    public MemoryLimitConstraint.OperationState? MemoryState => _memoryState;
 
     public void Run(Engine engine)
     {
@@ -156,7 +168,8 @@ internal sealed record EventLoop
     /// </summary>
     internal int QueueDepth => _events.Count;
 
-    public void Enqueue(Action continuation) => Enqueue(new EventLoopJob(continuation, Generation));
+    public void Enqueue(Action continuation)
+        => Enqueue(new EventLoopJob(continuation, Generation, memoryState: null));
 
     public void Enqueue(in EventLoopJob job)
     {
@@ -373,7 +386,7 @@ internal sealed record EventLoop
                 }
 
                 // note that a job can enqueue new events
-                job.Run(engine);
+                engine.RunEventLoopJob(in job);
             }
         }
         finally

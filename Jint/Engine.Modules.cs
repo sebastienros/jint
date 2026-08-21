@@ -684,6 +684,10 @@ public partial class Engine
         }
 
         internal ObjectInstance Import(ModuleRequest request, string? referencingModuleLocation)
+            => _engine.ExecuteWithMemoryAccounting(
+                () => ImportCore(request, referencingModuleLocation));
+
+        private ObjectInstance ImportCore(ModuleRequest request, string? referencingModuleLocation)
         {
             var module = LoadRootModule(request, referencingModuleLocation);
 
@@ -768,6 +772,13 @@ public partial class Engine
         public ModuleImportOperation StartImport(string specifier, string? referencingModuleLocation)
         {
             using var ownership = _engine.EnterHostCall();
+            return _engine.ExecuteWithConstraints(
+                strict: true,
+                () => StartImportCore(specifier, referencingModuleLocation));
+        }
+
+        private ModuleImportOperation StartImportCore(string specifier, string? referencingModuleLocation)
+        {
             var request = new ModuleRequest(specifier, []);
             var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
             var payload = new DynamicImportPayload(_engine, request, capability);

@@ -3,6 +3,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Jint.Constraints;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -284,6 +285,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         /// <c>RestoreGlobalSnapshot</c> would resolve its promise into the restored engine.
         /// </summary>
         private readonly int _generation;
+        private readonly MemoryLimitConstraint.OperationState? _memoryState;
 
         /// <summary>
         /// The list this wait joined, so that the timeout route can leave it the way the wake route does.
@@ -304,6 +306,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
             _engine = engine;
             _promiseCapability = promiseCapability;
             _generation = engine.EventLoopGeneration;
+            _memoryState = engine.CaptureMemoryLimitState();
         }
 
         public bool Resolved => _resolved != 0;
@@ -346,7 +349,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
                 _engine.AddToEventLoop(() =>
                 {
                     _promiseCapability.Resolve(new JsString(result));
-                }, _generation);
+                }, _generation, _memoryState);
             }
         }
     }

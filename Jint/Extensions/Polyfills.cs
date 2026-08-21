@@ -398,6 +398,18 @@ internal static class MathPolyfills
 
 internal static class GCPolyfills
 {
+    internal static bool AllocatedBytesForCurrentThreadIsSupported
+    {
+        get
+        {
+#if NETFRAMEWORK || NETSTANDARD2_0
+            return AllocatedBytesForCurrentThread is not null;
+#else
+            return true;
+#endif
+        }
+    }
+
     extension(GC)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0

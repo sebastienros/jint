@@ -116,9 +116,9 @@ public class ExecutionConstraintTests
     [Fact]
     public void MemoryLimitConstraintResetIsTotal()
     {
-        // MemoryLimitConstraint.Reset() reads the thread's allocation counter, which is reachable only
-        // through reflection below netstandard2.1 and can come back missing. Establishing the baseline
-        // must not throw for that; reporting the platform is Check()'s job, and Check() still does it.
+        // Reset is called from ExecuteWithConstraints' finally, so it must remain total. The memory
+        // constraint establishes its per-thread segment baseline only when the next engine entry begins;
+        // resetting and checking an idle constraint therefore does not touch the runtime counter.
         var constraint = new MemoryLimitConstraint(4_000_000);
 
         Invoking(constraint.Reset).Should().NotThrow();
@@ -192,7 +192,7 @@ public class ExecutionConstraintTests
     [Fact]
     public void ShouldThrowMemoryLimitExceededInsideFunctionLocalTightLoop()
     {
-        // Memory limit is amortized too and must interrupt an allocating tight-lane loop.
+        // Memory accounting is exact and must interrupt an allocating function-local loop.
         var engine = new Engine(cfg => cfg.LimitMemory(2_000_000));
         Invoking(() => engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 1; i += 0) { s += 'aaaaaaaaaaaaaaaa'; } return s; } f();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }

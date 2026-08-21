@@ -18,7 +18,9 @@ public partial class Engine
     /// </summary>
     /// <remarks>
     /// Constraints hold per-execution state — a statement counter, a deadline, an observed token — and
-    /// <see cref="ResetConstraints"/> rewinds that state at the start of every execution. Sharing one
+    /// <see cref="ResetConstraints"/> rewinds the ordinary resettable state at the start of every execution.
+    /// The memory constraint establishes its thread-local segments through the entry lifecycle instead, so a
+    /// completed operation remains observable through <see cref="MemoryLimitConstraint.AllocatedBytes"/>. Sharing one
     /// <see cref="Options"/> instance across engines is a supported (and recommended) pattern, so the
     /// engine cannot simply take a reference to whatever the options hold: two engines would then share
     /// one budget and one engine's reset would rewind another engine's in-flight execution. Factory
