@@ -107,4 +107,45 @@ b(7);
     at custom.ts:11:1".Replace("\r\n", "\n"));
     }
 
+    [Fact]
+    public void NestedEvaluationUnhandledThrowShouldNotClearOuterRunCallStack()
+    {
+        // A host callback invoked from a running script re-enters the engine with
+        // Engine.Execute (the browser-host "dynamically inserted <script>" shape) and
+        // contains that nested script's unhandled throw. The outer run is still live:
+        // its call-stack frames must survive, so stack traces captured by the outer
+        // script afterwards are complete and the outer run's pops stay balanced.
+        var engine = new Engine();
+
+        string nestedThrowMessageObservedByHost = null;
+        engine.SetValue("runNestedScriptContained", () =>
+        {
+            try
+            {
+                engine.Execute("throw new Error('nested failure');");
+            }
+            catch (JavaScriptException nestedScriptException)
+            {
+                nestedThrowMessageObservedByHost = nestedScriptException.Message;
+            }
+        });
+
+        engine.Execute("""
+            function makeProbeError() {
+                // 'new' exercises Construct's call-stack push/pop after the nested throw
+                return new Error('outer probe');
+            }
+            function outerFunction() {
+                runNestedScriptContained();
+                return makeProbeError().stack;
+            }
+            globalThis.outerStackAfterNestedFailure = outerFunction();
+            """);
+
+        nestedThrowMessageObservedByHost.Should().Be("nested failure");
+
+        var outerStack = engine.Evaluate("outerStackAfterNestedFailure").AsString();
+        outerStack.Should().Contain("at makeProbeError");
+        outerStack.Should().Contain("at outerFunction");
+    }
 }
