@@ -23,11 +23,12 @@ public partial class Options
     private static readonly TimeZoneInfo _defaultTimeZone = TimeZoneInfo.Local;
 
     private ITimeSystem? _timeSystem;
-    internal List<EngineConfiguration> _configurations { get; } = new();
+    internal List<EngineConfiguration> _configurations { get; private set; } = new();
     internal bool HasUserHostFactory { get; set; }
     internal bool HasUserEngineConstructionCallback =>
         HasUserHostFactory
         || _configurations.Exists(static configuration => configuration.Provenance == EngineConfigurationProvenance.User);
+    internal UntrustedCodeLimits? UntrustedCodeLimits { get; set; }
 
     public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
 
@@ -48,22 +49,22 @@ public partial class Options
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
-    public ConstraintOptions Constraints { get; } = new();
+    public ConstraintOptions Constraints { get; private set; } = new();
 
     /// <summary>
     /// Resource limits applied while parsing scripts and modules.
     /// </summary>
-    public ParsingOptions Parsing { get; } = new();
+    public ParsingOptions Parsing { get; private set; } = new();
 
     /// <summary>
     /// CLR interop related options.
     /// </summary>
-    public InteropOptions Interop { get; } = new();
+    public InteropOptions Interop { get; private set; } = new();
 
     /// <summary>
     /// Debugger configuration.
     /// </summary>
-    public DebuggerOptions Debugger { get; } = new();
+    public DebuggerOptions Debugger { get; private set; } = new();
 
     /// <summary>
     /// Script code coverage configuration. Off by default.
@@ -73,12 +74,12 @@ public partial class Options
     /// <summary>
     /// Host options.
     /// </summary>
-    public HostOptions Host { get; } = new();
+    public HostOptions Host { get; private set; } = new();
 
     /// <summary>
     /// Module options
     /// </summary>
-    public ModuleOptions Modules { get; } = new();
+    public ModuleOptions Modules { get; private set; } = new();
 
     /// <summary>
     /// Internationalization (Intl) options.
@@ -252,6 +253,11 @@ public partial class Options
             configuration.Apply(engine);
         }
 
+        if (UntrustedCodeLimits is { } limits)
+        {
+            OptionsExtensions.ReapplyUntrustedCodeOptions(this, engine, limits);
+        }
+
         // add missing bits if needed
         if (Interop.Enabled)
         {
@@ -306,6 +312,26 @@ public partial class Options
                     }),
                 PropertyFlag.AllForbidden));
         }
+    }
+
+    internal Options CreateEngineOptions()
+    {
+        if (UntrustedCodeLimits is null)
+        {
+            return this;
+        }
+
+        var clone = (Options) MemberwiseClone();
+        clone._configurations = new List<EngineConfiguration>(_configurations);
+        clone.Constraints = Constraints.Clone();
+        clone.Parsing = Parsing.Clone();
+        clone.Interop = Interop.Clone();
+        clone.Debugger = Debugger.Clone();
+        clone.Host = Host.Clone();
+        clone.Modules = Modules.Clone();
+        clone.Json = new JsonOptions { MaxParseDepth = Json.MaxParseDepth };
+        OptionsExtensions.ApplyUntrustedCodeOptions(clone, UntrustedCodeLimits);
+        return clone;
     }
 
     private static void AttachExtensionMethodsToPrototypes(Engine engine)
@@ -394,6 +420,8 @@ public partial class Options
         /// Configures the step mode used when entering the script.
         /// </summary>
         public StepMode InitialStepMode { get; set; } = StepMode.None;
+
+        internal DebuggerOptions Clone() => (DebuggerOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -489,12 +517,12 @@ public partial class Options
         /// <summary>
         /// Types holding extension methods that should be considered when resolving methods.
         /// </summary>
-        public List<Type> ExtensionMethodTypes { get; } = new();
+        public List<Type> ExtensionMethodTypes { get; private set; } = new();
 
         /// <summary>
         /// Object converters to try when build-in conversions.
         /// </summary>
-        public List<IObjectConverter> ObjectConverters { get; } = new();
+        public List<IObjectConverter> ObjectConverters { get; private set; } = new();
 
         /// <summary>
         /// CLR types whose instances the host promises are immutable while they are exposed to the engine —
@@ -510,7 +538,7 @@ public partial class Options
         /// <see cref="TrackObjectWrapperIdentity"/> and a shared <see cref="TypeResolver"/> already describe,
         /// and owned by the host in exactly the same way. Read once, while the engine is being constructed.
         /// </remarks>
-        public List<Type> ImmutableCrossingTypes { get; } = new();
+        public List<Type> ImmutableCrossingTypes { get; private set; } = new();
 
         /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
@@ -789,6 +817,16 @@ public partial class Options
         internal static readonly ReportedPropertyKeysDelegate _defaultReportedPropertyKeys = static (_, _) => null;
 
         public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = _defaultReportedPropertyKeys;
+
+        internal InteropOptions Clone()
+        {
+            var clone = (InteropOptions) MemberwiseClone();
+            clone.ExtensionMethodTypes = new List<Type>(ExtensionMethodTypes);
+            clone.ObjectConverters = new List<IObjectConverter>(ObjectConverters);
+            clone.ImmutableCrossingTypes = new List<Type>(ImmutableCrossingTypes);
+            clone.AllowedAssemblies = new List<Assembly>(AllowedAssemblies);
+            return clone;
+        }
     }
 
     public class ConstraintOptions
@@ -804,14 +842,14 @@ public partial class Options
         /// (<see cref="OptionsExtensions.Constraint(Options, Func{Constraint})"/>) so each engine gets
         /// its own instance; the built-in constraint extension methods already do that.
         /// </remarks>
-        public List<Constraint> Constraints { get; } = new();
+        public List<Constraint> Constraints { get; private set; } = new();
 
         /// <summary>
         /// Registered constraint factories. Each engine built from these options invokes every factory
         /// exactly once while constructing, so the constraints — and the per-execution state they carry —
         /// belong to that engine alone.
         /// </summary>
-        internal List<Func<Constraint>> ConstraintFactories { get; } = new();
+        internal List<Func<Constraint>> ConstraintFactories { get; private set; } = new();
 
         internal int? RequestedMaxStatements { get; set; }
 
@@ -925,6 +963,14 @@ public partial class Options
         /// How many iterations is Atomics.pause allowed to instruct to wait using <see cref="System.Threading.Thread.SpinWait"/>, defaults to 10 000.
         /// </summary>
         public int MaxAtomicsPauseIterations { get; set; } = 10_000;
+
+        internal ConstraintOptions Clone()
+        {
+            var clone = (ConstraintOptions) MemberwiseClone();
+            clone.Constraints = new List<Constraint>(Constraints);
+            clone.ConstraintFactories = new List<Func<Constraint>>(ConstraintFactories);
+            return clone;
+        }
     }
 
     /// <summary>
@@ -948,6 +994,8 @@ public partial class Options
         /// <see langword="null"/> (the default) means no limit.
         /// </summary>
         public int? MaxNodeCount { get; set; }
+
+        internal ParsingOptions Clone() => (ParsingOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -955,7 +1003,9 @@ public partial class Options
     /// </summary>
     public class HostOptions
     {
-        internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
+        internal static readonly Func<Engine, Host> _defaultFactory = static _ => new Host();
+
+        internal Func<Engine, Host> Factory { get; set; } = _defaultFactory;
 
         /// <summary>
         /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
@@ -983,6 +1033,8 @@ public partial class Options
         internal static readonly Func<Function, Node, string?> _defaultFunctionToStringHandler = static (_, _) => null;
 
         public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = _defaultFunctionToStringHandler;
+
+        internal HostOptions Clone() => (HostOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1055,6 +1107,8 @@ public partial class Options
         /// <see cref="JintException.TryGetClrException"/>.
         /// </summary>
         public bool ExposeDetailedLoadErrors { get; set; }
+
+        internal ModuleOptions Clone() => (ModuleOptions) MemberwiseClone();
     }
 
     /// <summary>

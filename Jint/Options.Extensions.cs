@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -16,6 +18,134 @@ namespace Jint;
 /// </summary>
 public static class OptionsExtensions
 {
+    /// <summary>
+    /// Configures the engine to run untrusted JavaScript with a hardened static surface and explicit,
+    /// request-appropriate resource limits.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The profile disables CLR namespace and reflection access, registered extension methods, module loading,
+    /// debugger handling, agent suspension, writes through projected CLR objects, live CLR array views and
+    /// dynamic string compilation. It also enables the native stack-overflow guard.
+    /// </para>
+    /// <para>
+    /// Every resource limit is required through <paramref name="limits"/>; there are no universal defaults
+    /// suitable for every workload. Per-entry limits are enforced automatically. A host operation made from
+    /// several entries must additionally be enclosed in
+    /// <see cref="UntrustedCodeLimits.BeginOperation(Engine, System.Threading.CancellationToken)"/>.
+    /// </para>
+    /// <para>
+    /// The profile declaration is immutable engine input: each engine receives a private effective options
+    /// snapshot, applies the profile before construction, and reapplies it after user construction callbacks.
+    /// The source <see cref="Options"/> remains unchanged and can be shared by concurrently constructed engines.
+    /// User callbacks remain visible to security diagnostics but cannot reopen profile-controlled settings.
+    /// </para>
+    /// </remarks>
+    /// <param name="options">Options to harden.</param>
+    /// <param name="limits">Finite limits chosen for the host request and workload.</param>
+    /// <returns>The options instance for fluent configuration.</returns>
+    public static Options ForUntrustedCode(this Options options, UntrustedCodeLimits limits)
+    {
+        if (limits is null)
+        {
+            Throw.ArgumentNullException(nameof(limits));
+        }
+
+        options.UntrustedCodeLimits = limits;
+        return options;
+    }
+
+    internal static void ApplyUntrustedCodeOptions(Options options, UntrustedCodeLimits limits)
+    {
+        options.UntrustedCodeLimits = limits;
+        options.Constraints.Constraints.Clear();
+        options.Constraints.ConstraintFactories.Clear();
+        options.Constraints.RequestedMaxStatements = null;
+        options.Constraints.RequestedMemoryLimit = null;
+        options.Constraints.RequestedTimeoutInterval = null;
+        options.Constraints.CancellationConstraintRequested = false;
+        options.Constraints.OperationDeadlineConstraintRequested = false;
+
+        options.Interop.Enabled = false;
+        options.Interop.AllowedAssemblies = [];
+        options.Interop.AllowGetType = false;
+        options.Interop.AllowSystemReflection = false;
+        options.Interop.AllowWrite = false;
+        options.Interop.AllowOperatorOverloading = false;
+        options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+        options.Interop.ExtensionMethodTypes.Clear();
+        options.Interop.ObjectConverters.Clear();
+        options.Interop.ImmutableCrossingTypes.Clear();
+        options.Interop.WrapObjectHandler = Options.InteropOptions._defaultWrapObjectHandler;
+        options.Interop.MemberAccessor = Options.InteropOptions._defaultMemberAccessor;
+        options.Interop.ExceptionHandler = Options.InteropOptions._defaultExceptionHandler;
+        options.Interop.BuildCallStackHandler = null;
+        options.Interop.SerializeToJson = null;
+        options.Interop.CreateClrObject = Options.InteropOptions._defaultCreateClrObject;
+        options.Interop.CreateTypeReferenceObject = Options.InteropOptions._defaultCreateTypeReferenceObject;
+        options.Interop.ObjectWrapperReportedPropertyKeys = Options.InteropOptions._defaultReportedPropertyKeys;
+        options.Interop.ExposeDetailedExceptionMessages = false;
+        options.Interop.ExposeDetailedResolutionErrors = false;
+        options.Interop.ChainClrExceptionAsInnerException = false;
+        options.Interop.ClrExceptionErrorDecorator = null;
+        options.Interop.ClrResolutionErrorDecorator = null;
+        options.Interop.ObjectWrapperReportedFieldBindingFlags = BindingFlags.Instance | BindingFlags.Public;
+        options.Interop.ObjectWrapperReportedPropertyBindingFlags = BindingFlags.Instance | BindingFlags.Public;
+        options.Interop.ObjectWrapperReportedMethodBindingFlags =
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
+
+        options.Modules.ModuleLoader = FailFastModuleLoader.Instance;
+        options.Modules.RegisterRequire = false;
+        options.Modules.MaxModuleCount = limits.MaxModuleCount;
+        options.Modules.MaxTotalModuleSourceBytes = limits.MaxTotalModuleSourceBytes;
+        options.Modules.MaxModuleGraphDepth = limits.MaxModuleGraphDepth;
+        options.Modules.MaxModuleResolutionHops = limits.MaxModuleResolutionHops;
+        options.Modules.LoadPolicy = null;
+        options.Modules.ExposeDetailedLoadErrors = false;
+
+        options.Debugger.Enabled = false;
+        options.Debugger.StatementHandling = Runtime.Debugger.DebuggerStatementHandling.Ignore;
+        options.Debugger.InitialStepMode = StepMode.None;
+
+        options.AgentCanSuspend = false;
+        options.ExperimentalFeatures = ExperimentalFeature.None;
+        options.RetainFunctionSourceText = false;
+        options.Host.StringCompilationAllowed = false;
+        options.Host.Factory = Options.HostOptions._defaultFactory;
+        options.Host.FunctionToStringHandler = Options.HostOptions._defaultFunctionToStringHandler;
+        options.ReferenceResolver = DefaultReferenceResolver.Instance;
+        options.ReferenceResolverInterests = ReferenceResolverInterests.None;
+        options.Constraints.MaxExecutionStackCount = StackGuard.Disabled;
+        options.Constraints.StackOverflowGuard = true;
+        options.Constraints.CancellationConstraintRequested = true;
+        options.Parsing.MaxSourceLength = limits.MaxSourceLength;
+        options.Parsing.MaxNodeCount = limits.MaxNodeCount;
+        options.ResultLimits = limits.ResultLimits;
+
+        options.LimitRecursion(limits.MaxRecursionDepth);
+        options.MaxArraySize(limits.MaxArraySize);
+        options.RegexTimeoutInterval(limits.RegexTimeout);
+        options.Constraints.PromiseTimeout = limits.PromiseTimeout;
+
+        options.TimeoutInterval(limits.TimeoutInterval);
+        options.MaxStatements(limits.MaxStatements);
+        options.LimitMemory(limits.MemoryLimit);
+        options.Constraint(static () => new OperationDeadlineConstraint());
+    }
+
+    internal static void ReapplyUntrustedCodeOptions(
+        Options options,
+        Engine engine,
+        UntrustedCodeLimits limits)
+    {
+        ApplyUntrustedCodeOptions(options, limits);
+        engine.TypeConverter = new DefaultTypeConverter(engine);
+        engine.Constraints.Find<MaxStatementsConstraint>()!.MaxStatements = limits.MaxStatements;
+        engine.Constraints.Find<MemoryLimitConstraint>()!.End();
+        engine.Constraints.Find<OperationDeadlineConstraint>()!.End();
+        engine.Modules = new Engine.ModuleOperations(engine, FailFastModuleLoader.Instance);
+    }
+
     /// <summary>
     /// Run the script in strict mode.
     /// </summary>

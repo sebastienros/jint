@@ -64,6 +64,8 @@ namespace Jint.Constraints;
 /// </remarks>
 public sealed class OperationDeadlineConstraint : Constraint
 {
+    private static readonly object _endingScope = new();
+
     // No operation is in flight, so the deadline half of Check never fails. Mirrors TimeConstraint's
     // not-started sentinel, and is also what a non-positive budget arms.
     private const long Disarmed = 0;
@@ -72,6 +74,7 @@ public sealed class OperationDeadlineConstraint : Constraint
     private long _deadline;
 
     private CancellationToken _cancellationToken;
+    private object? _scopeOwner;
 
     /// <summary>
     /// A deadline and a cancellation token are both external state that <see cref="Check"/> only reads and
@@ -135,6 +138,26 @@ public sealed class OperationDeadlineConstraint : Constraint
     {
         _deadline = Disarmed;
         _cancellationToken = default;
+    }
+
+    internal bool TryBeginScope(object owner, TimeSpan budget, CancellationToken cancellationToken)
+    {
+        if (Interlocked.CompareExchange(ref _scopeOwner, owner, null) is not null)
+        {
+            return false;
+        }
+
+        Begin(budget, cancellationToken);
+        return true;
+    }
+
+    internal void EndScope(object owner)
+    {
+        if (ReferenceEquals(Interlocked.CompareExchange(ref _scopeOwner, _endingScope, owner), owner))
+        {
+            End();
+            Volatile.Write(ref _scopeOwner, null);
+        }
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Text;
 using Jint.Constraints;
 using Jint.Runtime;
@@ -34,7 +35,10 @@ internal readonly record struct EngineSecurityConfigurationSnapshot(
     int MaxExecutionStackCount,
     bool ClrCompatibilityMode,
     bool ClrPolicyUnrestricted,
-    bool ExtensionMethodsConfigured)
+    bool ExtensionMethodsConfigured,
+    bool OperatorOverloadingAllowed,
+    bool NonPublicBindingFlags,
+    bool UntrustedProfileApplied)
 {
     internal static EngineSecurityConfigurationSnapshot Capture(Engine engine)
     {
@@ -56,7 +60,12 @@ internal readonly record struct EngineSecurityConfigurationSnapshot(
             interop.Enabled && ReferenceEquals(interop.TypeResolver, TypeResolver.Default),
             !ReferenceEquals(
                 engine._extensionMethods,
-                Runtime.Interop.Reflection.ExtensionMethodCache.Empty));
+                Runtime.Interop.Reflection.ExtensionMethodCache.Empty),
+            engine._operatorOverloadingAllowed,
+            (interop.ObjectWrapperReportedFieldBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
+                || (interop.ObjectWrapperReportedPropertyBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
+                || (interop.ObjectWrapperReportedMethodBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default,
+            engine._untrustedCodeLimits is not null);
     }
 }
 
@@ -134,6 +143,8 @@ public static class SecurityDiagnosticCodes
     public const string LiveClrArrayWritesEnabled = "JINTSEC055";
     public const string ModuleAllowlistInsufficient = "JINTSEC056";
     public const string ClrExtensionMethodsConfigured = "JINTSEC057";
+    public const string ClrOperatorOverloadingEnabled = "JINTSEC058";
+    public const string NonPublicClrMembersEnabled = "JINTSEC059";
 }
 
 /// <summary>
@@ -225,7 +236,7 @@ public static class OptionsSecurityExtensions
         SecurityConfigurationPolicy policy = SecurityConfigurationPolicy.UntrustedScripts)
     {
         ArgumentNull(options, nameof(options));
-        return CreateReport(CreateOptionsDiagnostics(options!, policy));
+        return CreateReport(CreateOptionsDiagnostics(options!.CreateEngineOptions(), policy));
     }
 
     /// <summary>
@@ -239,8 +250,9 @@ public static class OptionsSecurityExtensions
         ArgumentNull(options, nameof(options));
         ArgumentNull(parsingOptions, nameof(parsingOptions));
 
+        var effectiveOptions = options!.CreateEngineOptions();
         var diagnostics = CreateOptionsDiagnostics(
-            options!,
+            effectiveOptions,
             policy,
             includeParsing: false,
             includeEngineRegex: !parsingOptions!.RegexTimeout.HasValue);
@@ -251,8 +263,8 @@ public static class OptionsSecurityExtensions
 
         var limits = parsingOptions as IParsingLimitOptions;
         AddParsing(
-            Minimum(options.Parsing.MaxSourceLength, limits?.MaxSourceLength),
-            Minimum(options.Parsing.MaxNodeCount, limits?.MaxNodeCount),
+            Minimum(effectiveOptions.Parsing.MaxSourceLength, limits?.MaxSourceLength),
+            Minimum(effectiveOptions.Parsing.MaxNodeCount, limits?.MaxNodeCount),
             parsingOptions.RetainFunctionSourceText,
             diagnostics);
         return CreateReport(diagnostics);
@@ -319,7 +331,10 @@ public static class OptionsSecurityExtensions
             engineSnapshot: engine._securityConfigurationSnapshot,
             effectiveModuleLoader: engine.Modules.ModuleLoader);
         diagnostics.RemoveAll(static diagnostic => IsConstraintCode(diagnostic.Code));
-        AddEffectiveConstraints(engine.ActiveConstraintsForSecurityDiagnostics, diagnostics);
+        AddEffectiveConstraints(
+            engine.ActiveConstraintsForSecurityDiagnostics,
+            engine._securityConfigurationSnapshot.UntrustedProfileApplied,
+            diagnostics);
         return CreateReport(diagnostics);
     }
 
@@ -454,6 +469,7 @@ public static class OptionsSecurityExtensions
 
     private static void AddEffectiveConstraints(
         Constraint[] constraints,
+        bool untrustedProfileApplied,
         List<SecurityDiagnostic> diagnostics)
     {
         var hasStatements = false;
@@ -491,7 +507,7 @@ public static class OptionsSecurityExtensions
                 "Register a positive finite TimeConstraint.");
         }
 
-        if (!hasCancellation)
+        if (!hasCancellation && !untrustedProfileApplied)
         {
             Error(diagnostics, SecurityDiagnosticCodes.CancellationMissing,
                 "The constructed engine has no cancellation constraint.",
@@ -677,6 +693,20 @@ public static class OptionsSecurityExtensions
                 "Remove extension methods from untrusted engines or audit every exposed method as a host capability.");
         }
 
+        if (engineSnapshot?.OperatorOverloadingAllowed ?? interop.AllowOperatorOverloading)
+        {
+            Error(diagnostics, SecurityDiagnosticCodes.ClrOperatorOverloadingEnabled,
+                "CLR operator overloads can execute host methods.",
+                "Disable Interop.AllowOperatorOverloading for untrusted engines.");
+        }
+
+        if (engineSnapshot?.NonPublicBindingFlags ?? HasNonPublicBindingFlags(interop))
+        {
+            Error(diagnostics, SecurityDiagnosticCodes.NonPublicClrMembersEnabled,
+                "CLR member binding flags include non-public members.",
+                "Use public instance fields/properties and public instance/static methods only.");
+        }
+
         if (engineSnapshot?.ClrCompatibilityMode
             ?? (interop.Enabled && interop.ClrAccessConfiguration == ClrAccessConfiguration.Compatibility))
         {
@@ -716,6 +746,11 @@ public static class OptionsSecurityExtensions
                 "Disable debug mode, debugger statements, and initial stepping.");
         }
     }
+
+    private static bool HasNonPublicBindingFlags(Options.InteropOptions interop)
+        => (interop.ObjectWrapperReportedFieldBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
+            || (interop.ObjectWrapperReportedPropertyBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
+            || (interop.ObjectWrapperReportedMethodBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default;
 
     private static void AddModules(
         Options options,
