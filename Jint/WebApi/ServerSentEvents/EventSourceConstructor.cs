@@ -20,9 +20,11 @@ namespace Jint.WebApi.ServerSentEvents;
 /// <c>EventSource</c> inherits from <c>EventTarget</c>, so its <c>[[Prototype]]</c> is the <c>EventTarget</c>
 /// interface object and <c>source instanceof EventTarget</c> holds. The three readyState constants appear
 /// here as well as on the prototype, per https://webidl.spec.whatwg.org/#es-constants, with the attributes
-/// constants are given there: <c>{ writable: false, enumerable: true, configurable: false }</c>.
+/// constants are given there: <c>{ writable: false, enumerable: true, configurable: false }</c>. That section
+/// defines them one after another in the order the IDL declares them, and that order is observable, so they
+/// are declared below in it and <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class EventSourceConstructor : Constructor
 {
     private static readonly JsString _functionName = new("EventSource");

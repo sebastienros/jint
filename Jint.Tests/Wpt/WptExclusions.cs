@@ -51,9 +51,13 @@ internal enum WptDivergence
 
     /// <summary>
     /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
-    /// here is a bug or a specification detail to chase, and this phase of the harness work deliberately
-    /// records them rather than fixing them: the point of standing the suites up was to find out what they
-    /// say, and mixing engine fixes into the change that first ran them would hide which of the two moved.
+    /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
+    /// suites up deliberately recorded them rather than fixing them: the point was to find out what they
+    /// say, and mixing engine fixes into the change that first ran them would have hidden which of the two
+    /// moved. The four it recorded — WebIDL constant order, <c>TextDecoder.decode()</c> reading its input
+    /// before the options dictionary was converted, and the shared UTF-16 decoder's end-of-queue step for
+    /// both endiannesses — were fixed by https://github.com/sebastienros/jint/issues/3121, so nothing is
+    /// filed here today.
     /// </summary>
     NeedsTriage,
 }

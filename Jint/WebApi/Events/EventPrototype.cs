@@ -25,8 +25,13 @@ namespace Jint.WebApi.Events;
 /// the constants <i>are</i> enumerable, as they should be. Nothing but code inspecting property attributes can
 /// observe the difference.
 /// </para>
+/// <para>
+/// https://webidl.spec.whatwg.org/#es-constants defines the constants one after another in the order the IDL
+/// declares them, and that order is observable, so they are declared below in it and
+/// <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
+/// </para>
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class EventPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

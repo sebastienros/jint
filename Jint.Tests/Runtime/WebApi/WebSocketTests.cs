@@ -997,6 +997,11 @@ public class WebSocketTests
         engine.Evaluate("[WebSocket.prototype.CONNECTING, WebSocket.prototype.OPEN, WebSocket.prototype.CLOSING, WebSocket.prototype.CLOSED].join(',')")
             .AsString().Should().Be("0,1,2,3");
 
+        // … and in the order the IDL declares them, which is the order that section defines them in and the
+        // one a record conversion over the interface object reads.
+        engine.Evaluate("Object.keys(WebSocket).join(',')").AsString()
+            .Should().Be("CONNECTING,OPEN,CLOSING,CLOSED");
+
         // https://webidl.spec.whatwg.org/#es-constants — { writable: false, enumerable: true, configurable: false }
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(WebSocket, 'OPEN')");
         descriptor.Get("writable").AsBoolean().Should().BeFalse();

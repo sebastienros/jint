@@ -23,10 +23,12 @@ namespace Jint.WebApi.DomException;
 /// <para>
 /// The 25 legacy constants appear on both this object and the interface object, per
 /// https://webidl.spec.whatwg.org/#es-constants, with the attributes constants are given there:
-/// <c>{ writable: false, enumerable: true, configurable: false }</c>.
+/// <c>{ writable: false, enumerable: true, configurable: false }</c>. They are declared — and, thanks to
+/// <c>PreserveDeclarationOrder</c>, enumerate — in the order the IDL declares them, which is the order that
+/// section defines them in and the one the interface object is read in.
 /// </para>
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class DomExceptionPrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

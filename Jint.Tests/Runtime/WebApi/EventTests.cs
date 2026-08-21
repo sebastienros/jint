@@ -100,6 +100,11 @@ public class EventTests
         engine.Evaluate("[Event.prototype.NONE, Event.prototype.CAPTURING_PHASE, Event.prototype.AT_TARGET, Event.prototype.BUBBLING_PHASE].join(',')")
             .AsString().Should().Be("0,1,2,3");
 
+        // … and in the order the IDL declares them, which that section defines them in and which the record
+        // conversion behind `new URLSearchParams(Event)` reads through [[OwnPropertyKeys]].
+        engine.Evaluate("Object.keys(Event).join(',')").AsString()
+            .Should().Be("NONE,CAPTURING_PHASE,AT_TARGET,BUBBLING_PHASE");
+
         // https://webidl.spec.whatwg.org/#es-constants: { writable: false, enumerable: true, configurable: false }.
         var descriptor = "Object.getOwnPropertyDescriptor(Event, 'AT_TARGET')";
         engine.Evaluate($"{descriptor}.writable").AsBoolean().Should().BeFalse();

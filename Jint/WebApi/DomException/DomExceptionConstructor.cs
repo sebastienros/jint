@@ -25,10 +25,13 @@ namespace Jint.WebApi.DomException;
 /// </para>
 /// <para>
 /// The 25 legacy constants appear here as well as on the prototype, per
-/// https://webidl.spec.whatwg.org/#es-constants.
+/// https://webidl.spec.whatwg.org/#es-constants, which defines them one after another in the order the IDL
+/// declares them. That order is observable — a record conversion over the interface object reads
+/// <c>[[OwnPropertyKeys]]</c> — so the declarations below are in it and
+/// <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
 /// </para>
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class DomExceptionConstructor : Constructor
 {
     private static readonly JsString _functionName = new("DOMException");

@@ -281,6 +281,37 @@ public class EncodingTests
     }
 
     [Fact]
+    public void CopiesTheInputOnlyOnceTheOptionsDictionaryHasBeenConverted()
+    {
+        var engine = WebEngine();
+
+        // WebIDL converts both arguments before the operation runs, and
+        // https://encoding.spec.whatwg.org/#dom-textdecoder-decode step 3 then pushes "a copy of input" onto
+        // the I/O queue — so a `stream` getter that detaches the buffer during the dictionary conversion
+        // leaves nothing to decode: https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy step 5 makes
+        // a detached buffer source the empty byte sequence. Mirrors "TextDecoder decode() with array buffer
+        // detached during arg conversion" in web-platform-tests encoding/textdecoder-arguments.any.js.
+        engine.Evaluate("""
+            const decoder = new TextDecoder();
+            const arr = new Uint8Array(10000).fill(42);
+            const result = decoder.decode(arr, { get stream() { arr.buffer.transfer(0); return false; } });
+            """);
+
+        engine.Evaluate("result").AsString().Should().Be("");
+
+        // The getter still runs, and its answer is still the `stream` option.
+        engine.Evaluate("""
+            const other = new TextDecoder();
+            const bytes = new Uint8Array([0x61, 0xE2, 0x82]);
+            const streamed = other.decode(bytes, { get stream() { bytes.buffer.transfer(0); return true; } });
+            const flushed = other.decode();
+            """);
+
+        engine.Evaluate("streamed").AsString().Should().Be("");
+        engine.Evaluate("flushed").AsString().Should().Be("");
+    }
+
+    [Fact]
     public void RefusesAnInputThatIsNotABufferSource()
     {
         var engine = WebEngine();
@@ -343,6 +374,27 @@ public class EncodingTests
 
         engine.Evaluate("new TextDecoder('utf-16le').decode(new Uint8Array([0x00, 0xD8, 0x61, 0x00])).charCodeAt(0)")
             .AsNumber().Should().Be(0xFFFD);
+    }
+
+    [Fact]
+    public void EndsAUtf16QueueWithOneReplacementHoweverMuchIsPending()
+    {
+        var engine = WebEngine();
+
+        // https://encoding.spec.whatwg.org/#shared-utf-16-decoder, the end-of-queue step: "If UTF-16 lead
+        // byte is non-null or UTF-16 lead surrogate is non-null, set UTF-16 lead byte and UTF-16 lead
+        // surrogate to null, and return error" — one error however many of the two are pending. Mirrors the
+        // "utf-16{le,be} does not produce more chars than truncated" rows of
+        // web-platform-tests encoding/textdecoder-mistakes.any.js.
+        engine.Evaluate("new TextDecoder('utf-16le').decode(new Uint8Array([0, 0, 0]))").AsString().Should().Be("\0�");
+        engine.Evaluate("new TextDecoder('utf-16le').decode(new Uint8Array([42, 0, 0]))").AsString().Should().Be("*�");
+        engine.Evaluate("new TextDecoder('utf-16le').decode(new Uint8Array([0, 0xd8, 0]))").AsString().Should().Be("�");
+        engine.Evaluate("new TextDecoder('utf-16le').decode(new Uint8Array([0, 0xd8, 0xd8]))").AsString().Should().Be("�");
+
+        engine.Evaluate("new TextDecoder('utf-16be').decode(new Uint8Array([0, 0, 0]))").AsString().Should().Be("\0�");
+        engine.Evaluate("new TextDecoder('utf-16be').decode(new Uint8Array([0, 42, 0]))").AsString().Should().Be("*�");
+        engine.Evaluate("new TextDecoder('utf-16be').decode(new Uint8Array([0xd8, 0, 0]))").AsString().Should().Be("�");
+        engine.Evaluate("new TextDecoder('utf-16be').decode(new Uint8Array([0xd8, 0, 0xd8]))").AsString().Should().Be("�");
     }
 
     #endregion
