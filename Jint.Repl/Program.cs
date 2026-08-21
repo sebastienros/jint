@@ -16,6 +16,7 @@ using Jint.Runtime.Modules;
 string? inputFile = null;
 int? timeoutSeconds = null;
 bool runAsModule = false;
+bool enableFetch = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -50,6 +51,9 @@ for (int i = 0; i < args.Length; i++)
         case "-m" or "--module":
             runAsModule = true;
             break;
+        case "--fetch":
+            enableFetch = true;
+            break;
         case "-h" or "--help":
             PrintHelp();
             return 0;
@@ -72,12 +76,21 @@ var engine = new Engine(cfg =>
     cfg.AllowClr();
     cfg.UseConsole(Console.Out);
 
-    // Timers, so a script pasted from the web behaves. Note that the REPL pumps the event loop only as part
-    // of evaluating each input, so a timer fires on the evaluation it is already due for or on a later one —
-    // a `setTimeout(f, 1000)` typed at the prompt runs f on the next line you enter, and one scheduled by a
-    // `-f script.js` run that outlives the script never runs at all. That is the engine's contract, not a
-    // REPL limitation: nothing anywhere in Jint pumps an engine on its own.
-    cfg.UseWebApis(WebApiFeatures.Timers);
+    // The whole non-network web-API surface, so a script pasted from the web behaves. Note that the REPL
+    // pumps the event loop only as part of evaluating each input, so a timer fires on the evaluation it is
+    // already due for or on a later one — a `setTimeout(f, 1000)` typed at the prompt runs f on the next line
+    // you enter, and one scheduled by a `-f script.js` run that outlives the script never runs at all. That
+    // is the engine's contract, not a REPL limitation: nothing anywhere in Jint pumps an engine on its own.
+    cfg.UseWebApis(WebApiFeatures.Default);
+
+    // Outbound network access is a named grant even here. `WebApiFeatures.Default` never includes fetch, and
+    // a demo tool is no reason to hand a pasted script the host process's network position, so it takes
+    // `--fetch` on the command line and nothing less.
+    if (enableFetch)
+    {
+        cfg.UseFetch();
+    }
+
     if (timeoutSeconds.HasValue)
     {
         cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));
@@ -300,13 +313,24 @@ static void PrintHelp()
     Console.WriteLine("  -f, --file <path>     Execute JavaScript file");
     Console.WriteLine("  -m, --module          Run script as ES6 module");
     Console.WriteLine("  -t, --timeout <secs>  Set execution timeout in seconds");
+    Console.WriteLine("      --fetch           Allow the script to make network requests");
     Console.WriteLine("  -h, --help            Show this help message");
+    Console.WriteLine();
+    Console.WriteLine("Web APIs:");
+    Console.WriteLine("  console, timers, TextEncoder/TextDecoder, atob/btoa, structuredClone, crypto,");
+    Console.WriteLine("  performance, Event/AbortController, URL, Blob/File/FormData, navigator, streams,");
+    Console.WriteLine("  compression, scheduler, requestIdleCallback, messaging, reportError and the global");
+    Console.WriteLine("  error events are all on - WebApiFeatures.Default, the same set UseWebApis() gives.");
+    Console.WriteLine("  fetch is NOT: outbound network access stays a grant you name, even in a demo tool,");
+    Console.WriteLine("  because it hands a pasted script this process's network position. Pass --fetch to");
+    Console.WriteLine("  turn it on. localStorage and caches are off too - they outlive the evaluation.");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  jint                          Start interactive REPL");
     Console.WriteLine("  jint script.js                Execute script.js");
     Console.WriteLine("  jint -m module.js             Execute module.js as ES6 module");
     Console.WriteLine("  jint -f script.js -t 10       Execute with 10 second timeout");
+    Console.WriteLine("  jint -f script.js --fetch     Execute with network access enabled");
     Console.WriteLine("  echo \"1+1\" | jint             Execute from stdin");
     Console.WriteLine("  echo \"1+1\" | jint -t 5        Execute from stdin with timeout");
 }
