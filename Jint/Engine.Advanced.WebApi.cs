@@ -1,12 +1,13 @@
 #if NET8_0_OR_GREATER
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Runtime;
-using Jint.WebApi;
+using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Messaging;
+using Jint.WebApi;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Jint;
 
@@ -382,6 +383,107 @@ public partial class Engine
             }
 
             return state;
+        }
+
+        /// <summary>
+        /// Creates an <c>AbortSignal</c> that aborts when <paramref name="cancellationToken"/> is cancelled, so
+        /// that a host's own cancellation reaches the script's <c>fetch</c>, <c>scheduler.postTask</c>,
+        /// <c>addEventListener('abort', …)</c> and anything else that takes a signal.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The bridge is one-way. Cancelling the token aborts the signal; nothing a script does to the signal
+        /// can cancel the host's token, and there is deliberately no controller for it — a signal produced here
+        /// is the host's to abort, and script's only to observe.
+        /// </para>
+        /// <para>
+        /// <b>The abort is observed only while the engine is pumped.</b> Cancelling a
+        /// <see cref="CancellationTokenSource"/> runs its registrations on the cancelling thread, and aborting
+        /// a signal dispatches a JavaScript <c>abort</c> event — which is script, and Jint runs script on the
+        /// thread that calls into it and on no other. So the registration this method installs never aborts
+        /// anything itself: it enqueues an event-loop job, and the abort happens when that job runs. That is
+        /// the same contract <c>setTimeout</c> and <c>AbortSignal.timeout()</c> have, and it means a host that
+        /// cancels a token and never pumps again has a signal that stays unaborted. Pump — through
+        /// <see cref="ProcessTasks"/>, a blocking <c>UnwrapIfPromise</c>, or an <c>EvaluateAsync</c> that is
+        /// still running — for the cancellation to land.
+        /// </para>
+        /// <para>
+        /// <b>A token that is already cancelled produces an already-aborted signal, synchronously.</b> There is
+        /// no job and no pump involved: this method runs on the engine's own thread, which is the only thread
+        /// that may abort a signal, and doing it here is what lets
+        /// <c>fetch(url, { signal })</c> reject immediately instead of issuing a request it would have to
+        /// cancel. The reason is the standard's default, a <c>DOMException</c> named <c>AbortError</c>, in both
+        /// cases.
+        /// </para>
+        /// <para>
+        /// <b>Lifetime.</b> The registration is released as soon as the abort lands, when
+        /// <see cref="RestoreGlobalSnapshot"/> ends the evaluation cycle the signal was created in, and when
+        /// the engine is disposed — so a long-lived host token (a web request's, an application lifetime's)
+        /// does not accumulate registrations, and does not retain a finished engine. A signal created before a
+        /// restore therefore never aborts into the restored engine, exactly as a timer scheduled before one
+        /// never fires: it belongs to a cycle that has ended.
+        /// </para>
+        /// <para>
+        /// The signal belongs to the engine's <b>principal</b> realm, like every other web API Jint installs; a
+        /// <c>ShadowRealm</c> has none of them.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
+        ///
+        /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        /// engine.SetValue("hostSignal", engine.Advanced.CreateAbortSignal(cts.Token));
+        ///
+        /// engine.Execute("hostSignal.addEventListener('abort', () => cleanUp())");
+        /// </code>
+        /// </example>
+        /// <param name="cancellationToken">
+        /// The host's token. <see cref="CancellationToken.None"/> — and any other token that can never be
+        /// cancelled — yields a signal that can never abort, and registers nothing.
+        /// </param>
+        /// <returns>The <c>AbortSignal</c>, ready to hand to script.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// This engine did not enable <see cref="WebApiFeatures.Events"/>, which is the feature
+        /// <c>AbortSignal</c> belongs to.
+        /// </exception>
+        public JsValue CreateAbortSignal(CancellationToken cancellationToken)
+        {
+            var engine = _engine;
+
+            // The state is built for every feature that keeps any, Events among them, so a null field settles
+            // the question without asking the options — which matters because Options may be shared by other
+            // engines being built right now, and its web-API group is allocated on first touch.
+            if (engine._webApi is null || (engine.Options.WebApi.Features & WebApiFeatures.Events) == WebApiFeatures.None)
+            {
+                Throw.InvalidOperationException(
+                    "Engine.Advanced.CreateAbortSignal requires the WebApiFeatures.Events web API, which this engine did not enable. Build the engine with options.UseWebApis(WebApiFeatures.Events) — or any feature set that includes it, such as WebApiFeatures.Default.");
+            }
+
+            // The principal realm, deliberately, and not Engine.Realm: that one follows the running execution
+            // context and would hand back a ShadowRealm's intrinsics when called from inside one. A host
+            // bridging its own cancellation means the engine's own realm, which is the only one these APIs are
+            // installed in.
+            var constructor = engine._mainRealm.Intrinsics.AbortSignal;
+            var signal = constructor.CreateSignal();
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // Safe without a job: this runs on the engine's thread, because a host calling into the engine
+                // is the engine's thread by definition.
+                signal.SignalAbort(constructor.DefaultedReason(JsValue.Undefined));
+                return signal;
+            }
+
+            if (cancellationToken.CanBeCanceled)
+            {
+                // The state exists because the Events feature was checked above, and that is one of the
+                // features WebApiRegistration builds it for.
+                var bridge = new HostAbortSignalBridge(engine, constructor, signal, cancellationToken);
+                engine._webApi!.AddHostAbortBridge(bridge);
+            }
+
+            return signal;
         }
     }
 }

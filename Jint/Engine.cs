@@ -2823,6 +2823,13 @@ public sealed partial class Engine : IDisposable
         _recentObjectWrapperCache?.Clear();
         _recentObjectWrapperCache = null;
 
+#if NET8_0_OR_GREATER
+        // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and
+        // the token may well outlive it — an application-lifetime token would otherwise keep every engine it
+        // was ever handed to reachable.
+        _webApi?.Dispose();
+#endif
+
         if (_objectWrapperCache is null)
         {
             return;
