@@ -4,11 +4,16 @@ namespace Jint;
 
 public readonly struct Prepared<TProgram> where TProgram : Program
 {
-    internal Prepared(TProgram program, ParserOptions parserOptions, ReferencedGlobals? referencedGlobals = null)
+    internal Prepared(
+        TProgram program,
+        ParserOptions parserOptions,
+        ReferencedGlobals? referencedGlobals = null,
+        ParsingConstraints parsingConstraints = default)
     {
         Program = program;
         ParserOptions = parserOptions;
         ReferencedGlobals = referencedGlobals;
+        ParsingConstraints = parsingConstraints;
     }
 
     public TProgram? Program { get; }
@@ -26,6 +31,8 @@ public readonly struct Prepared<TProgram> where TProgram : Program
     /// </para>
     /// </summary>
     public ReferencedGlobals? ReferencedGlobals { get; }
+
+    internal ParsingConstraints ParsingConstraints { get; }
 
     [MemberNotNullWhen(true, nameof(Program))]
     [MemberNotNullWhen(true, nameof(ParserOptions))]

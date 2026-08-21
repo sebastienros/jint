@@ -57,6 +57,7 @@ public sealed class ModuleLoadCompletion
     /// </summary>
     private readonly Realm _realm;
     private readonly MemoryLimitConstraint.OperationState? _memoryState;
+    private readonly ParsingConstraints _parsingConstraints;
 
     private readonly List<Waiter> _waiters = new();
     private int _settled;
@@ -81,6 +82,7 @@ public sealed class ModuleLoadCompletion
         _generation = Engine.EventLoopGeneration;
         _realm = Engine.Realm;
         _memoryState = Engine.CaptureMemoryLimitState();
+        _parsingConstraints = Engine.GetActiveParsingConstraints();
     }
 
     /// <summary>The engine the module is being loaded for.</summary>
@@ -104,7 +106,7 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(code));
         }
 
-        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, code)));
+        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, code, _parsingConstraints)));
     }
 
     /// <summary>
@@ -118,7 +120,7 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(bytes));
         }
 
-        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, bytes)));
+        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, bytes, _parsingConstraints)));
     }
 
     /// <summary>
@@ -151,6 +153,12 @@ public sealed class ModuleLoadCompletion
         if (exception is null)
         {
             Throw.ArgumentNullException(nameof(exception));
+        }
+
+        if (exception is ParsingLimitException)
+        {
+            Settle(() => Propagate(exception));
+            return;
         }
 
         // A JavaScriptException already carries the error value the host wants raised — and travels along so
@@ -200,6 +208,8 @@ public sealed class ModuleLoadCompletion
 
     private void Build(Func<Module> build)
     {
+        var previousParsingConstraints = Engine._parsingConstraintsOverride;
+        Engine._parsingConstraintsOverride = _parsingConstraints;
         var enteredRealm = EnterLoadRealm();
         try
         {
@@ -254,6 +264,7 @@ public sealed class ModuleLoadCompletion
                 // keeps propagating — but the load must not stay registered as in flight, or a later import
                 // of the same specifier would attach to a completion that can never settle.
                 _modules.RemovePendingLoad(_cacheKey);
+                _waiters.Clear();
                 throw;
             }
 
@@ -262,6 +273,7 @@ public sealed class ModuleLoadCompletion
         finally
         {
             LeaveLoadRealm(enteredRealm);
+            Engine._parsingConstraintsOverride = previousParsingConstraints;
         }
     }
 
@@ -273,10 +285,18 @@ public sealed class ModuleLoadCompletion
             _modules.RemovePendingLoad(_cacheKey);
             FinishWaiters(module: null, error ?? CreateError(message), exception);
         }
+
         finally
         {
             LeaveLoadRealm(enteredRealm);
         }
+    }
+
+    private void Propagate(Exception exception)
+    {
+        _modules.RemovePendingLoad(_cacheKey);
+        _waiters.Clear();
+        ExceptionDispatchInfo.Capture(exception).Throw();
     }
 
     private void FinishWaiters(Module? module, JsValue? error, Exception? exception)

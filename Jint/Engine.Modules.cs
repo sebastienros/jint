@@ -181,6 +181,23 @@ public partial class Engine
 
         internal void LoadImportedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleLoadPayload payload)
         {
+            var previous = _engine._parsingConstraintsOverride;
+            var active = _engine.GetActiveParsingConstraints();
+            _engine._parsingConstraintsOverride = referrer is null
+                ? active
+                : active.Combine(referrer.ParsingConstraints);
+            try
+            {
+                LoadImportedModuleCore(referrer, referrerLocation, request, payload);
+            }
+            finally
+            {
+                _engine._parsingConstraintsOverride = previous;
+            }
+        }
+
+        private void LoadImportedModuleCore(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleLoadPayload payload)
+        {
             if (TryGetLoadedModule(referrer, referrerLocation, request, out var loaded))
             {
                 Finish(loaded, error: null);

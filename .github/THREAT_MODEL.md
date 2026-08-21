@@ -85,6 +85,7 @@ Defaults are compatibility choices, not a hardened profile.
 | Web platform APIs (`Options.WebApi.Features`) | `None` | No `console`, timers, `URL`, `Blob`, … globals exist |
 | `fetch` | Disabled, and never part of `WebApiFeatures.Default` | Only `UseFetch()` grants script outbound HTTP |
 | Timeout, statement, memory, recursion limits | None | Untrusted execution is unbounded unless the host opts in |
+| Parser source-length and AST-node limits | None | Hostile source and parser output are unbounded unless the host opts in |
 | Stack overflow guard | Disabled | Native stack exhaustion can terminate the process |
 | Maximum array size | `uint.MaxValue` | Effectively unbounded for hostile input |
 | Regex timeout | 10 seconds | Bounds an individual regular expression operation |
@@ -204,20 +205,40 @@ independent process/container CPU and wall-clock limit.
 - Parser stack failures are translated to managed errors.
 - Dynamic string compilation can be disabled.
 - Function source text retention is disabled by default.
+- `Options.Parsing.MaxSourceLength` bounds UTF-16 parser input across initial execution,
+  dynamic compilation, ShadowRealm evaluation, debugger evaluation, and JavaScript or JSON
+  module source. Generated source-offset padding and function-constructor wrappers count.
+- `Options.Parsing.MaxNodeCount` stops parsing when Acornima completes more than the
+  configured number of AST nodes.
+- Per-call parsing options can tighten engine limits, static preparation supports the same
+  limits, and a breach throws the non-script-catchable `ParsingLimitException`.
+- Asynchronous module completion carries both the parser limits captured when the load was
+  registered and the originating memory-operation state across its thread hop. A fatal
+  parsing breach removes the pending load and releases async ownership rather than becoming
+  a script-catchable rejection.
+- The default file loader reads at most the configured source length plus one UTF-16 code
+  unit before rejecting, rather than materializing the complete oversized source string.
 
 **Missing or residual mitigation.**
 
 - Initial `Execute(string)` and `Evaluate(string)` parse before
   `ExecuteWithConstraints`; execution timeout, statement, and memory constraints do not
-  bound that parse.
-- There is no Jint option for maximum script bytes, tokens, AST nodes, or total imported
-  source.
-- Dynamic parsing that occurs during execution cannot be preempted while the parser is
-  running.
+  bound that parse; parser limits are separate and opt-in.
+- The source limit counts decoded UTF-16 code units, not transport bytes. Custom loaders
+  have already allocated the string they return, and byte-backed sources are checked after
+  decoding unless the loader enforces an earlier byte cap.
+- The node limit bounds the completed AST size, not every speculative parser operation or a
+  wall-clock CPU budget. Dynamic parsing cannot be preempted while Acornima is between node
+  completions.
+- Prepared scripts and modules are not rechecked when executed. The host that prepares or
+  accepts a prepared AST is responsible for applying preparation limits at that trust
+  boundary. Those limits do continue to govern dynamic source compiled while it executes.
+- Parser limits do not cap aggregate imported source, module count, graph depth, or network
+  policy.
 
-**Required host action.** Reject oversized source before Jint, cap source offsets, module
-count and bytes, and parse in the disposable worker. Disable string compilation unless it
-is a requirement.
+**Required host action.** Configure both parser limits, cap encoded request/module bytes and
+source offsets before Jint, cap module count and graph depth, and parse in the disposable
+worker. Disable string compilation unless it is a requirement.
 
 ### TM-06: Memory exhaustion
 
@@ -1070,6 +1091,9 @@ var engine = new Engine(options =>
     options.CancellationToken(requestAborted);
     options.Constraint(deadline);
 
+    options.Parsing.MaxSourceLength = 100_000;
+    options.Parsing.MaxNodeCount = 25_000;
+
     options.Constraints.StackOverflowGuard = true;
     options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(2);
 
@@ -1093,7 +1117,8 @@ finally
 
 This configuration is incomplete without host controls:
 
-1. Reject oversized script and module source before parsing.
+1. Reject oversized encoded script and module input before decoding, and configure Jint's
+   parser source-length and AST-node limits.
 2. Run one request in a disposable, least-privileged worker with OS CPU and memory quotas.
 3. Deny filesystem and outbound network access unless explicitly required.
 4. Expose only narrow, authorized, cancellation-aware host functions.

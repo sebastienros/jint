@@ -43,7 +43,11 @@ public sealed partial class Engine : IDisposable
 
     private static readonly Options _defaultEngineOptions = new();
 
-    private readonly Parser _defaultParser;
+    private readonly JintParser _defaultParser;
+    private readonly ParserOptions _defaultParserOptions;
+    private readonly ParsingConstraints _parsingConstraints;
+    internal ParsingConstraints? _parsingConstraintsOverride;
+    internal ParserOptions? _parserOptionsOverride;
     private ParserOptions? _defaultModuleParserOptions; // cache default ParserOptions for ModuleBuilder instances
 
     private readonly ExecutionContextStack _executionContexts;
@@ -1047,8 +1051,9 @@ public sealed partial class Engine : IDisposable
         var scriptParsingDefaults = Options.RetainFunctionSourceText
             ? ScriptParsingOptions.RetainingDefault
             : ScriptParsingOptions.Default;
-        var defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
-        _defaultParser = new Parser(defaultParserOptions);
+        _parsingConstraints = ParsingConstraints.From(Options.Parsing);
+        _defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
+        _defaultParser = JintParser.Create(_defaultParserOptions, in _parsingConstraints);
     }
 
     private void Reset()
@@ -1165,20 +1170,58 @@ public sealed partial class Engine : IDisposable
 
     internal ParserOptions GetActiveParserOptions()
     {
-        return _executionContexts?.GetActiveParserOptions() ?? _defaultParser.Options;
+        return _parserOptionsOverride
+               ?? _executionContexts?.GetActiveScriptOrModule()?.ParserOptions
+               ?? _executionContexts?.GetActiveParserOptions()
+               ?? _defaultParserOptions;
     }
 
-    internal Parser GetParserFor(ScriptParsingOptions parsingOptions)
+    internal ParsingConstraints GetActiveParsingConstraints()
     {
-        return ReferenceEquals(parsingOptions, ScriptParsingOptions.Default)
+        if (_parsingConstraintsOverride is { } parsingConstraintsOverride)
+        {
+            return parsingConstraintsOverride;
+        }
+
+        return _executionContexts?.GetActiveScriptOrModule() is { } owner
+            ? _parsingConstraints.Combine(owner.ParsingConstraints)
+            : _parsingConstraints;
+    }
+
+    internal JintParser GetParserFor(ScriptParsingOptions parsingOptions)
+    {
+        var parsingConstraints = GetActiveParsingConstraints().Combine(parsingOptions);
+        if (ReferenceEquals(parsingOptions, ScriptParsingOptions.Default))
+        {
+            return parsingConstraints.Equals(_parsingConstraints)
+                ? _defaultParser
+                : JintParser.Create(_defaultParserOptions, in parsingConstraints);
+        }
+
+        return JintParser.Create(parsingOptions.GetParserOptions(Options), in parsingConstraints);
+    }
+
+    internal JintParser GetParserFor(ParserOptions parserOptions)
+    {
+        var parsingConstraints = GetActiveParsingConstraints();
+        return ReferenceEquals(parserOptions, _defaultParserOptions)
+               && parsingConstraints.Equals(_parsingConstraints)
             ? _defaultParser
-            : new Parser(parsingOptions.GetParserOptions(Options));
+            : JintParser.Create(parserOptions, in parsingConstraints);
     }
 
-    internal Parser GetParserFor(ParserOptions parserOptions)
-    {
-        return ReferenceEquals(parserOptions, _defaultParser.Options) ? _defaultParser : new Parser(parserOptions);
-    }
+    internal JintParser CreateModuleParser(ParserOptions parserOptions, ModuleParsingOptions parsingOptions)
+        => JintParser.Create(parserOptions, GetActiveParsingConstraints().Combine(parsingOptions));
+
+    internal void CheckParsingSourceLength(long length) => GetActiveParsingConstraints().CheckSourceLength(length);
+
+    internal void CheckParsingSourceLength(long length, IParsingOptions parsingOptions)
+        => GetActiveParsingConstraints().Combine(parsingOptions).CheckSourceLength(length);
+
+    internal int? MaxParsingSourceLength => GetActiveParsingConstraints().MaxSourceLength;
+
+    internal ParsingConstraints CombineParsingConstraints(in ParsingConstraints parsingConstraints)
+        => GetActiveParsingConstraints().Combine(in parsingConstraints);
 
     internal void EnterExecutionContext(
         Environment lexicalEnvironment,
@@ -1411,8 +1454,12 @@ public sealed partial class Engine : IDisposable
     public JsValue Evaluate(string code, string? source = null)
     {
         using var ownership = EnterHostCall();
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
-        return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
+        var parser = GetParserFor(_defaultParserOptions);
+        var script = parser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
+        return Evaluate(new Prepared<Script>(
+            script,
+            _defaultParserOptions,
+            parsingConstraints: parser.Constraints));
     }
 
     /// <summary>
@@ -1429,7 +1476,10 @@ public sealed partial class Engine : IDisposable
         using var ownership = EnterHostCall();
         var parser = GetParserFor(parsingOptions);
         var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
-        return Evaluate(new Prepared<Script>(script, parser.Options));
+        return Evaluate(new Prepared<Script>(
+            script,
+            parser.Options,
+            parsingConstraints: parser.Constraints));
     }
 
     /// <summary>
@@ -1444,8 +1494,12 @@ public sealed partial class Engine : IDisposable
     public Engine Execute(string code, string? source = null)
     {
         using var ownership = EnterHostCall();
-        var script = _defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
-        return Execute(new Prepared<Script>(script, _defaultParser.Options));
+        var parser = GetParserFor(_defaultParserOptions);
+        var script = parser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
+        return Execute(new Prepared<Script>(
+            script,
+            _defaultParserOptions,
+            parsingConstraints: parser.Constraints));
     }
 
     /// <summary>
@@ -1462,7 +1516,10 @@ public sealed partial class Engine : IDisposable
         using var ownership = EnterHostCall();
         var parser = GetParserFor(parsingOptions);
         var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
-        return Execute(new Prepared<Script>(script, parser.Options));
+        return Execute(new Prepared<Script>(
+            script,
+            parser.Options,
+            parsingConstraints: parser.Constraints));
     }
 
     /// <summary>
@@ -1488,15 +1545,27 @@ public sealed partial class Engine : IDisposable
 
         var script = preparedScript.Program;
         var parserOptions = preparedScript.ParserOptions;
+        var parsingConstraints = _parsingConstraints.Combine(preparedScript.ParsingConstraints);
         var strict = _isStrict || script.Strict;
         // The lambda captures the locals (script, parserOptions), never the `in` parameter.
-        return ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.SourceFile), parserOptions));
+        return ExecuteWithConstraints(strict, () => ScriptEvaluation(
+            new ScriptRecord(
+                Realm,
+                script,
+                script.Location.SourceFile,
+                parsingConstraints,
+                parserOptions),
+            parserOptions,
+            in parsingConstraints));
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
     /// </summary>
-    private JsValue ScriptEvaluation(ScriptRecord scriptRecord, ParserOptions parserOptions)
+    private JsValue ScriptEvaluation(
+        ScriptRecord scriptRecord,
+        ParserOptions parserOptions,
+        in ParsingConstraints parsingConstraints)
     {
         Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
 

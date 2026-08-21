@@ -20,7 +20,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 bytes = LoadModuleContentsAsBytes(engine, resolved);
             }
-            catch (Exception ex) when (ex is not NotSupportedException)
+            catch (Exception ex) when (ex is not NotSupportedException and not ParsingLimitException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;
@@ -35,7 +35,7 @@ public abstract class ModuleLoader : IModuleLoader
             {
                 code = LoadModuleContents(engine, resolved);
             }
-            catch (Exception ex) when (ex is not NotSupportedException)
+            catch (Exception ex) when (ex is not NotSupportedException and not ParsingLimitException)
             {
                 Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", in AstExtensions.DefaultLocation);
                 return default!;

@@ -115,23 +115,47 @@ public class DebugHandler
 
         var context = _engine._evaluationContext;
         var callStackSize = _engine.CallStack.Count;
+        var parsingConstraints = _engine.GetActiveParsingConstraints().Combine(preparedScript.ParsingConstraints);
+        ref readonly var activeContext = ref _engine.ExecutionContext;
+        var scriptRecord = new ScriptRecord(
+            activeContext.Realm,
+            preparedScript.Program,
+            preparedScript.Program.Location.SourceFile,
+            parsingConstraints,
+            preparedScript.ParserOptions);
+        var debuggerExecutionContext = new Environments.ExecutionContext(
+            scriptRecord,
+            activeContext.LexicalEnvironment,
+            activeContext.VariableEnvironment,
+            activeContext.PrivateEnvironment,
+            activeContext.Realm,
+            parserOptions: preparedScript.ParserOptions,
+            strict: activeContext.Strict);
 
         var list = new JintStatementList(null, preparedScript.Program.Body);
         Completion result;
         var previousDebuggerEvaluating = _engine._debuggerEvaluating;
+        var previousParserOptions = _engine._parserOptionsOverride;
+        var previousParsingConstraints = _engine._parsingConstraintsOverride;
         _engine._debuggerEvaluating = true;
+        _engine._parserOptionsOverride = preparedScript.ParserOptions;
+        _engine._parsingConstraintsOverride = parsingConstraints;
+        _engine.EnterExecutionContext(in debuggerExecutionContext);
         try
         {
             result = list.Execute(context);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not ParsingLimitException)
         {
             // An error in the evaluation may return a Throw Completion, or it may throw an exception:
             throw new DebugEvaluationException("An error occurred during debugger evaluation", ex);
         }
         finally
         {
+            _engine.LeaveExecutionContext();
             _engine._debuggerEvaluating = previousDebuggerEvaluating;
+            _engine._parserOptionsOverride = previousParserOptions;
+            _engine._parsingConstraintsOverride = previousParsingConstraints;
 
             // Restore call stack
             while (_engine.CallStack.Count > callStackSize)
@@ -156,12 +180,29 @@ public class DebugHandler
     public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = _engine.EnterHostCall();
-        var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
-        var parser = _engine.GetParserFor(parserOptions);
+        var parser = parsingOptions is null
+            ? _engine.GetParserFor(_engine.GetActiveParserOptions())
+            : _engine.GetParserFor(parsingOptions);
         try
         {
             var script = parser.ParseScript(sourceText, "evaluation");
-            return Evaluate(new Prepared<Script>(script, parserOptions));
+            var prepared = new Prepared<Script>(
+                script,
+                parser.Options,
+                parsingConstraints: parser.Constraints);
+            var previousParserOptions = _engine._parserOptionsOverride;
+            var previousParsingConstraints = _engine._parsingConstraintsOverride;
+            _engine._parserOptionsOverride = parser.Options;
+            _engine._parsingConstraintsOverride = parser.Constraints;
+            try
+            {
+                return Evaluate(in prepared);
+            }
+            finally
+            {
+                _engine._parserOptionsOverride = previousParserOptions;
+                _engine._parsingConstraintsOverride = previousParsingConstraints;
+            }
         }
         catch (ParseErrorException ex)
         {

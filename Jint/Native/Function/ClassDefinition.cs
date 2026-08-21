@@ -27,7 +27,7 @@ internal sealed class ClassDefinition
         // generate missing constructor AST only once
         static MethodDefinition CreateConstructorMethodDefinition(Parser parser, string source)
         {
-            var script = parser.ParseScriptGuarded(new Engine().Realm, source);
+            var script = parser.ParseScript(source);
             var classDeclaration = (ClassDeclaration) script.Body[0];
             return (MethodDefinition) classDeclaration.Body.Body[0];
         }

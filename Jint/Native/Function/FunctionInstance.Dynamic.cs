@@ -17,6 +17,7 @@ internal readonly record struct DynamicFunctionCacheKey(string FunctionExpressio
 internal sealed class DynamicFunctionCacheEntry
 {
     public required ParserOptions ParserOptions { get; init; }
+    public required ParsingConstraints ParsingConstraints { get; init; }
     public required Runtime.Interpreter.JintFunctionDefinition Definition { get; init; }
 }
 
@@ -71,8 +72,22 @@ public partial class Function
         }
 
         var argCount = arguments.Length;
-        var p = "";
+        if (argCount > 1)
+        {
+            var prefixLength = kind switch
+            {
+                FunctionKind.Normal => "function anonymous(".Length,
+                FunctionKind.Async => "async function anonymous(".Length,
+                FunctionKind.Generator => "function* anonymous(".Length,
+                FunctionKind.AsyncGenerator => "async function* anonymous(".Length,
+                _ => 0,
+            };
+            _engine.CheckParsingSourceLength(prefixLength + (long) argCount - 2 + 7);
+        }
+
         var body = "";
+        string[]? parameters = null;
+        long parametersLength = 0;
 
         if (argCount == 1)
         {
@@ -80,14 +95,15 @@ public partial class Function
         }
         else if (argCount > 1)
         {
-            var firstArg = arguments[0];
-            p = TypeConverter.ToString(firstArg);
-            for (var k = 1; k < argCount - 1; k++)
+            parameters = new string[argCount - 1];
+            for (var k = 0; k < parameters.Length; k++)
             {
-                var nextArg = arguments[k];
-                p += "," + TypeConverter.ToString(nextArg);
+                var parameter = TypeConverter.ToString(arguments[k]);
+                parameters[k] = parameter;
+                parametersLength += parameter.Length;
             }
 
+            parametersLength += parameters.Length - 1;
             body = TypeConverter.ToString(arguments[argCount - 1]);
         }
 
@@ -117,9 +133,16 @@ public partial class Function
             // Per spec (CreateDynamicFunction step 15), a line feed follows the parameters, and the
             // body is wrapped with line feeds (step 14). This ensures HTML-like comments (<!-- and -->)
             // are correctly handled as line comments.
+            // The bound is checked against the lengths first: the concatenation below is the largest
+            // allocation this path makes, so a source over the limit must be refused before it exists.
+            _engine.CheckParsingSourceLength(prefix!.Length + parametersLength + 7L + body.Length);
+            var p = parameters is null ? "" : string.Join(',', parameters);
             var functionExpression = prefix + p + "\n) {\n" + body + "\n}";
 
+            _engine.CheckParsingSourceLength(functionExpression!.Length);
+
             var parserOptions = _engine.GetActiveParserOptions();
+            var parsingConstraints = _engine.GetActiveParsingConstraints();
             if (!parserOptions.AllowReturnOutsideFunction)
             {
                 parserOptions = parserOptions with { AllowReturnOutsideFunction = true };
@@ -134,13 +157,16 @@ public partial class Function
             if (cacheable
                 && cache is not null
                 && cache.TryGetValue(cacheKey, out var cachedEntry)
-                && (ReferenceEquals(cachedEntry.ParserOptions, parserOptions) || cachedEntry.ParserOptions.Equals(parserOptions)))
+                && (ReferenceEquals(cachedEntry.ParserOptions, parserOptions) || cachedEntry.ParserOptions.Equals(parserOptions))
+                && cachedEntry.ParsingConstraints.Equals(parsingConstraints))
             {
                 definition = cachedEntry.Definition;
             }
             else
             {
-                Parser parser = new(parserOptions);
+                // The pooled parser carries the active ParsingConstraints, so the AST-size and depth
+                // bounds apply to a dynamically created function exactly as they do to a top-level script.
+                var parser = _engine.GetParserFor(parserOptions);
                 // CreateDynamicFunction step 24 throws its SyntaxError in the current realm, and the
                 // current realm while a built-in runs is the built-in's own [[Realm]] — not the caller's.
                 // Jint does not push an execution context for a built-in call, so _engine.ExecutionContext
@@ -162,7 +188,12 @@ public partial class Function
                         {
                             cache.Clear();
                         }
-                        cache[cacheKey] = new DynamicFunctionCacheEntry { ParserOptions = parserOptions, Definition = definition };
+                        cache[cacheKey] = new DynamicFunctionCacheEntry
+                        {
+                            ParserOptions = parserOptions,
+                            ParsingConstraints = parsingConstraints,
+                            Definition = definition
+                        };
                     }
                     else
                     {

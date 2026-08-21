@@ -4,9 +4,12 @@ namespace Jint;
 
 internal static class AcornimaExtensions
 {
-    public static Script ParseScriptGuarded(this Parser parser, Realm realm, string code, Position sourceOffset = default, string? source = null, bool strict = false)
+    public static Script ParseScriptGuarded(this JintParser parser, Realm realm, string code, Position sourceOffset = default, string? source = null, bool strict = false)
     {
-        var padding = CreateSourceOffsetPadding(sourceOffset);
+        var paddingLength = GetSourceOffsetPaddingLength(sourceOffset);
+        parser.CheckSourceLength(paddingLength + code.Length);
+
+        var padding = CreateSourceOffsetPadding(sourceOffset, paddingLength);
         var paddedCode = padding.Length > 0 ? padding + code : code;
 
         try
@@ -23,19 +26,33 @@ internal static class AcornimaExtensions
     /// <summary>
     /// Creates a padding string of newlines and spaces to shift parsed source positions by the given offset.
     /// </summary>
-    internal static string CreateSourceOffsetPadding(Position sourceOffset)
+    internal static long GetSourceOffsetPaddingLength(Position sourceOffset)
     {
         if (sourceOffset.Line > 0)
         {
-            var lineOffset = sourceOffset.Line - 1;
-            var columnOffset = sourceOffset.Column > 0 ? sourceOffset.Column : 0;
-            return new string('\n', lineOffset) + new string(' ', columnOffset);
+            return (long) sourceOffset.Line - 1 + Math.Max(sourceOffset.Column, 0);
         }
 
-        return string.Empty;
+        return 0;
     }
 
-    public static Module ParseModuleGuarded(this Parser parser, Engine engine, string code, string? source = null)
+    internal static string CreateSourceOffsetPadding(Position sourceOffset, long paddingLength)
+    {
+        if (paddingLength == 0)
+        {
+            return string.Empty;
+        }
+
+        if (paddingLength > int.MaxValue)
+        {
+            throw new ParsingLimitException(ParsingLimitKind.SourceLength, int.MaxValue, paddingLength);
+        }
+
+        var lineOffset = sourceOffset.Line - 1;
+        return new string('\n', lineOffset) + new string(' ', (int) paddingLength - lineOffset);
+    }
+
+    public static Module ParseModuleGuarded(this JintParser parser, Engine engine, string code, string? source = null)
     {
         try
         {
@@ -46,7 +63,7 @@ internal static class AcornimaExtensions
             Throw.SyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}", ToLocation(ex, source));
             return default;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not ParsingLimitException)
         {
             Throw.JavaScriptException(engine, $"Could not load module {source}", in AstExtensions.DefaultLocation);
             return default;

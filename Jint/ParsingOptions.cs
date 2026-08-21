@@ -51,7 +51,13 @@ public interface IParsingOptions
     bool RetainFunctionSourceText { get; init; }
 }
 
-public sealed record ScriptParsingOptions : IParsingOptions
+internal interface IParsingLimitOptions
+{
+    int? MaxSourceLength { get; }
+    int? MaxNodeCount { get; }
+}
+
+public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
@@ -74,6 +80,19 @@ public sealed record ScriptParsingOptions : IParsingOptions
     /// Defaults to <see langword="true"/>.
     /// </summary>
     public bool AllowReturnOutsideFunction { get; init; } = _defaultParserOptions.AllowReturnOutsideFunction;
+
+    /// <summary>
+    /// Gets or sets the maximum number of UTF-16 code units the parser may receive.
+    /// <see langword="null"/> (the default) means no limit.
+    /// Source-offset padding also counts.
+    /// </summary>
+    public int? MaxSourceLength { get; init; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of AST nodes the parser may produce.
+    /// <see langword="null"/> (the default) means no limit.
+    /// </summary>
+    public int? MaxNodeCount { get; init; }
 
     /// <inheritdoc/>
     public bool? CompileRegex { get; init; }
@@ -137,7 +156,7 @@ public sealed record ScriptParsingOptions : IParsingOptions
         => ApplyTo(_defaultParserOptions, RegexCompilation.Adaptive, engineOptions.Constraints.RegexTimeout);
 }
 
-public sealed record class ModuleParsingOptions : IParsingOptions
+public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimitOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
@@ -152,6 +171,18 @@ public sealed record class ModuleParsingOptions : IParsingOptions
     /// <see cref="Options.RetainFunctionSourceText"/> is enabled to build its default module parser.
     /// </summary>
     internal static readonly ModuleParsingOptions RetainingDefault = new() { RetainFunctionSourceText = true };
+
+    /// <summary>
+    /// Gets or sets the maximum number of UTF-16 code units the parser may receive.
+    /// <see langword="null"/> (the default) means no limit.
+    /// </summary>
+    public int? MaxSourceLength { get; init; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of AST nodes the parser may produce.
+    /// <see langword="null"/> (the default) means no limit.
+    /// </summary>
+    public int? MaxNodeCount { get; init; }
 
     /// <inheritdoc/>
     public bool? CompileRegex { get; init; }

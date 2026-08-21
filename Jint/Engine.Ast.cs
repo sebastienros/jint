@@ -25,22 +25,34 @@ public partial class Engine
         source ??= "<anonymous>";
         options ??= ScriptPreparationOptions.Default;
 
-        var sourceOffset = options.ParsingOptions.SourceOffset;
-        var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset);
-        var paddedCode = padding.Length > 0 ? padding + code : code;
-
         var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
         var parserOptions = options.GetParserOptions();
-        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions);
+        var constraints = ParsingConstraints.From(options.ParsingOptions);
+        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions, in constraints);
+
+        var sourceOffset = options.ParsingOptions.SourceOffset;
+        var paddingLength = AcornimaExtensions.GetSourceOffsetPaddingLength(sourceOffset);
+        constraints.CheckSourceLength(paddingLength + code.Length);
+        var padding = AcornimaExtensions.CreateSourceOffsetPadding(sourceOffset, paddingLength);
+        var paddedCode = padding.Length > 0 ? padding + code : code;
 
         try
         {
             var preparedScript = parser.ParseScript(paddedCode, padding.Length, code.Length, source, strict);
 
-            return new Prepared<Script>(preparedScript, parserOptions, referencedGlobals?.Build(preparedScript));
+            return new Prepared<Script>(
+                preparedScript,
+                parserOptions,
+                referencedGlobals?.Build(preparedScript),
+                constraints);
         }
         catch (Exception e)
         {
+            if (e is ParsingLimitException)
+            {
+                throw;
+            }
+
             throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
         }
     }
@@ -63,16 +75,26 @@ public partial class Engine
 
         var referencedGlobals = options.CollectReferencedGlobals ? new ReferencedGlobalsCollector() : null;
         var parserOptions = options.GetParserOptions();
-        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions);
+        var constraints = ParsingConstraints.From(options.ParsingOptions);
+        var parser = CreatePreparationParser(options, options.StaticAnalysis, referencedGlobals, parserOptions, in constraints);
 
         try
         {
             var preparedModule = parser.ParseModule(code, source);
 
-            return new Prepared<Module>(preparedModule, parserOptions, referencedGlobals?.Build(preparedModule));
+            return new Prepared<Module>(
+                preparedModule,
+                parserOptions,
+                referencedGlobals?.Build(preparedModule),
+                constraints);
         }
         catch (Exception e)
         {
+            if (e is ParsingLimitException)
+            {
+                throw;
+            }
+
             throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
         }
     }
@@ -89,20 +111,22 @@ public partial class Engine
     /// retention handler that <c>ParsingOptions.ApplyTo</c> installed in effect.
     /// </para>
     /// </summary>
-    private static Parser CreatePreparationParser(
+    private static JintParser CreatePreparationParser(
         IPreparationOptions<IParsingOptions> options,
         bool staticAnalysis,
         ReferencedGlobalsCollector? referencedGlobals,
-        ParserOptions parserOptions)
+        ParserOptions parserOptions,
+        in ParsingConstraints constraints)
     {
         if (staticAnalysis)
         {
-            return new Parser(parserOptions with { OnNode = new AstAnalyzer(options, referencedGlobals).GetNodeVisitor() });
+            parserOptions = parserOptions with { OnNode = new AstAnalyzer(options, referencedGlobals).GetNodeVisitor() };
+            return JintParser.Create(parserOptions, in constraints);
         }
 
         if (referencedGlobals is null)
         {
-            return new Parser(parserOptions);
+            return JintParser.Create(parserOptions, in constraints);
         }
 
         // Collecting without analyzing. The collector never writes UserData, so ordering against the retention
@@ -113,7 +137,8 @@ public partial class Engine
             ? referencedGlobals.OnNode
             : new CompositeNodeVisitor(retainSourceText, referencedGlobals.OnNode).Visit;
 
-        return new Parser(parserOptions with { OnNode = onNode });
+        parserOptions = parserOptions with { OnNode = onNode };
+        return JintParser.Create(parserOptions, in constraints);
     }
 
     /// <summary>
