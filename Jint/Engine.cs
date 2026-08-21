@@ -162,6 +162,37 @@ public sealed partial class Engine : IDisposable
         return list;
     }
 
+    // Per-engine cache of the interpreter handler built for a property key expression that has to be
+    // evaluated — every computed key (`{ [k]: v }`, `class { [k]() {} }`, `({ [k]: v } = o)`) plus the
+    // literal keys of a destructuring pattern. Keyed on the stable AST node and engine-owned for the same
+    // lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine per-node
+    // inline caches, so it must not be published to the AST's UserData and shared across engines.
+    //
+    // Identity is what makes this correct, not merely cheaper. Everything a suspension parks for its
+    // replay — LeftOperandSuspendData, AdditionChainSuspendData, the argument buffers — is keyed on the
+    // handler instance that parked it, so a key expression rebuilt on every evaluation can never find its
+    // own parked state. Building it afresh made `{ [f() + await g()]: 1 }` replay the whole key subtree
+    // and call f twice (issue #3142).
+    private Dictionary<Expression, JintExpression>? _propertyKeyExpressions;
+
+    internal JintExpression GetOrBuildPropertyKeyExpression(Expression expression)
+    {
+        var cache = _propertyKeyExpressions ??= new Dictionary<Expression, JintExpression>();
+        if (!cache.TryGetValue(expression, out var built))
+        {
+            // backstop mirroring CacheFunctionDefinition: bound growth for hosts streaming endless
+            // distinct sources through one long-lived engine.
+            if (cache.Count >= 2048)
+            {
+                cache.Clear();
+            }
+
+            cache[expression] = built = JintExpression.Build(expression);
+        }
+
+        return built;
+    }
+
     internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
     {
         if (!TryGetFunctionDefinition(declaration, out var definition))
