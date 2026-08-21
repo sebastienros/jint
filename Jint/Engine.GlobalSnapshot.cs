@@ -288,7 +288,12 @@ public partial class Engine
         // A timer registered by the cycle that is ending must never fire into the globals just restored. The
         // queue is the engine's, not the event loop's, so clearing the loop above does not reach it; the
         // generation each entry carries is the second line of defence for one already promoted into a job.
-        _webApi?.ResetTransientState();
+        //
+        // This also ends every worker connection this engine is a party to — in both directions, since a
+        // worker connection is one object spanning two engines rather than two independent peers. Only the
+        // thread-safe half happens there: the host's OnWorkerEnded callbacks come back as a list and are run
+        // at the bottom of this method, so a provider that throws cannot leave the engine half-reset.
+        var endedWorkers = _webApi?.ResetTransientState();
 
         // A bridge to a host System.IO.Stream holds an operating-system handle, so the cycle ending has to
         // close it rather than merely stop delivering its chunks: the generation fence already does the
@@ -308,6 +313,12 @@ public partial class Engine
         // would resurface the next time the same CLR object is wrapped.
         _recentObjectWrapperCache?.Clear();
         _objectWrapperCache = null;
+
+#if NET8_0_OR_GREATER
+        // Last of all, with the engine whole again: the host is told about the worker connections this restore
+        // ended. It is host code, so it runs outside everything above it rather than in the middle of it.
+        WebApiEngineState.NotifyWorkerHosts(endedWorkers);
+#endif
     }
 }
 

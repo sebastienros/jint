@@ -3754,23 +3754,26 @@ public sealed partial class Engine : IDisposable
 #if NET8_0_OR_GREATER
         // A host CancellationToken bridged to an AbortSignal holds a registration that reaches this engine, and
         // the token may well outlive it — an application-lifetime token would otherwise keep every engine it
-        // was ever handed to reachable.
-        _webApi?.Dispose();
+        // was ever handed to reachable. The same call ends every worker connection this engine is a party to,
+        // in both directions; the host's OnWorkerEnded callbacks come back as a list and are run at the very
+        // bottom of this method, once the engine has finished letting go of everything else.
+        var endedWorkers = _webApi?.Dispose();
 #endif
 
-        if (_objectWrapperCache is null)
+        if (_objectWrapperCache is not null)
         {
-            return;
+#if SUPPORTS_WEAK_TABLE_CLEAR
+            _objectWrapperCache.Clear();
+#else
+            // we can expect that reflection is OK as we've been generating object wrappers already
+            var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            clearMethod?.Invoke(_objectWrapperCache, []);
+#endif
         }
 
-#if SUPPORTS_WEAK_TABLE_CLEAR
-        _objectWrapperCache.Clear();
-#else
-        // we can expect that reflection is OK as we've been generating object wrappers already
-        var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        clearMethod?.Invoke(_objectWrapperCache, []);
+#if NET8_0_OR_GREATER
+        WebApiEngineState.NotifyWorkerHosts(endedWorkers);
 #endif
-
     }
 
     [DebuggerDisplay("Engine")]

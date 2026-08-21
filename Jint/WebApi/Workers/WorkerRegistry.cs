@@ -84,9 +84,9 @@ internal sealed class WorkerRegistry
     /// one calls back into <see cref="Remove"/>, and into host code.
     /// </summary>
     /// <remarks>
-    /// The seam a parent-side <c>RestoreGlobalSnapshot</c> and <c>Dispose</c> will end every connection
-    /// through; those hooks land in their own change (wave 3), which is also where the reasons
-    /// <c>ParentRestored</c> and <c>ParentDisposed</c> start being used.
+    /// What a parent-side <c>RestoreGlobalSnapshot</c> and <c>Dispose</c> end every connection through — see
+    /// <c>WebApiEngineState.EndWorkerConnections</c>, which is where <c>ParentRestored</c> and
+    /// <c>ParentDisposed</c> come from.
     /// </remarks>
     internal WorkerLink[] Snapshot()
     {

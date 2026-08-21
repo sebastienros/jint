@@ -177,9 +177,9 @@ internal sealed class WorkerGlobalScope
     /// </summary>
     /// <remarks>
     /// Read per call rather than captured, because <c>ResetTransientEvaluationState</c> replaces the target
-    /// when an evaluation cycle ends. A restore on the worker also ends the connection, which lands with the
-    /// restore and dispose hooks in their own change (wave 3); reading it fresh is what keeps this correct
-    /// either way.
+    /// when an evaluation cycle ends. A restore on the worker also ends the connection, so what these
+    /// attributes write to afterwards is a listener list nothing will ever dispatch at; reading it fresh is
+    /// what keeps that a dead end rather than a stale reference to the previous cycle's list.
     /// </remarks>
     private GlobalEventTarget Target => _engine._webApi!.GlobalEventTarget;
 

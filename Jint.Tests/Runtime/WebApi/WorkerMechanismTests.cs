@@ -1138,6 +1138,209 @@ public class WorkerMechanismTests
         host.Ended.Should().ContainSingle();
     }
 
+    [Fact]
+    public void TerminateIsObservableOnTheConnection()
+    {
+        var host = new TestWorkerHost(Module(""));
+        var parent = Parent(host);
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+
+        var connection = host.Connection;
+        connection.IsEnded.Should().BeFalse();
+        connection.EndReason.Should().BeNull();
+        connection.TerminationToken.IsCancellationRequested.Should().BeFalse();
+
+        parent.Execute("w.terminate();");
+
+        connection.IsEnded.Should().BeTrue("the flag a pump loop keys on");
+        connection.EndReason.Should().Be(WorkerEndReason.Terminated);
+        connection.IsFaulted.Should().BeFalse();
+        connection.TerminationToken.IsCancellationRequested.Should().BeTrue(
+            "the token is what wakes a pump thread parked on it, from whichever thread ended the connection");
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.Terminated);
+    }
+
+    // -------------------------------------------------------------------------------------------------------
+    // Restore and dispose
+    // -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A <c>RestoreGlobalSnapshot</c> on the parent ends every connection it is a party to — both endpoints,
+    /// the token, and the host told with a reason of its own.
+    /// </summary>
+    [Fact]
+    public void AParentRestoreEndsTheConnection()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+
+        var snapshot = parent.Advanced.CaptureGlobalSnapshot();
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        Drain(parent, host.Connection);
+
+        var connection = host.Connection;
+        connection.IsEnded.Should().BeFalse();
+
+        parent.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        connection.IsEnded.Should().BeTrue();
+        connection.EndReason.Should().Be(WorkerEndReason.ParentRestored);
+        connection.IsFaulted.Should().BeFalse();
+        connection.TerminationToken.IsCancellationRequested.Should().BeTrue();
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.ParentRestored);
+        parent.Evaluate("typeof w").AsString().Should().Be("undefined", "the binding went back with the globals");
+    }
+
+    /// <summary>
+    /// The <c>Worker</c> object outlives the restore and is <b>inert</b>: <c>postMessage</c> is a no-op after
+    /// the serialization the standard's step order still prescribes, and <c>terminate()</c> does nothing.
+    /// </summary>
+    /// <remarks>
+    /// The snapshot is captured <i>after</i> the worker exists, which is the pooled-engine shape — the setup a
+    /// host wants every cycle to start from — and is also what keeps the binding pointing at the same
+    /// <c>Worker</c> object afterwards, so the pin can ask it questions.
+    /// </remarks>
+    [Fact]
+    public void APostMessageAfterAParentRestoreIsASilentNoOp()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        var snapshot = parent.Advanced.CaptureGlobalSnapshot();
+        Drain(parent, host.Connection);
+
+        parent.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        parent.Execute("w.postMessage('after'); w.terminate(); w.terminate();");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().BeEmpty("both endpoints closed with the connection");
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(
+            WorkerEndReason.ParentRestored,
+            "terminate() on an ended connection is idempotent, not a second end");
+
+        // Still post-serialization, which is HTML's own step order: step 5 runs before step 6.
+        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("w.postMessage(function () {})"));
+        exception.Error.Get("name").AsString().Should().Be("DataCloneError");
+    }
+
+    /// <summary>
+    /// An error event queued on the parent's loop before a restore is dropped by the generation fence rather
+    /// than fired at listeners that are closures over globals the restore has just replaced.
+    /// </summary>
+    /// <remarks>
+    /// The listener records through a CLR delegate it closed over, not through a global, so the assertion
+    /// survives the very restore it is about — which is what makes the pin about the fence rather than about
+    /// the binding.
+    /// </remarks>
+    [Fact]
+    public void AParentRestoreDropsAQueuedErrorEvent()
+    {
+        var fired = 0;
+        var host = new TestWorkerHost();
+        var parent = Parent(host);
+        parent.SetValue("noteError", new Action(() => fired++));
+
+        var snapshot = parent.Advanced.CaptureGlobalSnapshot();
+        parent.Execute("""
+            var w = new Worker('./missing.js', { type: 'module' });
+            (function () { var note = noteError; w.onerror = function () { note(); }; })();
+            """);
+
+        // The worker's module fails to resolve, which queues the plain `error` event on the parent's loop. The
+        // parent is deliberately not pumped.
+        DrainWorker(host.Connection);
+        host.Connection.EndReason.Should().Be(WorkerEndReason.StartupFailed);
+        fired.Should().Be(0, "nothing has pumped the parent yet");
+
+        parent.Advanced.RestoreGlobalSnapshot(snapshot);
+        parent.Advanced.ProcessTasks();
+
+        fired.Should().Be(0, "the job carries the generation of the cycle that queued it");
+    }
+
+    /// <summary>
+    /// A <c>RestoreGlobalSnapshot</c> on the <i>worker</i> ends the connection too, and from the other side:
+    /// the reason says which engine it was.
+    /// </summary>
+    [Fact]
+    public void AWorkerRestoreEndsTheConnection()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' }); w.postMessage('before');");
+        Drain(parent, host.Connection);
+        host.Log.Should().Be("before");
+
+        var connection = host.Connection;
+        var snapshot = connection.Worker.Advanced.CaptureGlobalSnapshot();
+        connection.Worker.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        connection.IsEnded.Should().BeTrue();
+        connection.EndReason.Should().Be(WorkerEndReason.WorkerRestored);
+        connection.TerminationToken.IsCancellationRequested.Should().BeTrue();
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.WorkerRestored);
+
+        parent.Execute("w.postMessage('after');");
+        Drain(parent, host.Connection);
+        host.Log.Should().Be("before", "the parent's half closed with the connection");
+    }
+
+    [Fact]
+    public void ParentDisposeEndsEveryConnection()
+    {
+        var host = new TestWorkerHost(new Dictionary<string, string> { ["./a.js"] = "", ["./b.js"] = "" });
+        var parent = Parent(host);
+
+        parent.Execute("""
+            var a = new Worker('./a.js', { type: 'module' });
+            var b = new Worker('./b.js', { type: 'module' });
+            """);
+
+        host.Started.Should().HaveCount(2);
+
+        parent.Dispose();
+
+        host.Ended.Should().HaveCount(2);
+        host.Ended.Should().AllSatisfy(entry => entry.Reason.Should().Be(WorkerEndReason.ParentDisposed));
+        host.Started.Should().AllSatisfy(connection =>
+        {
+            connection.IsEnded.Should().BeTrue();
+            connection.TerminationToken.IsCancellationRequested.Should().BeTrue();
+        });
+    }
+
+    /// <summary>
+    /// The host disposing the engine it built ends the connection from the worker's side, so the far side does
+    /// not stay a <c>Worker</c> object that looks alive while every <c>postMessage</c> pays a full
+    /// serialization into a queue nothing will ever drain.
+    /// </summary>
+    [Fact]
+    public void DisposingTheWorkerEngineEndsTheConnectionAsWorkerDisposed()
+    {
+        var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
+        var parent = Parent(host);
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' }); w.postMessage('before');");
+        Drain(parent, host.Connection);
+        host.Log.Should().Be("before");
+
+        var connection = host.Connection;
+        connection.Worker.Dispose();
+
+        connection.IsEnded.Should().BeTrue();
+        connection.EndReason.Should().Be(WorkerEndReason.WorkerDisposed);
+        connection.TerminationToken.IsCancellationRequested.Should().BeTrue();
+        host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.WorkerDisposed);
+
+        parent.Execute("w.postMessage('after');");
+        parent.Advanced.ProcessTasks();
+        host.Log.Should().Be("before");
+    }
+
     /// <summary>
     /// The drain-then-close endpoint state and the transferable-stream predicate meet here: a stream the worker
     /// transferred, and then <c>close()</c>d behind, still reaches the parent and still ends cleanly.

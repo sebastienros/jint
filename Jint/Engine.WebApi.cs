@@ -285,9 +285,17 @@ internal sealed class WebApiEngineState
     /// nobody's worker. Written once, on the parent's thread, while this engine is owned and quiescent.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is what makes "not already connected" a construction-time refusal rather than a second connection
-    /// that would give one global two parents, and it is the seam a worker-side <c>RestoreGlobalSnapshot</c>
-    /// and <c>Dispose</c> will end the connection through — those hooks land in their own change (wave 3).
+    /// that would give one global two parents, and it is what a worker-side <c>RestoreGlobalSnapshot</c> or
+    /// <c>Dispose</c> ends the connection through — see <see cref="EndWorkerConnections"/>.
+    /// </para>
+    /// <para>
+    /// It is deliberately <b>not</b> cleared when the connection ends, so an engine that has been somebody's
+    /// worker can never become somebody else's. Reusing one would be a trap rather than a saving: the worker
+    /// global scope is installed non-clobbering, so a second connection's <c>postMessage</c> would be declined
+    /// in favour of the first connection's dead one, and the difference is invisible from script.
+    /// </para>
     /// </remarks>
     internal WorkerLink? OwningWorkerLink { get; set; }
 
@@ -823,8 +831,13 @@ internal sealed class WebApiEngineState
     /// The peer is deliberately <i>not</i> closed: disentangling is one-sided, and a peer on another engine is
     /// in a cycle of its own that this restore has no business ending.
     /// </remarks>
-    internal void ResetTransientState()
+    internal List<Action>? ResetTransientState()
     {
+        // First, and before the general port sweep below: a worker connection is two endpoints plus a token
+        // plus a reason, and CloseMessagePorts would otherwise close this engine's half of it as an anonymous
+        // port — stopping delivery while leaving the connection reading as live.
+        var endedWorkers = EndWorkerConnections(WorkerEndReason.ParentRestored, WorkerEndReason.WorkerRestored);
+
         Timers?.Clear();
         Scheduler?.Clear();
         AbandonFetches();
@@ -844,6 +857,90 @@ internal sealed class WebApiEngineState
         // cycle's generation and would be dropped at dequeue anyway, so keeping the registration alive could
         // only accumulate one per cycle on a pooled engine.
         ReleaseHostAbortBridges();
+
+        return endedWorkers;
+    }
+
+    /// <summary>
+    /// Ends every worker connection this engine is a party to — the ones it created, and the one it <i>is</i>
+    /// the worker of.
+    /// </summary>
+    /// <param name="asParent">The reason for a connection this engine created.</param>
+    /// <param name="asWorker">The reason for the connection this engine is the worker of.</param>
+    /// <returns>
+    /// The host callbacks to run once the teardown is over, or <see langword="null"/> when there was nothing to
+    /// end. See <see cref="NotifyWorkerHosts"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Both endpoints are closed, which is a worker-specific rule rather than the port rule.</b> A
+    /// <c>MessagePort</c> deliberately does not close its peer — disentangling is one-sided, and a peer on
+    /// another engine is in a cycle of its own. A worker connection is not two independent peers: it is one
+    /// object the engine created spanning two engines, and a one-sided close would stop <i>delivery</i> while
+    /// leaving the survivor paying a full structured clone per <c>postMessage</c>, detaching its own
+    /// transfer-listed buffers and throwing <c>DataCloneError</c> for unserializable values, forever. Closing
+    /// both is what stops the survivor's work.
+    /// </para>
+    /// <para>
+    /// The <c>Worker</c> object itself stays alive and becomes <b>inert</b> — <c>postMessage</c> a no-op after
+    /// the serialization the standard's step order still prescribes, <c>terminate()</c> idempotent, no further
+    /// events, since every job this cycle queued on either loop carries a generation the restore has moved
+    /// past. That is not a concession: the disentangled-port clause of HTML's own error propagation describes
+    /// exactly this state.
+    /// </para>
+    /// <para>
+    /// Everything here is the thread-safe part of ending — endpoints, a token, interlocked bookkeeping — which
+    /// is what makes it callable from a teardown at all. The host callback is <i>collected</i> rather than
+    /// invoked, so a provider that throws from <c>OnWorkerEnded</c> cannot erupt out of the middle of a
+    /// half-finished restore.
+    /// </para>
+    /// </remarks>
+    private List<Action>? EndWorkerConnections(WorkerEndReason asParent, WorkerEndReason asWorker)
+    {
+        var registry = Workers;
+        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null)
+        {
+            return null;
+        }
+
+        var deferred = new List<Action>();
+
+        if (registry is not null)
+        {
+            // Copied out under the registry's own lock before the walk, because ending one removes it from
+            // that very list.
+            foreach (var link in registry.Snapshot())
+            {
+                link.Connection.TryEnd(asParent, error: null, deferred);
+            }
+        }
+
+        OwningWorkerLink?.Connection.TryEnd(asWorker, error: null, deferred);
+
+        return deferred.Count == 0 ? null : deferred;
+    }
+
+    /// <summary>
+    /// Runs the <see cref="WorkerProvider.OnWorkerEnded"/> callbacks a teardown deferred, once that teardown
+    /// has finished and the engine is whole again.
+    /// </summary>
+    /// <remarks>
+    /// A host exception propagates from here, which is the right place for it: the caller asked for the restore
+    /// or the dispose, the engine has completed it, and swallowing a provider's failure would hide it. Ending
+    /// the remaining connections first is deliberate — the engine's own work is done for all of them before any
+    /// host code runs.
+    /// </remarks>
+    internal static void NotifyWorkerHosts(List<Action>? deferred)
+    {
+        if (deferred is null)
+        {
+            return;
+        }
+
+        foreach (var notification in deferred)
+        {
+            notification();
+        }
     }
 
     private void AbandonFetches()
@@ -943,16 +1040,28 @@ internal sealed class WebApiEngineState
     /// <summary>
     /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which is
     /// the host token registrations, the subscriptions in a <see cref="BroadcastChannelBroker"/> the host may
-    /// share with engines that outlive this one, and the <c>MessagePort</c> sides entangled with ports of
-    /// another engine — each of which is a live reference to this disposed one, and each of which would go on
-    /// accepting messages into a queue nothing will ever drain. The queues need nothing — they hold no
-    /// unmanaged resource and no timer, and die with the engine.
+    /// share with engines that outlive this one, the worker connections spanning two engines, and the
+    /// <c>MessagePort</c> sides entangled with ports of another engine — each of which is a live reference to
+    /// this disposed one, and each of which would go on accepting messages into a queue nothing will ever
+    /// drain. The queues need nothing — they hold no unmanaged resource and no timer, and die with the engine.
     /// </summary>
-    internal void Dispose()
+    /// <returns>The host callbacks for the connections this ended; see <see cref="NotifyWorkerHosts"/>.</returns>
+    /// <remarks>
+    /// A worker engine's own dispose ends its connection too, and that is the half worth naming: the far side
+    /// would otherwise stay a <c>Worker</c> object that looks alive while every <c>postMessage</c> pays a full
+    /// serialization into a queue nothing will ever drain. The host that built the engine is the host that
+    /// disposes it, so <see cref="WorkerEndReason.WorkerDisposed"/> is a fact it can act on rather than a
+    /// surprise.
+    /// </remarks>
+    internal List<Action>? Dispose()
     {
+        var endedWorkers = EndWorkerConnections(WorkerEndReason.ParentDisposed, WorkerEndReason.WorkerDisposed);
+
         ReleaseHostAbortBridges();
         CloseBroadcastChannels();
         CloseMessagePorts();
+
+        return endedWorkers;
     }
 }
 #endif
