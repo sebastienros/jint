@@ -88,6 +88,12 @@ internal sealed class FetchOperation
     /// </summary>
     private FetchBodyStream? _pendingBody;
 
+    /// <summary>
+    /// The engine half of a streaming request body, or <see langword="null"/> for every other body shape.
+    /// Touched only on the engine thread: the transport sees its <see cref="HttpContent"/> and nothing else.
+    /// </summary>
+    private FetchRequestBodyStream? _requestBody;
+
     private FetchOperation(Engine engine, Realm realm, PromiseCapability capability, JsAbortSignal signal, TimeSpan timeout)
     {
         _engine = engine;
@@ -201,39 +207,36 @@ internal sealed class FetchOperation
         var operation = new FetchOperation(engine, realm, capability, request.Signal, options.Timeout);
         state.RegisterFetch(operation);
 
-        FetchRequestSnapshot Snapshot(ReadOnlyMemory<byte>? body) => new()
+        FetchRequestSnapshot Snapshot(ReadOnlyMemory<byte>? body, HttpContent? content = null) => new()
         {
             Method = request.Method,
             Url = request.Url,
             Headers = new List<HeaderEntry>(request.Headers.List.Entries),
             Body = body,
+            BodyContent = content,
             Redirect = request.Redirect,
         };
 
-        // A request body given as a ReadableStream is read in full before anything is sent: a streaming
-        // upload is the standard's `duplex: "half"`, which needs a request-side body the transport can pull
-        // from and is deliberately out of scope. Everything else already holds its bytes.
+        // A request body given as a ReadableStream has no bytes to snapshot: it is streamed to the wire as
+        // the socket drains it, which is the standard's `duplex: "half"` and is why the Request constructor
+        // makes that member compulsory for such a body. Everything else already holds its bytes.
         if (request is { HasBody: true, Source: null })
         {
-            // Reading the stream can take any number of event-loop turns, so both callbacks have to allow for
-            // the operation having been abandoned in between — which is what Abandoned() answers.
-            FetchBody.ReadRequestBody(
-                engine,
-                realm,
-                request,
-                bytes =>
-                {
-                    if (!operation.Abandoned)
-                    {
-                        operation.Run(client, Snapshot(bytes), policy);
-                    }
-                },
-                error =>
-                {
-                    state.UnregisterFetch(operation);
-                    operation.RejectBeforeSending(error);
-                });
+            if (request.IsUnusable)
+            {
+                state.UnregisterFetch(operation);
+                operation.RejectBeforeSending(realm.Intrinsics.TypeError.Construct("Body has already been consumed"));
+                return capability.PromiseInstance;
+            }
 
+            var requestBody = new FetchRequestBodyStream(engine, request.Stream!);
+            operation._requestBody = requestBody;
+
+            // Started before the transport, so the first chunk is usually already waiting when the socket
+            // asks for it — and so that a stream which errors immediately does so before a byte is sent.
+            requestBody.Start();
+
+            operation.Run(client, Snapshot(null, requestBody.Content), policy);
             return capability.PromiseInstance;
         }
 
@@ -242,22 +245,16 @@ internal sealed class FetchOperation
     }
 
     /// <summary>
-    /// Whether the operation has already been settled or abandoned, which is the only thing a callback
-    /// arriving on a later event-loop turn can safely act on.
-    /// </summary>
-    private bool Abandoned => Volatile.Read(ref _settled) != 0;
-
-    /// <summary>
-    /// Fails the fetch before a socket was ever opened, which is what a request body stream that errored
-    /// leaves. The token source has nothing to cancel and is released here rather than by a settle job that
-    /// will never run.
+    /// Fails the fetch before a socket was ever opened — a request whose body turned out to be unusable.
+    /// The token source has nothing to cancel and is released here rather than by a settle job that will
+    /// never run.
     /// </summary>
     private void RejectBeforeSending(JsValue error)
     {
         if (Interlocked.Exchange(ref _settled, 1) != 0)
         {
-            // Abandoned while the request body was still being read: the restore's generation fence is what
-            // this promise is behind now, and settling it is exactly what that forbids.
+            // Already abandoned, which the restore's generation fence now stands behind: settling this
+            // promise is exactly what that forbids.
             return;
         }
 
@@ -513,6 +510,11 @@ internal sealed class FetchOperation
     private void Release()
     {
         _engine._webApi?.UnregisterFetch(this);
+
+        // Whatever the outcome, nothing will consume another byte of a streaming request body: the transport
+        // disposes its content on the way out of a successful send, and a failed or cancelled one has
+        // nothing left to send it to.
+        _requestBody?.StopProducing();
         _cancellation.Dispose();
     }
 
@@ -539,6 +541,10 @@ internal sealed class FetchOperation
         // A response whose headers arrived but whose settle job the fence will discard: nothing will ever
         // read the body, so the connection is let go here rather than waiting for a finalizer.
         Interlocked.Exchange(ref _pendingBody, null)?.Dispose();
+
+        // Runs on the engine thread, from the restore, so the engine half of a streaming request body can be
+        // stopped here directly rather than through a job the fence would discard.
+        _requestBody?.Abandon();
     }
 
     private bool EnterFetchRealm()

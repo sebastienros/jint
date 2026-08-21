@@ -103,9 +103,10 @@ internal sealed class RequestConstructor : Constructor
         }
 
         // WebIDL converts a dictionary's members in lexicographical order of their identifiers, so a bag whose
-        // members are getters observes body, headers, method, redirect, signal in that order.
+        // members are getters observes body, duplex, headers, method, redirect, signal in that order.
         var initObject = ToInit(init);
         var bodyInit = Member(initObject, "body");
+        var duplexInit = Member(initObject, "duplex");
         var headersInit = Member(initObject, "headers");
         var methodInit = Member(initObject, "method");
         var redirectInit = Member(initObject, "redirect");
@@ -129,6 +130,15 @@ internal sealed class RequestConstructor : Constructor
             {
                 Throw.TypeError(_realm, $"Failed to construct 'Request': The provided value '{redirect}' is not a valid enum value of type RequestRedirect.");
             }
+        }
+
+        // `enum RequestDuplex { "half" };` — "half" is the only value, and "full" is reserved for a
+        // full-duplex fetch nobody has specified yet. WebIDL performs this conversion while the dictionary
+        // is being read rather than as a step of the algorithm; doing it here instead only changes which
+        // TypeError a bag carrying two invalid members reports, and keeps it beside the other enum member.
+        if (duplexInit is not null && !string.Equals(FetchValues.ToByteString(_realm, duplexInit), JsRequest.DuplexHalf, StringComparison.Ordinal))
+        {
+            Throw.TypeError(_realm, "Failed to construct 'Request': The provided value is not a valid enum value of type RequestDuplex.");
         }
 
         if (signalInit is not null && !signalInit.IsNull())
@@ -179,6 +189,17 @@ internal sealed class RequestConstructor : Constructor
             // Steps 38-40: extract, then append the implied Content-Type unless the header list — which the
             // step above has already filled — carries one of its own.
             var extracted = FetchBody.Extract(_realm, bodyInit!);
+
+            // Step 41: "If initBody is non-null and init["duplex"] does not exist, then throw a TypeError."
+            // Only a body whose source is null — the ReadableStream arm — reaches it, which is why a string
+            // or a Blob body may carry duplex or not as it likes and neither is refused. The member is what
+            // makes a script say out loud that it knows the request will be sent before the response is
+            // read; there is no "full" to ask for.
+            if (extracted.Stream is not null && duplexInit is null)
+            {
+                Throw.TypeError(_realm, "Failed to construct 'Request': The `duplex` member must be set to 'half' for a request with a ReadableStream body.");
+            }
+
             FetchBody.SetBody(request, in extracted);
         }
         else if (hasInputBody)

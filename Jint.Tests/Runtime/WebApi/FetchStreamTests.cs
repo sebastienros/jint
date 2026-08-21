@@ -97,6 +97,109 @@ public class FetchStreamTests
         }
     }
 
+    /// <summary>
+    /// A handler that copies the <i>request</i> body into a recorder, one entry per write the transport
+    /// makes, so a streaming upload is observable as it happens rather than only once it is complete.
+    /// </summary>
+    /// <remarks>
+    /// <c>HttpContent.CopyToAsync</c> is what a real handler's send path does, and it goes straight to
+    /// <c>SerializeToStreamAsync</c> — where <c>ReadAsStreamAsync</c> would buffer the whole body first and
+    /// hide exactly what this is here to see.
+    /// </remarks>
+    private sealed class UploadHandler : HttpMessageHandler
+    {
+        private readonly RecordingStream _recorder = new();
+
+        /// <summary>Set as soon as the transport has the request, before a byte of body is asked for.</summary>
+        internal ManualResetEventSlim RequestStarted { get; } = new(false);
+
+        /// <summary>Set when the upload saw its cancellation token fire — the proof an abort reached it.</summary>
+        internal ManualResetEventSlim Cancelled { get; } = new(false);
+
+        internal IReadOnlyList<string> Chunks => _recorder.Chunks;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestStarted.Set();
+
+            try
+            {
+                await request.Content!.CopyToAsync(_recorder, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                Cancelled.Set();
+                throw;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
+        }
+
+        private sealed class RecordingStream : Stream
+        {
+            private readonly List<string> _chunks = new();
+
+            internal IReadOnlyList<string> Chunks
+            {
+                get
+                {
+                    lock (_chunks)
+                    {
+                        return _chunks.ToArray();
+                    }
+                }
+            }
+
+            public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                Write(buffer.Span);
+                return default;
+            }
+
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                var text = SystemEncoding.UTF8.GetString(buffer);
+                lock (_chunks)
+                {
+                    _chunks.Add(text);
+                }
+            }
+
+            public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
+
+            public override bool CanRead => false;
+            public override bool CanSeek => false;
+            public override bool CanWrite => true;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+        }
+    }
+
+    /// <summary>
+    /// Runs event-loop turns until <paramref name="condition"/> holds, or fails the test at a deliberately
+    /// generous bound. The bound is not a measurement: what is being waited for is a hand-over between the
+    /// engine's thread and the transport's, which either happens or means the test has found a bug.
+    /// </summary>
+    private static void PumpUntil(Engine engine, Func<bool> condition, string what)
+    {
+        var deadline = Environment.TickCount64 + 15_000;
+
+        while (!condition())
+        {
+            if (Environment.TickCount64 > deadline)
+            {
+                Assert.Fail("Timed out waiting for " + what);
+            }
+
+            engine.Advanced.ProcessTasks();
+            Thread.Sleep(1);
+        }
+    }
+
     private static Engine WebEngine(HttpMessageHandler handler)
     {
         var engine = new Engine(options => options.UseFetch(fetch => fetch.HttpClient = new HttpClient(handler)));
@@ -323,6 +426,115 @@ public class FetchStreamTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+    }
+
+    /// <summary>
+    /// The upload half of the same design: a <c>ReadableStream</c> request body sent with
+    /// <c>duplex: 'half'</c> reaches the transport <b>as the script produces it</b>, not after the whole
+    /// stream has been drained into memory.
+    /// <para>
+    /// https://fetch.spec.whatwg.org/#dom-requestinit-duplex
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AStreamingRequestBodyReachesTheTransportAsTheScriptProducesIt()
+    {
+        var handler = new UploadHandler();
+        var engine = WebEngine(handler);
+
+        engine.Execute("""
+            var t = new TransformStream();
+            var writer = t.writable.getWriter();
+            var state = 'pending';
+            fetch('https://example.org/', { method: 'POST', duplex: 'half', body: t.readable })
+                .then(r => state = 'ok:' + r.status, e => state = 'failed:' + e.message);
+            """);
+
+        // The request is already on its way, with nothing written into it: a buffered upload would not have
+        // opened it at all until the stream had closed.
+        PumpUntil(engine, () => handler.RequestStarted.IsSet, "the request to reach the transport");
+        engine.Advanced.ProcessTasks();
+        handler.Chunks.Should().BeEmpty();
+        engine.Evaluate("state").AsString().Should().Be("pending");
+
+        engine.Execute("writer.write(new Uint8Array([104, 105]));");
+        PumpUntil(engine, () => handler.Chunks.Count == 1, "the first chunk to reach the transport");
+        handler.Chunks[0].Should().Be("hi");
+
+        // The fetch is still open: the body is not finished, so neither is the request.
+        engine.Evaluate("state").AsString().Should().Be("pending");
+
+        engine.Execute("writer.write(new Uint8Array([33])); writer.close();");
+        PumpUntil(engine, () => !string.Equals(engine.Evaluate("state").AsString(), "pending", StringComparison.Ordinal), "the fetch to settle");
+
+        engine.Evaluate("state").AsString().Should().Be("ok:200");
+
+        // Two writes, in order, each carrying exactly what the script enqueued.
+        string.Concat(handler.Chunks).Should().Be("hi!");
+        handler.Chunks.Should().HaveCount(2);
+
+        // The body's stream is disturbed and locked, as a body consumed by a fetch always is.
+        engine.Evaluate("t.readable.locked").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A streaming upload is cross-cycle state like any other in-flight request, so
+    /// <c>RestoreGlobalSnapshot</c> ends it: the transport's token fires and the engine half stops reading
+    /// the script's stream. Without that, a request nobody can finish would hold the socket until the
+    /// deadline.
+    /// </summary>
+    [Fact]
+    public void ARestoreEndsAStreamingRequestBody()
+    {
+        var handler = new UploadHandler();
+        var engine = WebEngine(handler);
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Execute("""
+            var t = new TransformStream();
+            var writer = t.writable.getWriter();
+            fetch('https://example.org/', { method: 'POST', duplex: 'half', body: t.readable });
+            """);
+
+        PumpUntil(engine, () => handler.RequestStarted.IsSet, "the request to reach the transport");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        handler.Cancelled.Wait(TimeSpan.FromSeconds(15)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A network response body is a byte stream — https://fetch.spec.whatwg.org/#concept-body — so it can be
+    /// read BYOB straight off the socket, into a buffer the consumer recycles. The chunk boundary stays the
+    /// transport's: one BYOB read takes one transport read, however much room the caller offered.
+    /// </summary>
+    [Fact]
+    public void ANetworkResponseBodyCanBeReadByob()
+    {
+        var handler = new GatedHandler();
+        handler.Body.Emit("he");
+        handler.Body.Emit("llo");
+        handler.Body.Complete();
+
+        var engine = WebEngine(handler);
+        engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
+        engine.Advanced.ProcessTasks();
+
+        // Taking a BYOB reader is as free as taking a default one: nothing is read until read() asks.
+        engine.Execute("var reader = r.body.getReader({ mode: 'byob' });");
+        handler.Body.ReadCount.Should().Be(0);
+
+        engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + dec(x.value))")
+            .UnwrapIfPromise().AsString().Should().Be("false:he");
+        handler.Body.ReadCount.Should().Be(1);
+
+        engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + dec(x.value))")
+            .UnwrapIfPromise().AsString().Should().Be("false:llo");
+        handler.Body.ReadCount.Should().Be(2);
+
+        engine.Evaluate("reader.read(new Uint8Array(8)).then(x => x.done + ':' + x.value.byteLength)")
+            .UnwrapIfPromise().AsString().Should().Be("true:0");
+        handler.Body.ReadCount.Should().Be(3);
     }
 }
 #endif

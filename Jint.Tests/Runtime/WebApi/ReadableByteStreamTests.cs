@@ -845,36 +845,131 @@ public class ReadableByteStreamTests
         engine.Evaluate("new Response(byteStream([[65, 66], [67]])).text()")
             .UnwrapIfPromise().AsString().Should().Be("ABC");
 
-        engine.Evaluate("new Request('https://example.org/', { method: 'POST', body: byteStream([[68]]) }).text()")
+        engine.Evaluate("new Request('https://example.org/', { method: 'POST', body: byteStream([[68]]), duplex: 'half' }).text()")
             .UnwrapIfPromise().AsString().Should().Be("D");
     }
 
     /// <summary>
-    /// The streams the <i>engine</i> hands out are not byte streams yet — <c>Response.body</c>,
-    /// <c>Request.body</c> and <c>Blob.stream()</c> carry <c>Uint8Array</c> chunks over a default
-    /// controller. So BYOB reading refuses on them, with the standard's own TypeError for a stream that was
-    /// not constructed with a byte source. This pins the documented gap rather than an implementation
-    /// accident: it is what changes when those bodies are upgraded.
+    /// Every stream the <i>engine</i> hands out over a byte sequence it holds is a byte stream:
+    /// <c>Response.body</c> and <c>Request.body</c> (https://fetch.spec.whatwg.org/#concept-body, whose
+    /// stream is "set up with byte reading support") and <c>Blob.stream()</c>
+    /// (https://w3c.github.io/FileAPI/#blob-get-stream). So BYOB reading works on all three.
     /// </summary>
+    /// <remarks>
+    /// This test replaces the boundary pin that asserted the opposite. It is the observable half of the
+    /// upgrade: nothing about the default-reader path changed, and the next test says so.
+    /// </remarks>
     [Fact]
-    public void RefusesBYOBOnTheBodiesTheEngineHandsOut()
+    public void ServesBYOBOnTheBodiesTheEngineHandsOut()
     {
         var engine = new Engine(options => options.UseFetch());
 
-        foreach (var source in new[]
-                 {
-                     "new Response('xy').body",
-                     "new Request('https://example.org/', { method: 'POST', body: 'xy' }).body",
-                     "new Blob(['xy']).stream()",
-                 })
+        foreach (var source in BodySources)
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"({source}).getReader({{ mode: 'byob' }})"))
-                .Error.Get("name").AsString().Should().Be("TypeError", source);
+            engine.Execute($"var reader = ({source}).getReader({{ mode: 'byob' }});");
+            engine.Evaluate("Object.getPrototypeOf(reader).constructor.name").AsString()
+                .Should().Be("ReadableStreamBYOBReader", source);
 
-            // A default reader is what they do serve.
-            engine.Evaluate($"({source}).getReader().read().then(r => r.value.constructor.name)")
-                .UnwrapIfPromise().AsString().Should().Be("Uint8Array", source);
+            // The caller's buffer is filled in place, and the view handed back is a view onto the transfer
+            // of that very buffer — which is the whole point of reading BYOB.
+            engine.Evaluate("""
+                reader.read(new Uint8Array(8)).then(r =>
+                    r.done + ':' + r.value.constructor.name + ':' + r.value.byteLength + ':' +
+                    String.fromCharCode.apply(null, Array.from(r.value)))
+                """)
+                .UnwrapIfPromise().AsString().Should().Be("false:Uint8Array:2:xy", source);
+
+            // A second read sees the end of the body, and gets its buffer back rather than losing it.
+            engine.Evaluate("reader.read(new Uint8Array(8)).then(r => r.done + ':' + r.value.byteLength)")
+                .UnwrapIfPromise().AsString().Should().Be("true:0", source);
         }
     }
+
+    /// <summary>
+    /// The regression half of the upgrade above: a default reader on those same bodies still answers with
+    /// one <c>Uint8Array</c> chunk carrying the whole body, and every <c>Body</c>-mixin consumer still works.
+    /// </summary>
+    [Fact]
+    public void StillServesADefaultReaderOnTheBodiesTheEngineHandsOut()
+    {
+        var engine = new Engine(options => options.UseFetch());
+
+        foreach (var source in BodySources)
+        {
+            engine.Evaluate($"({source}).getReader().read().then(r => r.done + ':' + r.value.constructor.name + ':' + Array.from(r.value))")
+                .UnwrapIfPromise().AsString().Should().Be("false:Uint8Array:120,121", source);
+        }
+
+        engine.Evaluate("new Response('xy').text()").UnwrapIfPromise().AsString().Should().Be("xy");
+        engine.Evaluate("new Blob(['xy']).text()").UnwrapIfPromise().AsString().Should().Be("xy");
+        engine.Evaluate("new Response('xy').arrayBuffer().then(b => b.byteLength)").UnwrapIfPromise().AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// <c>tee()</c> on a body picks the byte-stream algorithm now, so both branches are byte streams and each
+    /// can be read BYOB — https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the controller.
+    /// </summary>
+    [Fact]
+    public void TeesABodyIntoTwoByteStreams()
+    {
+        var engine = new Engine(options => options.UseFetch());
+        engine.Execute("var branches = new Response('xy').body.tee();");
+
+        engine.Evaluate("branches[0].getReader({ mode: 'byob' }).read(new Uint8Array(4)).then(r => Array.from(r.value).join(','))")
+            .UnwrapIfPromise().AsString().Should().Be("120,121");
+
+        // The second branch is independent, and reads the same bytes — through a default reader, which a
+        // byte tee serves by swapping the reader over the original.
+        engine.Evaluate("branches[1].getReader().read().then(r => Array.from(r.value).join(','))")
+            .UnwrapIfPromise().AsString().Should().Be("120,121");
+    }
+
+    /// <summary>
+    /// <c>clone()</c> is the <c>Body</c> mixin's own tee — https://fetch.spec.whatwg.org/#concept-body-clone
+    /// — so a cloned body whose stream had already been materialized is a byte stream on both sides.
+    /// </summary>
+    [Fact]
+    public void ClonesAMaterializedBodyIntoTwoByteStreams()
+    {
+        var engine = new Engine(options => options.UseFetch());
+
+        // Reading `body` first is what forces the clone down the tee path rather than the shared-source one.
+        engine.Execute("var original = new Response('xy'); original.body; var copy = original.clone();");
+
+        foreach (var name in new[] { "original", "copy" })
+        {
+            engine.Evaluate($"{name}.body.getReader({{ mode: 'byob' }}).read(new Uint8Array(4)).then(r => Array.from(r.value).join(','))")
+                .UnwrapIfPromise().AsString().Should().Be("120,121", name);
+        }
+    }
+
+    /// <summary>
+    /// The bodies the engine hands out have no <c>autoAllocateChunkSize</c>, so a BYOB read is served by the
+    /// bytes the source enqueues rather than through a <c>byobRequest</c> — but the buffer the caller
+    /// supplied is still transferred away from it, which is the ownership rule every byte stream keeps.
+    /// </summary>
+    [Fact]
+    public void TransfersTheCallersBufferOnABodyRead()
+    {
+        var engine = new Engine(options => options.UseFetch());
+        engine.Execute("var view = new Uint8Array(8); var buffer = view.buffer;");
+
+        engine.Evaluate("new Blob(['xy']).stream().getReader({ mode: 'byob' }).read(view).then(r => r.value.byteLength)")
+            .UnwrapIfPromise().AsNumber().Should().Be(2);
+
+        engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
+        engine.Evaluate("view.byteLength").AsNumber().Should().Be(0);
+    }
+
+    /// <summary>
+    /// The three streams the engine builds over bytes it already holds — a buffered <c>Response</c> body, a
+    /// buffered <c>Request</c> body and a <c>Blob</c>'s stream. All three carry the two bytes of "xy".
+    /// </summary>
+    private static readonly string[] BodySources =
+    [
+        "new Response('xy').body",
+        "new Request('https://example.org/', { method: 'POST', body: 'xy' }).body",
+        "new Blob(['xy']).stream()",
+    ];
 }
 #endif

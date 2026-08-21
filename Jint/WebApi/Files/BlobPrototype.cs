@@ -164,19 +164,20 @@ internal sealed partial class BlobPrototype : Prototype
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Two reductions against the algorithm as written. The stream is an ordinary (non-byte)
-    /// <c>ReadableStream</c> rather than one "set up with byte reading support", so
-    /// <c>getReader({ mode: "byob" })</c> on it raises the standard's TypeError for a stream that was not
-    /// constructed with a byte source. That is a gap in <i>this caller</i> rather than in the engine —
-    /// readable byte streams are implemented, and a script can build one with
-    /// <c>new ReadableStream({ type: "bytes" })</c> — so moving a blob onto one is a change here alone. And
-    /// the blob's bytes are one chunk rather than the implementation-defined slices the algorithm's loop
-    /// reads: the bytes are already in memory, so slicing them would manufacture event-loop turns rather
-    /// than model any I/O. An empty blob enqueues nothing and closes, so its first <c>read()</c> is done.
+    /// The stream is "set up with byte reading support" as the algorithm says — a readable <i>byte</i>
+    /// stream — so <c>getReader({ mode: "byob" })</c> works on it and a consumer can read a blob into a
+    /// buffer it recycles.
     /// </para>
     /// <para>
-    /// The chunk is a <c>Uint8Array</c> over a fresh copy, like every other way a blob's bytes cross into
-    /// script: a blob is immutable and what script is handed is writable.
+    /// One reduction against the algorithm as written: the blob's bytes are one chunk rather than the
+    /// implementation-defined slices the algorithm's loop reads. The bytes are already in memory, so
+    /// slicing them would manufacture event-loop turns rather than model any I/O — and it is only a
+    /// <i>default</i> reader that can tell, since a BYOB read is bounded by the caller's own buffer either
+    /// way. An empty blob enqueues nothing and closes, so its first <c>read()</c> is done.
+    /// </para>
+    /// <para>
+    /// The bytes are copied on the way out, like every other way a blob's bytes cross into script: a blob is
+    /// immutable and what script is handed is writable.
     /// </para>
     /// </remarks>
     [JsFunction(Name = "stream", Length = 0)]

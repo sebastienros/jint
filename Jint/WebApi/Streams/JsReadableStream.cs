@@ -89,5 +89,13 @@ internal sealed class JsReadableStream : ObjectInstance
     /// <see cref="JsReadableStreamController"/> instead.
     /// </summary>
     internal JsReadableStreamDefaultController DefaultController => (JsReadableStreamDefaultController) Controller;
+
+    /// <summary>
+    /// The controller of a stream the engine built itself through
+    /// <see cref="ReadableStreamOperations.CreateReadableByteStream"/> — a byte tee's branch, a body's
+    /// stream, a blob's stream. Those are byte controllers by construction, which is what makes the cast
+    /// safe; the same rule as <see cref="DefaultController"/>, on the other side of the pair.
+    /// </summary>
+    internal JsReadableByteStreamController ByteController => (JsReadableByteStreamController) Controller;
 }
 #endif

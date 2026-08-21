@@ -357,6 +357,48 @@ public class BlobTests
             .UnwrapIfPromise().AsString().Should().Be("true:true");
     }
 
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#blob-get-stream: "Let stream be a new ReadableStream created in
+    /// realm … set up with byte reading support." So a BYOB reader works on it, and a BYOB read is bounded
+    /// by the caller's buffer rather than by the one chunk a default reader sees.
+    /// </summary>
+    [Fact]
+    public void StreamIsAByteStreamAndCanBeReadByob()
+    {
+        var engine = WebEngine();
+        engine.Execute("var r = new Blob(['hello']).stream().getReader({ mode: 'byob' });");
+
+        engine.Evaluate("Object.getPrototypeOf(r).constructor.name").AsString().Should().Be("ReadableStreamBYOBReader");
+
+        // A buffer smaller than the blob takes what fits; the rest stays queued for the next read.
+        engine.Evaluate("r.read(new Uint8Array(3)).then(x => x.done + ':' + String.fromCharCode.apply(null, Array.from(x.value)))")
+            .UnwrapIfPromise().AsString().Should().Be("false:hel");
+
+        engine.Evaluate("r.read(new Uint8Array(3)).then(x => x.done + ':' + String.fromCharCode.apply(null, Array.from(x.value)))")
+            .UnwrapIfPromise().AsString().Should().Be("false:lo");
+
+        engine.Evaluate("r.read(new Uint8Array(3)).then(x => x.done + ':' + x.value.byteLength)")
+            .UnwrapIfPromise().AsString().Should().Be("true:0");
+    }
+
+    /// <summary>
+    /// A byte source can also serve a BYOB read through <c>respondWithNewView</c>-shaped machinery — but a
+    /// blob's stream has its bytes already, so what this pins is the other half of the ownership rule: the
+    /// caller's buffer is transferred away, and the view handed back owns the memory.
+    /// </summary>
+    [Fact]
+    public void StreamTransfersTheBufferOfAByobRead()
+    {
+        var engine = WebEngine();
+        engine.Execute("var view = new Uint8Array(8); var buffer = view.buffer;");
+
+        engine.Evaluate("new Blob(['ab']).stream().getReader({ mode: 'byob' }).read(view).then(x => x.value.buffer.byteLength)")
+            .UnwrapIfPromise().AsNumber().Should().Be(8);
+
+        engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
+        engine.Evaluate("view.byteLength").AsNumber().Should().Be(0);
+    }
+
     [Fact]
     public void StreamIsAReadableStreamEvenWithoutTheStreamsFeature()
     {

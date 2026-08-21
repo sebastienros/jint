@@ -316,7 +316,7 @@ public class RequestTests
         var engine = WebEngine();
         engine.Execute(@"
             var source = new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104, 105])); c.close(); } });
-            var a = new Request('https://example.org', { method: 'POST', body: source });");
+            var a = new Request('https://example.org', { method: 'POST', body: source, duplex: 'half' });");
 
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the ReadableStream arm becomes the
         // body's stream itself, and implies no Content-Type.
@@ -325,6 +325,68 @@ public class RequestTests
 
         engine.Evaluate("a.text()").UnwrapIfPromise().AsString().Should().Be("hi");
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request step 41: "If initBody is non-null and init["duplex"] does
+    /// not exist, then throw a TypeError." The member is what makes a script say out loud that it knows the
+    /// whole request is sent before the response is read.
+    /// </summary>
+    /// <remarks>
+    /// The step keys on the body's <i>source</i> being null, which is only true of the <c>ReadableStream</c>
+    /// arm — so every other <c>BodyInit</c> may carry <c>duplex</c> or not as it likes, and neither is
+    /// refused. And it keys on <c>initBody</c>, not on the final body, so a request built <i>from another
+    /// request</i> that has a stream body needs no <c>duplex</c> of its own.
+    /// </remarks>
+    [Fact]
+    public void RequiresDuplexForAStreamBodyAndForNothingElse()
+    {
+        var engine = WebEngine();
+        engine.Execute("function stream() { return new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104])); c.close(); } }); }");
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: stream() })"))
+            .Message.Should().Contain("duplex");
+
+        engine.Evaluate("new Request('https://example.org', { method: 'POST', body: stream(), duplex: 'half' }).method")
+            .AsString().Should().Be("POST");
+
+        // A body with a source needs nothing, and is not refused for supplying it either.
+        engine.Evaluate("new Request('https://example.org', { method: 'POST', body: 'hi' }).method").AsString().Should().Be("POST");
+        engine.Evaluate("new Request('https://example.org', { method: 'POST', body: 'hi', duplex: 'half' }).method").AsString().Should().Be("POST");
+
+        // Copying a request whose body is a stream: initBody is null, so the step does not apply.
+        engine.Execute("var streamed = new Request('https://example.org', { method: 'POST', body: stream(), duplex: 'half' });");
+        engine.Evaluate("new Request(streamed).method").AsString().Should().Be("POST");
+        engine.Evaluate("streamed.clone().method").AsString().Should().Be("POST");
+    }
+
+    /// <summary>
+    /// <c>enum RequestDuplex { "half" };</c> — WebIDL refuses anything else, including the <c>"full"</c> the
+    /// standard reserves for a duplex fetch nobody has specified. The attribute always reads back
+    /// <c>"half"</c>: https://fetch.spec.whatwg.org/#dom-request-duplex.
+    /// </summary>
+    [Fact]
+    public void HasADuplexAttributeThatOnlyAcceptsHalf()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("new Request('https://example.org').duplex").AsString().Should().Be("half");
+        engine.Evaluate("new Request('https://example.org', { duplex: 'half' }).duplex").AsString().Should().Be("half");
+
+        foreach (var invalid in new[] { "'full'", "'HALF'", "''", "null", "1" })
+        {
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new Request('https://example.org', {{ duplex: {invalid} }})"))
+                .Error.Get("name").AsString().Should().Be("TypeError", invalid);
+        }
+
+        // An explicit undefined means "not present", as for every other member of the dictionary — so it
+        // neither fails the enum conversion nor satisfies the requirement above.
+        engine.Evaluate("new Request('https://example.org', { duplex: undefined }).duplex").AsString().Should().Be("half");
+
+        // The attribute is an accessor on the prototype with a brand check, like every other one.
+        engine.Evaluate("Object.getOwnPropertyDescriptor(Request.prototype, 'duplex').get.name").AsString().Should().Be("get duplex");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(Request.prototype, 'duplex').get.call({})"))
+            .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
     [Fact]

@@ -38,19 +38,23 @@ public class FetchTests
 
         internal Func<RecordedRequest, HttpResponseMessage>? Responder { get; set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var recorded = Record(request);
+            var recorded = await RecordAsync(request, cancellationToken).ConfigureAwait(false);
             Requests.Add(recorded);
 
-            var response = Responder is { } responder
+            return Responder is { } responder
                 ? responder(recorded)
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
-
-            return Task.FromResult(response);
         }
 
-        private static RecordedRequest Record(HttpRequestMessage request)
+        /// <remarks>
+        /// The body is read <b>asynchronously</b>. A streaming request body — the standard's
+        /// <c>duplex: 'half'</c> — is produced by the engine thread as the transport drains it, so a
+        /// synchronous read here would block this thread waiting on turns the engine has not run yet. That
+        /// is why <c>FetchRequestBodyStream</c>'s content refuses synchronous serialization outright.
+        /// </remarks>
+        private static async Task<RecordedRequest> RecordAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             Collect(headers, request.Headers);
@@ -59,8 +63,7 @@ public class FetchTests
             if (request.Content is { } content)
             {
                 Collect(headers, content.Headers);
-                using var reader = new StreamReader(content.ReadAsStream());
-                body = reader.ReadToEnd();
+                body = await content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body);
@@ -125,15 +128,18 @@ public class FetchTests
         request.Body.Should().Be("hi");
     }
 
+    /// <summary>
+    /// A <c>ReadableStream</c> body is streamed to the wire — the standard's <c>duplex: 'half'</c> — and
+    /// arrives as the bytes the stream produced, chunked because nothing can compute its length in advance.
+    /// </summary>
     [Fact]
-    public void AStreamRequestBodyIsReadInFullBeforeAnythingIsSent()
+    public void AStreamRequestBodyReachesTheTransport()
     {
-        // Streaming uploads (the standard's `duplex: "half"`) are out of scope: the stream is drained first
-        // and the request carries the bytes it produced.
         var handler = new StubHandler();
 
         Fetch(handler, @"fetch('https://example.org/a', {
             method: 'POST',
+            duplex: 'half',
             body: new ReadableStream({
                 start(c) { c.enqueue(new Uint8Array([104])); c.enqueue(new Uint8Array([105])); c.close(); },
             }),
@@ -143,22 +149,117 @@ public class FetchTests
         request.Method.Should().Be("POST");
         request.Body.Should().Be("hi");
 
+        // No Content-Length: the length is not known when the headers go out, so the body is chunked.
+        request.Header("content-length").Should().BeNull();
+
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the ReadableStream arm implies no type.
         request.Header("content-type").Should().BeNull();
     }
 
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request step 41: a <c>ReadableStream</c> body without
+    /// <c>duplex</c> is a <c>TypeError</c>, which <c>fetch</c> turns into a rejection rather than a throw
+    /// because the whole of its synchronous half does.
+    /// </summary>
     [Fact]
-    public void AStreamRequestBodyThatErrorsRejectsBeforeASocketIsOpened()
+    public void AStreamRequestBodyWithoutDuplexRejects()
     {
         var handler = new StubHandler();
 
         Fetch(handler, @"fetch('https://example.org/a', {
             method: 'POST',
-            body: new ReadableStream({ start(c) { c.error(new TypeError('boom')); } }),
-        }).then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
-            .AsString().Should().Be("TypeError: boom");
+            body: new ReadableStream({ start(c) { c.close(); } }),
+        }).then(() => 'resolved', e => e.constructor.name)")
+            .AsString().Should().Be("TypeError");
 
         handler.Requests.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A request body stream that errors fails the fetch. The standard's <c>processBodyError</c> steps
+    /// (https://fetch.spec.whatwg.org/#concept-http-network-fetch) <i>terminate</i> the fetch controller,
+    /// so what the promise rejects with is the one network-error <c>TypeError</c> — not the stream's own
+    /// error, which a buffered upload would have propagated verbatim.
+    /// </summary>
+    [Fact]
+    public void AStreamRequestBodyThatErrorsFailsTheFetch()
+    {
+        var handler = new StubHandler();
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'POST',
+            duplex: 'half',
+            body: new ReadableStream({ start(c) { c.error(new TypeError('boom')); } }),
+        }).then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
+            .AsString().Should().Be("TypeError: Failed to fetch");
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status is not 303,
+    /// request's body is non-null, and request's body's source is null, then return a network error." The
+    /// bytes have gone down the first hop's socket and cannot go down a second one.
+    /// </summary>
+    [Fact]
+    public void AStreamRequestBodyCannotSurviveABodyPreservingRedirect()
+    {
+        var handler = new StubHandler
+        {
+            Responder = recorded =>
+            {
+                if (recorded.Url.EndsWith("/a", StringComparison.Ordinal))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.TemporaryRedirect);
+                    redirect.Headers.Add("location", "https://example.org/b");
+                    return redirect;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
+            },
+        };
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'POST',
+            duplex: 'half',
+            body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104])); c.close(); } }),
+        }).then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
+            .AsString().Should().Be("TypeError: Failed to fetch");
+
+        // The first hop was sent; the second never was.
+        handler.Requests.Should().ContainSingle().Which.Url.Should().Be("https://example.org/a");
+    }
+
+    /// <summary>
+    /// A 303 is the exemption the step above carves out: it drops the body along with the method, so there
+    /// is nothing left to re-send and the redirect is followed as it would be for any other body.
+    /// </summary>
+    [Fact]
+    public void AStreamRequestBodyFollowsA303ThatDropsIt()
+    {
+        var handler = new StubHandler
+        {
+            Responder = recorded =>
+            {
+                if (recorded.Url.EndsWith("/a", StringComparison.Ordinal))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.SeeOther);
+                    redirect.Headers.Add("location", "https://example.org/b");
+                    return redirect;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
+            },
+        };
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'POST',
+            duplex: 'half',
+            body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104])); c.close(); } }),
+        }).then(r => r.status + ':' + r.redirected)")
+            .AsString().Should().Be("200:true");
+
+        handler.Requests.Should().HaveCount(2);
+        handler.Requests[1].Method.Should().Be("GET");
+        handler.Requests[1].Body.Should().BeNull();
     }
 
     [Fact]

@@ -597,11 +597,12 @@ them: a `Request` always has an `AbortSignal`, its URL is a WHATWG URL, `respons
 iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `Response.error()`,
 `Response.redirect()`, `Response.json()`. A `FormData` body is serialized as `multipart/form-data` with a
 cryptographically random boundary, and `formData()` reads one back — as well as an
-`application/x-www-form-urlencoded` body — rejecting with a `TypeError` for anything else. `credentials`,
-`cache`, `mode`, `referrer` and `integrity` are accepted and ignored, the same convention Node and workerd
-follow, because there is no origin, cookie jar or HTTP cache here to honour them with.
+`application/x-www-form-urlencoded` body — rejecting with a `TypeError` for anything else. `duplex` is read
+and validated, because it decides whether a body may be a stream at all (see below). `credentials`, `cache`,
+`mode`, `referrer` and `integrity` are accepted and ignored, the same convention Node and workerd follow,
+because there is no origin, cookie jar or HTTP cache here to honour them with.
 
-### Response bodies stream
+### Bodies stream, in both directions
 
 `response.body` is a real `ReadableStream`, and a network response is read **on demand**: the promise
 resolves as soon as the headers are in, and the socket is only read when a consumer asks for the next chunk.
@@ -628,10 +629,41 @@ the stream, so each half has its own queue and its own flags. A body built from 
 a `Blob`, a `BufferSource` — keeps its bytes and only materializes a stream if something reads `body`, so the
 common `new Response(x).text()` costs no stream at all.
 
-`Blob.stream()` is there too, and a `ReadableStream` is accepted as a `BodyInit` for both `Request` and
-`Response`. **Uploads are still buffered:** a request body given as a stream is read in full before anything
-is sent, so the standard's `duplex: 'half'` streaming upload is out of scope and `duplex` is absent rather
-than accepted and ignored.
+Every body the engine hands out is a **byte stream** — `response.body`, `request.body` and `Blob.stream()`
+alike, as [Fetch](https://fetch.spec.whatwg.org/#concept-body) and
+[File API](https://w3c.github.io/FileAPI/#blob-get-stream) both require — so `getReader({ mode: 'byob' })`
+works on all three and a download loop can recycle one buffer instead of allocating per chunk. A default
+reader sees exactly what it always did: one `Uint8Array` per chunk.
+
+**Uploads stream too.** A request body given as a `ReadableStream` goes to the wire as the script produces
+it, which is the standard's `duplex: 'half'` — and, as the standard says, that member is **compulsory** for
+such a body:
+
+```js
+const { readable, writable } = new TransformStream();
+const done = fetch('https://api.example.org/ingest', {
+    method: 'POST',
+    duplex: 'half',           // required whenever body is a ReadableStream; omitting it is a TypeError
+    body: readable,
+});
+
+const writer = writable.getWriter();
+for (const row of rows) { await writer.write(encode(row)); }   // each write reaches the socket
+await writer.close();
+await done;
+```
+
+Backpressure runs the whole way through: the next chunk is not read from your stream until the previous one
+has been handed to the transport, so a slow server slows the script rather than filling memory. The request
+goes out chunked, because nothing can compute a `Content-Length` in advance.
+
+Three honest reductions, all of them consequences of the transport being `HttpClient`. A **body-preserving
+redirect fails the fetch** — which is what
+[the standard itself prescribes](https://fetch.spec.whatwg.org/#http-redirect-fetch) for a body with no
+source, since the bytes are gone once sent; a `303`, which drops the body with the method, is followed
+normally. **Nothing checks the negotiated HTTP version**, where a browser refuses a streaming upload over
+HTTP/1.1; this sends it chunked, as every server-side HTTP client does. And the body can be sent **once** —
+if `HttpClient` needs to resend the request, the fetch fails rather than sending a truncated body.
 
 Like every other web API, `fetch` settles only while the engine is being pumped: the promise resolves inside a
 blocking `UnwrapIfPromise`, an `await` of `EvaluateAsync`, or your own `engine.Advanced.ProcessTasks()` loop.
@@ -675,10 +707,12 @@ while the one you get back owns the memory — so a read loop recycles one alloc
 chunk. `tee()` on a byte stream produces two byte streams, and swaps between a default and a BYOB reader on
 the original depending on how each branch is being read.
 
-The streams the *engine* hands out are not byte streams yet: `response.body`, `request.body` and
-`Blob.stream()` are ordinary streams carrying `Uint8Array` chunks, so `getReader({ mode: 'byob' })` on one of
-them raises the `TypeError` the standard gives for a stream that was not constructed with a byte source. A
-byte stream is something script builds today.
+The streams the *engine* hands out are byte streams too: `response.body`, `request.body` and `Blob.stream()`
+each give a `ReadableByteStreamController` behind the scenes, so `getReader({ mode: 'byob' })` works on a
+network response, on a buffered body and on a blob — and `tee()` on any of them produces two byte streams.
+`Engine.Advanced.CreateReadableStream(Stream)` is the one that is still an ordinary stream: it wraps a host
+`Stream` you already own, whose reads go into a buffer the bridge owns rather than into one a script
+supplied.
 
 One deliberate reduction: **only the five interfaces a script constructs by name are globals.**
 `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four
