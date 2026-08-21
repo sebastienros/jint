@@ -1027,6 +1027,8 @@ public sealed partial class Engine : IDisposable
 
         Options.Apply(this);
 
+        ValidateModuleOptions(Options.Modules);
+
         // Read after Options.Apply so the snapshot observes the same value JintCallStack does
         // (Apply runs the user's configuration callbacks, which can still touch Constraints).
         _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
@@ -1054,6 +1056,29 @@ public sealed partial class Engine : IDisposable
         _parsingConstraints = ParsingConstraints.From(Options.Parsing);
         _defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
         _defaultParser = JintParser.Create(_defaultParserOptions, in _parsingConstraints);
+    }
+
+    private static void ValidateModuleOptions(Options.ModuleOptions modules)
+    {
+        if (modules.MaxModuleCount is <= 0 and not int.MaxValue)
+        {
+            throw new ArgumentException("MaxModuleCount must be positive or int.MaxValue.", nameof(modules));
+        }
+
+        if (modules.MaxTotalModuleSourceBytes is <= 0 and not long.MaxValue)
+        {
+            throw new ArgumentException("MaxTotalModuleSourceBytes must be positive or long.MaxValue.", nameof(modules));
+        }
+
+        if (modules.MaxModuleGraphDepth is <= 0 and not int.MaxValue)
+        {
+            throw new ArgumentException("MaxModuleGraphDepth must be positive or int.MaxValue.", nameof(modules));
+        }
+
+        if (modules.MaxModuleResolutionHops is <= 0 and not int.MaxValue)
+        {
+            throw new ArgumentException("MaxModuleResolutionHops must be positive or int.MaxValue.", nameof(modules));
+        }
     }
 
     private void Reset()

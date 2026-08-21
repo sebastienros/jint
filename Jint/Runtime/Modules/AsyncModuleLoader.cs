@@ -177,7 +177,14 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
 
         if (task.IsCanceled)
         {
-            completion.SetError($"Loading module '{completion.Resolved.ModuleRequest.Specifier}' was canceled.");
+            if (completion.CancellationToken.IsCancellationRequested)
+            {
+                completion.SetConstraintError(new OperationCanceledException(completion.CancellationToken));
+            }
+            else
+            {
+                completion.SetError($"Loading module '{completion.Resolved.ModuleRequest.Specifier}' was canceled.");
+            }
             return true;
         }
 

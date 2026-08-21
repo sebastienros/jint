@@ -278,6 +278,19 @@ public class HostModuleBuilderIdentityTests
             .Should().Throw<OperationCanceledException>();
     }
 
+    [Fact]
+    public void CancellationInsideTheIndexingPassCanBeRetried()
+    {
+        var engine = new Engine(options => options.EnableModules(new CancelOnceResolveLoader()));
+
+        engine.Modules.Add("cancelled", "export const value = 1;");
+
+        Invoking(() => engine.Modules.Import("cancelled"))
+            .Should().Throw<OperationCanceledException>();
+
+        engine.Modules.Import("cancelled").Get("value").AsNumber().Should().Be(1);
+    }
+
     /// <summary>
     /// Canonicalizes like <see cref="CanonicalizingModuleLoader"/>, except that one specifier makes it throw
     /// <see cref="OperationCanceledException"/> — the shape of a loader honoring a <c>CancellationToken</c>
@@ -298,6 +311,25 @@ public class HostModuleBuilderIdentityTests
 
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("the loader was asked to load " + resolved.Key);
+    }
+
+    private sealed class CancelOnceResolveLoader : ModuleLoader
+    {
+        private bool _cancel = true;
+
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            if (_cancel)
+            {
+                _cancel = false;
+                throw new OperationCanceledException();
+            }
+
+            return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, null, SpecifierType.Bare);
+        }
+
+        protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The registered module should satisfy the load.");
     }
 
     [Fact]

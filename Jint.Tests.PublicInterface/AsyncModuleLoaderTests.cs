@@ -537,6 +537,18 @@ public class AsyncModuleLoaderTests
         import.Error!.Get("message").AsString().Should().Be("Loading module './doomed.js' was canceled.");
     });
 
+    [Fact]
+    public async Task ACanceledFetchSettlesWhileImportAsyncOwnsTheEngine()
+    {
+        var loader = new TokenCapturingLoader();
+        var engine = new Engine(options => options.EnableModules(loader));
+
+        var import = engine.Modules.ImportAsync("./doomed.js");
+        loader.CancelPendingFetch();
+
+        await Invoking(() => import).Should().ThrowAsync<PromiseRejectedException>();
+    }
+
     /// <summary>
     /// Records the cancellation token the engine hands the fetch, and never finishes on its own: the fetch
     /// task only settles when the test cancels it.

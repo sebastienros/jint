@@ -54,6 +54,14 @@ public abstract class Module : JsValue, IScriptOrModule
         Location = location;
     }
 
+    /// <summary>
+    /// The UTF-8 encoded byte length of the module's original source, set at creation time. Modules whose
+    /// source size is unknowable — exports-only builders, prepared modules, and custom <see cref="Module"/>
+    /// records — report 0. Raw byte modules use their exact byte length; string sources use their UTF-8
+    /// byte count.
+    /// </summary>
+    internal long SourceByteLength { get; set; }
+
     public abstract List<string> GetExportedNames(List<CyclicModule> exportStarSet = null);
     internal abstract ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null);
     public abstract void Link();

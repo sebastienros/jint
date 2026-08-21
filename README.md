@@ -2658,6 +2658,44 @@ The synchronous `Engine.Modules.Import` still works with an async loader, but th
 
 A completion settled *before* `LoadModuleAsync` returns — a cache hit, source already in hand — is the exception to all of the above: the load finishes on the calling stack, no event loop involved, so a graph made entirely of such answers keeps the blocking `Import` fully synchronous, exactly as if a synchronous `IModuleLoader` had served it. `AsyncModuleLoader` does this automatically whenever `LoadModuleContentsAsync` returns an already-completed task.
 
+### Bounding and restricting module graphs
+
+When running untrusted or semi-trusted scripts, you can limit the size and shape of the module graph and restrict which modules may be loaded:
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.EnableModules("/scripts");
+
+    // Numeric limits — all default to unlimited (int.MaxValue / long.MaxValue).
+    options.Modules.MaxModuleCount = 50;                   // distinct modules per engine lifetime
+    options.Modules.MaxTotalModuleSourceBytes = 1_000_000; // cumulative UTF-8 source bytes
+    options.Modules.MaxModuleGraphDepth = 10;              // import-chain depth per graph load
+    options.Modules.MaxModuleResolutionHops = 200;         // Resolve calls per import operation
+
+    // URI/path allowlist policy
+    options.Modules.LoadPolicy = new ModuleAllowlistPolicy
+    {
+        AllowedSchemes = { "file" },                      // only file:// URIs
+        AllowedFileRoots = { "/scripts" },                // must be under this directory
+        AllowBareSpecifiers = true,                       // allow programmatic modules
+    };
+});
+```
+
+**Counting semantics:**
+
+| Limit | Scope | What counts |
+|---|---|---|
+| `MaxModuleCount` | Engine lifetime | Each distinct successfully registered module record. Duplicates, cached lookups, and coalesced async fetches do not recount. Programmatic modules (`Engine.Modules.Add`) participate. |
+| `MaxTotalModuleSourceBytes` | Engine lifetime | UTF-8 byte count of source text for string-based modules; exact byte length for `byte[]` modules. Prepared modules, exports-only modules, and custom `Module` records whose original encoded size is unknowable charge **0 bytes** — this is a known limitation. |
+| `MaxModuleGraphDepth` | Per graph load | Conservative import-chain depth (root = 1). Cycles are collapsed into strongly connected components but every module in a cycle contributes to its component's weight; Jint then enforces the longest weighted path through the resulting acyclic graph. The answer is independent of source traversal and async completion order. |
+| `MaxModuleResolutionHops` | Per import operation | Each actual `Resolve` call caused by an import. Cached `[[LoadedModules]]` hits do not resolve and do not count. Registration indexing does not consume hops. Budget resets per `Import`/`StartImport` call, so pooled engines never fail from accumulated operations. |
+
+**Failure behavior:** Exceeding a numeric limit throws `ModuleGraphLimitException`, a `JintException` subclass that is **not** `JavaScriptException` and propagates like a constraint violation — it cannot be caught by script and is not turned into a promise rejection. Invalid finite limits (≤ 0) throw `ArgumentException` at engine construction. Policy denials throw `ModuleResolutionException` and follow existing sync/rejection behavior.
+
+**Policy composition:** `ModuleAllowlistPolicy` applies AND across configured dimensions (schemes, hosts, origins, file roots) and OR within each list. An unconfigured dimension imposes no restriction. A file target cannot satisfy a configured host/origin dimension, and a non-file target cannot satisfy a configured file-root dimension, so cross-kind mismatches are denied rather than ignored. Bare/no-URI specifiers are denied by default when any dimension is configured; set `AllowBareSpecifiers = true` to permit them. File roots and resolved files are canonicalized before a separator-aware lexical containment check; symbolic links and Windows reparse points are not resolved, so allowed roots must not contain attacker-controlled links. The policy applies to the final `ResolvedSpecifier`; `DefaultModuleLoader`'s base-path restriction runs independently as an earlier check. Transport redirects occur inside a custom loader and are not visible to Jint's resolver, so that loader must apply the same policy and its own redirect limit to every redirect target.
+
 ## Asynchronous Execution
 
 Jint supports non-blocking execution of JavaScript that involves `async`/`await` and Promises. This is important in ASP.NET Core and other environments where blocking a thread while waiting for I/O can cause thread-pool exhaustion.
