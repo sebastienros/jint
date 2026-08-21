@@ -8,6 +8,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Messaging;
+using Jint.WebApi.Streams;
 
 namespace Jint.WebApi.StructuredClone;
 
@@ -139,18 +140,37 @@ internal sealed class StructuredDeserializer
             return null;
         }
 
-        var ports = new List<JsMessagePort>(holders.Count);
+        List<JsMessagePort>? ports = null;
         foreach (var holder in holders)
         {
+            // A stream's own channel is not one of this serialization's transfer data holders — it belongs to
+            // the nested one its transfer steps performed — so it is neither created here nor exposed. Its
+            // stream's transfer-receiving steps take it, at the point the walk reaches the stream.
+            if (holder.Nested)
+            {
+                continue;
+            }
+
             var endpoint = holder.Endpoint;
             holder.Endpoint = null;
 
             var port = new JsMessagePort(_engine, _realm, endpoint);
             _memory[holder] = port;
-            ports.Add(port);
+            (ports ??= new List<JsMessagePort>(holders.Count)).Add(port);
         }
 
         return ports;
+    }
+
+    /// <summary>
+    /// Takes the channel side out of a data holder, so a record read twice cannot bind one side to two
+    /// engines — the same rule <see cref="DeserializeTransferredPorts"/> follows, for the same reason.
+    /// </summary>
+    private static Messaging.MessagePortEndpoint? TakeEndpoint(SerializedMessagePort holder)
+    {
+        var endpoint = holder.Endpoint;
+        holder.Endpoint = null;
+        return endpoint;
     }
 
     private void Drain()
@@ -233,6 +253,33 @@ internal sealed class StructuredDeserializer
             case SerializedDomException domException:
                 result = DeserializeDomException(domException);
                 break;
+
+            // The three streams' transfer-receiving steps. Each builds its half of a cross-realm transform
+            // over the channel side the sender detached, in this realm.
+            case SerializedReadableStream readableStream:
+                result = TransferableStreams.ReceiveReadable(_engine, _realm, TakeEndpoint(readableStream.Port));
+                break;
+
+            case SerializedWritableStream writableStream:
+                result = TransferableStreams.ReceiveWritable(_engine, _realm, TakeEndpoint(writableStream.Port));
+                break;
+
+            case SerializedTransformStream transformStream:
+                {
+                    // Registered before its two sides are built, exactly as the containers below are: the
+                    // sides are separate records, so a graph that names the transform stream twice must come
+                    // out as one object either way.
+                    var target = new JsTransformStream(_engine, _realm)
+                    {
+                        _prototype = _realm.Intrinsics.TransformStream.PrototypeObject,
+                    };
+
+                    _memory[record] = target;
+
+                    target.Readable = (JsReadableStream) DeserializeObject(transformStream.Readable);
+                    target.Writable = (JsWritableStream) DeserializeObject(transformStream.Writable);
+                    return target;
+                }
 
             // The four containers are registered before their contents are filled in, which is what lets a
             // cycle terminate.

@@ -31,9 +31,9 @@ and `Response.formData()`, one algorithm reached three ways).
 
 Seven standards are vendored: `url/`, `encoding/`, `compression/` and `urlpattern/` as one suite each,
 `FileAPI/` as **three** (its root, `blob/` and `file/`), `WebCryptoAPI/` as **eight** and `streams/` as
-**six** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 183 theory cases: 48 of them the WebCryptoAPI corpus's
-24,136 assertions, 64 the streams corpus's 1,150, 15 the compression corpus's 297, 3 the URL Pattern
+**seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
+directory's own files and never descends. That is 184 theory cases: 48 of them the WebCryptoAPI corpus's
+24,136 assertions, 65 the streams corpus's 1,154, 15 the compression corpus's 297, 3 the URL Pattern
 corpus's 373 and 14 the File API's 342; the whole driver runs in about a minute.
 
 Tests that do not pass are named in the driver's exclusion table with the category they belong to. An entry
@@ -58,7 +58,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `WebCryptoAPI/secure_context/*` | A `.sub.html` test for a browsing context. |
 | `WebCryptoAPI/import_export/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
 | `WebCryptoAPI/tools/*` | The corpus's own Python generator. |
-| `streams/transferable/*` | Transferring a stream through `postMessage()` is the one part of the Streams Standard Jint does not implement, there being nothing to transfer it to; the directory is worker, iframe and service-worker plumbing on top of that. [Issue #3186](https://github.com/sebastienros/jint/issues/3186). |
+| `streams/transferable/*.window.js`, `streams/transferable/resources/*` | The directory itself **is** vendored now that transferring a stream works ([issue #3199](https://github.com/sebastienros/jint/issues/3199)) — but it holds exactly one `.any.js` file. The two `.window.js` tests drive an iframe and a `MessagePort` helper page, and `resources/` is the iframe, worker, shared-worker and service-worker plumbing those and the directory's `.html` files load. The blanket "`.any.js` only" rule below already excludes all of it; these rows say so by name, because a half-vendored directory should not look like an oversight. |
 | `streams/readable-streams/owning-type*.tentative.any.js` | Upstream's `.tentative` marker again: owning-type readable streams are a proposal the Streams Standard has not adopted. |
 | `streams/*/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
 | `streams/readable-byte-streams/construct-byob-request.any.js` | Reads `ReadableByteStreamController.prototype` and calls `new ReadableStreamBYOBRequest(…)` at *file scope*. Neither is a global here — see "Streams, including byte streams" in the repository README for the reduction — so the file throws before registering a test, and a harness error is for the whole file rather than something a per-test exclusion can name. The seven rows of `default-reader.any.js` that fail for the same reason fail *inside* test bodies, so those are in the exclusion table under `NeedsStreamInterfaceGlobals`. |
@@ -72,10 +72,11 @@ without revisiting the reason fails rather than quietly adding a red suite.
 Nothing was left out for being slow. Every vendored file was timed at the pin; the slowest is
 `derive_bits_keys/pbkdf2.https.any.js` at ~20 s for 8,632 cases (it is `// META: timeout=long` and sharded
 nine ways upstream), then `generateKey/successes_RSA-OAEP.https.any.js` at ~7 s, which really does generate
-156 RSA key pairs. Everything else is under 3 s. The whole streams corpus is 6.4 s for its 64 files, the
+156 RSA key pairs. Everything else is under 3 s. The whole streams corpus is 6.4 s for its 65 files, the
 slowest being `readable-byte-streams/templated.any.js` at ~2.1 s and `readable-streams/templated.any.js` at
 ~1.0 s — both are `rs-test-templates.js` run over every stream shape — so nothing there is near the bar
-either.
+either. `transferable/transform-stream-members.any.js`, the file this pin's newest change added, is four
+assertions and does not register.
 
 The three corpora added last measure 2.6 s (compression, 15 files), 3.1 s (urlpattern, 3 files) and 0.2 s
 (FileAPI, 14 files), run one after another on one thread. Two files carry almost all of that: `urlpattern.any.js`
@@ -127,9 +128,23 @@ prose where a browser answers `InvalidAccessError`.
 
 ## What the streams corpus says about this engine
 
+<<<<<<< HEAD
 1,150 assertions across 64 files, of which **16 do not pass** — 98.6%, which is what one expects of an
 implementation written operation by operation against the standard, and also why the sixteen are worth naming
 individually. (Only the URL Pattern corpus below beats it, at 100%.)
+=======
+1,154 assertions across 65 files, of which **16 do not pass** — the highest-passing corpus vendored so far,
+which is what one expects of an implementation written operation by operation against the standard, and also
+why the sixteen are worth naming individually.
+>>>>>>> 2bcb07e4f (Web streams: transfer a ReadableStream, a WritableStream or a TransformStream)
+
+`transferable/transform-stream-members.any.js` is the newest of the 65 and all four of its assertions pass.
+It is the whole `.any.js` surface of transferable streams, and it asks one thing four ways: naming a
+`TransformStream` *and* one of its two sides in a single transfer list must be a `DataCloneError`, in either
+order. It passes because the transform stream's own transfer steps transfer each side in turn, so by the time
+the list's other entry is reached that side is both locked and `[[Detached]]` — which is what makes the
+refusal fall out of the steps rather than needing a rule of its own. The file took 0.4 s at the pin,
+including the runner's start-up.
 
 Eleven are a decision already taken. Seven rows of `readable-streams/default-reader.any.js` reach for the
 `ReadableStreamDefaultReader` **global** (`NeedsStreamInterfaceGlobals`): only the five interfaces a script

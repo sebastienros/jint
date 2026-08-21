@@ -219,14 +219,14 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
-| `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s and `MessagePort`s) | `StructuredClone` | ✔ shipped |
+| `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s, `MessagePort`s and streams) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
 | `Blob` (incl. `stream()`) / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
-| `ReadableStream` / `WritableStream` / `TransformStream` / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
+| `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
 | `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
@@ -1066,8 +1066,64 @@ One deliberate reduction: **only the five interfaces a script constructs by name
 `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four
 controllers and `ReadableStreamBYOBRequest` exist as ordinary interface objects — a reader's `constructor` is
 the real thing, and `new` on it behaves as the standard says — but they are not installed on `globalThis`,
-where a browser would expose them. Transferring a stream through `postMessage()` is the one part of the
-standard that is absent, there being nothing to transfer it to.
+where a browser would expose them.
+
+#### All three streams are transferable
+
+`ReadableStream`, `WritableStream` and `TransformStream` are transferable objects, so a stream can be handed
+to another engine and read there — which is what makes a worker-style split able to pass a *pipeline* and not
+only a value:
+
+```csharp
+var host = new Engine(o => o.UseWebApis());
+var worker = new Engine(o => o.UseWebApis());
+var pair = host.Advanced.CreateMessagePortPair(worker);
+host.SetValue("port", pair.Local);
+worker.SetValue("port", pair.Remote);
+
+worker.Execute("""
+    port.onmessage = async e => {
+      for (const reader = e.data.getReader(); ; ) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        log(value);
+      }
+    };
+    """);
+
+host.Execute("""
+    const rs = new ReadableStream({ start(c) { c.enqueue('a'); c.enqueue('b'); c.close(); } });
+    port.postMessage(rs, [rs]);   // rs is now locked and no longer directly usable
+    """);
+```
+
+The mechanism is the standard's "cross-realm transform", and it is a `MessagePort` underneath: transferring a
+readable stream creates an entangled pair, wires a writable side onto one port, pipes the original stream into
+it and sends the other port along with the message. The receiving engine builds a readable stream over the
+port that arrived. A `WritableStream` is the mirror image, and a `TransformStream` is both — its two sides are
+transferred separately, so it costs two channels. `structuredClone(stream, { transfer: [stream] })` does the
+same thing into the current realm, which is what the two phases composed give you.
+
+**Both engines have to be pumped**, exactly as for a `MessagePort` and for timers: a chunk written on the
+sender is an event-loop task on the receiver, so an engine nobody pumps receives nothing. Backpressure crosses
+too — the receiving side's high water mark is 0 and each read sends one `pull` back — so the sender does not
+drain its source into the channel ahead of whoever is reading. Everything runs on each engine's own thread;
+nothing here starts one.
+
+The standard's refusals are implemented as written: transferring a **locked** stream is a `DataCloneError`,
+transferring the same stream twice is a `DataCloneError`, and a stream that is in the message but *not* in the
+transfer list is a `DataCloneError` — a stream is transferable and not serializable. After a transfer the
+original is **locked and disturbed**, because the pipe holds a reader (or a writer) on it, and a transferred
+`TransformStream` leaves both of its sides that way. Closing, erroring and cancelling all propagate across the
+boundary in both directions, and a chunk that cannot be structured-cloned fails that write and errors both
+ends.
+
+One thing goes beyond the standard, deliberately. HTML drops a message posted into a channel whose far end has
+gone, silently, so a transferred stream whose message is never delivered — or whose receiving engine calls
+`RestoreGlobalSnapshot`, or is disposed — would leave the sender's pipe reading its source forever and writing
+into nothing. Jint ends the stream instead: the next write (or the next read on the receiving side) finds the
+channel gone and errors, which cancels the source. A pipe is never left running against a side nobody can
+reach.
 
 ### Storage is opt-in on its own, and you decide where the data lives
 

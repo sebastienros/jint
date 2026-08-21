@@ -109,5 +109,8 @@ internal sealed class JsWritableStream : ObjectInstance
 
     /// <summary>https://streams.spec.whatwg.org/#writablestream-backpressure</summary>
     internal bool Backpressure { get; set; }
+
+    /// <inheritdoc cref="JsReadableStream.Detached" />
+    internal bool Detached { get; set; }
 }
 #endif

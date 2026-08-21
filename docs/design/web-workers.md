@@ -605,6 +605,14 @@ proposed.
   otherwise leave its peer posting into a queue nothing can ever drain. §8's "close both ports rather than
   merely forgetting the local one" is therefore already the shipped rule for ports, not only the proposed one
   for workers.
+- **Transferring a stream works too**, and it needed no new transport either: `ReadableStream`,
+  `WritableStream` and `TransformStream` are transferable, and the Streams Standard's transfer steps are a
+  `MessagePort` pair plus a pipe, so they ride the port transfer above. For the worker design that means
+  `worker.postMessage(rs, [rs])` hands a worker a *pipeline* rather than a value — with the same rule as
+  everything else here: both engines have to be pumped, because a chunk is a task on the receiver. The one
+  addition beyond the standard is that a channel whose far end has been ended errors the stream instead of
+  being written into forever, which is what makes §8's "restore or dispose on either side" also end a pipe
+  that was crossing the pair.
 - `Error` objects clone as data (name flattened to the seven standard names, plus message and stack); functions
   and symbols do not.
 
