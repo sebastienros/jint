@@ -225,6 +225,80 @@ public class WptHarnessTests
             .Should().Be("FAIL");
     }
 
+    /// <summary>
+    /// A stand-in for WebIDL's <c>QuotaExceededError</c> interface, which Jint does not have — the assertion
+    /// reads <c>self.QuotaExceededError</c> at call time, exactly as upstream does, so a test can install one.
+    /// </summary>
+    private const string QuotaPreamble = """
+        globalThis.QuotaExceededError = class QuotaExceededError extends Error {
+            constructor(requested, quota) {
+                super('quota');
+                this.name = 'QuotaExceededError';
+                this.code = 22;
+                this.requested = requested;
+                this.quota = quota;
+            }
+        };
+        var throwQuota = (requested, quota) => () => { throw new QuotaExceededError(requested, quota); };
+        """;
+
+    [Theory]
+    // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface carries `quota` and `requested`
+    // beside the DOMException name and code, and each may be asserted as null, as a number, or by predicate.
+    [InlineData("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 7, 8)")]
+    [InlineData("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 7)")]
+    [InlineData(
+        "assert_throws_quotaexceedederror(throwQuota(9, 8), r => r === 9, q => q === 8)",
+        "assert_throws_quotaexceedederror(throwQuota(9, 8), r => r === 9, q => q === 7)")]
+    [InlineData("assert_throws_quotaexceedederror(throwQuota(null, null), null, null)", "assert_throws_quotaexceedederror(() => {}, null, null)")]
+    // The constructor form, and the same wrong-global check the DOMException assertion makes.
+    [InlineData(
+        "assert_throws_quotaexceedederror(QuotaExceededError, throwQuota(9, 8), 9, 8)",
+        "assert_throws_quotaexceedederror(function QuotaExceededError() {}, throwQuota(9, 8), 9, 8)")]
+    // A plain DOMException wearing the name and the legacy code is *not* the interface, which is exactly what
+    // getRandomValues throws today — so this row is the engine's own behaviour as much as the shim's.
+    [InlineData(
+        "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)",
+        "assert_throws_quotaexceedederror(() => { throw new DOMException('x', 'QuotaExceededError'); }, null, null)")]
+    // The no-constructor form refuses a fifth argument, so a suite that spelled the constructor form wrong
+    // cannot silently lose its description.
+    [InlineData(
+        "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8, 'why')",
+        "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8, 'why', 'extra')")]
+    public void TheQuotaExceededAssertionRecordsBothOutcomes(string passing, string failing)
+    {
+        StatusOf($"{QuotaPreamble}\ntest(() => {{ {passing} }}, 'row');").Should().Be("PASS");
+        StatusOf($"{QuotaPreamble}\ntest(() => {{ {failing} }}, 'row');").Should().Be("FAIL");
+    }
+
+    [Fact]
+    public void AnUnimplementedOptionalFeatureIsItsOwnOutcome()
+    {
+        // Upstream's third status. A truthy condition is a pass; a falsy one is neither a pass nor an
+        // ordinary failure, because the test gave up rather than found something wrong. The driver has no
+        // third bucket, so such a test still needs an exclusion — the status is what tells a reader why.
+        StatusOf("test(() => assert_implements_optional(true, 'x'), 'row');").Should().Be("PASS");
+        StatusOf("test(() => assert_implements_optional(false, 'x'), 'row');").Should().Be("PRECONDITION_FAILED");
+
+        // And it is an AssertionError, which is what stops a suite's own `catch` from mistaking it for the
+        // operation's rejection and re-classifying it as a failure.
+        StatusOf("test(() => { try { assert_implements_optional(false, 'x'); } catch (e) { assert_true(e instanceof AssertionError); throw e; } }, 'row');")
+            .Should().Be("PRECONDITION_FAILED");
+    }
+
+    [Fact]
+    public void AssertionErrorIsAGlobalTheSuitesCanBranchOn()
+    {
+        // The WebCryptoAPI suites wrap an operation in try/catch and re-throw only `err instanceof
+        // AssertionError`, so that a failed assertion inside the try is reported as itself rather than as
+        // "the operation threw". Upstream exposes the constructor for exactly that, and a shim that kept it
+        // private turned every such file into a wall of ReferenceErrors.
+        StatusOf("test(() => { try { null.x; } catch (e) { assert_false(e instanceof AssertionError); } }, 'row');")
+            .Should().Be("PASS");
+        StatusOf("test(() => { try { assert_true(false); } catch (e) { if (e instanceof AssertionError) { throw e; } assert_unreached('classified wrong'); } }, 'row');")
+            .Should().Be("FAIL");
+    }
+
     [Fact]
     public void ADomExceptionAssertionChecksTheLegacyCodeAsWellAsTheName()
     {
