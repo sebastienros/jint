@@ -167,6 +167,7 @@ public partial class InteropTests
         var engine = new Engine(options =>
         {
             options.AllowClr();
+            options.AllowClrWrite();
         });
 
         var dc = new CustomDictionary<float>();
@@ -192,6 +193,7 @@ public partial class InteropTests
         var engine = new Engine(options =>
         {
             options.AllowClr();
+            options.AllowClrWrite();
         });
 
         engine.SetValue("B", TypeReference.CreateTypeReference(engine, typeof(InheritingFromClassWithStatics)));
@@ -270,7 +272,7 @@ public partial class InteropTests
     [Fact]
     public void NewTypedObjectFromUntypedInitializerShouldBeMapped()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
 
         engine.SetValue("obj", new ClassWithData());
         engine.Execute("obj.Data = { Value: '123' };");

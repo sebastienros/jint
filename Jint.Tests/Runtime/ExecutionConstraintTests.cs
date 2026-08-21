@@ -999,7 +999,9 @@ myarr[0](0);
     private static void AssertCancelledDuringThirdHostCall(Func<CancellationTokenSource, Engine, Func<int>> setup, string script)
     {
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg
+            .CancellationToken(cts.Token)
+            .AllowClrWrite());
         var hostCallCount = setup(cts, engine);
 
         Invoking(() => engine.Execute(script)).Should().ThrowExactly<ExecutionCanceledException>();

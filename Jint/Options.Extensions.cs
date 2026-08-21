@@ -327,6 +327,14 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Configures whether scripts can write directly through projected CLR objects. Direct CLR writes are
+    /// disabled by default.
+    /// </summary>
+    /// <remarks>
+    /// This controls writes to fields, properties, indexers, and collection entries. It does not prevent
+    /// scripts from calling CLR methods or extension methods whose implementations mutate host state.
+    /// </remarks>
     public static Options AllowClrWrite(this Options options, bool allow = true)
     {
         options.Interop.AllowWrite = allow;

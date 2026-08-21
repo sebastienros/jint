@@ -411,7 +411,9 @@ public class ObjectConverterRegistrationTests
     public void DeclaredConverterDoesNotAffectWrites()
     {
         var host = new Host();
-        var engine = CreateEngine(host, options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
+        var engine = CreateEngine(host, options => options
+            .AllowClrWrite()
+            .AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
 
         engine.Evaluate("host.Flag = false; host.Number = 7; host.Text = 'written';");
 

@@ -14,6 +14,7 @@ public partial class InteropTests
     {
         return new Engine(options =>
         {
+            options.AllowClrWrite();
             options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             additionalConfiguration?.Invoke(options);
         });

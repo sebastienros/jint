@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Object;
 
 namespace Jint.Runtime.Interop;
 
@@ -166,9 +167,43 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool Delete(JsValue property)
     {
-        if (!_engine.Options.Interop.AllowWrite)
+        if (!_engine.Options.Interop.AllowWrite || !Extensible)
         {
-            return false;
+            if (property is JsString dictionaryKey
+                && _typeDescriptor.IsStringKeyedGenericDictionary
+                && _typeDescriptor.CanTestDictionaryKey)
+            {
+                var contains = _typeDescriptor.ContainsDictionaryKey(Target, dictionaryKey.ToString());
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+                if (contains)
+                {
+                    return false;
+                }
+
+                if (ArrayInstance.ParseArrayIndex(dictionaryKey.ToString()) != uint.MaxValue)
+                {
+                    return true;
+                }
+            }
+
+            if (!_typeDescriptor.IsDictionary && property.IsNumber())
+            {
+                var value = ((JsNumber) property)._value;
+                if (TypeConverter.IsIntegralNumber(value))
+                {
+                    return value < 0 || value >= Length;
+                }
+            }
+            else if (!_typeDescriptor.IsDictionary && property is JsString jsString)
+            {
+                var index = ArrayInstance.ParseArrayIndex(jsString.ToString());
+                if (index != uint.MaxValue)
+                {
+                    return index >= (uint) Length;
+                }
+            }
+
+            return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
         }
 
         if (property.IsNumber())
@@ -287,7 +322,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
         {
-            if (!CanWrite)
+            if (!CanWrite || !Extensible)
             {
                 return false;
             }
@@ -325,15 +360,16 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (ReferenceEquals(receiver, this) && property.IsNumber())
         {
-            // An in-range element write to a read-only or non-extensible (frozen) wrapper must be refused:
+            // An element write to a read-only or non-extensible (frozen) wrapper must be refused:
             // base.SetSlow would otherwise materialize a throwaway descriptor and return true, silently
-            // "succeeding" (#2541). Everything else — writable in-range writes, growth, out-of-range,
-            // negative and non-integral indices — defers to base.Set, which writes through and already
+            // "succeeding" (#2541), or reach an indexer with an out-of-range growth write. Everything else —
+            // writable in-range writes, growth, negative and non-integral indices — defers to base.Set, which
+            // writes through and already
             // rejects runtime read-only collections (e.g. ReadOnlyCollection<T>) cleanly. Wrappers don't
             // track per-element writability, so a non-extensible wrapper blocks existing-element writes too
             // — a deliberate, contained interop divergence from the spec.
             var numValue = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(numValue) && numValue >= 0 && numValue < Length
+            if (TypeConverter.IsIntegralNumber(numValue) && numValue >= 0
                 && (!CanWrite || !Extensible))
             {
                 return false;

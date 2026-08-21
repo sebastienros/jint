@@ -8,9 +8,11 @@ public partial class InteropTests : IDisposable
 
     public InteropTests()
     {
-        _engine = new Engine(cfg => cfg.AllowClr(
+        _engine = new Engine(cfg => cfg
+                .AllowClr(
                     typeof(Console).GetTypeInfo().Assembly,
-                    typeof(File).GetTypeInfo().Assembly))
+                    typeof(File).GetTypeInfo().Assembly)
+                .AllowClrWrite())
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>

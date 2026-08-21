@@ -9,6 +9,8 @@
 /// </summary>
 public class InteropWrapperMemberCacheTests
 {
+    private static Engine CreateEngine() => new(options => options.AllowClrWrite());
+
     public class CountingHost
     {
         private int _value;
@@ -44,7 +46,7 @@ public class InteropWrapperMemberCacheTests
     public void PropertyReadsAndWritesInLoopStayLive()
     {
         var host = new CountingHost();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         var sum = engine.Evaluate("""
             var sum = 0;
@@ -66,7 +68,7 @@ public class InteropWrapperMemberCacheTests
     public void ClrSideMutationsBetweenIterationsAreVisible()
     {
         var host = new CountingHost();
-        var engine = new Engine()
+        var engine = CreateEngine()
             .SetValue("host", host)
             .SetValue("mutate", new Action<int>(host.SetBackingField));
 
@@ -86,7 +88,7 @@ public class InteropWrapperMemberCacheTests
     [Fact]
     public void DefinePropertyOnWrapperMidLoopInvalidatesReadCache()
     {
-        var engine = new Engine().SetValue("host", new CountingHost());
+        var engine = CreateEngine().SetValue("host", new CountingHost());
 
         var result = engine.Evaluate("""
             Object.defineProperty(host, 'extra', { value: 'first', writable: true, configurable: true });
@@ -106,7 +108,7 @@ public class InteropWrapperMemberCacheTests
     [Fact]
     public void DefinePropertyOnWrapperMidLoopInvalidatesMethodCallCache()
     {
-        var engine = new Engine().SetValue("host", new CountingHost());
+        var engine = CreateEngine().SetValue("host", new CountingHost());
 
         var result = engine.Evaluate("""
             var r = [];
@@ -130,7 +132,7 @@ public class InteropWrapperMemberCacheTests
         first.SetBackingField(1);
         second.SetBackingField(2);
 
-        var engine = new Engine()
+        var engine = CreateEngine()
             .SetValue("first", first)
             .SetValue("second", second);
 
@@ -156,7 +158,7 @@ public class InteropWrapperMemberCacheTests
     {
         var host = new CountingHost();
         host.SetBackingField(7);
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         var result = engine.Evaluate("""
             function read(o) { return o.value; }
@@ -175,7 +177,7 @@ public class InteropWrapperMemberCacheTests
     public void DictionaryBackedWrapperMembersStayDynamic()
     {
         var dictionary = new Dictionary<string, object>();
-        var engine = new Engine()
+        var engine = CreateEngine()
             .SetValue("dict", dictionary)
             .SetValue("clrSet", new Action(() => dictionary["key"] = "clr"))
             .SetValue("clrRemove", new Action(() => dictionary.Remove("key")));
@@ -200,7 +202,7 @@ public class InteropWrapperMemberCacheTests
     [Fact]
     public void ReadOnlyClrPropertyWriteIsIgnoredInSloppyMode()
     {
-        var engine = new Engine().SetValue("host", new ReadOnlyHost());
+        var engine = CreateEngine().SetValue("host", new ReadOnlyHost());
 
         var result = engine.Evaluate("""
             var r = [];
@@ -218,7 +220,7 @@ public class InteropWrapperMemberCacheTests
     [Fact]
     public void ReadOnlyClrPropertyWriteThrowsTypeErrorInStrictMode()
     {
-        var engine = new Engine().SetValue("host", new ReadOnlyHost());
+        var engine = CreateEngine().SetValue("host", new ReadOnlyHost());
 
         var result = engine.Evaluate("""
             var r = [];
@@ -245,7 +247,7 @@ public class InteropWrapperMemberCacheTests
     public void FastLaneAgreesWithForcedSlowLaneAcrossMutations()
     {
         var host = new CountingHost();
-        var engine = new Engine()
+        var engine = CreateEngine()
             .SetValue("host", host)
             .SetValue("mutate", new Action<int>(host.SetBackingField));
 

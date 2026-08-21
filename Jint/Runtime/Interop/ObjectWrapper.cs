@@ -9,6 +9,7 @@ using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop.Reflection;
 
 #pragma warning disable IL2067
@@ -1008,6 +1009,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
+        if (descriptor is ReflectionDescriptor reflectionDescriptor)
+        {
+            reflectionDescriptor.AttachOwner(this);
+        }
         if (!isDictionary
             && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
             && requirement.IsSatisfiedBy(accessor))

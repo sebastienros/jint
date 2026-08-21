@@ -21,6 +21,7 @@ public class HostArrayConversionDiagnosticsTests
     private static Engine CreateEngine(ArrayConversionMode? mode = null) => new(options =>
     {
         options.AllowClr(typeof(HostWithArrays).Assembly);
+        options.AllowClrWrite();
         if (mode is not null)
         {
             options.Interop.ArrayConversion = mode.Value;

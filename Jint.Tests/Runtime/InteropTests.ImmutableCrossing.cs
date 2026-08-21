@@ -75,7 +75,9 @@ public partial class InteropTests
 
     private static Engine ImmutableCrossingEngine(params Type[] types)
     {
-        return new Engine(options => options.AddImmutableCrossing(types));
+        return new Engine(options => options
+            .AllowClrWrite()
+            .AddImmutableCrossing(types));
     }
 
     [Fact]
