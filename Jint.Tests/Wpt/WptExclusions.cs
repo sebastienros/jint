@@ -254,15 +254,6 @@ internal enum WptDivergence
     NeedsIncrementalInflater,
 
     /// <summary>
-    /// The test calls <c>Blob.textStream()</c> — https://w3c.github.io/FileAPI/#dom-blob-textstream, which
-    /// the File API added after Jint's <c>Blob</c> was written and which is normative rather than optional.
-    /// Its algorithm is three steps over pieces this engine already has (get the blob's stream, set up a
-    /// <c>TextDecoderStream</c> with UTF-8, pipe one through the other), so this is a gap to close and not a
-    /// decision; the whole of <c>Blob-textStream.any.js</c> is red for the method simply being absent.
-    /// </summary>
-    NeedsBlobTextStream,
-
-    /// <summary>
     /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
     /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
     /// suites up deliberately recorded them rather than fixing them: the point was to find out what they

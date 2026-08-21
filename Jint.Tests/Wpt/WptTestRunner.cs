@@ -817,13 +817,6 @@ public class WptTestRunner
         new("compression/decompression-corrupt-input.any.js", "trailing junk for 'brotli' should give an error", WptDivergence.NeedsBrotli),
 
         // ---------------------------------------------------------------- FileAPI
-        // Blob.textStream(), which https://w3c.github.io/FileAPI/#dom-blob-textstream added and this Blob
-        // does not have. Two entries rather than one `*` over the file: the existence row and the seven that
-        // call the method say different things, and the file is 8-for-8 red today only because the method is
-        // wholly absent.
-        new("FileAPI/blob/Blob-textStream.any.js", "textStream method existence", WptDivergence.NeedsBlobTextStream),
-        new("FileAPI/blob/Blob-textStream.any.js", "Blob.textStream() *", WptDivergence.NeedsBlobTextStream),
-
         // Three rows of Blob-constructor.any.js, and they are one engine defect rather than three Blob ones
         // — see WptDivergence.NeedsTriage and Vendor/README.md. Recorded rather than fixed, because the
         // change that first runs a suite is not the change that moves the engine.

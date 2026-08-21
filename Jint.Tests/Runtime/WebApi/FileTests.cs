@@ -44,6 +44,39 @@ public class FileTests
         engine.Evaluate("Object.prototype.toString.call(new File([], 'a'))").AsString().Should().Be("[object File]");
     }
 
+    /// <summary>
+    /// <c>File</c> declares no read methods of its own, so every one of <c>Blob</c>'s is reached through the
+    /// prototype chain above — including <c>textStream()</c>, https://w3c.github.io/FileAPI/#dom-blob-textstream,
+    /// which brand-checks for a <c>Blob</c> and a <c>File</c> is one.
+    /// </summary>
+    [Fact]
+    public void InheritsEveryBlobReadMethodIncludingTextStream()
+    {
+        var engine = WebEngine();
+        engine.Execute("""
+            var log = [];
+            var f = new File(['héllo'], 'note.txt');
+            (async function () {
+              const reader = f.textStream().getReader();
+              for (;;) {
+                const r = await reader.read();
+                if (r.done) { log.push('done'); return; }
+                log.push(r.value);
+              }
+            })();
+            """);
+
+        engine.Evaluate("log.join(',')").AsString().Should().Be("héllo,done");
+
+        // The method itself is Blob's, not a copy — nothing here re-declares it.
+        engine.Evaluate("File.prototype.hasOwnProperty('textStream')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("f.textStream === Blob.prototype.textStream").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("f.text()").UnwrapIfPromise().AsString().Should().Be("héllo");
+        engine.Evaluate("f.bytes()").UnwrapIfPromise().AsObject().Get("length").AsNumber().Should().Be(6);
+        engine.Evaluate("Object.prototype.toString.call(f.stream())").AsString().Should().Be("[object ReadableStream]");
+    }
+
     [Fact]
     public void SlicingAFileProducesAPlainBlob()
     {

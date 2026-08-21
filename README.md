@@ -224,7 +224,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
-| `Blob` (incl. `stream()`) / `File` / `FormData` | `Files` | ✔ shipped |
+| `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` | `Files` | ✔ shipped |
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
@@ -1261,6 +1261,11 @@ network response, on a buffered body and on a blob — and `tee()` on any of the
 `Engine.Advanced.CreateReadableStream(Stream)` is the one that is still an ordinary stream: it wraps a host
 `Stream` you already own, whose reads go into a buffer the bridge owns rather than into one a script
 supplied.
+
+[`Blob.textStream()`](https://w3c.github.io/FileAPI/#dom-blob-textstream) is the composition of the two: the
+blob's byte stream piped through a UTF-8 `TextDecoderStream`, so what comes back is an *ordinary* stream
+whose chunks are strings. It always decodes as UTF-8 — the blob's `type` is never consulted, whatever
+`charset` it names, which is the specification's own difference from `FileReader.readAsText()`.
 
 One deliberate reduction: **only the five interfaces a script constructs by name are globals.**
 `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four

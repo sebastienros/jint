@@ -29,6 +29,33 @@ internal sealed class JsTextDecoderStream : JsGenericTransformStream
     internal TextDecoderCommon Common { get; }
 
     /// <summary>
+    /// "Set up a text decoder stream" — https://encoding.spec.whatwg.org/#set-up-a-text-decoder-stream —
+    /// with every one of its optional arguments defaulted, which is UTF-8 and nothing else. This is
+    /// https://w3c.github.io/FileAPI/#dom-blob-textstream steps 2 and 3, whose decoder is a platform object
+    /// no script ever names: it is created here rather than through the constructor because the algorithm
+    /// says "a new <c>TextDecoderStream</c>", not "the result of calling the constructor" — so no label is
+    /// converted and a script cannot reach it by subclassing.
+    /// </summary>
+    internal static JsTextDecoderStream SetUpUtf8(Engine engine, Realm realm)
+    {
+        var stream = new JsTextDecoderStream(engine, realm, TextDecoderCommon.Utf8())
+        {
+            _prototype = realm.Intrinsics.TextDecoderStream.PrototypeObject,
+        };
+
+        stream.SetUpTransform();
+        return stream;
+    }
+
+    /// <summary>
+    /// The half of "set up a text decoder stream" that needs the instance: the transform whose algorithms
+    /// close over it. It is a separate step for exactly that reason — the object has to exist first, which
+    /// is why the specification's operation takes the stream as an argument.
+    /// </summary>
+    internal void SetUpTransform()
+        => Transform = TransformStreamOperations.SetUp(Engine, Realm, DecodeAndEnqueue, FlushAndEnqueue);
+
+    /// <summary>
     /// "Decode and enqueue a chunk" — https://encoding.spec.whatwg.org/#decode-and-enqueue-a-chunk.
     /// </summary>
     /// <remarks>

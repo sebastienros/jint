@@ -93,6 +93,46 @@ internal sealed class ReadableStreamPipe
         return StreamPromises.PromiseOf(pipe._capability);
     }
 
+    /// <summary>
+    /// "Pipe <paramref name="readable"/> through <paramref name="transform"/>" —
+    /// https://streams.spec.whatwg.org/#readablestream-pipe-through, the abstract operation another
+    /// standard's algorithm reaches for when it composes two streams the engine owns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is deliberately <i>not</i> <c>ReadableStream.prototype.pipeThrough</c>. That method exists to
+    /// convert a <c>ReadableWritablePair</c> a script supplied — reading <c>readable</c> and
+    /// <c>writable</c> off an arbitrary object, and <c>signal</c>/<c>preventClose</c>/… off a
+    /// <c>StreamPipeOptions</c> — and every one of those reads is a property access a script can intercept.
+    /// A composition inside the engine has neither an untrusted pair nor options to read: both streams came
+    /// from a transform this code just built, so the operation is what it reduces to once those conversions
+    /// are done. It is the same choice the piping algorithm itself is written against — "public API must not
+    /// be used" — carried one level out.
+    /// </para>
+    /// <para>
+    /// The operation's two assertions (neither side is locked) hold by construction for every caller here,
+    /// since both streams are fresh. Its every option is defaulted: no signal, and nothing prevented.
+    /// </para>
+    /// <para>
+    /// The pipe's own promise is not handed back — the readable side is — so it is marked handled and a
+    /// failure surfaces through that stream instead of as an unhandled rejection.
+    /// </para>
+    /// </remarks>
+    internal static JsReadableStream PipeThrough(JsReadableStream readable, JsTransformStream transform)
+    {
+        var promise = PipeTo(
+            readable,
+            transform.Writable,
+            preventClose: false,
+            preventAbort: false,
+            preventCancel: false,
+            signal: null);
+
+        StreamPromises.MarkHandled(promise);
+
+        return transform.Readable;
+    }
+
     private void Start()
     {
         if (_signal is { } signal)
