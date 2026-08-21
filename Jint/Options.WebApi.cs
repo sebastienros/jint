@@ -589,10 +589,12 @@ public enum WebApiFeatures
     /// cryptographically secure generator, plus <c>crypto.subtle</c> and the <c>CryptoKey</c> interface
     /// object. <c>subtle</c> carries <c>digest</c> (SHA-1, SHA-256, SHA-384, SHA-512), <c>sign</c>,
     /// <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and
-    /// <c>exportKey</c> over HMAC, AES-GCM, RSASSA-PKCS1-v1_5, RSA-PSS and RSA-OAEP, with the <c>raw</c>,
-    /// <c>spki</c>, <c>pkcs8</c> and <c>jwk</c> key formats. Key derivation and key wrapping are not
-    /// implemented and are absent rather than present-and-throwing, so feature detection sees the truth, and
-    /// neither is any elliptic-curve algorithm. Neither <c>subtle</c> nor <c>CryptoKey</c> has a flag of its
+    /// <c>exportKey</c> over HMAC, AES-GCM, RSASSA-PKCS1-v1_5, RSA-PSS, RSA-OAEP, ECDSA and ECDH — the last
+    /// two over the curves P-256, P-384 and P-521 — with the <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and
+    /// <c>jwk</c> key formats. Key derivation and key wrapping are not implemented and are absent rather than
+    /// present-and-throwing, so feature detection sees the truth; ECDH is therefore present for its keys
+    /// alone, and a key it makes may carry <c>deriveKey</c> and <c>deriveBits</c> usages that no operation
+    /// consumes yet. Neither <c>subtle</c> nor <c>CryptoKey</c> has a flag of its
     /// own: <c>subtle</c> is a readonly attribute of the very same <c>Crypto</c> interface and
     /// <c>CryptoKey</c> is the type of what it hands out, so asking for one is asking for all three.
     /// </summary>

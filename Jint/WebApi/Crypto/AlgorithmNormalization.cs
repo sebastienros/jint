@@ -138,6 +138,12 @@ internal sealed class NormalizedAlgorithm
     /// <see langword="null"/> when it is not present — which the operation reads as the empty byte sequence.
     /// </summary>
     internal byte[]? Label { get; set; }
+
+    /// <summary>
+    /// The <c>namedCurve</c> member of <c>EcKeyGenParams</c> or <c>EcKeyImportParams</c>, the caller's string
+    /// verbatim — the operation is what decides whether it names a curve at all.
+    /// </summary>
+    internal string? NamedCurve { get; set; }
 }
 
 /// <summary>
@@ -185,10 +191,32 @@ internal static class AlgorithmNormalization
     /// <summary>https://w3c.github.io/webcrypto/#rsa-oaep-registration</summary>
     internal const string RsaOaep = "RSA-OAEP";
 
+    /// <summary>https://w3c.github.io/webcrypto/#ecdsa-registration</summary>
+    internal const string Ecdsa = "ECDSA";
+
+    /// <summary>https://w3c.github.io/webcrypto/#ecdh-registration</summary>
+    internal const string Ecdh = "ECDH";
+
+    /// <summary>
+    /// The three values <c>NamedCurve</c> takes — https://w3c.github.io/webcrypto/#dfn-NamedCurve, "NIST
+    /// recommended curve P-256, also known as secp256r1" and its two siblings.
+    /// </summary>
+    /// <remarks>
+    /// <c>NamedCurve</c> is <c>typedef DOMString</c> rather than a WebIDL enumeration, so nothing about the
+    /// argument conversion restricts it and an unrecognized value reaches the operation intact. Each
+    /// operation then matches it <i>case-sensitively</i> — "If the namedCurve member of normalizedAlgorithm
+    /// is not one of 'P-256', 'P-384' or 'P-521' … throw a NotSupportedError" — which is why <c>'p-256'</c>
+    /// is a <c>NotSupportedError</c> where the algorithm <i>name</i> one word to its left would have matched
+    /// case-insensitively.
+    /// </remarks>
+    internal const string P256 = "P-256";
+    internal const string P384 = "P-384";
+    internal const string P521 = "P-521";
+
     private static readonly string[] _digestAlgorithms = [Sha1, Sha256, Sha384, Sha512];
-    private static readonly string[] _signatureAlgorithms = [Hmac, RsassaPkcs1V15, RsaPss];
+    private static readonly string[] _signatureAlgorithms = [Hmac, RsassaPkcs1V15, RsaPss, Ecdsa];
     private static readonly string[] _cipherAlgorithms = [AesGcm, RsaOaep];
-    private static readonly string[] _keyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep];
+    private static readonly string[] _keyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
 
     private static readonly JsString _nameKey = new("name");
     private static readonly JsString _hashKey = new("hash");
@@ -200,6 +228,7 @@ internal static class AlgorithmNormalization
     private static readonly JsString _publicExponentKey = new("publicExponent");
     private static readonly JsString _saltLengthKey = new("saltLength");
     private static readonly JsString _labelKey = new("label");
+    private static readonly JsString _namedCurveKey = new("namedCurve");
 
     /// <summary>
     /// The associative container "stored at the <c>op</c> key of <c>supportedAlgorithms</c>".
@@ -423,6 +452,23 @@ internal static class AlgorithmNormalization
                 normalized.Label = ReadOptionalBufferSource(context, algorithm, _labelKey, what);
                 break;
 
+            // EcKeyGenParams and EcKeyImportParams are the same one-member dictionary, declared twice, and
+            // ECDSA and ECDH register both of them for the same two operations.
+            case (Ecdsa, CryptoOperation.GenerateKey):
+            case (Ecdh, CryptoOperation.GenerateKey):
+            case (Ecdsa, CryptoOperation.ImportKey):
+            case (Ecdh, CryptoOperation.ImportKey):
+                normalized.NamedCurve = ReadRequiredDomString(context, algorithm, _namedCurveKey, what);
+                break;
+
+            // EcdsaParams, whose one member is the hash — read per sign and per verify call, because for
+            // ECDSA the hash belongs to the operation and not to the key. The key carries only its curve, so
+            // one P-256 key signs under all four of them.
+            case (Ecdsa, CryptoOperation.Sign):
+            case (Ecdsa, CryptoOperation.Verify):
+                normalized.HashName = ReadRequiredHash(context, algorithm, what);
+                break;
+
             // Every remaining pair registers `None` as its parameters, so the Algorithm dictionary — the one
             // member of which has already been read — is the whole of it. RSASSA-PKCS1-v1_5's sign and
             // verify are in that set, as is every algorithm's exportKey.
@@ -445,6 +491,27 @@ internal static class AlgorithmNormalization
         }
 
         return Normalize(context, hash, CryptoOperation.Digest, what).Name;
+    }
+
+    /// <summary>
+    /// A <c>required DOMString</c> member, which is <c>ToString</c> and nothing else — the conversion
+    /// <c>NamedCurve</c> gets, being <c>typedef DOMString</c> rather than a WebIDL enumeration.
+    /// </summary>
+    /// <remarks>
+    /// Nothing here restricts the value, so a curve name this engine does not implement arrives at the
+    /// operation intact and earns the <c>NotSupportedError</c> the operation's own first step gives it. A
+    /// WebIDL enumeration would instead have been a <c>TypeError</c> raised before the method body ran, which
+    /// is what <c>KeyFormat</c> is and what this deliberately is not.
+    /// </remarks>
+    private static string ReadRequiredDomString(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
+    {
+        var value = algorithm?.Get(key) ?? JsValue.Undefined;
+        if (value.IsUndefined())
+        {
+            context.ThrowTypeError(what + ": required member " + key + " is undefined.");
+        }
+
+        return TypeConverter.ToString(value);
     }
 
     private static byte[] ReadRequiredBufferSource(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
