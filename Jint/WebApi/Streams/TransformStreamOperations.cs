@@ -157,7 +157,7 @@ internal static class TransformStreamOperations
     /// </remarks>
     internal static void Error(JsTransformStream stream, JsValue error)
     {
-        ReadableStreamDefaultControllerOperations.Error(stream.Readable.Controller, error);
+        ReadableStreamDefaultControllerOperations.Error(stream.Readable.DefaultController, error);
         ErrorWritableAndUnblockWrite(stream, error);
     }
 
@@ -280,7 +280,7 @@ internal static class TransformStreamOperations
     internal static void ControllerEnqueue(JsTransformStreamDefaultController controller, JsValue chunk)
     {
         var stream = controller.Stream;
-        var readableController = stream.Readable.Controller;
+        var readableController = stream.Readable.DefaultController;
 
         if (!ReadableStreamDefaultControllerOperations.CanCloseOrEnqueue(readableController))
         {
@@ -346,7 +346,7 @@ internal static class TransformStreamOperations
     {
         var stream = controller.Stream;
 
-        ReadableStreamDefaultControllerOperations.Close(stream.Readable.Controller);
+        ReadableStreamDefaultControllerOperations.Close(stream.Readable.DefaultController);
 
         // The writable side is errored rather than closed: a producer still writing has to be told that its
         // chunks will never be transformed.
@@ -428,13 +428,13 @@ internal static class TransformStreamOperations
                 }
                 else
                 {
-                    ReadableStreamDefaultControllerOperations.Error(readable.Controller, reason);
+                    ReadableStreamDefaultControllerOperations.Error(readable.DefaultController, reason);
                     finish.Resolve(JsValue.Undefined);
                 }
             },
             error =>
             {
-                ReadableStreamDefaultControllerOperations.Error(readable.Controller, error);
+                ReadableStreamDefaultControllerOperations.Error(readable.DefaultController, error);
                 finish.Reject(error);
             });
 
@@ -474,13 +474,13 @@ internal static class TransformStreamOperations
                 }
                 else
                 {
-                    ReadableStreamDefaultControllerOperations.Close(readable.Controller);
+                    ReadableStreamDefaultControllerOperations.Close(readable.DefaultController);
                     finish.Resolve(JsValue.Undefined);
                 }
             },
             error =>
             {
-                ReadableStreamDefaultControllerOperations.Error(readable.Controller, error);
+                ReadableStreamDefaultControllerOperations.Error(readable.DefaultController, error);
                 finish.Reject(error);
             });
 

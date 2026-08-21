@@ -87,15 +87,15 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// https://streams.spec.whatwg.org/#rs-get-reader
     /// </summary>
     [JsFunction(Name = "getReader", Length = 0)]
-    private JsReadableStreamDefaultReader GetReader(JsValue thisObject, JsValue options)
+    private JsReadableStreamReader GetReader(JsValue thisObject, JsValue options)
     {
         var stream = Brand(thisObject);
 
+        // A BYOB reader can only be acquired from a readable byte stream; asking for one from an ordinary
+        // stream is the TypeError SetUpReadableStreamBYOBReader raises.
         if (StreamDictionaries.ReadByobModeRequested(_realm, options))
         {
-            // A BYOB reader can only be acquired from a readable byte stream, and there are none here — so
-            // the specification's own TypeError for that case is the right and only answer.
-            Throw.TypeError(_realm, "Cannot construct a ReadableStreamBYOBReader for a stream not constructed with a byte source");
+            return ReadableStreamOperations.AcquireBYOBReader(stream);
         }
 
         return ReadableStreamOperations.AcquireDefaultReader(stream);
@@ -174,7 +174,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     [JsFunction(Name = "tee", Length = 0)]
     private JsArray Tee(JsValue thisObject)
     {
-        var (branch1, branch2) = ReadableStreamTee.Tee(Brand(thisObject));
+        var (branch1, branch2) = ReadableStreamOperations.Tee(Brand(thisObject));
         return new JsArray(_engine, [branch1, branch2]);
     }
 

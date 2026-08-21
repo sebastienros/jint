@@ -63,17 +63,16 @@ public class ReadableStreamTests
     }
 
     [Fact]
-    public void RefusesAByteStream()
+    public void RefusesAnInvalidStreamType()
     {
-        // Byte streams are not implemented, and `type: "bytes"` is refused rather than quietly ignored, so
-        // feature detection sees the truth.
+        // "bytes" is the only value of the ReadableStreamType enumeration, and it builds a readable byte
+        // stream (see ReadableByteStreamTests); anything else is the TypeError the enumeration conversion
+        // raises — https://webidl.spec.whatwg.org/#es-enumeration.
         var engine = StreamEngine();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'bytes' })"))
-            .Error.Get("name").AsString().Should().Be("TypeError");
-
-        // An invalid enumeration value is the same TypeError.
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'nonsense' })"))
             .Error.Get("name").AsString().Should().Be("TypeError");
+
+        engine.Evaluate("new ReadableStream({ type: 'bytes' }) instanceof ReadableStream").AsBoolean().Should().BeTrue();
 
         // And a BYOB reader cannot be acquired from a stream that is not a byte stream.
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream().getReader({ mode: 'byob' })"))

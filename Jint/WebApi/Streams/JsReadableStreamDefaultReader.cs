@@ -1,7 +1,5 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
-using Jint.Native.Object;
-using Jint.Native.Promise;
 using Jint.Runtime;
 
 namespace Jint.WebApi.Streams;
@@ -37,35 +35,16 @@ internal abstract class ReadRequest
 /// </para>
 /// </summary>
 /// <remarks>
-/// Carries the <c>ReadableStreamGenericReader</c> mixin's <c>[[stream]]</c> and <c>[[closedPromise]]</c>
-/// slots as well as its own <c>[[readRequests]]</c>. The closed promise is held as a capability rather than
-/// as a bare promise because releasing a lock on a non-readable stream <i>replaces</i> it with a freshly
-/// rejected one rather than rejecting the existing one — the specification distinguishes the two, and so
-/// does this.
+/// The <c>ReadableStreamGenericReader</c> mixin's <c>[[stream]]</c> and <c>[[closedPromise]]</c> slots live
+/// on <see cref="JsReadableStreamReader"/>; this class adds only its own <c>[[readRequests]]</c>.
 /// </remarks>
-internal sealed class JsReadableStreamDefaultReader : ObjectInstance
+internal sealed class JsReadableStreamDefaultReader : JsReadableStreamReader
 {
-    internal JsReadableStreamDefaultReader(Engine engine, Realm realm) : base(engine, ObjectClass.Object)
+    internal JsReadableStreamDefaultReader(Engine engine, Realm realm) : base(engine, realm)
     {
-        Realm = realm;
     }
-
-    /// <summary>The realm the reader was created in, which owns its <c>closed</c> and <c>read()</c> promises.</summary>
-    internal Realm Realm { get; }
-
-    /// <summary>
-    /// https://streams.spec.whatwg.org/#readablestreamgenericreader-stream — the stream the reader is
-    /// active for, or <see langword="null"/> once its lock has been released.
-    /// </summary>
-    internal JsReadableStream? Stream { get; set; }
-
-    /// <summary>https://streams.spec.whatwg.org/#readablestreamgenericreader-closedpromise</summary>
-    internal PromiseCapability ClosedCapability { get; set; } = null!;
 
     /// <summary>https://streams.spec.whatwg.org/#readablestreamdefaultreader-readrequests</summary>
     internal Queue<ReadRequest> ReadRequests { get; } = new();
-
-    /// <summary>The promise the <c>closed</c> getter answers with.</summary>
-    internal JsPromise ClosedPromise => StreamPromises.PromiseOf(ClosedCapability);
 }
 #endif

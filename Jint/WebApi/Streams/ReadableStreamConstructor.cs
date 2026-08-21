@@ -75,11 +75,20 @@ internal sealed partial class ReadableStreamConstructor : Constructor
 
         if (source.TypeExists)
         {
-            // `type: "bytes"` asks for a readable byte stream, which is not implemented: there is no
-            // ReadableByteStreamController and no BYOB reader. Refusing is the honest answer — the same
-            // TypeError an invalid enumeration value would produce — rather than handing back a stream that
-            // silently is not a byte stream.
-            Throw.TypeError(_realm, "Failed to construct 'ReadableStream': readable byte streams are not supported");
+            // `type: "bytes"` asks for a readable byte stream. Its queuing strategy may not carry a size()
+            // at all — a chunk's size is its byte length — and its default high water mark is 0 rather
+            // than 1, so a byte stream pulls only when a consumer asks.
+            if (strategy.Size is not null)
+            {
+                Throw.RangeError(_realm, "A readable byte stream cannot have a queuing strategy with a size function");
+            }
+
+            var byteHighWaterMark = StreamDictionaries.ExtractHighWaterMark(_realm, in strategy, 0);
+
+            ReadableByteStreamControllerOperations.SetUpFromUnderlyingSource(
+                stream, underlyingSource, in source, byteHighWaterMark);
+
+            return stream;
         }
 
         var sizeAlgorithm = StreamDictionaries.ExtractSizeAlgorithm(in strategy);
@@ -125,7 +134,7 @@ internal sealed partial class ReadableStreamConstructor : Constructor
                         return Undefined;
                     }
 
-                    var controller = stream.Controller;
+                    var controller = stream.DefaultController;
                     if (TypeConverter.ToBoolean(iterationObject.Get(CommonProperties.Done)))
                     {
                         ReadableStreamDefaultControllerOperations.Close(controller);

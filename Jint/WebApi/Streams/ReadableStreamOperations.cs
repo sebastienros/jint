@@ -55,6 +55,49 @@ internal static class ReadableStreamOperations
     }
 
     /// <summary>
+    /// https://streams.spec.whatwg.org/#create-readable-byte-stream — the byte-stream counterpart of
+    /// <see cref="CreateReadableStream"/>, for the streams the engine builds itself. The standard fixes its
+    /// high water mark at 0 and gives it no automatic allocation: a stream created this way pulls only when
+    /// a consumer asks.
+    /// </summary>
+    internal static JsReadableStream CreateReadableByteStream(
+        Engine engine,
+        Realm realm,
+        Func<JsValue> startAlgorithm,
+        Func<JsPromise> pullAlgorithm,
+        Func<JsValue, JsPromise> cancelAlgorithm)
+    {
+        var stream = new JsReadableStream(engine, realm)
+        {
+            _prototype = realm.Intrinsics.ReadableStream.PrototypeObject,
+        };
+
+        var controller = new JsReadableByteStreamController(engine, realm)
+        {
+            _prototype = realm.Intrinsics.ReadableByteStreamController.PrototypeObject,
+        };
+
+        ReadableByteStreamControllerOperations.SetUp(
+            stream, controller, startAlgorithm, pullAlgorithm, cancelAlgorithm, highWaterMark: 0, autoAllocateChunkSize: null);
+
+        return stream;
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-tee — which of the two tee algorithms applies is
+    /// decided by the kind of controller the stream has, and only here.
+    /// </summary>
+    internal static (JsReadableStream Branch1, JsReadableStream Branch2) Tee(JsReadableStream stream)
+    {
+        if (stream.Controller is JsReadableByteStreamController)
+        {
+            return ReadableByteStreamTee.Tee(stream);
+        }
+
+        return ReadableStreamTee.Tee(stream);
+    }
+
+    /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-cancel
     /// </summary>
     internal static JsPromise Cancel(JsReadableStream stream, JsValue reason)
@@ -76,9 +119,18 @@ internal static class ReadableStreamOperations
 
         Close(stream);
 
-        // The BYOB half of this step ("if reader implements ReadableStreamBYOBReader, close its pending
-        // read-into requests") has no counterpart: there are no BYOB readers.
-        var sourceCancelPromise = ReadableStreamDefaultControllerOperations.CancelSteps(stream.Controller, reason);
+        // A cancelled BYOB read does not get its memory back — its close steps receive undefined rather
+        // than an empty view — which is the one place the two close paths differ.
+        if (stream.Reader is JsReadableStreamBYOBReader byobReader)
+        {
+            var readIntoRequests = byobReader.ReadIntoRequests;
+            while (readIntoRequests.Count > 0)
+            {
+                readIntoRequests.Dequeue().CloseSteps(JsValue.Undefined);
+            }
+        }
+
+        var sourceCancelPromise = stream.Controller.CancelSteps(reason);
 
         // "Return the result of reacting to sourceCancelPromise with a fulfillment step that returns
         // undefined" — the underlying source's own fulfillment value is deliberately discarded, so
@@ -102,8 +154,15 @@ internal static class ReadableStreamOperations
         reader.ClosedCapability.Resolve(JsValue.Undefined);
 
         // Every outstanding read() resolves with { value: undefined, done: true }. The list is emptied
-        // before the steps run, because a close step may start a fresh read.
-        var readRequests = reader.ReadRequests;
+        // before the steps run, because a close step may start a fresh read. A BYOB reader's pending
+        // read-into requests are deliberately not touched here: they are answered by the byte controller,
+        // which has a buffer to hand back, or by ReadableStreamCancel, which has not.
+        if (reader is not JsReadableStreamDefaultReader defaultReader)
+        {
+            return;
+        }
+
+        var readRequests = defaultReader.ReadRequests;
         while (readRequests.Count > 0)
         {
             readRequests.Dequeue().CloseSteps();
@@ -127,21 +186,34 @@ internal static class ReadableStreamOperations
         reader.ClosedCapability.Reject(error);
         StreamPromises.MarkHandled(reader.ClosedPromise);
 
-        DefaultReaderErrorReadRequests(reader, error);
+        if (reader is JsReadableStreamDefaultReader defaultReader)
+        {
+            DefaultReaderErrorReadRequests(defaultReader, error);
+        }
+        else
+        {
+            BYOBReaderErrorReadIntoRequests((JsReadableStreamBYOBReader) reader, error);
+        }
     }
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-add-read-request
     /// </summary>
     internal static void AddReadRequest(JsReadableStream stream, ReadRequest readRequest)
-        => stream.Reader!.ReadRequests.Enqueue(readRequest);
+        => ((JsReadableStreamDefaultReader) stream.Reader!).ReadRequests.Enqueue(readRequest);
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-add-read-into-request
+    /// </summary>
+    internal static void AddReadIntoRequest(JsReadableStream stream, ReadIntoRequest readIntoRequest)
+        => ((JsReadableStreamBYOBReader) stream.Reader!).ReadIntoRequests.Enqueue(readIntoRequest);
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-fulfill-read-request
     /// </summary>
     internal static void FulfillReadRequest(JsReadableStream stream, JsValue chunk, bool done)
     {
-        var readRequest = stream.Reader!.ReadRequests.Dequeue();
+        var readRequest = ((JsReadableStreamDefaultReader) stream.Reader!).ReadRequests.Dequeue();
         if (done)
         {
             readRequest.CloseSteps();
@@ -153,15 +225,43 @@ internal static class ReadableStreamOperations
     }
 
     /// <summary>
-    /// https://streams.spec.whatwg.org/#readable-stream-get-num-read-requests
+    /// https://streams.spec.whatwg.org/#readable-stream-fulfill-read-into-request — the close steps take the
+    /// chunk, so a BYOB read of a closing stream still gets its buffer back.
     /// </summary>
-    internal static int GetNumReadRequests(JsReadableStream stream) => stream.Reader!.ReadRequests.Count;
+    internal static void FulfillReadIntoRequest(JsReadableStream stream, JsValue chunk, bool done)
+    {
+        var readIntoRequest = ((JsReadableStreamBYOBReader) stream.Reader!).ReadIntoRequests.Dequeue();
+        if (done)
+        {
+            readIntoRequest.CloseSteps(chunk);
+        }
+        else
+        {
+            readIntoRequest.ChunkSteps(chunk);
+        }
+    }
 
     /// <summary>
-    /// https://streams.spec.whatwg.org/#readable-stream-has-default-reader. Always equivalent to being
-    /// locked here, since a default reader is the only kind of reader there is.
+    /// https://streams.spec.whatwg.org/#readable-stream-get-num-read-requests
     /// </summary>
-    internal static bool HasDefaultReader(JsReadableStream stream) => stream.Reader is not null;
+    internal static int GetNumReadRequests(JsReadableStream stream)
+        => ((JsReadableStreamDefaultReader) stream.Reader!).ReadRequests.Count;
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-get-num-read-into-requests
+    /// </summary>
+    internal static int GetNumReadIntoRequests(JsReadableStream stream)
+        => ((JsReadableStreamBYOBReader) stream.Reader!).ReadIntoRequests.Count;
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-has-default-reader
+    /// </summary>
+    internal static bool HasDefaultReader(JsReadableStream stream) => stream.Reader is JsReadableStreamDefaultReader;
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-has-byob-reader
+    /// </summary>
+    internal static bool HasBYOBReader(JsReadableStream stream) => stream.Reader is JsReadableStreamBYOBReader;
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#acquire-readable-stream-reader
@@ -174,6 +274,20 @@ internal static class ReadableStreamOperations
         };
 
         SetUpDefaultReader(reader, stream);
+        return reader;
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#acquire-readable-stream-byob-reader
+    /// </summary>
+    internal static JsReadableStreamBYOBReader AcquireBYOBReader(JsReadableStream stream)
+    {
+        var reader = new JsReadableStreamBYOBReader(stream.Engine, stream.Realm)
+        {
+            _prototype = stream.Realm.Intrinsics.ReadableStreamBYOBReader.PrototypeObject,
+        };
+
+        SetUpBYOBReader(reader, stream);
         return reader;
     }
 
@@ -191,9 +305,29 @@ internal static class ReadableStreamOperations
     }
 
     /// <summary>
+    /// https://streams.spec.whatwg.org/#set-up-readable-stream-byob-reader — a BYOB reader can only be
+    /// acquired from a stream whose controller is a byte controller, which is the whole of what makes
+    /// getReader({ mode: "byob" }) refuse an ordinary stream.
+    /// </summary>
+    internal static void SetUpBYOBReader(JsReadableStreamBYOBReader reader, JsReadableStream stream)
+    {
+        if (IsLocked(stream))
+        {
+            Throw.TypeError(reader.Realm, "This readable stream is already locked for exclusive reading by another reader");
+        }
+
+        if (stream.Controller is not JsReadableByteStreamController)
+        {
+            Throw.TypeError(reader.Realm, "Cannot construct a ReadableStreamBYOBReader for a stream not constructed with a byte source");
+        }
+
+        ReaderGenericInitialize(reader, stream);
+    }
+
+    /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-reader-generic-initialize
     /// </summary>
-    private static void ReaderGenericInitialize(JsReadableStreamDefaultReader reader, JsReadableStream stream)
+    private static void ReaderGenericInitialize(JsReadableStreamReader reader, JsReadableStream stream)
     {
         var engine = reader.Engine;
         var realm = reader.Realm;
@@ -223,13 +357,13 @@ internal static class ReadableStreamOperations
     /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-reader-generic-cancel
     /// </summary>
-    internal static JsPromise ReaderGenericCancel(JsReadableStreamDefaultReader reader, JsValue reason)
+    internal static JsPromise ReaderGenericCancel(JsReadableStreamReader reader, JsValue reason)
         => Cancel(reader.Stream!, reason);
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readable-stream-reader-generic-release
     /// </summary>
-    private static void ReaderGenericRelease(JsReadableStreamDefaultReader reader)
+    private static void ReaderGenericRelease(JsReadableStreamReader reader)
     {
         var engine = reader.Engine;
         var realm = reader.Realm;
@@ -253,8 +387,10 @@ internal static class ReadableStreamOperations
 
         StreamPromises.MarkHandled(reader.ClosedPromise);
 
-        // The default controller's [[ReleaseSteps]] do nothing; the byte controller's, which discards
-        // pending pull-intos, has no counterpart here.
+        // The default controller's [[ReleaseSteps]] do nothing; the byte controller's downgrades the
+        // pull-into descriptor the underlying source may be writing into right now.
+        stream.Controller.ReleaseSteps();
+
         stream.Reader = null;
         reader.Stream = null;
     }
@@ -278,9 +414,33 @@ internal static class ReadableStreamOperations
                 break;
 
             default:
-                ReadableStreamDefaultControllerOperations.PullSteps(stream.Controller, readRequest);
+                stream.Controller.PullSteps(readRequest);
                 break;
         }
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readable-stream-byob-reader-read
+    /// </summary>
+    internal static void BYOBReaderRead(
+        JsReadableStreamBYOBReader reader,
+        in StreamBufferOperations.ArrayBufferViewInfo view,
+        int min,
+        ReadIntoRequest readIntoRequest)
+    {
+        var stream = reader.Stream!;
+        stream.Disturbed = true;
+
+        if (stream.State == ReadableStreamState.Errored)
+        {
+            readIntoRequest.ErrorSteps(stream.StoredError);
+            return;
+        }
+
+        // Unlike a default read, a closed stream is not short-circuited here: the byte controller answers
+        // it, because it is the one that can hand the caller's memory back as an empty view.
+        ReadableByteStreamControllerOperations.PullInto(
+            (JsReadableByteStreamController) stream.Controller, in view, min, readIntoRequest);
     }
 
     /// <summary>
@@ -302,6 +462,28 @@ internal static class ReadableStreamOperations
         while (readRequests.Count > 0)
         {
             readRequests.Dequeue().ErrorSteps(error);
+        }
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#abstract-opdef-readablestreambyobreaderrelease
+    /// </summary>
+    internal static void BYOBReaderRelease(JsReadableStreamBYOBReader reader)
+    {
+        var realm = reader.Realm;
+        ReaderGenericRelease(reader);
+        BYOBReaderErrorReadIntoRequests(reader, realm.Intrinsics.TypeError.Construct("Reader was released"));
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#abstract-opdef-readablestreambyobreadererrorreadintorequests
+    /// </summary>
+    private static void BYOBReaderErrorReadIntoRequests(JsReadableStreamBYOBReader reader, JsValue error)
+    {
+        var readIntoRequests = reader.ReadIntoRequests;
+        while (readIntoRequests.Count > 0)
+        {
+            readIntoRequests.Dequeue().ErrorSteps(error);
         }
     }
 

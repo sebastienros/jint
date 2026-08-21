@@ -44,7 +44,7 @@ internal sealed partial class TransformStreamDefaultControllerPrototype : Protot
     [JsAccessor("desiredSize", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue DesiredSizeGet(JsValue thisObject)
     {
-        var readableController = Brand(thisObject).Stream.Readable.Controller;
+        var readableController = Brand(thisObject).Stream.Readable.DefaultController;
         var desiredSize = ReadableStreamDefaultControllerOperations.GetDesiredSize(readableController);
         return desiredSize is { } value ? JsNumber.Create(value) : Null;
     }

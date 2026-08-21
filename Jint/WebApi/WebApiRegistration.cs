@@ -162,10 +162,12 @@ internal static class WebApiRegistration
 
         if ((features & WebApiFeatures.Streams) != WebApiFeatures.None)
         {
-            // Only the five interfaces a script constructs directly are globals. ReadableStreamDefaultReader,
-            // the three controllers and WritableStreamDefaultWriter exist as ordinary interface objects and
-            // are reached through their instances' prototypes — a deliberate, documented narrowing of the
-            // browser surface, since nothing but feature detection ever names them.
+            // Only the five interfaces a script constructs directly are globals. The readers, the four
+            // controllers and ReadableStreamBYOBRequest exist as ordinary interface objects and are reached
+            // through their instances' prototypes — a deliberate, documented narrowing of the browser
+            // surface, since nothing but feature detection ever names them. That includes the byte-stream
+            // interfaces: a byte stream is asked for as new ReadableStream({ type: "bytes" }) and a BYOB
+            // reader as stream.getReader({ mode: "byob" }), never by naming the interface.
             Install(global, engine, "ReadableStream", static e => e.Realm.Intrinsics.ReadableStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "WritableStream", static e => e.Realm.Intrinsics.WritableStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "TransformStream", static e => e.Realm.Intrinsics.TransformStream, PropertyFlag.NonEnumerable);

@@ -13,9 +13,12 @@ namespace Jint.WebApi.Streams;
 /// Used by <c>Blob.stream()</c> (https://w3c.github.io/FileAPI/#blob-get-stream) and by the <c>Body</c>
 /// mixin's <c>body</c> attribute for a body that was extracted from bytes
 /// (https://fetch.spec.whatwg.org/#concept-bodyinit-extract). Both specifications ask for a stream "set up
-/// with byte reading support" — a readable <i>byte</i> stream — which is not implemented here; an ordinary
-/// stream carrying <c>Uint8Array</c> chunks is what those algorithms reduce to once BYOB readers are out of
-/// the picture, and it is what every consumer in this implementation reads.
+/// with byte reading support" — a readable <i>byte</i> stream, which
+/// <see cref="ReadableByteStreamControllerOperations"/> now implements — but neither caller has been moved
+/// onto one yet, so what they get is still an ordinary stream carrying <c>Uint8Array</c> chunks. That is
+/// what those algorithms reduce to once BYOB readers are out of the picture, and it is what every consumer
+/// in this implementation reads; the difference a script can see is that <c>getReader({ mode: "byob" })</c>
+/// on such a body refuses, where in a browser it would not.
 /// </remarks>
 internal static class ByteStreams
 {
@@ -57,7 +60,7 @@ internal static class ByteStreams
 
         // Filled after the stream exists rather than from its start algorithm, which runs while the
         // controller is still being wired up and has no way to reach it.
-        var controller = stream.Controller;
+        var controller = stream.DefaultController;
         if (!bytes.IsEmpty)
         {
             ReadableStreamDefaultControllerOperations.Enqueue(controller, NewUint8Array(engine, realm, bytes.Span));
