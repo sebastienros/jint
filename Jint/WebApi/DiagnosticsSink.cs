@@ -200,6 +200,13 @@ public sealed class DiagnosticEvent
         => new(DiagnosticEventKind.UncaughtCallbackError, exception.Error, exception, source);
 
     /// <summary>
+    /// A failure inside a worker that neither the worker nor the parent's <c>Worker</c> object handled, which
+    /// HTML's <i>report an exception</i> reports one level up — at the parent.
+    /// </summary>
+    internal static DiagnosticEvent ForWorkerError(string message)
+        => new(DiagnosticEventKind.WorkerError, JsString.Create(message));
+
+    /// <summary>
     /// The two <c>HostPromiseRejectionTracker</c> operations, which are also what
     /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> raises.
     /// </summary>
@@ -241,6 +248,29 @@ public enum DiagnosticEventKind
     /// <see cref="DiagnosticEvent.RejectionHandled"/>.
     /// </summary>
     UnhandledPromiseRejection,
+
+    /// <summary>
+    /// A failure inside a <c>Worker</c> this engine created that nothing handled — neither the worker's own
+    /// <c>error</c> listeners nor the <c>Worker</c> object's. It is HTML's <i>report an exception</i> reaching
+    /// its last step one engine up
+    /// (https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="DiagnosticEvent.Value"/> is the failure's <b>message, as a string</b>, and that is not a
+    /// simplification: the thrown value belongs to the worker's realm and to the worker's thread, so it may not
+    /// cross — which is the same reason the <c>ErrorEvent</c> the parent's script sees carries
+    /// <c>error: null</c>, exactly as the standard prescribes. A worker that wants its parent to have the real
+    /// failure catches it and <c>postMessage</c>s it.
+    /// </para>
+    /// <para>
+    /// A worker's own sink — the one a provider installed on the worker engine — has already seen the same
+    /// failure as an <see cref="UncaughtCallbackError"/> or a <see cref="ReportedError"/>, because that channel
+    /// is unsuppressible. So a host that wires <i>one</i> sink for a parent and its workers sees the failure
+    /// twice, once from each side; this kind is what tells the two apart.
+    /// </para>
+    /// </remarks>
+    WorkerError,
 }
 
 /// <summary>

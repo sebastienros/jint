@@ -90,9 +90,14 @@ internal sealed class WorkerGlobalScope
 
         // WinterTC §5.3's three. The events already fire at this same target under
         // WebApiFeatures.GlobalEvents; what these add is the attribute form of registering for them.
-        // `onerror`'s legacy five-argument invocation — «message, filename, lineno, colno, error», where
-        // returning true cancels — lands with the parent-side error channels in their own change; until then
-        // it is the ordinary event-handler shape and the dispatch is the ordinary one.
+        //
+        // `onerror` is the legacy shape, and it is legacy because the target is a global scope rather than
+        // because of anything this feature does: HTML's event handler processing algorithm gives an ErrorEvent
+        // named `error` fired at a WindowOrWorkerGlobalScope its own invocation — «message, filename, lineno,
+        // colno, error», where returning TRUE cancels — and JsEventTarget implements exactly that, keyed on
+        // JsEventTarget.IsGlobalScope. This attribute is therefore what decides notHandled on the worker side,
+        // which is the bool the parent-side relay is gated on: an onerror returning true is a worker saying it
+        // has dealt with its own failure, and the parent is not told.
         scope.InstallEventHandler(global, "onerror", GlobalEventNames.ErrorName);
         scope.InstallEventHandler(global, "onunhandledrejection", GlobalEventNames.UnhandledRejectionName);
         scope.InstallEventHandler(global, "onrejectionhandled", GlobalEventNames.RejectionHandledName);
@@ -172,9 +177,9 @@ internal sealed class WorkerGlobalScope
     /// </summary>
     /// <remarks>
     /// Read per call rather than captured, because <c>ResetTransientEvaluationState</c> replaces the target
-    /// when an evaluation cycle ends. A restore on the worker also ends the connection, which lands with the
-    /// restore and dispose hooks in their own change (wave 3); reading it fresh is what keeps this correct
-    /// either way.
+    /// when an evaluation cycle ends. A restore on the worker also ends the connection, so what these
+    /// attributes write to afterwards is a listener list nothing will ever dispatch at; reading it fresh is
+    /// what keeps that a dead end rather than a stale reference to the previous cycle's list.
     /// </remarks>
     private GlobalEventTarget Target => _engine._webApi!.GlobalEventTarget;
 

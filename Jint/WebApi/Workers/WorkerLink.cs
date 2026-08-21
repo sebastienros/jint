@@ -8,6 +8,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
+using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Messaging;
 
 namespace Jint.WebApi.Workers;
@@ -63,11 +64,22 @@ internal sealed class WorkerLink
     /// </summary>
     private readonly int _workerGeneration;
 
+    /// <summary>
+    /// The same, for the parent: the cycle it was in when the connection was made. Every job this class queues
+    /// on the <i>parent's</i> loop — both error events — carries it, so a <c>RestoreGlobalSnapshot</c> on the
+    /// parent drops an error that was already queued rather than firing it at a <c>Worker</c> object whose
+    /// listeners are closures over globals that no longer exist.
+    /// </summary>
+    private readonly int _parentGeneration;
+
     private readonly string _specifier;
     private readonly string? _referencingLocation;
 
     /// <summary>The job <c>close()</c> queues, built once so a script calling it in a loop allocates nothing.</summary>
     private readonly Action _closeJob;
+
+    /// <summary>The parent-side job a startup failure queues; it carries nothing, so it is built once too.</summary>
+    private readonly Action _startupErrorJob;
 
     internal WorkerLink(
         Engine parent,
@@ -86,7 +98,9 @@ internal sealed class WorkerLink
         _specifier = specifier;
         _referencingLocation = referencingLocation;
         _workerGeneration = worker.EventLoopGeneration;
+        _parentGeneration = parent.EventLoopGeneration;
         _closeJob = EndAsClosedByWorker;
+        _startupErrorJob = FireStartupErrorEvent;
 
         WorkerObject = workerObject;
 
@@ -197,12 +211,32 @@ internal sealed class WorkerLink
     /// The token is cancelled for every reason but <see cref="WorkerEndReason.ClosedByWorker"/>: cancelling it
     /// there would abort the very turn the worker asked to be allowed to finish.
     /// </para>
+    /// <para>
+    /// <paramref name="deferredHostNotifications"/> is what an engine <i>teardown</i> passes — a
+    /// <c>RestoreGlobalSnapshot</c> or a <c>Dispose</c> ending every connection at once. Everything above it in
+    /// this method is the thread-safe part and runs now; the host callback is collected instead, so a host that
+    /// throws from it cannot erupt out of the middle of a half-finished teardown. Passing the list through the
+    /// call rather than setting a flag is what makes it race-free: the thread that <i>wins</i>
+    /// <see cref="WorkerConnection.TryEnd"/> is the thread carrying the list, so a <c>terminate()</c> landing on
+    /// another thread at the same instant still calls the host itself.
+    /// </para>
     /// </remarks>
-    private void OnEnded(WorkerEndReason reason)
+    private void OnEnded(WorkerEndReason reason, List<Action>? deferredHostNotifications)
     {
         var closedByWorker = reason == WorkerEndReason.ClosedByWorker;
 
         _innerPort.Endpoint?.Close();
+
+        // §6.3's order for a startup failure: the inner endpoint is closed first — so the records the parent
+        // posted are discarded and the sides they carried stranded — then the parent-side event is queued, and
+        // only then is the outer endpoint closed. The event rides the parent's event loop rather than the port,
+        // so closing the port neither carries it nor cancels it; the order is kept because the specification
+        // states one and a queue that outlives its channel is exactly the kind of thing that stops being true
+        // silently.
+        if (reason == WorkerEndReason.StartupFailed)
+        {
+            _parent.AddToEventLoop(_startupErrorJob, _parentGeneration);
+        }
 
         if (closedByWorker)
         {
@@ -222,7 +256,14 @@ internal sealed class WorkerLink
 
         // Last, and outside everything: it is host code, and the host is documented as being allowed to do
         // nothing here but signal its own pump.
-        _registry.Provider.OnWorkerEnded(Connection, reason);
+        if (deferredHostNotifications is null)
+        {
+            _registry.Provider.OnWorkerEnded(Connection, reason);
+        }
+        else
+        {
+            deferredHostNotifications.Add(() => _registry.Provider.OnWorkerEnded(Connection, reason));
+        }
     }
 
     private void EndAsClosedByWorker() => Connection.TryEnd(WorkerEndReason.ClosedByWorker, error: null);
@@ -297,20 +338,92 @@ internal sealed class WorkerLink
     }
 
     /// <summary>
-    /// The module never ran. §6.3's order: the inner endpoint first — so the records the parent posted are
-    /// discarded and the sides they carried are stranded rather than left waiting for a deserialization that
-    /// can never happen — then the outer one, then the host is told.
+    /// The module never ran: the specifier did not resolve, the fetch failed, or the graph did not
+    /// instantiate. The end sequence does the rest — see <see cref="OnEnded"/> for the order.
     /// </summary>
     /// <remarks>
-    /// The parent-side <c>error</c> event HTML fires at the <c>Worker</c> object lands in its own change
-    /// (wave 3); what this wave gives a host is the connection surface, which needs no sink wired at all:
+    /// Two channels, and they carry different things on purpose. The <b>host</b> gets
     /// <see cref="WorkerConnection.IsFaulted"/>, <see cref="WorkerConnection.Error"/> and an
     /// <see cref="WorkerEndReason.StartupFailed"/> that says what happened rather than blaming a
-    /// <c>terminate()</c> nobody called.
+    /// <c>terminate()</c> nobody called — with no sink wired at all. The parent's <b>script</b> gets
+    /// <see cref="FireStartupErrorEvent"/>'s plain <c>Event</c>, which carries nothing, because that is what
+    /// the standard fires.
     /// </remarks>
     private void OnModuleFailed(JsValue error) => FailStartup(ToClrFailure(error));
 
     private void FailStartup(Exception error) => Connection.TryEnd(WorkerEndReason.StartupFailed, error);
+
+    /// <summary>
+    /// The load-failure event, on the parent's own thread: <b>a plain <c>Event</c> named <c>error</c></b> at
+    /// the <c>Worker</c> object, and emphatically not an <c>ErrorEvent</c>.
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/workers.html#run-a-worker (the <i>onComplete</i> step for a
+    /// script that failed to fetch or parse: "queue a global task … to fire an event named <c>error</c> at
+    /// worker").
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// The step names no interface, so the event is an <c>Event</c> — no <c>message</c>, no <c>filename</c>, no
+    /// <c>error</c> — and libraries branch on exactly that to tell "the worker's script never loaded" from "the
+    /// worker's script threw". Anything a host wants to <i>know</i> about the failure is on the connection,
+    /// where it can be a CLR exception rather than a value that may not cross a realm.
+    /// </remarks>
+    private void FireStartupErrorEvent() => WorkerObject.FireEvent(GlobalEventNames.Error);
+
+    /// <summary>
+    /// The runtime-error relay: HTML's <i>report an exception</i> reaching its worker branch. Called on the
+    /// <b>worker's</b> thread, from the worker engine's own report sites, and <i>only</i> when they answered
+    /// <i>notHandled</i>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What crosses is four CLR values and nothing else. The thrown value stays in the worker's realm on the
+    /// worker's thread — which is why the event the parent sees carries <c>error: null</c>, and why that is the
+    /// standard's own answer rather than a limitation being dressed up as one.
+    /// </para>
+    /// <para>
+    /// The connection is tested here and not again in the job. A <c>terminate()</c> that lands after the job
+    /// was queued does not unqueue it: HTML puts errors and messages on different task sources and orders
+    /// neither, so an error arriving just after a terminate is one interleaving of a race the standard leaves
+    /// open, where firing at a <c>Worker</c> object whose connection had <i>already</i> ended when the failure
+    /// happened would not be.
+    /// </para>
+    /// </remarks>
+    internal void ReportErrorToParent(in ErrorEventDetails details)
+    {
+        if (Connection.IsEnded)
+        {
+            return;
+        }
+
+        var report = new WorkerErrorReport(details.Message, details.Filename, details.Lineno, details.Colno);
+        _parent.AddToEventLoop(() => DeliverErrorToParent(report), _parentGeneration);
+    }
+
+    /// <summary>
+    /// The relayed error, on the parent's thread: fire a trusted <c>ErrorEvent</c> at the <c>Worker</c> object
+    /// with <c>error: null</c>, and — when that is not cancelled either — report it one level further up.
+    /// </summary>
+    /// <remarks>
+    /// <c>error</c> is null for <b>every</b> worker error, same-origin included: <i>report an exception</i>
+    /// step 5.1 initializes it that way before the <c>Worker</c> object ever sees the event. Node deliberately
+    /// ships the opposite, cloning the error through an allowlist of constructors; Jint implements HTML's
+    /// <c>Worker</c>, and a worker that wants its parent to have the real failure catches it and
+    /// <c>postMessage</c>s it — where the serializer's <c>Error</c> support is intentional.
+    /// </remarks>
+    private void DeliverErrorToParent(WorkerErrorReport report)
+    {
+        var details = new ErrorEventDetails(report.Message, report.Filename, report.Lineno, report.Colno, JsValue.Null);
+
+        var ev = WorkerObject._realm.Intrinsics.ErrorEvent.CreateTrustedError(GlobalEventNames.Error, in details);
+
+        // DispatchEvent answers false exactly when a listener cancelled, which is HTML's notHandled. Step
+        // 5.2.3: still unhandled, so report it for the Worker object's own global — this engine's.
+        if (WorkerObject.DispatchEvent(ev))
+        {
+            _parent._webApi?.ReportWorkerError(in details);
+        }
+    }
 
     /// <summary>
     /// Reduces the worker realm's rejection value to a CLR exception, because
@@ -387,6 +500,19 @@ internal sealed class WorkerLink
             requested: (double) queued + 1);
     }
 }
+
+/// <summary>
+/// One relayed worker error, reduced to what may cross a thread and a realm: four CLR values, and no
+/// <c>JsValue</c> at all.
+/// </summary>
+/// <remarks>
+/// It exists as a type rather than as an <c>ErrorEventDetails</c> handed straight across so that the rule is
+/// structural instead of a comment: there is nowhere here to put the thrown value even by accident. The
+/// parent rebuilds the details on its own thread, with <c>error</c> null, which is what the standard says the
+/// <c>Worker</c> object's event carries anyway.
+/// </remarks>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+internal readonly record struct WorkerErrorReport(string Message, string Filename, uint Lineno, uint Colno);
 
 /// <summary>
 /// The failure a worker's startup is reported as when there is no CLR exception behind it — a module whose

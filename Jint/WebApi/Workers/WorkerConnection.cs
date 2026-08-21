@@ -34,9 +34,10 @@ public sealed class WorkerConnection
 
     /// <summary>
     /// What the engine does when the connection ends: close the endpoints, cancel the termination source, tell
-    /// the provider. Supplied by the engine wiring, and invoked at most once, outside <see cref="_lock"/>.
+    /// the provider. Supplied by the engine wiring, and invoked at most once, outside <see cref="_lock"/>. The
+    /// second argument is the deferral list an engine teardown passes; see <see cref="TryEnd"/>.
     /// </summary>
-    private readonly Action<WorkerEndReason>? _onEnded;
+    private readonly Action<WorkerEndReason, List<Action>?>? _onEnded;
 
     /// <summary>
     /// Written last inside <see cref="_lock"/>, so a thread that reads <see langword="true"/> — from any
@@ -58,7 +59,7 @@ public sealed class WorkerConnection
         Engine parent,
         Engine worker,
         string name,
-        Action<WorkerEndReason>? onEnded,
+        Action<WorkerEndReason, List<Action>?>? onEnded,
         CancellationToken terminationToken)
     {
         Parent = parent;
@@ -168,11 +169,20 @@ public sealed class WorkerConnection
     /// The engine-side entry: ends the connection with a reason of its own and, for a failure, the CLR
     /// exception behind it.
     /// </summary>
+    /// <param name="reason">Why it is ending.</param>
+    /// <param name="error">The failure behind it, for <see cref="WorkerEndReason.StartupFailed"/>.</param>
+    /// <param name="deferredHostNotifications">
+    /// Where to collect <see cref="WorkerProvider.OnWorkerEnded"/> instead of calling it, or
+    /// <see langword="null"/> to call it here. An engine teardown — a <c>RestoreGlobalSnapshot</c> or a
+    /// <c>Dispose</c> ending every connection at once — passes a list and runs it once the teardown is over, so
+    /// that a host throwing from the callback cannot leave the engine half-reset. Everything else passes
+    /// nothing.
+    /// </param>
     /// <returns>
     /// <see langword="true"/> when this call is the one that ended it — the caller is then the only thread
     /// running the end sequence — and <see langword="false"/> when it had already ended.
     /// </returns>
-    internal bool TryEnd(WorkerEndReason reason, Exception? error)
+    internal bool TryEnd(WorkerEndReason reason, Exception? error, List<Action>? deferredHostNotifications = null)
     {
         lock (_lock)
         {
@@ -191,7 +201,7 @@ public sealed class WorkerConnection
 
         // Outside the lock, always: this closes endpoints and calls into the host's OnWorkerEnded, and nothing
         // that can run host code may run while a lock of this feature's is held.
-        _onEnded?.Invoke(reason);
+        _onEnded?.Invoke(reason, deferredHostNotifications);
         return true;
     }
 }

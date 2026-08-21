@@ -232,6 +232,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports and port transfer) / `BroadcastChannel` | `Messaging` | ✔ shipped |
+| `Worker` (module workers only, over a host-supplied `WorkerProvider`) | `Workers` — **opt-in on its own, and does nothing without a provider** | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `addEventListener` / `removeEventListener` / `dispatchEvent` / `self` on the global scope, with `ErrorEvent` / `PromiseRejectionEvent` and the `error` / `unhandledrejection` / `rejectionhandled` events | `GlobalEvents` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
@@ -246,7 +247,8 @@ grows as the table fills in, and it will never include `fetch`: network egress i
 `Storage` is one standing exception, for the reason in its own section below; `CacheApi` is another, for the
 neighbouring one — a cache outlives the evaluation that filled it, so where its data goes, and what bounds it,
 is a decision you make rather than inherit; and `FetchEvents` is the third, because a script that can register
-a `fetch` listener can take over every request you route into the engine.
+a `fetch` listener can take over every request you route into the engine. `Workers` is outside `Default` for a
+different reason again: it needs a thread, and Jint never starts one — see its own section below.
 
 `crypto.subtle` carries **all twelve operations** — `digest`, `sign`, `verify`, `encrypt`, `decrypt`,
 `generateKey`, `importKey`, `exportKey`, `deriveBits`, `deriveKey`, `wrapKey` and `unwrapKey` — over
@@ -405,9 +407,11 @@ Five entries need more than a flag name, stated here rather than left to be disc
   for the reason the whole section opens with: network egress is a grant a host makes rather than inherits.
   The three interfaces come with `Fetch`, `CacheApi` or `FetchEvents`; the function comes with `Fetch` alone.
 
-§5.3 *Web workers* asks for `onerror`, `onunhandledrejection`, `onrejectionhandled` and `self` on any global
-that maps to a `WorkerGlobalScope`. Jint's does not map to one, so only `self` applies, and the three
-handlers are the §6 case above.
+§5.3 *Web workers* does not require a runtime to support them at all, and asks for `onerror`,
+`onunhandledrejection`, `onrejectionhandled` and `self` on any global that *does* map to a
+`WorkerGlobalScope`. An ordinary Jint global does not map to one, so only `self` applies there and the three
+handlers are the §6 case above; a **worker's** global (`WebApiFeatures.Workers`, above) maps to one and
+carries all four, with `onerror` in HTML's legacy five-argument shape.
 
 **§5.1 Common interfaces**
 
@@ -766,6 +770,167 @@ subscribers strongly, exactly as a browser keeps a channel alive until it is clo
 long-lived and short-lived engines wants the short-lived ones closed, restored or `Dispose()`d — a
 `RestoreGlobalSnapshot` and an `Engine.Dispose` each end every channel that engine created.
 
+### `new Worker()`, with the thread supplied by you
+
+`WebApiFeatures.Workers` gives a script the `Worker` constructor. Everything a worker needs already exists —
+a second isolated global is a second `Engine`, the channel between them is the cross-engine port pair above,
+delivery on the receiver's own thread is its event loop — except the one thing that must not: **the thread**.
+*Jint never starts a thread to run script*, so `new Worker()` is only implementable if you supply the
+execution resource. That is what `WorkerProvider` is. The engine owns the specification-shaped parts — port
+entanglement, the worker global, message and error plumbing, ordering, `terminate()` semantics — and you own
+every thread, every pump, and the worker engine's configuration.
+
+This is the ordinary layering rather than a Jint improvisation: a browser *is* a host-supplied worker factory,
+with Chromium in the provider's role, and Deno, QuickJS, Moddable and GraalJS all draw the line in the same
+place. What is new here is that the boundary is a public extension point, which is the right consequence of
+Jint being a library and not a runtime.
+
+```csharp
+var engine = new Engine(options => options.UseWebApis().UseWorkers(new ThreadPerWorker(workerRoot)));
+
+engine.Execute("""
+    const w = new Worker('./crunch.js', { type: 'module' });
+    w.onmessage = e => log(e.data);
+    w.postMessage({ rows: 10000 });
+    """);
+```
+
+`UseWorkers` sets the flag and the provider together so the two cannot get out of step. **With no provider the
+global is not installed at all**, so `typeof Worker === 'undefined'` and a script can feature-detect —
+the family's absent-rather-than-throwing convention, and better than a constructor that could only throw.
+
+A provider decides three things: whether a worker may exist, what engine runs it, and which thread pumps it.
+
+```csharp
+sealed class ThreadPerWorker(string root) : WorkerProvider
+{
+    // On the PARENT's thread, with the parent's script suspended mid-statement. Read the request; do not
+    // run script, do not block, and do not fetch the worker's script — that is the worker's own
+    // IModuleLoader's job, on the worker's own pump. Return null to refuse (the script gets a SecurityError).
+    public override Engine? CreateWorkerEngine(WorkerRequest request)
+        => new Engine(request.CreateDefaultOptions().EnableModules(root));
+
+    // Still the parent's thread, ports entangled and the start job queued. This is where you start pumping.
+    public override void OnWorkerStarted(WorkerConnection c)
+        => new Thread(() =>
+        {
+            while (!c.IsEnded)
+            {
+                c.Worker.Advanced.ProcessTasks();
+                try { c.Worker.Advanced.WaitForScheduledWork(TimeSpan.FromSeconds(1), c.TerminationToken); }
+                catch (OperationCanceledException) { }   // terminate() — fall out via IsEnded
+            }
+
+            c.Worker.Dispose();                          // on the pumping thread, after the loop
+        }) { IsBackground = true }.Start();
+
+    // OnWorkerEnded is a SIGNAL ONLY, on whichever thread ended the connection — frequently not the
+    // worker's. Never Dispose() or ProcessTasks() the worker engine from it: a terminate() ends the
+    // connection on the parent's thread while the worker thread sits inside ProcessTasks, and either call
+    // would be the engine's concurrent-use exception thrown out of the middle of the parent's script. The
+    // loop above needs nothing here — it observes IsEnded and wakes on the token.
+}
+```
+
+`WaitForScheduledWork` is what keeps an idle worker cheap *and* responsive: it parks until a job arrives from
+any thread or the worker's own next timer comes due, so a `postMessage` from the parent is picked up
+immediately rather than at the end of a polling interval. It does not pump — you call `ProcessTasks()`
+yourself, which is the same division every other host-driven API in Jint keeps.
+
+**N workers on one existing loop** — a game frame, say — works too, with one thing to get right:
+`ProcessTasks` drains until empty, so an unbounded worker handler would eat the frame. Give each worker a
+slice, which is exactly what `OperationDeadlineConstraint` is for (no-op `Reset()`, so it survives the
+per-entry constraint reset, and it erupts as a `TimeoutException` from `ProcessTasks`):
+
+```csharp
+foreach (var c in live)
+{
+    var slice = (OperationDeadlineConstraint) c.HostState!;   // registered in CreateWorkerEngine
+    slice.Begin(TimeSpan.FromMilliseconds(2), c.TerminationToken);
+    try { c.Worker.Advanced.ProcessTasks(); }
+    catch (TimeoutException) { /* overran its slice; resumes next frame */ }
+    finally { slice.End(); }
+}
+```
+
+**What a worker inherits: restrictions yes, grants no.** `request.CreateDefaultOptions()` gives you a fresh
+`Options` — never the parent's instance — carrying the parent's whole *restrictive* posture: the seven
+`Options.Constraints` values, `Host.StringCompilationAllowed`, `AgentCanSuspend`, `Json.MaxParseDepth`, the
+parser bounds, the module-graph limits and `ResultLimits`, plus a replay of every constraint **factory** the
+parent registered, so each engine gets its own constraint instances. Otherwise `new Worker()` would be an
+`eval` escape hatch out of a hardened parent. What it does *not* carry is anything that grants a capability:
+`fetch`, `EventSource`, `WebSocket`, `Storage`, `CacheApi` and `FetchEvents` are subtracted whatever the
+parent has, CLR interop and the module loader are yours to give deliberately, and **nesting is off** — a
+worker gets neither the `Workers` flag nor the provider, because a worker that can spawn workers is a grant,
+by implication, of the thing that manufactures engines. Turning nesting on is two visible lines, by which you
+accept the accounting; `request.Depth` and `request.LiveWorkerCount` are there to bound the tree. It is a
+convenience and not a security boundary: if you built the parent's `Options` from a hardening helper, build
+the worker's from the same one.
+
+Two per-engine backstops sit under all of that, neither of them the policy — the provider is the policy:
+`Options.WebApi.Workers.MaxWorkers` (default 16) and `MaxQueuedMessages` (default 16384) each refuse with a
+`QuotaExceededError` rather than letting a script manufacture engines, or fill a queue nobody drains, faster
+than any host policy was written to notice.
+
+**`terminate()` and `close()` are not the same mechanism with a flag.** `terminate()` closes both ends at
+once, discards what the parent had already posted, and cancels the connection's token — after which the
+worker's script stops within the engine's amortized check interval (64 statements) on its own thread, and not
+at all while it is inside one of your CLR calls. That published bound is stronger than the field's: V8's
+`TerminateExecution` is frame-bounded in the same way. Cancellation skips JavaScript `finally` blocks, which
+is exactly what the standard's *abort a running script* prescribes. `close()` from inside the worker is the
+opposite in every respect the standard makes it so: the turn that called it **runs to completion**, and the
+parent-side queue **drains** rather than being discarded — so `postMessage(result); close();`, the commonest
+idiom there is, still delivers whether or not the parent had pumped in between.
+
+**Errors reach you by three routes.** A load or parse failure fires a plain `Event` named `error` at the
+`Worker` object — no `message`, no `ErrorEvent`, which is what the standard's own step says and what libraries
+branch on — and ends the connection as `StartupFailed` with `IsFaulted` and a CLR `Error` on it, so **a host
+sees a startup failure without wiring anything at all**. An uncaught runtime error fires an `ErrorEvent` at
+the `Worker` object carrying `message`, `filename`, `lineno`, `colno` and **`error: null`** — null for every
+worker error, because the thrown value belongs to the worker's realm and its thread, and because the standard
+says so; a worker that wants its parent to have the real failure catches it and `postMessage`s it, where the
+serializer's `Error` support is deliberate. Whether the parent is told at all is gated on the standard's
+*notHandled*, so a worker-side `preventDefault()`, or a worker global `onerror` returning `true`, stops the
+propagation — and your `DiagnosticsSink` still sees every report either way, because a host's diagnostics
+channel is not something the script it is running may switch off. Unhandled promise rejections stay on the
+worker's own global and reach the parent through nothing at all, and a constraint failure is never an event:
+it erupts from whatever is pumping, because a worker's budget is yours to observe and not the parent script's.
+
+**Restore and dispose end connections, on either side.** A `RestoreGlobalSnapshot` or an `Engine.Dispose` on
+the parent ends every connection it created (`ParentRestored` / `ParentDisposed`), and the same on a worker
+engine ends its own (`WorkerRestored` / `WorkerDisposed`) — both endpoints, in both directions, because a
+worker connection is one object spanning two engines rather than two independent peers, and a one-sided close
+would leave the survivor paying a full structured clone per `postMessage` forever. The `Worker` object stays
+alive and becomes inert: `postMessage` a no-op, `terminate()` idempotent, no further events.
+
+Two smaller truths worth knowing before you rely on them. `type: 'module'` is required — the standard's own
+default is `'classic'` and Jint refuses it with a `TypeError` that names the fix, for the reasons every
+non-browser runtime refuses it. And on an engine that is *only* ever pumped, `ProcessTasks` runs jobs raw, so
+a replayed `TimeoutInterval` **never fires** and `MaxStatements` becomes a lifetime budget; the worker budget
+that does work is the pair built for it — `OperationDeadlineConstraint` for wall-clock and
+`MemoryLimitConstraint` for allocations, both armed once with `Begin`/`End` — plus the termination token for
+stopping.
+
+#### Sharing state between a parent and a worker
+
+No modern JavaScript runtime lets two threads share one JS heap, and Jint enforces that rather than hoping:
+a second thread entering an engine gets an `InvalidOperationException`, because the engine's speed *is* its
+unsynchronized state. What you have instead, in order of how much is shared:
+
+1. **Move a buffer** — `postMessage(v, { transfer: [buf] })` is genuinely zero-copy and genuinely one-way.
+2. **Move a channel** — `MessagePort` transfer, which is the shape Comlink-style RPC is built from; a
+   transferable stream rides the same way.
+3. **Share a CLR object.** Hand the *same* .NET object to both engines with `SetValue`: each builds its own
+   `ObjectWrapper`, so no `JsValue` crosses, while the object underneath is one instance whose mutations both
+   sides see. It is strictly more than `SharedArrayBuffer` offers, with three obligations — the object's
+   thread-safety is entirely yours, there is no reactivity (that is what the port in (2) is for), and it must
+   be *data* rather than a bridge, since calling into an engine another thread is inside is the admission
+   exception. It only works inward: a JS-born object *is* an engine-affine C# instance, so it crosses by clone
+   or by transfer and no other way.
+4. **`SharedArrayBuffer`** — refused with a `DataCloneError`, exactly as `postMessage` refuses one in a page
+   that is not cross-origin isolated. `Atomics.waitAsync`, which Jint already runs on the pump, is the
+   sanctioned replacement.
+
 ### Uncaught script errors go to a `DiagnosticsSink`
 
 A script's failures are not all catchable by the host: a promise rejects with nobody listening, a `setTimeout`
@@ -782,11 +947,14 @@ sealed class LogSink : DiagnosticsSink
 var engine = new Engine(options => options.UseWebApis().UseDiagnostics(new LogSink()));
 ```
 
-There are three kinds of report. `ReportedError` is what a script handed `reportError(e)`.
+There are four kinds of report. `ReportedError` is what a script handed `reportError(e)`.
 `UnhandledPromiseRejection` is `HostPromiseRejectionTracker`'s two operations, told apart by
 `RejectionHandled` — and it is *additive*: the long-standing `engine.Advanced.PromiseRejectionTracker` event
 still fires exactly as it did, first. `UncaughtCallbackError` is an exception that escaped a callback the
-engine invoked for you.
+engine invoked for you. `WorkerError` is a failure inside a `Worker` that neither the worker nor the `Worker`
+object handled; its `Value` is the message as a string, because the thrown value belongs to the worker's realm
+and cannot cross, and it is its own kind so that one sink wired for a parent *and* its workers can tell the
+report it already heard from the worker's side apart from this one.
 
 **That last one is the reason a sink changes behaviour, so install one deliberately.** With no sink a timer
 callback or an event listener that throws erupts out of whatever was running it, because the alternative

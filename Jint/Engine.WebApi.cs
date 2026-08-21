@@ -285,9 +285,17 @@ internal sealed class WebApiEngineState
     /// nobody's worker. Written once, on the parent's thread, while this engine is owned and quiescent.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is what makes "not already connected" a construction-time refusal rather than a second connection
-    /// that would give one global two parents, and it is the seam a worker-side <c>RestoreGlobalSnapshot</c>
-    /// and <c>Dispose</c> will end the connection through — those hooks land in their own change (wave 3).
+    /// that would give one global two parents, and it is what a worker-side <c>RestoreGlobalSnapshot</c> or
+    /// <c>Dispose</c> ends the connection through — see <see cref="EndWorkerConnections"/>.
+    /// </para>
+    /// <para>
+    /// It is deliberately <b>not</b> cleared when the connection ends, so an engine that has been somebody's
+    /// worker can never become somebody else's. Reusing one would be a trap rather than a saving: the worker
+    /// global scope is installed non-clobbering, so a second connection's <c>postMessage</c> would be declined
+    /// in favour of the first connection's dead one, and the difference is invisible from script.
+    /// </para>
     /// </remarks>
     internal WorkerLink? OwningWorkerLink { get; set; }
 
@@ -667,16 +675,18 @@ internal sealed class WebApiEngineState
     /// a listener for it; step 6 hands the value to the sink. <b>The two are additive rather than
     /// alternative:</b> HTML lets a listener's <c>preventDefault()</c> set <i>notHandled</i> false and so
     /// suppress the console report, and Jint deliberately reports either way — a host's diagnostics channel is
-    /// not something the script it is running may switch off.
+    /// not something the script it is running may switch off. The <i>parent</i> of a worker is told only when
+    /// <i>notHandled</i> is true, which is the half of the algorithm a script legitimately controls; see
+    /// <see cref="FireErrorAndPropagate"/>.
     /// </remarks>
     internal void ReportError(JsValue value)
     {
-        if (_globalEventTarget is { } target)
+        if (HasSomewhereToReportAnError)
         {
             // The location the engine last saw, which for a call from script is the reportError call site —
             // the same fallback every web API that has to place a failure uses.
             var location = _engine._lastSyntaxElement?.Location ?? default;
-            target.FireError(ErrorEventDetails.FromReportedValue(value, in location));
+            FireErrorAndPropagate(ErrorEventDetails.FromReportedValue(value, in location));
         }
 
         Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
@@ -688,12 +698,74 @@ internal sealed class WebApiEngineState
     /// sink report they make carries the exception itself and not merely its value.
     /// </summary>
     /// <remarks>
-    /// A no-op on an engine that has no global listener, which is every engine until a script registers one.
-    /// It declines to recurse: an exception thrown by a listener <i>while</i> a report is being dispatched
-    /// reaches the sink alone — see <see cref="GlobalEventTarget"/>.
+    /// A no-op on an engine that has no global listener and is nobody's worker, which is every engine until a
+    /// script registers one. It declines to recurse: an exception thrown by a listener <i>while</i> a report is
+    /// being dispatched reaches the sink alone — see <see cref="GlobalEventTarget"/>.
     /// </remarks>
     internal void FireGlobalErrorEvent(JavaScriptException exception)
-        => _globalEventTarget?.FireError(ErrorEventDetails.FromException(exception));
+    {
+        if (HasSomewhereToReportAnError)
+        {
+            FireErrorAndPropagate(ErrorEventDetails.FromException(exception));
+        }
+    }
+
+    /// <summary>
+    /// Step 5.2.3 of <i>report an exception</i>: the <c>error</c> event this engine's own <c>Worker</c> object
+    /// raised was not cancelled either, so the failure is reported one level further up — at <i>this</i>
+    /// engine's global scope and to <i>this</i> engine's sink.
+    /// </summary>
+    /// <remarks>
+    /// It is the recursive step, so it propagates again when this engine is itself a worker, which is what
+    /// produces HTML's up-the-chain propagation for the nested workers a provider deliberately enabled.
+    /// </remarks>
+    internal void ReportWorkerError(in ErrorEventDetails details)
+    {
+        FireErrorAndPropagate(in details);
+        Diagnostics?.Report(DiagnosticEvent.ForWorkerError(details.Message));
+    }
+
+    /// <summary>
+    /// Whether a failure reported here could reach anything at all: a global <c>error</c> listener, or the
+    /// parent of a worker. Two field reads, which is what every report site costs on an engine that has
+    /// neither.
+    /// </summary>
+    private bool HasSomewhereToReportAnError => _globalEventTarget is not null || OwningWorkerLink is not null;
+
+    /// <summary>
+    /// <i>Report an exception</i> step 5: fire <c>error</c> at this global scope, and — <b>only</b> when the
+    /// result is HTML's <i>notHandled</i> — hand the failure to the <c>Worker</c> object one engine up.
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The <i>notHandled</i> gate is the whole reason this is not the <see cref="DiagnosticsSink"/>.</b> The
+    /// sink is deliberately unsuppressible by script and is told whatever a listener did; HTML's propagation to
+    /// the parent is gated on exactly the bool a worker-side <c>preventDefault()</c> — or a global
+    /// <c>onerror</c> returning <see langword="true"/> — sets to false. So the relay sits beside the sink and
+    /// reads that bool, and the host's own channel is untouched.
+    /// </para>
+    /// <para>
+    /// Reading <see cref="GlobalEventTarget.IsReporting"/> <i>before</i> the dispatch is the in-error-reporting
+    /// mode guard: a failure raised while a previous one was being reported fires nothing (the dispatch itself
+    /// declines) and must not be propagated either, or the recursion the guard exists to stop would simply move
+    /// one engine up. After the call the flag would answer for the outer report's frame instead, which is the
+    /// same answer for the wrong reason.
+    /// </para>
+    /// </remarks>
+    private void FireErrorAndPropagate(in ErrorEventDetails details)
+    {
+        var target = _globalEventTarget;
+        var reporting = target is { IsReporting: true };
+        var notHandled = target is null || target.FireError(in details);
+
+        if (notHandled && !reporting)
+        {
+            OwningWorkerLink?.ReportErrorToParent(in details);
+        }
+    }
 
     /// <summary>
     /// The sink's half of <c>HostPromiseRejectionTracker</c>. Additive to
@@ -759,8 +831,13 @@ internal sealed class WebApiEngineState
     /// The peer is deliberately <i>not</i> closed: disentangling is one-sided, and a peer on another engine is
     /// in a cycle of its own that this restore has no business ending.
     /// </remarks>
-    internal void ResetTransientState()
+    internal List<Action>? ResetTransientState()
     {
+        // First, and before the general port sweep below: a worker connection is two endpoints plus a token
+        // plus a reason, and CloseMessagePorts would otherwise close this engine's half of it as an anonymous
+        // port — stopping delivery while leaving the connection reading as live.
+        var endedWorkers = EndWorkerConnections(WorkerEndReason.ParentRestored, WorkerEndReason.WorkerRestored);
+
         Timers?.Clear();
         Scheduler?.Clear();
         AbandonFetches();
@@ -780,6 +857,90 @@ internal sealed class WebApiEngineState
         // cycle's generation and would be dropped at dequeue anyway, so keeping the registration alive could
         // only accumulate one per cycle on a pooled engine.
         ReleaseHostAbortBridges();
+
+        return endedWorkers;
+    }
+
+    /// <summary>
+    /// Ends every worker connection this engine is a party to — the ones it created, and the one it <i>is</i>
+    /// the worker of.
+    /// </summary>
+    /// <param name="asParent">The reason for a connection this engine created.</param>
+    /// <param name="asWorker">The reason for the connection this engine is the worker of.</param>
+    /// <returns>
+    /// The host callbacks to run once the teardown is over, or <see langword="null"/> when there was nothing to
+    /// end. See <see cref="NotifyWorkerHosts"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Both endpoints are closed, which is a worker-specific rule rather than the port rule.</b> A
+    /// <c>MessagePort</c> deliberately does not close its peer — disentangling is one-sided, and a peer on
+    /// another engine is in a cycle of its own. A worker connection is not two independent peers: it is one
+    /// object the engine created spanning two engines, and a one-sided close would stop <i>delivery</i> while
+    /// leaving the survivor paying a full structured clone per <c>postMessage</c>, detaching its own
+    /// transfer-listed buffers and throwing <c>DataCloneError</c> for unserializable values, forever. Closing
+    /// both is what stops the survivor's work.
+    /// </para>
+    /// <para>
+    /// The <c>Worker</c> object itself stays alive and becomes <b>inert</b> — <c>postMessage</c> a no-op after
+    /// the serialization the standard's step order still prescribes, <c>terminate()</c> idempotent, no further
+    /// events, since every job this cycle queued on either loop carries a generation the restore has moved
+    /// past. That is not a concession: the disentangled-port clause of HTML's own error propagation describes
+    /// exactly this state.
+    /// </para>
+    /// <para>
+    /// Everything here is the thread-safe part of ending — endpoints, a token, interlocked bookkeeping — which
+    /// is what makes it callable from a teardown at all. The host callback is <i>collected</i> rather than
+    /// invoked, so a provider that throws from <c>OnWorkerEnded</c> cannot erupt out of the middle of a
+    /// half-finished restore.
+    /// </para>
+    /// </remarks>
+    private List<Action>? EndWorkerConnections(WorkerEndReason asParent, WorkerEndReason asWorker)
+    {
+        var registry = Workers;
+        if (registry is not { LiveCount: > 0 } && OwningWorkerLink is null)
+        {
+            return null;
+        }
+
+        var deferred = new List<Action>();
+
+        if (registry is not null)
+        {
+            // Copied out under the registry's own lock before the walk, because ending one removes it from
+            // that very list.
+            foreach (var link in registry.Snapshot())
+            {
+                link.Connection.TryEnd(asParent, error: null, deferred);
+            }
+        }
+
+        OwningWorkerLink?.Connection.TryEnd(asWorker, error: null, deferred);
+
+        return deferred.Count == 0 ? null : deferred;
+    }
+
+    /// <summary>
+    /// Runs the <see cref="WorkerProvider.OnWorkerEnded"/> callbacks a teardown deferred, once that teardown
+    /// has finished and the engine is whole again.
+    /// </summary>
+    /// <remarks>
+    /// A host exception propagates from here, which is the right place for it: the caller asked for the restore
+    /// or the dispose, the engine has completed it, and swallowing a provider's failure would hide it. Ending
+    /// the remaining connections first is deliberate — the engine's own work is done for all of them before any
+    /// host code runs.
+    /// </remarks>
+    internal static void NotifyWorkerHosts(List<Action>? deferred)
+    {
+        if (deferred is null)
+        {
+            return;
+        }
+
+        foreach (var notification in deferred)
+        {
+            notification();
+        }
     }
 
     private void AbandonFetches()
@@ -879,16 +1040,28 @@ internal sealed class WebApiEngineState
     /// <summary>
     /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which is
     /// the host token registrations, the subscriptions in a <see cref="BroadcastChannelBroker"/> the host may
-    /// share with engines that outlive this one, and the <c>MessagePort</c> sides entangled with ports of
-    /// another engine — each of which is a live reference to this disposed one, and each of which would go on
-    /// accepting messages into a queue nothing will ever drain. The queues need nothing — they hold no
-    /// unmanaged resource and no timer, and die with the engine.
+    /// share with engines that outlive this one, the worker connections spanning two engines, and the
+    /// <c>MessagePort</c> sides entangled with ports of another engine — each of which is a live reference to
+    /// this disposed one, and each of which would go on accepting messages into a queue nothing will ever
+    /// drain. The queues need nothing — they hold no unmanaged resource and no timer, and die with the engine.
     /// </summary>
-    internal void Dispose()
+    /// <returns>The host callbacks for the connections this ended; see <see cref="NotifyWorkerHosts"/>.</returns>
+    /// <remarks>
+    /// A worker engine's own dispose ends its connection too, and that is the half worth naming: the far side
+    /// would otherwise stay a <c>Worker</c> object that looks alive while every <c>postMessage</c> pays a full
+    /// serialization into a queue nothing will ever drain. The host that built the engine is the host that
+    /// disposes it, so <see cref="WorkerEndReason.WorkerDisposed"/> is a fact it can act on rather than a
+    /// surprise.
+    /// </remarks>
+    internal List<Action>? Dispose()
     {
+        var endedWorkers = EndWorkerConnections(WorkerEndReason.ParentDisposed, WorkerEndReason.WorkerDisposed);
+
         ReleaseHostAbortBridges();
         CloseBroadcastChannels();
         CloseMessagePorts();
+
+        return endedWorkers;
     }
 }
 #endif

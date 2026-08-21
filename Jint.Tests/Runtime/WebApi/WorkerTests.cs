@@ -392,7 +392,7 @@ public class WorkerTests
                 new Engine(),
                 new Engine(),
                 "w",
-                reason =>
+                (reason, _) =>
                 {
                     Interlocked.Increment(ref callbacks[index]);
                     reasons[index].Add(reason);

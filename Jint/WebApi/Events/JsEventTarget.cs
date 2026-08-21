@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.WebApi.Abort;
+using Jint.WebApi.GlobalEvents;
 
 namespace Jint.WebApi.Events;
 
@@ -90,6 +91,18 @@ internal class JsEventTarget : ObjectInstance
     /// way to name.
     /// </remarks>
     internal virtual JsValue EventTargetValue => this;
+
+    /// <summary>
+    /// Whether this target is the engine's global scope — WebIDL's <c>WindowOrWorkerGlobalScope</c>, which in
+    /// Jint is the synthetic global target and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Read by exactly one rule: HTML's <i>special error event handling</i>, which is what makes a global
+    /// <c>onerror</c> take five arguments and cancel by returning <see langword="true"/> where every other
+    /// event handler takes the event and cancels by returning <see langword="false"/>. See
+    /// <see cref="InvokeCallback"/>.
+    /// </remarks>
+    internal virtual bool IsGlobalScope => false;
 
     /// <summary>
     /// Whether one dispatch of <paramref name="type"/> could invoke anything at all. The engine asks before
@@ -349,9 +362,19 @@ internal class JsEventTarget : ObjectInstance
     /// <c>this</c>, and anything else has <c>handleEvent</c> looked up on it afresh — the lookup is per
     /// invocation, so a script may swap the method between two dispatches.
     /// </summary>
+    /// <remarks>
+    /// An <b>event-handler</b> registration is a different algorithm and takes the branch below:
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#the-event-handler-processing-algorithm.
+    /// </remarks>
     private void InvokeCallback(EventListenerRegistration listener, JsEvent ev)
     {
         var callback = listener.Callback;
+
+        if (listener.IsEventHandler)
+        {
+            InvokeEventHandler(callback, ev);
+            return;
+        }
 
         if (callback is ICallable directly)
         {
@@ -359,10 +382,8 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
-        // HTML's event handler processing algorithm invokes the assigned value as a function and knows
-        // nothing about handleEvent, so a non-callable onabort is simply never called. addEventListener's
-        // callback is a WebIDL callback *interface* and does get the lookup.
-        if (listener.IsEventHandler || callback is not ObjectInstance handler)
+        // addEventListener's callback is a WebIDL callback *interface* and does get the lookup.
+        if (callback is not ObjectInstance handler)
         {
             return;
         }
@@ -374,6 +395,71 @@ internal class JsEventTarget : ObjectInstance
         }
 
         operation.Call(handler, ev);
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#the-event-handler-processing-algorithm — what an
+    /// event handler IDL attribute (<c>onmessage</c>, <c>onerror</c>, …) does that an <c>addEventListener</c>
+    /// callback does not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two things. It knows nothing about <c>handleEvent</c>, so a non-callable value assigned to the attribute
+    /// is simply never called (step 2). And its <b>return value is read</b> (step 5), which is the half that
+    /// makes the two <c>onerror</c> shapes different:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Special error event handling</b> (step 3) — an <c>ErrorEvent</c> named <c>error</c> at a global scope
+    /// — invokes the handler with «<c>message</c>, <c>filename</c>, <c>lineno</c>, <c>colno</c>, <c>error</c>»
+    /// and cancels the event when it returns <see langword="true"/>. That is the legacy shape a worker's own
+    /// <c>onerror</c> has, and it is what decides HTML's <i>notHandled</i> on the worker side.
+    /// </description></item>
+    /// <item><description>
+    /// Every other handler — including <c>Worker.onerror</c>, which is <c>AbstractWorker</c>'s plain
+    /// <c>EventHandler</c> — is invoked with the event and cancels when it returns <see langword="false"/>.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// Both tests are for the boolean value itself rather than for truthiness, which is what the algorithm
+    /// says: a handler returning <c>0</c> or <c>""</c> cancels nothing. Cancelling goes through
+    /// <see cref="JsEvent.SetCanceledFlag"/>, so a non-cancelable event is unaffected either way.
+    /// </para>
+    /// </remarks>
+    private void InvokeEventHandler(JsValue callback, JsEvent ev)
+    {
+        if (callback is not ICallable handler)
+        {
+            return;
+        }
+
+        // Step 3: an ErrorEvent named `error` fired at a global scope, and nothing else.
+        if (ev is JsErrorEvent errorEvent
+            && IsGlobalScope
+            && string.Equals(ev.TypeName, GlobalEventNames.ErrorName, StringComparison.Ordinal))
+        {
+            var legacy = handler.Call(
+                ev.CurrentTarget,
+                JsString.Create(errorEvent.Message),
+                JsString.Create(errorEvent.Filename),
+                JsNumber.Create(errorEvent.Lineno),
+                JsNumber.Create(errorEvent.Colno),
+                errorEvent.Error);
+
+            if (legacy is JsBoolean && legacy.AsBoolean())
+            {
+                ev.SetCanceledFlag();
+            }
+
+            return;
+        }
+
+        var result = handler.Call(ev.CurrentTarget, ev);
+
+        if (result is JsBoolean && !result.AsBoolean())
+        {
+            ev.SetCanceledFlag();
+        }
     }
 
     /// <summary>
