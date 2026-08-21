@@ -217,7 +217,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`/`table`) | `WebApiFeatures.Console` | ✔ shipped |
 | `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
-| `TextEncoder` / `TextDecoder` (UTF-8, UTF-16LE, UTF-16BE; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
+| `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
@@ -266,6 +266,13 @@ steps end in: the `iv` must be the 96 bits NIST SP 800-38D recommends, and `tagL
 120 or 128 — the specification also lists 32 and 64, which `System.Security.Cryptography.AesGcm` will not
 produce. The ciphertext is `ciphertext || tag`, exactly as the specification defines it, so a host reading a
 script's output with `AesGcm` splits the last `tagLength / 8` bytes off itself.
+
+`TextDecoder` understands every encoding the [Encoding Standard](https://encoding.spec.whatwg.org/#names-and-labels)
+names, with all of their labels, except the seven legacy multi-byte ones (`Big5`, `EUC-JP`, `EUC-KR`, `GBK`,
+`gb18030`, `ISO-2022-JP` and `Shift_JIS`). Those are recognized as labels and reported as an unsupported
+encoding, never decoded as something else. The label table and the single-byte index tables are generated
+from the standard's own data files; `TextEncoder` is UTF-8 only, as the standard requires.
+
 
 ### Timers fire only while the engine is being pumped
 

@@ -13,6 +13,11 @@
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
     <EmbeddedResource Include="Runtime\WebApi\Resources\*.json" />
+    <!-- The Encoding Standard's own data, vendored under tools\whatwg-encoding\ and read straight from
+         there so the tests check the generated tables against the same file the generator consumed —
+         never against a second copy that could drift from it. -->
+    <EmbeddedResource Include="..\tools\whatwg-encoding\indexes.json" LogicalName="whatwg-encoding-indexes.json" />
+    <EmbeddedResource Include="..\tools\whatwg-encoding\encodings.json" LogicalName="whatwg-encoding-encodings.json" />
   </ItemGroup>
 
   <!--

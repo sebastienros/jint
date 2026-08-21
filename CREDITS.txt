@@ -29,3 +29,13 @@ Jint date parsing utilizes code extracted from the excellent MimeKit library.
 Website:      https://github.com/jstedfast/MimeKit
 Copyright:    Copyright (C) 2012-2022 .NET Foundation and Contributors
 License:      MIT - https://github.com/jstedfast/MimeKit/blob/master/LICENSE
+
+WHATWG
+-----
+Jint's TextDecoder decodes the legacy encodings through the index and label tables of the Encoding
+Standard, generated from the standard's own data files (vendored under tools/whatwg-encoding/).
+
+Website:      https://encoding.spec.whatwg.org/
+Copyright:    Copyright (c) WHATWG (Apple, Google, Mozilla, Microsoft)
+License:      CC BY 4.0, and BSD 3-Clause for the portions incorporated into source code -
+              https://github.com/whatwg/encoding/blob/main/LICENSE

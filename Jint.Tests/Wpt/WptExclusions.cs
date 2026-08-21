@@ -17,7 +17,12 @@ internal enum WptDivergence
     /// https://github.com/sebastienros/jint/issues/3106; the change that lands those decoders removes these
     /// entries.
     /// </summary>
-    NeedsLegacyEncodings,
+    /// <summary>
+    /// The seven legacy multi-byte encodings (Big5, EUC-JP, EUC-KR, GBK, gb18030, ISO-2022-JP, Shift_JIS)
+    /// are named by the label table and refused as unsupported; their suites stay red until someone demands
+    /// the tables. The single-byte families these entries used to cover are implemented and green.
+    /// </summary>
+    NeedsLegacyMultiByteEncodings,
 
     /// <summary>
     /// The test obtains its <c>SharedArrayBuffer</c> constructor through <c>WebAssembly.Memory</c>, which is

@@ -197,18 +197,20 @@ public class EncodingTests
     }
 
     [Theory]
-    [InlineData("windows-1252")]
-    [InlineData("iso-8859-1")]
-    [InlineData("shift_jis")]
-    [InlineData("replacement")]
-    [InlineData("x-user-defined")]
+    // The legacy encodings have a file of their own, LegacyEncodingTests. What is left here is the labels
+    // that name nothing at all, plus the two kinds the constructor refuses even though the label is a label:
+    // the replacement encoding, which the specification refuses, and the multi-byte encodings, which Jint
+    // does not implement.
     [InlineData("")]
     [InlineData("utf-9")]
+    [InlineData("utf-32")]
+    [InlineData("shift_jis")]
+    [InlineData("replacement")]
     // ASCII case-insensitive matching and nothing more: U+017F must not fold onto 's'.
-    [InlineData("cſunicode")]
+    [InlineData("c\u017Funicode")]
     // U+000B VT is not ASCII whitespace, so it is not stripped.
     [InlineData("\u000Butf-8")]
-    public void RefusesALabelOutsideTheImplementedSubset(string label)
+    public void RefusesALabelItCannotDecode(string label)
     {
         var engine = WebEngine();
 

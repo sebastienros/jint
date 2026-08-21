@@ -14,6 +14,12 @@ Jint.Tests.Test262/** linguist-vendored
 *.received.cs text eol=lf
 *.received.txt text eol=lf
 
+# The Encoding Standard's data is vendored verbatim, so that verifying it against upstream is
+# re-downloading it at the pinned commit and diffing. A Windows checkout must not rewrite its
+# line endings, or every one of those diffs would be the whole file.
+tools/whatwg-encoding/*.json text eol=lf
+tools/whatwg-encoding/whatwg-encoding-LICENSE.txt text eol=lf
+
 # The Test262 generated suite is cached across operating systems, keyed on a hash of this
 # settings file. It must therefore be byte-identical on every platform: a CRLF Windows checkout
 # would change the cache key (hashFiles) and the MSBuild regeneration gate, turning every
