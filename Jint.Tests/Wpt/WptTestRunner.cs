@@ -28,11 +28,12 @@ namespace Jint.Tests.Wpt;
 /// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
 /// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
-/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed,
-/// the one the File API corpus did — an <c>Array.prototype.values</c> defect with no web API in it at all —
-/// the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s definition for
-/// every global including a worker's, and the ten that groups 3 and 4 of
-/// https://github.com/sebastienros/jint/issues/3185 did. <c>Vendor/README.md</c> analyses each.
+/// https://github.com/sebastienros/jint/issues/3180. The one the File API corpus filed is fixed too — an
+/// <c>Array.prototype.values</c>/<c>keys</c>/<c>entries</c> defect with no web API in it at all, by
+/// https://github.com/sebastienros/jint/issues/3209 — so the category holds the five the streams corpus
+/// filed, the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s
+/// definition for every global including a worker's, and the ten that groups 3 and 4 of
+    /// https://github.com/sebastienros/jint/issues/3185 did. <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
 /// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
@@ -939,15 +940,11 @@ public class WptTestRunner
         new("compression/decompression-corrupt-input.any.js", "trailing junk for * should give an error", WptDivergence.NeedsIncrementalInflater),
 
         // ---------------------------------------------------------------- FileAPI
-        // Three rows of Blob-constructor.any.js, and they are one engine defect rather than three Blob ones
-        // — see WptDivergence.NeedsTriage and Vendor/README.md. Recorded rather than fixed, because the
-        // change that first runs a suite is not the change that moves the engine.
-        new("FileAPI/blob/Blob-constructor.any.js",
-            "A plain object with @@iterator should be treated as a sequence for the blobParts argument.", WptDivergence.NeedsTriage),
-        new("FileAPI/blob/Blob-constructor.any.js",
-            "ToUint32 should be applied to the length and any exceptions should be propagated.", WptDivergence.NeedsTriage),
-        new("FileAPI/blob/Blob-constructor.any.js",
-            "Getters and value conversions should happen in order until an exception is thrown.", WptDivergence.NeedsTriage),
+        // Nothing: the corpus is 342-for-342. Blob.textStream() arrived with sebastienros/jint#3211, and the
+        // three Blob-constructor.any.js rows that sat here under NeedsTriage were one engine defect rather
+        // than three Blob ones — Array.prototype.values/keys/entries gated on ObjectInstance.IsArrayLike
+        // where https://tc39.es/ecma262/#sec-array.prototype.values reads no `length` at all
+        // (sebastienros/jint#3209). Vendor/README.md keeps both accounts.
 
         // ---------------------------------------------------------------- workers
         // Six rows, five of them one decision family and none of them a surprise: the worker global is the
