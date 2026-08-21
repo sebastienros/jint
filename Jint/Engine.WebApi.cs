@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Diagnostics;
 using Jint.Native.Promise;
 using Jint.Native;
 using Jint.WebApi.Abort;
@@ -79,18 +80,23 @@ public partial class Engine
     /// loop nor the wait loops need a conditional-compilation directive of their own. It is created by
     /// <c>WebApiRegistration.Apply</c> for the features that keep state in it — the timers and the events, the
     /// latter for the time origin <c>Event.timeStamp</c> is measured against and for the queue
-    /// <c>AbortSignal.timeout()</c> schedules on.
+    /// <c>AbortSignal.timeout()</c> schedules on — or, for a feature enabled through
+    /// <see cref="AdvancedOperations.EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>, created
+    /// or extended by that call.
     /// </summary>
     internal WebApiEngineState? _webApi;
 
     /// <summary>
-    /// Which opt-in web APIs this engine was built with, as <c>WebApiRegistration.Apply</c> recorded them
-    /// after computing the feature closure, or <see cref="WebApiFeatures.None"/> for an engine that asked for
-    /// nothing. Read by the host APIs that have to refuse an engine which never opted in —
-    /// <see cref="AdvancedOperations.CreateMessagePortPair"/> and
-    /// <see cref="AdvancedOperations.SetFetchHandler"/> — and by nothing on any hot path. It lives here rather
-    /// than being read back from <c>Options</c> because an <c>Options</c> instance is shareable and mutable,
-    /// so the set an engine was actually built with is only knowable at build time.
+    /// Which opt-in web APIs this engine carries, as <c>WebApiRegistration</c> recorded them after computing
+    /// the feature closure, or <see cref="WebApiFeatures.None"/> for an engine that asked for nothing. Read by
+    /// the host APIs that have to refuse an engine which never opted in —
+    /// <see cref="AdvancedOperations.CreateMessagePortPair"/>,
+    /// <see cref="AdvancedOperations.SetFetchHandler"/> and
+    /// <see cref="AdvancedOperations.CreateAbortSignal"/> — by
+    /// <see cref="AdvancedOperations.EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>, which
+    /// adds to it, and by nothing on any hot path. It lives here rather than being read back from
+    /// <c>Options</c> because an <c>Options</c> instance is shareable and mutable, so the set an engine
+    /// actually has is only knowable from the engine.
     /// </summary>
     internal WebApiFeatures _webApiFeatures;
 
@@ -129,9 +135,11 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// The quota a defaulted <see cref="InMemoryStorageProvider"/> is built with, captured when the engine
-    /// was, so that mutating the options afterwards cannot change an engine that already exists.
+    /// was — or, for an engine that enabled storage through <c>Engine.Advanced.EnableWebApis</c>, when that
+    /// call ran. Either way it is read once and never again, so mutating the options afterwards cannot change
+    /// an engine that already has it.
     /// </summary>
-    private readonly long _storageQuotaBytes;
+    private long _storageQuotaBytes;
 
     private StorageProvider? _localStorageProvider;
     private StorageProvider? _sessionStorageProvider;
@@ -198,15 +206,23 @@ internal sealed class WebApiEngineState
     internal FetchHandler? FetchHandler { get; set; }
 
     /// <summary>
-    /// The engine's active timers, or <see langword="null"/> when nothing that schedules one is enabled.
+    /// The clock this state was built on, which every later piece attached to it has to share: the timers,
+    /// <c>performance.now()</c> and the time origin all read it, so a feature enabled later must schedule
+    /// against the same one rather than against whatever the options say by then.
     /// </summary>
-    internal TimerQueue? Timers { get; }
+    internal TimeProvider TimeProvider => _timeProvider;
 
     /// <summary>
-    /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once, when the
-    /// engine is built, so that no background thread ever reaches into <see cref="Options"/>.
+    /// The engine's active timers, or <see langword="null"/> when nothing that schedules one is enabled.
     /// </summary>
-    internal Options.FetchOptions? FetchOptions { get; }
+    internal TimerQueue? Timers { get; private set; }
+
+    /// <summary>
+    /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once — when the
+    /// engine is built, or when <c>Engine.Advanced.EnableWebApis</c> turned the feature on — so that no
+    /// background thread ever reaches into <see cref="Options"/>.
+    /// </summary>
+    internal Options.FetchOptions? FetchOptions { get; private set; }
 
     /// <summary>
     /// Where the <c>caches</c> object keeps what a script stored, or <see langword="null"/> when the Cache
@@ -219,7 +235,7 @@ internal sealed class WebApiEngineState
     /// state, so a pooled engine's next cycle finds what the previous one cached — the same answer the module
     /// registry gets from a restore.
     /// </remarks>
-    internal CacheStorageProvider? CacheProvider { get; }
+    internal CacheStorageProvider? CacheProvider { get; private set; }
 
     /// <summary>
     /// How many requests are in flight, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
@@ -240,7 +256,7 @@ internal sealed class WebApiEngineState
     /// Nothing else consults it: the scheduler drains itself through an ordinary event-loop job, so unlike the
     /// timers it needs no hook in the pump.
     /// </summary>
-    internal SchedulerQueue? Scheduler { get; }
+    internal SchedulerQueue? Scheduler { get; private set; }
 
     /// <summary>
     /// Where uncaught script errors are reported, or <see langword="null"/> when the host set no sink — which
@@ -290,7 +306,7 @@ internal sealed class WebApiEngineState
     /// only once no timer is due — see <see cref="IdleCallbackQueue"/> for what "idle" means for an engine
     /// that has no frames.
     /// </summary>
-    internal IdleCallbackQueue? IdleCallbacks { get; }
+    internal IdleCallbackQueue? IdleCallbacks { get; private set; }
 
     /// <summary>
     /// Whether an idle callback is waiting for a pump. Read only by
@@ -336,6 +352,66 @@ internal sealed class WebApiEngineState
     /// <inheritdoc cref="LocalStorageProvider" />
     internal StorageProvider SessionStorageProvider =>
         _sessionStorageProvider ??= new InMemoryStorageProvider(_storageQuotaBytes);
+
+    /// <summary>
+    /// Gives a state that was built without one the timer queue a feature enabled later needs. Called only by
+    /// <c>WebApiRegistration.ExtendEngineState</c>, and only for a slot that is still empty — a queue the
+    /// engine has already been scheduling on is never replaced.
+    /// </summary>
+    /// <remarks>
+    /// The whole late-attachment family exists for <c>Engine.Advanced.EnableWebApis</c>: the state is created
+    /// once, with exactly the queues the features named at that moment, so turning a feature on afterwards has
+    /// to be able to add the one piece it brought with it. Each of these asserts the slot is empty rather than
+    /// tolerating a second call, because a second call could only mean the caller lost track of which features
+    /// were already on — which is precisely the question <c>Engine._webApiFeatures</c> answers.
+    /// </remarks>
+    internal void AttachTimers(TimerQueue timers)
+    {
+        Debug.Assert(Timers is null, "the timer queue must never be replaced on a live engine");
+        Timers = timers;
+    }
+
+    /// <inheritdoc cref="AttachTimers" />
+    internal void AttachFetchOptions(Options.FetchOptions fetchOptions)
+    {
+        Debug.Assert(FetchOptions is null, "the network settings must never be replaced on a live engine");
+        FetchOptions = fetchOptions;
+    }
+
+    /// <inheritdoc cref="AttachTimers" />
+    internal void AttachScheduler(SchedulerQueue scheduler)
+    {
+        Debug.Assert(Scheduler is null, "the scheduler queues must never be replaced on a live engine");
+        Scheduler = scheduler;
+    }
+
+    /// <inheritdoc cref="AttachTimers" />
+    internal void AttachCacheProvider(CacheStorageProvider cacheProvider)
+    {
+        Debug.Assert(CacheProvider is null, "the cache provider must never be replaced on a live engine");
+        CacheProvider = cacheProvider;
+    }
+
+    /// <inheritdoc cref="AttachTimers" />
+    internal void AttachIdleCallbacks(IdleCallbackQueue idleCallbacks)
+    {
+        Debug.Assert(IdleCallbacks is null, "the idle-callback queue must never be replaced on a live engine");
+        IdleCallbacks = idleCallbacks;
+    }
+
+    /// <summary>
+    /// Reads the storage group into a state that was built without it. Unlike its siblings this one has no
+    /// slot of its own to test: the two providers are defaulted lazily on first use, so what it must not do is
+    /// overwrite a provider that has already been resolved — hence the <c>??=</c>. The quota is only ever
+    /// consulted while defaulting a provider, so assigning it here reaches exactly the providers that do not
+    /// exist yet, which is the same set the host is enabling storage for.
+    /// </summary>
+    internal void AttachStorage(Options.StorageOptions storage)
+    {
+        _localStorageProvider ??= storage.LocalStorageProvider;
+        _sessionStorageProvider ??= storage.SessionStorageProvider;
+        _storageQuotaBytes = storage.MaxTotalBytes;
+    }
 
     /// <summary>
     /// Promotes at most one due timer into an event-loop job, and failing that runs at most one idle callback.

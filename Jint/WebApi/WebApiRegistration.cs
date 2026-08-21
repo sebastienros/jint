@@ -12,7 +12,8 @@ namespace Jint.WebApi;
 /// <summary>
 /// Installs the globals for the web APIs an engine opted into. Invoked from <c>Options.Apply</c>, which is
 /// the sanctioned conditional-install site — the same one <c>Interop.Enabled</c> and
-/// <c>Modules.RegisterRequire</c> use.
+/// <c>Modules.RegisterRequire</c> use — and from <c>Engine.Advanced.EnableWebApis</c>, which is the same
+/// work applied to an engine that already exists.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,19 +34,89 @@ internal static class WebApiRegistration
 {
     internal static void Apply(Options options, Engine engine)
     {
-        var global = engine.Realm.GlobalObject;
         var features = ExpandFeatures(options.WebApi.Features);
 
-        // Recorded on the engine because one host API — Engine.Advanced.CreateMessagePortPair — has to be
-        // able to refuse an engine that never opted in, and Options is shareable so it cannot be asked later.
+        // Recorded on the engine because two host APIs — Engine.Advanced.CreateMessagePortPair and
+        // Engine.Advanced.EnableWebApis — have to be able to ask what an engine already carries, and Options
+        // is shareable so it cannot be asked later.
         engine._webApiFeatures = features;
 
         CreateEngineState(options, engine, features);
+        InstallGlobals(engine, features);
+    }
+
+    /// <summary>
+    /// The post-construction door: <c>Engine.Advanced.EnableWebApis</c>. Additive only, and deliberately the
+    /// very same closure, state-creation and install code <see cref="Apply"/> runs — the only differences are
+    /// that the state may have to be <i>extended</i> rather than created, and that the install lands on an
+    /// engine whose inline caches may already hold a resolved binding for one of these names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole feature set is re-installed rather than only the newly added flags, because several globals
+    /// are conditioned on a <i>pair</i> of features — <c>TextDecoderStream</c> needs both
+    /// <see cref="WebApiFeatures.Encoding"/> and <see cref="WebApiFeatures.Streams"/> — so adding one half
+    /// completes a pair the other half could not install on its own. <see cref="Install"/> leaves every name
+    /// the global already owns alone, and does so with a probe, so re-running it neither replaces an
+    /// already-installed global nor materializes an unread one.
+    /// </para>
+    /// <para>
+    /// <paramref name="configure"/> runs only when something is actually being enabled, so that a call naming
+    /// nothing new is a no-op in every sense rather than one that still mutates the options.
+    /// </para>
+    /// </remarks>
+    /// <returns>The features this call added, after closure expansion; <see cref="WebApiFeatures.None"/> when
+    /// everything asked for was already present.</returns>
+    internal static WebApiFeatures ApplyLive(Engine engine, WebApiFeatures requested, Action<Options.WebApiOptions>? configure)
+    {
+        var existing = engine._webApiFeatures;
+
+        // The closure is monotone and `existing` has already been through it, so expanding the request alone
+        // gives the same answer as expanding the union — and this is the one place the rules live.
+        var added = ExpandFeatures(requested) & ~existing;
+        if (added == WebApiFeatures.None)
+        {
+            return WebApiFeatures.None;
+        }
+
+        // Touching the WebApi property allocates the group if the engine was built from options that never
+        // named a web API — a host-thread act, like every other option mutation, and the only place engine
+        // code ever does it. That is exactly what this call is: the host asking, on the engine's own thread,
+        // for something the options never said.
+        var options = engine.Options;
+        configure?.Invoke(options.WebApi);
+
+        var combined = existing | added;
+        engine._webApiFeatures = combined;
+
+        var state = engine._webApi;
+        if (state is null)
+        {
+            CreateEngineState(options, engine, combined);
+        }
+        else
+        {
+            // `added` rather than `combined`: the options group belonging to a feature that was already on has
+            // been read once already, and reading it again is exactly the "read once, when the engine is
+            // built" promise every one of those settings makes.
+            ExtendEngineState(options, engine, state, added);
+        }
+
+        InstallGlobals(engine, combined);
+        return added;
+    }
+
+    private static void InstallGlobals(Engine engine, WebApiFeatures features)
+    {
+        // The PRINCIPAL realm, deliberately, and not Engine.Realm: during construction the two are the same,
+        // but the live door can be called from anywhere — including a host callback running inside a
+        // ShadowRealm — and these globals belong to the engine's own realm and to no other.
+        var global = engine._mainRealm.GlobalObject;
 
         if (features == WebApiFeatures.None)
         {
             // Reachable only for an engine whose host set a diagnostics sink and named no feature: it gets the
-            // reporting channel the state above carries and no globals whatever — not even DOMException, which
+            // reporting channel the state carries and no globals whatever — not even DOMException, which
             // exists to let a web API report a failure to script and here there is no web API to have one.
             return;
         }
@@ -292,7 +363,7 @@ internal static class WebApiRegistration
     /// </remarks>
     internal static void InstallFetchModel(Engine engine)
     {
-        var global = engine.Realm.GlobalObject;
+        var global = engine._mainRealm.GlobalObject;
         Install(global, engine, "Headers", static e => e.Realm.Intrinsics.Headers, PropertyFlag.NonEnumerable);
         Install(global, engine, "Request", static e => e.Realm.Intrinsics.Request, PropertyFlag.NonEnumerable);
         Install(global, engine, "Response", static e => e.Realm.Intrinsics.Response, PropertyFlag.NonEnumerable);
@@ -355,6 +426,32 @@ internal static class WebApiRegistration
     }
 
     /// <summary>
+    /// The features that keep something in <c>Engine._webApi</c>. The timer globals are the obvious reason for
+    /// a queue; AbortSignal.timeout() and a delayed scheduler.postTask() are the others, and they need one
+    /// whether or not the host also asked for setTimeout. The events, messaging and performance features
+    /// additionally read the time origin (Event.timeStamp, MessageEvent.timeStamp, performance.now), fetch
+    /// keeps its settings and its in-flight set here, the scheduler keeps its own task queues here, and storage
+    /// keeps its providers here, which is why each of them wants the state even without the timers flag.
+    /// </summary>
+    private const WebApiFeatures NeedsEngineState =
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback;
+
+    /// <summary>
+    /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
+    /// scheduler.postTask(), each of which needs it whether or not the host also asked for setTimeout; a
+    /// performance-only engine reads just the time origin and never schedules, so it carries no queue at all.
+    /// </summary>
+    private const WebApiFeatures NeedsTimerQueue =
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback;
+
+    /// <summary>
+    /// The features that take their transport and their policy from <c>Options.WebApi.Fetch</c>. EventSource
+    /// and WebSocket read the same group as fetch: they are further grants of network access over the same
+    /// transport and the same policy, so any of the three is reason enough to keep the settings.
+    /// </summary>
+    private const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket;
+
+    /// <summary>
     /// Creates <c>Engine._webApi</c> — once, and before any feature block, because more than one feature keeps
     /// state in it now. A feature that needs none leaves the field null, which is what every hot path that
     /// consults it starts by checking, so a <c>console</c>-only engine is still the engine it was.
@@ -366,15 +463,6 @@ internal static class WebApiRegistration
     /// </remarks>
     private static void CreateEngineState(Options options, Engine engine, WebApiFeatures features)
     {
-        // The timer globals are the obvious reason for a queue; AbortSignal.timeout() and a delayed
-        // scheduler.postTask() are the others, and they need one whether or not the host also asked for
-        // setTimeout. The events, messaging and performance features additionally read the time origin
-        // (Event.timeStamp, MessageEvent.timeStamp, performance.now), fetch keeps its settings and its
-        // in-flight set here, the scheduler keeps its own task queues here, and storage keeps its providers
-        // here, which is why each of them wants the state even without the timers flag.
-        const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback;
-
         // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
         // channel whatever else it did or did not ask for, which is why it is read before the flags are.
         var diagnostics = options.WebApi.Diagnostics.Sink;
@@ -387,21 +475,12 @@ internal static class WebApiRegistration
         var timerOptions = options.WebApi.Timers;
         var timeProvider = timerOptions.TimeProvider ?? TimeProvider.System;
 
-        // The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
-        // scheduler.postTask(), each of which needs it whether or not the host also asked for setTimeout; a
-        // performance-only engine reads just the time origin and never schedules, so it carries no queue at
-        // all.
-        const WebApiFeatures NeedsTimerQueue =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback;
         var timers = (features & NeedsTimerQueue) != WebApiFeatures.None
             ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers, diagnostics)
             : null;
 
         // The fetch settings are read here, once, so that nothing on a background thread ever reaches into
         // Options — and so that a host mutating them afterwards does not change an engine that already exists.
-        // EventSource reads the same group: it is a second grant of network access over the same transport
-        // and the same policy, so either flag is reason enough to keep them.
-        const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket;
         var fetch = (features & NeedsFetchOptions) != WebApiFeatures.None ? options.WebApi.Fetch : null;
 
         var scheduler = (features & WebApiFeatures.Scheduler) != WebApiFeatures.None
@@ -419,14 +498,72 @@ internal static class WebApiRegistration
             : null;
 
         // The idle queue needs the timer queue for the `timeout` option, and the realm so it can build an
-        // IdleDeadline for each invocation. Engine.Realm is the principal realm here — Options.Apply runs
-        // during construction, long before any ShadowRealm can exist — and the principal realm is the only
-        // one these globals are installed in.
+        // IdleDeadline for each invocation. The PRINCIPAL realm, which is the only one these globals are
+        // installed in — and the only one this can mean when the live door is called from inside a
+        // ShadowRealm callback.
         var idleCallbacks = (features & WebApiFeatures.IdleCallback) != WebApiFeatures.None
-            ? new IdleCallbackQueue(engine, engine.Realm, timeProvider, timers!, timerOptions.IdleBudget)
+            ? new IdleCallbackQueue(engine, engine._mainRealm, timeProvider, timers!, timerOptions.IdleBudget)
             : null;
 
         engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks);
+    }
+
+    /// <summary>
+    /// Attaches to an existing <c>Engine._webApi</c> whatever the features being enabled <i>now</i> need and it
+    /// does not already carry. The other half of <see cref="ApplyLive"/>, and the reason
+    /// <see cref="WebApiEngineState"/>'s slots are settable at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every attachment fills a null slot and never replaces a live one, so a queue the engine has been
+    /// scheduling on cannot be swapped underneath it. <paramref name="added"/> is the newly enabled set rather
+    /// than the union, which is what keeps the "read once, when the engine is built" promise every one of these
+    /// settings makes: a group belonging to a feature that was already on is not read a second time.
+    /// </para>
+    /// <para>
+    /// Two things are deliberately <b>not</b> re-read. The <b>clock</b> is the state's own — the timers,
+    /// <c>performance.now()</c> and the time origin have to stay on one clock for the engine's whole life, so a
+    /// <c>TimeProvider</c> assigned to the options after construction never reaches an engine that already
+    /// exists. And the <b>diagnostics sink</b>, whose contract is that it holds still for an engine's lifetime
+    /// because it also decides whether a callback's exception erupts.
+    /// </para>
+    /// </remarks>
+    private static void ExtendEngineState(Options options, Engine engine, WebApiEngineState state, WebApiFeatures added)
+    {
+        var timerOptions = options.WebApi.Timers;
+
+        if ((added & NeedsTimerQueue) != WebApiFeatures.None && state.Timers is null)
+        {
+            state.AttachTimers(new TimerQueue(state.TimeProvider, timerOptions.MaxActiveTimers, state.Diagnostics));
+        }
+
+        if ((added & NeedsFetchOptions) != WebApiFeatures.None && state.FetchOptions is null)
+        {
+            state.AttachFetchOptions(options.WebApi.Fetch);
+        }
+
+        if ((added & WebApiFeatures.Scheduler) != WebApiFeatures.None && state.Scheduler is null)
+        {
+            state.AttachScheduler(new SchedulerQueue(engine));
+        }
+
+        if ((added & WebApiFeatures.Storage) != WebApiFeatures.None)
+        {
+            state.AttachStorage(options.WebApi.Storage);
+        }
+
+        if ((added & WebApiFeatures.CacheApi) != WebApiFeatures.None && state.CacheProvider is null)
+        {
+            state.AttachCacheProvider(options.WebApi.Cache.Provider ?? new InMemoryCacheStorageProvider());
+        }
+
+        if ((added & WebApiFeatures.IdleCallback) != WebApiFeatures.None && state.IdleCallbacks is null)
+        {
+            // The timer queue is there: IdleCallback is in NeedsTimerQueue, so either the state already had
+            // one or the block above has just attached it.
+            state.AttachIdleCallbacks(
+                new IdleCallbackQueue(engine, engine._mainRealm, state.TimeProvider, state.Timers!, timerOptions.IdleBudget));
+        }
     }
 
     /// <summary>

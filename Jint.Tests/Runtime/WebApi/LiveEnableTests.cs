@@ -1,0 +1,204 @@
+#if NET8_0_OR_GREATER
+#nullable enable
+
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
+using Jint.WebApi;
+
+namespace Jint.Tests.Runtime.WebApi;
+
+/// <summary>
+/// <c>Engine.Advanced.EnableWebApis</c> from the inside: the parts of a post-construction install the public
+/// surface cannot see. Which descriptor is stored and that it is stored unmaterialized; that the install bumps
+/// the own-property version every global-binding and member-read inline cache validates against; and — the
+/// half the issue calls the real work — that an engine which already had web-API state has that state
+/// <i>extended</i> rather than replaced.
+/// </summary>
+/// <remarks>
+/// The behaviour a third party can observe is pinned in
+/// <c>Jint.Tests.PublicInterface.WebApiLiveEnableTests</c>; everything here needs
+/// <c>InternalsVisibleTo</c> and belongs on this side of it.
+/// </remarks>
+public class LiveEnableTests
+{
+    [Fact]
+    public void InstallsUnmaterializedLazyDescriptors()
+    {
+        var engine = new Engine();
+        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+
+        var descriptor = engine.Realm.GlobalObject.GetOwnProperty("console");
+
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        // CustomJsValue is what routes the read through the resolver; it is cleared the moment the value
+        // materializes, which is also what admits the descriptor to the global-binding inline cache.
+        (descriptor._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
+        descriptor._value.Should().BeNull("enabling a feature must not build the object a script never reads");
+    }
+
+    /// <summary>
+    /// The design risk of a post-construction install, pinned directly — the same one
+    /// <see cref="LazyGlobalInstallationTests.InstallingBumpsTheOwnPropertyVersionOnEveryStoragePath"/> pins
+    /// for <c>AddLazyGlobal</c>. At construction time no inline cache exists, so an install that skipped the
+    /// bump would still be correct; on a live engine a warmed identifier site holds the previous descriptor by
+    /// reference and revalidates it against <c>_propertiesVersion</c> alone.
+    /// </summary>
+    [Fact]
+    public void InstallingBumpsTheOwnPropertyVersion()
+    {
+        var engine = new Engine();
+        var global = engine.Realm.GlobalObject;
+
+        var before = global._propertiesVersion;
+        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        global._propertiesVersion.Should().NotBe(before, "the first install has to invalidate the caches");
+
+        // ... and again for a second, later call, which is the pooled-engine shape.
+        before = global._propertiesVersion;
+        engine.Advanced.EnableWebApis(WebApiFeatures.Base64);
+        global._propertiesVersion.Should().NotBe(before);
+
+        // A call that enables nothing installs nothing, so it must not churn the caches either.
+        before = global._propertiesVersion;
+        engine.Advanced.EnableWebApis(WebApiFeatures.Console).Should().Be(WebApiFeatures.None);
+        global._propertiesVersion.Should().Be(before);
+    }
+
+    /// <summary>
+    /// Installing global object properties creates no lexical binding and injects nothing into an existing
+    /// environment, so the two counters that describe those must NOT move — bumping either would be
+    /// invalidating caches for a change that did not happen.
+    /// </summary>
+    [Fact]
+    public void InstallingDoesNotDisturbTheLexicalCounters()
+    {
+        var engine = new Engine();
+        var globalEnv = engine.Realm.GlobalEnv;
+
+        var lexicalMutations = globalEnv._lexicalMutations;
+        var injectionEpoch = engine._envBindingInjectionEpoch;
+
+        engine.Advanced.EnableWebApis();
+
+        globalEnv._lexicalMutations.Should().Be(lexicalMutations);
+        engine._envBindingInjectionEpoch.Should().Be(injectionEpoch);
+    }
+
+    [Fact]
+    public void TheEngineRecordsTheExpandedClosure()
+    {
+        var engine = new Engine();
+        engine.Advanced.EnableWebApis(WebApiFeatures.CacheApi);
+
+        // The Cache API stores Request/Response pairs, so it brings the three features those are built out of
+        // — and deliberately not the network.
+        engine._webApiFeatures.Should().Be(
+            WebApiFeatures.CacheApi | WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files);
+        engine._webApiFeatures.Should().NotHaveFlag(WebApiFeatures.Fetch);
+
+        // Options is untouched: it reads back exactly what the host asked for, at options time and here.
+        engine.Options.WebApi.Features.Should().Be(WebApiFeatures.None);
+    }
+
+    /// <summary>
+    /// The state-extension half. A state built for <see cref="WebApiFeatures.Performance"/> alone carries the
+    /// time origin and no queue at all, so enabling a scheduling feature has to attach one — to that very
+    /// state, because replacing it would move the time origin and lose everything the engine had already put
+    /// in it.
+    /// </summary>
+    [Fact]
+    public void ExtendingAnExistingStateAttachesTheQueuesWithoutReplacingIt()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
+
+        var state = engine._webApi;
+        state.Should().NotBeNull();
+        state!.Timers.Should().BeNull("a performance-only engine reads the time origin and never schedules");
+        state.Scheduler.Should().BeNull();
+        state.IdleCallbacks.Should().BeNull();
+
+        var timeOrigin = state.TimeOrigin;
+        var clock = state.TimeProvider;
+
+        engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback);
+
+        engine._webApi.Should().BeSameAs(state, "the state must be extended, never rebuilt");
+        state.Timers.Should().NotBeNull();
+        state.Scheduler.Should().NotBeNull();
+        state.IdleCallbacks.Should().NotBeNull();
+        state.TimeOrigin.Should().Be(timeOrigin, "performance.now() must not be able to go backwards");
+        state.TimeProvider.Should().BeSameAs(clock, "everything attached later has to share the engine's clock");
+    }
+
+    /// <summary>
+    /// The clock a state was built on is the engine's forever: a <c>TimeProvider</c> assigned to the options
+    /// after construction must not reach an engine that already exists, or the timers and
+    /// <c>performance.now()</c> would be reading two different clocks.
+    /// </summary>
+    [Fact]
+    public void ExtendingAnExistingStateDoesNotAdoptALaterClock()
+    {
+        var options = new Options().UseWebApis(WebApiFeatures.Performance);
+        var engine = new Engine(options);
+        var original = engine._webApi!.TimeProvider;
+
+        options.WebApi.Timers.TimeProvider = new FakeTimeProvider();
+        engine.Advanced.EnableWebApis(WebApiFeatures.Timers);
+
+        engine._webApi!.TimeProvider.Should().BeSameAs(original);
+        engine._webApi.Timers.Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// An engine with no state at all is the other branch: it gets one built exactly as construction would
+    /// have built it, reading the options group at the moment of the call.
+    /// </summary>
+    [Fact]
+    public void AnEngineWithNoStateGetsOneBuiltFromTheOptionsAtEnableTime()
+    {
+        var clock = new FakeTimeProvider();
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
+
+        engine._webApi.Should().BeNull("console keeps no engine state");
+
+        engine.Advanced.EnableWebApis(WebApiFeatures.Timers, webApi =>
+        {
+            webApi.Timers.TimeProvider = clock;
+            webApi.Timers.MaxActiveTimers = 3;
+        });
+
+        engine._webApi.Should().NotBeNull();
+        engine._webApi!.TimeProvider.Should().BeSameAs(clock);
+        engine._webApi.Timers!.MaxActiveTimers.Should().Be(3);
+    }
+
+    /// <summary>
+    /// The storage providers are resolved lazily on first use, so enabling storage live has to fill the slots
+    /// that are still empty and may never overwrite one an engine has already been reading and writing.
+    /// </summary>
+    [Fact]
+    public void EnablingStorageLiveDoesNotDisplaceAProviderAlreadyInUse()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Storage));
+        engine.Execute("localStorage.setItem('k', 'v');");
+
+        var provider = engine._webApi!.LocalStorageProvider;
+
+        // Enabling storage again is a no-op, and so is enabling something else beside it.
+        engine.Advanced.EnableWebApis(WebApiFeatures.Storage | WebApiFeatures.Base64);
+
+        engine._webApi.LocalStorageProvider.Should().BeSameAs(provider);
+        engine.Evaluate("localStorage.getItem('k')").AsString().Should().Be("v");
+    }
+
+    /// <summary>A clock that never moves; only its identity matters to these tests.</summary>
+    private sealed class FakeTimeProvider : TimeProvider
+    {
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => 0;
+
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch;
+    }
+}
+#endif
