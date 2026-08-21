@@ -266,17 +266,85 @@
         throw new AssertionError('did not throw' + describe(description));
     }
 
-    // https://webidl.spec.whatwg.org/#idl-DOMException-error-names — the legacy code each name carries, so a
-    // DOMException assertion checks the same two things a browser's testharness checks. A name absent here
-    // has no legacy code and `code` must read 0.
-    var domExceptionCodes = {
-        IndexSizeError: 1, HierarchyRequestError: 3, WrongDocumentError: 4, InvalidCharacterError: 5,
-        NoModificationAllowedError: 7, NotFoundError: 8, NotSupportedError: 9, InUseAttributeError: 10,
-        InvalidStateError: 11, SyntaxError: 12, InvalidModificationError: 13, NamespaceError: 14,
-        InvalidAccessError: 15, TypeMismatchError: 17, SecurityError: 18, NetworkError: 19,
-        AbortError: 20, URLMismatchError: 21, QuotaExceededError: 22, TimeoutError: 23,
-        InvalidNodeTypeError: 24, DataCloneError: 25
+    // https://webidl.spec.whatwg.org/#dfn-error-names-table — the two tables upstream's assert_throws_dom_impl
+    // carries, copied entry for entry. What they encode is not merely a lookup: `nameCodeMap` is a *closed
+    // set*, so a name it does not hold is a bug in the test rather than a name whose legacy code is 0, and
+    // saying so is what stops a typo'd expectation from being satisfied by a typo'd implementation. The
+    // entries mapped to 0 are the names added after the legacy code list closed, and they are listed rather
+    // than defaulted for exactly that reason.
+    //
+    // Two absences are deliberate and are upstream's, not shortcuts. `QuotaExceededError` is in neither table
+    // since it became an interface of its own (https://webidl.spec.whatwg.org/#quotaexceedederror), which is
+    // why the name and the legacy code 22 are refused below and sent to assert_throws_quotaexceedederror.
+    // `QUOTA_EXCEEDED_ERR` left `codenameNameMap` with it, so it is refused as an unrecognized name.
+    var codenameNameMap = {
+        INDEX_SIZE_ERR: 'IndexSizeError',
+        HIERARCHY_REQUEST_ERR: 'HierarchyRequestError',
+        WRONG_DOCUMENT_ERR: 'WrongDocumentError',
+        INVALID_CHARACTER_ERR: 'InvalidCharacterError',
+        NO_MODIFICATION_ALLOWED_ERR: 'NoModificationAllowedError',
+        NOT_FOUND_ERR: 'NotFoundError',
+        NOT_SUPPORTED_ERR: 'NotSupportedError',
+        INUSE_ATTRIBUTE_ERR: 'InUseAttributeError',
+        INVALID_STATE_ERR: 'InvalidStateError',
+        SYNTAX_ERR: 'SyntaxError',
+        INVALID_MODIFICATION_ERR: 'InvalidModificationError',
+        NAMESPACE_ERR: 'NamespaceError',
+        INVALID_ACCESS_ERR: 'InvalidAccessError',
+        TYPE_MISMATCH_ERR: 'TypeMismatchError',
+        SECURITY_ERR: 'SecurityError',
+        NETWORK_ERR: 'NetworkError',
+        ABORT_ERR: 'AbortError',
+        URL_MISMATCH_ERR: 'URLMismatchError',
+        TIMEOUT_ERR: 'TimeoutError',
+        INVALID_NODE_TYPE_ERR: 'InvalidNodeTypeError',
+        DATA_CLONE_ERR: 'DataCloneError'
     };
+
+    var nameCodeMap = {
+        IndexSizeError: 1,
+        HierarchyRequestError: 3,
+        WrongDocumentError: 4,
+        InvalidCharacterError: 5,
+        NoModificationAllowedError: 7,
+        NotFoundError: 8,
+        NotSupportedError: 9,
+        InUseAttributeError: 10,
+        InvalidStateError: 11,
+        SyntaxError: 12,
+        InvalidModificationError: 13,
+        NamespaceError: 14,
+        InvalidAccessError: 15,
+        TypeMismatchError: 17,
+        SecurityError: 18,
+        NetworkError: 19,
+        AbortError: 20,
+        URLMismatchError: 21,
+        TimeoutError: 23,
+        InvalidNodeTypeError: 24,
+        DataCloneError: 25,
+
+        EncodingError: 0,
+        NotReadableError: 0,
+        UnknownError: 0,
+        ConstraintError: 0,
+        DataError: 0,
+        TransactionInactiveError: 0,
+        ReadOnlyError: 0,
+        VersionError: 0,
+        OperationError: 0,
+        NotAllowedError: 0,
+        OptOutError: 0
+    };
+
+    // The inverse over the names that have a legacy code, so the numeric call form can say which name it
+    // means. Built once here rather than per call, which is upstream's only cost this shim declines to pay.
+    var codeNameMap = {};
+    for (var mappedName in nameCodeMap) {
+        if (nameCodeMap[mappedName] > 0) {
+            codeNameMap[nameCodeMap[mappedName]] = mappedName;
+        }
+    }
 
     // The synchronous form always means this global's DOMException. `promise_rejects_dom` may be told which
     // global the exception is expected to come from, so the matching half takes the constructor as an
@@ -294,19 +362,68 @@
             }
             assert(typeof e === 'object' && e !== null,
                 'threw ' + format_value(e) + ', not an object' + describe(description));
+            // Without this a type that is neither would fall past both branches below and leave nothing to
+            // check, so the assertion would pass on any exception at all.
+            assert(typeof type === 'number' || typeof type === 'string',
+                format_value(type) + ' is not a number or string' + describe(description));
+
+            // The refusals below are upstream's, message for message, and they are thrown rather than
+            // asserted because none of them is about the exception: the *test* named something the tables
+            // cannot, and reporting that as "it did not match" would let a typo read as a divergence. Note
+            // where they sit — inside the catch, as upstream — so a body that threw nothing is still
+            // reported as "did not throw" rather than as a test bug.
+            var required = {};
+            var name;
+            if (typeof type === 'number') {
+                if (type === 0) {
+                    throw new AssertionError('Test bug: ambiguous DOMException code 0 passed to assert_throws_dom()');
+                }
+                if (type === 22) {
+                    throw new AssertionError('Test bug: QuotaExceededError needs to be tested for using assert_throws_quotaexceedederror()');
+                }
+                if (!Object.prototype.hasOwnProperty.call(codeNameMap, type)) {
+                    throw new AssertionError('Test bug: unrecognized DOMException code "' + type + '" passed to assert_throws_dom()');
+                }
+                name = codeNameMap[type];
+                required.code = type;
+            } else {
+                // Upstream's own QuotaExceededError check sits here but reads `name`, which it does not
+                // assign until the line after, so the string form never reaches it and is refused one line
+                // later as an unrecognized name instead. The call is refused either way and no vendored test
+                // makes it; this shim tests `type` so that the refusal names the assertion to use, which is
+                // what upstream's message plainly intends to say. Mirroring the line as written would mean
+                // committing a branch that is dead by construction, which is why this is the one place the
+                // two differ — in the wording of a refusal, never in whether there is one.
+                if (type === 'QuotaExceededError') {
+                    throw new AssertionError('Test bug: QuotaExceededError needs to be tested for using assert_throws_quotaexceedederror()');
+                }
+                name = Object.prototype.hasOwnProperty.call(codenameNameMap, type) ? codenameNameMap[type] : type;
+                if (!Object.prototype.hasOwnProperty.call(nameCodeMap, name)) {
+                    throw new AssertionError('Test bug: unrecognized DOMException code name or name "' + type + '" passed to assert_throws_dom()');
+                }
+                required.code = nameCodeMap[name];
+            }
+
+            // Upstream's condition for checking the name as well as the code. A legacy exception object wore
+            // an all-caps name or called itself "DOMException", and comparing that against a modern name would
+            // say nothing; a name whose legacy code is 0 is checked either way, because there the code says
+            // nothing on its own.
+            if (required.code === 0 ||
+                ('name' in e && e.name !== e.name.toUpperCase() && e.name !== 'DOMException')) {
+                required.name = name;
+            }
+
+            for (var prop in required) {
+                // `==` rather than `===`, as upstream, and `prop in e` first so that a missing property is a
+                // failure rather than an undefined that compares loosely equal to nothing.
+                assert(prop in e && e[prop] == required[prop],
+                    'threw ' + format_value(e) + ', which is not a DOMException ' + type + ': property "' + prop +
+                    '" is ' + format_value(e[prop]) + ', expected ' + format_value(required[prop]) + describe(description));
+            }
+
+            // Last, so that a wrong shape is reported by the more informative checks above first.
             assert(e.constructor === constructor,
                 'expected a DOMException but got ' + format_value(e) + describe(description));
-            if (typeof type === 'number') {
-                assert(e.code === type,
-                    'expected DOMException code ' + type + ' but got ' + e.code + describe(description));
-            } else {
-                assert(e.name === type,
-                    'expected DOMException "' + type + '" but got "' + e.name + '"' + describe(description));
-                var expectedCode = Object.prototype.hasOwnProperty.call(domExceptionCodes, type) ? domExceptionCodes[type] : 0;
-                assert(e.code === expectedCode,
-                    'expected DOMException "' + type + '" to carry code ' + expectedCode +
-                    ' but it carried ' + e.code + describe(description));
-            }
             return;
         }
         throw new AssertionError('did not throw' + describe(description));
