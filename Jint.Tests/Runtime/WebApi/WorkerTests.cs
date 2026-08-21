@@ -15,17 +15,16 @@ namespace Jint.Tests.Runtime.WebApi;
 /// </summary>
 /// <remarks>
 /// <para>
-/// There is no script surface yet — <c>typeof Worker</c> is <c>undefined</c> on every engine, which
-/// <c>Jint.Tests.PublicInterface.WebApiWorkerTests</c> pins from outside the assembly. What exists is the
-/// host-facing contract: <see cref="WorkerRequest.CreateDefaultOptions"/>, whose whole job is that a worker
-/// inherits its creator's <i>restrictions</i> and none of its <i>grants</i>, and
-/// <see cref="WorkerConnection"/>, which is thread-safe from the day it exists because the machinery that
-/// will end it from two threads lands later.
+/// This file is the host-facing contract alone: <see cref="WorkerRequest.CreateDefaultOptions"/>, whose whole
+/// job is that a worker inherits its creator's <i>restrictions</i> and none of its <i>grants</i>, and
+/// <see cref="WorkerConnection"/>, which is thread-safe because two threads really do end it. The script
+/// surface — the constructor, the two façades, the message paths and the two ways a connection ends — is
+/// <c>WorkerMechanismTests</c>.
 /// </para>
 /// <para>
 /// The request is built directly through its internal constructor, which is what this project's
-/// <c>InternalsVisibleTo</c> is for: it is the same object the constructor will hand a provider, without a
-/// constructor to run it through yet.
+/// <c>InternalsVisibleTo</c> is for: it is the same object the constructor hands a provider, without having to
+/// run a constructor to get one.
 /// </para>
 /// </remarks>
 public class WorkerTests

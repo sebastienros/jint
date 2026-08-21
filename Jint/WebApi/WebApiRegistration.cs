@@ -6,6 +6,7 @@ using Jint.Runtime.Descriptors.Specialized;
 using Jint.WebApi.Idle;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.Timers;
+using Jint.WebApi.Workers;
 
 namespace Jint.WebApi;
 
@@ -312,6 +313,15 @@ internal static class WebApiRegistration
             Install(global, engine, "BroadcastChannel", static e => e.Realm.Intrinsics.BroadcastChannel, PropertyFlag.NonEnumerable);
         }
 
+        if ((features & WebApiFeatures.Workers) != WebApiFeatures.None && engine._webApi?.Workers is not null)
+        {
+            // The one global in this file conditioned on something other than a flag, and deliberately: with
+            // the feature on and no provider there is no execution resource for a worker to run on, so the
+            // constructor could do nothing but throw. Absent rather than throwing is this family's convention,
+            // and it is what lets a script feature-detect with `typeof Worker`.
+            Install(global, engine, "Worker", static e => e.Realm.Intrinsics.Worker, PropertyFlag.NonEnumerable);
+        }
+
         if ((features & WebApiFeatures.Reporting) != WebApiFeatures.None)
         {
             // A WebIDL operation on the global — https://webidl.spec.whatwg.org/#es-operations. Installed
@@ -461,6 +471,16 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.GlobalEvents | WebApiFeatures.Url | WebApiFeatures.Files;
         }
 
+        // A worker connection IS a MessagePort pair — the Worker object and the worker's global scope are its
+        // two unexposed ends — and the worker global's self, addEventListener and error events are what the
+        // global-events feature installs. Deliberately BEFORE the GlobalEvents rule below, which is what turns
+        // the flag added here into WebApiFeatures.Events as well. It applies to the PARENT: a worker engine's
+        // own set is the provider's to decide, and WorkerRequest.CreateDefaultOptions forces the same two.
+        if ((features & WebApiFeatures.Workers) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Messaging | WebApiFeatures.GlobalEvents;
+        }
+
         // The three global operations register listeners on an EventTarget and dispatch an Event, and the two
         // interface objects the feature adds are Event subclasses — so without the events feature it would
         // install operations with nothing to use them on.
@@ -507,7 +527,7 @@ internal static class WebApiRegistration
     /// both of which live here, and a closure is not a reason to depend on one.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers;
 
     /// <summary>
     /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
@@ -583,6 +603,35 @@ internal static class WebApiRegistration
         var messaging = (features & WebApiFeatures.Messaging) != WebApiFeatures.None ? options.WebApi.Messaging : null;
 
         engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks, messaging);
+
+        AttachWorkers(options, engine._webApi, features);
+    }
+
+    /// <summary>
+    /// Gives the state its worker registry, when the flag is on <b>and</b> the host named a provider. Without
+    /// a provider there is nothing to attach and, deliberately, no <c>Worker</c> global either: a worker needs
+    /// a thread and a pump, and Jint never starts either, so an engine that asked for the feature and supplied
+    /// no execution resource has to answer <c>typeof Worker === 'undefined'</c> rather than hand a script a
+    /// constructor that can only throw.
+    /// </summary>
+    /// <remarks>
+    /// The provider and the two caps are read here, once, exactly as the clock and the timer cap are — so a
+    /// host mutating <c>Options.WebApi.Workers</c> afterwards does not change an engine that already exists.
+    /// </remarks>
+    private static void AttachWorkers(Options options, WebApiEngineState state, WebApiFeatures features)
+    {
+        if ((features & WebApiFeatures.Workers) == WebApiFeatures.None || state.Workers is not null)
+        {
+            return;
+        }
+
+        var workers = options.WebApi.Workers;
+        if (workers.Provider is not { } provider)
+        {
+            return;
+        }
+
+        state.AttachWorkers(new WorkerRegistry(provider, workers.MaxWorkers, workers.MaxQueuedMessages));
     }
 
     /// <summary>
@@ -633,6 +682,8 @@ internal static class WebApiRegistration
         {
             state.AttachMessaging(options.WebApi.Messaging);
         }
+
+        AttachWorkers(options, state, added);
 
         if ((added & WebApiFeatures.CacheApi) != WebApiFeatures.None && state.CacheProvider is null)
         {

@@ -141,6 +141,23 @@ internal sealed class MessagePortEndpoint
     private volatile bool _closed;
 
     /// <summary>
+    /// Whether this side has been half-closed: it takes no further message, but what its queue already holds
+    /// is still deliverable, and it closes for real once that queue runs dry. <b>Only a worker's
+    /// <c>close()</c> produces this state</b> — HTML's <i>close a worker</i> discards the worker's own queued
+    /// tasks and pointedly does not empty the queue of the port entangled with it, which <i>terminate a
+    /// worker</i> does as its fourth step. So <c>postMessage(result); close();</c> — the commonest idiom there
+    /// is — must still deliver, whether or not the parent had pumped in between.
+    /// </summary>
+    /// <remarks>
+    /// It is deliberately <b>not</b> expressed as <see cref="Closed"/>. That flag is read by
+    /// <c>JsMessagePort.IsChannelExhausted</c>, which a transferred stream consults to decide that its channel
+    /// can never carry anything again — and a draining side whose queue still holds the stream's own
+    /// <c>close</c> message is exactly the case where that answer would be wrong, and would error a stream
+    /// that was about to end cleanly. Refusing new posts is <see cref="AcceptsPosts"/>'s job instead.
+    /// </remarks>
+    private volatile bool _draining;
+
+    /// <summary>
     /// The side this one is entangled with, or <see langword="null"/> for a side that was never entangled.
     /// Assigned once, by <see cref="Entangle"/>, before either port can be reached by any script, and
     /// deliberately never reassigned: a transfer moves a <i>side</i>, so the other end goes on talking to the
@@ -164,6 +181,13 @@ internal sealed class MessagePortEndpoint
     /// </summary>
     internal bool Closed => _closed;
 
+    /// <summary>
+    /// Whether a sender may still join this side's queue. False once it is closed, and once it is draining —
+    /// see <see cref="_draining"/>. Read by the peer's engine from its own thread; the authoritative test is
+    /// the one <see cref="Post"/> makes under the lock.
+    /// </summary>
+    internal bool AcceptsPosts => !_closed && !_draining;
+
     /// <summary>Whether anything is waiting to be taken off this side's queue. Bound engine's thread.</summary>
     internal bool HasQueuedMessages
     {
@@ -172,6 +196,22 @@ internal sealed class MessagePortEndpoint
             lock (_gate)
             {
                 return _queue.Count > 0;
+            }
+        }
+    }
+
+    /// <summary>
+    /// How many messages are waiting to be taken off this side's queue. What
+    /// <c>Options.WebApi.Workers.MaxQueuedMessages</c> bounds, read by the sending engine's thread before it
+    /// serializes anything.
+    /// </summary>
+    internal int QueuedMessageCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _queue.Count;
             }
         }
     }
@@ -292,7 +332,7 @@ internal sealed class MessagePortEndpoint
         lock (_gate)
         {
             // The authoritative closed test. The volatile read callers make first is only an early-out.
-            if (_closed)
+            if (_closed || _draining)
             {
                 return;
             }
@@ -321,6 +361,8 @@ internal sealed class MessagePortEndpoint
     /// </remarks>
     internal bool TryDequeue(JsMessagePort caller, out SerializationRecord record)
     {
+        bool drained;
+
         lock (_gate)
         {
             if (_closed || !ReferenceEquals(_boundPort, caller) || _queue.Count == 0)
@@ -330,7 +372,48 @@ internal sealed class MessagePortEndpoint
             }
 
             record = _queue.Dequeue();
-            return true;
+
+            // A draining side that has just handed over its last message has done what it was kept open for.
+            drained = _draining && _queue.Count == 0;
+        }
+
+        if (drained)
+        {
+            // Outside the lock: Close walks a work list of stranded sides and takes each of their gates.
+            Close();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Half-closes this side: it accepts nothing further, what it already holds stays deliverable, and it
+    /// closes for real when that queue runs dry — or when a teardown closes it outright. See
+    /// <see cref="_draining"/> for why this is not simply <see cref="Close"/>.
+    /// </summary>
+    /// <remarks>
+    /// Any thread, like <see cref="Close"/>: a worker's <c>close()</c> runs on the worker's thread and this is
+    /// the <i>parent's</i> side. An empty queue is closed on the spot rather than left in a state nothing
+    /// would ever leave, since only a dequeue ends it and there is nothing left to dequeue.
+    /// </remarks>
+    internal void BeginDrainThenClose()
+    {
+        bool alreadyEmpty;
+
+        lock (_gate)
+        {
+            if (_closed || _draining)
+            {
+                return;
+            }
+
+            _draining = true;
+            alreadyEmpty = _queue.Count == 0;
+        }
+
+        if (alreadyEmpty)
+        {
+            Close();
         }
     }
 }

@@ -85,11 +85,15 @@ public sealed class WorkerConnection
     public string Name { get; }
 
     /// <summary>
-    /// Cancelled when the connection ends. Safe to read and to wait on from any thread.
+    /// Cancelled when anything but the worker itself ends the connection. Safe to read and to wait on from
+    /// any thread.
     /// </summary>
     /// <remarks>
-    /// This is what a pump loop parks on, so that ending the connection from another thread wakes it rather
-    /// than leaving it asleep until its own ceiling elapses.
+    /// This is what a pump loop parks on, so that ending the connection from <i>another</i> thread — a
+    /// <c>terminate()</c>, a restore, <see cref="End"/> — wakes it rather than leaving it asleep until its
+    /// own ceiling elapses. The one end that does not cancel is the worker's own <c>close()</c>: its teardown
+    /// runs on the pumping thread itself, which therefore observes <see cref="IsEnded"/> on its very next
+    /// loop iteration with nothing to be woken from.
     /// </remarks>
     public CancellationToken TerminationToken { get; }
 

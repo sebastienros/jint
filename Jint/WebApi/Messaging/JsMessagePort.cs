@@ -119,6 +119,29 @@ internal sealed class JsMessagePort : JsEventTarget
     /// </remarks>
     internal Action<JsValue>? InternalMessageHandler { get; set; }
 
+    /// <summary>
+    /// The target a <c>message</c> event is dispatched at instead of this port — HTML's "all messages received
+    /// by that port must immediately be retargeted at the <c>Worker</c> object". Null for every port a script
+    /// can reach, which is every port but a worker connection's two.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The sibling of <see cref="InternalMessageHandler"/> and deliberately a separate hook: that one is the
+    /// engine consuming a message with <i>no</i> event at all (a transferred stream's chunks), while this one
+    /// still builds the trusted <c>MessageEvent</c> and runs the whole dispatch algorithm — it only changes
+    /// <i>where</i>. A worker needs the event, because the listener list it has to reach is the one
+    /// <c>worker.onmessage</c> and <c>addEventListener('message', …)</c> write to, and neither of the
+    /// connection's two ports is reachable by script to carry it.
+    /// </para>
+    /// <para>
+    /// The retarget also decides what <c>event.target</c> answers, because a dispatch reports the target it
+    /// ran on: the <c>Worker</c> object on the parent's side, and — through
+    /// <c>GlobalEventTarget.EventTargetValue</c> — the global object on the worker's, which is what a browser
+    /// reports for a <c>DedicatedWorkerGlobalScope</c>.
+    /// </para>
+    /// </remarks>
+    internal JsEventTarget? RetargetTo { get; set; }
+
     internal JsMessagePort(Engine engine, Realm realm) : this(engine, realm, endpoint: null)
     {
     }
@@ -239,8 +262,10 @@ internal sealed class JsMessagePort : JsEventTarget
         var record = new StructuredSerializer(_engine, _realm).Serialize(message, transferList);
 
         // Step 6: "If targetPort is null, or if doomed is true, then return." A closed or detached port is
-        // disentangled, which is the same thing as having no target.
-        if (doomed || endpoint is null || endpoint.Closed || target is null || target.Closed)
+        // disentangled, which is the same thing as having no target. The target is asked whether it still
+        // accepts rather than whether it is closed, because a worker's close() leaves the parent-side queue
+        // draining — deliverable but no longer joinable — which is a state an ordinary port never enters.
+        if (doomed || endpoint is null || endpoint.Closed || target is null || !target.AcceptsPosts)
         {
             // Whatever the message was carrying is now unreachable, so a side transferred into it would sit
             // unbound forever while its own peer went on posting. Ending it here is what "causing the
@@ -369,11 +394,19 @@ internal sealed class JsMessagePort : JsEventTarget
             return;
         }
 
-        // The next message is armed BEFORE this one is dispatched, so a listener that throws — which erupts
-        // from the pump, per JsEventTarget's contract — does not strand everything behind it.
-        ScheduleDrain();
-
-        Dispatch(record);
+        try
+        {
+            Dispatch(record);
+        }
+        finally
+        {
+            // AFTER the dispatch, and in a finally so that a listener which throws — which erupts from the
+            // pump, per JsEventTarget's contract — still does not strand everything behind it. The order is
+            // observable and is HTML's: a message is a task, so everything the listener queued (its promise
+            // reactions) runs before the next message is even looked at. Arming it first put the next drain
+            // job ahead of those reactions and delivered two messages back to back.
+            ScheduleDrain();
+        }
     }
 
     /// <summary>
@@ -392,7 +425,7 @@ internal sealed class JsMessagePort : JsEventTarget
         }
 
         var messageEvent = _realm.Intrinsics.MessageEvent.CreateTrustedMessageEvent(_messageEventName, message.Value, message.Ports);
-        DispatchEvent(messageEvent);
+        (RetargetTo ?? this).DispatchEvent(messageEvent);
     }
 }
 #endif
