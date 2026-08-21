@@ -79,6 +79,7 @@ public class InteropAccessorCacheSharingTests
     {
         var engine = new Engine(options =>
         {
+            options.AllowClrWrite();
             options.Interop.TypeResolver = resolver;
             configure?.Invoke(options);
         });

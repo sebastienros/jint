@@ -37,10 +37,12 @@ public class PropertyDescriptorTests
 
     public PropertyDescriptorTests()
     {
-        _engine = new Engine(cfg => cfg.AllowClr(
+        _engine = new Engine(cfg => cfg
+                .AllowClr(
                     typeof(TestClass).Assembly,
                     typeof(Console).Assembly,
-                    typeof(File).Assembly))
+                    typeof(File).Assembly)
+                .AllowClrWrite())
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>

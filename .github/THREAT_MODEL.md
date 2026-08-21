@@ -79,8 +79,8 @@ Defaults are compatibility choices, not a hardened profile.
 | CLR namespace access (`Interop.Enabled`) | Disabled | `System`, `importNamespace`, and `clrHelper` are not installed |
 | `AllowGetType`, `AllowSystemReflection` | Disabled | Blocks instance type discovery, type widening, and reflection namespace/object access |
 | `AllowedAssemblies` | Empty until `AllowClr` adds entries | Closed allow-list for `System` / `importNamespace` type discovery, not for what admitted APIs can do |
-| Writes through projected CLR objects | Enabled | A default engine can mutate host objects passed with `SetValue` |
-| CLR array conversion | Live view | Script writes can mutate a projected CLR array |
+| Writes through projected CLR objects | Disabled | Fields, properties, indexers, dictionary/list entries, and live array elements require explicit `AllowClrWrite()` opt-in |
+| CLR array conversion | Live view | Script observes the CLR array directly; element writes remain blocked unless CLR writes are enabled |
 | Modules | Disabled | The fail-fast loader rejects imports |
 | Module graph limits | Unlimited | Count, source bytes, graph depth, and resolution hops are unbounded unless configured |
 | Module load policy | None | A custom loader's resolved targets are unrestricted unless a policy is configured |
@@ -178,14 +178,17 @@ cancellation, and avoid returning powerful objects.
 
 ### TM-03: Script mutates host state
 
-**Threat.** Writes through an `ObjectWrapper` are enabled by default. Projected CLR arrays
-are live views by default. A script used only for "read-only" rules or templates can
-therefore alter host properties, fields, collections, arrays, or objects reachable from
-them, potentially violating host invariants.
+**Threat.** Direct writes through an `ObjectWrapper` are disabled by default, but a host can
+explicitly enable them with `AllowClrWrite()`. Projected CLR arrays are live views by
+default, so enabling writes lets script alter host properties, fields, indexers,
+dictionaries, lists, arrays, or objects reachable from them. Independently of that option,
+calling an exposed instance, static, or extension method can mutate host state and violate
+host invariants.
 
 **Existing mitigations.**
 
-- `AllowClrWrite(false)` blocks writes through CLR wrappers.
+- Direct writes through CLR wrappers are disabled by default; `AllowClrWrite()` is an
+  explicit opt-in.
 - `ArrayConversionMode.Copy`, immutable DTOs, and Jint-owned record layouts avoid live
   write-through.
 
@@ -193,9 +196,12 @@ them, potentially violating host invariants.
 
 - Read-only wrapper configuration does not make a mutable object graph immutable outside
   Jint.
-- Calling exposed methods can still mutate state even when property writes are disabled.
+- Calling exposed methods or extension methods can still mutate state even when direct
+  writes are disabled.
 
-**Required host action.** Set `AllowClrWrite(false)`, use copied arrays, and expose immutable
+**Required host action.** Leave CLR writes disabled and do not call `AllowClrWrite()` unless
+direct mutation is an intentional capability. Pin `AllowClrWrite(false)` in hardened
+configuration, use copied arrays where a live view is unnecessary, and expose immutable
 snapshots. Do not expose mutating methods unless they are intentional, authorized
 capabilities.
 
@@ -1193,6 +1199,7 @@ var engine = new Engine(options =>
     options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(2);
 
     options.AgentCanSuspend = false;
+    // Pin the safe default explicitly so configuration reviews cannot miss this boundary.
     options.AllowClrWrite(false);
     options.Interop.ArrayConversion = ArrayConversionMode.Copy;
     options.ResultLimits = ResultLimits.Conservative;
@@ -1253,7 +1260,8 @@ This configuration is incomplete without host controls:
 Before deploying a host that executes untrusted scripts:
 
 - [ ] CLR namespace access, `AllowGetType`, reflection, debugger, and `Atomics.wait` are off.
-- [ ] Projected host objects are immutable or intentionally capability-scoped and read-only.
+- [ ] Direct CLR writes remain disabled, and projected host objects are immutable or intentionally
+  capability-scoped with no unintended mutating instance, static, or extension methods.
 - [ ] Initial source, callback, external serializer, HTTP response, and log limits are enforced
   outside Jint; `ResultLimits` is configured for Jint-owned conversion and JSON output, and all
   four Jint module graph limits are configured when modules are enabled.

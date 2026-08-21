@@ -15,6 +15,8 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class InteropIntegerCoercionBoxingTests
 {
+    private static Engine CreateEngine() => new(options => options.AllowClrWrite());
+
     #region hosts
 
     public sealed class Host
@@ -87,7 +89,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToLongField()
     {
         var host = new Host();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.LongField = 42;");
         host.LongField.Should().Be(42L);
@@ -100,7 +102,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToLongProperty()
     {
         var host = new Host();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.LongProperty = 42;");
         host.LongProperty.Should().Be(42L);
@@ -113,7 +115,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanPassIntegerToLongParameter()
     {
         var host = new Host();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.TakeLong(42);");
         host.LastParameterType.Should().Be(typeof(long));
@@ -126,7 +128,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanPassIntegerToLongDelegateParameter()
     {
         Type? observed = null;
-        var engine = new Engine()
+        var engine = CreateEngine()
             .SetValue("takeLong", new LongCallback(value => observed = ((object) value).GetType()))
             .SetValue("takeInt", new IntCallback(value => observed = ((object) value).GetType()));
 
@@ -141,7 +143,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToGenericListOfLongElement()
     {
         var host = new CollectionHost();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.Longs[0] = 42;");
         host.Longs[0].Should().Be(42L);
@@ -154,7 +156,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAppendIntegerToGenericListOfLong()
     {
         var host = new CollectionHost();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.Longs.push(42);");
         host.Longs[2].Should().Be(42L);
@@ -171,7 +173,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanFillGenericListOfLong()
     {
         var host = new CollectionHost();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.Longs.fill(42);");
         host.Longs.Should().Equal(42L, 42L);
@@ -184,7 +186,7 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToLongArrayElement()
     {
         var host = new CollectionHost();
-        var engine = new Engine().SetValue("host", host);
+        var engine = CreateEngine().SetValue("host", host);
 
         engine.Execute("host.LongArray[0] = 42;");
         host.LongArray[0].Should().Be(42L);
@@ -202,7 +204,11 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToLongMemberWithCustomTypeConverter()
     {
         var host = new Host();
-        var engine = new Engine(options => options.SetTypeConverter(e => new CustomTypeConverter(e)))
+        var engine = new Engine(options =>
+            {
+                options.AllowClrWrite();
+                options.SetTypeConverter(e => new CustomTypeConverter(e));
+            })
             .SetValue("host", host);
 
         engine.Execute("host.LongField = 42; host.LongProperty = 43; host.IntField = 44; host.IntProperty = 45;");

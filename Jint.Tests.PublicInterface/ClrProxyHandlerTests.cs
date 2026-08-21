@@ -360,7 +360,7 @@ public class ClrProxyHandlerTests
     [Fact]
     public void GetAndSetTrapsWorkAgainstObjectWrapperTarget()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         var person = new Person { Name = "Jane" };
         var blockedWrites = new List<string>();
         var handler = new DelegatingProxyHandler

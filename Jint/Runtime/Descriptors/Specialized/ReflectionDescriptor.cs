@@ -1,5 +1,6 @@
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 
@@ -11,6 +12,7 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
     private readonly ReflectionAccessor _reflectionAccessor;
     private readonly object _target;
     private readonly string _propertyName;
+    private ObjectInstance? _owner;
 
     private JsValue? _get;
     private JsValue? _set;
@@ -81,6 +83,8 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
         set => DoSet(thisObj: null, value);
     }
 
+    internal void AttachOwner(ObjectInstance owner) => _owner = owner;
+
     private JsValue DoGet(JsValue? thisObj)
     {
         // Immutability promise (Options.Interop.ImmutableCrossingTypes): the member has already been read
@@ -148,6 +152,11 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
 
     private void DoSet(JsValue? thisObj, JsValue? v)
     {
+        if (!_engine.Options.Interop.AllowWrite || _owner is { Extensible: false })
+        {
+            Throw.TypeError(_engine.Realm, $"Cannot assign to read only property '{_propertyName}' of object '#<Object>'");
+        }
+
         // A write invalidates the memo whether or not the target was declared immutable: without this a
         // declared-immutable member would keep serving the pre-write value to the very script that wrote it.
         // Insurance for a host whose promise was wrong, on a path that is about to run a CLR write anyway.

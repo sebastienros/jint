@@ -21,7 +21,11 @@ public class HostStaticMemberAccessTests
 {
     private static Engine CreateEngine(Action<Options>? configure = null)
     {
-        var engine = configure is null ? new Engine() : new Engine(configure);
+        var engine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            configure?.Invoke(options);
+        });
         engine.SetValue("Host", TypeReference.CreateTypeReference(engine, typeof(StaticHost)));
         return engine;
     }

@@ -21,10 +21,12 @@ public partial class InteropTests : IDisposable
 
     public InteropTests()
     {
-        _engine = new Engine(cfg => cfg.AllowClr(
+        _engine = new Engine(cfg => cfg
+                .AllowClr(
                     typeof(Shape).GetTypeInfo().Assembly,
                     typeof(Console).GetTypeInfo().Assembly,
-                    typeof(File).GetTypeInfo().Assembly))
+                    typeof(File).GetTypeInfo().Assembly)
+                .AllowClrWrite())
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -995,7 +997,7 @@ public partial class InteropTests : IDisposable
         // A frozen IList<T> wrapper must reject element assignment in strict mode rather than letting the
         // base SetSlow path silently "succeed". Wrappers don't track per-element writability, so the
         // non-extensible (frozen) state is what blocks the write.
-        var engine = new Engine(x => x.Strict());
+        var engine = new Engine(x => x.Strict().AllowClrWrite());
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
         engine.Execute("Object.freeze(list);");
@@ -1008,7 +1010,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void FrozenListWrapper_SilentlyIgnoresIndexWrite_NonStrict()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
         engine.Execute("Object.freeze(list);");
@@ -1021,7 +1023,7 @@ public partial class InteropTests : IDisposable
     public void WritableListWrapper_AllowsIndexWrite()
     {
         // The frozen guard must not regress ordinary writable element assignment through the wrapper.
-        var engine = new Engine(x => x.Strict());
+        var engine = new Engine(x => x.Strict().AllowClrWrite());
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
 
@@ -1561,7 +1563,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void CanSetIsConcatSpreadableForArrays()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
 
         engine
             .SetValue("list1", new List<string> { "A", "B", "C" })
@@ -1669,7 +1671,11 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ShouldAllowBooleanCoercion()
     {
-        var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Boolean; });
+        var engine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            options.Interop.ValueCoercion = ValueCoercionType.Boolean;
+        });
 
         engine.SetValue("o", new TestClass());
         engine.Evaluate("o.Bool = 1; return o.Bool;").AsBoolean().Should().BeTrue();
@@ -1699,7 +1705,11 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ShouldAllowNumberCoercion()
     {
-        var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Number; });
+        var engine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            options.Interop.ValueCoercion = ValueCoercionType.Number;
+        });
 
         engine.SetValue("o", new TestClass());
         engine.Evaluate("o.Int = true; return o.Int;").AsNumber().Should().Be(1);
@@ -1728,7 +1738,11 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ShouldAllowStringCoercion()
     {
-        var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.String; });
+        var engine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            options.Interop.ValueCoercion = ValueCoercionType.String;
+        });
 
         // basic premise, booleans in JS are lower-case, so should the the toString under interop
         engine.Evaluate("'' + true").AsString().Should().Be("true");
@@ -3210,7 +3224,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void ShouldBeAbleToPlusAssignStringProperty()
     {
         var p = new Person();
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         engine.SetValue("P", p);
         engine.Evaluate("P.Name = 'b';");
         engine.Evaluate("P.Name += 'c';");
@@ -3295,7 +3309,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldNotChangeFunctionArgumentsWhenFunctionStoredInDictionary()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         engine.SetValue("globalScope", new Dictionary<string, object>());
 
         engine.Execute("""
@@ -3404,7 +3418,9 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void SettingValueViaIntegerIndexer()
     {
-        var engine = new Engine(cfg => cfg.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
+        var engine = new Engine(cfg => cfg
+            .AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly)
+            .AllowClrWrite());
         engine.SetValue("log", new Action<object>(Console.WriteLine));
         engine.Execute(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
@@ -3810,6 +3826,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var engine = new Engine(options =>
         {
+            options.AllowClrWrite();
             options.SetTypeResolver(customTypeResolver);
             options.AddExtensionMethods(typeof(CustomNamedExtensions));
         });
@@ -3844,7 +3861,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldBeAbleToHandleInvalidClrConversionViaCatchClrExceptions()
     {
-        var engine = new Engine(cfg => cfg.CatchClrExceptions());
+        var engine = new Engine(cfg => cfg.CatchClrExceptions().AllowClrWrite());
         engine.SetValue("a", new Person());
         var ex = Invoking(() => engine.Execute("a.age = 'It will not work, but it is normal'")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().ContainEquivalentOf("input string ");
@@ -3966,7 +3983,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ArrayPrototypePushWithInteropList()
     {
-        var engine = new Jint.Engine();
+        var engine = new Jint.Engine(options => options.AllowClrWrite());
 
         var list = new List<string> { "A", "B", "C" };
 
@@ -3981,7 +3998,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ArrayPrototypePopWithInteropList()
     {
-        var engine = new Jint.Engine();
+        var engine = new Jint.Engine(options => options.AllowClrWrite());
 
         var list = new List<string> { "A", "B", "C" };
         engine.SetValue("list", list);
@@ -4010,7 +4027,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void PreferJsPrototypeMethodsMakesArrayReverseWin()
     {
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods().AllowClrWrite());
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
 
@@ -4024,7 +4041,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         // Without the flag List<int>.Sort gives ascending int sort and returns void.
         // With the flag, Array.prototype.sort returns the array and uses JS string-compare semantics
         // ([10, 2, 1] -> [1, 10, 2] because "10" < "2" lexicographically).
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods().AllowClrWrite());
         var list = new List<int> { 10, 2, 1 };
         engine.SetValue("list", list);
 
@@ -4072,19 +4089,23 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void ListReverseCanBeFixedTodayWithMemberFilter()
     {
         // Documents the workaround that works without the new flag, on existing Jint versions.
-        var engine = new Jint.Engine(options => options.SetTypeResolver(new TypeResolver
+        var engine = new Jint.Engine(options =>
         {
-            MemberFilter = m =>
+            options.AllowClrWrite();
+            options.SetTypeResolver(new TypeResolver
             {
-                if (m is System.Reflection.MethodInfo mi
-                    && mi.DeclaringType is { } dt
-                    && typeof(System.Collections.IList).IsAssignableFrom(dt))
+                MemberFilter = m =>
                 {
-                    return mi.Name is not ("Reverse" or "Sort");
+                    if (m is System.Reflection.MethodInfo mi
+                        && mi.DeclaringType is { } dt
+                        && typeof(System.Collections.IList).IsAssignableFrom(dt))
+                    {
+                        return mi.Name is not ("Reverse" or "Sort");
+                    }
+                    return true;
                 }
-                return true;
-            }
-        }));
+            });
+        });
 
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
@@ -4347,7 +4368,7 @@ try {
     [Fact]
     public void ShouldBeAbleToDeleteDictionaryEntries()
     {
-        var engine = new Engine(options => options.Strict());
+        var engine = new Engine(options => options.Strict().AllowClrWrite());
 
         var dictionary = new Dictionary<string, int>
         {

@@ -63,9 +63,14 @@ public class ReferenceResolverAssignmentTests
         public int ReadOnly => 7;
     }
 
-    private static Engine CreateEngine(bool withResolver) => withResolver
-        ? new Engine(options => options.SetReferencesResolver(new PassThroughResolver()))
-        : new Engine();
+    private static Engine CreateEngine(bool withResolver) => new(options =>
+    {
+        options.AllowClrWrite();
+        if (withResolver)
+        {
+            options.SetReferencesResolver(new PassThroughResolver());
+        }
+    });
 
     [Theory]
     [InlineData(true)]

@@ -341,7 +341,15 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             => _target.DeletePropertyOrThrow((uint) index);
 
         public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
-            => _target.SetIndexValue((uint) index, value, updateLength: false);
+        {
+            if (!_target.Extensible && !_target.HasOwnIndexProperty(index))
+            {
+                _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
+                return;
+            }
+
+            _target.SetIndexValue((uint) index, value, updateLength: false);
+        }
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
         {
@@ -613,6 +621,12 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void SetLength(ulong length)
         {
+            if (!_target.Engine.Options.Interop.AllowWrite || !_target.Extensible)
+            {
+                _target.Set(CommonProperties.Length, length, true);
+                return;
+            }
+
             if (_list == null)
             {
                 throw new NotSupportedException();
@@ -672,7 +686,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
                 SetLength(index + 1);
             }
 
-            _target[(int) index] = value;
+            _target.Set(JsString.Create(index), value, throwOnError);
         }
 
         public override void DeletePropertyOrThrow(ulong index)
@@ -762,24 +776,14 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetLongLength() => GetLength();
 
-        public override void SetLength(ulong length)
-        {
-            while (_target.Length > (int) length)
-            {
-                // shrink list to fit
-                _target.RemoveAt(_target.Length - 1);
-            }
-
-            while (_target.Length < (int) length)
-            {
-                // expand list to fit
-                _target.AddDefault();
-            }
-        }
+        public override void SetLength(ulong length) => _target.Set(CommonProperties.Length, length, true);
 
         public override void EnsureCapacity(ulong capacity)
         {
-            _target.EnsureCapacity((int) capacity);
+            if (capacity > (ulong) _target.Length)
+            {
+                SetLength(capacity);
+            }
         }
 
         public override JsValue Get(ulong index) => index < (ulong) _target.Length ? ReadValue((int) index) : JsValue.Undefined;
@@ -809,7 +813,14 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
         {
-            _target.SetAt((int) index, value);
+            if (_target.Engine.Options.Interop.AllowWrite && _target.Extensible)
+            {
+                _target.SetAt((int) index, value);
+            }
+            else
+            {
+                _target.Set(JsNumber.Create(index), value, throwOnError);
+            }
         }
 
         public override void DeletePropertyOrThrow(ulong index)

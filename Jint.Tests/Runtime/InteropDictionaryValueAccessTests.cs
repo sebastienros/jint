@@ -14,7 +14,7 @@ public class InteropDictionaryValueAccessTests
 {
     private static Engine CreateEngine(object host)
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         engine.SetValue("d", host);
         return engine;
     }

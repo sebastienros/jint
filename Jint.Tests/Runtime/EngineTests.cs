@@ -2845,7 +2845,7 @@ function output(x) {
     public void ShouldParseAnonymousToTypeObject()
     {
         var obj = new Wrapper();
-        var engine = new Engine()
+        var engine = new Engine(options => options.AllowClrWrite())
             .SetValue("x", obj);
         var js = @"
 x.test = {

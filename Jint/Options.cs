@@ -460,9 +460,14 @@ public partial class Options
         public bool AllowSystemReflection { get; set; }
 
         /// <summary>
-        /// Whether writing to CLR objects is allowed (set properties), defaults to true.
+        /// Whether direct writes through projected CLR objects are allowed, including fields, properties,
+        /// indexers, and collection entries. Defaults to false.
         /// </summary>
-        public bool AllowWrite { get; set; } = true;
+        /// <remarks>
+        /// This option controls the wrapper's write operations. It does not prevent scripts from calling CLR
+        /// methods or extension methods whose implementations mutate host state.
+        /// </remarks>
+        public bool AllowWrite { get; set; }
 
         /// <summary>
         /// Whether operator overloading resolution is allowed, defaults to false.

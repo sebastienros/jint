@@ -119,7 +119,9 @@ public class HostImmutableCrossingTests
     public void AWriteThroughTheWrapperEvictsThatKeysMemo()
     {
         var inner = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
-        var engine = new Engine(options => options.AddImmutableCrossing(typeof(Dictionary<string, object>)));
+        var engine = new Engine(options => options
+            .AllowClrWrite()
+            .AddImmutableCrossing(typeof(Dictionary<string, object>)));
         engine.SetValue("record", inner);
 
         engine.Evaluate("record.country").AsString().Should().Be("FI");

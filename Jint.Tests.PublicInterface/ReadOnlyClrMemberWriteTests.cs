@@ -57,7 +57,7 @@ public class ReadOnlyClrMemberWriteTests
         public const string Constant = Initial;
     }
 
-    private static Engine CreateEngine(object host) => new Engine().SetValue("host", host);
+    private static Engine CreateEngine(object host) => new Engine(options => options.AllowClrWrite()).SetValue("host", host);
 
     private static void AssertTypeError(Engine engine, string script, string memberName)
     {
@@ -366,10 +366,10 @@ public class ReadOnlyClrMemberWriteTests
     }
 
     [Fact]
-    public void DisallowingClrWritesStillRefusesWritableMembers()
+    public void DefaultConfigurationRefusesWritableMembers()
     {
         var host = new Host();
-        var engine = new Engine(options => options.AllowClrWrite(false)).SetValue("host", host);
+        var engine = new Engine().SetValue("host", host);
 
         engine.Evaluate("host.Writable = 'written';");
         host.Writable.Should().Be(Initial);

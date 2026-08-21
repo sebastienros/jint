@@ -84,7 +84,8 @@ public class DefaultTypeConverterTests
     {
         var engine = new Engine(options => options
             .SetTypeConverter(e => new PointTypeConverter(e))
-            .CatchClrExceptions());
+            .CatchClrExceptions()
+            .AllowClrWrite());
 
         engine.SetValue("a", new Person());
 

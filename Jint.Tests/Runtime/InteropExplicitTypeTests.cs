@@ -88,10 +88,12 @@ public class InteropExplicitTypeTests
     public InteropExplicitTypeTests()
     {
         holder = new InterfaceHolder();
-        _engine = new Engine(cfg => cfg.AllowClr(
+        _engine = new Engine(cfg => cfg
+                .AllowClr(
                     typeof(CI1).Assembly,
                     typeof(Console).Assembly,
-                    typeof(File).Assembly))
+                    typeof(File).Assembly)
+                .AllowClrWrite())
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -179,7 +181,11 @@ public class InteropExplicitTypeTests
     [Fact]
     public void DerivedRuntimePropertyFromBaseDeclaredProperty()
     {
-        var engine = new Engine(options => options.Interop.ThrowOnUnresolvedMember = true);
+        var engine = new Engine(options =>
+        {
+            options.AllowClrWrite();
+            options.Interop.ThrowOnUnresolvedMember = true;
+        });
         var holder = new BaseValueHolder();
         engine.SetValue("holder", holder);
 

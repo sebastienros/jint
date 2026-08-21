@@ -1207,7 +1207,7 @@ return get + '' === ""length,0,1,2,3"";";
     [Fact]
     public void PopWrappedGenericList()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
         var result = engine.Evaluate("list.pop()").AsNumber();

@@ -21,7 +21,7 @@ public class HostKeyedMemberAccessTests
 {
     private static Engine CreateEngine(object host)
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         engine.SetValue("host", host);
         return engine;
     }

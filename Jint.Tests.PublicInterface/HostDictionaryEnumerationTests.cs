@@ -25,9 +25,15 @@ public class HostDictionaryEnumerationTests
         ["nested"] = new Dictionary<string, object>(System.StringComparer.Ordinal) { ["deep"] = 1d },
     };
 
-    private static Engine CreateEngine(object host)
+    private static Engine CreateEngine(object host, bool allowWrite = false)
     {
-        var engine = new Engine();
+        var engine = new Engine(options =>
+        {
+            if (allowWrite)
+            {
+                options.AllowClrWrite();
+            }
+        });
         engine.SetValue("doc", host);
         return engine;
     }
@@ -121,7 +127,7 @@ public class HostDictionaryEnumerationTests
     [Fact]
     public void ADefinedDescriptorOutranksTheDictionary()
     {
-        var engine = CreateEngine(Document());
+        var engine = CreateEngine(Document(), allowWrite: true);
 
         engine.Execute("Object.defineProperty(doc, 'name', { value: 'redefined', enumerable: false, configurable: true });");
 

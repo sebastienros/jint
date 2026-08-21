@@ -118,7 +118,7 @@ public partial class InteropTests
     public void PropertyValueMemoWorksForObjectProperty()
     {
         var host = new PropertyMemoHost();
-        var engine = new Engine();
+        var engine = new Engine(options => options.AllowClrWrite());
         engine.SetValue("host", host);
 
         engine.Evaluate("host.child.x").AsNumber().Should().Be(7);
