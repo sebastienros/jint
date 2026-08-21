@@ -365,6 +365,11 @@ public partial class Options
         // not ask for a second engine's.
         "Coverage",
 
+        // Host diagnostics again, and a capability script cannot reach at all — a profiling session is opened
+        // by the host through Advanced.StartProfiling. Its gate defaults to refusing, so a second engine
+        // already starts at the restrictive answer whatever the first one chose.
+        "Profiling",
+
         // Locale data. Reference-typed providers, not restrictions; which data a second engine gets is the
         // host's to hand over.
         "Intl",
