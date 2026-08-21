@@ -84,7 +84,11 @@ public class SecurityConfigurationTests
             (SecurityDiagnosticCodes.ClrPolicyUnrestricted, () => CreateSafeOptions().AllowClr(Array.Empty<System.Reflection.Assembly>())),
             (SecurityDiagnosticCodes.LiveClrArrayWritesEnabled, () => Change(CreateSafeOptions().AllowClrWrite(), x => x.Interop.ArrayConversion = ArrayConversionMode.LiveView)),
             (SecurityDiagnosticCodes.ModuleAllowlistInsufficient, CreateSchemeOnlyModuleOptions),
-            (SecurityDiagnosticCodes.ClrExtensionMethodsConfigured, () => CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions)))
+            (SecurityDiagnosticCodes.ClrExtensionMethodsConfigured, () => CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions))),
+            (SecurityDiagnosticCodes.ClrOperatorOverloadingEnabled, () => Change(CreateSafeOptions(), x => x.Interop.AllowOperatorOverloading = true)),
+            (SecurityDiagnosticCodes.NonPublicClrMembersEnabled, () => Change(
+                CreateSafeOptions(),
+                x => x.Interop.ObjectWrapperReportedPropertyBindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic))
         };
 
         foreach (var (code, createOptions) in cases)
@@ -101,6 +105,7 @@ public class SecurityConfigurationTests
             {
                 Invoking(() => options.EnsureSecurityConfiguration()).Should().ThrowExactly<SecurityConfigurationException>();
             }
+
             else
             {
                 if (!options.ValidateSecurityConfiguration().HasErrors)
@@ -109,6 +114,21 @@ public class SecurityConfigurationTests
                 }
             }
         }
+    }
+
+    [Fact]
+    public void EngineReportUsesCapturedClrBindingFlags()
+    {
+        var options = CreateSafeOptions();
+        options.Interop.ObjectWrapperReportedPropertyBindingFlags =
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var engine = new Engine(options);
+
+        options.Interop.ObjectWrapperReportedPropertyBindingFlags =
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
+
+        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
+            diagnostic => diagnostic.Code == SecurityDiagnosticCodes.NonPublicClrMembersEnabled);
     }
 
     [Fact]

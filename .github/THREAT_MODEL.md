@@ -74,6 +74,10 @@ All components above run with the hosting worker's process authority.
 
 Defaults are compatibility choices, not a hardened profile.
 
+`Options.ForUntrustedCode(UntrustedCodeLimits)` is the opt-in hardened profile. It leaves
+the defaults unchanged for compatibility, but closes the static capabilities below and
+requires the host to supply finite request-appropriate resource limits.
+
 | Control | Default | Security effect |
 | --- | --- | --- |
 | CLR namespace access (`Interop.Enabled`) | Disabled | `System`, `importNamespace`, and `clrHelper` are not installed |
@@ -176,6 +180,7 @@ interop, or arbitrary code execution with the worker's identity.
 - `AllowGetType` does not expose the static `System.Type.GetType(string)` family. Its
   `clrHelper` type-widening operations also enforce the namespace type policy.
 - `AllowSystemReflection` gates namespace discovery and wrapping for `System.Reflection`.
+- `ForUntrustedCode` resets all three controls and removes configured assemblies.
 - `ExposeDetailedResolutionErrors` is disabled by default.
 
 **Missing or residual mitigation.**
@@ -214,6 +219,8 @@ exfiltration, or resource-amplification paths.
 - The host chooses every projected value.
 - `TypeResolver.MemberFilter`, wrapper handlers, proxies, and narrow delegates can reduce
   the surface.
+- `ForUntrustedCode` removes registered CLR extension methods as well as disabling CLR
+  namespace access.
 
 **Missing or residual mitigation.**
 
@@ -242,6 +249,7 @@ state regardless of the direct-write option.
 - `ArrayConversionMode.Copy` is the default and disconnects the JavaScript array container
   from later CLR mutations and script writes.
 - Immutable DTOs and Jint-owned record layouts avoid live write-through.
+- `ForUntrustedCode` selects both read-only wrappers and copied CLR arrays.
 
 **Missing or residual mitigation.**
 
@@ -275,6 +283,7 @@ BigInt/string arithmetic, and adversarial algorithms can monopolize a worker.
 - Amortized timeout and cancellation checks are also made after CLR calls return.
 - The untrusted-script configuration report identifies missing limits and sentinel values that
   remove them.
+- `ForUntrustedCode` requires finite time and statement budgets.
 
 **Missing or residual mitigation.**
 
@@ -296,6 +305,7 @@ independent process/container CPU and wall-clock limit.
 
 - Parser stack failures are translated to managed errors.
 - Dynamic string compilation can be disabled.
+- `ForUntrustedCode` disables dynamic string compilation.
 - Function source text retention is disabled by default.
 - `Options.Parsing.MaxSourceLength` bounds UTF-16 parser input across initial execution,
   dynamic compilation, ShadowRealm evaluation, debugger evaluation, and JavaScript or JSON
@@ -358,6 +368,7 @@ most of its time in garbage collection.
   another thread, or a host call made while an async API is outstanding, fails before it can
   reset, disarm, or inspect the in-flight budget.
 - `MaxArraySize` bounds Jint array creation when configured.
+- `ForUntrustedCode` requires finite memory and array limits.
 - Some built-ins reject impossible allocations.
 - Recent-wrapper caching is bounded by default; the unbounded identity map is opt-in.
 - The untrusted-script configuration report identifies missing memory and practical array limits.
@@ -390,6 +401,7 @@ quota.
 - `LimitRecursion` limits JavaScript recursion depth when configured.
 - `Constraints.StackOverflowGuard` probes the remaining native stack on every interpreted
   function entry and converts exhaustion to a catchable `RangeError`.
+- `ForUntrustedCode` requires a finite recursion limit and enables `StackOverflowGuard`.
 - The older `Constraints.MaxExecutionStackCount` lane can move call-expression recursion
   to a fresh thread.
 - The untrusted-script configuration report identifies disabled, saturated, or shadowed stack
@@ -425,6 +437,7 @@ infinite timeout when a worker-like host explicitly opts in with `AgentCanSuspen
 - `AgentCanSuspend` defaults to `false`; `Atomics.wait` throws `TypeError` before registering
   a waiter unless the host opts in.
 - `Atomics.waitAsync` remains available without blocking the engine thread.
+- `ForUntrustedCode` sets `AgentCanSuspend = false`.
 - `MaxAtomicsPauseIterations` caps `Atomics.pause` spin work.
 - Async host and module APIs avoid holding a thread while waiting for I/O.
 
@@ -455,16 +468,23 @@ the host brackets both with one operation deadline.
 
 - Nested re-entry does not reset the outer execution's constraints.
 - `OperationDeadlineConstraint` can span a host-defined multi-entry operation.
+- `ForUntrustedCode` requires a finite operation duration, installs one deadline per engine,
+  and exposes `UntrustedCodeLimits.BeginOperation` to arm it for a scope.
+- The profile rejects overlapping operation scopes on one engine rather than letting an inner
+  scope disarm the outer deadline.
 
 **Missing or residual mitigation.**
 
 - Jint cannot infer which entries form one server request.
 - `OperationDeadlineConstraint` is inert unless the host explicitly brackets the operation.
+- The deadline is cooperative. An idle asynchronous wait may not reach another constraint
+  checkpoint until its separate promise timeout or cancellation token wakes it.
 
 **Required host action.** Arm one `OperationDeadlineConstraint` around all engine work for the
 request, including module import, callbacks, `ConvertResult`, `JsonSerializer`, and bounded error
 rendering. When evaluation and conversion or serialization form one request, they must be inside
-the same `Begin`/`End` pair. Keep per-entry constraints as an additional ceiling.
+the same `UntrustedCodeLimits.BeginOperation` scope. Keep per-entry constraints as an additional
+ceiling.
 
 ### TM-10: Async and promise work outlives the request
 
@@ -616,6 +636,7 @@ from another thread. Use separate engines for mutually distrusting requests.
 
 - Regex execution has a 10-second timeout by default on both supported regex paths.
 - `RegexTimeoutInterval` can lower the timeout.
+- `ForUntrustedCode` requires an explicit finite regex timeout.
 
 **Missing or residual mitigation.**
 
@@ -638,6 +659,8 @@ skips amortized timeout/cancellation checks while paused.
 **Existing mitigations.**
 
 - Debug mode is disabled and `debugger` statements are ignored by default.
+- `ForUntrustedCode` resets debug mode, statement handling, and initial stepping to disabled
+  values if earlier configuration enabled them.
 
 **Missing or residual mitigation.**
 
@@ -1247,56 +1270,54 @@ control plane for anything the scripts on the other side are not allowed to trig
 
 ## Hardened deployment baseline
 
-The numbers below are examples only. Measure normal workloads and choose smaller limits that
-leave acceptable headroom.
+`ForUntrustedCode` configures the in-engine controls in one place and rejects the sentinel
+values that ordinary constraint helpers interpret as unlimited. The numbers below are
+examples only. Measure normal workloads and choose smaller limits that leave acceptable
+headroom.
 
 ```csharp
-var options = new Options()
-    .Strict()
-    .DisableStringCompilation()
-    .TimeoutInterval(TimeSpan.FromSeconds(2))
-    .MaxStatements(50_000)
-    .LimitMemory(16_000_000)
-    .LimitRecursion(64)
-    .MaxArraySize(100_000)
-    .RegexTimeoutInterval(TimeSpan.FromMilliseconds(250))
-    .CancellationToken(requestAborted)
-    .Constraint(static () => new OperationDeadlineConstraint())
-    .AllowClrWrite(false);
+var limits = new UntrustedCodeLimits(
+    timeoutInterval: TimeSpan.FromSeconds(2),
+    maxStatements: 50_000,
+    memoryLimit: 16_000_000,
+    maxRecursionDepth: 64,
+    maxArraySize: 100_000,
+    regexTimeout: TimeSpan.FromMilliseconds(250),
+    promiseTimeout: TimeSpan.FromMilliseconds(500),
+    maxOperationDuration: TimeSpan.FromSeconds(3),
+    maxSourceLength: 100_000,
+    maxNodeCount: 25_000,
+    maxModuleCount: 50,
+    maxTotalModuleSourceBytes: 1_000_000,
+    maxModuleGraphDepth: 10,
+    maxModuleResolutionHops: 200,
+    resultLimits: new ResultLimits(
+        maxDepth: 16,
+        maxPropertyCount: 10_000,
+        maxStringLength: 100_000,
+        maxOutputCharacters: 1_000_000,
+        maxOutputBytes: 2_000_000));
 
-options.Constraints.StackOverflowGuard = true;
-options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
-options.AgentCanSuspend = false;
-options.Interop.ArrayConversion = ArrayConversionMode.Copy;
-options.Parsing.MaxSourceLength = 100_000;
-options.Parsing.MaxNodeCount = 25_000;
-options.ResultLimits = ResultLimits.Conservative;
-options.Interop.ExposeDetailedExceptionMessages = false;
-options.Interop.ExposeDetailedResolutionErrors = false;
-options.Modules.ExposeDetailedLoadErrors = false;
-
-// Do not call AllowClr(). Leave modules and the debugger disabled.
-var report = options.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
-AuditWarnings(report.Diagnostics);
-var engine = new Engine(options.EnsureSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts));
-var effectiveReport = engine.Advanced.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
-AuditWarnings(effectiveReport.Diagnostics);
-var deadline = engine.Constraints.Find<OperationDeadlineConstraint>()!;
-
-deadline.Begin(TimeSpan.FromSeconds(3), requestAborted);
-try
+// This declaration is safe to share across concurrent Engine construction.
+var sharedOptions = new Options().Strict().ForUntrustedCode(limits);
+using var engine = new Engine(sharedOptions);
+using (limits.BeginOperation(engine, requestAborted))
 {
-    var value = engine.Evaluate(boundedSource);
-    return engine.Advanced.ConvertResult(value);
-}
-finally
-{
-    deadline.End();
+    try
+    {
+        var value = engine.Evaluate(boundedSource);
+        return new JsonSerializer(engine).Serialize(value).AsString();
+    }
+    catch (JavaScriptException exception)
+    {
+        return exception.GetJavaScriptErrorString(limits.ResultLimits);
+    }
 }
 ```
 
-If untrusted scripts must use modules, replace the modules-disabled baseline with explicit
-limits and an allowlist matched to the loader:
+`ForUntrustedCode` deliberately disables modules. A host that must execute untrusted modules
+cannot use that closed profile unchanged; it needs a separately reviewed, hand-built configuration
+with explicit limits and an allowlist matched to the loader:
 
 ```csharp
 options.EnableModules(moduleRoot);
@@ -1309,11 +1330,20 @@ options.Modules.LoadPolicy = new ModuleAllowlistPolicy
     AllowedSchemes = { "file" },
     AllowedFileRoots = { moduleRoot },
 };
+options.EnsureSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
 ```
 
 A network loader must additionally enforce redirect targets/count, DNS and resolved-IP
 policy, response bytes, and timeout/cancellation inside the loader. Jint cannot observe
 those transport steps.
+
+The operation scope is required: only the host knows which engine entries make up one request.
+It carries a cumulative deadline, cancellation token, and managed-allocation budget across
+evaluation/import and bounded output handling; statement limits keep their documented per-entry
+reset. It cannot preempt a host callback that does not return or bound retained/native memory and
+operating-system resources, so the outer worker deadline remains the hard stop. Prepared scripts
+and modules must use matching parsing limits. Property writes are blocked, but deliberately
+projected methods and delegates remain host capabilities.
 
 This configuration is incomplete without host controls:
 
@@ -1346,7 +1376,9 @@ Before deploying a host that executes untrusted scripts:
   are explicitly configured and tested with adversarial inputs.
 - [ ] Every explicit parsing option and script/module preparation option is validated with the
   timeout that will actually be used.
-- [ ] Async API cancellation is paired with an engine cancellation constraint.
+- [ ] Every multi-entry request is enclosed in `UntrustedCodeLimits.BeginOperation`.
+- [ ] Every operation scope receives the request's cancellable token, and async work is awaited
+  before the scope is disposed or the engine is returned to a pool.
 - [ ] No engine, mutable host object, `JsValue`, module, or request context crosses trust
   domains.
 - [ ] An `IModuleLoadPolicy` restricts final resolved targets, and custom module loaders

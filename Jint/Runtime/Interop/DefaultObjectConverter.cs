@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -434,6 +435,12 @@ internal static class DefaultObjectConverter
     private static JsArray CreateArraySnapshot(Engine engine, Array source)
     {
         var length = (uint) source.Length;
+        if (engine._untrustedCodeLimits is not null
+            && length > engine.Options.Constraints.MaxArraySize)
+        {
+            ArrayInstance.ThrowMaximumArraySizeReachedException(engine, length);
+        }
+
         return new JsArray(engine, new JsValue[length]);
     }
 

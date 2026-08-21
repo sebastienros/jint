@@ -806,6 +806,7 @@ public sealed partial class Engine : IDisposable
 
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
+    internal readonly UntrustedCodeLimits? _untrustedCodeLimits;
 
     // Whether the reference resolver is consulted at all, plus the per-situation subscription flags
     // derived from Options.ReferenceResolverInterests. Splitting them is what lets a resolver that only
@@ -956,10 +957,12 @@ public sealed partial class Engine : IDisposable
 
         _executionContexts = new ExecutionContextStack(2);
 
-        // we can use default options if there's no action to modify it
-        Options = options ?? (configure is not null ? new Options() : _defaultEngineOptions);
-
-        configure?.Invoke(this, Options);
+        // A hardened profile is applied to an engine-local snapshot. Options is documented as shareable
+        // between concurrently constructed engines, so deferred rehardening must never mutate its source.
+        var sourceOptions = options ?? (configure is not null ? new Options() : _defaultEngineOptions);
+        configure?.Invoke(this, sourceOptions);
+        Options = sourceOptions.CreateEngineOptions();
+        _untrustedCodeLimits = Options.UntrustedCodeLimits;
 
         _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
 

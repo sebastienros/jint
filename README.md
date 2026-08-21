@@ -2426,6 +2426,90 @@ astronomical, Chinese/Dangi at extreme dates) is on the roadmap; until then non-
 calendars use `System.Globalization.Calendar` subclasses, which constrains some date
 ranges (see [`Jint/Native/Temporal/NonIsoCalendars.cs`](Jint/Native/Temporal/NonIsoCalendars.cs)).
 
+## Running untrusted code
+
+`ForUntrustedCode` applies Jint's opt-in hardened profile. It disables CLR namespace and reflection access,
+registered extension methods, module loading, debugger handling, blocking `Atomics.wait`, writes through
+projected CLR objects, live views over CLR arrays, and `eval`/function constructors that compile strings. It
+also enables the native stack-overflow guard.
+
+Core execution limits are required rather than guessed: a useful budget depends on the request and workload,
+and a security API must not silently turn saturated sentinels into "unlimited." Parser, module-graph, and
+result limits have conservative finite defaults that should still be tuned for the host:
+
+```c#
+var limits = new UntrustedCodeLimits(
+    timeoutInterval: TimeSpan.FromSeconds(1),       // one Engine entry
+    maxStatements: 100_000,                        // one Engine entry
+    memoryLimit: 16_000_000,                       // one Engine entry
+    maxRecursionDepth: 64,
+    maxArraySize: 10_000,
+    regexTimeout: TimeSpan.FromMilliseconds(250),
+    promiseTimeout: TimeSpan.FromSeconds(1),
+    maxOperationDuration: TimeSpan.FromSeconds(2),
+    maxSourceLength: 100_000,
+    maxNodeCount: 25_000,
+    maxModuleCount: 50,
+    maxTotalModuleSourceBytes: 1_000_000,
+    maxModuleGraphDepth: 10,
+    maxModuleResolutionHops: 200,
+    resultLimits: new ResultLimits(
+        maxDepth: 16,
+        maxPropertyCount: 10_000,
+        maxStringLength: 100_000,
+        maxOutputCharacters: 1_000_000,
+        maxOutputBytes: 2_000_000));
+
+// Build once and share concurrently. ForUntrustedCode records an immutable profile declaration;
+// every Engine gets a private effective snapshot and construction never mutates sharedOptions.
+var sharedOptions = new Options().Strict().ForUntrustedCode(limits);
+using var engine = new Engine(sharedOptions);
+
+using (limits.BeginOperation(engine, cancellationToken))
+{
+    try
+    {
+        var value = engine.Evaluate(source);
+        var json = new JsonSerializer(engine).Serialize(value).AsString();
+        return Encoding.UTF8.GetBytes(json); // keep the transport's own response-byte cap too
+    }
+    catch (JavaScriptException exception)
+    {
+        return Encoding.UTF8.GetBytes(exception.GetJavaScriptErrorString(limits.ResultLimits));
+    }
+}
+```
+
+`TimeoutInterval` and statement count reset around each top-level engine entry. `BeginOperation` requires a
+cancellable host token and spans one cumulative wall-clock deadline and managed-allocation budget across
+evaluation/import, callbacks, `ConvertResult`, `JsonSerializer`, and bounded error rendering. Ordinary
+statement limits intentionally remain per-entry. Like Jint's other constraints, these are cooperative: they
+cannot preempt a host callback that does not return. Keep an outer worker/request deadline as the hard stop.
+Scopes cannot overlap, cannot end while async work still owns the engine, and failed disposal remains
+retryable after that work completes.
+
+Prepared scripts and modules carry the regex timeout selected when they were prepared. When preparing
+untrusted code for reuse, pass the same limit explicitly:
+
+```c#
+var prepared = Engine.PrepareScript(source, new ScriptPreparationOptions
+{
+    ParsingOptions = new ScriptParsingOptions { RegexTimeout = limits.RegexTimeout }
+});
+```
+
+Configuration order cannot reopen profile-controlled settings. The profile is applied to the private engine
+snapshot before construction and reapplied after user `Configure` callbacks; registered extension methods,
+custom converters/factories, detailed errors, unsafe CLR policies, loaders, and programmatic modules are
+removed. User callbacks remain an honestly reported `JINTSEC031` host capability. Mutating the shared source
+`Options` after engines are being constructed is still unsupported; finish configuration before sharing it.
+The compatibility tradeoffs are intentional: projected CLR arrays become snapshots, projected CLR members
+are read-only, registered extension methods are removed, dynamic string compilation and module imports fail,
+and `Atomics.wait` raises a JavaScript `TypeError`. Projected methods/delegates and callbacks deliberately
+exposed by the host remain capabilities. The profile is defense in depth, not process isolation; mutually
+distrusting scripts should still use separate engines in disposable least-privileged workers with OS CPU,
+memory, filesystem, network, and lifetime controls.
+
 ## Execution Constraints 
 
 Execution constraints are used during script execution to ensure that requirements around resource consumption are met, for example:
