@@ -214,6 +214,52 @@ public class WorkerTests
         _ => throw new ArgumentOutOfRangeException(nameof(setting), setting, "unknown setting"),
     };
 
+    /// <summary>
+    /// The whole hardened profile travels without the marker travelling. An untrusted-code parent's
+    /// <c>Engine.Options</c> is the profile's expanded clone, so the posture copy picks up every value the
+    /// expansion set and the factory replay carries its budgets — while the <c>UntrustedCodeLimits</c>
+    /// marker itself deliberately stays behind: a marked options object re-expands at engine construction,
+    /// and that expansion clears the constraint registrations, including the termination token a worker's
+    /// <c>terminate()</c> depends on. See <c>Options.CopySecurityPosture</c>'s remarks.
+    /// </summary>
+    [Fact]
+    public void AnUntrustedCodeProfileParentHardensItsWorkerWithoutTheMarker()
+    {
+        var limits = new UntrustedCodeLimits(
+            timeoutInterval: TimeSpan.FromMilliseconds(750),
+            maxStatements: 12_345,
+            memoryLimit: 8_000_000,
+            maxRecursionDepth: 21,
+            maxArraySize: 2048,
+            regexTimeout: TimeSpan.FromMilliseconds(333),
+            promiseTimeout: TimeSpan.FromMilliseconds(444),
+            maxOperationDuration: TimeSpan.FromSeconds(5),
+            maxSourceLength: 55_555,
+            maxNodeCount: 4_321);
+
+        var parent = new Engine(new Options().ForUntrustedCode(limits));
+
+        var workerOptions = Request(parent).CreateDefaultOptions();
+
+        // The expansion's values, inherited through the ordinary posture copy.
+        workerOptions.Host.StringCompilationAllowed.Should().BeFalse();
+        workerOptions.AgentCanSuspend.Should().BeFalse();
+        workerOptions.Constraints.MaxRecursionDepth.Should().Be(21);
+        workerOptions.Constraints.MaxArraySize.Should().Be(2048u);
+        workerOptions.Constraints.RegexTimeout.Should().Be(TimeSpan.FromMilliseconds(333));
+        workerOptions.Constraints.PromiseTimeout.Should().Be(TimeSpan.FromMilliseconds(444));
+        workerOptions.Parsing.MaxSourceLength.Should().Be(55_555);
+        workerOptions.Parsing.MaxNodeCount.Should().Be(4_321);
+        workerOptions.Modules.MaxModuleCount.Should().Be(100);
+        workerOptions.ResultLimits.Should().BeSameAs(parent.Options.ResultLimits);
+
+        // Its budget constraints arrive through the factory replay.
+        workerOptions.Constraints.ConstraintFactories.Should().NotBeEmpty();
+
+        // And the marker stays behind, so the worker's own construction cannot re-expand over them.
+        workerOptions.UntrustedCodeLimits.Should().BeNull();
+    }
+
     // ---------------------------------------------------------------------------------------------------
     // Features: grants never travel by implication
     // ---------------------------------------------------------------------------------------------------

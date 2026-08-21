@@ -504,10 +504,17 @@ outside `Options.Constraints` is inherited" treated them as one rule. Corrected:
   `SecurityPostureNotInherited` and `SecurityPostureExcludedGroups` state it in code, and
   `Jint.Tests/Runtime/OptionsSecurityPostureTests.cs` fails unless every value-typed public settable property on
   `Options`, `Constraints`, `Host`, `Json`, `Parsing` and `Modules` is in one of the first two lists, and every option group is either
-  scanned or named in the third. `Interop`, `Modules` and `WebApi` are excluded wholesale as grant-shaped, and
-  each exclusion carries its reason in code. So the sebros security stack cannot silently become a
-  `new Worker()` escape hatch on the day each part lands; if a hardened profile arrives as one switch, the
-  worker inherits the *profile*, which is strictly better than inheriting its expansion.
+  scanned or named in the third. `Interop` and `WebApi` are excluded wholesale as grant-shaped, each with its
+  reason in code; `Modules` stopped being excludable the day it gained graph limits beside its loader, so it is
+  scanned — the loader and load policy are reference-typed grants the scan never sees, the numeric limits
+  travel. So the security stack cannot silently become a `new Worker()` escape hatch on the day each part
+  lands — which the stack then proved by landing whole while this was in review. The hardened profile (#3060,
+  `ForUntrustedCode(limits)`) resolved one way the design left open: the worker inherits the profile's
+  **expansion**, not its marker. An untrusted parent's `Engine.Options` is the expanded clone, so the posture
+  copy picks up every value the expansion set and the factory replay carries its budgets; the
+  `UntrustedCodeLimits` marker itself deliberately stays behind, because a marked options object re-expands at
+  engine construction and that expansion clears the constraint registrations — including the termination token
+  a worker's `terminate()` depends on. What the unmarked worker loses is only the diagnostics label.
 - **The residual hole is named**: a provider that builds its own `Options` from scratch is the one place a
   hardened parent can be un-hardened — deliberate, because the provider is host code. One sentence in the
   `WorkerProvider` docs: *`CreateDefaultOptions()` is a convenience, not a security boundary; a host with a

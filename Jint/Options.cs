@@ -265,6 +265,16 @@ public partial class Options
     /// </remarks>
     /// <param name="source">The options whose posture is being inherited.</param>
     /// <param name="target">The fresh options being built. Every setting named here is overwritten.</param>
+    /// <remarks>
+    /// The <see cref="UntrustedCodeLimits"/> marker is deliberately <b>not</b> propagated, although it is the
+    /// most posture-shaped thing an <see cref="Options"/> can carry. An engine built from a marked options
+    /// object re-applies the profile's expansion at construction, and that expansion clears the constraint
+    /// registrations — including the cancellation constraint a worker's <c>terminate()</c> depends on. The
+    /// profile still travels in full: an untrusted parent's <see cref="Engine.Options"/> is the expanded
+    /// clone, so every value the expansion set is copied by this method, its budget constraints arrive
+    /// through the factory replay, and the grants it revoked equal the fresh target's defaults. What a
+    /// non-marked worker loses is only the label — a diagnostics report will not call it profiled.
+    /// </remarks>
     internal static void CopySecurityPosture(Options source, Options target)
     {
         target.Constraints.MaxRecursionDepth = source.Constraints.MaxRecursionDepth;
