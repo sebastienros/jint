@@ -83,12 +83,15 @@ public class WebApiCryptoTests
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
 
-        // A DOMException a script can catch and branch on, not a CLR exception erupting through the host.
+        // An error a script can catch and branch on, not a CLR exception erupting through the host. The quota
+        // refusal is WebIDL's QuotaExceededError interface — https://webidl.spec.whatwg.org/#quotaexceedederror
+        // — reachable as a global beside DOMException, so `e.constructor` is a name the host can hand to a
+        // script rather than a shape it has to sniff.
         engine.Evaluate("""
             (() => {
                 const seen = [];
                 try { crypto.getRandomValues(new Float64Array(4)); } catch (e) { seen.push(e.name); }
-                try { crypto.getRandomValues(new Uint8Array(65537)); } catch (e) { seen.push(e.name); }
+                try { crypto.getRandomValues(new Uint8Array(65537)); } catch (e) { seen.push(e.constructor.name); }
                 try { crypto.getRandomValues([1, 2, 3]); } catch (e) { seen.push(e.constructor.name); }
                 return seen.join(',');
             })()

@@ -68,6 +68,25 @@ internal sealed class TimerQueue
     internal int Count => _active.Count;
 
     /// <summary>
+    /// The <c>quota</c> a refused registration reports, https://webidl.spec.whatwg.org/#quotaexceedederror:
+    /// how many timers this engine permits at once.
+    /// </summary>
+    /// <remarks>
+    /// Clamped at zero rather than reported raw, because <c>MaxActiveTimers</c> is documented to refuse every
+    /// timer at "zero or less" and the interface's own constructor refuses a negative <c>quota</c> with a
+    /// <c>RangeError</c>. Zero is not a rounding of −5 either: the number of timers a −5 cap permits <i>is</i>
+    /// none.
+    /// </remarks>
+    internal double RefusalQuota => Math.Max(0, MaxActiveTimers);
+
+    /// <summary>
+    /// The <c>requested</c> a refused registration reports: the count this engine would have carried had the
+    /// registration been allowed, which is always at least <see cref="RefusalQuota"/> — the invariant
+    /// https://webidl.spec.whatwg.org/#quotaexceedederror imposes on anything that throws one.
+    /// </summary>
+    internal double RefusalRequested => (double) Count + 1;
+
+    /// <summary>
     /// Where a callback's exception is reported, or <see langword="null"/> when the host set no sink and the
     /// exception must therefore erupt instead. Held here rather than reached through the engine so that
     /// <see cref="TimerEntry.Fire"/> costs one field read and an entry costs no extra reference at all.

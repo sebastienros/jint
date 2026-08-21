@@ -332,7 +332,7 @@ public class StorageTests
     }
 
     [Fact]
-    public void TurnsAProvidersQuotaRefusalIntoACatchableDomException()
+    public void TurnsAProvidersQuotaRefusalIntoACatchableQuotaExceededError()
     {
         var engine = new Engine(options => options
             .UseStorage()
@@ -345,14 +345,17 @@ public class StorageTests
                 try {
                     localStorage.setItem('big', 'x'.repeat(64));
                 } catch (e) {
-                    seen.push(e.name, e instanceof DOMException, e.code, String(localStorage.getItem('big')));
+                    // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the budget
+                    // the in-box provider enforces and the size the refused write would have taken it to:
+                    // 12 bytes already stored plus 2 * (3 + 64) for the new pair.
+                    seen.push(e.name, e instanceof QuotaExceededError, e.code, e.quota, e.requested, String(localStorage.getItem('big')));
                 }
                 // The store is exactly as it was, and still usable.
                 localStorage.setItem('k', 'tiny');
                 seen.push(localStorage.getItem('k'), localStorage.length);
                 return seen.join('|');
             })()
-            """).AsString().Should().Be("QuotaExceededError|true|22|null|tiny|1");
+            """).AsString().Should().Be("QuotaExceededError|true|22|32|146|null|tiny|1");
     }
 
     [Fact]

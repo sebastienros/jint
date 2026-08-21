@@ -423,13 +423,15 @@ public class TimerTests
             setTimeout(() => log.push('two'), 10);
             """);
 
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the cap and the count
+        // the refused registration would have taken the engine to.
         engine.Evaluate("""
             (() => {
                 try { setTimeout(() => {}, 10); }
-                catch (e) { return [e instanceof DOMException, e.name, e.code].join('|'); }
+                catch (e) { return [e instanceof QuotaExceededError, e instanceof DOMException, e.name, e.code, e.quota, e.requested].join('|'); }
                 return 'no error';
             })()
-            """).AsString().Should().Be("true|QuotaExceededError|22");
+            """).AsString().Should().Be("true|true|QuotaExceededError|22|2|3");
 
         // A fired timeout frees its slot, so the engine is not stuck once the queue drains.
         clock.Advance(10);

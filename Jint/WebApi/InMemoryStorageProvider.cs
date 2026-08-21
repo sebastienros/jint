@@ -89,8 +89,16 @@ public sealed class InMemoryStorageProvider : StorageProvider
         var total = _totalBytes + delta;
         if (total > _maxTotalBytes)
         {
+            // The two numbers reach the script as `error.quota` and `error.requested`
+            // (https://webidl.spec.whatwg.org/#quotaexceedederror). `total` is the size the store *would*
+            // have had, not the increment, which is what makes the pair comparable — and it is greater than
+            // the quota by the very test above, so the interface's requested-not-less-than-quota rule holds.
+            // A quota of long.MaxValue is the documented way to spell "unlimited"; the branch cannot be
+            // reached with one, since nothing can exceed it.
             throw new StorageQuotaExceededException(
-                $"Setting the value of '{key}' would take this storage to {total} bytes, over its {_maxTotalBytes}-byte quota.");
+                $"Setting the value of '{key}' would take this storage to {total} bytes, over its {_maxTotalBytes}-byte quota.",
+                quota: Math.Max(0, _maxTotalBytes),
+                requested: total);
         }
 
         _entries[key] = value;

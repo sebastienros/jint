@@ -156,9 +156,14 @@ internal sealed partial class WebSocketConstructor : Constructor
 
         if (state.ActiveWebSocketCount >= options.MaxConcurrentRequests)
         {
-            ThrowDomException(
-                DomExceptionNames.QuotaExceeded,
-                $"Failed to construct 'WebSocket': the engine already has {options.MaxConcurrentRequests} sockets open, which is its Options.WebApi.Fetch.MaxConcurrentRequests limit.");
+            // https://webidl.spec.whatwg.org/#quotaexceedederror, with the ceiling and the count the
+            // connection would have taken the engine to. The quota is clamped at zero for the same reason the
+            // timer queue's is: a non-positive ceiling permits no socket at all, and a negative `quota` is
+            // something the interface's own constructor refuses.
+            ThrowQuotaExceededError(
+                $"Failed to construct 'WebSocket': the engine already has {options.MaxConcurrentRequests} sockets open, which is its Options.WebApi.Fetch.MaxConcurrentRequests limit.",
+                quota: Math.Max(0, options.MaxConcurrentRequests),
+                requested: (double) state.ActiveWebSocketCount + 1);
         }
 
         IWebSocketConnection? connection = null;
@@ -244,6 +249,13 @@ internal sealed partial class WebSocketConstructor : Constructor
     private void ThrowDomException(string name, string message)
     {
         var exception = _realm.Intrinsics.DomException.CreateException(name, message);
+        var location = _engine._lastSyntaxElement?.Location ?? default;
+        Throw.JavaScriptException(_engine, exception, in location);
+    }
+
+    private void ThrowQuotaExceededError(string message, double quota, double requested)
+    {
+        var exception = _realm.Intrinsics.QuotaExceededError.CreateException(message, quota, requested);
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
     }

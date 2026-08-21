@@ -71,8 +71,10 @@ public class WebApiLiveEnableTests
         engine.Evaluate("new TextEncoder().encode('ab').length").AsNumber().Should().Be(2);
 
         // DOMException has no flag of its own and arrives with the first web API, live exactly as at options
-        // time.
+        // time — and so does the one interface WebIDL derives from it,
+        // https://webidl.spec.whatwg.org/#quotaexceedederror.
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
+        engine.Evaluate("typeof QuotaExceededError").AsString().Should().Be("function");
     }
 
     /// <summary>
@@ -459,7 +461,7 @@ public class WebApiLiveEnableTests
 
         engine.Evaluate("typeof console").AsString().Should().Be("object");
 
-        foreach (var name in new[] { "console", "DOMException", "setTimeout", "TextEncoder", "URL", "structuredClone" })
+        foreach (var name in new[] { "console", "DOMException", "QuotaExceededError", "setTimeout", "TextEncoder", "URL", "structuredClone" })
         {
             engine.Evaluate($"new ShadowRealm().evaluate('typeof {name}')").AsString().Should().Be("undefined");
         }

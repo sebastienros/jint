@@ -99,7 +99,7 @@ internal sealed partial class DomExceptionConstructor : Constructor
             static (Engine engine, Realm _, (JsString Name, JsString Message) state) => new JsDomException(engine, state.Name, state.Message),
             (Name: name, Message: message));
 
-        AttachStack(exception);
+        AttachStack(_engine, this, exception);
 
         return exception;
     }
@@ -109,6 +109,14 @@ internal sealed partial class DomExceptionConstructor : Constructor
     /// <c>AbortError</c>, <c>TimeoutError</c>, <c>InvalidCharacterError</c> and the rest of
     /// https://webidl.spec.whatwg.org/#dfn-error-names-table.
     /// </summary>
+    /// <remarks>
+    /// Not for <c>QuotaExceededError</c>: that name has an interface of its own
+    /// (https://webidl.spec.whatwg.org/#quotaexceedederror), and
+    /// <see cref="QuotaExceededErrorConstructor.CreateException"/> is what raises it. Nothing stops this
+    /// method building a plain <c>DOMException</c> wearing the name — a script may do exactly that with
+    /// <c>new DOMException('x', 'QuotaExceededError')</c>, and it is not the interface — but no engine code
+    /// should.
+    /// </remarks>
     /// <param name="name">The error name; <see cref="DomExceptionNames"/> holds the ones with a legacy code.</param>
     /// <param name="message">The message, or the empty string.</param>
     internal JsDomException CreateException(string name, string message)
@@ -118,7 +126,7 @@ internal sealed partial class DomExceptionConstructor : Constructor
             _prototype = PrototypeObject,
         };
 
-        AttachStack(exception);
+        AttachStack(_engine, this, exception);
 
         return exception;
     }
@@ -128,9 +136,14 @@ internal sealed partial class DomExceptionConstructor : Constructor
     /// the same reason <c>Error</c>'s is: most exceptions are caught without anyone reading the trace, and
     /// rendering it costs a string build over the retained frames.
     /// </summary>
-    private void AttachStack(JsDomException exception)
+    /// <remarks>
+    /// <paramref name="interfaceObject"/> is the interface object the exception is being constructed by, which
+    /// is the frame the capture drops when a script wrote <c>new …(…)</c> itself — so a
+    /// <c>QuotaExceededError</c> hides its own constructor and not <c>DOMException</c>'s.
+    /// </remarks>
+    internal static void AttachStack(Engine engine, Constructor interfaceObject, JsDomException exception)
     {
-        var capture = ErrorConstructor.BuildStackTraceCapture(_engine, this);
+        var capture = ErrorConstructor.BuildStackTraceCapture(engine, interfaceObject);
         if (capture is null)
         {
             return;

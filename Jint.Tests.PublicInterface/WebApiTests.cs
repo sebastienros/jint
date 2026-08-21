@@ -33,8 +33,10 @@ public class WebApiTests
 
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
         engine.Evaluate("typeof DOMException").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof QuotaExceededError").AsString().Should().Be("undefined");
         engine.Evaluate("'console' in globalThis").AsBoolean().Should().BeFalse();
         engine.Evaluate("'DOMException' in globalThis").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'QuotaExceededError' in globalThis").AsBoolean().Should().BeFalse();
 
         // Not even an engine that named the group but no feature.
         var untouched = new Engine(options => options.WebApi.Features = WebApiFeatures.None);
@@ -48,6 +50,10 @@ public class WebApiTests
 
         engine.Evaluate("typeof console").AsString().Should().Be("object");
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
+
+        // WebIDL's one DOMException-derived interface, https://webidl.spec.whatwg.org/#quotaexceedederror,
+        // rides the same absent flag: it is how several features report a refusal.
+        engine.Evaluate("typeof QuotaExceededError").AsString().Should().Be("function");
 
         // The default set never carries a network API, whatever it grows to include.
         engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");

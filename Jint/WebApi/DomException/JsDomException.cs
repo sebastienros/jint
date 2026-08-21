@@ -39,8 +39,18 @@ namespace Jint.WebApi.DomException;
 /// <c>Error.isError(DOMException.prototype)</c> answers <see langword="false"/>, the same as
 /// <c>Error.isError(Error.prototype)</c>.
 /// </para>
+/// <para>
+/// It is the one type in <c>Jint/WebApi/</c> that is deliberately <b>not</b> sealed.
+/// https://webidl.spec.whatwg.org/#idl-DOMException-derived-interfaces lets a standard derive an interface
+/// from <c>DOMException</c> when an exception has to carry more than a name, and
+/// <see cref="JsQuotaExceededError"/> is the one such interface WebIDL defines. A derived instance has to
+/// answer the very same <c>name</c>/<c>message</c>/<c>code</c> accessors — the brand check in
+/// <see cref="DomExceptionPrototype"/> is <c>is JsDomException</c>, which is exactly the WebIDL brand — so
+/// sharing the base is what makes that true by construction rather than by duplication. The derived types
+/// are themselves sealed.
+/// </para>
 /// </remarks>
-internal sealed class JsDomException : ErrorInstance, IErrorData
+internal class JsDomException : ErrorInstance, IErrorData
 {
     internal JsDomException(Engine engine, JsString name, JsString message)
         : base(engine, ObjectClass.Error)

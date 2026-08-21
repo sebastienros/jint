@@ -75,14 +75,20 @@ settled; it is a change to `UrlCorpusTests` as well as to this directory, and it
 
 ## What the WebCryptoAPI corpus says about this engine
 
-2,459 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of seven
+2,450 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of six
 categories, whose own documentation in `WptExclusions.cs` carries the citation. Three are the platform:
 `NeedsPlatformCryptoParameters` (AES-GCM's 96-bit-only iv and 96-to-128-bit tag, RSA-OAEP's empty-only label,
 RSA-PSS's hash-length-only salt — all four are limits of the BCL primitives, documented on the classes that
-hit them), `NeedsCompressedEcPointImport` and `NeedsCurve25519`. Two are the corpus running ahead of the
+hit them), `NeedsCompressedEcPointImport` and `NeedsCurve25519`. One is the corpus running ahead of the
 specification: `NeedsKeyEncapsulation` (ML-KEM's `encapsulateKey`/`decapsulateKey` `KeyUsage` values, which
-the current `KeyUsage` enumeration does not declare) and `NeedsQuotaExceededErrorInterface`. One is the
-corpus meeting an environment it was not written for: `NeedsSecureContextModel`.
+the current `KeyUsage` enumeration does not declare). One is the corpus meeting an environment it was not
+written for: `NeedsSecureContextModel`.
+
+The seventh category was `NeedsQuotaExceededErrorInterface`, the nine `Large length: *` rows of
+`getRandomValues.any.js`. They pass since
+[#3189](https://github.com/sebastienros/jint/issues/3189) implemented WebIDL's
+[`QuotaExceededError`](https://webidl.spec.whatwg.org/#quotaexceedederror) interface, and the entry and the
+category are gone with them.
 
 That figure is Windows and Linux, whose AES-GCM takes a 96- to 128-bit tag. **macOS has 216 more**, all in
 `aes_gcm.https.any.js`: Apple's implementation takes a 128-bit tag and nothing else, so the four tag lengths

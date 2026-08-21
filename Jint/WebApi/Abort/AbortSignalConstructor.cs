@@ -90,8 +90,8 @@ internal sealed partial class AbortSignalConstructor : Constructor
 
         if (timers.Count >= timers.MaxActiveTimers)
         {
-            ThrowDomException(
-                DomExceptionNames.QuotaExceeded,
+            ThrowQuotaExceededError(
+                timers,
                 $"Failed to execute 'timeout' on 'AbortSignal': the engine already has {timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
         }
 
@@ -203,9 +203,17 @@ internal sealed partial class AbortSignalConstructor : Constructor
         return integer > int.MaxValue ? int.MaxValue : (long) integer;
     }
 
-    private void ThrowDomException(string name, string message)
+    /// <summary>
+    /// The engine's own timer cap, reported as https://webidl.spec.whatwg.org/#quotaexceedederror — the
+    /// interface, carrying the cap and the count, rather than the bare name on a <c>DOMException</c>.
+    /// </summary>
+    private void ThrowQuotaExceededError(TimerQueue timers, string message)
     {
-        var exception = _realm.Intrinsics.DomException.CreateException(name, message);
+        var exception = _realm.Intrinsics.QuotaExceededError.CreateException(
+            message,
+            quota: timers.RefusalQuota,
+            requested: timers.RefusalRequested);
+
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
     }

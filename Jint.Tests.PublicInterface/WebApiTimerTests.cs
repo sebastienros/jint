@@ -110,13 +110,34 @@ public class WebApiTimerTests
 
         engine.Execute("setTimeout(function () {}, 60000);");
 
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface rather than the bare name, so a
+        // host's script can read the cap it hit off `quota` instead of parsing the message.
         engine.Evaluate("""
             (() => {
                 try { setTimeout(function () {}, 60000); }
-                catch (e) { return e.name; }
+                catch (e) { return [e.name, e.constructor === QuotaExceededError, e.quota, e.requested].join('|'); }
                 return 'no error';
             })()
-            """).AsString().Should().Be("QuotaExceededError");
+            """).AsString().Should().Be("QuotaExceededError|true|1|2");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void ACapOfZeroOrLessReportsAQuotaOfZeroRatherThanANegativeOne(int maxActiveTimers)
+    {
+        var engine = new Engine(options => options.UseWebApis(webApi => webApi.Timers.MaxActiveTimers = maxActiveTimers));
+
+        // "A value of zero or less refuses every timer" — and the number of timers a −5 cap permits is none,
+        // not −5. https://webidl.spec.whatwg.org/#quotaexceedederror refuses a negative `quota` outright, so
+        // reporting the raw setting would put a number on the error that its own constructor would reject.
+        engine.Evaluate("""
+            (() => {
+                try { setTimeout(function () {}, 60000); }
+                catch (e) { return [e.name, e.quota, e.requested].join('|'); }
+                return 'no error';
+            })()
+            """).AsString().Should().Be("QuotaExceededError|0|1");
     }
 
     [Fact]

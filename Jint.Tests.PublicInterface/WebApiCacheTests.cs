@@ -291,9 +291,31 @@ public class WebApiCacheTests
     }
 
     [Fact]
-    public void AQuotaExceededExceptionBecomesTheDomExceptionABrowserRaises()
+    public void AQuotaExceededExceptionBecomesTheErrorABrowserRaises()
     {
         var provider = new RecordingProvider { OnWrite = _ => new CacheQuotaExceededException("no room left") };
+        var engine = CacheEngine(provider);
+
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, with both members null because
+        // this provider named no figures.
+        Run(engine, """
+            const cache = await caches.open('v1');
+            try {
+                await cache.put('https://example.org/a', new Response('x'));
+                return 'stored';
+            } catch (e) {
+                return [e.name, e.code, e.message, e instanceof QuotaExceededError, e instanceof DOMException, String(e.quota)].join('|');
+            }
+            """).Should().Be("QuotaExceededError|22|no room left|true|true|null");
+    }
+
+    [Fact]
+    public void AProviderCanReportHowMuchRoomThereWasAndHowMuchWasWanted()
+    {
+        var provider = new RecordingProvider
+        {
+            OnWrite = _ => new CacheQuotaExceededException("no room left", quota: 1024, requested: 4096),
+        };
         var engine = CacheEngine(provider);
 
         Run(engine, """
@@ -302,9 +324,19 @@ public class WebApiCacheTests
                 await cache.put('https://example.org/a', new Response('x'));
                 return 'stored';
             } catch (e) {
-                return [e.name, e.code, e.message, e instanceof DOMException].join('|');
+                return [e.name, e.quota, e.requested].join('|');
             }
-            """).Should().Be("QuotaExceededError|22|no room left|true");
+            """).Should().Be("QuotaExceededError|1024|4096");
+    }
+
+    [Theory]
+    [InlineData(-1d, 5d)]
+    [InlineData(5d, -1d)]
+    [InlineData(9d, 8d)]
+    [InlineData(double.NaN, 1d)]
+    public void AnIllFormedQuotaPairIsRefusedAtTheExceptionsOwnConstructor(double quota, double requested)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CacheQuotaExceededException("x", quota, requested));
     }
 
     [Fact]

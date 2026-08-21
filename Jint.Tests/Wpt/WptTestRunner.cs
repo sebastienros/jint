@@ -427,9 +427,11 @@ public class WptTestRunner
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to crypto.subtle", WptDivergence.NeedsSecureContextModel),
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to CryptoKey", WptDivergence.NeedsSecureContextModel),
 
-        // The nine typed-array rows of "Large length"; the rest of the file passes. Each asks for the
-        // QuotaExceededError *interface*, and gets the name on a plain DOMException.
-        new("WebCryptoAPI/getRandomValues.any.js", "Large length: *", WptDivergence.NeedsQuotaExceededErrorInterface),
+        // The nine typed-array rows of "Large length" used to sit here: each asks for the QuotaExceededError
+        // *interface* (https://webidl.spec.whatwg.org/#quotaexceedederror) and used to get the name on a plain
+        // DOMException. https://github.com/sebastienros/jint/issues/3189 implemented the interface, and
+        // getRandomValues throws one with `quota` and `requested` both null — which is exactly what those rows
+        // assert, because the algorithm says only "throw a QuotaExceededError" and names no numbers.
 
         // Nothing here excludes a "… during call" row for the ordering any more. Those families — across
         // digest, aes_cbc, aes_ctr, symmetric_importKey, ecdsa, hmac, rsa_pkcs, rsa_pss, rsa_oaep and

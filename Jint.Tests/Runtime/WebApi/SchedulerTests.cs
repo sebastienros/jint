@@ -509,10 +509,12 @@ public class SchedulerTests
         engine.Execute("""
             scheduler.postTask(() => log.push('first'), { delay: 50 }).catch(e => log.push('first:' + e.name));
             scheduler.postTask(() => log.push('second'), { delay: 50 })
-                .then(() => log.push('resolved'), e => log.push('second:' + e.name + ':' + (e instanceof DOMException)));
+                .then(() => log.push('resolved'), e => log.push('second:' + e.name + ':' + (e instanceof QuotaExceededError) + ':' + e.quota + ':' + e.requested));
             """);
 
-        Log(engine).Should().Be("second:QuotaExceededError:true");
+        // https://webidl.spec.whatwg.org/#quotaexceedederror, carrying the cap and the count the refused
+        // registration would have taken the engine to.
+        Log(engine).Should().Be("second:QuotaExceededError:true:1:2");
     }
 
     [Fact]

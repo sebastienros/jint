@@ -224,6 +224,12 @@ internal sealed class StructuredDeserializer
                 result = DeserializeError(error);
                 break;
 
+            // Before the DOMException arm it derives from — https://webidl.spec.whatwg.org/#quotaexceedederror
+            // deserializes into the interface, not into a DOMException wearing the name.
+            case SerializedQuotaExceededError quotaExceeded:
+                result = DeserializeQuotaExceededError(quotaExceeded);
+                break;
+
             case SerializedDomException domException:
                 result = DeserializeDomException(domException);
                 break;
@@ -392,18 +398,32 @@ internal sealed class StructuredDeserializer
         return result;
     }
 
+    private JsQuotaExceededError DeserializeQuotaExceededError(SerializedQuotaExceededError record)
+    {
+        var result = _realm.Intrinsics.QuotaExceededError.CreateException(record.Message, record.Quota, record.Requested);
+        AttachStack(result, record.Stack);
+        return result;
+    }
+
     private JsDomException DeserializeDomException(SerializedDomException record)
     {
         var result = _realm.Intrinsics.DomException.CreateException(record.Name, record.Message);
+        AttachStack(result, record.Stack);
+        return result;
+    }
 
-        if (record.Stack is { } stack)
+    /// <summary>
+    /// Replaces the trace <c>CreateException</c> captured at the deserialization site with the one the source
+    /// exception carried, so a clone's <c>stack</c> still points where the error was raised.
+    /// </summary>
+    private static void AttachStack(JsDomException result, string? recordStack)
+    {
+        if (recordStack is { } stack)
         {
             // A DOMException carries stack as an own non-enumerable property, so replace the one
             // CreateException captured here.
             result.SetProperty(CommonProperties.Stack, new PropertyDescriptor(JsString.Create(stack), PropertyFlag.NonEnumerable));
         }
-
-        return result;
     }
 
     private ErrorPrototype ErrorPrototypeFor(SerializedErrorName name) => name switch

@@ -2,7 +2,6 @@
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
-using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
 
 namespace Jint.WebApi.Caches;
@@ -291,7 +290,7 @@ internal static class CacheAddAll
             }
             catch (CacheQuotaExceededException ex)
             {
-                Fail(_realm.Intrinsics.DomException.CreateException(DomExceptionNames.QuotaExceeded, ex.Message));
+                Fail(_realm.Intrinsics.QuotaExceededError.CreateException(ex.Message, ex.Quota, ex.Requested));
             }
             catch (Exception ex) when (!ConstraintFailure.MustPropagate(ex))
             {

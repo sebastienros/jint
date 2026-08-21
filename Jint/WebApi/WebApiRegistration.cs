@@ -126,6 +126,14 @@ internal static class WebApiRegistration
         // NOT enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
         Install(global, engine, "DOMException", static e => e.Realm.Intrinsics.DomException, PropertyFlag.NonEnumerable);
 
+        // And its one derived interface, https://webidl.spec.whatwg.org/#quotaexceedederror, for the same
+        // reason and under the same (absent) flag: several of the features below refuse a request for want of
+        // room, and this is the shape WebIDL now gives that refusal. `e.constructor === QuotaExceededError` is
+        // how a script — and web-platform-tests' own assert_throws_quotaexceedederror — tells the interface
+        // apart from a plain DOMException wearing the name, so the interface object has to be reachable
+        // wherever one can be thrown.
+        Install(global, engine, "QuotaExceededError", static e => e.Realm.Intrinsics.QuotaExceededError, PropertyFlag.NonEnumerable);
+
         if ((features & WebApiFeatures.Console) != WebApiFeatures.None)
         {
             // A WebIDL namespace object is exposed through an accessor pair; installing it as an ordinary

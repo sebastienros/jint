@@ -42,6 +42,7 @@ namespace Jint.Runtime;
 public sealed partial class Intrinsics
 {
     private DomExceptionConstructor? _domException;
+    private QuotaExceededErrorConstructor? _quotaExceededError;
     private ConsoleInstance? _console;
     private TimerFunctions? _timers;
     private TextEncoderConstructor? _textEncoder;
@@ -63,6 +64,15 @@ public sealed partial class Intrinsics
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
+
+    /// <summary>
+    /// <c>QuotaExceededError</c> inherits from <c>DOMException</c>, so reaching it builds <c>DOMException</c>
+    /// too — which is what makes <c>Object.getPrototypeOf(QuotaExceededError) === DOMException</c> hold however
+    /// the two were first touched, and what lets an engine-thrown quota error reach this one object whether the
+    /// script has ever named it or not.
+    /// </summary>
+    internal QuotaExceededErrorConstructor QuotaExceededError =>
+        _quotaExceededError ??= new QuotaExceededErrorConstructor(_engine, _realm, DomException);
 
     internal ConsoleInstance Console =>
         _console ??= new ConsoleInstance(_engine, _realm, Object.PrototypeObject);

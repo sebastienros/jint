@@ -5,7 +5,6 @@ using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
 
 namespace Jint.WebApi.Caches;
@@ -261,7 +260,7 @@ internal sealed partial class CachePrototype : Prototype
                 }
                 catch (CacheQuotaExceededException ex)
                 {
-                    capability.Reject(_realm.Intrinsics.DomException.CreateException(DomExceptionNames.QuotaExceeded, ex.Message));
+                    capability.Reject(_realm.Intrinsics.QuotaExceededError.CreateException(ex.Message, ex.Quota, ex.Requested));
                 }
             },
             capability.Reject);

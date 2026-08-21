@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.WebApi.DomException;
 
 namespace Jint.WebApi.Storage;
 
@@ -112,7 +111,10 @@ internal sealed class JsStorage : ObjectInstance
         }
         catch (StorageQuotaExceededException quota)
         {
-            var exception = _realm.Intrinsics.DomException.CreateException(DomExceptionNames.QuotaExceeded, quota.Message);
+            // https://webidl.spec.whatwg.org/#quotaexceedederror, carrying whatever the provider chose to
+            // report — both null unless it used the constructor that takes them, which is what the interface
+            // says an unstated quota reads as. The provider validated the pair when it built the exception.
+            var exception = _realm.Intrinsics.QuotaExceededError.CreateException(quota.Message, quota.Quota, quota.Requested);
             var location = _engine._lastSyntaxElement?.Location ?? default;
             Throw.JavaScriptException(_engine, exception, in location);
         }

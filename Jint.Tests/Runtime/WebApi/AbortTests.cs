@@ -454,7 +454,11 @@ public class AbortTests
             try { AbortSignal.timeout(1000); } catch (e) { caught = e; }
             """);
 
-        engine.Evaluate("caught.name").AsString().Should().Be("QuotaExceededError");
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the cap and the count
+        // the refused signal would have taken the engine to.
+        engine.Evaluate("[caught.constructor.name, caught.name, caught.code, caught.quota, caught.requested].join('|')")
+            .AsString().Should().Be("QuotaExceededError|QuotaExceededError|22|1|2");
+        engine.Evaluate("caught instanceof QuotaExceededError && caught instanceof DOMException").AsBoolean().Should().BeTrue();
     }
 
     [Fact]

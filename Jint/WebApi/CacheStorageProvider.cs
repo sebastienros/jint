@@ -24,8 +24,10 @@ namespace Jint.WebApi;
 /// </para>
 /// <para>
 /// <b>Failure.</b> Any exception a provider throws becomes a rejection of the promise the script is holding:
-/// <see cref="CacheQuotaExceededException"/> becomes a <c>QuotaExceededError</c> <c>DOMException</c>, which is
-/// what the standard's storage steps raise, and anything else becomes a <c>TypeError</c> carrying the original
+/// <see cref="CacheQuotaExceededException"/> becomes a <c>QuotaExceededError</c>
+/// (https://webidl.spec.whatwg.org/#quotaexceedederror), which is what the standard's storage steps raise —
+/// carrying whatever <c>quota</c> and <c>requested</c> the exception named — and anything else becomes a
+/// <c>TypeError</c> carrying the original
 /// exception on the error value for the host to read with <c>JintException.TryGetClrException</c>. The engine
 /// never swallows one.
 /// </para>
@@ -206,7 +208,7 @@ public readonly record struct CachedHeader(string Name, string Value);
 /// </summary>
 /// <remarks>
 /// This is the one provider failure with a specified meaning: the engine turns it into the
-/// <c>QuotaExceededError</c> <c>DOMException</c> the storage steps of
+/// <c>QuotaExceededError</c> the storage steps of
 /// <see href="https://w3c.github.io/ServiceWorker/#batch-cache-operations">Batch Cache Operations</see> and
 /// <see href="https://w3c.github.io/ServiceWorker/#cache-storage-open">open</see> raise, so a script sees the
 /// failure it would see in a browser and can handle it by name. Every other exception becomes a
@@ -214,6 +216,12 @@ public readonly record struct CachedHeader(string Name, string Value);
 /// <para>
 /// Nothing in Jint throws it: the built-in <see cref="InMemoryCacheStorageProvider"/> has no quota at all,
 /// and imposing one is a host decision.
+/// </para>
+/// <para>
+/// <see cref="Quota"/> and <see cref="Requested"/> are the two numbers
+/// <see href="https://webidl.spec.whatwg.org/#quotaexceedederror">QuotaExceededError</see> carries, and the
+/// engine passes whatever this exception holds straight through to the script. They are
+/// <see langword="null"/> unless a constructor was given them.
 /// </para>
 /// </remarks>
 public sealed class CacheQuotaExceededException : Exception
@@ -244,5 +252,41 @@ public sealed class CacheQuotaExceededException : Exception
     public CacheQuotaExceededException(string message, Exception innerException) : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// Creates the exception with the two numbers the script reads back as <c>error.quota</c> and
+    /// <c>error.requested</c>.
+    /// </summary>
+    /// <param name="message">What went wrong; it reaches the script as the error's message.</param>
+    /// <param name="quota">How much the cache storage may hold, in whatever unit the provider counts in.</param>
+    /// <param name="requested">
+    /// How much the refused write would have taken it to, in that same unit — the <i>total</i> rather than the
+    /// increment, which is what makes it comparable with <paramref name="quota"/>.
+    /// </param>
+    /// <param name="innerException">The underlying failure, which the script never sees.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A value is negative or not finite, or <paramref name="requested"/> is less than
+    /// <paramref name="quota"/> — the three things
+    /// <see href="https://webidl.spec.whatwg.org/#quotaexceedederror">QuotaExceededError</see> forbids, checked
+    /// here so that a mistake is reported where it was made.
+    /// </exception>
+    public CacheQuotaExceededException(string message, double quota, double requested, Exception? innerException = null)
+        : base(message, innerException)
+    {
+        QuotaExceededAmounts.Validate(quota, requested);
+        Quota = quota;
+        Requested = requested;
+    }
+
+    /// <summary>
+    /// How much the cache storage may hold, or <see langword="null"/> when this exception does not say.
+    /// </summary>
+    public double? Quota { get; }
+
+    /// <summary>
+    /// How much the refused write would have taken it to, or <see langword="null"/> when this exception does
+    /// not say.
+    /// </summary>
+    public double? Requested { get; }
 }
 #endif

@@ -4,7 +4,6 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.WebApi.DomException;
 using Jint.WebApi.Timers;
 
 namespace Jint.WebApi.Idle;
@@ -91,9 +90,10 @@ internal sealed class IdleCallbackFunctions
             // is a timer, and a script must not be able to register them without bound. Only the timeout half
             // is capped: a callback with no timeout occupies no schedule slot, it simply waits in a list for
             // the next idle period exactly as a queued job waits for the next pump.
-            var quotaExceeded = _realm.Intrinsics.DomException.CreateException(
-                DomExceptionNames.QuotaExceeded,
-                $"Failed to execute 'requestIdleCallback': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
+            var quotaExceeded = _realm.Intrinsics.QuotaExceededError.CreateException(
+                $"Failed to execute 'requestIdleCallback': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.",
+                quota: _timers.RefusalQuota,
+                requested: _timers.RefusalRequested);
 
             var location = _engine._lastSyntaxElement?.Location ?? default;
             Throw.JavaScriptException(_engine, quotaExceeded, in location);
