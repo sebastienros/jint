@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Error;
+using Jint.Native.Object;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
@@ -49,6 +50,8 @@ internal static class Throw
         return value.IsObject() ? "[object]" : value.ToString();
     }
 
+    internal const string GenericHostErrorMessage = "A host operation failed.";
+
     internal static bool IsEngineAbortException(Exception exception)
         => EngineAbortRegistry.Exceptions.TryGetValue(exception, out _);
 
@@ -73,7 +76,6 @@ internal static class Throw
         internal static readonly ConditionalWeakTable<Exception, object> Exceptions = new();
         internal static readonly object Marker = new();
     }
-
     [DoesNotReturn]
     public static void SyntaxError(Realm realm, string? message = null)
     {
@@ -306,17 +308,15 @@ internal static class Throw
     [DoesNotReturn]
     public static void FromClrException(Engine engine, Exception clrException)
     {
-        var error = engine.Realm.Intrinsics.Error.Construct(clrException.Message);
-
-        // The error value survives the interpreter's throw-completion reconstruction (the .NET exception
-        // instance does not), so the only place the originating exception can be recorded and still reach
-        // the host is the error object itself. Attached before the decorator runs, so a decorator can read it.
-        if (error is ErrorInstance errorInstance)
+        if (ModuleLoadCompletion.MustPropagate(clrException))
         {
-            errorInstance.SetClrException(clrException);
+            ExceptionDispatchInfo.Capture(clrException).Throw();
         }
 
-        engine.Options.Interop.ClrExceptionErrorDecorator?.Invoke(engine, error, clrException);
+        var message = engine.Options.Interop.ExposeDetailedExceptionMessages
+            ? clrException.Message
+            : GenericHostErrorMessage;
+        var error = CreateClrError(engine, clrException, message);
 
         var jsException = new JavaScriptException(error);
         var location = engine._lastSyntaxElement?.Location ?? default;
@@ -326,7 +326,71 @@ internal static class Throw
             // (e.g. copying clrException.StackTrace onto the JS Error).
             jsException.SetJavaScriptCallstack(engine, in location, overwriteExisting: false);
         }
+
         throw jsException;
+    }
+
+    internal static ObjectInstance CreateClrError(
+        Engine engine,
+        Exception clrException,
+        string message,
+        ErrorConstructor? errorConstructor = null,
+        bool moduleErrorPolicyApplied = false)
+    {
+        var diagnosticException = JintException.TryGetClrException(clrException, out var originatingException)
+            ? originatingException
+            : clrException;
+        errorConstructor ??= clrException is JavaScriptException { Error: ObjectInstance javaScriptError }
+            ? GetErrorConstructor(engine, javaScriptError)
+            : engine.Realm.Intrinsics.Error;
+        var error = errorConstructor.Construct(message);
+
+        // The error value survives the interpreter's throw-completion reconstruction (the .NET exception
+        // instance does not), so the only place the originating exception can be recorded and still reach
+        // the host is the error object itself. Attached before the decorator runs, so a decorator can read it.
+        if (error is ErrorInstance errorInstance)
+        {
+            errorInstance.SetClrException(diagnosticException);
+            if (moduleErrorPolicyApplied)
+            {
+                errorInstance.SetModuleErrorPolicyToken(engine.Modules.GetModuleErrorPolicyToken());
+            }
+        }
+
+        engine.Options.Interop.ClrExceptionErrorDecorator?.Invoke(engine, error, diagnosticException);
+        return error;
+    }
+
+    private static ErrorConstructor GetErrorConstructor(Engine engine, ObjectInstance error)
+    {
+        var intrinsics = engine.Realm.Intrinsics;
+        var prototype = error.Prototype;
+        if (ReferenceEquals(prototype, intrinsics.SyntaxError.PrototypeObject))
+        {
+            return intrinsics.SyntaxError;
+        }
+        if (ReferenceEquals(prototype, intrinsics.TypeError.PrototypeObject))
+        {
+            return intrinsics.TypeError;
+        }
+        if (ReferenceEquals(prototype, intrinsics.RangeError.PrototypeObject))
+        {
+            return intrinsics.RangeError;
+        }
+        if (ReferenceEquals(prototype, intrinsics.ReferenceError.PrototypeObject))
+        {
+            return intrinsics.ReferenceError;
+        }
+        if (ReferenceEquals(prototype, intrinsics.EvalError.PrototypeObject))
+        {
+            return intrinsics.EvalError;
+        }
+        if (ReferenceEquals(prototype, intrinsics.UriError.PrototypeObject))
+        {
+            return intrinsics.UriError;
+        }
+
+        return intrinsics.Error;
     }
 
     [DoesNotReturn]

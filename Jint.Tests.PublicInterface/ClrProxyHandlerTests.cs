@@ -673,7 +673,7 @@ public class ClrProxyHandlerTests
         engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
 
         var result = engine.Evaluate("(function () { try { p.x; return 'no-throw'; } catch (e) { return 'caught: ' + e.message; } })()").AsString();
-        result.Should().Be("caught: boom");
+        result.Should().Be("caught: A host operation failed.");
     }
 
     [Fact]

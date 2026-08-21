@@ -50,7 +50,8 @@ public class JavaScriptException : JintException
     /// Throw this from host code — a <see cref="Jint.Runtime.Interop.ClrFunction"/> delegate, a module export —
     /// to raise an error the script can catch while the originating CLR exception still reaches the host, read
     /// there with <see cref="JintException.TryGetClrException"/>. A null <paramref name="message"/> takes the
-    /// exception's own message.
+    /// generic host-error message by default; enable
+    /// <see cref="Options.InteropOptions.ExposeDetailedExceptionMessages"/> to use the exception's own message.
     /// <para>
     /// Prefer this over projecting the exception into the script
     /// (<c>new JavaScriptException(JsValue.FromObject(engine, ex))</c>). That value is not an <c>Error</c> — it
@@ -59,7 +60,7 @@ public class JavaScriptException : JintException
     /// </para>
     /// </summary>
     public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception clrException)
-        : this(errorConstructor, ResolveClrMessage(message, clrException))
+        : this(errorConstructor, ResolveClrMessage(errorConstructor, message, clrException))
     {
         if (Error is ErrorInstance errorInstance)
         {
@@ -67,14 +68,17 @@ public class JavaScriptException : JintException
         }
     }
 
-    private static string? ResolveClrMessage(string? message, Exception clrException)
+    private static string? ResolveClrMessage(ErrorConstructor errorConstructor, string? message, Exception clrException)
     {
         if (clrException is null)
         {
             Throw.ArgumentNullException(nameof(clrException));
         }
 
-        return message ?? clrException.Message;
+        return message
+               ?? (errorConstructor.Engine.Options.Interop.ExposeDetailedExceptionMessages
+                   ? clrException.Message
+                   : Throw.GenericHostErrorMessage);
     }
 
     public JavaScriptException(JsValue error)

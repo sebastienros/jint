@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Constraints;
 using Jint.Native;
+using Jint.Native.Error;
 
 namespace Jint.Runtime.Modules;
 
@@ -163,8 +164,10 @@ public sealed class ModuleLoadCompletion
 
     /// <summary>
     /// Fails the load. Every importer waiting on it — the promise from a dynamic <c>import()</c>, the load
-    /// phase of a static import graph — is rejected with an <c>Error</c> carrying
-    /// <paramref name="exception"/>'s message. Engine resource-limit and cancellation exceptions propagate
+    /// phase of a static import graph — is rejected with an <c>Error</c>. By default the script-visible message
+    /// is generic; <see cref="Options.ModuleOptions.ExposeDetailedLoadErrors"/> restores the exception message
+    /// for trusted development environments. The original exception remains available host-side through
+    /// <see cref="JintException.TryGetClrException"/>. Engine resource-limit and cancellation exceptions propagate
     /// instead, because turning them into a script-catchable rejection would defeat the bound.
     /// </summary>
     public void SetError(Exception exception)
@@ -180,15 +183,17 @@ public sealed class ModuleLoadCompletion
             return;
         }
 
-        // A JavaScriptException already carries the error value the host wants raised — and travels along so
-        // a blocking importer can rethrow it with its location and stack intact; anything else is a CLR
-        // failure whose message is the only part meaningful to script.
-        var javaScriptException = exception as JavaScriptException;
-        Settle(() => Fail(javaScriptException, javaScriptException?.Error, exception.Message));
+        var error = exception is JavaScriptException { Error: ErrorInstance markedError }
+                    && _modules.HasModuleErrorPolicyApplied(markedError)
+            ? markedError
+            : null;
+        Settle(() => Fail(exception, error, exception.Message));
     }
 
     /// <summary>
-    /// Fails the load with an <c>Error</c> carrying <paramref name="message"/>.
+    /// Fails the load with an <c>Error</c> carrying <paramref name="message"/>. This overload is an explicit
+    /// script-facing message and is not redacted; use <see cref="SetError(Exception)"/> to preserve diagnostic
+    /// details for the host while applying the configured disclosure policy to script.
     /// </summary>
     public void SetError(string message)
     {
@@ -275,9 +280,10 @@ public sealed class ModuleLoadCompletion
             }
             catch (JavaScriptException ex)
             {
-                // Parsing the source the host handed over is engine work, so a syntax error in it belongs to
-                // the importer as a rejection rather than to whichever turn of the event loop ran the build.
-                Fail(ex, ex.Error, ex.Message);
+                var error = _modules.HasModuleErrorPolicyApplied(ex.Error)
+                    ? ex.Error
+                    : null;
+                Fail(ex, error, ex.Message);
                 return;
             }
             catch (Exception ex) when (Engine.EventLoop.IsRunningJob && !MustPropagate(ex))
@@ -314,7 +320,18 @@ public sealed class ModuleLoadCompletion
         try
         {
             _modules.RemovePendingLoad(_cacheKey);
-            FinishWaiters(module: null, error ?? CreateError(message), exception);
+            var loadError = error;
+            if (loadError is null)
+            {
+                loadError = exception is null
+                    ? CreateError(message)
+                    : Throw.CreateClrError(
+                        Engine,
+                        exception,
+                        Engine.Options.Modules.ExposeDetailedLoadErrors ? message : GenericLoadErrorMessage,
+                        moduleErrorPolicyApplied: true);
+            }
+            FinishWaiters(module: null, loadError, exception);
         }
 
         finally
@@ -332,7 +349,10 @@ public sealed class ModuleLoadCompletion
 
     private void FinishWaiters(Module? module, JsValue? error, Exception? exception)
     {
-        if (error is not null && exception is not null)
+        if (error is not null
+            && exception is JavaScriptException javaScriptException
+            && ReferenceEquals(javaScriptException.Error, error)
+            && _modules.HasModuleErrorPolicyApplied(error))
         {
             // Keeps the original exception reachable for the blocking import paths, which otherwise can only
             // rebuild a JavaScriptException from the error value — losing its location, stack and Data.
@@ -425,6 +445,15 @@ public sealed class ModuleLoadCompletion
         }
 
         return exception is TimeoutException && Throw.IsEngineAbortException(exception);
+    }
+
+    private const string GenericLoadErrorMessage = "Could not load module.";
+
+    private void Abort(Exception exception)
+    {
+        _modules.RemovePendingLoad(_cacheKey);
+        _waiters.Clear();
+        ExceptionDispatchInfo.Capture(exception).Throw();
     }
 
     private Native.Object.ObjectInstance CreateError(string message) => Engine.Realm.Intrinsics.Error.Construct(message);

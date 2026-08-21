@@ -862,10 +862,10 @@ public class InteropCompiledMemberAccessorTests
             return true;
         });
 
-        engine.Evaluate("try { host.ThrowingIntGetter; 'no throw' } catch (e) { e.message }").Should().Be("int getter boom");
-        engine.Evaluate("try { host.ThrowingDecimalGetter; 'no throw' } catch (e) { e.message }").Should().Be("decimal getter boom");
-        engine.Evaluate("try { host.ThrowingIntSetter = 1; 'no throw' } catch (e) { e.message }").Should().Be("int setter boom");
-        engine.Evaluate("try { host.ThrowingDecimalSetter = 1; 'no throw' } catch (e) { e.message }").Should().Be("decimal setter boom");
+        engine.Evaluate("try { host.ThrowingIntGetter; 'no throw' } catch (e) { e.message }").Should().Be("A host operation failed.");
+        engine.Evaluate("try { host.ThrowingDecimalGetter; 'no throw' } catch (e) { e.message }").Should().Be("A host operation failed.");
+        engine.Evaluate("try { host.ThrowingIntSetter = 1; 'no throw' } catch (e) { e.message }").Should().Be("A host operation failed.");
+        engine.Evaluate("try { host.ThrowingDecimalSetter = 1; 'no throw' } catch (e) { e.message }").Should().Be("A host operation failed.");
 
         seen.Should().AllSatisfy(e => e.Should().BeOfType<InvalidOperationException>());
         seen.Should().HaveCount(4);

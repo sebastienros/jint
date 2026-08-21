@@ -212,9 +212,21 @@ public sealed class ModuleBuilder
         }
         catch (ParseErrorException ex)
         {
-            // The diagnostic names the module the way the host knows it, which is the registration name.
-            var errorLocation = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
-            Throw.SyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", in errorLocation);
+            var exposeDetails = _engine.Options.Modules.ExposeDetailedLoadErrors;
+            var errorLocation = SourceLocation.From(
+                Position.From(ex.LineNumber, ex.Column),
+                Position.From(ex.LineNumber, ex.Column),
+                exposeDetails ? _specifier : null);
+            var message = exposeDetails
+                ? $"Error while loading module: error in module '{_specifier}': {ex.Error}"
+                : "Could not load module.";
+            var error = Throw.CreateClrError(
+                _engine,
+                ex,
+                message,
+                _engine.Realm.Intrinsics.SyntaxError,
+                moduleErrorPolicyApplied: true);
+            Throw.JavaScriptException(_engine, error, in errorLocation);
             return default;
         }
     }

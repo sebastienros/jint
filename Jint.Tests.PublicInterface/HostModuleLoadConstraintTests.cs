@@ -107,6 +107,9 @@ public class HostModuleLoadConstraintTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        operation.Error!.ToString().Should().Contain("the asset pipeline is down");
+        operation.Error!.Get("message").AsString().Should().Be("Could not load module.");
+        var rejection = Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>().Which;
+        JintException.TryGetClrException(rejection, out var clrException).Should().BeTrue();
+        clrException.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("the asset pipeline is down");
     }
 }

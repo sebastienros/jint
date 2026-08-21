@@ -60,12 +60,27 @@ internal static class AcornimaExtensions
         }
         catch (ParseErrorException ex)
         {
-            Throw.SyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}", ToLocation(ex, source));
+            var exposeDetails = engine.Options.Modules.ExposeDetailedLoadErrors;
+            var message = exposeDetails
+                ? $"Error while loading module: error in module '{source}': {ex.Error}"
+                : "Could not load module.";
+            var error = Throw.CreateClrError(
+                engine,
+                ex,
+                message,
+                engine.Realm.Intrinsics.SyntaxError,
+                moduleErrorPolicyApplied: true);
+            var location = ToLocation(ex, exposeDetails ? source : null);
+            Throw.JavaScriptException(engine, error, in location);
             return default;
         }
-        catch (Exception ex) when (ex is not ParsingLimitException)
+        catch (Exception ex) when (!Runtime.Modules.ModuleLoadCompletion.MustPropagate(ex))
         {
-            Throw.JavaScriptException(engine, $"Could not load module {source}", in AstExtensions.DefaultLocation);
+            var message = engine.Options.Modules.ExposeDetailedLoadErrors
+                ? $"Could not load module {source}: {ex.Message}"
+                : "Could not load module.";
+            var error = Throw.CreateClrError(engine, ex, message, moduleErrorPolicyApplied: true);
+            Throw.JavaScriptException(engine, error, in AstExtensions.DefaultLocation);
             return default;
         }
     }

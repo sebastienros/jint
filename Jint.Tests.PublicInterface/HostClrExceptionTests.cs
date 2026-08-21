@@ -341,8 +341,10 @@ public class HostClrExceptionTests
 
         var exception = Invoking(() => engine.Evaluate("parse()")).Should().Throw<JavaScriptException>().Which;
 
-        exception.Message.Should().Be("XML parsing failed");
-        exception.Error.AsObject().Get("message").AsString().Should().Be("XML parsing failed");
+        exception.Message.Should().Be("A host operation failed.");
+        exception.Error.AsObject().Get("message").AsString().Should().Be("A host operation failed.");
+        JintException.TryGetClrException(exception, out var clrException).Should().BeTrue();
+        clrException.Should().BeSameAs(original);
     }
 
     [Fact]
@@ -415,7 +417,7 @@ public class HostClrExceptionTests
         // GetJavaScriptErrorString is what a host shows a script author: the JavaScript error and its
         // JavaScript frames, never the host's .NET stack
         var errorString = exception.GetJavaScriptErrorString();
-        errorString.Should().StartWith("Error: host blew up");
+        errorString.Should().StartWith("Error: A host operation failed.");
         errorString.Should().Contain("at inner", "the JavaScript frames are what this accessor is for");
         errorString.Should().NotContain(nameof(HostFailure));
         errorString.Should().NotContain("root cause");
@@ -475,7 +477,7 @@ public class HostClrExceptionTests
         engine.Evaluate("let caught; try { boom(); } catch (e) { caught = e; }");
 
         engine.Evaluate("caught instanceof Error").AsBoolean().Should().BeTrue();
-        engine.Evaluate("caught.message").AsString().Should().Be("host blew up");
+        engine.Evaluate("caught.message").AsString().Should().Be("A host operation failed.");
         engine.Evaluate("JSON.stringify(caught)").AsString().Should().Be("{}");
     }
 

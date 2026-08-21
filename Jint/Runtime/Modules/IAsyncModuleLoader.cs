@@ -50,9 +50,10 @@ public interface IAsyncModuleLoader : IModuleLoader
     /// failed import no longer bounds anything. Note what that means for a host cancelling its own fetch:
     /// <see cref="OperationCanceledException"/> (and so <see cref="System.Threading.Tasks.TaskCanceledException"/>)
     /// thrown from here is read as the engine aborting, not as a failed load, and on a queued event-loop turn
-    /// it escapes with the importers of that specifier left pending. Report a cancelled fetch through
-    /// <see cref="ModuleLoadCompletion.SetError(Exception)"/> or a faulted task instead — which is what
-    /// <see cref="AsyncModuleLoader"/> does for you.
+    /// it escapes with the importers of that specifier left pending. The same rule applies to
+    /// <see cref="ModuleLoadCompletion.SetError(Exception)"/>, faulted tasks and canceled tasks. A host that
+    /// deliberately wants cancellation to be an ordinary failed import must report an explicit script-facing
+    /// message through <see cref="ModuleLoadCompletion.SetError(string)"/> instead.
     /// </para>
     /// </remarks>
     void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion);

@@ -97,6 +97,8 @@ Defaults are compatibility choices, not a hardened profile.
 | `Atomics.wait` suspension | Enabled | Script may block the engine thread, including indefinitely |
 | Debugger | Disabled | Debug callbacks and debugger expressions are inactive |
 | Detailed CLR resolution errors | Disabled | Reduces script-visible CLR surface disclosure |
+| Detailed caught CLR exception messages | Disabled | Replaces host exception text with a generic script-visible error |
+| Detailed module load errors | Disabled | Hides loader messages, canonical paths, URLs, and parse source names from script |
 | Function source retention | Disabled | Submitted function source is not retained solely for `toString()` |
 | Result conversion and JSON output limits | Unlimited | Compatibility default; hostile output is unbounded unless the host opts in |
 
@@ -411,6 +413,9 @@ traces, and `import.meta.url` can disclose paths, hostnames, queries, or credent
 - `IModuleLoadPolicy` can inspect every final resolved target. `ModuleAllowlistPolicy`
   provides composable scheme, exact-host, exact-origin, canonical-file-root, and bare-
   specifier controls.
+- Loader exceptions and module parse locations are redacted from script by default. The
+  original exception remains available to the host through
+  `JintException.TryGetClrException`.
 
 **Missing or residual mitigation.**
 
@@ -426,12 +431,19 @@ traces, and `import.meta.url` can disclose paths, hostnames, queries, or credent
 - File-root policy is lexical and does not resolve symbolic links or Windows reparse points;
   an allowed root containing attacker-controlled links can still escape the lexical root.
 - Base-path checking is not a replacement for filesystem permissions or an OS sandbox.
-- Async loader failures expose the supplied exception message to script.
+- A loader can deliberately bypass automatic redaction with
+  `ModuleLoadCompletion.SetError(string)`, an error decorator, or an explicit
+  `JavaScriptException` message.
+- `Module.Location`, `import.meta`, debugger/source metadata, and successful module values
+  are not anonymized. The host still controls those names and values.
+- `ExposeDetailedErrors()` or `Modules.ExposeDetailedLoadErrors = true` restores detailed
+  loader and source messages for trusted development environments.
 
 **Required host action.** Prefer host-registered modules. Otherwise configure all four graph
 limits and an `IModuleLoadPolicy`; also enforce resolved-IP, redirect, transport-size, and
-timeout policy inside the loader. Use a credential-free module identity, sanitize loader
-errors, and apply restrictive filesystem and network policy to the worker.
+timeout policy inside the loader. Use a credential-free module identity, report failures
+with `SetError(Exception)`, leave detailed load errors disabled, and apply restrictive
+filesystem and network policy to the worker.
 
 ### TM-12: Cross-request state leakage and prototype pollution
 
@@ -542,19 +554,32 @@ very large diagnostics.
 
 **Existing mitigations.**
 
-- Detailed CLR resolution errors and CLR inner-exception chaining are disabled by default.
+- Caught CLR exception messages, CLR method/constructor resolution details, module loader
+  failures, and module parse locations are redacted from script by default.
+- Original CLR and loader exceptions remain available host-side through
+  `JintException.TryGetClrException`; resolution type/member metadata remains available
+  through `TryGetClrType` and `TryGetClrMemberName`.
+- CLR inner-exception chaining is disabled by default.
 - `GetJavaScriptErrorString()` omits a chained CLR exception.
 - CLR exceptions are not catchable by script unless the host opts in.
 - Function source text retention is disabled by default.
 
 **Missing or residual mitigation.**
 
-- Loader error messages and host-provided source/module names can still be script-visible.
+- Explicit messages passed to `JavaScriptException` or
+  `ModuleLoadCompletion.SetError(string)`, decorator-added properties, successful module
+  values, and host-provided source/module names can still be script-visible.
+- `ExposeDetailedErrors()`, `Interop.ExposeDetailedExceptionMessages`,
+  `Interop.ExposeDetailedResolutionErrors`, `Modules.ExposeDetailedLoadErrors`, and
+  `ChainClrExceptions()` are development/diagnostic opt-ins that can expose host details
+  through their documented channels.
 - Host logging and HTTP response formatting are outside Jint.
 
 **Required host action.** Use opaque source and module identifiers, never put credentials in
-URLs, sanitize host errors, cap diagnostic size, encode log fields structurally, and return
-generic server errors while retaining sensitive details only in protected telemetry.
+URLs, leave detailed error options and CLR exception chaining disabled, use exception-based
+module failures rather than explicit strings, cap diagnostic size, encode log fields
+structurally, and return generic server errors while retaining sensitive details only in
+protected telemetry.
 
 ### TM-17: Result conversion and serialization denial of service
 
@@ -1150,6 +1175,9 @@ var engine = new Engine(options =>
     options.AllowClrWrite(false);
     options.Interop.ArrayConversion = ArrayConversionMode.Copy;
     options.ResultLimits = ResultLimits.Conservative;
+    options.Interop.ExposeDetailedExceptionMessages = false;
+    options.Interop.ExposeDetailedResolutionErrors = false;
+    options.Modules.ExposeDetailedLoadErrors = false;
 
     // Do not call AllowClr(). Leave modules and the debugger disabled.
 });
