@@ -414,7 +414,13 @@ points:
   bool, so a worker-side `preventDefault()` (or a global `onerror` returning `true`) must stop the parent from
   being told. The two consumption sites therefore keep the bool and hand it to an internal per-connection hook
   that sits **beside** the sink: the host's own sink still sees every report, its documented contract, while
-  parent propagation honours *notHandled*.
+  parent propagation honours *notHandled*. Two details settled at implementation. The relay reads the
+  in-error-reporting-mode flag `GlobalEventTarget` already keeps, *before* the dispatch: a failure raised while
+  a previous one was being reported propagates nowhere, or the recursion that guard exists to stop would simply
+  move one engine up. And the re-report at the parent reaches its sink as its own kind,
+  `DiagnosticEventKind.WorkerError`, carrying the **message as a string** — the value cannot cross, for the
+  same reason the event carries `error: null` — so a host wiring one sink for a parent *and* its workers can
+  tell that report apart from the one it already heard from the worker's side.
 - **Unhandled promise rejections never propagate.** `unhandledrejection` fires at the worker's own global and
   reaches the parent through nothing at all; the relay filters kinds. Pinned, because the sink wiring makes the
   opposite easy to fall into.
@@ -690,9 +696,14 @@ a worker is different, and it is about *cost rather than delivery*: a one-sided 
 surviving side still pays a full structured clone per `postMessage`, still detaches its own transfer-listed
 buffers, still throws `DataCloneError` for unserializable values — forever. A worker connection is one object
 the engine created spanning two engines, not two independent host peers, so closing both is what stops the
-survivor's work. The restore-path hook does only the thread-safe part (endpoints, token, flags);
-`OnWorkerEnded` is invoked after `ResetTransientEvaluationState` finishes, so a host exception cannot erupt from
-the middle of a half-finished restore.
+survivor's work. The restore-path hook does only the thread-safe part (endpoints, token, flags); the host
+callback is *collected* into a list carried through `WorkerConnection.TryEnd` and run as the last act of
+`ResetTransientEvaluationState` — and of `Engine.Dispose` — with the engine whole again, so a host exception
+cannot erupt from the middle of a half-finished teardown. Passing the list through the call rather than setting
+a flag is what keeps it race-free: the thread that *wins* `TryEnd` is the thread carrying the list, so a
+`terminate()` landing at the same instant still calls the host itself. The connections are ended *before* the
+general port sweep in the same method, or `CloseMessagePorts` would close an engine's half of one as an
+anonymous port — stopping delivery while leaving the connection reading as live.
 
 A parent restore leaves the `Worker` object alive but **inert** — `postMessage` a no-op (post-serialization),
 `terminate()` idempotent, no further events — which is not a concession but conformance: the spec's
