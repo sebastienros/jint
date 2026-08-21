@@ -32,6 +32,17 @@ public class EventSourceTests
     private const string StreamUrl = "https://example.org/stream";
 
     /// <summary>
+    /// How long a test will wait for a signal raised by a thread-pool continuation — a cancelled read
+    /// resuming, a handler seeing its token fire. The claim being made is that the signal happens at all,
+    /// never how quickly, so this is a ceiling only a genuine failure to propagate can reach. It is
+    /// deliberately far past any plausible scheduling delay: a loaded runner injects pool workers at
+    /// roughly one per 500 ms once saturated, which is what made a five-second window a flake
+    /// (sebastienros/jint#3201) rather than a check. The test that waits on one also hands its body to
+    /// <see cref="DedicatedThread.RunAsync"/>, so it is not itself holding a worker the continuation needs.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
+    /// <summary>
     /// A clock that only moves when a test moves it, so the reconnect delay is exact and instant.
     /// </summary>
     private sealed class ManualClock : TimeProvider
@@ -438,7 +449,7 @@ public class EventSourceTests
     }
 
     [Fact]
-    public void CloseStopsEverythingAndDispatchesNothingFurther()
+    public Task CloseStopsEverythingAndDispatchesNothingFurther() => DedicatedThread.RunAsync(() =>
     {
         var stream = new PushStream();
         var handler = new StubHandler { Responder = _ => Answer(stream) };
@@ -462,10 +473,11 @@ public class EventSourceTests
         engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
 
         // The transport was told, not just the object: the read in flight was cancelled.
-        stream.ReadCancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        stream.ReadCancelled.Wait(TransportSignalCeiling).Should().BeTrue(
+            "closing an EventSource must cancel the read in flight, not merely mark the object CLOSED");
 
         stream.Complete();
-    }
+    });
 
     [Fact]
     public void CloseFromInsideAListenerStopsTheRestOfTheSameChunk()
