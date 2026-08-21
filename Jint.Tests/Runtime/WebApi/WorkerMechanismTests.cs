@@ -725,6 +725,282 @@ public class WorkerMechanismTests
     }
 
     // -------------------------------------------------------------------------------------------------------
+    // The error channels
+    // -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A load or parse failure fires <b>a plain <c>Event</c></b> at the <c>Worker</c> object. The standard's
+    /// step names no interface, and libraries branch on exactly that to tell "the script never loaded" from
+    /// "the script threw".
+    /// </summary>
+    /// <remarks>
+    /// Firing an <c>ErrorEvent</c> here instead would make every assertion below but the first still pass,
+    /// which is why the shape is asserted rather than the arrival.
+    /// </remarks>
+    [Fact]
+    public void ALoadFailureFiresAPlainEventNotAnErrorEvent()
+    {
+        var host = new TestWorkerHost();
+        var parent = Parent(host);
+
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./missing.js', { type: 'module' });
+            w.onerror = e => seen.push([
+                e.type,
+                e instanceof ErrorEvent,
+                e.isTrusted,
+                'message' in e,
+                e.target === w].join('|'));
+            """);
+
+        Drain(parent, host.Connection);
+
+        parent.Evaluate("seen.join(',')").AsString().Should().Be(
+            "error|false|true|false|true",
+            "the onComplete step for a script that failed to fetch names no interface, so it is an Event");
+    }
+
+    /// <summary>
+    /// An uncaught runtime error inside a worker reaches the parent as an <c>ErrorEvent</c> carrying the
+    /// message and the location — and <c>error: null</c>, which is the specification's own value and not a
+    /// limitation dressed up as one.
+    /// </summary>
+    [Fact]
+    public void AWorkerErrorReachesTheParentWithNullError()
+    {
+        var host = new TestWorkerHost(Module("""
+            addEventListener('message', () => { throw new TypeError('boom'); });
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = e => seen.push([
+                e.type,
+                e instanceof ErrorEvent,
+                e.isTrusted,
+                e.error === null,
+                e.message,
+                e.target === w].join('|'));
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        parent.Evaluate("seen.length").AsNumber().Should().Be(1);
+        parent.Evaluate("seen[0]").AsString().Should().StartWith("error|true|true|true|boom|");
+        parent.Evaluate("seen[0]").AsString().Should().EndWith("|true");
+
+        host.Connection.IsEnded.Should().BeFalse("a runtime error is not the end of the connection");
+    }
+
+    /// <summary>
+    /// Step 5.2.3: the <c>ErrorEvent</c> at the <c>Worker</c> object was not cancelled either, so the failure is
+    /// reported one level further up — at the parent's own global scope, and to the parent's sink.
+    /// </summary>
+    [Fact]
+    public void AnUnhandledWorkerErrorReachesTheParentsGlobalErrorEvent()
+    {
+        var host = new TestWorkerHost(Module("""
+            addEventListener('message', () => { throw new TypeError('boom'); });
+            """));
+
+        var sink = new RecordingSink();
+        var parent = Parent(host, parentSink: sink);
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            addEventListener('error', e => seen.push(e.message + '|' + (e.error === null)));
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        parent.Evaluate("seen.join(',')").AsString().Should().Be(
+            "boom|true",
+            "nothing handled it on the worker's side or on the Worker object's, so it is reported here");
+
+        sink.Reports.Should().ContainSingle().Which.Should().Be($"{DiagnosticEventKind.WorkerError}:boom");
+    }
+
+    /// <summary>
+    /// The relay is gated on HTML's <i>notHandled</i>, which is what a worker-side <c>preventDefault()</c> sets
+    /// to false — and it is deliberately not the <see cref="DiagnosticsSink"/>, whose contract is that a script
+    /// may not switch it off.
+    /// </summary>
+    [Fact]
+    public void AWorkerSidePreventDefaultStopsPropagationToTheParent()
+    {
+        var host = new TestWorkerHost(Module("""
+            addEventListener('error', e => { record('worker-saw:' + e.message); e.preventDefault(); });
+            addEventListener('message', () => { throw new TypeError('boom'); });
+            """));
+
+        var workerSink = new RecordingSink();
+        var parentSink = new RecordingSink();
+        var parent = Parent(host, parentSink: parentSink);
+        host.Tune = options => options.WebApi.Diagnostics.Sink = workerSink;
+
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = () => seen.push('parent-saw');
+            addEventListener('error', () => seen.push('parent-global'));
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("worker-saw:boom");
+        parent.Evaluate("seen.join(',')").AsString().Should().BeEmpty("preventDefault() on the worker's side is HTML's gate");
+
+        workerSink.Reports.Should().ContainSingle().Which.Should().StartWith(DiagnosticEventKind.UncaughtCallbackError.ToString());
+        parentSink.Reports.Should().BeEmpty("the parent was never told, so its sink has nothing to say either");
+    }
+
+    /// <summary>
+    /// The worker global's <c>onerror</c> is HTML's legacy shape — «message, filename, lineno, colno, error»,
+    /// and returning <see langword="true"/> cancels. That is what decides <i>notHandled</i> on the worker side.
+    /// </summary>
+    [Fact]
+    public void TheWorkerGlobalOnErrorTakesFiveArgumentsAndCancelsByReturningTrue()
+    {
+        var host = new TestWorkerHost(Module("""
+            onerror = function (message, filename, lineno, colno, error) {
+                record('args:' + arguments.length);
+                record('message:' + message);
+                record('lineno>0:' + (lineno > 0));
+                record('error:' + (error instanceof TypeError));
+                return true;
+            };
+            addEventListener('message', () => { throw new TypeError('boom'); });
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = () => seen.push('parent-saw');
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be(
+            "args:5,message:boom,lineno>0:true,error:true",
+            "an ErrorEvent named error at a global scope gets the five-argument invocation");
+        parent.Evaluate("seen.join(',')").AsString().Should().BeEmpty("returning true is the worker cancelling it");
+    }
+
+    /// <summary>
+    /// <c>Worker.onerror</c> is <c>AbstractWorker</c>'s <i>plain</i> <c>EventHandler</c> instead: invoked with
+    /// the event, and cancelled by <c>preventDefault()</c> or by returning <see langword="false"/> — the
+    /// opposite boolean from the global's.
+    /// </summary>
+    [Fact]
+    public void TheWorkerObjectOnErrorTakesTheEventAndCancelsByReturningFalse()
+    {
+        var host = new TestWorkerHost(Module("""
+            addEventListener('message', () => { throw new TypeError('boom'); });
+            """));
+
+        var sink = new RecordingSink();
+        var parent = Parent(host, parentSink: sink);
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = function () { seen.push('args:' + arguments.length + ':' + arguments[0].message); return false; };
+            addEventListener('error', () => seen.push('parent-global'));
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        parent.Evaluate("seen.join(',')").AsString().Should().Be(
+            "args:1:boom",
+            "the plain shape takes the event, and returning false is what cancels it");
+        sink.Reports.Should().BeEmpty("a cancelled ErrorEvent is not reported one level up");
+    }
+
+    /// <summary>
+    /// An unhandled rejection fires at the worker's own global and reaches the parent through nothing at all.
+    /// The sink wiring makes the opposite easy to fall into, which is why it is pinned.
+    /// </summary>
+    [Fact]
+    public void AnUnhandledRejectionInAWorkerDoesNotReachTheParent()
+    {
+        var host = new TestWorkerHost(Module("""
+            onunhandledrejection = e => record('worker-rejection:' + e.reason.message);
+            addEventListener('message', () => { Promise.reject(new TypeError('nope')); });
+            """));
+
+        var sink = new RecordingSink();
+        var parent = Parent(host, parentSink: sink);
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = () => seen.push('parent-error');
+            addEventListener('error', () => seen.push('parent-global'));
+            addEventListener('unhandledrejection', () => seen.push('parent-rejection'));
+            w.postMessage('go');
+            """);
+
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("worker-rejection:nope", "the event really did fire, on the worker's own global");
+        parent.Evaluate("seen.join(',')").AsString().Should().BeEmpty("the relay carries error reports and nothing else");
+        sink.Reports.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A constraint failure is never an error event. It is a <c>JintException</c> and not a
+    /// <c>JavaScriptException</c>, so nothing catches it: the worker's budget is the <b>host's</b> to observe,
+    /// on whichever thread was pumping, and the parent's script never learns of it.
+    /// </summary>
+    /// <remarks>
+    /// The constraint is a tripwire rather than a clock or a statement count, so the pin turns on the
+    /// classification and not on how much work a module happens to do. It is registered as a <i>factory</i> on
+    /// the parent, which is what the request replays — each engine gets its own instance over one shared
+    /// switch.
+    /// </remarks>
+    [Fact]
+    public void AWorkerConstraintFailureEruptsFromTheHostsPump()
+    {
+        var tripwire = new Tripwire();
+        var host = new TestWorkerHost(Module("""
+            addEventListener('error', () => record('worker-error-event'));
+            addEventListener('message', () => { var n = 0; for (var i = 0; i < 5000; i++) { n += i; } record('finished'); });
+            """));
+
+        var parent = Parent(host, tune: options => options.Constraint(() => new TripwireConstraint(tripwire)));
+        parent.Execute("""
+            var seen = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onerror = () => seen.push('parent-error');
+            """);
+
+        // The module evaluates and the message is queued with the tripwire still down, so what trips is the
+        // listener — the very callback a sink would otherwise turn into a report.
+        Drain(parent, host.Connection);
+        parent.Execute("w.postMessage('go');");
+        host.Connection.IsEnded.Should().BeFalse();
+
+        tripwire.Tripped = true;
+
+        var escaped = Record.Exception(() => DrainWorker(host.Connection));
+
+        escaped.Should().BeOfType<MemoryLimitExceededException>("a constraint bounds the host's pump, it does not become an event");
+        host.Log.Should().NotContain("worker-error-event");
+        host.Log.Should().NotContain("finished");
+
+        tripwire.Tripped = false;
+        parent.Advanced.ProcessTasks();
+        parent.Evaluate("seen.join(',')").AsString().Should().BeEmpty("the parent's script never learns of a budget");
+    }
+
+    // -------------------------------------------------------------------------------------------------------
     // The worker global scope
     // -------------------------------------------------------------------------------------------------------
 
@@ -926,7 +1202,9 @@ public class WorkerMechanismTests
         TestWorkerHost host,
         int maxWorkers = 16,
         int maxQueuedMessages = 16384,
-        string workerName = "")
+        string workerName = "",
+        DiagnosticsSink? parentSink = null,
+        Action<Options>? tune = null)
     {
         _ = workerName;
 
@@ -935,7 +1213,65 @@ public class WorkerMechanismTests
             options.UseWebApis().UseWorkers(host);
             options.WebApi.Workers.MaxWorkers = maxWorkers;
             options.WebApi.Workers.MaxQueuedMessages = maxQueuedMessages;
+
+            if (parentSink is not null)
+            {
+                options.WebApi.Diagnostics.Sink = parentSink;
+            }
+
+            tune?.Invoke(options);
         });
+    }
+
+    /// <summary>
+    /// A sink that keeps what it was told as strings, so an assertion can name the kind and the message without
+    /// holding a <c>JsValue</c> past the call.
+    /// </summary>
+    private sealed class RecordingSink : DiagnosticsSink
+    {
+        private readonly ConcurrentQueue<string> _reports = new();
+
+        public List<string> Reports => _reports.ToList();
+
+        public override void Report(DiagnosticEvent report)
+            => _reports.Enqueue($"{report.Kind}:{report.Exception?.Message ?? report.Value.ToString()}");
+    }
+
+    /// <summary>A switch two engines' constraint instances share, so a pin can decide exactly when one fails.</summary>
+    private sealed class Tripwire
+    {
+        private volatile bool _tripped;
+
+        public bool Tripped
+        {
+            get => _tripped;
+            set => _tripped = value;
+        }
+    }
+
+    /// <summary>
+    /// A constraint that observes external state and nothing else — the shape the request replays as a factory,
+    /// and one whose failure is a <c>JintException</c> that is not a <c>JavaScriptException</c>.
+    /// </summary>
+    private sealed class TripwireConstraint : Constraint
+    {
+        private readonly Tripwire _tripwire;
+
+        public TripwireConstraint(Tripwire tripwire) => _tripwire = tripwire;
+
+        public override void Check()
+        {
+            if (_tripwire.Tripped)
+            {
+                // A JintException that is not a JavaScriptException, which is exactly the class every built-in
+                // budget throws and exactly the discrimination the two report sites make.
+                throw new MemoryLimitExceededException("the tripwire is up");
+            }
+        }
+
+        public override void Reset()
+        {
+        }
     }
 
     /// <summary>
@@ -1000,6 +1336,9 @@ public class WorkerMechanismTests
         /// <summary>Runs on the freshly built engine, before it is handed back.</summary>
         public Action<Engine>? Configure { get; set; }
 
+        /// <summary>Runs on the worker's options, after <c>CreateDefaultOptions</c> and before the engine.</summary>
+        public Action<Options>? Tune { get; set; }
+
         public int Requests { get; private set; }
 
         public List<WorkerConnection> Started { get; } = [];
@@ -1031,6 +1370,7 @@ public class WorkerMechanismTests
 
             var options = request.CreateDefaultOptions();
             options.Modules.ModuleLoader = new MapModuleLoader(Modules);
+            Tune?.Invoke(options);
 
             var engine = new Engine(options);
             engine.SetValue("record", new Action<string>(_log.Enqueue));

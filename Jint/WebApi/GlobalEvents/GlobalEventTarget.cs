@@ -47,6 +47,26 @@ internal sealed class GlobalEventTarget : JsEventTarget
     /// <inheritdoc />
     internal override JsValue EventTargetValue => _realm.GlobalObject;
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// True here and nowhere else, which is what scopes HTML's <i>special error event handling</i> — the
+    /// five-argument <c>onerror</c> that cancels by returning <see langword="true"/> — to the global scope. A
+    /// <c>Worker</c> object's <c>onerror</c> is <c>AbstractWorker</c>'s plain <c>EventHandler</c> and takes the
+    /// other branch.
+    /// </remarks>
+    internal override bool IsGlobalScope => true;
+
+    /// <summary>
+    /// Whether a report is being dispatched at this target right now — HTML's <i>in error reporting mode</i>,
+    /// and the reason <see cref="FireReport"/> declines a second one.
+    /// </summary>
+    /// <remarks>
+    /// Read by the worker error relay, which must decline for the same reason the dispatch does: an error
+    /// raised <i>while</i> a previous one was being reported is not a second failure to tell a parent about,
+    /// and propagating it would be the unbounded recursion the guard exists to stop, one engine further up.
+    /// </remarks>
+    internal bool IsReporting => _reporting;
+
     /// <summary>
     /// Fires one trusted event at the global scope, unless nothing is listening for it or a report is already
     /// in flight.

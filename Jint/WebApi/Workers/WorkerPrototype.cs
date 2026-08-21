@@ -133,10 +133,26 @@ internal sealed partial class WorkerPrototype : Prototype
     /// global's <c>onerror</c> is the legacy five-argument one instead.)
     /// </summary>
     /// <remarks>
-    /// The attribute exists from this change; what fires at it — a plain <c>Event</c> for a load failure and
-    /// an <c>ErrorEvent</c> with <c>error: null</c> for a runtime error — lands with the parent-side error
-    /// channels in their own change. Until then a load failure is reported to the <i>host</i> instead, through
-    /// <see cref="WorkerConnection.IsFaulted"/> and <see cref="WorkerConnection.Error"/>.
+    /// <para>
+    /// Two different events reach it, and telling them apart is the point. A <b>load or parse failure</b> fires
+    /// a plain <c>Event</c> — no <c>message</c>, no <c>error</c> — which is what the standard's own step names,
+    /// and which libraries branch on to mean "the worker's script never ran". A <b>runtime error</b> the worker
+    /// did not handle itself fires an <c>ErrorEvent</c> carrying <c>message</c>, <c>filename</c>,
+    /// <c>lineno</c>, <c>colno</c> and <c>error: null</c> — null for every worker error, because the thrown
+    /// value belongs to the worker's realm and its thread.
+    /// </para>
+    /// <para>
+    /// This is <c>AbstractWorker</c>'s plain <c>EventHandler</c>: the handler is invoked with the event, and
+    /// cancels with <c>preventDefault()</c> or by returning <see langword="false"/> — which stops the failure
+    /// being reported at this engine's own global scope and to its <c>DiagnosticsSink</c>. The worker global's
+    /// own <c>onerror</c> is the legacy five-argument shape instead, and cancels by returning
+    /// <see langword="true"/>.
+    /// </para>
+    /// <para>
+    /// A host that wants to know without wiring any script is served by the connection instead:
+    /// <see cref="WorkerConnection.IsFaulted"/> and <see cref="WorkerConnection.Error"/>, which carry a CLR
+    /// exception rather than a value that may not cross a realm.
+    /// </para>
     /// </remarks>
     [JsAccessor("onerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnErrorGet(JsValue thisObject)

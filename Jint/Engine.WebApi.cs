@@ -667,16 +667,18 @@ internal sealed class WebApiEngineState
     /// a listener for it; step 6 hands the value to the sink. <b>The two are additive rather than
     /// alternative:</b> HTML lets a listener's <c>preventDefault()</c> set <i>notHandled</i> false and so
     /// suppress the console report, and Jint deliberately reports either way — a host's diagnostics channel is
-    /// not something the script it is running may switch off.
+    /// not something the script it is running may switch off. The <i>parent</i> of a worker is told only when
+    /// <i>notHandled</i> is true, which is the half of the algorithm a script legitimately controls; see
+    /// <see cref="FireErrorAndPropagate"/>.
     /// </remarks>
     internal void ReportError(JsValue value)
     {
-        if (_globalEventTarget is { } target)
+        if (HasSomewhereToReportAnError)
         {
             // The location the engine last saw, which for a call from script is the reportError call site —
             // the same fallback every web API that has to place a failure uses.
             var location = _engine._lastSyntaxElement?.Location ?? default;
-            target.FireError(ErrorEventDetails.FromReportedValue(value, in location));
+            FireErrorAndPropagate(ErrorEventDetails.FromReportedValue(value, in location));
         }
 
         Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
@@ -688,12 +690,74 @@ internal sealed class WebApiEngineState
     /// sink report they make carries the exception itself and not merely its value.
     /// </summary>
     /// <remarks>
-    /// A no-op on an engine that has no global listener, which is every engine until a script registers one.
-    /// It declines to recurse: an exception thrown by a listener <i>while</i> a report is being dispatched
-    /// reaches the sink alone — see <see cref="GlobalEventTarget"/>.
+    /// A no-op on an engine that has no global listener and is nobody's worker, which is every engine until a
+    /// script registers one. It declines to recurse: an exception thrown by a listener <i>while</i> a report is
+    /// being dispatched reaches the sink alone — see <see cref="GlobalEventTarget"/>.
     /// </remarks>
     internal void FireGlobalErrorEvent(JavaScriptException exception)
-        => _globalEventTarget?.FireError(ErrorEventDetails.FromException(exception));
+    {
+        if (HasSomewhereToReportAnError)
+        {
+            FireErrorAndPropagate(ErrorEventDetails.FromException(exception));
+        }
+    }
+
+    /// <summary>
+    /// Step 5.2.3 of <i>report an exception</i>: the <c>error</c> event this engine's own <c>Worker</c> object
+    /// raised was not cancelled either, so the failure is reported one level further up — at <i>this</i>
+    /// engine's global scope and to <i>this</i> engine's sink.
+    /// </summary>
+    /// <remarks>
+    /// It is the recursive step, so it propagates again when this engine is itself a worker, which is what
+    /// produces HTML's up-the-chain propagation for the nested workers a provider deliberately enabled.
+    /// </remarks>
+    internal void ReportWorkerError(in ErrorEventDetails details)
+    {
+        FireErrorAndPropagate(in details);
+        Diagnostics?.Report(DiagnosticEvent.ForWorkerError(details.Message));
+    }
+
+    /// <summary>
+    /// Whether a failure reported here could reach anything at all: a global <c>error</c> listener, or the
+    /// parent of a worker. Two field reads, which is what every report site costs on an engine that has
+    /// neither.
+    /// </summary>
+    private bool HasSomewhereToReportAnError => _globalEventTarget is not null || OwningWorkerLink is not null;
+
+    /// <summary>
+    /// <i>Report an exception</i> step 5: fire <c>error</c> at this global scope, and — <b>only</b> when the
+    /// result is HTML's <i>notHandled</i> — hand the failure to the <c>Worker</c> object one engine up.
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The <i>notHandled</i> gate is the whole reason this is not the <see cref="DiagnosticsSink"/>.</b> The
+    /// sink is deliberately unsuppressible by script and is told whatever a listener did; HTML's propagation to
+    /// the parent is gated on exactly the bool a worker-side <c>preventDefault()</c> — or a global
+    /// <c>onerror</c> returning <see langword="true"/> — sets to false. So the relay sits beside the sink and
+    /// reads that bool, and the host's own channel is untouched.
+    /// </para>
+    /// <para>
+    /// Reading <see cref="GlobalEventTarget.IsReporting"/> <i>before</i> the dispatch is the in-error-reporting
+    /// mode guard: a failure raised while a previous one was being reported fires nothing (the dispatch itself
+    /// declines) and must not be propagated either, or the recursion the guard exists to stop would simply move
+    /// one engine up. After the call the flag would answer for the outer report's frame instead, which is the
+    /// same answer for the wrong reason.
+    /// </para>
+    /// </remarks>
+    private void FireErrorAndPropagate(in ErrorEventDetails details)
+    {
+        var target = _globalEventTarget;
+        var reporting = target is { IsReporting: true };
+        var notHandled = target is null || target.FireError(in details);
+
+        if (notHandled && !reporting)
+        {
+            OwningWorkerLink?.ReportErrorToParent(in details);
+        }
+    }
 
     /// <summary>
     /// The sink's half of <c>HostPromiseRejectionTracker</c>. Additive to
