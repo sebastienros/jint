@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Expression = System.Linq.Expressions.Expression;
 
 #pragma warning disable IL2026
@@ -46,6 +47,9 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
+    private static readonly MethodInfo enterHostCallback = engineType.GetMethod(nameof(Engine.EnterTransferredHostCallback), BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo getHostCallbackOwner = engineType.GetMethod(nameof(Engine.GetHostCallbackOwner), BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo exitHostCallback = typeof(Engine.HostCallScope).GetMethod(nameof(IDisposable.Dispose))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
 
@@ -94,6 +98,7 @@ public class DefaultTypeConverter : ITypeConverter
 
     private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
     private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
+    private static readonly ConditionalWeakTable<Delegate, ObjectInstance> _hostCallbackDelegates = new();
 
     private bool TryConvertInternal(
         object? value,
@@ -204,6 +209,10 @@ public class DefaultTypeConverter : ITypeConverter
             {
                 var func = (JsCallDelegate) value;
                 var functionInstance = func.Target;
+                if (functionInstance is ObjectInstance callback)
+                {
+                    callback.Engine.AuthorizeHostCallback(callback);
+                }
 
                 // caching of .NET delegates per function instance is required to be able to support
                 // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged)
@@ -220,6 +229,11 @@ public class DefaultTypeConverter : ITypeConverter
                         return targetBinder(target)!;
                     }) :
                     BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+
+                if (functionInstance is ObjectInstance callbackTarget)
+                {
+                    _hostCallbackDelegates.GetValue(d, _ => callbackTarget);
+                }
 
                 converted = d;
                 return true;
@@ -395,7 +409,7 @@ public class DefaultTypeConverter : ITypeConverter
 #endif
     }
 
-    private Func<object, Delegate> BuildTargetBinderDelegate(
+    private static Func<object, Delegate> BuildTargetBinderDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
         JsCallDelegate function)
     {
@@ -416,7 +430,34 @@ public class DefaultTypeConverter : ITypeConverter
         return (Func<object, Delegate>) curried.Compile();
     }
 
-    private LambdaExpression BuildDelegate(
+    internal static bool ContainsHostCallback(object?[] parameters)
+    {
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (IsHostCallback(parameters[i]))
+            {
+                return true;
+            }
+
+            if (parameters[i] is Array callbacks)
+            {
+                foreach (var callback in callbacks)
+                {
+                    if (IsHostCallback(callback))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    internal static bool IsHostCallback(object? value)
+        => value is Delegate callback && _hostCallbackDelegates.TryGetValue(callback, out _);
+
+    private static LambdaExpression BuildDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
         JsCallDelegate function,
         Expression targetExpression)
@@ -431,6 +472,9 @@ public class DefaultTypeConverter : ITypeConverter
         }
 
         var initializers = new List<MethodCallExpression>(parameters.Length);
+        var targetEngine = Expression.Property(
+            Expression.Convert(targetExpression, typeof(ObjectInstance)),
+            nameof(ObjectInstance.Engine));
 
         for (var i = 0; i < parameters.Length; i++)
         {
@@ -438,7 +482,7 @@ public class DefaultTypeConverter : ITypeConverter
             if (param.Type.IsValueType)
             {
                 var boxing = Expression.Convert(param, objectType);
-                initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing));
+                initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, boxing));
             }
             else if (param.Type.IsArray &&
                      arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
@@ -451,12 +495,12 @@ public class DefaultTypeConverter : ITypeConverter
                     var condition = Expression.IfThen(checkIndex, Expression.Return(returnLabel, Expression.ArrayAccess(param, Expression.Constant(j))));
                     var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
 
-                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), block));
+                    initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, block));
                 }
             }
             else
             {
-                initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param));
+                initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, param));
             }
         }
 
@@ -468,11 +512,10 @@ public class DefaultTypeConverter : ITypeConverter
             Expression.Constant(JsValue.Undefined, jsValueType),
             vars);
 
+        Expression body;
         if (method.ReturnType != typeof(void))
         {
-            return Expression.Lambda(
-                type,
-                Expression.Convert(
+            body = Expression.Convert(
                     Expression.Call(
                         null,
                         changeTypeIfConvertible,
@@ -480,14 +523,30 @@ public class DefaultTypeConverter : ITypeConverter
                         Expression.Constant(method.ReturnType),
                         Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
                     ),
-                    method.ReturnType
-                ),
-                new ReadOnlyCollection<ParameterExpression>(parameters));
+                    method.ReturnType);
         }
+        else
+        {
+            body = callExpression;
+        }
+
+        var ownership = Expression.Variable(typeof(Engine.HostCallScope), "ownership");
+        var guardedBody = Expression.Block(
+            [ownership],
+            Expression.Assign(
+                ownership,
+                Expression.Call(
+                    targetEngine,
+                    enterHostCallback,
+                    Expression.Call(
+                        targetEngine,
+                        getHostCallbackOwner,
+                        Expression.Convert(targetExpression, typeof(ObjectInstance))))),
+            Expression.TryFinally(body, Expression.Call(ownership, exitHostCallback)));
 
         return Expression.Lambda(
             type,
-            callExpression,
+            guardedBody,
             new ReadOnlyCollection<ParameterExpression>(parameters));
     }
 

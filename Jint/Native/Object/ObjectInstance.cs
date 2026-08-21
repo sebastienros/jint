@@ -2293,9 +2293,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 break;
 
             case ObjectClass.Function:
-                if (this is ICallable function)
+                if (this is ICallable)
                 {
-                    converted = (JsCallDelegate) function.Call;
+                    converted = (JsCallDelegate) CallFromHost;
                 }
 
                 break;
@@ -2305,6 +2305,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                 {
                     converted = numberInstance.NumberData._value;
                 }
+
                 break;
 
             case ObjectClass.RegExp:
@@ -2427,6 +2428,12 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         stack.Exit();
         return converted!;
+    }
+
+    private JsValue CallFromHost(JsValue thisObject, JsValue[] arguments)
+    {
+        using var ownership = Engine.EnterHostCallback();
+        return ((ICallable) this).Call(thisObject, arguments);
     }
 
     /// <summary>

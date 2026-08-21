@@ -42,8 +42,14 @@ public sealed class DebugInformation : EventArgs
     /// The current call stack.
     /// </summary>
     /// <remarks>This will always include at least a call frame for the global environment.</remarks>
-    public DebugCallStack CallStack =>
-        _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue);
+    public DebugCallStack CallStack
+    {
+        get
+        {
+            using var ownership = _engine.EnterHostCall();
+            return _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue);
+        }
+    }
 
     /// <summary>
     /// The AST Node that will be executed on next step.

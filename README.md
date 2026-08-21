@@ -1813,7 +1813,25 @@ https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javasc
 
 ## Thread-safety
 
-Engine instances are not thread-safe and they should not accessed from multiple threads simultaneously. 
+An `Engine` is single-operation, not thread-safe. Public host entries fail fast with
+`InvalidOperationException` when another thread is using the same engine or while one of its async APIs
+is still outstanding; callers are never silently serialized. Same-thread re-entry from a host callback is
+supported for synchronous APIs. A JavaScript callback converted to a CLR delegate may also be dispatched
+to another thread by the host: while host code is running, or while the async operation that received the
+callback remains outstanding, Jint reserves the engine against unrelated callers and transfers ownership
+to that callback one turn at a time. Such an authorized transfer may wait for the current callback turn;
+ordinary public callers still fail immediately rather than being serialized. Starting an async engine API
+from inside an active engine call is rejected: the callback must return before ownership can transfer
+safely. A top-level awaited async operation may resume on a different thread after ownership transfers.
+Background task and module completions may enqueue work safely, but they do not grant permission for other
+host calls while the owning async operation is pending.
+
+Keep one engine exclusively assigned to one request or operation at a time. If engines are pooled, await
+`EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, `ImportAsync`, or `UnwrapIfPromiseAsync` before returning an
+engine to the pool. Direct mutation through engine-owned objects such as `engine.Global` remains subject to
+the same contract and cannot be guarded by the `Engine` entry-point check. `Dispose` also fails fast while
+an operation owns the engine; await or finish that operation before disposing. This is observable during
+exception unwinding too, so a `using` scope must not outlive an async engine operation.
 
 ## Examples
 

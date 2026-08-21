@@ -30,6 +30,7 @@ public partial class Engine
         {
             get
             {
+                using var ownership = _engine.EnterHostCall();
                 var lastSyntaxElement = _engine._lastSyntaxElement;
                 if (lastSyntaxElement is null)
                 {
@@ -56,6 +57,7 @@ public partial class Engine
         /// </remarks>
         public void ResetCallStack()
         {
+            using var ownership = _engine.EnterHostCall();
             _engine.ResetCallStack();
         }
 
@@ -64,6 +66,7 @@ public partial class Engine
         /// </summary>
         public void ProcessTasks()
         {
+            using var ownership = _engine.EnterHostCall();
             _engine.RunAvailableContinuations();
         }
 
@@ -73,12 +76,14 @@ public partial class Engine
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
-        /// NOTE: that resolve and reject need to be called withing the same thread as "ExecuteWithEventLoop".
-        /// The API assumes that the Engine is called from a single thread.
+        /// Resolve and reject may be called from another thread. Settlement is enqueued safely and drains
+        /// inline only when that thread can claim exclusive engine ownership; otherwise the owning host turn
+        /// or a later <see cref="ProcessTasks"/> call drains it.
         /// </summary>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
+            using var ownership = _engine.EnterHostCall();
             return _engine.RegisterPromise();
         }
 
@@ -101,6 +106,7 @@ public partial class Engine
         /// <returns>The proxy object, ready to be passed into script.</returns>
         public ObjectInstance CreateProxy(ObjectInstance target, ProxyHandler handler)
         {
+            using var ownership = _engine.EnterHostCall();
             if (target is null)
             {
                 Throw.ArgumentNullException(nameof(target));
@@ -124,6 +130,7 @@ public partial class Engine
         /// <returns>The proxy paired with its revoke operation.</returns>
         public RevocableProxy CreateRevocableProxy(ObjectInstance target, ProxyHandler handler)
         {
+            using var ownership = _engine.EnterHostCall();
             if (target is null)
             {
                 Throw.ArgumentNullException(nameof(target));
@@ -172,6 +179,7 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
         public ObjectRepresentation GetObjectRepresentation(ObjectInstance value)
         {
+            using var ownership = _engine.EnterHostCall();
             if (value is null)
             {
                 Throw.ArgumentNullException(nameof(value));
@@ -300,6 +308,7 @@ public partial class Engine
         /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
         public PropertyAccessSemantics GetPropertyAccessSemantics(ObjectInstance value)
         {
+            using var ownership = _engine.EnterHostCall();
             if (value is null)
             {
                 Throw.ArgumentNullException(nameof(value));
@@ -358,7 +367,10 @@ public partial class Engine
         /// </para>
         /// </remarks>
         public InteropConversionDiagnostics GetInteropConversionDiagnostics()
-            => new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+        {
+            using var ownership = _engine.EnterHostCall();
+            return new(_engine._arrayLiveViewConversions, _engine._arrayCopyConversions);
+        }
 
         /// <summary>
         /// Counts what this engine is currently holding on to — global bindings, queued and scheduled work,
@@ -509,6 +521,7 @@ public partial class Engine
             Func<Engine, JsValue> valueFactory,
             PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
         {
+            using var ownership = _engine.EnterHostCall();
             if (name is null)
             {
                 Throw.ArgumentNullException(nameof(name));
@@ -575,6 +588,7 @@ public partial class Engine
             Func<Engine, TState, JsValue> valueFactory,
             PropertyFlag flags = PropertyFlag.ConfigurableEnumerableWritable)
         {
+            using var ownership = _engine.EnterHostCall();
             if (name is null)
             {
                 Throw.ArgumentNullException(nameof(name));
@@ -672,8 +686,16 @@ public partial class Engine
         /// </example>
         public object? HostDefined
         {
-            get => _engine._mainRealm.HostDefined;
-            set => _engine._mainRealm.HostDefined = value;
+            get
+            {
+                using var ownership = _engine.EnterHostCall();
+                return _engine._mainRealm.HostDefined;
+            }
+            set
+            {
+                using var ownership = _engine.EnterHostCall();
+                _engine._mainRealm.HostDefined = value;
+            }
         }
 
         /// <summary>

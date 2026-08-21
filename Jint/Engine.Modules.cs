@@ -605,6 +605,7 @@ public partial class Engine
         /// <inheritdoc cref="Add(string,ModuleBuilder)" path="/remarks"/>
         public void Add(string specifier, string code)
         {
+            using var ownership = _engine.EnterHostCall();
             var moduleBuilder = new ModuleBuilder(_engine, specifier);
             moduleBuilder.AddSource(code);
             Add(specifier, moduleBuilder);
@@ -616,6 +617,7 @@ public partial class Engine
         /// <inheritdoc cref="Add(string,ModuleBuilder)" path="/remarks"/>
         public void Add(string specifier, Action<ModuleBuilder> buildModule)
         {
+            using var ownership = _engine.EnterHostCall();
             var moduleBuilder = new ModuleBuilder(_engine, specifier);
             buildModule(moduleBuilder);
             Add(specifier, moduleBuilder);
@@ -655,6 +657,7 @@ public partial class Engine
         /// </remarks>
         public void Add(string specifier, ModuleBuilder moduleBuilder)
         {
+            using var ownership = _engine.EnterHostCall();
             _builders.Add(specifier, moduleBuilder);
             _buildersVersion++;
         }
@@ -671,6 +674,7 @@ public partial class Engine
         /// </remarks>
         public ObjectInstance Import(string specifier)
         {
+            using var ownership = _engine.EnterHostCall();
             return Import(specifier, referencingModuleLocation: null);
         }
 
@@ -763,6 +767,7 @@ public partial class Engine
         /// <inheritdoc cref="StartImport(string)" />
         public ModuleImportOperation StartImport(string specifier, string? referencingModuleLocation)
         {
+            using var ownership = _engine.EnterHostCall();
             var request = new ModuleRequest(specifier, []);
             var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
             var payload = new DynamicImportPayload(_engine, request, capability);
@@ -824,9 +829,35 @@ public partial class Engine
         /// <inheritdoc cref="ImportAsync(string,CancellationToken)" />
         public async Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
         {
-            var promise = StartImport(specifier, referencingModuleLocation).Promise;
-            var result = await _engine.UnwrapResultAsync(promise, cancellationToken).ConfigureAwait(false);
-            return (ObjectInstance) result;
+            var owner = _engine.ReserveAsyncHostOperation();
+            Task<JsValue> task;
+            try
+            {
+                using (_engine.EnterHostCall(owner))
+                {
+                    var promise = StartImport(specifier, referencingModuleLocation).Promise;
+                    task = _engine.UnwrapResultAsync(promise, owner, cancellationToken);
+                }
+            }
+            catch
+            {
+                _engine.ReleaseAsyncHostOperation(owner);
+                throw;
+            }
+
+            return await CompleteImportAsync(task, _engine, owner).ConfigureAwait(false);
+        }
+
+        private static async Task<ObjectInstance> CompleteImportAsync(Task<JsValue> task, Engine engine, object owner)
+        {
+            try
+            {
+                return (ObjectInstance) await task.ConfigureAwait(false);
+            }
+            finally
+            {
+                engine.ReleaseAsyncHostOperation(owner);
+            }
         }
 
         /// <summary>

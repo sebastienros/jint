@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading;
 
 namespace Jint.Runtime.Debugger;
 
@@ -13,6 +14,8 @@ namespace Jint.Runtime.Debugger;
 public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 {
     private readonly Dictionary<BreakLocation, BreakPoint> _breakPoints = new(new OptionalSourceBreakLocationEqualityComparer());
+    private readonly Lock _lock = new();
+    private bool _active = true;
 
     public BreakPointCollection()
     {
@@ -21,16 +24,44 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// <summary>
     /// Gets or sets whether breakpoints are activated. When false, all breakpoints will fail to match (and be skipped by the debugger).
     /// </summary>
-    public bool Active { get; set; } = true;
+    public bool Active
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _active;
+            }
+        }
+        set
+        {
+            lock (_lock)
+            {
+                _active = value;
+            }
+        }
+    }
 
-    public int Count => _breakPoints.Count;
+    public int Count
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _breakPoints.Count;
+            }
+        }
+    }
 
     /// <summary>
     /// Sets a new breakpoint. Note that this will replace any breakpoint at the same location (source/column/line).
     /// </summary>
     public void Set(BreakPoint breakPoint)
     {
-        _breakPoints[breakPoint.Location] = breakPoint;
+        lock (_lock)
+        {
+            _breakPoints[breakPoint.Location] = breakPoint;
+        }
     }
 
     /// <summary>
@@ -39,7 +70,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool RemoveAt(BreakLocation location)
     {
-        return _breakPoints.Remove(location);
+        lock (_lock)
+        {
+            return _breakPoints.Remove(location);
+        }
     }
 
     /// <summary>
@@ -48,7 +82,10 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public bool Contains(BreakLocation location)
     {
-        return _breakPoints.ContainsKey(location);
+        lock (_lock)
+        {
+            return _breakPoints.ContainsKey(location);
+        }
     }
 
     /// <summary>
@@ -56,19 +93,21 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     /// </summary>
     public void Clear()
     {
-        _breakPoints.Clear();
+        lock (_lock)
+        {
+            _breakPoints.Clear();
+        }
     }
 
     internal BreakPoint? FindMatch(DebugHandler debugger, BreakLocation location)
     {
-        if (!Active)
+        BreakPoint? breakPoint;
+        lock (_lock)
         {
-            return null;
-        }
-
-        if (!_breakPoints.TryGetValue(location, out var breakPoint))
-        {
-            return null;
+            if (!_active || !_breakPoints.TryGetValue(location, out breakPoint))
+            {
+                return null;
+            }
         }
 
         if (!string.IsNullOrEmpty(breakPoint.Condition))
@@ -95,11 +134,14 @@ public sealed class BreakPointCollection : IEnumerable<BreakPoint>
 
     public IEnumerator<BreakPoint> GetEnumerator()
     {
-        return _breakPoints.Values.GetEnumerator();
+        lock (_lock)
+        {
+            return new List<BreakPoint>(_breakPoints.Values).GetEnumerator();
+        }
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return _breakPoints.GetEnumerator();
+        return GetEnumerator();
     }
 }

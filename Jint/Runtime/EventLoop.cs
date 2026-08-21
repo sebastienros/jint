@@ -91,11 +91,8 @@ internal sealed record EventLoop
     /// <summary>
     /// Async wake signals registered by callers of <see cref="WaitForEventAsync(CancellationToken)"/>.
     /// Each call appends its own TCS so that <see cref="Enqueue(in EventLoopJob)"/> can wake every
-    /// outstanding waiter — supporting concurrent awaiters on a single engine
-    /// (e.g. a caller that <c>await</c>s two engine-internal promises in parallel
-    /// via <c>Task.WhenAll</c>). Replaces an earlier single-field design that
-    /// silently dropped the second waiter and could spin until the first one
-    /// happened to resume.
+    /// outstanding waiter. Engine ownership permits only one host async operation at a time, but a list
+    /// keeps registration and wake-up correct if an internal path temporarily has more than one waiter.
     /// </summary>
     private readonly Lock _waitersLock = new();
     private List<TaskCompletionSource<bool>>? _waiters;
