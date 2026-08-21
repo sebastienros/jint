@@ -17,6 +17,145 @@ public partial class Engine
     public partial class AdvancedOperations
     {
         /// <summary>
+        /// The opt-in web APIs this engine carries, after the feature closure has been expanded. Requires
+        /// .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is what the engine actually has, which is deliberately not the same thing as
+        /// <c>options.WebApi.Features</c>: that one reads back exactly what the host asked for, while a
+        /// feature whose surface is built out of another's interfaces brings that one with it. An engine built
+        /// with <c>options.UseFetch()</c> answers <c>Fetch | Events | Url | Files | Streams</c> here and
+        /// <c>Fetch</c> there.
+        /// </para>
+        /// <para>
+        /// Reading it is what makes <see cref="EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>
+        /// unnecessary to guard: that method is additive and a feature already present is a no-op, so a host
+        /// only needs this to decide whether a call is <i>worth</i> making, or to assert what a pooled engine
+        /// came back with.
+        /// </para>
+        /// </remarks>
+        public WebApiFeatures WebApiFeatures => _engine._webApiFeatures;
+
+        /// <summary>
+        /// Turns on the web APIs a host normally wants — <see cref="WebApiFeatures.Default"/> — on an engine
+        /// that already exists. The per-engine counterpart of
+        /// <see cref="WebApiOptionsExtensions.UseWebApis(Options)"/>. Requires .NET 8 or higher.
+        /// </summary>
+        /// <returns>The features this call added; see the main overload.</returns>
+        public WebApiFeatures EnableWebApis() => EnableWebApis(Jint.WebApiFeatures.Default, configure: null);
+
+        /// <summary>
+        /// Turns the named web APIs on for <em>this</em> engine, after it has been constructed. The per-engine
+        /// counterpart of <see cref="WebApiOptionsExtensions.UseWebApis(Options, WebApiFeatures)"/>, for the
+        /// host that only discovers per request which APIs the script it is about to run needs — a pooled
+        /// engine in a tenant host, a plugin runner — and would otherwise have to over-provision every engine
+        /// or build a fresh one. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Additive only.</b> There is no way to turn a web API off again: a script that has already
+        /// captured <c>fetch</c> keeps it whatever a later call says, so an API promising removal could not
+        /// keep the promise. Naming a feature the engine already carries is a plain no-op — not an error, and
+        /// not a re-install: the globals it owns keep their identity, an unread one stays unread, and
+        /// <paramref name="configure"/> does not even run. The return value says what actually changed.
+        /// </para>
+        /// <para>
+        /// <b>It runs the same code construction runs.</b> The feature closure is expanded by the one function
+        /// that expands it at options time, so <see cref="WebApiFeatures.Fetch"/> brings
+        /// <see cref="WebApiFeatures.Events"/>, <see cref="WebApiFeatures.Url"/>,
+        /// <see cref="WebApiFeatures.Files"/> and <see cref="WebApiFeatures.Streams"/> here exactly as it does
+        /// there; the per-engine state is created, or extended with the queues the new features need; and each
+        /// global is installed as the same lazy, <b>non-clobbering</b> property — a name the host already owns
+        /// is left exactly as the host left it, and the check probes rather than reads, so a host's own lazy
+        /// global is not materialized merely by our looking. No closure ever pulls in a network feature:
+        /// <see cref="WebApiFeatures.Fetch"/>, <see cref="WebApiFeatures.EventSource"/> and
+        /// <see cref="WebApiFeatures.WebSocket"/> are only ever enabled by being named.
+        /// </para>
+        /// <para>
+        /// <b>Warmed inline caches are invalidated.</b> Unlike a registration applied during construction this
+        /// one lands on an engine whose handler trees may already hold a resolved binding for one of these
+        /// names — a script that ran <c>typeof fetch</c> before the call. Every global goes in through the
+        /// storage path that bumps the global object's own-property version, which is the sole thing the
+        /// global-identifier and member-read inline caches revalidate against, so the next read of that name
+        /// re-resolves. This is the same mechanism, and the same guarantee,
+        /// <see cref="AddLazyGlobal(string, Func{Engine, JsValue}, Runtime.Descriptors.PropertyFlag)"/> rests on.
+        /// </para>
+        /// <para>
+        /// <b>What the settings come from.</b> The per-feature options are read from this engine's own
+        /// <see cref="Options"/> — <c>options.WebApi.Fetch</c>, <c>.Storage</c>, <c>.Cache</c>,
+        /// <c>.Timers</c> — at the moment of this call, with the same read-once semantics they have at
+        /// construction, and <paramref name="configure"/> is handed that same group so a host can supply what
+        /// it could not know earlier. Two settings are deliberately <b>not</b> re-read for an engine that
+        /// already has web-API state: <c>Timers.TimeProvider</c>, because the timers,
+        /// <c>performance.now()</c> and the time origin must stay on one clock for the engine's whole life;
+        /// and <c>Diagnostics.Sink</c>, whose contract is that it holds still for an engine's lifetime because
+        /// it also decides whether a callback's exception erupts. An engine that had no web-API state at all
+        /// gets both read here, exactly as construction would have read them — including a time origin that is
+        /// therefore <em>now</em> rather than the engine's birth.
+        /// </para>
+        /// <para>
+        /// <b>Interaction with <see cref="CaptureGlobalSnapshot"/>.</b> A restore returns the global bindings
+        /// to their state at capture, so globals installed by a call made <em>after</em> a capture are gone
+        /// after the restore — the same thing that happens to an
+        /// <see cref="AddLazyGlobal(string, Func{Engine, JsValue}, Runtime.Descriptors.PropertyFlag)"/> global and to the ones
+        /// <see cref="SetFetchHandler"/> installs. What a restore does not revert is the engine-side record:
+        /// <see cref="WebApiFeatures"/> still reports the feature, and the state behind it (the timer queue,
+        /// the cache provider) is still there, so the engine is left knowing about an API whose globals script
+        /// can no longer name. <b>Enable after the restore, or enable on the options</b> so the globals are
+        /// part of the engine's initial state and every snapshot carries them. Re-calling this method after a
+        /// restore does not put them back either — the feature is already on, so the call is a no-op; a host
+        /// that must reinstate them captures its snapshot after the enable.
+        /// </para>
+        /// <para>
+        /// <b>The principal realm only</b>, exactly as at options time: a <c>ShadowRealm</c> carries none of
+        /// these globals, and this method does not change that however it is reached.
+        /// </para>
+        /// <para>
+        /// <b>When to call it.</b> Between evaluations, under the engine's usual single-thread contract; this
+        /// is an ordinary mutation of the engine's global object. Calling it during an evaluation is not
+        /// prevented, but a read already in flight may have resolved the old binding.
+        /// </para>
+        /// </remarks>
+        /// <example>
+        /// A pooled engine that learns per request what the script needs:
+        /// <code>
+        /// var engine = pool.Rent();                       // built with WebApiFeatures.Console only
+        /// if (script.NeedsTimers)
+        /// {
+        ///     engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Events);
+        /// }
+        ///
+        /// if (tenant.MayReachTheNetwork)
+        /// {
+        ///     engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, w =>
+        ///         w.Fetch.UrlFilter = uri => tenant.Allows(uri));
+        /// }
+        /// </code>
+        /// </example>
+        /// <param name="features">
+        /// The features to turn on, in addition to those already present.
+        /// <see cref="WebApiFeatures.None"/> does nothing and, in particular, disables nothing.
+        /// </param>
+        /// <param name="configure">
+        /// Optional configuration of the per-feature settings, run once — before anything is installed, and
+        /// only when this call is actually enabling something. It is handed this engine's own
+        /// <c>Options.WebApi</c> group, which is the group the engine reads its settings from; <b>an
+        /// <see cref="Options"/> instance shared with other engines is shared here too</b>, exactly as it
+        /// already is at options time, so give an engine its own <see cref="Options"/> when its network policy
+        /// has to be its own. Assigning <c>Features</c> inside the delegate does not enable anything for this
+        /// call — <paramref name="features"/> is what this call enables — and only affects engines built from
+        /// those options later.
+        /// </param>
+        /// <returns>
+        /// The features this call actually added, after closure expansion, or
+        /// <see cref="WebApiFeatures.None"/> when everything asked for was already present. A host granting
+        /// network access can assert on it; a host that only wants the globals can ignore it.
+        /// </returns>
+        public WebApiFeatures EnableWebApis(WebApiFeatures features, Action<Options.WebApiOptions>? configure = null)
+            => WebApiRegistration.ApplyLive(_engine, features, configure);
+
+        /// <summary>
         /// Creates a pair of entangled <c>MessagePort</c> objects spanning this engine and
         /// <paramref name="other"/>, so a script on one can <c>postMessage</c> to a script on the other.
         /// Requires .NET 8 or higher, and <see cref="WebApiFeatures.Messaging"/> on <b>both</b> engines.
@@ -452,10 +591,12 @@ public partial class Engine
         {
             var engine = _engine;
 
-            // The state is built for every feature that keeps any, Events among them, so a null field settles
-            // the question without asking the options — which matters because Options may be shared by other
-            // engines being built right now, and its web-API group is allocated on first touch.
-            if (engine._webApi is null || (engine.Options.WebApi.Features & WebApiFeatures.Events) == WebApiFeatures.None)
+            // The engine's own record rather than the options': Options is shareable and mutable, so the set
+            // an engine was actually built with is only knowable from the engine — and it is the set AFTER the
+            // feature closure, so an engine built with options.UseFetch() (which implies Events) and one that
+            // enabled Events through EnableWebApis are both recognized. The state is built for every feature
+            // that keeps any, Events among them, so the null check is the belt to that brace.
+            if (engine._webApi is null || (engine._webApiFeatures & WebApiFeatures.Events) == WebApiFeatures.None)
             {
                 Throw.InvalidOperationException(
                     "Engine.Advanced.CreateAbortSignal requires the WebApiFeatures.Events web API, which this engine did not enable. Build the engine with options.UseWebApis(WebApiFeatures.Events) — or any feature set that includes it, such as WebApiFeatures.Default.");

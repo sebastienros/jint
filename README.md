@@ -274,6 +274,59 @@ encoding, never decoded as something else. The label table and the single-byte i
 from the standard's own data files; `TextEncoder` is UTF-8 only, as the standard requires.
 
 
+### Enabling web APIs on an engine that already exists
+
+`options.WebApi.Features` is read once, when the engine is built, so a pooled engine's feature set is fixed at
+construction — which is awkward for a host that only discovers *per request* what the script it is about to
+run needs. `engine.Advanced.EnableWebApis(...)` is the per-engine counterpart of `options.UseWebApis(...)`,
+for exactly that case:
+
+```csharp
+var engine = pool.Rent();                       // built with WebApiFeatures.Console only
+
+if (script.NeedsTimers)
+{
+    engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Events);
+}
+
+if (tenant.MayReachTheNetwork)
+{
+    // The optional delegate is handed this engine's own options group, so a feature that carries settings
+    // can be configured at the moment it is enabled.
+    engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, w =>
+        w.Fetch.UrlFilter = uri => tenant.Allows(uri));
+}
+
+// What the engine actually carries, after the feature closure has been expanded.
+WebApiFeatures live = engine.Advanced.WebApiFeatures;   // Console | Timers | Events | Fetch | Url | Files | Streams
+```
+
+It runs the same code construction runs — the same feature closure, the same per-engine state, the same lazy,
+non-clobbering globals — so an engine enabled this way is the engine `options.UseWebApis(...)` would have
+built. Four things are worth knowing:
+
+* **It is additive only.** There is no way to turn a web API off again; a script that already captured
+  `fetch` would keep it whatever a later call said. Naming a feature the engine already has is a plain no-op —
+  not an error, not a re-install — and the return value tells you what actually changed. A global you
+  registered yourself still wins, and the existence check *probes*, so your own lazy global is not built
+  merely by our looking.
+* **Network access is still only ever granted by name.** No feature closure pulls in `Fetch`, `EventSource`
+  or `WebSocket`; asking for `WebApiFeatures.Default` here grants exactly what it grants on the options.
+* **Settings come from this engine's `Options`, read at the moment of the call**, with the same read-once
+  semantics they have at construction. The delegate is handed that same group — which, exactly as at options
+  time, is shared with every other engine built from the same `Options` instance, so give an engine its own
+  `Options` when its network policy has to be its own. Two settings are deliberately *not* re-read for an
+  engine that already has web-API state: `Timers.TimeProvider`, because the timers, `performance.now()` and
+  the time origin have to stay on one clock for the engine's life, and `Diagnostics.Sink`, which also decides
+  whether a callback's exception erupts.
+* **`RestoreGlobalSnapshot` removes globals installed after the capture**, exactly as it does for
+  `AddLazyGlobal` and `SetFetchHandler` — and it does *not* revert the engine's feature record, so the engine
+  is left knowing about an API whose globals script can no longer name, and re-calling `EnableWebApis` is a
+  no-op that cannot bring them back. Enable **before** you capture the snapshot you reuse, or enable on the
+  `Options` so the globals are part of the engine's initial state.
+
+As at options time, only the principal realm is touched: a `ShadowRealm` still gets none of it.
+
 ### Timers fire only while the engine is being pumped
 
 **Jint never starts a thread, and never a `System.Threading.Timer`, to run your script.** A `setTimeout`

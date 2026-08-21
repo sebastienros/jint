@@ -44,6 +44,13 @@ public partial class Options
         /// Which web APIs this engine exposes. Defaults to <see cref="WebApiFeatures.None"/>, which installs
         /// nothing at all — not even <c>DOMException</c>.
         /// </summary>
+        /// <remarks>
+        /// Read once, when an engine is built, so this is the set an engine <i>starts</i> with rather than the
+        /// set it has: it always reads back exactly what the host asked for, while the engine additionally
+        /// carries the feature closure, and a host may turn further features on afterwards with
+        /// <c>Engine.Advanced.EnableWebApis</c>. What a given engine actually has is
+        /// <c>engine.Advanced.WebApiFeatures</c>.
+        /// </remarks>
         public WebApiFeatures Features { get; set; }
 
         /// <summary>
