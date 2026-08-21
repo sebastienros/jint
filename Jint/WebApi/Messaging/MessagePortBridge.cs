@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Threading;
 using Jint.Runtime;
 using Jint.WebApi.StructuredClone;
 
@@ -17,7 +18,8 @@ namespace Jint.WebApi.Messaging;
 /// tiny.</b> A message crosses as a <see cref="SerializationRecord"/>, which belongs to no engine at all: the
 /// sender serializes on its own thread, the receiver deserializes on its own, and neither ever touches a
 /// <c>JsValue</c> belonging to the other. Everything a sender reads from the far side is on
-/// <see cref="MessagePortEndpoint"/> and is either immutable or a single <see langword="volatile"/> flag.
+/// <see cref="MessagePortEndpoint"/> and is either immutable, a single <see langword="volatile"/> flag, or
+/// read under that endpoint's own lock.
 /// </para>
 /// <para>
 /// The delivery job is enqueued onto the receiving engine's event loop, which is a
@@ -48,61 +50,131 @@ internal static class MessagePortBridge
         var first = new JsMessagePort(firstEngine, firstRealm);
         var second = new JsMessagePort(secondEngine, secondRealm);
 
-        MessagePortEndpoint.Entangle(first.Endpoint, second.Endpoint);
+        MessagePortEndpoint.Entangle(first.Endpoint!, second.Endpoint!);
 
         return (first, second);
     }
 }
 
 /// <summary>
-/// One end of an entangled pair, as seen from the <i>other</i> end. Every member here may be read by the
-/// sending engine's thread, so every member here is immutable or volatile.
+/// One <i>side</i> of an entangled pair: the port message queue, whom that queue currently belongs to, and the
+/// side at the other end. Every member here may be read by the sending engine's thread, so every member here
+/// is immutable, <see langword="volatile"/>, or guarded by this object's own lock.
 /// </summary>
 /// <remarks>
-/// The endpoint carries the receiving engine's <see cref="Engine.EventLoopGeneration"/> as it was when the
-/// port was <b>created</b>, not as it is when a message is posted, and that is deliberate. A port's listeners
+/// <para>
+/// <b>A side outlives the <c>MessagePort</c> object bound to it, and that is what makes a port transferable.</b>
+/// HTML's transfer steps move a port's <i>port message queue</i> into the data holder and re-entangle the
+/// remote port with whatever object the transfer-receiving steps create; the queue is passed by reference, so a
+/// message posted while the port is in transit lands in the very queue that travels. This class is that queue
+/// plus its bookkeeping. A transfer <see cref="Unbind"/>s it from the port that is being detached, the
+/// serialization record carries <i>this object</i>, and the receiving engine <see cref="Bind"/>s it to a fresh
+/// <see cref="JsMessagePort"/> of its own realm. <see cref="Peer"/> never changes, so re-pointing one side is
+/// invisible to the other — which is what makes a three-engine relay work, and what makes both ends of one
+/// channel transferable at the same time.
+/// </para>
+/// <para>
+/// <b>The discipline that makes the swap race-free.</b> Everything mutable lives behind <c>_gate</c>, and there
+/// are exactly three operations:
+/// </para>
+/// <list type="bullet">
+/// <item><description>
+/// <b>Post</b> — any thread. Under the lock it appends to the queue <i>and</i> reads the current binding, so a
+/// message can never be enqueued against a binding that has already gone. Outside the lock it asks that binding
+/// (if any) to pump. That wake is a <i>hint</i>: a stale one is a no-op, because the job it queues is the
+/// port's own and a port whose side has been unbound refuses it.
+/// </description></item>
+/// <item><description>
+/// <b>Unbind</b> — only ever the bound engine's own thread, because a transfer happens inside that engine's
+/// <c>postMessage</c>. So no drain can be in progress when it runs, and no message can be lost: the queue is
+/// not touched at all.
+/// </description></item>
+/// <item><description>
+/// <b>Bind</b> — the receiving engine's thread, from the <see cref="JsMessagePort"/> constructor. It needs no
+/// wake of its own, and that is not an omission: a port's message queue starts <b>disabled</b>, so the new port
+/// cannot deliver anything until the script calls <c>start()</c> or assigns <c>onmessage</c> — and that call
+/// drains whatever the queue already holds. A message enqueued while the side was unbound is therefore
+/// delivered by the very act that makes delivery possible, and one enqueued afterwards sees the new binding and
+/// gets its own wake.
+/// </description></item>
+/// </list>
+/// <para>
+/// So a message in flight at the instant of a swap is neither lost nor delivered to the port that is going
+/// away: it is in the one queue, and the one queue travels.
+/// </para>
+/// <para>
+/// The binding carries the receiving engine's <see cref="Engine.EventLoopGeneration"/> as it was when the
+/// <b>port</b> was created, not as it is when a message is posted, and that is deliberate. A port's listeners
 /// are closures over the evaluation cycle the port was made in, so delivering into it after a
 /// <c>RestoreGlobalSnapshot</c> would run that dead cycle's code against the freshly restored globals — the
 /// exact cross-cycle channel the generation fence exists to forbid. Reading the receiver's <i>current</i>
 /// generation from the sender's thread would have permitted precisely that, as well as being a cross-thread
-/// read of a value the receiver is free to change underneath it. Capturing once, at creation, gives the
-/// stronger rule and needs no cross-thread read at all: <b>a port pair belongs to the evaluation cycle its
-/// engines were in when it was created, and a restore on either engine ends the channel permanently.</b>
+/// read of a value the receiver is free to change underneath it. Capturing once, per binding, gives the
+/// stronger rule and needs no cross-thread read at all: <b>a port belongs to the evaluation cycle its engine
+/// was in when it was created, and a restore on that engine closes it.</b> A transfer creates a new port, so
+/// the new binding belongs to the receiving engine's <i>current</i> cycle rather than to the sender's.
+/// </para>
 /// </remarks>
 internal sealed class MessagePortEndpoint
 {
+    /// <summary>
+    /// Guards <see cref="_queue"/>, <see cref="_boundPort"/> and the authoritative write of
+    /// <see cref="_closed"/>. Never held while script runs, and never held across a call into another
+    /// endpoint — <see cref="Close"/>'s cascade is deliberately driven from a work list outside the lock.
+    /// </summary>
+    private readonly Lock _gate = new();
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/web-messaging.html#port-message-queue. It belongs to the
+    /// <i>side</i> rather than to the port, which is what lets it travel through a transfer with a message
+    /// still in it.
+    /// </summary>
+    private readonly Queue<SerializationRecord> _queue = new();
+
+    /// <summary>
+    /// The <c>MessagePort</c> object this side currently delivers to, or <see langword="null"/> while it is in
+    /// transit — between the transfer that detached the old port and the deserialization that creates the new
+    /// one. Also <see langword="null"/> once closed.
+    /// </summary>
+    private JsMessagePort? _boundPort;
+
     private volatile bool _closed;
 
-    internal MessagePortEndpoint(Engine engine, JsMessagePort port)
-    {
-        Engine = engine;
-        Port = port;
-        Generation = engine.EventLoopGeneration;
-    }
-
-    /// <summary>The engine that owns <see cref="Port"/> and on whose pump a delivery job runs.</summary>
-    internal Engine Engine { get; }
-
-    /// <summary>The port itself. Only ever dereferenced on <see cref="Engine"/>'s own thread.</summary>
-    internal JsMessagePort Port { get; }
-
-    /// <summary>The evaluation cycle this port belongs to; see the class remarks.</summary>
-    internal int Generation { get; }
-
     /// <summary>
-    /// The endpoint this one is entangled with. Assigned once, by <see cref="Entangle"/>, before either port
-    /// can be reached by any script.
+    /// The side this one is entangled with, or <see langword="null"/> for a side that was never entangled.
+    /// Assigned once, by <see cref="Entangle"/>, before either port can be reached by any script, and
+    /// deliberately never reassigned: a transfer moves a <i>side</i>, so the other end goes on talking to the
+    /// same object it always did.
     /// </summary>
-    internal MessagePortEndpoint Peer { get; private set; } = null!;
+    /// <remarks>
+    /// The <see langword="null"/> case exists for one path that should be unreachable — a serialization record
+    /// carrying a transferred side being deserialized twice, which the "a record is consumed once" rule
+    /// forbids. Rather than hand two engines one side, the second deserialization gets a lone side, and a port
+    /// bound to one is inert.
+    /// </remarks>
+    internal MessagePortEndpoint? Peer { get; private set; }
 
     /// <summary>
-    /// Whether <c>close()</c> has been called on this port —
+    /// Whether <c>close()</c> has been called on the port bound to this side —
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-close. Volatile because the
     /// peer's engine reads it from its own thread to decide whether it still has anywhere to post; that is a
     /// one-way flag, so a stale read can only cost one message that was in flight as the port closed, which is
-    /// exactly what closing a port means.
+    /// exactly what closing a port means. The authoritative test is the one <see cref="Post"/> makes under the
+    /// lock.
     /// </summary>
     internal bool Closed => _closed;
+
+    /// <summary>Whether anything is waiting to be taken off this side's queue. Bound engine's thread.</summary>
+    internal bool HasQueuedMessages
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _queue.Count > 0;
+            }
+        }
+    }
 
     internal static void Entangle(MessagePortEndpoint first, MessagePortEndpoint second)
     {
@@ -111,36 +183,155 @@ internal sealed class MessagePortEndpoint
     }
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-close: detach this port,
-    /// which is also what disentangles the pair — the peer's <c>postMessage</c> consults this flag and finds
-    /// it has no target any more.
+    /// Makes <paramref name="port"/> the object this side delivers to. Called from the port's own constructor,
+    /// on the engine that owns it: once at creation, and again for the port a transfer's receiving steps build.
     /// </summary>
-    internal void Close() => _closed = true;
+    internal void Bind(JsMessagePort port)
+    {
+        lock (_gate)
+        {
+            if (_closed)
+            {
+                return;
+            }
+
+            _boundPort = port;
+        }
+    }
 
     /// <summary>
-    /// Hands a serialized message to this endpoint's engine. <b>Runs on the sender's thread</b>, so it does
-    /// exactly two things: check the fences, and enqueue.
+    /// HTML's transfer steps, from this side's point of view: the port that was bound here is detached, and the
+    /// side — queue and all — is left waiting for the transfer-receiving steps to bind it somewhere else.
+    /// </summary>
+    /// <remarks>
+    /// Runs on the bound engine's own thread, inside the <c>postMessage</c> or <c>structuredClone</c> that is
+    /// transferring the port, which is why no drain can be in progress and the queue needs no protection beyond
+    /// the lock's fence.
+    /// </remarks>
+    internal void Unbind()
+    {
+        lock (_gate)
+        {
+            _boundPort = null;
+        }
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-close: detach this port,
+    /// which is also what disentangles the pair — the peer's <c>postMessage</c> consults
+    /// <see cref="Closed"/> and finds it has no target any more.
+    /// </summary>
+    /// <remarks>
+    /// Anything still on the queue is dropped, because a detached port can never dispatch again — and a
+    /// dropped message may itself be carrying a transferred side, which would otherwise sit unbound forever
+    /// while its own peer went on posting into it. Those are closed too, transitively, from a work list rather
+    /// than by recursion: the chain is as deep as a script cares to nest undelivered transfers.
+    /// </remarks>
+    internal void Close()
+    {
+        // Allocated only if a discarded message actually carried a transfer, which is what makes closing an
+        // ordinary port — the case a restore runs for every port an engine has — allocation-free.
+        Stack<MessagePortEndpoint>? stranded = null;
+        var endpoint = this;
+
+        while (true)
+        {
+            List<SerializationRecord>? discarded = null;
+
+            lock (endpoint._gate)
+            {
+                if (!endpoint._closed)
+                {
+                    endpoint._closed = true;
+                    endpoint._boundPort = null;
+
+                    if (endpoint._queue.Count > 0)
+                    {
+                        discarded = new List<SerializationRecord>(endpoint._queue);
+                        endpoint._queue.Clear();
+                    }
+                }
+            }
+
+            if (discarded is not null)
+            {
+                foreach (var record in discarded)
+                {
+                    if (record.TransferredPorts is not { } holders)
+                    {
+                        continue;
+                    }
+
+                    foreach (var holder in holders)
+                    {
+                        if (holder.Endpoint is { } carried)
+                        {
+                            (stranded ??= new Stack<MessagePortEndpoint>()).Push(carried);
+                        }
+                    }
+                }
+            }
+
+            if (stranded is not { Count: > 0 })
+            {
+                return;
+            }
+
+            endpoint = stranded.Pop();
+        }
+    }
+
+    /// <summary>
+    /// Hands a serialized message to this side. <b>Runs on the sender's thread</b>, so it does exactly two
+    /// things: join the queue, and ask whatever engine currently owns the side to pump.
     /// </summary>
     internal void Post(SerializationRecord record)
     {
-        if (_closed)
+        JsMessagePort? port;
+
+        lock (_gate)
         {
-            return;
+            // The authoritative closed test. The volatile read callers make first is only an early-out.
+            if (_closed)
+            {
+                return;
+            }
+
+            _queue.Enqueue(record);
+            port = _boundPort;
         }
 
-        var engine = Engine;
+        // A hint, and deliberately outside the lock: if the side is rebound between here and there, the job
+        // this queues is refused by a port that no longer owns the side, and the message is delivered by the
+        // start() that the new port's script has to call anyway. See the class remarks.
+        port?.RequestDelivery();
+    }
 
-        // A cheap early-out for a channel whose receiver has since restored a global snapshot, so a sender
-        // that keeps posting into a dead port does not grow that engine's queue. It is not the fence: the
-        // authoritative check is the one every job gets at dequeue, on the engine's own thread, which is the
-        // only place the comparison is free of races.
-        if (engine.EventLoopGeneration != Generation)
+    /// <summary>
+    /// Takes the head of the queue, but only for the port the side is actually bound to. Bound engine's thread,
+    /// from <c>JsMessagePort.DrainOne</c>.
+    /// </summary>
+    /// <remarks>
+    /// The <paramref name="caller"/> test is an <b>invariant guard, not a behaviour</b>, and no test can make
+    /// it fire: a transfer detaches the old port before the new one binds, so a port that does not own the
+    /// side has already forgotten it and never gets this far. It is here because the invariant it asserts —
+    /// one queue, one draining port — is the whole reason a transfer cannot split or reorder a channel, and a
+    /// future rebind path that forgot to detach first would otherwise let two ports take alternate messages
+    /// off one queue in silence.
+    /// </remarks>
+    internal bool TryDequeue(JsMessagePort caller, out SerializationRecord record)
+    {
+        lock (_gate)
         {
-            return;
-        }
+            if (_closed || !ReferenceEquals(_boundPort, caller) || _queue.Count == 0)
+            {
+                record = default;
+                return false;
+            }
 
-        var port = Port;
-        engine.AddToEventLoop(() => port.Receive(record), Generation);
+            record = _queue.Dequeue();
+            return true;
+        }
     }
 }
 #endif

@@ -17,35 +17,42 @@ namespace Jint.WebApi.Messaging;
 /// <para>
 /// <b>Serialization happens on the sender, deserialization on the receiver.</b> That is what the specification
 /// says — <c>postMessage</c> runs StructuredSerializeWithTransfer synchronously and only then queues a task
-/// whose first act is StructuredDeserialize in the <i>target's</i> realm — and it is also what makes a port
-/// pair able to span two engines: the <see cref="SerializationRecord"/> in between belongs to neither.
-/// A message therefore reflects the state of the graph at the instant it was posted, and a
+/// whose first act is StructuredDeserializeWithTransfer in the <i>target's</i> realm — and it is also what
+/// makes a port pair able to span two engines: the <see cref="SerializationRecord"/> in between belongs to
+/// neither. A message therefore reflects the state of the graph at the instant it was posted, and a
 /// <c>DataCloneError</c> for an uncloneable value is raised at the <c>postMessage</c> call, synchronously, on
 /// the caller.
 /// </para>
 /// <para>
-/// <b>The port message queue is a real queue, and it starts disabled.</b> Nothing is dispatched until
-/// <c>start()</c> is called or <c>onmessage</c> is assigned; messages that arrive before then wait, in order,
-/// and are delivered when the queue is enabled. Two event-loop jobs are involved per message — one to put it
-/// on this port's queue on the receiving engine's thread, one to take the head off and dispatch it — which is
-/// what keeps the order right no matter when the queue is enabled relative to the messages in flight. It also
-/// means a message is delivered as a <i>task</i>: every promise reaction already queued runs first, exactly as
-/// in a browser.
+/// <b>The port message queue is a real queue, it starts disabled, and it belongs to the <i>side</i> rather
+/// than to this object.</b> Nothing is dispatched until <c>start()</c> is called or <c>onmessage</c> is
+/// assigned; messages that arrive before then wait, in order, and are delivered when the queue is enabled.
+/// Two event-loop jobs are involved per message — one to notice it on the receiving engine's thread, one to
+/// take the head off and dispatch it — which is what keeps the order right no matter when the queue is enabled
+/// relative to the messages in flight. It also means a message is delivered as a <i>task</i>: every promise
+/// reaction already queued runs first, exactly as in a browser. The queue living on
+/// <see cref="MessagePortEndpoint"/> is what lets it travel when the port is transferred, which is exactly how
+/// HTML writes it.
 /// </para>
 /// <para>
-/// <b>Transferring a port is not supported in this version.</b> An <c>ArrayBuffer</c> is the only transferable
-/// Jint has, so naming a port in a <c>transfer</c> list is a <c>DataCloneError</c>. That subsumes the
-/// specification's two port-specific transfer rules — a port may not be posted through itself, and posting a
-/// port through the port it is entangled with dooms the message — with a stricter answer: the browser dooms
-/// the second case silently, and Jint refuses it outright. A delivered <c>MessageEvent</c>'s <c>ports</c> is
-/// therefore always the empty frozen array.
+/// <b>A port is transferable.</b> Naming one in a <c>transfer</c> list detaches it: this object becomes
+/// permanently inert — <c>postMessage</c> is a silent no-op, no event will ever fire on it again — and its
+/// side, carrying whatever its queue still held, is re-entangled with a fresh <c>MessagePort</c> created in
+/// the receiving realm and handed to the listener as <c>event.ports</c>. The peer is untouched and never
+/// learns that the far end moved. The specification's two port-specific refusals are implemented as written:
+/// posting a port through <i>itself</i> is a <c>DataCloneError</c> (message port post message steps, step 2),
+/// and posting a port through the port it is entangled with dooms the message — the transfer still happens,
+/// nothing is delivered, and the channel is lost (steps 4 and 6). Naming one port twice in a single transfer
+/// list, or naming an already-detached one, is a <c>DataCloneError</c> from
+/// StructuredSerializeWithTransfer's own steps 2.3 and 5.2.
 /// </para>
 /// <para>
 /// <b><c>messageerror</c> is never fired.</b> The event and the <c>onmessageerror</c> attribute exist because
 /// the interface has them and a script may register for them, but the only thing that fires one is a
-/// deserialization that fails, and a record built by this engine's own serializer always deserializes. An
-/// execution-constraint failure during deserialization is not a candidate: a timeout or a cancellation must
-/// erupt from the pump, never be flattened into an event.
+/// deserialization that fails, and a record built by this engine's own serializer always deserializes into an
+/// engine that has the messaging feature — which a port's own existence proves it has. An execution-constraint
+/// failure during deserialization is not a candidate: a timeout or a cancellation must erupt from the pump,
+/// never be flattened into an event.
 /// </para>
 /// </remarks>
 internal sealed class JsMessagePort : JsEventTarget
@@ -59,10 +66,18 @@ internal sealed class JsMessagePort : JsEventTarget
     private static readonly JsString _messageEventName = new(MessageEventType);
 
     /// <summary>
-    /// https://html.spec.whatwg.org/multipage/web-messaging.html#port-message-queue. Only ever touched on this
-    /// port's own engine's thread — a message arriving from elsewhere joins it from inside an event-loop job.
+    /// The evaluation cycle this port belongs to — see <see cref="MessagePortEndpoint"/>'s remarks for why it
+    /// is captured once, here, rather than read when a message is posted.
     /// </summary>
-    private readonly Queue<SerializationRecord> _queue = new();
+    private readonly int _generation;
+
+    /// <summary>
+    /// The side of the channel this port speaks for, or <see langword="null"/> once it is detached — HTML's
+    /// <c>[[Detached]]</c>, expressed as "this object no longer owns a side". Both of the specification's two
+    /// ways of setting that slot land here: <c>close()</c>, which ends the side as it lets go of it, and a
+    /// transfer, which hands the side on intact.
+    /// </summary>
+    private MessagePortEndpoint? _endpoint;
 
     /// <summary>Whether the port message queue is enabled, i.e. whether <c>start()</c> has happened.</summary>
     private bool _enabled;
@@ -73,14 +88,65 @@ internal sealed class JsMessagePort : JsEventTarget
     /// </summary>
     private bool _drainScheduled;
 
-    internal JsMessagePort(Engine engine, Realm realm) : base(engine, realm)
+    /// <summary>
+    /// The two event-loop jobs this port ever queues, built once so that a sender posting in a loop allocates
+    /// one delegate for the port rather than one per message.
+    /// </summary>
+    /// <remarks>
+    /// Assigned in the constructor rather than lazily, because <see cref="RequestDelivery"/> runs on the
+    /// <i>sender's</i> thread: a <c>??=</c> there would be a cross-thread publication of a delegate this
+    /// engine's thread then invokes, which is a memory-model question not worth having for the price of two
+    /// allocations per port.
+    /// </remarks>
+    private readonly Action _arrivalJob;
+
+    private readonly Action _drainJob;
+
+    internal JsMessagePort(Engine engine, Realm realm) : this(engine, realm, endpoint: null)
     {
-        _prototype = realm.Intrinsics.MessagePort.PrototypeObject;
-        Endpoint = new MessagePortEndpoint(engine, this);
     }
 
-    /// <summary>The thread-crossing half of this port; see <see cref="MessagePortEndpoint"/>.</summary>
-    internal MessagePortEndpoint Endpoint { get; }
+    /// <param name="engine">The engine that owns this port.</param>
+    /// <param name="realm">The realm whose <c>MessagePort.prototype</c> the port gets.</param>
+    /// <param name="endpoint">
+    /// The side to bind to — a transferred one, from StructuredDeserializeWithTransfer — or
+    /// <see langword="null"/> to create a side of this port's own, which is what <c>new MessageChannel()</c>
+    /// and <c>Engine.Advanced.CreateMessagePortPair</c> do.
+    /// </param>
+    internal JsMessagePort(Engine engine, Realm realm, MessagePortEndpoint? endpoint) : base(engine, realm)
+    {
+        _prototype = realm.Intrinsics.MessagePort.PrototypeObject;
+        _generation = engine.EventLoopGeneration;
+        _arrivalJob = OnMessageArrived;
+        _drainJob = DrainOne;
+
+        _endpoint = endpoint ?? new MessagePortEndpoint();
+        _endpoint.Bind(this);
+
+        // So a restore or a dispose can end this port rather than leave its side reachable from an engine that
+        // has moved on. Nothing here wakes the queue: a freshly bound port is disabled, and start() is what
+        // drains whatever a transfer brought with it.
+        engine._webApi?.RegisterMessagePort(this);
+    }
+
+    /// <summary>
+    /// The channel side this port speaks for — the thread-crossing half — or <see langword="null"/> once it is
+    /// detached; see <see cref="MessagePortEndpoint"/>.
+    /// </summary>
+    internal MessagePortEndpoint? Endpoint => _endpoint;
+
+    /// <summary>
+    /// HTML's <c>[[Detached]]</c>: whether this port has let go of its side, by <c>close()</c> or by being
+    /// transferred. A detached port can never post, receive or fire anything again, and — StructuredSerialize
+    /// WithTransfer step 5.2 — can never be transferred either.
+    /// </summary>
+    internal bool Detached => _endpoint is null;
+
+    /// <summary>
+    /// Whether this port can no longer do anything — detached, or closed. What the engine's port registry
+    /// prunes on.
+    /// </summary>
+    internal bool IsInert => _endpoint is not { Closed: false };
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#message-port-post-message-steps
@@ -89,32 +155,60 @@ internal sealed class JsMessagePort : JsEventTarget
     /// <param name="transferList">The already-converted <c>transfer</c> sequence, or <see langword="null"/>.</param>
     internal void PostMessage(JsValue message, List<JsValue>? transferList)
     {
+        var endpoint = _endpoint;
+        var target = endpoint?.Peer;
+
+        // Steps 2 and 4, both decided before anything is serialized. Step 2 is a refusal — a port cannot be
+        // sent through itself — and step 4 only dooms: the transfer still happens and the message is simply
+        // never delivered, which is the specification's own way of saying the channel is being thrown away.
+        var doomed = false;
+        if (transferList is not null)
+        {
+            foreach (var entry in transferList)
+            {
+                if (ReferenceEquals(entry, this))
+                {
+                    StructuredSerializer.ThrowDataCloneError(_realm, "A MessagePort cannot be transferred through itself");
+                }
+
+                // "transfer contains targetPort", asked of the SIDE rather than of the object, so it is a
+                // reference comparison that needs nothing from the other engine's thread.
+                if (target is not null && entry is JsMessagePort candidate && ReferenceEquals(candidate.Endpoint, target))
+                {
+                    doomed = true;
+                }
+            }
+        }
+
         // Step 5 comes before step 6, and the order is observable: the message is serialized — and any
         // transfer performed — even when there is nothing to deliver it to. So `port.close();
         // port.postMessage(function(){})` still throws a DataCloneError, and a buffer in the transfer list is
         // still detached, whether or not anybody was listening.
         var record = new StructuredSerializer(_engine, _realm).Serialize(message, transferList);
 
-        // Step 6: "If targetPort is null, or if doomed is true, then return." A closed port is disentangled,
-        // which is the same thing as having no target.
-        var endpoint = Endpoint;
-        if (endpoint.Closed || endpoint.Peer.Closed)
+        // Step 6: "If targetPort is null, or if doomed is true, then return." A closed or detached port is
+        // disentangled, which is the same thing as having no target.
+        if (doomed || endpoint is null || endpoint.Closed || target is null || target.Closed)
         {
+            // Whatever the message was carrying is now unreachable, so a side transferred into it would sit
+            // unbound forever while its own peer went on posting. Ending it here is what "causing the
+            // communication channel to be lost" means when nobody can ever pick the record up.
+            StructuredSerializer.StrandTransferredPorts(in record);
             return;
         }
 
         // Step 7: add a task to the target's port message queue. Cross-engine, this is where the record
         // leaves this thread; same-engine it is an ordinary generation-stamped event-loop job.
-        endpoint.Peer.Post(record);
+        target.Post(record);
     }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-start — "Enable this's port
-    /// message queue." Calling it again does nothing.
+    /// message queue." Calling it again does nothing, and a detached port has no queue to enable.
     /// </summary>
     internal void Start()
     {
-        if (_enabled)
+        if (_enabled || _endpoint is null)
         {
             return;
         }
@@ -130,33 +224,69 @@ internal sealed class JsMessagePort : JsEventTarget
     /// <remarks>
     /// The peer is <i>not</i> closed: it stays a perfectly usable object whose <c>postMessage</c> now goes
     /// nowhere, which is what disentangling means. Anything still waiting on this port's own queue is dropped,
-    /// because a detached port can never dispatch again.
+    /// because a detached port can never dispatch again. A port that has been <i>transferred</i> away owns no
+    /// side any more, so closing it is a no-op rather than a way to reach into somebody else's channel — and
+    /// closing twice is the same no-op, since the first call is what let go.
     /// </remarks>
     internal void Close()
     {
-        Endpoint.Close();
-        _queue.Clear();
+        var endpoint = _endpoint;
+        _endpoint = null;
+        _enabled = false;
+
+        endpoint?.Close();
     }
 
     /// <summary>
-    /// Step 7's task, first half: the message joins this port's queue. <b>Runs on this port's own engine's
-    /// thread</b>, inside a generation-fenced event-loop job, which is what makes touching the queue safe
-    /// however far away the sender was.
+    /// HTML's transfer steps for this object: the port is detached and its side handed to the caller, which
+    /// puts it in the serialization record. Runs on this port's own engine's thread, inside the
+    /// <c>postMessage</c> or <c>structuredClone</c> that is transferring it.
     /// </summary>
-    internal void Receive(SerializationRecord record)
+    internal MessagePortEndpoint DetachForTransfer()
     {
-        if (Endpoint.Closed)
+        var endpoint = _endpoint!;
+        _endpoint = null;
+
+        // Not strictly needed — every path consults _endpoint first — but it keeps a detached port from
+        // looking like a started one to anything that reads the flag later.
+        _enabled = false;
+
+        endpoint.Unbind();
+        return endpoint;
+    }
+
+    /// <summary>
+    /// The wake <see cref="MessagePortEndpoint.Post"/> asks for. <b>Runs on the sender's thread</b>, so it
+    /// does nothing but enqueue: everything that touches this port's own state happens in the job.
+    /// </summary>
+    internal void RequestDelivery()
+    {
+        // A cheap early-out for a channel whose receiver has since restored a global snapshot, so a sender
+        // that keeps posting into a dead port does not grow that engine's queue. It is not the fence: the
+        // authoritative check is the one every job gets at dequeue, on the engine's own thread, which is the
+        // only place the comparison is free of races.
+        var engine = _engine;
+        if (engine.EventLoopGeneration != _generation)
         {
             return;
         }
 
-        _queue.Enqueue(record);
-        ScheduleDrain();
+        engine.AddToEventLoop(_arrivalJob, _generation);
     }
 
     /// <summary>
-    /// Arms the job that takes one message off the queue, unless the queue is disabled, empty, or already has
-    /// a job armed.
+    /// Step 7's task, first half. <b>Runs on this port's own engine's thread</b>, inside a generation-fenced
+    /// event-loop job, which is what makes touching this port's state safe however far away the sender was.
+    /// </summary>
+    /// <remarks>
+    /// A job queued for a port whose side has since been transferred away simply finds nothing to do: the
+    /// message it was announcing is still on that side's queue, and travels with it.
+    /// </remarks>
+    private void OnMessageArrived() => ScheduleDrain();
+
+    /// <summary>
+    /// Arms the job that takes one message off the queue, unless the port is detached, the queue is disabled
+    /// or empty, or a job is already armed.
     /// </summary>
     /// <remarks>
     /// The job carries the port's own generation rather than the engine's current one, so a port left over
@@ -164,13 +294,13 @@ internal sealed class JsMessagePort : JsEventTarget
     /// </remarks>
     private void ScheduleDrain()
     {
-        if (_drainScheduled || !_enabled || _queue.Count == 0)
+        if (_drainScheduled || !_enabled || _endpoint is not { Closed: false } endpoint || !endpoint.HasQueuedMessages)
         {
             return;
         }
 
         _drainScheduled = true;
-        _engine.AddToEventLoop(DrainOne, Endpoint.Generation);
+        _engine.AddToEventLoop(_drainJob, _generation);
     }
 
     /// <summary>
@@ -180,14 +310,12 @@ internal sealed class JsMessagePort : JsEventTarget
     {
         _drainScheduled = false;
 
-        // Any of the three may have changed since the job was armed: close(), or a listener of the previous
-        // message emptying the queue.
-        if (Endpoint.Closed || !_enabled || _queue.Count == 0)
+        // Any of these may have changed since the job was armed: close(), a transfer, or a listener of the
+        // previous message emptying the queue.
+        if (!_enabled || _endpoint is not { } endpoint || !endpoint.TryDequeue(this, out var record))
         {
             return;
         }
-
-        var record = _queue.Dequeue();
 
         // The next message is armed BEFORE this one is dispatched, so a listener that throws — which erupts
         // from the pump, per JsEventTarget's contract — does not strand everything behind it.
@@ -197,12 +325,13 @@ internal sealed class JsMessagePort : JsEventTarget
     }
 
     /// <summary>
-    /// Steps 7.3 to 7.6: deserialize into this port's realm, then fire a trusted <c>message</c> event.
+    /// Steps 7.2 to 7.5: StructuredDeserializeWithTransfer into this port's realm, then a trusted
+    /// <c>message</c> event carrying the clone and the ports the transfer created.
     /// </summary>
     private void Dispatch(SerializationRecord record)
     {
-        var data = new StructuredDeserializer(_engine, _realm).Deserialize(in record);
-        var messageEvent = _realm.Intrinsics.MessageEvent.CreateTrustedMessageEvent(_messageEventName, data);
+        var message = new StructuredDeserializer(_engine, _realm).DeserializeWithTransfer(in record);
+        var messageEvent = _realm.Intrinsics.MessageEvent.CreateTrustedMessageEvent(_messageEventName, message.Value, message.Ports);
         DispatchEvent(messageEvent);
     }
 }

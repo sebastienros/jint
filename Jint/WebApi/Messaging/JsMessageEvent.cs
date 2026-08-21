@@ -56,8 +56,10 @@ internal sealed class JsMessageEvent : JsEvent
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/comms.html#dom-messageevent-ports — a frozen array, so the same
-    /// object is returned on every read. Always empty for an event a port fires, because transferring a port
-    /// is not supported; see <see cref="JsMessagePort"/>.
+    /// object is returned on every read. For an event a port fires it holds the ports the message
+    /// <i>transferred</i>, in transfer-list order, and is the shared empty array when it transferred none —
+    /// which is every event <c>EventSource</c>, <c>WebSocket</c> and <c>BroadcastChannel</c> ever fire, none
+    /// of which has a transfer list at all. See <see cref="JsMessagePort"/>.
     /// </summary>
     internal JsArray Ports { get; }
 }

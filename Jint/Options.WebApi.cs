@@ -696,8 +696,9 @@ public enum WebApiFeatures
     /// <c>Engine.Advanced.CreateMessagePortPair</c>, which needs this flag on both of them; a
     /// <c>BroadcastChannel</c> spans as many engines as share a
     /// <see cref="Options.MessagingOptions.Broker"/>, and reaches every other channel of its name rather than
-    /// one peer. Transferring a port through a port is not supported, and a broadcast has no transfer list at
-    /// all.
+    /// one peer. A <c>MessagePort</c> is itself transferable, so a port can be handed over another port — or
+    /// relayed through an engine that never looks at it — and arrives as <c>event.ports</c>; a broadcast has
+    /// no transfer list at all.
     /// </summary>
     Messaging = 1 << 14,
 

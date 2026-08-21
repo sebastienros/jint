@@ -323,7 +323,201 @@ public class WebApiMessagingTests
         worker.Evaluate("received[0]").AsString().Should().Be("sent then restored");
     }
 
+    // ---------------------------------------------------------------- transferring a port between engines
+
+    [Fact]
+    public void APortTransferredToAnotherEngineIsEntangledWithTheOriginalPeer()
+    {
+        var (host, worker) = ConnectedPair();
+
+        worker.Execute("var moved = null; port.onmessage = function (e) { moved = e.ports[0]; };");
+
+        // The host makes a private channel and hands one end to the worker over the channel it already has.
+        host.Execute("""
+            var side = new MessageChannel();
+            side.port1.onmessage = function (e) { received.push('side:' + e.data); };
+            port.postMessage('here is a port', [side.port2]);
+            """);
+
+        worker.Advanced.ProcessTasks();
+
+        // The worker's engine built a MessagePort of its OWN realm — no JsValue crossed — and the event
+        // carries it in a frozen ports array.
+        worker.Evaluate("moved instanceof MessagePort").AsBoolean().Should().BeTrue();
+        worker.Evaluate("Object.getPrototypeOf(moved) === MessagePort.prototype").AsBoolean().Should().BeTrue();
+        // ... and it is entangled with the host's side.port1, which never learned that anything moved.
+        worker.Execute("moved.postMessage('hello from the worker');");
+        host.Advanced.ProcessTasks();
+        host.Evaluate("received.join(',')").AsString().Should().Be("side:hello from the worker");
+    }
+
+    [Fact]
+    public void ATransferredPortIsInertOnTheSendingEngine()
+    {
+        var (host, worker) = ConnectedPair();
+
+        host.Execute("""
+            var side = new MessageChannel();
+            side.port1.onmessage = function (e) { received.push('side:' + e.data); };
+            port.postMessage('handover', [side.port2]);
+
+            // Detached: postMessage is a silent no-op rather than a throw.
+            side.port2.postMessage('from the detached port');
+            """);
+
+        worker.Execute("port.onmessage = function (e) { e.ports[0].onmessage = function (ev) { received.push(ev.data); }; };");
+        worker.Advanced.ProcessTasks();
+        host.Advanced.ProcessTasks();
+
+        // Nothing came back through the detached object, and the worker got the one message the channel
+        // really carried.
+        host.Evaluate("received.length").AsNumber().Should().Be(0);
+        worker.Evaluate("received.length").AsNumber().Should().Be(0);
+
+        host.Execute("side.port1.postMessage('through the moved port');");
+        worker.Advanced.ProcessTasks();
+        worker.Evaluate("received.join(',')").AsString().Should().Be("through the moved port");
+    }
+
+    [Fact]
+    public void ATransferCarriesTheQueuedMessagesAndKeepsThemAhead()
+    {
+        var (host, worker) = ConnectedPair();
+
+        // Two messages queued on a port that was never started, the transfer, then one more posted while the
+        // port belongs to no engine at all — the window between the two engines' turns.
+        host.Execute("""
+            var side = new MessageChannel();
+            side.port1.postMessage('queued-1');
+            side.port1.postMessage('queued-2');
+            port.postMessage('handover', [side.port2]);
+            side.port1.postMessage('in-transit');
+            """);
+
+        worker.Execute("port.onmessage = function (e) { e.ports[0].onmessage = function (ev) { received.push(ev.data); }; };");
+        worker.Advanced.ProcessTasks();
+
+        worker.Evaluate("received.join(',')").AsString().Should().Be("queued-1,queued-2,in-transit");
+
+        host.Execute("side.port1.postMessage('after');");
+        worker.Advanced.ProcessTasks();
+        worker.Evaluate("received.join(',')").AsString().Should().Be("queued-1,queued-2,in-transit,after");
+    }
+
+    /// <summary>
+    /// The shape the whole design is for: the peer of a transferred port lives on an engine that is neither
+    /// the sender nor the receiver, and never hears about the move.
+    /// </summary>
+    [Fact]
+    public void APortRelayedThroughAThirdEngineStillTalksToTheFirst()
+    {
+        var a = MessagingEngine();
+        var b = MessagingEngine();
+        var c = MessagingEngine();
+
+        Wire(a, b, "ab");
+        Wire(b, c, "bc");
+
+        // A keeps one end of a private channel and sends the other to B ...
+        a.Execute("""
+            var received = [];
+            var side = new MessageChannel();
+            side.port1.onmessage = function (e) { received.push(e.data); };
+            side.port1.postMessage('queued before anything moved');
+            ab.postMessage('for you', [side.port2]);
+            """);
+
+        // ... B does not even look at it, it just forwards it on to C ...
+        b.Execute("ab.onmessage = function (e) { bc.postMessage('passing it on', [e.ports[0]]); };");
+        b.Advanced.ProcessTasks();
+
+        // ... and C ends up talking straight to A.
+        c.Execute("var received = []; bc.onmessage = function (e) { var p = e.ports[0]; p.onmessage = function (ev) { received.push(ev.data); }; p.postMessage('hello from C'); };");
+        c.Advanced.ProcessTasks();
+
+        a.Advanced.ProcessTasks();
+        a.Evaluate("received.join(',')").AsString().Should().Be("hello from C");
+
+        // The message A queued before the first hop survived both of them, and arrives at C in order ahead of
+        // anything posted afterwards.
+        a.Execute("side.port1.postMessage('after two hops');");
+        c.Advanced.ProcessTasks();
+        c.Evaluate("received.join(',')").AsString().Should().Be("queued before anything moved,after two hops");
+
+        // B was only ever a courier: it never bound the side, and its own port is untouched.
+        b.Evaluate("typeof ab").AsString().Should().Be("object");
+    }
+
+    [Fact]
+    public void ATransferredPortIsEndedWhenTheReceivingEngineRestores()
+    {
+        var (host, worker) = ConnectedPair();
+        var snapshot = worker.Advanced.CaptureGlobalSnapshot();
+
+        host.Execute("""
+            var side = new MessageChannel();
+            side.port1.onmessage = function (e) { received.push(e.data); };
+            port.postMessage('handover', [side.port2]);
+            """);
+
+        // The worker ends the cycle before it ever runs the delivery job, so the side that was in flight can
+        // never be bound to anything. It has to be ENDED rather than left waiting: the host's own port would
+        // otherwise go on serializing into a queue nobody can ever drain.
+        worker.Advanced.RestoreGlobalSnapshot(snapshot);
+        worker.Advanced.ProcessTasks();
+
+        host.Execute("side.port1.postMessage('into the void');");
+        host.Advanced.ProcessTasks();
+        host.Evaluate("received.length").AsNumber().Should().Be(0);
+
+        // The port that was in flight was detached by the transfer, so it cannot be handed over again
+        // either — the sender's half of the same fact.
+        Refusal(host, "port.postMessage('again', [side.port2])").Should().Be("DataCloneError");
+    }
+
+    [Fact]
+    public void ADoubleTransferOfTheSamePortIsRefused()
+    {
+        var (host, worker) = ConnectedPair();
+
+        host.Execute("var side = new MessageChannel(); port.postMessage('first', [side.port2]);");
+
+        Refusal(host, "port.postMessage('second', [side.port2])").Should().Be("DataCloneError");
+
+        // The first transfer is unaffected: the worker still gets exactly one port.
+        worker.Execute("var ports = 0; port.onmessage = function (e) { ports += e.ports.length; };");
+        worker.Advanced.ProcessTasks();
+        worker.Evaluate("ports").AsNumber().Should().Be(1);
+    }
+
+    [Fact]
+    public void APortCannotBeSentThroughItself()
+    {
+        var (host, _) = ConnectedPair();
+
+        Refusal(host, "port.postMessage('nope', [port])").Should().Be("DataCloneError");
+
+        // Nothing was detached, so the channel is untouched.
+        host.Execute("port.postMessage('still fine');");
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /// <summary>
+    /// The <c>DOMException</c> name <paramref name="body"/> is refused with, or <c>"no error"</c>.
+    /// </summary>
+    private static string Refusal(Engine engine, string body) => engine.Evaluate(
+        "(function () { try { " + body + "; return 'no error'; } catch (e) { return e.name; } })()").AsString();
+
+    /// <summary>
+    /// Gives two engines a port each under <paramref name="name"/>, so a chain of engines can be wired up.
+    /// </summary>
+    private static void Wire(Engine first, Engine second, string name)
+    {
+        var pair = first.Advanced.CreateMessagePortPair(second);
+        first.SetValue(name, pair.Local);
+        second.SetValue(name, pair.Remote);
+    }
 
     /// <summary>
     /// How many messages an engine has taken delivery of, read <b>without</b> pumping it — which

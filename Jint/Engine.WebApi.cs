@@ -196,6 +196,26 @@ internal sealed class WebApiEngineState
     /// </summary>
     private BroadcastChannelBroker? _broadcastChannelBroker;
 
+    /// <summary>
+    /// The <c>MessagePort</c> objects this engine has created, held <b>weakly</b>. Engine-thread-only, and
+    /// exists for one reason: a restore or a dispose has to be able to <i>close</i> this engine's ports, not
+    /// merely stop delivering into them — a port's side may be entangled with one belonging to an engine that
+    /// outlives this cycle, and it may be holding an undelivered message that itself carries a transferred
+    /// side nothing else can ever reach.
+    /// </summary>
+    /// <remarks>
+    /// Weak, because a strong list would turn <c>while (true) new MessageChannel();</c> into a leak that the
+    /// engine itself created — a channel whose two ports no script can name is garbage in a browser too, and a
+    /// port that has been collected cannot be holding anything that is not garbage with it. Pruned in
+    /// amortized constant time rather than on every registration: the threshold doubles, so a script creating
+    /// a great many channels does not turn each creation into a walk of everything before it.
+    /// </remarks>
+    private List<WeakReference<JsMessagePort>>? _messagePorts;
+
+    private int _messagePortPruneThreshold = MessagePortPruneFloor;
+
+    private const int MessagePortPruneFloor = 16;
+
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null, Options.MessagingOptions? messaging = null)
     {
         _engine = engine;
@@ -408,6 +428,49 @@ internal sealed class WebApiEngineState
 
     /// <summary>Forgets one channel, which is what <c>close()</c> does to itself.</summary>
     internal void UnregisterBroadcastChannel(JsBroadcastChannel channel) => _broadcastChannels?.Remove(channel);
+
+    /// <summary>
+    /// Records a live <c>MessagePort</c>; see <see cref="_messagePorts"/>. There is deliberately no
+    /// unregister: a port that closes or is transferred away becomes inert, and the next prune drops it.
+    /// </summary>
+    internal void RegisterMessagePort(JsMessagePort port)
+    {
+        var ports = _messagePorts ??= new List<WeakReference<JsMessagePort>>();
+
+        if (ports.Count >= _messagePortPruneThreshold)
+        {
+            ports.RemoveAll(static entry => !entry.TryGetTarget(out var candidate) || candidate.IsInert);
+            _messagePortPruneThreshold = Math.Max(MessagePortPruneFloor, ports.Count * 2);
+        }
+
+        ports.Add(new WeakReference<JsMessagePort>(port));
+    }
+
+    /// <summary>
+    /// Closes every port this engine still has, which is what ends the channels the cycle being torn down
+    /// created. Closing rather than forgetting, for the reason <see cref="ResetTransientState"/> gives.
+    /// </summary>
+    private void CloseMessagePorts()
+    {
+        if (_messagePorts is not { Count: > 0 } ports)
+        {
+            return;
+        }
+
+        // Copied before the walk, exactly as the broadcast channels are: closing a port can close the sides
+        // stranded in its queue, and those can belong to ports of this engine too.
+        var live = ports.ToArray();
+        ports.Clear();
+        _messagePortPruneThreshold = MessagePortPruneFloor;
+
+        foreach (var entry in live)
+        {
+            if (entry.TryGetTarget(out var port))
+            {
+                port.Close();
+            }
+        }
+    }
 
     /// <summary>
     /// Gives a state that was built without one the timer queue a feature enabled later needs. Called only by
@@ -649,6 +712,14 @@ internal sealed class WebApiEngineState
     /// ending — with one addition: the broker it joined may be the host's and may outlive this engine, so
     /// leaving the subscription there would keep this engine reachable and go on costing every future sender a
     /// job the generation fence then throws away.
+    /// A <c>MessagePort</c> is closed for exactly those reasons and one more that is peculiar to it. The
+    /// generation fence already stops delivery — the port belongs to the cycle it was created in — but the
+    /// port message queue lives on the channel <i>side</i>, so a message posted before the restore is sitting
+    /// in it whether or not anything ever pumps again, and that message may be carrying a <b>transferred</b>
+    /// side, unbound and waiting for a deserialization that can now never happen while its own peer goes on
+    /// posting into it. Closing the port drains the queue and ends every side stranded in it, transitively.
+    /// The peer is deliberately <i>not</i> closed: disentangling is one-sided, and a peer on another engine is
+    /// in a cycle of its own that this restore has no business ending.
     /// </remarks>
     internal void ResetTransientState()
     {
@@ -659,6 +730,7 @@ internal sealed class WebApiEngineState
         AbandonEventSources();
         AbandonWebSockets();
         CloseBroadcastChannels();
+        CloseMessagePorts();
         IdleCallbacks?.Clear();
 
         // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
@@ -768,14 +840,17 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// Called from <see cref="Engine.Dispose"/>: releases the state that reaches outside the engine, which is
-    /// the host token registrations and the subscriptions in a <see cref="BroadcastChannelBroker"/> the host
-    /// may share with engines that outlive this one. The queues need nothing — they hold no unmanaged resource
-    /// and no timer, and die with the engine.
+    /// the host token registrations, the subscriptions in a <see cref="BroadcastChannelBroker"/> the host may
+    /// share with engines that outlive this one, and the <c>MessagePort</c> sides entangled with ports of
+    /// another engine — each of which is a live reference to this disposed one, and each of which would go on
+    /// accepting messages into a queue nothing will ever drain. The queues need nothing — they hold no
+    /// unmanaged resource and no timer, and die with the engine.
     /// </summary>
     internal void Dispose()
     {
         ReleaseHostAbortBridges();
         CloseBroadcastChannels();
+        CloseMessagePorts();
     }
 }
 #endif

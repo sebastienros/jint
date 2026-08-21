@@ -87,6 +87,33 @@ internal sealed class MessageEventConstructor : Constructor
         => CreateTrustedMessageEvent(type, data, JsString.Empty, JsString.Empty);
 
     /// <summary>
+    /// <see cref="CreateTrustedMessageEvent(JsString, JsValue)"/> plus the one member the message port post
+    /// message steps do set beyond <c>data</c>: step 7.4's "new frozen array consisting of all
+    /// <c>MessagePort</c> objects in <c>deserializeRecord.[[TransferredValues]]</c>, maintaining their
+    /// relative order".
+    /// </summary>
+    /// <remarks>
+    /// A message that transferred no port keeps the shared frozen empty array, so the overwhelmingly common
+    /// delivery allocates nothing here — and the callers that can never transfer one (<c>EventSource</c>,
+    /// <c>WebSocket</c>, <c>BroadcastChannel</c>) go on using the overloads above, unchanged.
+    /// </remarks>
+    internal JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data, List<JsMessagePort>? ports)
+    {
+        if (ports is not { Count: > 0 })
+        {
+            return CreateTrustedMessageEvent(type, data);
+        }
+
+        var values = new JsValue[ports.Count];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = ports[i];
+        }
+
+        return CreateTrustedMessageEvent(type, data, JsString.Empty, JsString.Empty, FreezePorts(values));
+    }
+
+    /// <summary>
     /// <see cref="CreateTrustedMessageEvent(JsString, JsValue)"/> with the two members <c>EventSource</c>'s
     /// dispatch steps additionally set — the stream's origin and the last event ID,
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#dispatchMessage. <c>source</c> and
@@ -94,6 +121,9 @@ internal sealed class MessageEventConstructor : Constructor
     /// has none to hand over.
     /// </summary>
     internal JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data, JsString origin, JsString lastEventId)
+        => CreateTrustedMessageEvent(type, data, origin, lastEventId, EmptyPorts);
+
+    private JsMessageEvent CreateTrustedMessageEvent(JsString type, JsValue data, JsString origin, JsString lastEventId, JsArray ports)
     {
         return new JsMessageEvent(
             _engine,
@@ -104,7 +134,7 @@ internal sealed class MessageEventConstructor : Constructor
             origin,
             lastEventId,
             Null,
-            EmptyPorts)
+            ports)
         {
             IsTrusted = true,
             _prototype = PrototypeObject,
@@ -156,9 +186,11 @@ internal sealed class MessageEventConstructor : Constructor
     }
 
     /// <summary>
-    /// The <c>sequence&lt;MessagePort&gt; ports = []</c> member. Nothing in this engine can transfer a port,
-    /// so this is the only way a <c>MessageEvent</c> ever carries one — and it carries whatever the script
-    /// put there, which is what a script constructing its own event for <c>dispatchEvent</c> expects.
+    /// The <c>sequence&lt;MessagePort&gt; ports = []</c> member: whatever the script put there, which is what
+    /// a script constructing its own event for <c>dispatchEvent</c> expects. Unrelated to the ports a
+    /// <i>transfer</i> produces — those reach a delivered event through
+    /// <see cref="CreateTrustedMessageEvent(JsString, JsValue, List{JsMessagePort})"/>, and a constructed
+    /// event has no transfer of its own.
     /// </summary>
     private JsArray ReadPorts(ObjectInstance dictionary)
     {

@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
@@ -6,8 +7,22 @@ using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Messaging;
 
 namespace Jint.WebApi.StructuredClone;
+
+/// <summary>
+/// StructuredDeserializeWithTransfer's result: <c>[[Deserialized]]</c>, and <c>[[TransferredValues]]</c>
+/// narrowed to the ports — which is all any caller needs, because a transferred <c>ArrayBuffer</c> is
+/// reachable only from the message itself.
+/// </summary>
+/// <param name="Value">The clone of the message, in the deserializer's own realm.</param>
+/// <param name="Ports">
+/// The ports the transfer created, in transfer-list order, or <see langword="null"/> when none were
+/// transferred — which is the overwhelmingly common case and the reason this is not an empty list.
+/// </param>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct DeserializedMessage(JsValue Value, List<JsMessagePort>? Ports);
 
 /// <summary>
 /// StructuredDeserialize: turns an engine-neutral <see cref="SerializationRecord"/> back into objects, all of
@@ -75,13 +90,67 @@ internal sealed class StructuredDeserializer
     }
 
     /// <summary>
+    /// StructuredDeserialize for a record that transferred nothing but buffers, which is every message
+    /// <c>BroadcastChannel</c> produces. Equivalent to <see cref="DeserializeWithTransfer"/> and its
+    /// <c>Value</c>; a caller that has to expose <c>ports</c> wants the other one.
+    /// </summary>
+    internal JsValue Deserialize(in SerializationRecord record) => DeserializeWithTransfer(in record).Value;
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/structured-data.html#structureddeserializewithtransfer
     /// </summary>
-    internal JsValue Deserialize(in SerializationRecord record)
+    /// <remarks>
+    /// Step 3 runs <b>before</b> step 4, and the order is load-bearing rather than incidental: every
+    /// transferred port exists, in this realm, before a single node of the message graph is looked at, so a
+    /// reference to one from inside the message resolves — through the same memory map that carries sharing
+    /// and cycles — to the very object <c>event.ports</c> hands over.
+    /// </remarks>
+    internal DeserializedMessage DeserializeWithTransfer(in SerializationRecord record)
     {
+        // Step 3.
+        var ports = DeserializeTransferredPorts(record.TransferredPorts);
+
+        // Step 4.
         var result = DeserializeValue(record.Root);
         Drain();
-        return result;
+
+        return new DeserializedMessage(result, ports);
+    }
+
+    /// <summary>
+    /// Step 3, for the transfer data holders that are ports: one <c>MessagePort</c> per holder, created in
+    /// this realm and bound to the side the sender detached, in transfer-list order.
+    /// </summary>
+    /// <remarks>
+    /// The side is <i>taken</i> from the holder, so a record deserialized twice — which
+    /// <see cref="SerializationRecord"/> forbids and only <c>BroadcastChannel</c> comes near, and it has no
+    /// transfer list at all — cannot bind one channel side to two engines. The second read builds a port with
+    /// a side of its own that is entangled with nothing, which is inert.
+    /// <para>
+    /// Step 3.3.2's "if the interface is not exposed in targetRealm, throw a DataCloneError" cannot fire here:
+    /// the only way to hold a port is to have the messaging feature, and the only way a record reaches this
+    /// engine is through a port of its own.
+    /// </para>
+    /// </remarks>
+    private List<JsMessagePort>? DeserializeTransferredPorts(List<SerializedMessagePort>? holders)
+    {
+        if (holders is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var ports = new List<JsMessagePort>(holders.Count);
+        foreach (var holder in holders)
+        {
+            var endpoint = holder.Endpoint;
+            holder.Endpoint = null;
+
+            var port = new JsMessagePort(_engine, _realm, endpoint);
+            _memory[holder] = port;
+            ports.Add(port);
+        }
+
+        return ports;
     }
 
     private void Drain()

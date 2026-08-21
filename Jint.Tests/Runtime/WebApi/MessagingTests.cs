@@ -3,6 +3,7 @@
 
 using Jint.Native;
 using Jint.Runtime.Descriptors;
+using Jint.WebApi.Messaging;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -562,20 +563,6 @@ public class MessagingTests
     }
 
     [Fact]
-    public void RefusesToTransferAPort()
-    {
-        var engine = MessagingEngine();
-        engine.Execute("var ch = new MessageChannel(); var other = new MessageChannel();");
-
-        // Transferring a port is out of scope for this version, so every port-in-transfer-list case the
-        // specification distinguishes — the port itself, its entangled peer, an unrelated port — is one
-        // DataCloneError.
-        Err(engine, "ch.port1.postMessage(0, [ch.port1])").Should().Be("DataCloneError");
-        Err(engine, "ch.port1.postMessage(0, [ch.port2])").Should().Be("DataCloneError");
-        Err(engine, "ch.port1.postMessage(0, [other.port1])").Should().Be("DataCloneError");
-    }
-
-    [Fact]
     public void RefusesAMalformedTransferOption()
     {
         var engine = MessagingEngine();
@@ -584,6 +571,423 @@ public class MessagingTests
         Err(engine, "ch.port1.postMessage(0, 5)").Should().Be("TypeError");
         Err(engine, "ch.port1.postMessage(0, [1])").Should().Be("TypeError");
         Err(engine, "ch.port1.postMessage(0, { transfer: 5 })").Should().Be("TypeError");
+    }
+
+    // ---------------------------------------------------------------- transferring a port
+
+    /// <summary>
+    /// A relay channel plus a channel to hand over: <c>relay</c> carries the transfer, <c>ch</c> is the
+    /// channel whose <c>port2</c> gets moved. The receiving side of the relay adopts whatever port arrives.
+    /// </summary>
+    private const string HandoverSetup = """
+        var relay = new MessageChannel();
+        var ch = new MessageChannel();
+        var moved = null;
+        relay.port2.onmessage = function (e) {
+            moved = e.ports[0];
+            moved.onmessage = function (ev) { log.push(ev.data); };
+        };
+        """;
+
+    [Fact]
+    public void TransfersAPortThroughTheChannel()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute(HandoverSetup + "relay.port1.postMessage('handover', [ch.port2]);");
+
+        // The receiver got a real MessagePort of its own realm, not a clone of the object.
+        engine.Evaluate("moved instanceof MessagePort").AsBoolean().Should().BeTrue();
+        engine.Evaluate("moved === ch.port2").AsBoolean().Should().BeFalse();
+
+        // ... and it is entangled with the peer the transferred port had, which never learned anything
+        // happened: a message posted on ch.port1 now arrives at the port the relay delivered.
+        engine.Execute("ch.port1.postMessage('through the moved port');");
+        Log(engine).Should().Be("through the moved port");
+
+        // The other direction works too.
+        engine.Execute("ch.port1.onmessage = function (e) { log.push('back:' + e.data); }; moved.postMessage('reply');");
+        Log(engine).Should().Be("through the moved port,back:reply");
+    }
+
+    [Fact]
+    public void LeavesTheTransferredPortInert()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute(HandoverSetup + """
+            ch.port2.onmessage = function (e) { log.push('old port saw ' + e.data); };
+            relay.port1.postMessage('handover', [ch.port2]);
+            """);
+
+        // [[Detached]]: postMessage is a silent no-op rather than a throw, and nothing will ever fire on the
+        // detached object again — not even the listener it still carries.
+        engine.Execute("ch.port2.postMessage('from the detached port'); ch.port1.postMessage('to the detached port');");
+        engine.Execute("ch.port2.start(); ch.port2.close();");
+
+        Log(engine).Should().Be("to the detached port");
+        engine.Evaluate("log.length").AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// The port message queue travels with the port, and everything in flight keeps its place in it — which is
+    /// what HTML gets by passing the queue itself into the data holder rather than a copy of its contents.
+    /// </summary>
+    [Fact]
+    public void CarriesTheQueuedMessagesWithTheTransferredPortAndKeepsTheirOrder()
+    {
+        var engine = MessagingEngine();
+
+        // Two messages queued on a port that was never started, then the transfer, then one more posted while
+        // the port is in transit — no object owns that channel side at that instant. All three must arrive, in
+        // this order, on the port the transfer created.
+        engine.Execute(HandoverSetup + """
+            ch.port1.postMessage('queued-before-1');
+            ch.port1.postMessage('queued-before-2');
+            relay.port1.postMessage('handover', [ch.port2]);
+            ch.port1.postMessage('posted-in-transit');
+            """);
+
+        Log(engine).Should().Be("queued-before-1,queued-before-2,posted-in-transit");
+
+        // ... and the channel keeps working afterwards, so nothing about the handover left it half-drained.
+        engine.Execute("ch.port1.postMessage('after');");
+        Log(engine).Should().Be("queued-before-1,queued-before-2,posted-in-transit,after");
+    }
+
+    [Fact]
+    public void CarriesAStartedPortsUndeliveredBacklog()
+    {
+        var engine = MessagingEngine();
+
+        // The specification permits transferring a port whose queue is already enabled; the new port starts
+        // disabled again ("leaving value's port message queue in its initial disabled state"), so the backlog
+        // waits for the receiver's own start().
+        engine.Execute(HandoverSetup + """
+            relay.port2.onmessage = function (e) { moved = e.ports[0]; };
+            ch.port2.onmessage = function () { log.push('never'); };
+            ch.port1.postMessage('backlog');
+            relay.port1.postMessage('handover', [ch.port2]);
+            """);
+
+        // Nothing was delivered anywhere: the transfer happened synchronously inside postMessage, before the
+        // event-loop task that would have dispatched 'backlog' to the old port ever ran.
+        Log(engine).Should().Be("");
+
+        engine.Execute("moved.onmessage = function (e) { log.push(e.data); };");
+        Log(engine).Should().Be("backlog");
+    }
+
+    [Fact]
+    public void RefusesToTransferAPortThroughItself()
+    {
+        var engine = MessagingEngine();
+        engine.Execute("var ch = new MessageChannel();");
+
+        // Message port post message steps, step 2 — and it is decided before serialization, so nothing else
+        // in the list is transferred either.
+        engine.Execute("var buffer = new ArrayBuffer(4);");
+        Err(engine, "ch.port1.postMessage(0, [buffer, ch.port1])").Should().Be("DataCloneError");
+        engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(4);
+        engine.Evaluate("ch.port1.postMessage('still works') === undefined").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void DoomsAMessageThatTransfersTheEntangledPeer()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var ch = new MessageChannel();
+            ch.port2.onmessage = function (e) { log.push(e.data); };
+            ch.port1.postMessage('doomed', [ch.port2]);
+            """);
+
+        // Step 4 dooms rather than refuses: no exception, and nothing is delivered.
+        Log(engine).Should().Be("");
+
+        // ... but step 5 still ran, so the peer really was transferred — and since the message carrying it can
+        // never be picked up, the channel is lost, exactly as the specification's own note says.
+        engine.Execute("ch.port1.postMessage('after the dooming');");
+        Log(engine).Should().Be("");
+
+        // Script cannot tell dooming from delivering-into-a-port-nobody-owns, because both are silent. The
+        // difference is on the side: doomed means the record was never queued at all and the transfer it
+        // carried was ended, rather than a record sitting in a queue that references the very side it is
+        // sitting in.
+        var sender = (JsMessagePort) engine.Evaluate("ch.port1");
+        sender.Endpoint!.Peer!.Closed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void EndsEveryTransferStrandedBehindAClosedPortHoweverDeeplyNested()
+    {
+        var engine = MessagingEngine();
+
+        // x2 is never started, so everything posted to it piles up on its side. The first message carries
+        // y2, and — because y2's side is then unbound — the second message piles up behind THAT, carrying z2.
+        engine.Execute("""
+            var x = new MessageChannel();
+            var y = new MessageChannel();
+            var z = new MessageChannel();
+            x.port1.postMessage('carrying y2', [y.port2]);
+            y.port1.postMessage('carrying z2', [z.port2]);
+            """);
+
+        var y1 = (JsMessagePort) engine.Evaluate("y.port1");
+        var z1 = (JsMessagePort) engine.Evaluate("z.port1");
+        y1.Endpoint!.Peer!.Closed.Should().BeFalse();
+        z1.Endpoint!.Peer!.Closed.Should().BeFalse();
+
+        // Closing the one port at the head of the chain has to end all of it: every side behind it is
+        // unreachable, and each would otherwise go on accepting messages from a peer that is still alive.
+        engine.Execute("x.port2.close();");
+
+        y1.Endpoint!.Peer!.Closed.Should().BeTrue();
+        z1.Endpoint!.Peer!.Closed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RefusesAPortThatAppearsTwiceInOneTransferList()
+    {
+        var engine = MessagingEngine();
+        engine.Execute("var relay = new MessageChannel(); var ch = new MessageChannel();");
+
+        // StructuredSerializeWithTransfer step 2.3, which is checked before anything is detached.
+        Err(engine, "relay.port1.postMessage(0, [ch.port2, ch.port2])").Should().Be("DataCloneError");
+
+        // The port is untouched, so it can still be transferred properly.
+        engine.Execute("relay.port2.onmessage = function (e) { log.push(e.ports.length); }; relay.port1.postMessage(0, [ch.port2]);");
+        Log(engine).Should().Be("1");
+    }
+
+    [Fact]
+    public void RefusesToTransferAnAlreadyDetachedPort()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute(HandoverSetup + "relay.port1.postMessage('handover', [ch.port2]);");
+
+        // StructuredSerializeWithTransfer step 5.2, for a port a previous transfer detached ...
+        Err(engine, "relay.port1.postMessage(0, [ch.port2])").Should().Be("DataCloneError");
+
+        // ... and for one close() detached.
+        engine.Execute("var other = new MessageChannel(); other.port1.close();");
+        Err(engine, "relay.port1.postMessage(0, [other.port1])").Should().Be("DataCloneError");
+    }
+
+    [Fact]
+    public void RefusesAPortThatWasNotInTheTransferList()
+    {
+        var engine = MessagingEngine();
+        engine.Execute("var ch = new MessageChannel(); var other = new MessageChannel();");
+
+        // A MessagePort is transferable but not serializable, so putting one in the message without naming it
+        // in the transfer list is the plain "platform object that is not serializable" refusal.
+        Err(engine, "ch.port1.postMessage(other.port1)").Should().Be("DataCloneError");
+        Err(engine, "ch.port1.postMessage({ nested: other.port1 })").Should().Be("DataCloneError");
+
+        // ... and the untransferred port is unharmed.
+        engine.Execute("other.port2.onmessage = function (e) { log.push(e.data); }; other.port1.postMessage('fine');");
+        Log(engine).Should().Be("fine");
+    }
+
+    [Fact]
+    public void ResolvesAPortThatIsBothTransferredAndReferencedToOneObject()
+    {
+        var engine = MessagingEngine();
+
+        // StructuredDeserializeWithTransfer creates the transferred values BEFORE it walks the graph, so a
+        // reference to the port from inside the message resolves to the very object `ports` hands over.
+        engine.Execute("""
+            var relay = new MessageChannel();
+            var ch = new MessageChannel();
+            var event = null;
+            relay.port2.onmessage = function (e) { event = e; };
+            relay.port1.postMessage({ port: ch.port2, again: [ch.port2] }, [ch.port2]);
+            """);
+
+        engine.Evaluate("event.data.port === event.ports[0]").AsBoolean().Should().BeTrue();
+        engine.Evaluate("event.data.again[0] === event.ports[0]").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void GivesTheEventAFrozenPortsArrayInTransferListOrder()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var relay = new MessageChannel();
+            var first = new MessageChannel();
+            var second = new MessageChannel();
+            var event = null;
+            relay.port2.onmessage = function (e) { event = e; };
+            relay.port1.postMessage('two ports', [second.port2, first.port2]);
+            """);
+
+        engine.Evaluate("event.ports.length").AsNumber().Should().Be(2);
+        engine.Evaluate("Object.isFrozen(event.ports)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Array.isArray(event.ports)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("event.ports === event.ports").AsBoolean().Should().BeTrue();
+
+        // Transfer-list order, not creation order: ports[0] is second's half.
+        engine.Execute("""
+            event.ports[0].onmessage = function (e) { log.push('0:' + e.data); };
+            event.ports[1].onmessage = function (e) { log.push('1:' + e.data); };
+            second.port1.postMessage('from second');
+            first.port1.postMessage('from first');
+            """);
+
+        Log(engine).Should().Be("0:from second,1:from first");
+    }
+
+    [Fact]
+    public void TransfersBothEndsOfAChannelInOneMessage()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var relay = new MessageChannel();
+            var ch = new MessageChannel();
+            relay.port2.onmessage = function (e) {
+                e.ports[0].onmessage = function (ev) { log.push(ev.data); };
+                e.ports[1].postMessage('both ends moved');
+            };
+            relay.port1.postMessage('handover', [ch.port1, ch.port2]);
+            """);
+
+        // Each side was re-pointed independently, and they are still each other's peer.
+        Log(engine).Should().Be("both ends moved");
+    }
+
+    [Fact]
+    public void RelaysAPortThroughSeveralTransfers()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var first = new MessageChannel();
+            var second = new MessageChannel();
+            var ch = new MessageChannel();
+
+            // The port arriving on first.port2 is immediately forwarded through the second relay.
+            first.port2.onmessage = function (e) { second.port1.postMessage('forwarded', [e.ports[0]]); };
+            second.port2.onmessage = function (e) { e.ports[0].onmessage = function (ev) { log.push(ev.data); }; };
+
+            ch.port1.postMessage('queued at the very start');
+            first.port1.postMessage('handover', [ch.port2]);
+            """);
+
+        // The one message survived two hops, and the channel still works at the far end.
+        Log(engine).Should().Be("queued at the very start");
+
+        engine.Execute("ch.port1.postMessage('after two hops');");
+        Log(engine).Should().Be("queued at the very start,after two hops");
+    }
+
+    [Fact]
+    public void TransfersAPortThroughStructuredCloneIntoTheSameRealm()
+    {
+        var engine = MessagingEngine();
+
+        // A transfer needs a target realm, not a target agent, so structuredClone can do it — and does in
+        // every browser. The clone is entangled with the original's peer and the original is detached.
+        engine.Execute("""
+            var ch = new MessageChannel();
+            ch.port1.onmessage = function (e) { log.push(e.data); };
+            var clone = structuredClone(ch.port2, { transfer: [ch.port2] });
+            clone.onmessage = function (e) { log.push('clone got ' + e.data); };
+            clone.postMessage('from the clone');
+            ch.port1.postMessage('to the clone');
+            """);
+
+        engine.Evaluate("clone instanceof MessagePort").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone === ch.port2").AsBoolean().Should().BeFalse();
+        engine.Evaluate("ch.port2.postMessage('inert') === undefined").AsBoolean().Should().BeTrue();
+
+        Log(engine).Should().Be("from the clone,clone got to the clone");
+    }
+
+    [Fact]
+    public void StructuredCloneStillRefusesAPortThatIsNotTransferred()
+    {
+        var engine = MessagingEngine();
+        engine.Execute("var ch = new MessageChannel();");
+
+        Err(engine, "structuredClone(ch.port1)").Should().Be("DataCloneError");
+
+        // The refusal did not detach it.
+        engine.Execute("ch.port2.onmessage = function (e) { log.push(e.data); }; ch.port1.postMessage('unharmed');");
+        Log(engine).Should().Be("unharmed");
+    }
+
+    [Fact]
+    public void EndsAPortWhoseTransferCanNeverBePickedUp()
+    {
+        var engine = MessagingEngine();
+
+        // The relay's target is closed, so the message is serialized (the port really is detached) and then
+        // dropped. Nothing can ever bind that channel side, so it is closed rather than left waiting — which
+        // is what the peer observes.
+        engine.Execute("""
+            var relay = new MessageChannel();
+            var ch = new MessageChannel();
+            relay.port2.close();
+            relay.port1.postMessage('nowhere', [ch.port2]);
+            ch.port1.onmessage = function (e) { log.push(e.data); };
+            ch.port1.postMessage('into the void');
+            """);
+
+        engine.Evaluate("ch.port2.postMessage('inert') === undefined").AsBoolean().Should().BeTrue();
+        Log(engine).Should().Be("");
+
+        // Script cannot tell "closed" from "waiting for a receiver that will never come" — both make
+        // postMessage a no-op — so the assertion that matters is on the side itself. A side left merely
+        // unbound would go on accepting everything ch.port1 ever posts, into a queue nothing can drain.
+        var remaining = (JsMessagePort) engine.Evaluate("ch.port1");
+        remaining.Endpoint!.Peer!.Closed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void EndsAPortInFlightToAnEngineThatRestores()
+    {
+        var host = MessagingEngine();
+        var worker = MessagingEngine();
+
+        var pair = host.Advanced.CreateMessagePortPair(worker);
+        host.SetValue("port", pair.Local);
+        worker.SetValue("port", pair.Remote);
+
+        var snapshot = worker.Advanced.CaptureGlobalSnapshot();
+
+        host.Execute("var ch = new MessageChannel(); port.postMessage('handover', [ch.port2]);");
+
+        // The delivery job carries the worker's ended cycle, so it is discarded and the side that was in
+        // flight can never be bound. The restore is what has to end it: the fence stops delivery, it does not
+        // stop the host from serializing into a queue forever.
+        worker.Advanced.RestoreGlobalSnapshot(snapshot);
+        worker.Advanced.ProcessTasks();
+
+        var remaining = (JsMessagePort) host.Evaluate("ch.port1");
+        remaining.Endpoint!.Peer!.Closed.Should().BeTrue();
+
+        // The port the host kept is still perfectly usable as an object; it simply has nowhere to post.
+        host.Execute("ch.port1.postMessage('into the void');");
+    }
+
+    [Fact]
+    public void BroadcastChannelStillRefusesAPort()
+    {
+        var engine = MessagingEngine();
+        engine.Execute("var ch = new MessageChannel(); var bc = new BroadcastChannel('room');");
+
+        // BroadcastChannel's postMessage takes no transfer list at all — a message with several destinations
+        // has nowhere to move a transferable to — so a port in the message is simply uncloneable.
+        Err(engine, "bc.postMessage(ch.port1)").Should().Be("DataCloneError");
+        Err(engine, "bc.postMessage(ch.port1, [ch.port1])").Should().Be("DataCloneError");
+
+        engine.Execute("ch.port2.onmessage = function (e) { log.push(e.data); }; ch.port1.postMessage('unharmed');");
+        Log(engine).Should().Be("unharmed");
     }
 
     // ---------------------------------------------------------------- listeners

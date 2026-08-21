@@ -8,6 +8,7 @@ using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Messaging;
 
 namespace Jint.WebApi.StructuredClone;
 
@@ -48,6 +49,12 @@ internal sealed class StructuredSerializer
 
     private readonly Stack<SerializeFrame> _pending = new();
 
+    /// <summary>
+    /// The port half of <c>[[TransferDataHolders]]</c>, in transfer-list order; see
+    /// <see cref="SerializationRecord.TransferredPorts"/>. Null until a port is actually named.
+    /// </summary>
+    private List<SerializedMessagePort>? _transferredPorts;
+
     private int _visited;
 
     internal StructuredSerializer(Engine engine, Realm realm)
@@ -68,16 +75,50 @@ internal sealed class StructuredSerializer
     internal SerializationRecord Serialize(JsValue value, List<JsValue>? transferList)
     {
         // Steps 2-4: every transferable is validated and given its (still empty) record BEFORE the walk, so a
-        // transferred buffer reached from `value` resolves to that same record.
+        // transferred buffer or port reached from `value` resolves to that same record.
         var transfers = PrepareTransfers(transferList);
 
-        var root = SerializeValue(value);
-        Drain();
+        try
+        {
+            var root = SerializeValue(value);
+            Drain();
 
-        // Step 5: only now is anything detached.
-        CompleteTransfers(transfers);
+            // Step 5: only now is anything detached.
+            CompleteTransfers(transfers);
 
-        return new SerializationRecord(root);
+            return new SerializationRecord(root, _transferredPorts);
+        }
+        catch
+        {
+            // A throw anywhere from the walk onwards discards the half-built record, and step 5 detaches in
+            // list order, so a port earlier in the list may already have handed its side over with nothing
+            // left that can ever bind it. Ending those is the same answer step 6's doomed case gets, for the
+            // same reason: a side nobody can pick up must not leave its peer posting into a queue forever.
+            StrandTransferredPorts(_transferredPorts);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Ends every channel side a record carries but nobody will ever bind — which is what a message that is
+    /// serialized and then not delivered leaves behind. See <c>JsMessagePort.PostMessage</c>'s step 6.
+    /// </summary>
+    internal static void StrandTransferredPorts(in SerializationRecord record) => StrandTransferredPorts(record.TransferredPorts);
+
+    private static void StrandTransferredPorts(List<SerializedMessagePort>? holders)
+    {
+        if (holders is null)
+        {
+            return;
+        }
+
+        foreach (var holder in holders)
+        {
+            // Null for a holder whose source was never detached, because the throw came before step 5 reached
+            // it — there is nothing to end there.
+            holder.Endpoint?.Close();
+            holder.Endpoint = null;
+        }
     }
 
     /// <summary>
@@ -456,12 +497,34 @@ internal sealed class StructuredSerializer
         var records = new List<TransferRecord>(transferList.Count);
         foreach (var entry in transferList)
         {
-            // Step 2.1 / 2.2: an ArrayBuffer is the only transferable Jint has. A SharedArrayBuffer is
-            // explicitly not one, and neither is a MessagePort — transferring a port is out of scope for this
-            // version, so one named here is refused rather than silently copied.
+            // Step 2.3, hoisted so it is asked once for both kinds: a duplicate is a DataCloneError, not a
+            // silent second transfer. The entry is always an object — WebIDL's sequence<object> conversion
+            // has already refused anything else — and nothing but this loop has put anything in the memory
+            // map yet, so hoisting it above the type test cannot change which refusal a list earns.
+            if (entry is ObjectInstance transferable && _memory.ContainsKey(transferable))
+            {
+                ThrowDataCloneError(entry is JsMessagePort
+                    ? "A MessagePort appears more than once in the transfer list"
+                    : "An ArrayBuffer appears more than once in the transfer list");
+            }
+
+            // Step 2.4 for a MessagePort: an empty data holder, which the walk resolves a reference to the
+            // port itself to. It stays empty until CompleteTransfers takes the port's side, exactly as a
+            // buffer's bytes do — the specification's uninitialized placeholder.
+            if (entry is JsMessagePort port)
+            {
+                var holder = new SerializedMessagePort();
+                _memory[port] = holder;
+                (_transferredPorts ??= new List<SerializedMessagePort>()).Add(holder);
+                records.Add(new TransferRecord(port, holder));
+                continue;
+            }
+
+            // Step 2.1 / 2.2: an ArrayBuffer and a MessagePort are the transferables Jint has. A
+            // SharedArrayBuffer is explicitly not one.
             if (entry is not JsArrayBuffer buffer || buffer.IsSharedArrayBuffer)
             {
-                ThrowDataCloneError("Only ArrayBuffer objects can be transferred");
+                ThrowDataCloneError("Only ArrayBuffer and MessagePort objects can be transferred");
                 return null;
             }
 
@@ -470,12 +533,6 @@ internal sealed class StructuredSerializer
             if (buffer.IsImmutableBuffer)
             {
                 ThrowDataCloneError("An immutable ArrayBuffer cannot be transferred");
-            }
-
-            // Step 2.3: a duplicate is a DataCloneError, not a silent second transfer.
-            if (_memory.ContainsKey(buffer))
-            {
-                ThrowDataCloneError("An ArrayBuffer appears more than once in the transfer list");
             }
 
             // Step 2.4: the record the walk resolves the source buffer to. Its bytes stay empty until
@@ -511,16 +568,34 @@ internal sealed class StructuredSerializer
 
         foreach (var record in transfers)
         {
+            if (record.Source is JsMessagePort port)
+            {
+                // Step 5.2: a port already detached — by close(), or by an earlier transfer — has no side
+                // left to hand over. Asked here rather than in PrepareTransfers because the specification
+                // asks it here, and the order is observable: an uncloneable message throws before this does.
+                if (port.Detached)
+                {
+                    ThrowDataCloneError("A detached MessagePort cannot be transferred");
+                }
+
+                // Steps 5.5.4 and 5.5.5, which for a MessagePort are one act: the side — queue, peer and all
+                // — leaves this port, and the port is detached.
+                ((SerializedMessagePort) record.Target).Endpoint = port.DetachForTransfer();
+                continue;
+            }
+
+            var buffer = (JsArrayBuffer) record.Source;
+
             // Step 5.1: a buffer detached during the walk cannot be transferred any more.
-            if (record.Source.IsDetachedBuffer)
+            if (buffer.IsDetachedBuffer)
             {
                 ThrowDataCloneError("An ArrayBuffer in the transfer list was detached while it was being cloned");
             }
 
             // Read now rather than in PrepareTransfers: a getter reached during the walk may have resized the
             // buffer, which replaces its data block outright.
-            record.Target.Bytes = record.Source.ArrayBufferData ?? [];
-            record.Source.DetachArrayBuffer();
+            ((SerializedArrayBuffer) record.Target).Bytes = buffer.ArrayBufferData ?? [];
+            buffer.DetachArrayBuffer();
         }
     }
 
@@ -545,6 +620,11 @@ internal sealed class StructuredSerializer
         {
             JsProxy => "A Proxy",
             JsPromise => "A Promise",
+
+            // A MessagePort is transferable but not serializable, so reaching one during the walk means it
+            // was in the message and not in the transfer list — which the specification refuses at its
+            // "platform object that is not serializable" arm rather than at the transfer steps.
+            JsMessagePort => "A MessagePort that was not in the transfer list",
             _ => "An object",
         };
 
@@ -552,12 +632,25 @@ internal sealed class StructuredSerializer
     }
 
     [DoesNotReturn]
-    private void ThrowDataCloneError(string message)
+    private void ThrowDataCloneError(string message) => ThrowDataCloneError(_realm, message);
+
+    /// <summary>
+    /// The one place a <c>DataCloneError</c> is raised, shared with the refusals
+    /// <c>JsMessagePort.PostMessage</c> makes before it ever reaches serialization.
+    /// </summary>
+    [DoesNotReturn]
+    internal static void ThrowDataCloneError(Realm realm, string message)
     {
-        throw new JavaScriptException(_realm.Intrinsics.DomException.CreateException(DomExceptionNames.DataClone, message));
+        throw new JavaScriptException(realm.Intrinsics.DomException.CreateException(DomExceptionNames.DataClone, message));
     }
 
-    private readonly record struct TransferRecord(JsArrayBuffer Source, SerializedArrayBuffer Target);
+    /// <summary>
+    /// One entry of <c>[[TransferDataHolders]]</c> before step 5 has filled it in: the source object and the
+    /// record the walk resolves it to. Both are typed loosely because the list is in transfer-list order and
+    /// mixes the two kinds — which is the order step 5 detaches in, and therefore the order a refusal
+    /// part-way through leaves half the list transferred in.
+    /// </summary>
+    private readonly record struct TransferRecord(ObjectInstance Source, SerializedObject Target);
 
     /// <summary>
     /// One container whose contents are still to be serialized. The specification recurses here; this is the

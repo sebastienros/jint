@@ -26,6 +26,17 @@ namespace Jint.WebApi.StructuredClone;
 /// declarations and from a walk of an actual graph.
 /// </para>
 /// <para>
+/// <b>A transferred <c>MessagePort</c> is the one deliberate exception, and it is an exception to the letter
+/// of that rule rather than to its point.</b> <see cref="TransferredPorts"/> carries
+/// <see cref="Messaging.MessagePortEndpoint"/>s, and a side does reach an <c>Engine</c> and the
+/// <c>MessagePort</c> object currently bound to it. But that class <i>is</i> the sanctioned engine-crossing
+/// handle — it is what a sender has always held for its peer, and every member of it a foreign thread may
+/// touch is immutable, <see langword="volatile"/> or behind its own lock. Nothing else changes: no
+/// <c>JsValue</c> is read or written across the boundary, and the receiving engine never dereferences the
+/// sending engine. Re-pointing a channel is exactly the operation a transfer <i>is</i>, so the handle that
+/// does it is what the record has to carry.
+/// </para>
+/// <para>
 /// <b>A record is consumed once, unless the reader is told otherwise.</b> Deserializing takes ownership of the
 /// byte arrays it finds — a transferred <c>ArrayBuffer</c>'s storage is moved rather than copied, which is the
 /// whole point of transferring — so deserializing one record twice would hand two engines one mutable buffer.
@@ -43,8 +54,20 @@ namespace Jint.WebApi.StructuredClone;
 /// </para>
 /// </remarks>
 /// <param name="Root">The serialized form of the value that was handed to StructuredSerialize.</param>
+/// <param name="TransferredPorts">
+/// StructuredSerializeWithTransfer's <c>[[TransferDataHolders]]</c>, narrowed to the ports — in transfer-list
+/// order, which is the order <c>MessageEvent.ports</c> has to preserve. <see langword="null"/> when no port
+/// was transferred, which is every message <c>BroadcastChannel</c> ever produces and almost every other one.
+/// <para>
+/// A transferred <c>ArrayBuffer</c> is deliberately <i>not</i> listed here even though the specification puts
+/// it in the same list: nothing consumes the transferred values of a buffer, and the walk already resolves one
+/// through the serializer's memory map. Ports need the list because they are created <b>before</b> the graph
+/// is walked — a port referenced from the message must be the very object <c>ports</c> hands over — and
+/// because the event exposes them in order.
+/// </para>
+/// </param>
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct SerializationRecord(SerializedValue Root);
+internal readonly record struct SerializationRecord(SerializedValue Root, List<SerializedMessagePort>? TransferredPorts = null);
 
 /// <summary>
 /// Which of the seven shapes a <see cref="SerializedValue"/> holds.
@@ -228,6 +251,27 @@ internal sealed class SerializedArrayBufferView : SerializedObject
     /// <see langword="null"/> for a length-tracking view over a resizable buffer.
     /// </summary>
     internal uint? Length { get; init; }
+}
+
+/// <summary>
+/// A transferred <c>MessagePort</c>: the specification's data holder, whose
+/// <c>[[PortMessageQueue]]</c> and <c>[[RemotePort]]</c> are both reached through the one
+/// <see cref="Messaging.MessagePortEndpoint"/> the transfer detached from the source port.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/web-messaging.html#messageport — "their transfer steps".
+/// </para>
+/// </summary>
+/// <remarks>
+/// <see cref="Endpoint"/> is settable for the same reason <see cref="SerializedArrayBuffer.Bytes"/> is: a
+/// transferable is given its (still empty) record before the walk so that a reference to it inside the message
+/// resolves here, and the source is only detached at the very end of StructuredSerializeWithTransfer. It is
+/// also <i>taken</i> — set back to <see langword="null"/> — by the deserialization that binds it, so a record
+/// read a second time cannot hand two engines one side of a channel; see <see cref="SerializationRecord"/> on
+/// a record being consumed once.
+/// </remarks>
+internal sealed class SerializedMessagePort : SerializedObject
+{
+    internal Messaging.MessagePortEndpoint? Endpoint { get; set; }
 }
 
 /// <summary>
