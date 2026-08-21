@@ -25,6 +25,18 @@ namespace Jint.WebApi.Encoding;
 internal static class BufferSource
 {
     /// <summary>
+    /// Whether <paramref name="value"/> is a buffer source at all — the only thing the WebIDL
+    /// <c>AllowSharedBufferSource</c> conversion decides, and it decides it before the operation runs.
+    /// </summary>
+    /// <remarks>
+    /// An operation whose <i>later</i> arguments can detach the buffer has to separate the two: the type
+    /// check belongs to the argument conversion, the bytes to the operation that follows it. Everything else
+    /// converts one buffer source and nothing that could run script, so it goes straight to
+    /// <see cref="TryGetBytes"/>.
+    /// </remarks>
+    internal static bool IsBufferSource(JsValue value) => value is JsTypedArray or JsDataView or JsArrayBuffer;
+
+    /// <summary>
     /// Yields the bytes of <paramref name="value"/>, or <see langword="false"/> when it is not a buffer
     /// source at all — which the caller reports as the <c>TypeError</c> the WebIDL conversion would raise.
     /// </summary>

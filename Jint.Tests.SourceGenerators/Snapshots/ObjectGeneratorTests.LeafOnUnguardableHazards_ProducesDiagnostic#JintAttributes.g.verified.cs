@@ -27,6 +27,17 @@ internal sealed class JsObjectAttribute : global::System.Attribute
     /// BuiltinShapeObject.
     /// </summary>
     public bool UseShape { get; set; } = true;
+
+    /// <summary>
+    /// Emit the [JsProperty] members in the order they are declared rather than sorted by JS name,
+    /// which a WebIDL interface's constants need: https://webidl.spec.whatwg.org/#es-constants
+    /// defines them one after another in IDL declaration order, and that order is observable —
+    /// a record conversion over the interface object reads [[OwnPropertyKeys]]. Sorting is the
+    /// default because it makes enumeration order a property of the names rather than of how a host
+    /// file happens to be laid out. Covers [JsProperty] and nothing else: [JsFunction]s, accessors,
+    /// symbols and aliases stay sorted.
+    /// </summary>
+    public bool PreserveDeclarationOrder { get; set; }
 }
 
 [global::System.AttributeUsage(global::System.AttributeTargets.Method)]

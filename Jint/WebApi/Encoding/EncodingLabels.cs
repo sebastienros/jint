@@ -89,10 +89,10 @@ internal enum EncodingKind
     /// <summary>https://encoding.spec.whatwg.org/#utf-8-decoder, run by the BCL.</summary>
     Utf8,
 
-    /// <summary>https://encoding.spec.whatwg.org/#utf-16le, run by the BCL.</summary>
+    /// <summary>https://encoding.spec.whatwg.org/#utf-16le, run by the shared UTF-16 decoder.</summary>
     Utf16Le,
 
-    /// <summary>https://encoding.spec.whatwg.org/#utf-16be, run by the BCL.</summary>
+    /// <summary>https://encoding.spec.whatwg.org/#utf-16be, run by the shared UTF-16 decoder.</summary>
     Utf16Be,
 
     /// <summary>

@@ -16,9 +16,11 @@ namespace Jint.WebApi.ServerSentEvents;
 /// <remarks>
 /// Its <c>[[Prototype]]</c> is <c>EventTarget.prototype</c>, so an event source has <c>addEventListener</c>
 /// and the rest. The three readyState constants appear here as well as on the interface object, per
-/// https://webidl.spec.whatwg.org/#es-constants.
+/// https://webidl.spec.whatwg.org/#es-constants, which defines them one after another in the order the IDL
+/// declares them. That order is observable, so they are declared below in it and
+/// <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class EventSourcePrototype : Prototype
 {
     [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]

@@ -425,6 +425,10 @@ public class EventSourceTests
         engine.Evaluate("[EventSource.CONNECTING, EventSource.OPEN, EventSource.CLOSED].join(',')").AsString().Should().Be("0,1,2");
         engine.Evaluate("[EventSource.prototype.CONNECTING, EventSource.prototype.OPEN, EventSource.prototype.CLOSED].join(',')").AsString().Should().Be("0,1,2");
 
+        // … in the order the IDL declares them, which that section defines them in and which a record
+        // conversion over the interface object reads.
+        engine.Evaluate("Object.keys(EventSource).join(',')").AsString().Should().Be("CONNECTING,OPEN,CLOSED");
+
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(EventSource, 'OPEN')").AsObject();
         descriptor.Get("writable").AsBoolean().Should().BeFalse();
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();

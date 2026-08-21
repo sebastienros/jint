@@ -89,6 +89,31 @@ public class DomExceptionTests
     }
 
     [Fact]
+    public void EnumeratesTheLegacyConstantsInDeclarationOrder()
+    {
+        var engine = WebEngine();
+
+        // https://webidl.spec.whatwg.org/#es-constants defines the constants one after another in the order
+        // the IDL declares them, so INDEX_SIZE_ERR comes first and DATA_CLONE_ERR last — alphabetical order
+        // would start at ABORT_ERR. web-platform-tests reads exactly this through the record conversion:
+        // `new URLSearchParams(DOMException).toString()` in url/urlsearchparams-constructor.any.js.
+        const string Expected =
+            "INDEX_SIZE_ERR,DOMSTRING_SIZE_ERR,HIERARCHY_REQUEST_ERR,WRONG_DOCUMENT_ERR,INVALID_CHARACTER_ERR," +
+            "NO_DATA_ALLOWED_ERR,NO_MODIFICATION_ALLOWED_ERR,NOT_FOUND_ERR,NOT_SUPPORTED_ERR,INUSE_ATTRIBUTE_ERR," +
+            "INVALID_STATE_ERR,SYNTAX_ERR,INVALID_MODIFICATION_ERR,NAMESPACE_ERR,INVALID_ACCESS_ERR,VALIDATION_ERR," +
+            "TYPE_MISMATCH_ERR,SECURITY_ERR,NETWORK_ERR,ABORT_ERR,URL_MISMATCH_ERR,QUOTA_EXCEEDED_ERR,TIMEOUT_ERR," +
+            "INVALID_NODE_TYPE_ERR,DATA_CLONE_ERR";
+
+        engine.Evaluate("Object.keys(DOMException).join(',')").AsString().Should().Be(Expected);
+        engine.Evaluate("Object.getOwnPropertyNames(DOMException.prototype).filter(function (n) { return /_ERR$/.test(n); }).join(',')")
+            .AsString().Should().Be(Expected);
+
+        // The values track the names, which is what the URLSearchParams row actually asserts.
+        engine.Evaluate("Object.values(DOMException).join(',')").AsString()
+            .Should().Be("1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25");
+    }
+
+    [Fact]
     public void GivesTheConstantsTheAttributesWebIdlGivesConstants()
     {
         var engine = WebEngine();

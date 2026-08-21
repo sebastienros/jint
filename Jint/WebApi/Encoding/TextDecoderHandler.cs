@@ -17,7 +17,8 @@ namespace Jint.WebApi.Encoding;
 /// substitutes U+FFFD inside the handler and keeps going.
 /// </para>
 /// <para>
-/// Two implementations sit behind it: <see cref="BclDecoderHandler"/> for the three Unicode encodings, and
+/// Three implementations sit behind it: <see cref="BclDecoderHandler"/> for UTF-8,
+/// <see cref="Utf16DecoderHandler"/> for the two UTF-16 encodings, and
 /// <see cref="SingleByteDecoderHandler"/> / <see cref="XUserDefinedDecoderHandler"/> for the legacy ones,
 /// which are stateless because a byte is a whole code point there. Keeping the seam uniform is what lets
 /// <see cref="JsTextDecoder"/> hold one decoding algorithm and no branches per call.
@@ -33,7 +34,9 @@ internal abstract class TextDecoderHandler
     {
         EncodingKind.SingleByte => new SingleByteDecoderHandler(encoding.Index, fatal),
         EncodingKind.XUserDefined => new XUserDefinedDecoderHandler(),
-        _ => new BclDecoderHandler(encoding.Kind, fatal),
+        EncodingKind.Utf16Le => new Utf16DecoderHandler(bigEndian: false, fatal),
+        EncodingKind.Utf16Be => new Utf16DecoderHandler(bigEndian: true, fatal),
+        _ => new BclDecoderHandler(fatal),
     };
 
     /// <summary>
@@ -56,7 +59,10 @@ internal abstract class TextDecoderHandler
 }
 
 /// <summary>
-/// UTF-8, UTF-16LE and UTF-16BE, decoded by the BCL.
+/// UTF-8, decoded by the BCL.
+/// <para>
+/// https://encoding.spec.whatwg.org/#utf-8-decoder
+/// </para>
 /// </summary>
 /// <remarks>
 /// <para>
@@ -66,24 +72,25 @@ internal abstract class TextDecoderHandler
 /// mode is <see cref="DecoderReplacementFallback"/>, so the U+FFFD substitution follows the Unicode
 /// "maximal subpart" recommendation that https://encoding.spec.whatwg.org/#error-mode also describes.
 /// </para>
+/// <para>
+/// The two UTF-16 encodings used to run through here as well, and no longer do: see
+/// <see cref="Utf16DecoderHandler"/> for the end-of-queue step that made a <see cref="Decoder"/> the wrong
+/// shape for them.
+/// </para>
 /// </remarks>
 internal sealed class BclDecoderHandler : TextDecoderHandler
 {
-    // One encoding object per (encoding, error mode). They are immutable and thread-safe; only the
-    // Decoder they hand out is stateful, and that one is per instance.
+    // One encoding object per error mode. They are immutable and thread-safe; only the Decoder they hand
+    // out is stateful, and that one is per instance.
     private static readonly SystemEncoding _utf8Replacement = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false);
     private static readonly SystemEncoding _utf8Fatal = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-    private static readonly SystemEncoding _utf16LeReplacement = new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: false);
-    private static readonly SystemEncoding _utf16LeFatal = new UnicodeEncoding(bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true);
-    private static readonly SystemEncoding _utf16BeReplacement = new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: false);
-    private static readonly SystemEncoding _utf16BeFatal = new UnicodeEncoding(bigEndian: true, byteOrderMark: false, throwOnInvalidBytes: true);
 
     private readonly SystemEncoding _encoding;
     private Decoder? _decoder;
 
-    internal BclDecoderHandler(EncodingKind kind, bool fatal)
+    internal BclDecoderHandler(bool fatal)
     {
-        _encoding = Resolve(kind, fatal);
+        _encoding = fatal ? _utf8Fatal : _utf8Replacement;
     }
 
     internal override bool TryDecode(ReadOnlySpan<byte> input, bool flush, out ReadOnlySpan<char> output)
@@ -107,12 +114,5 @@ internal sealed class BclDecoderHandler : TextDecoderHandler
     }
 
     internal override void Reset() => _decoder = null;
-
-    private static SystemEncoding Resolve(EncodingKind kind, bool fatal) => kind switch
-    {
-        EncodingKind.Utf16Le => fatal ? _utf16LeFatal : _utf16LeReplacement,
-        EncodingKind.Utf16Be => fatal ? _utf16BeFatal : _utf16BeReplacement,
-        _ => fatal ? _utf8Fatal : _utf8Replacement,
-    };
 }
 #endif

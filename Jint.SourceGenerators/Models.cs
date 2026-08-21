@@ -108,6 +108,7 @@ internal sealed record class ObjectDefinition(
         var extraCapacity = 0;
         var useShapeRequested = true;
         var useShapeExplicitlySet = false;
+        var preserveDeclarationOrder = false;
         foreach (var attr in typeSymbol.GetAttributes())
         {
             if (attr.AttributeClass?.Name != "JsObjectAttribute") continue;
@@ -115,6 +116,7 @@ internal sealed record class ObjectDefinition(
             {
                 if (named.Key == "ExtraCapacity" && named.Value.Value is int v) extraCapacity = v;
                 else if (named.Key == "UseShape" && named.Value.Value is bool s) { useShapeRequested = s; useShapeExplicitlySet = true; }
+                else if (named.Key == "PreserveDeclarationOrder" && named.Value.Value is bool d) preserveDeclarationOrder = d;
             }
         }
 
@@ -403,7 +405,16 @@ internal sealed record class ObjectDefinition(
         // and — via Factory slots — [JsIntrinsicReference]s and [JsThrowerAccessor]s.
 
         functions.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
-        properties.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
+
+        // [JsObject(PreserveDeclarationOrder = true)] leaves the properties in the order GetMembers() hands
+        // them back, which for a source type is the order they are declared in — what a WebIDL interface's
+        // constants need, and what nothing ECMAScript defines does. Both emission paths read this list
+        // directly, so skipping the sort here is the whole of it.
+        if (!preserveDeclarationOrder)
+        {
+            properties.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
+        }
+
         symbols.Sort(static (a, b) => string.CompareOrdinal(a.SymbolName, b.SymbolName));
         throwerAccessors.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
         intrinsicReferences.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));

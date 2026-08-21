@@ -19,9 +19,11 @@ namespace Jint.Tests.Wpt;
 /// </para>
 /// <para>
 /// This is phase 1 of https://github.com/sebastienros/jint/issues/3104: the shim and the first two suites.
-/// Failures were expected and found; the ones that are not a missing feature are parked under
-/// <see cref="WptDivergence.NeedsTriage"/> rather than fixed here, so that the change which first ran these
-/// suites is not also the change that moved the engine.
+/// Failures were expected and found; the ones that were not a missing feature were parked under
+/// <see cref="WptDivergence.NeedsTriage"/> rather than fixed there, so that the change which first ran these
+/// suites was not also the change that moved the engine. All four were fixed by
+/// https://github.com/sebastienros/jint/issues/3121, so the category is currently unused — which is the
+/// state it is meant to be in, and an entry earning it back is a bug to open rather than a line to keep.
 /// </para>
 /// </remarks>
 public class WptTestRunner
@@ -206,13 +208,6 @@ public class WptTestRunner
         new("url/urlencoded-parser.any.js", "request.formData() with input: *", WptDivergence.NeedsFetchObjectModel),
         new("url/urlencoded-parser.any.js", "response.formData() with input: *", WptDivergence.NeedsFetchObjectModel),
 
-        // `new URLSearchParams(DOMException)` reads the interface object's own enumerable properties, which
-        // are its 25 legacy code constants, and the record conversion keeps [[OwnPropertyKeys]] order. The
-        // values are all correct; Jint hands them back in alphabetical order where WebIDL requires the order
-        // the constants are declared in (INDEX_SIZE_ERR first, DATA_CLONE_ERR last).
-        // https://webidl.spec.whatwg.org/#es-constants
-        new("url/urlsearchparams-constructor.any.js", "URLSearchParams constructor, DOMException as argument", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- encoding
         // common/sab.js takes its SharedArrayBuffer constructor from WebAssembly.Memory. Note that
         // "Invalid encodeInto() destination: SharedArrayBuffer" is *not* here: it asserts a TypeError, and
@@ -222,19 +217,6 @@ public class WptTestRunner
         new("encoding/encodeInto.any.js", "Invalid encodeInto() destination: *, backed by: SharedArrayBuffer", WptDivergence.NeedsWebAssembly),
         new("encoding/textdecoder-copy.any.js", "Modify buffer after passing it in (SharedArrayBuffer)", WptDivergence.NeedsWebAssembly),
         new("encoding/textdecoder-streaming.any.js", "*(SharedArrayBuffer)", WptDivergence.NeedsWebAssembly),
-
-        // https://encoding.spec.whatwg.org/#dom-textdecoder-decode step 1 copies the bytes, and WebIDL
-        // converts the options dictionary before the operation runs — so a getter on the dictionary that
-        // detaches the buffer leaves an empty byte sequence to decode. Jint reads the bytes after the
-        // conversion instead, and decodes the buffer's former contents.
-        new("encoding/textdecoder-arguments.any.js", "TextDecoder decode() with array buffer detached during arg conversion", WptDivergence.NeedsTriage),
-
-        // https://encoding.spec.whatwg.org/#shared-utf-16-decoder, the end-of-queue step: "If UTF-16 lead
-        // byte is non-null or UTF-16 lead surrogate is non-null, set them to null and return error" — one
-        // error however many of the two are pending. Decoding [0x00, 0xd8, 0x00] as utf-16le leaves both
-        // pending and must yield a single U+FFFD; Jint yields two.
-        new("encoding/textdecoder-mistakes.any.js", "utf-16le does not produce more chars than truncated", WptDivergence.NeedsTriage),
-        new("encoding/textdecoder-mistakes.any.js", "utf-16be does not produce more chars than truncated", WptDivergence.NeedsTriage),
 
         // Everything below is one missing feature: the Encoding Standard's legacy single-byte and multi-byte
         // decoders, which EncodingLabels documents as out of scope and issue #3106 implements. Each of these

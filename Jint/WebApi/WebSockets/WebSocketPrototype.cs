@@ -21,9 +21,11 @@ namespace Jint.WebApi.WebSockets;
 /// Its <c>[[Prototype]]</c> is <c>EventTarget.prototype</c>, so a socket has <c>addEventListener</c> and the
 /// rest, and <c>socket instanceof EventTarget</c> holds. The attributes are accessors that brand-check their
 /// receiver, as WebIDL specifies, so <c>WebSocket.prototype.readyState</c> is a <c>TypeError</c> rather than
-/// an answer.
+/// an answer. https://webidl.spec.whatwg.org/#es-constants defines the four ready-state constants one after
+/// another in the order the IDL declares them, and that order is observable, so they are declared below in it
+/// and <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
 /// </remarks>
-[JsObject(UseShape = true)]
+[JsObject(UseShape = true, PreserveDeclarationOrder = true)]
 internal sealed partial class WebSocketPrototype : Prototype
 {
     /// <summary>

@@ -95,8 +95,9 @@ internal sealed partial class TextDecoderPrototype : Prototype
     {
         var decoder = Brand(thisObject);
 
-        var bytes = ReadOnlySpan<byte>.Empty;
-        if (!input.IsUndefined() && !BufferSource.TryGetBytes(input, out bytes))
+        // The WebIDL argument conversion, which runs before any of the operation's own steps: `input` is only
+        // type-checked here, because converting an AllowSharedBufferSource takes no copy.
+        if (!input.IsUndefined() && !BufferSource.IsBufferSource(input))
         {
             Throw.TypeError(_realm, "TextDecoder.decode: input must be an ArrayBuffer or a view over one");
         }
@@ -112,6 +113,16 @@ internal sealed partial class TextDecoderPrototype : Prototype
             }
 
             stream = TypeConverter.ToBoolean(optionsObject.Get(_stream));
+        }
+
+        // Only now — step 3, "push a copy of input to this's I/O queue". A `stream` getter that detached the
+        // buffer during the dictionary conversion above leaves the empty byte sequence to decode, per
+        // https://webidl.spec.whatwg.org/#dfn-get-buffer-source-copy step 5, which is what makes reading the
+        // bytes here rather than alongside the type check observable.
+        var bytes = ReadOnlySpan<byte>.Empty;
+        if (!input.IsUndefined())
+        {
+            BufferSource.TryGetBytes(input, out bytes);
         }
 
         return decoder.Common.Decode(_realm, bytes, stream);
