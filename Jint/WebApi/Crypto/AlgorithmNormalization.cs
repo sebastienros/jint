@@ -12,15 +12,23 @@ namespace Jint.WebApi.Crypto;
 /// <summary>
 /// The operations <c>supportedAlgorithms</c> is keyed by —
 /// https://w3c.github.io/webcrypto/#algorithm-normalization-internal — restricted to the ones this engine
-/// implements. <c>wrapKey</c> and <c>unwrapKey</c> are absent because no method that would reach them exists.
+/// implements.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <see cref="DeriveKey"/> is the one member that is <b>not</b> a key of that container. There is no
 /// "deriveKey" registry: the <c>deriveKey</c> method normalizes its <c>algorithm</c> for <c>deriveBits</c>
 /// and its <c>derivedKeyType</c> for both <c>importKey</c> and <c>get key length</c>, so the only thing the
 /// member names is the method — which is what <see cref="AlgorithmNormalization.NameOf"/> reports in an error
 /// message and what <c>SubtleCrypto</c> dispatches on.
 /// <see cref="AlgorithmNormalization.RegisteredFor"/> therefore refuses it rather than answering with a list.
+/// </para>
+/// <para>
+/// <see cref="WrapKey"/> and <see cref="UnwrapKey"/> <i>are</i> keys of it, and their registries hold exactly
+/// one algorithm — AES-KW, the only one whose registration names those operations. Every other way to wrap a
+/// key goes through the <c>encrypt</c>/<c>decrypt</c> registries instead, which is what the methods' own
+/// second normalization is for.
+/// </para>
 /// </remarks>
 internal enum CryptoOperation
 {
@@ -32,6 +40,8 @@ internal enum CryptoOperation
     GenerateKey,
     ImportKey,
     ExportKey,
+    WrapKey,
+    UnwrapKey,
     DeriveBits,
     DeriveKey,
     GetKeyLength,
@@ -122,8 +132,24 @@ internal sealed class NormalizedAlgorithm
     /// <summary>The <c>length</c> member of <c>HmacKeyGenParams</c>, <c>HmacImportParams</c> or <c>AesKeyGenParams</c>.</summary>
     internal uint? Length { get; set; }
 
-    /// <summary>The <c>iv</c> member of <c>AesGcmParams</c>, copied at normalization time as the specification says.</summary>
+    /// <summary>
+    /// The <c>iv</c> member of <c>AesGcmParams</c> or <c>AesCbcParams</c>, copied at normalization time as
+    /// the specification says.
+    /// </summary>
     internal byte[]? Iv { get; set; }
+
+    /// <summary>
+    /// The <c>counter</c> member of <c>AesCtrParams</c> — "the initial value of the counter block", copied at
+    /// normalization time.
+    /// </summary>
+    internal byte[]? Counter { get; set; }
+
+    /// <summary>
+    /// The <c>length</c> member of <c>AesCtrParams</c>: "the length, in bits, of the rightmost part of the
+    /// counter block that is incremented". It is a separate field from <see cref="Length"/> because it means
+    /// something else entirely — that one is a key size — and one algorithm object never carries both.
+    /// </summary>
+    internal int? CounterLength { get; set; }
 
     /// <summary>The <c>additionalData</c> member of <c>AesGcmParams</c>.</summary>
     internal byte[]? AdditionalData { get; set; }
@@ -211,8 +237,17 @@ internal static class AlgorithmNormalization
     /// <summary>https://w3c.github.io/webcrypto/#hmac-registration</summary>
     internal const string Hmac = "HMAC";
 
+    /// <summary>https://w3c.github.io/webcrypto/#aes-ctr-registration</summary>
+    internal const string AesCtr = "AES-CTR";
+
+    /// <summary>https://w3c.github.io/webcrypto/#aes-cbc-registration</summary>
+    internal const string AesCbc = "AES-CBC";
+
     /// <summary>https://w3c.github.io/webcrypto/#aes-gcm-registration</summary>
     internal const string AesGcm = "AES-GCM";
+
+    /// <summary>https://w3c.github.io/webcrypto/#aes-kw-registration</summary>
+    internal const string AesKw = "AES-KW";
 
     /// <summary>https://w3c.github.io/webcrypto/#rsassa-pkcs1-registration</summary>
     internal const string RsassaPkcs1V15 = "RSASSA-PKCS1-v1_5";
@@ -253,7 +288,21 @@ internal static class AlgorithmNormalization
 
     private static readonly string[] _digestAlgorithms = [Sha1, Sha256, Sha384, Sha512];
     private static readonly string[] _signatureAlgorithms = [Hmac, RsassaPkcs1V15, RsaPss, Ecdsa];
-    private static readonly string[] _cipherAlgorithms = [AesGcm, RsaOaep];
+    private static readonly string[] _cipherAlgorithms = [AesCtr, AesCbc, AesGcm, RsaOaep];
+
+    /// <summary>
+    /// The two operations AES-KW registers and no other algorithm here does —
+    /// https://w3c.github.io/webcrypto/#aes-kw-registration, whose table lists <c>wrapKey</c> and
+    /// <c>unwrapKey</c> where every other cipher's lists <c>encrypt</c> and <c>decrypt</c>.
+    /// </summary>
+    /// <remarks>
+    /// AES-KW is deliberately <b>not</b> in <see cref="_cipherAlgorithms"/>: RFC 3394 wrapping is not a
+    /// general-purpose cipher — it takes a whole number of 64-bit blocks and carries an integrity check of
+    /// its own — so <c>encrypt({ name: 'AES-KW' }, …)</c> is the <c>NotSupportedError</c> the registry gives
+    /// it, in a browser too. The reverse asymmetry is what makes the <c>wrapKey</c> method's second
+    /// normalization matter: AES-GCM, AES-CBC, AES-CTR and RSA-OAEP reach it through <c>encrypt</c>.
+    /// </remarks>
+    private static readonly string[] _wrapAlgorithms = [AesKw];
 
     /// <summary>
     /// The three key registries are separate lists because the registrations are: HKDF and PBKDF2 register
@@ -261,9 +310,14 @@ internal static class AlgorithmNormalization
     /// (there is nothing to generate — the "key" is a password or an input keying material the caller already
     /// has) nor export one (their keys are non-extractable by construction).
     /// </summary>
-    private static readonly string[] _generateKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
-    private static readonly string[] _importKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh, Hkdf, Pbkdf2];
-    private static readonly string[] _exportKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
+    private static readonly string[] _generateKeyAlgorithms =
+        [Hmac, AesCtr, AesCbc, AesGcm, AesKw, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
+
+    private static readonly string[] _importKeyAlgorithms =
+        [Hmac, AesCtr, AesCbc, AesGcm, AesKw, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh, Hkdf, Pbkdf2];
+
+    private static readonly string[] _exportKeyAlgorithms =
+        [Hmac, AesCtr, AesCbc, AesGcm, AesKw, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
 
     /// <summary>The three algorithms registered for <c>deriveBits</c>.</summary>
     private static readonly string[] _deriveAlgorithms = [Ecdh, Hkdf, Pbkdf2];
@@ -275,7 +329,7 @@ internal static class AlgorithmNormalization
     /// makes <c>deriveKey(ecdhParams, priv, 'HKDF', …)</c> — deriving the whole shared secret into an HKDF
     /// key — the shape the specification's own worked example uses.
     /// </summary>
-    private static readonly string[] _keyLengthAlgorithms = [Hmac, AesGcm, Hkdf, Pbkdf2];
+    private static readonly string[] _keyLengthAlgorithms = [Hmac, AesCtr, AesCbc, AesGcm, AesKw, Hkdf, Pbkdf2];
 
     private static readonly JsString _nameKey = new("name");
     private static readonly JsString _hashKey = new("hash");
@@ -283,6 +337,7 @@ internal static class AlgorithmNormalization
     private static readonly JsString _ivKey = new("iv");
     private static readonly JsString _additionalDataKey = new("additionalData");
     private static readonly JsString _tagLengthKey = new("tagLength");
+    private static readonly JsString _counterKey = new("counter");
     private static readonly JsString _modulusLengthKey = new("modulusLength");
     private static readonly JsString _publicExponentKey = new("publicExponent");
     private static readonly JsString _saltLengthKey = new("saltLength");
@@ -320,6 +375,9 @@ internal static class AlgorithmNormalization
                 return _importKeyAlgorithms;
             case CryptoOperation.ExportKey:
                 return _exportKeyAlgorithms;
+            case CryptoOperation.WrapKey:
+            case CryptoOperation.UnwrapKey:
+                return _wrapAlgorithms;
             case CryptoOperation.DeriveBits:
                 return _deriveAlgorithms;
             case CryptoOperation.GetKeyLength:
@@ -362,6 +420,10 @@ internal static class AlgorithmNormalization
                 return "importKey";
             case CryptoOperation.ExportKey:
                 return "exportKey";
+            case CryptoOperation.WrapKey:
+                return "wrapKey";
+            case CryptoOperation.UnwrapKey:
+                return "unwrapKey";
             case CryptoOperation.DeriveBits:
                 return "deriveBits";
             case CryptoOperation.DeriveKey:
@@ -495,11 +557,32 @@ internal static class AlgorithmNormalization
                 break;
 
             // AesKeyGenParams: `required [EnforceRange] unsigned short length`. AesDerivedKeyParams, which
-            // AES-GCM registers for `get key length`, is that dictionary declared a second time under another
-            // name — same one member, same type.
+            // all four AES algorithms register for `get key length`, is that dictionary declared a second
+            // time under another name — same one member, same type.
+            case (AesCtr, CryptoOperation.GenerateKey):
+            case (AesCtr, CryptoOperation.GetKeyLength):
+            case (AesCbc, CryptoOperation.GenerateKey):
+            case (AesCbc, CryptoOperation.GetKeyLength):
             case (AesGcm, CryptoOperation.GenerateKey):
             case (AesGcm, CryptoOperation.GetKeyLength):
+            case (AesKw, CryptoOperation.GenerateKey):
+            case (AesKw, CryptoOperation.GetKeyLength):
                 normalized.Length = ReadRequiredUnsignedShort(context, algorithm, _lengthKey, what);
+                break;
+
+            // AesCtrParams, in WebIDL's lexicographical order: `required BufferSource counter` then
+            // `required [EnforceRange] octet length` — which is the width of the counter *field* in bits and
+            // has nothing to do with the AesKeyGenParams member of the same name.
+            case (AesCtr, CryptoOperation.Encrypt):
+            case (AesCtr, CryptoOperation.Decrypt):
+                normalized.Counter = ReadRequiredBufferSource(context, algorithm, _counterKey, what);
+                normalized.CounterLength = ReadRequiredOctet(context, algorithm, _lengthKey, what);
+                break;
+
+            // AesCbcParams, whose one member is `required BufferSource iv`.
+            case (AesCbc, CryptoOperation.Encrypt):
+            case (AesCbc, CryptoOperation.Decrypt):
+                normalized.Iv = ReadRequiredBufferSource(context, algorithm, _ivKey, what);
                 break;
 
             // AesGcmParams.
@@ -581,8 +664,8 @@ internal static class AlgorithmNormalization
 
             // Every remaining pair registers `None` as its parameters, so the Algorithm dictionary — the one
             // member of which has already been read — is the whole of it. RSASSA-PKCS1-v1_5's sign and
-            // verify are in that set, as is every algorithm's exportKey, HKDF's and PBKDF2's importKey, and
-            // HKDF's and PBKDF2's `get key length`.
+            // verify are in that set, as is every algorithm's exportKey and importKey, AES-KW's wrapKey and
+            // unwrapKey, and HKDF's and PBKDF2's `get key length`.
             default:
                 break;
         }
@@ -782,6 +865,23 @@ internal static class AlgorithmNormalization
         }
 
         return (uint) EnforceRange(context, value, "member " + key, what, ushort.MaxValue);
+    }
+
+    /// <summary>
+    /// A <c>required [EnforceRange] octet</c> member — the <c>length</c> of <c>AesCtrParams</c>. The range
+    /// check is the octet type's own, so <c>length: 256</c> is a <c>TypeError</c> raised during
+    /// normalization, where <c>length: 0</c> and <c>length: 129</c> are inside an octet and reach the
+    /// operation, which refuses them with the <c>OperationError</c> its own first steps name.
+    /// </summary>
+    private static int ReadRequiredOctet(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
+    {
+        var value = algorithm?.Get(key) ?? JsValue.Undefined;
+        if (value.IsUndefined())
+        {
+            context.ThrowTypeError(what + ": required member " + key + " is undefined.");
+        }
+
+        return (int) EnforceRange(context, value, "member " + key, what, byte.MaxValue);
     }
 
     private static int? ReadOptionalOctet(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)

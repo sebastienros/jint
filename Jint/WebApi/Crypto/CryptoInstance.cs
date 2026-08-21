@@ -26,11 +26,13 @@ namespace Jint.WebApi.Crypto;
 /// nowhere near this file.
 /// </para>
 /// <para>
-/// <c>crypto.subtle</c> exists and carries <b>ten of the twelve operations</b>: <c>digest</c>,
-/// <c>sign</c>, <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>,
-/// <c>exportKey</c>, <c>deriveBits</c> and <c>deriveKey</c>. <c>wrapKey</c> and <c>unwrapKey</c> are absent
-/// rather than present-and-throwing, so the feature detection a library performing cryptography starts with
-/// gets the truthful answer about each operation it means to use. See <see cref="SubtleCryptoInstance"/>.
+/// <c>crypto.subtle</c> exists and carries <b>all twelve operations</b>: <c>digest</c>, <c>sign</c>,
+/// <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>, <c>exportKey</c>,
+/// <c>deriveBits</c>, <c>deriveKey</c>, <c>wrapKey</c> and <c>unwrapKey</c>. What each of them will do is
+/// then a question of which algorithms are registered for it, and a name that is not registered for an
+/// operation is the <c>NotSupportedError</c> the specification says it is — so the feature detection a
+/// library performing cryptography starts with gets the truthful answer at both levels. See
+/// <see cref="SubtleCryptoInstance"/>.
 /// </para>
 /// <para>
 /// Three documented simplifications against WebIDL, the first pair of which <c>console</c> carries too. There

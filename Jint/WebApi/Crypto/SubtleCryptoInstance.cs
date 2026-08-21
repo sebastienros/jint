@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using System.Security.Cryptography;
 using Jint.Native;
+using Jint.Native.Json;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -17,33 +18,35 @@ namespace Jint.WebApi.Crypto;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Ten of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
-/// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>, <c>exportKey</c>, <c>deriveBits</c> and
-/// <c>deriveKey</c>, over the algorithms <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits),
+/// <b>All twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
+/// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>, <c>exportKey</c>, <c>deriveBits</c>,
+/// <c>deriveKey</c>, <c>wrapKey</c> and <c>unwrapKey</c>, over the algorithms <c>HMAC</c>, <c>AES-CTR</c>,
+/// <c>AES-CBC</c>, <c>AES-GCM</c> and <c>AES-KW</c> (each at 128, 192 and 256 bits),
 /// <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c>, <c>RSA-OAEP</c>, <c>ECDSA</c>, <c>ECDH</c>, <c>HKDF</c> and
 /// <c>PBKDF2</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and SHA-512, and each of the
 /// elliptic-curve ones over P-256, P-384 and P-521 — plus those four SHA hashes for <c>digest</c>, and the
-/// key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
-/// <c>wrapKey</c> and <c>unwrapKey</c> are <b>absent</b> rather than present-and-throwing, so a library that
-/// checks <c>typeof crypto.subtle.wrapKey === 'function'</c> before reaching for it gets the truthful answer
-/// and takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine without the
-/// crypto feature. An algorithm that is absent for a <i>particular</i> operation is a
-/// <c>NotSupportedError</c>, which is what the specification says a name that is not registered for an
-/// operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does <c>encrypt</c> with
-/// <c>HMAC</c> and <c>generateKey</c> with <c>PBKDF2</c>.
+/// key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>. An algorithm that is absent for a
+/// <i>particular</i> operation is a <c>NotSupportedError</c>, which is what the specification says a name
+/// that is not registered for an operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does
+/// <c>encrypt</c> with <c>HMAC</c>, <c>generateKey</c> with <c>PBKDF2</c> and <c>encrypt</c> with
+/// <c>AES-KW</c>.
 /// </para>
 /// <para>
 /// The registries are per operation and are not symmetric. <c>HKDF</c> and <c>PBKDF2</c> register
 /// <c>importKey</c>, <c>deriveBits</c> and the internal <c>get key length</c> and nothing else — there is
 /// nothing to <c>generateKey</c> and, their keys being non-extractable by construction, nothing to
 /// <c>exportKey</c>. <c>ECDH</c> registers <c>deriveBits</c> and never <c>sign</c>; <c>ECDSA</c> the reverse.
-/// An AES-GCM key may still carry the <c>wrapKey</c> and <c>unwrapKey</c> usages that no operation here
-/// consumes, which is the one remaining case of a usage bit without an operation behind it.
+/// <c>AES-KW</c> is the only algorithm registered for <c>wrapKey</c> and <c>unwrapKey</c>, and it registers
+/// neither <c>encrypt</c> nor <c>decrypt</c> — the exact reverse of every other cipher, and the reason those
+/// two methods normalize twice. Every usage bit now has an operation behind it.
 /// </para>
 /// <para>
-/// <c>deriveKey</c> is a composition rather than an algorithm: it derives bits with one algorithm and imports
-/// them with another, so the key it hands back is exactly the key <c>importKey</c> would have made from the
-/// same bytes in the <c>raw</c> format.
+/// <c>deriveKey</c>, <c>wrapKey</c> and <c>unwrapKey</c> are compositions rather than algorithms.
+/// <c>deriveKey</c> derives bits with one algorithm and imports them with another, so the key it hands back
+/// is exactly the key <c>importKey</c> would have made from the same bytes in the <c>raw</c> format;
+/// <c>wrapKey</c> is <c>exportKey</c> followed by a wrap or an encrypt, and <c>unwrapKey</c> is an unwrap or
+/// a decrypt followed by <c>importKey</c>. All three reach the very same import and export dispatches the
+/// script-visible methods do, so nothing about a key is special-cased for having arrived that way.
 /// </para>
 /// <para>
 /// <b>Nothing here ever throws to its caller.</b> WebIDL turns an exception out of a promise-returning
@@ -225,16 +228,31 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Encrypt, "encrypt", what);
 
-            switch (normalized.Name)
-            {
-                case AlgorithmNormalization.AesGcm:
-                    return Context.CreateArrayBuffer(AesGcmAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
-                case AlgorithmNormalization.RsaOaep:
-                    return Context.CreateArrayBuffer(RsaAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
-                default:
-                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Encrypt);
-            }
+            return Context.CreateArrayBuffer(PerformEncrypt(normalized, cryptoKey, plaintext, what));
         });
+    }
+
+    /// <summary>
+    /// "The encrypt operation specified by normalizedAlgorithm using key and algorithm" — the step
+    /// <c>encrypt</c> shares with <c>wrapKey</c>, which reaches four of these five algorithms through its own
+    /// second normalization.
+    /// </summary>
+    private byte[] PerformEncrypt(NormalizedAlgorithm normalized, JsCryptoKey key, byte[] plaintext, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.AesCtr:
+                return AesCtrAlgorithm.Encrypt(Context, normalized, key, plaintext, what);
+            case AlgorithmNormalization.AesCbc:
+                return AesCbcAlgorithm.Encrypt(Context, normalized, key, plaintext, what);
+            case AlgorithmNormalization.AesGcm:
+                return AesGcmAlgorithm.Encrypt(Context, normalized, key, plaintext, what);
+            case AlgorithmNormalization.RsaOaep:
+                return RsaAlgorithm.Encrypt(Context, normalized, key, plaintext, what);
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.Encrypt);
+                return null!;
+        }
     }
 
     /// <summary>
@@ -254,16 +272,30 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Decrypt, "decrypt", what);
 
-            switch (normalized.Name)
-            {
-                case AlgorithmNormalization.AesGcm:
-                    return Context.CreateArrayBuffer(AesGcmAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
-                case AlgorithmNormalization.RsaOaep:
-                    return Context.CreateArrayBuffer(RsaAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
-                default:
-                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Decrypt);
-            }
+            return Context.CreateArrayBuffer(PerformDecrypt(normalized, cryptoKey, ciphertext, what));
         });
+    }
+
+    /// <summary>
+    /// "The decrypt operation specified by normalizedAlgorithm using key and algorithm" — the step
+    /// <c>decrypt</c> shares with <c>unwrapKey</c>.
+    /// </summary>
+    private byte[] PerformDecrypt(NormalizedAlgorithm normalized, JsCryptoKey key, byte[] ciphertext, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.AesCtr:
+                return AesCtrAlgorithm.Decrypt(Context, normalized, key, ciphertext, what);
+            case AlgorithmNormalization.AesCbc:
+                return AesCbcAlgorithm.Decrypt(Context, normalized, key, ciphertext, what);
+            case AlgorithmNormalization.AesGcm:
+                return AesGcmAlgorithm.Decrypt(Context, normalized, key, ciphertext, what);
+            case AlgorithmNormalization.RsaOaep:
+                return RsaAlgorithm.Decrypt(Context, normalized, key, ciphertext, what);
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.Decrypt);
+                return null!;
+        }
     }
 
     /// <summary>
@@ -294,8 +326,15 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 case AlgorithmNormalization.Hmac:
                     return CreateSecretKey(HmacAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, usages, what);
 
+                case AlgorithmNormalization.AesCtr:
+                case AlgorithmNormalization.AesCbc:
                 case AlgorithmNormalization.AesGcm:
-                    return CreateSecretKey(AesGcmAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, usages, what);
+                case AlgorithmNormalization.AesKw:
+                    return CreateSecretKey(
+                        AesKeyManagement.GenerateKey(Context, normalized.Name, normalized, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
 
                 case AlgorithmNormalization.RsassaPkcs1V15:
                 case AlgorithmNormalization.RsaPss:
@@ -403,57 +442,79 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 Context.ThrowTypeError(what + ": the '" + KeyFormats.NameOf(keyFormat) + "' format needs a buffer source, not a JsonWebKey object.");
             }
 
-            switch (normalized.Name)
-            {
-                case AlgorithmNormalization.Hmac:
-                    return CreateSecretKey(
-                        HmacAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                case AlgorithmNormalization.AesGcm:
-                    return CreateSecretKey(
-                        AesGcmAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                case AlgorithmNormalization.RsassaPkcs1V15:
-                case AlgorithmNormalization.RsaPss:
-                case AlgorithmNormalization.RsaOaep:
-                    return CreateImportedKey(
-                        RsaAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                case AlgorithmNormalization.Ecdsa:
-                case AlgorithmNormalization.Ecdh:
-                    return CreateImportedKey(
-                        EcAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                case AlgorithmNormalization.Hkdf:
-                    return CreateImportedKey(
-                        HkdfAlgorithm.ImportKey(Context, keyFormat, rawData, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                case AlgorithmNormalization.Pbkdf2:
-                    return CreateImportedKey(
-                        Pbkdf2Algorithm.ImportKey(Context, keyFormat, rawData, isExtractable, usages, what),
-                        isExtractable,
-                        usages,
-                        what);
-
-                default:
-                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
-            }
+            return PerformImportKey(normalized, keyFormat, rawData, jwk, isExtractable, usages, what);
         });
+    }
+
+    /// <summary>
+    /// "The import key operation specified by normalizedAlgorithm using keyData, algorithm, format,
+    /// extractable and usages" — the step <c>importKey</c> shares with <c>deriveKey</c> (whose format is
+    /// fixed at <c>raw</c> and whose key data is the derivation's) and with <c>unwrapKey</c> (whose key data
+    /// is whatever the unwrapping produced).
+    /// </summary>
+    private JsCryptoKey PerformImportKey(
+        NormalizedAlgorithm normalized,
+        KeyFormat format,
+        byte[]? rawData,
+        JsonWebKeyData? jwk,
+        bool extractable,
+        KeyUsage usages,
+        string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.Hmac:
+                return CreateSecretKey(
+                    HmacAlgorithm.ImportKey(Context, format, rawData, jwk, normalized, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.AesCtr:
+            case AlgorithmNormalization.AesCbc:
+            case AlgorithmNormalization.AesGcm:
+            case AlgorithmNormalization.AesKw:
+                return CreateSecretKey(
+                    AesKeyManagement.ImportKey(Context, normalized.Name, format, rawData, jwk, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.RsassaPkcs1V15:
+            case AlgorithmNormalization.RsaPss:
+            case AlgorithmNormalization.RsaOaep:
+                return CreateImportedKey(
+                    RsaAlgorithm.ImportKey(Context, format, rawData, jwk, normalized, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.Ecdsa:
+            case AlgorithmNormalization.Ecdh:
+                return CreateImportedKey(
+                    EcAlgorithm.ImportKey(Context, format, rawData, jwk, normalized, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.Hkdf:
+                return CreateImportedKey(
+                    HkdfAlgorithm.ImportKey(Context, format, rawData, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.Pbkdf2:
+                return CreateImportedKey(
+                    Pbkdf2Algorithm.ImportKey(Context, format, rawData, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
+                return null!;
+        }
     }
 
     /// <summary>
@@ -474,37 +535,58 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
             var keyFormat = ReadKeyFormat(format, what);
             var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
 
-            // "If the name member of the [[algorithm]] internal slot of key does not identify a registered
-            // algorithm that supports the export key operation, then throw a NotSupportedError."
-            if (Array.IndexOf(AlgorithmNormalization.RegisteredFor(CryptoOperation.ExportKey), cryptoKey.Algorithm.Name) < 0)
-            {
-                Context.ThrowNotSupportedError(
-                    what + ": " + cryptoKey.Algorithm.Name + " is not registered for the exportKey operation.");
-            }
+            RequireExportableKey(cryptoKey, what);
 
-            // "If the [[extractable]] internal slot of key is false, then throw an InvalidAccessError."
-            if (!cryptoKey.Extractable)
-            {
-                Context.ThrowInvalidAccessError(what + ": the key is not extractable.");
-            }
-
-            switch (cryptoKey.Algorithm.Name)
-            {
-                case AlgorithmNormalization.Hmac:
-                    return HmacAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
-                case AlgorithmNormalization.AesGcm:
-                    return AesGcmAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
-                case AlgorithmNormalization.RsassaPkcs1V15:
-                case AlgorithmNormalization.RsaPss:
-                case AlgorithmNormalization.RsaOaep:
-                    return RsaAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
-                case AlgorithmNormalization.Ecdsa:
-                case AlgorithmNormalization.Ecdh:
-                    return EcAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
-                default:
-                    return UnhandledAlgorithm(cryptoKey.Algorithm.Name, CryptoOperation.ExportKey);
-            }
+            return PerformExportKey(cryptoKey, keyFormat, what);
         });
+    }
+
+    /// <summary>
+    /// The two checks <c>exportKey</c> makes before asking the algorithm for anything, which <c>wrapKey</c>
+    /// makes too (its steps 9 and 10) because wrapping "effectively exports the key".
+    /// </summary>
+    private void RequireExportableKey(JsCryptoKey key, string what)
+    {
+        // "If the name member of the [[algorithm]] internal slot of key does not identify a registered
+        // algorithm that supports the export key operation, then throw a NotSupportedError."
+        if (Array.IndexOf(AlgorithmNormalization.RegisteredFor(CryptoOperation.ExportKey), key.Algorithm.Name) < 0)
+        {
+            Context.ThrowNotSupportedError(
+                what + ": " + key.Algorithm.Name + " is not registered for the exportKey operation.");
+        }
+
+        // "If the [[extractable]] internal slot of key is false, then throw an InvalidAccessError."
+        if (!key.Extractable)
+        {
+            Context.ThrowInvalidAccessError(what + ": the key is not extractable.");
+        }
+    }
+
+    /// <summary>
+    /// "The export key operation specified by the [[algorithm]] internal slot of key using key and format" —
+    /// the step <c>exportKey</c> shares with <c>wrapKey</c>, which wraps whatever it produces.
+    /// </summary>
+    private JsValue PerformExportKey(JsCryptoKey key, KeyFormat format, string what)
+    {
+        switch (key.Algorithm.Name)
+        {
+            case AlgorithmNormalization.Hmac:
+                return HmacAlgorithm.ExportKey(Context, key, format, what);
+            case AlgorithmNormalization.AesCtr:
+            case AlgorithmNormalization.AesCbc:
+            case AlgorithmNormalization.AesGcm:
+            case AlgorithmNormalization.AesKw:
+                return AesKeyManagement.ExportKey(Context, key, format, what);
+            case AlgorithmNormalization.RsassaPkcs1V15:
+            case AlgorithmNormalization.RsaPss:
+            case AlgorithmNormalization.RsaOaep:
+                return RsaAlgorithm.ExportKey(Context, key, format, what);
+            case AlgorithmNormalization.Ecdsa:
+            case AlgorithmNormalization.Ecdh:
+                return EcAlgorithm.ExportKey(Context, key, format, what);
+            default:
+                return UnhandledAlgorithm(key.Algorithm.Name, CryptoOperation.ExportKey);
+        }
     }
 
     /// <summary>
@@ -602,6 +684,354 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     }
 
     /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-wrapKey, whose IDL is
+    /// <c>Promise&lt;ArrayBuffer&gt; wrapKey(KeyFormat format, CryptoKey key, CryptoKey wrappingKey,
+    /// AlgorithmIdentifier wrapAlgorithm)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Like <c>deriveKey</c> it is a composition, and its parts are already here: it is <c>exportKey</c>
+    /// followed by either a <b>wrap key</b> operation or an <b>encrypt</b> one. Which of the two is decided by
+    /// the <b>double normalization</b> of step 2 — the <c>wrapAlgorithm</c> is normalized for <c>wrapKey</c>
+    /// and, "if an error occurred", for <c>encrypt</c> instead. AES-KW takes the first route because that is
+    /// the only operation its registration names; AES-GCM, AES-CBC, AES-CTR and RSA-OAEP take the second,
+    /// because theirs name <c>encrypt</c> and never <c>wrapKey</c>. A name that is in neither registry is
+    /// therefore reported against the <i>encrypt</i> registry, which is the normalization that ran last, and
+    /// an algorithm object whose members are getters has them read twice for the same reason
+    /// <c>deriveKey</c>'s <c>derivedKeyType</c> is read twice.
+    /// </para>
+    /// <para>
+    /// <b>Wrapping is exporting</b>, so the two checks <c>exportKey</c> makes are made here too: the wrapped
+    /// key's algorithm has to be registered for <c>exportKey</c>, and the key has to be extractable. The
+    /// specification's own note is worth repeating — "this API cannot create a wrapped JWK key that is marked
+    /// as non-extractable using the ext JWK member. However, the unwrapKey method does support the ext JWK
+    /// member", which is what lets a server hand a script a wrapped key it can use and cannot export.
+    /// </para>
+    /// <para>
+    /// <b>The <c>jwk</c> format is serialized with this engine's own <c>JSON.stringify</c></b> — "the result
+    /// of representing exportedKey as a UTF-16 string conforming to the JSON grammar; for example, by
+    /// executing the JSON.stringify algorithm specified in [ECMA-262] in the context of a new global object",
+    /// then UTF-8 encoded. The member order is the export layout's own (<see cref="JsonWebKeyData"/> builds
+    /// every JWK from a fixed <see cref="JsObjectLayout"/>, and a layout's order is its enumeration order), so
+    /// the bytes a given key wraps to are deterministic and equal to
+    /// <c>new TextEncoder().encode(JSON.stringify(await crypto.subtle.exportKey('jwk', key)))</c>. The one
+    /// divergence from the quoted step is the phrase "a new global object": the serialization runs in this
+    /// realm, so a <c>toJSON</c> a script has installed on <c>Object.prototype</c> participates in it where a
+    /// browser's would not. What that can do is confined to the script's own keys — it changes bytes the same
+    /// script then fails to unwrap — and it is named here rather than papered over.
+    /// </para>
+    /// <para>
+    /// <b>A JWK wrapped under AES-KW is padded with spaces to a multiple of 8 bytes.</b> AES-KW wraps a whole
+    /// number of 64-bit blocks and a JSON document is whatever length it is, which is exactly the case the
+    /// specification's note anticipates: "implementations may choose to adapt the serialization to the
+    /// constraints of the wrapping algorithm. This is why JSON.stringify is not normatively required, as
+    /// otherwise it would prohibit implementations from introducing added padding." The convention every
+    /// implementation follows — and the one the web-platform tests compute their expectation with, in
+    /// <c>WebCryptoAPI/wrapKey_unwrapKey/wrapKey_unwrapKey.https.any.js</c> — is
+    /// <c>jwk.slice(0, -1) + ' '.repeat(pad) + '}'</c>: the spaces go immediately before the closing brace,
+    /// where JSON's grammar allows insignificant whitespace, so the padded document parses back to the very
+    /// same object and <c>unwrapKey</c> needs to know nothing about the padding at all. It is applied to the
+    /// UTF-8 bytes rather than to the UTF-16 string, which is the same thing for every JWK this engine
+    /// exports — all of them are ASCII — and is the count AES-KW actually constrains.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "wrapKey", Length = 4)]
+    private JsValue WrapKey(JsValue thisObject, JsValue format, JsValue key, JsValue wrappingKey, JsValue wrapAlgorithm)
+    {
+        return Perform(thisObject, CryptoOperation.WrapKey, what =>
+        {
+            var keyFormat = ReadKeyFormat(format, what);
+            var cryptoKey = RequireCryptoKey(key, what, "parameter 2");
+            var wrapper = RequireCryptoKey(wrappingKey, what, "parameter 3");
+            var identifier = AlgorithmNormalization.ConvertIdentifier(wrapAlgorithm);
+
+            // Steps 2 and 3.
+            var normalized = NormalizeForWrapping(identifier, CryptoOperation.WrapKey, CryptoOperation.Encrypt, what);
+
+            // Steps 7 and 8: the wrapping key was made for this algorithm, and it permits wrapKey.
+            RequireKeyFor(normalized, wrapper, KeyUsage.WrapKey, "wrapKey", what);
+
+            // Steps 9 and 10, which are exportKey's own two checks — see the remarks on this method.
+            RequireExportableKey(cryptoKey, what);
+
+            // Steps 11 and 12.
+            var exported = PerformExportKey(cryptoKey, keyFormat, what);
+            var bytes = keyFormat == KeyFormat.Jwk
+                ? SerializeJsonWebKey(exported, normalized.Name)
+                : CopyExportedBytes(exported);
+
+            // Step 13.
+            if (IsRegisteredFor(CryptoOperation.WrapKey, normalized.Name))
+            {
+                return Context.CreateArrayBuffer(PerformWrap(normalized, wrapper, bytes, what));
+            }
+
+            if (IsRegisteredFor(CryptoOperation.Encrypt, normalized.Name))
+            {
+                return Context.CreateArrayBuffer(PerformEncrypt(normalized, wrapper, bytes, what));
+            }
+
+            // "Otherwise: throw a NotSupportedError." Unreachable: the normalization above succeeded against
+            // one of these two registries, and it is written out because the step is.
+            Context.ThrowNotSupportedError(
+                what + ": " + normalized.Name + " supports neither the wrapKey operation nor the encrypt operation.");
+            return JsValue.Undefined;
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-unwrapKey, whose IDL is
+    /// <c>Promise&lt;CryptoKey&gt; unwrapKey(KeyFormat format, BufferSource wrappedKey,
+    /// CryptoKey unwrappingKey, AlgorithmIdentifier unwrapAlgorithm,
+    /// AlgorithmIdentifier unwrappedKeyAlgorithm, boolean extractable, sequence&lt;KeyUsage&gt; keyUsages)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mirror of <c>wrapKey</c>, with <b>three</b> normalizations rather than two: the
+    /// <c>unwrapAlgorithm</c> for <c>unwrapKey</c> and then, on failure, for <c>decrypt</c>; and the
+    /// <c>unwrappedKeyAlgorithm</c> for <c>importKey</c>, which is the algorithm the <i>new</i> key will
+    /// belong to. The two are independent — an AES-KW key unwraps an RSA private key perfectly well — and it
+    /// is the second that decides everything about the key that comes out.
+    /// </para>
+    /// <para>
+    /// <c>extractable</c> and <c>keyUsages</c> belong to the <b>new</b> key alone, exactly as
+    /// <c>deriveKey</c>'s do, and the unwrapping key's own extractability is never consulted. A <c>jwk</c>
+    /// carrying <c>ext: false</c> is honoured against them, which is the asymmetry <c>wrapKey</c>'s note
+    /// describes: a key wrapped elsewhere may say it is not to be extractable, and this is where that is read.
+    /// </para>
+    /// <para>
+    /// <b>Everything that can go wrong after the unwrapping is an import failure, in the existing taxonomy.</b>
+    /// The unwrapped bytes are handed to the very same import steps <c>importKey</c> runs, so a JWK whose
+    /// <c>kty</c> is wrong for the requested algorithm is a <c>DataError</c>, a usage the algorithm does not
+    /// support is a <c>SyntaxError</c>, and a secret key with no usages at all is the <c>SyntaxError</c> step
+    /// 14 names. The one failure that is unwrapping's own is a <c>jwk</c> whose bytes are not a JSON document
+    /// at all — "parse a JWK" is where that becomes a <c>DataError</c>, and it is the shape a wrong
+    /// unwrapping key produces under a cipher with no integrity check of its own.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "unwrapKey", Length = 7)]
+    private JsValue UnwrapKey(
+        JsValue thisObject,
+        JsValue format,
+        JsValue wrappedKey,
+        JsValue unwrappingKey,
+        JsValue unwrapAlgorithm,
+        JsValue unwrappedKeyAlgorithm,
+        JsValue extractable,
+        JsValue keyUsages)
+    {
+        return Perform(thisObject, CryptoOperation.UnwrapKey, what =>
+        {
+            var keyFormat = ReadKeyFormat(format, what);
+            var wrapped = GetBufferSourceBytes(wrappedKey, what, "parameter 2");
+            var unwrapper = RequireCryptoKey(unwrappingKey, what, "parameter 3");
+            var identifier = AlgorithmNormalization.ConvertIdentifier(unwrapAlgorithm);
+            var keyIdentifier = AlgorithmNormalization.ConvertIdentifier(unwrappedKeyAlgorithm);
+            var isExtractable = TypeConverter.ToBoolean(extractable);
+            var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
+
+            // Steps 2 to 4, in the specification's order and all before any step of any algorithm.
+            var normalized = NormalizeForWrapping(identifier, CryptoOperation.UnwrapKey, CryptoOperation.Decrypt, what);
+            var normalizedKey = AlgorithmNormalization.Normalize(Context, keyIdentifier, CryptoOperation.ImportKey, what);
+
+            // Steps 9 and 10.
+            RequireKeyFor(normalized, unwrapper, KeyUsage.UnwrapKey, "unwrapKey", what);
+
+            // Step 11.
+            byte[] bytes;
+            if (IsRegisteredFor(CryptoOperation.UnwrapKey, normalized.Name))
+            {
+                bytes = PerformUnwrap(normalized, unwrapper, wrapped, what);
+            }
+            else if (IsRegisteredFor(CryptoOperation.Decrypt, normalized.Name))
+            {
+                bytes = PerformDecrypt(normalized, unwrapper, wrapped, what);
+            }
+            else
+            {
+                // Unreachable, for the reason wrapKey's own third arm is.
+                Context.ThrowNotSupportedError(
+                    what + ": " + normalized.Name + " supports neither the unwrapKey operation nor the decrypt operation.");
+                return JsValue.Undefined;
+            }
+
+            // Step 12: "If format is equal to the string 'jwk': Let key be the result of executing the parse
+            // a JWK algorithm, with bytes as the data to be parsed. Otherwise: Let key be bytes."
+            var jwk = keyFormat == KeyFormat.Jwk ? ParseJsonWebKey(bytes, what) : null;
+            var rawData = keyFormat == KeyFormat.Jwk ? null : bytes;
+
+            // Steps 13 to 16. The empty-usages SyntaxError of step 14, and the setting of the two internal
+            // slots, are what the import dispatch already does for importKey and deriveKey.
+            return PerformImportKey(normalizedKey, keyFormat, rawData, jwk, isExtractable, usages, what);
+        });
+    }
+
+    /// <summary>
+    /// Step 2 of <c>wrapKey</c> and <c>unwrapKey</c>: normalize for the wrapping operation and, "if an error
+    /// occurred", for the cipher operation instead.
+    /// </summary>
+    /// <remarks>
+    /// The three exceptions caught are the ones <see cref="Perform"/> catches, for the same reason it catches
+    /// exactly those: they are the whole of what a script-visible failure here can arrive as, and everything
+    /// else a <c>JintException</c> covers is an execution constraint or a cancellation, which must not be
+    /// turned into a second attempt any more than into a rejection. Whatever the <i>second</i> normalization
+    /// raises is left to propagate, which is what makes it the failure the caller sees.
+    /// </remarks>
+    private NormalizedAlgorithm NormalizeForWrapping(
+        JsValue identifier,
+        CryptoOperation wrapping,
+        CryptoOperation cipher,
+        string what)
+    {
+        try
+        {
+            return AlgorithmNormalization.Normalize(Context, identifier, wrapping, what);
+        }
+        catch (Exception e) when (e is JavaScriptException or TypeErrorException or RangeErrorException)
+        {
+            return AlgorithmNormalization.Normalize(Context, identifier, cipher, what);
+        }
+    }
+
+    /// <summary>"If normalizedAlgorithm supports the wrap key operation" — a lookup in that operation's registry.</summary>
+    private static bool IsRegisteredFor(CryptoOperation operation, string name)
+        => Array.IndexOf(AlgorithmNormalization.RegisteredFor(operation), name) >= 0;
+
+    /// <summary>
+    /// "The wrap key operation specified by normalizedAlgorithm using wrappingKey as key and bytes as
+    /// plaintext" — which only AES-KW registers.
+    /// </summary>
+    private byte[] PerformWrap(NormalizedAlgorithm normalized, JsCryptoKey key, byte[] plaintext, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.AesKw:
+                return AesKwAlgorithm.WrapKey(Context, key, plaintext, what);
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.WrapKey);
+                return null!;
+        }
+    }
+
+    /// <summary>
+    /// "The unwrap key operation specified by normalizedAlgorithm using unwrappingKey as key and wrappedKey
+    /// as ciphertext".
+    /// </summary>
+    private byte[] PerformUnwrap(NormalizedAlgorithm normalized, JsCryptoKey key, byte[] ciphertext, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.AesKw:
+                return AesKwAlgorithm.UnwrapKey(Context, key, ciphertext, what);
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.UnwrapKey);
+                return null!;
+        }
+    }
+
+    /// <summary>
+    /// Step 12 of <c>wrapKey</c> for the <c>jwk</c> format — see the remarks on that method for both the
+    /// serializer this uses and the padding AES-KW gets.
+    /// </summary>
+    private byte[] SerializeJsonWebKey(JsValue exported, string wrapAlgorithmName)
+    {
+        if (new JsonSerializer(_engine).Serialize(exported) is not JsString json)
+        {
+            // Unreachable: the value is an object this engine built out of strings, booleans and an array of
+            // strings, none of which JSON.stringify answers `undefined` for.
+            Throw.InvalidOperationException("The exported JSON Web Key has no JSON representation.");
+            return null!;
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json.ToString());
+
+        return string.Equals(wrapAlgorithmName, AlgorithmNormalization.AesKw, StringComparison.Ordinal)
+            ? PadToWrappableLength(bytes)
+            : bytes;
+    }
+
+    /// <summary>
+    /// The JSON document with enough <c>U+0020</c> characters inserted before its closing brace to make it a
+    /// whole number of 64-bit blocks — see the remarks on <see cref="WrapKey"/> for where the convention
+    /// comes from and why it round-trips.
+    /// </summary>
+    private static byte[] PadToWrappableLength(byte[] json)
+    {
+        var remainder = json.Length % 8;
+        if (remainder == 0)
+        {
+            return json;
+        }
+
+        var padded = new byte[json.Length + (8 - remainder)];
+
+        // Everything but the closing brace, then the spaces, then the brace back on the end.
+        json.AsSpan(0, json.Length - 1).CopyTo(padded);
+        padded.AsSpan(json.Length - 1, 8 - remainder).Fill((byte) ' ');
+        padded[padded.Length - 1] = json[json.Length - 1];
+
+        return padded;
+    }
+
+    /// <summary>
+    /// Step 12's "Otherwise: Let bytes be exportedKey" — the bytes of the <c>ArrayBuffer</c> the export
+    /// produced, which for every non-<c>jwk</c> format is what it returns.
+    /// </summary>
+    private static byte[] CopyExportedBytes(JsValue exported)
+    {
+        if (!BufferSource.TryGetBytes(exported, out var bytes))
+        {
+            // Unreachable: every format but jwk exports an ArrayBuffer, which is what the export dispatch
+            // above hands back.
+            Throw.InvalidOperationException("The exported key is not a buffer source.");
+        }
+
+        return bytes.ToArray();
+    }
+
+    /// <summary>
+    /// "Parse a JWK" — https://w3c.github.io/webcrypto/#dfn-parse-a-jwk: interpret the bytes as UTF-8, parse
+    /// the text as JSON, convert the result to a <c>JsonWebKey</c> dictionary, "If the kty field of key is
+    /// not defined, then throw a DataError".
+    /// </summary>
+    /// <remarks>
+    /// The parser is the engine's own <c>JSON.parse</c>, which reports a malformed document — and a byte
+    /// sequence that is not well-formed UTF-8 — as a <c>SyntaxError</c>. That is turned into the
+    /// <c>DataError</c> this algorithm names: a script asking to unwrap a key never asked to parse JSON, and
+    /// what it is being told is that the data does not meet the operation's requirements. Nothing else on
+    /// this path raises a <c>SyntaxError</c>, so the conversion cannot capture anything it did not mean to.
+    /// </remarks>
+    private JsonWebKeyData ParseJsonWebKey(byte[] bytes, string what)
+    {
+        JsValue parsed;
+
+        try
+        {
+            parsed = new JsonParser(_engine).Parse(bytes);
+        }
+        catch (JavaScriptException)
+        {
+            Context.ThrowDataError(what + ": the unwrapped data is not a JSON document.");
+            return null!;
+        }
+
+        if (parsed is not ObjectInstance source)
+        {
+            Context.ThrowDataError(what + ": the unwrapped data is a JSON document but not a JSON Web Key object.");
+            return null!;
+        }
+
+        var jwk = JsonWebKeyData.Read(Context, source, what);
+
+        if (jwk.Kty is null)
+        {
+            Context.ThrowDataError(what + ": the unwrapped JSON Web Key has no kty field.");
+        }
+
+        return jwk;
+    }
+
+    /// <summary>
     /// "The derive bits operation specified by normalizedAlgorithm using baseKey, algorithm and length" —
     /// the one step <c>deriveBits</c> and <c>deriveKey</c> share.
     /// </summary>
@@ -639,8 +1069,11 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         {
             case AlgorithmNormalization.Hmac:
                 return HmacAlgorithm.GetKeyLength(Context, normalized, what);
+            case AlgorithmNormalization.AesCtr:
+            case AlgorithmNormalization.AesCbc:
             case AlgorithmNormalization.AesGcm:
-                return AesGcmAlgorithm.GetKeyLength(Context, normalized, what);
+            case AlgorithmNormalization.AesKw:
+                return AesKeyManagement.GetKeyLength(Context, normalized, what);
             case AlgorithmNormalization.Hkdf:
                 return HkdfAlgorithm.GetKeyLength();
             case AlgorithmNormalization.Pbkdf2:
@@ -657,50 +1090,17 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// format fixed and the key data supplied by the derivation rather than by the caller.
     /// </summary>
     /// <remarks>
-    /// Only the four algorithms that also register <c>get key length</c> can arrive here, and not the seven
-    /// that register <c>importKey</c>: step 6 normalizes the same <c>derivedKeyType</c> for that operation
-    /// first, so <c>deriveKey(…, { name: 'RSA-OAEP', hash: 'SHA-256' }, …)</c> is already a
+    /// Only the algorithms that also register <c>get key length</c> can arrive here, and not the twelve that
+    /// register <c>importKey</c>: step 6 normalizes the same <c>derivedKeyType</c> for that operation first,
+    /// so <c>deriveKey(…, { name: 'RSA-OAEP', hash: 'SHA-256' }, …)</c> is already a
     /// <c>NotSupportedError</c> by the time anything is derived. An asymmetric key cannot be derived at all,
     /// which is the registry saying so rather than any step refusing it. Nothing is special-cased for the
-    /// derived case otherwise, so a derived key is the same object an imported one is.
+    /// derived case otherwise, so a derived key is the same object an imported one is — which is exactly why
+    /// this delegates to the very dispatch <c>importKey</c> uses rather than keeping a second, shorter list
+    /// that would have to be remembered whenever an algorithm is added.
     /// </remarks>
     private JsCryptoKey ImportDerivedKey(NormalizedAlgorithm normalized, byte[] secret, bool extractable, KeyUsage usages, string what)
-    {
-        switch (normalized.Name)
-        {
-            case AlgorithmNormalization.Hmac:
-                return CreateSecretKey(
-                    HmacAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, jwk: null, normalized, extractable, usages, what),
-                    extractable,
-                    usages,
-                    what);
-
-            case AlgorithmNormalization.AesGcm:
-                return CreateSecretKey(
-                    AesGcmAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, jwk: null, extractable, usages, what),
-                    extractable,
-                    usages,
-                    what);
-
-            case AlgorithmNormalization.Hkdf:
-                return CreateImportedKey(
-                    HkdfAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, extractable, usages, what),
-                    extractable,
-                    usages,
-                    what);
-
-            case AlgorithmNormalization.Pbkdf2:
-                return CreateImportedKey(
-                    Pbkdf2Algorithm.ImportKey(Context, KeyFormat.Raw, secret, extractable, usages, what),
-                    extractable,
-                    usages,
-                    what);
-
-            default:
-                UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
-                return null!;
-        }
-    }
+        => PerformImportKey(normalized, KeyFormat.Raw, secret, jwk: null, extractable, usages, what);
 
     /// <summary>
     /// Runs one operation's steps and settles a promise with whatever they produce — the whole of what

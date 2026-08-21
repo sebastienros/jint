@@ -248,9 +248,10 @@ neighbouring one — a cache outlives the evaluation that filled it, so where it
 is a decision you make rather than inherit; and `FetchEvents` is the third, because a script that can register
 a `fetch` listener can take over every request you route into the engine.
 
-`crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey`,
-`exportKey`, `deriveBits` and `deriveKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed
-algorithm's inner hash), **HMAC**, **AES-GCM** at 128, 192 and 256 bits, the RSA family —
+`crypto.subtle` carries **all twelve operations** — `digest`, `sign`, `verify`, `encrypt`, `decrypt`,
+`generateKey`, `importKey`, `exportKey`, `deriveBits`, `deriveKey`, `wrapKey` and `unwrapKey` — over
+SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**, the AES family
+(**AES-CTR**, **AES-CBC**, **AES-GCM** and **AES-KW**, each at 128, 192 and 256 bits), the RSA family —
 **RSASSA-PKCS1-v1_5** and **RSA-PSS** for signatures, **RSA-OAEP** for encryption — the elliptic curves
 **P-256**, **P-384** and **P-521** under **ECDSA** and **ECDH**, and **HKDF** and **PBKDF2** for derivation.
 Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and `usages`, and
@@ -259,15 +260,29 @@ Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and `u
 is never reachable from script except through `exportKey` on an extractable key: `raw` bytes or a
 `kty: "oct"` JSON Web Key for a symmetric key, `spki`, `pkcs8` or a `kty: "RSA"` JSON Web Key for an RSA one,
 and all four of those — `raw` being the uncompressed point `04||X||Y` — for an elliptic-curve one.
-`wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so `typeof crypto.subtle.wrapKey`
-tells a library the truth and it takes its fallback path.
 
 **The registries are per operation, and they are not symmetric.** HKDF and PBKDF2 register `importKey`,
 `deriveBits` and the internal *get key length* and nothing else: there is nothing to `generateKey` (the key
 *is* the password, or the input keying material you already have) and nothing to `exportKey`, their import
 steps refusing any `extractable` that is not `false`. So a PBKDF2 key is a one-way door — the bytes go in and
-only derived material comes out. ECDH registers `deriveBits` and never `sign`; ECDSA the reverse. An
-AES-GCM key may still carry the `wrapKey` and `unwrapKey` usages that nothing here consumes.
+only derived material comes out. ECDH registers `deriveBits` and never `sign`; ECDSA the reverse. And
+**AES-KW registers `wrapKey` and `unwrapKey` and neither `encrypt` nor `decrypt`**, which is the exact
+reverse of every other cipher: RFC 3394 wrapping takes a whole number of 64-bit blocks and carries an
+integrity check of its own, so `encrypt({ name: 'AES-KW' }, …)` is a `NotSupportedError` here and in a
+browser. That asymmetry is what `wrapKey`'s **double normalization** is for — the algorithm is normalized
+for `wrapKey` and, if that fails, for `encrypt` — so `wrapKey(format, key, kek, 'AES-KW')` takes the first
+route and `wrapKey(format, key, kek, { name: 'AES-GCM', iv })` (or AES-CBC, AES-CTR, RSA-OAEP) the second,
+with one method call either way.
+
+Wrapping *is* exporting, so `wrapKey` refuses a key that is not `extractable` with an `InvalidAccessError`
+and needs the `wrapKey` usage on the wrapping key. `unwrapKey` is the mirror, and it is where `extractable`
+and `keyUsages` for the *new* key are decided — which is what lets a server hand a script a key it can use
+and cannot export, `ext: false` in the wrapped JWK being honoured on the way in. For the `jwk` format the
+bytes wrapped are the UTF-8 of `JSON.stringify` of exactly the object `exportKey('jwk', key)` hands a script,
+and under AES-KW they are padded with spaces before the closing brace to a multiple of 8 — the convention
+every implementation follows and the web-platform tests compute their expectation with, which the
+specification's own note permits ("implementations may choose to adapt the serialization to the constraints
+of the wrapping algorithm").
 
 `deriveKey` is a composition rather than an algorithm of its own: it derives bits with one algorithm and
 imports them with another, so `deriveKey(pbkdf2Params, password, { name: 'AES-GCM', length: 256 }, …)` hands
@@ -305,9 +320,11 @@ algorithm that is not registered for the operation is a `NotSupportedError` `DOM
 against its own `usages`, against another algorithm, or against the wrong half of its pair (signing with a
 public key) is an `InvalidAccessError`, a malformed JWK or a DER structure that is not what its format names
 is a `DataError`, a usage list an algorithm does not support is a `SyntaxError`, and anything an argument
-conversion refuses is a `TypeError`. An AES-GCM or RSA-OAEP decryption that does not authenticate is one
-`OperationError` carrying nothing about which part of the input was wrong. The work is synchronous, so the
-promise is already settled when you get it.
+conversion refuses is a `TypeError`. An AES-GCM, AES-CBC or RSA-OAEP decryption that does not come out
+right, and an AES-KW unwrap whose integrity check fails, are each one `OperationError` carrying nothing
+about which part of the input was wrong — a decrypt that could tell "the padding was malformed" from "the
+padding was fine" is a padding oracle. The work is synchronous, so the promise is already settled when you
+get it.
 
 Where .NET's own cryptography is narrower than the specification the difference is visible, always as the
 `OperationError` the algorithm's own steps end in and always with a message naming the restriction:
@@ -316,6 +333,15 @@ Where .NET's own cryptography is narrower than the specification the difference 
   112, 120 or 128 — the specification also lists 32 and 64, which `System.Security.Cryptography.AesGcm` will
   not produce. The ciphertext is `ciphertext || tag`, exactly as the specification defines it, so a host
   reading a script's output with `AesGcm` splits the last `tagLength / 8` bytes off itself.
+- **AES-KW**: the payload must be a whole number of 64-bit blocks — the specification's own step — and at
+  least two of them, which is the wrapping algorithm's (NIST SP 800-38F §6.1 defines KW over `2 ≤ n`
+  semiblocks). The BCL has no unpadded key wrap at all — .NET 10 added only the *padded* RFC 5649 variant,
+  which is a different algorithm producing different bytes — so RFC 3394 is implemented here over the AES
+  ECB one-shots and pinned against all six published test vectors of its Section 4.
+- **AES-CTR**: .NET has no counter mode either, so the keystream is built from ECB over successive counter
+  blocks. The `length` member is the width of the counter field in bits and the rest of the block is nonce,
+  so the field wraps modulo 2^`length` rather than carrying into the nonce — which the specification
+  requires and which is pinned against expectations computed outside the engine.
 - **RSA-PSS**: `RSASignaturePadding.Pss` takes no salt-length parameter and always uses the hash's own
   output length, so `saltLength` is accepted at that one value (20, 32, 48 or 64 for SHA-1/256/384/512) and
   refused at any other rather than signing with a salt nobody asked for.

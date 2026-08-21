@@ -116,11 +116,12 @@ public class WebApiCryptoTests
                 .map(name => typeof crypto.subtle[name] + ':' + crypto.subtle[name].length).join(',')
             """).AsString().Should().Be("function:2,function:5");
 
-        // Key wrapping is absent, not present-and-throwing, so a library that checks before reaching for one
-        // takes its fallback path.
+        // Key wrapping is here too, with WebIDL's own arities — the whole SubtleCrypto interface, so a
+        // library that feature-detects before reaching for one finds it.
         engine.Evaluate("""
-            ['wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("undefined,undefined");
+            ['wrapKey', 'unwrapKey']
+                .map(name => typeof crypto.subtle[name] + ':' + crypto.subtle[name].length).join(',')
+            """).AsString().Should().Be("function:4,function:7");
     }
 
     [Fact]

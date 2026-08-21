@@ -271,11 +271,9 @@ public class CryptoTests
     {
         var engine = WebEngine();
 
-        // `crypto.subtle` exists and answers a SubtleCrypto object. What it carries is the ten operations
-        // over SHA, HMAC, AES-GCM, the RSA family, the elliptic curves, HKDF and PBKDF2; key wrapping is
-        // absent rather than present-and-throwing, because `if (crypto.subtle.wrapKey)` is how a library that
-        // does cryptography decides whether it can, and it has to get the truthful answer — see
-        // SubtleCryptoTests and SubtleCryptoKeyTests for the operations themselves.
+        // `crypto.subtle` exists and answers a SubtleCrypto object. What it carries is all twelve operations
+        // over SHA, HMAC, the four AES modes, the RSA family, the elliptic curves, HKDF and PBKDF2 — see
+        // SubtleCryptoTests, SubtleCryptoKeyTests and SubtleCryptoAesWrapTests for the operations themselves.
         engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
         engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeTrue();
 
@@ -287,7 +285,7 @@ public class CryptoTests
 
         engine.Evaluate("""
             ['wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("undefined,undefined");
+            """).AsString().Should().Be("function,function");
     }
 
     [Fact]

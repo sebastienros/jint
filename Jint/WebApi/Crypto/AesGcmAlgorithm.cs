@@ -1,13 +1,13 @@
 #if NET8_0_OR_GREATER
 using System.Security.Cryptography;
-using Jint.Native;
-using Jint.Runtime;
 
 namespace Jint.WebApi.Crypto;
 
 /// <summary>
-/// The AES-GCM operations — https://w3c.github.io/webcrypto/#aes-gcm, "authenticated encryption and
-/// decryption using AES in Galois/Counter Mode mode, as described in [NIST-SP800-38D]".
+/// The AES-GCM <c>encrypt</c> and <c>decrypt</c> operations — https://w3c.github.io/webcrypto/#aes-gcm,
+/// "authenticated encryption and decryption using AES in Galois/Counter Mode mode, as described in
+/// [NIST-SP800-38D]". Its key management is <see cref="AesKeyManagement"/>, shared with the three other AES
+/// algorithms whose steps are the same four to the letter.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -39,156 +39,11 @@ namespace Jint.WebApi.Crypto;
 /// </remarks>
 internal static class AesGcmAlgorithm
 {
-    /// <summary>The usages an AES-GCM key may carry.</summary>
-    private const KeyUsage AllowedUsages = KeyUsage.Encrypt | KeyUsage.Decrypt | KeyUsage.WrapKey | KeyUsage.UnwrapKey;
-
     /// <summary>The only nonce length <see cref="AesGcm"/> accepts, in bytes.</summary>
     private const int SupportedIvLength = 12;
 
     /// <summary>The default tag length in bits, "If the tagLength member of normalizedAlgorithm is not present".</summary>
     private const int DefaultTagLength = 128;
-
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#aes-gcm-operations-generate-key
-    /// </summary>
-    internal static (byte[] Handle, CryptoKeyAlgorithm Algorithm) GenerateKey(
-        CryptoContext context,
-        NormalizedAlgorithm normalized,
-        KeyUsage usages,
-        string what)
-    {
-        // Step 1.
-        if ((usages & ~AllowedUsages) != KeyUsage.None)
-        {
-            context.ThrowSyntaxError(
-                what + ": an AES-GCM key supports the usages encrypt, decrypt, wrapKey and unwrapKey, not " + KeyUsages.Describe(usages & ~AllowedUsages) + ".");
-        }
-
-        // Step 2: "If the length member of normalizedAlgorithm is not equal to one of 128, 192 or 256, then
-        // throw an OperationError."
-        var length = normalized.Length!.Value;
-        if (!IsValidKeyLength(length))
-        {
-            context.ThrowOperationError(what + ": " + length + " is not a valid AES key length (128, 192 or 256 bits).");
-        }
-
-        var handle = new byte[length / 8];
-        RandomNumberGenerator.Fill(handle);
-
-        return (handle, new CryptoKeyAlgorithm(AlgorithmNormalization.AesGcm, length, HashName: null));
-    }
-
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#aes-gcm-operations-import-key
-    /// </summary>
-    internal static (byte[] Handle, CryptoKeyAlgorithm Algorithm) ImportKey(
-        CryptoContext context,
-        KeyFormat format,
-        byte[]? rawData,
-        JsonWebKeyData? jwk,
-        bool extractable,
-        KeyUsage usages,
-        string what)
-    {
-        // Step 1.
-        if ((usages & ~AllowedUsages) != KeyUsage.None)
-        {
-            context.ThrowSyntaxError(
-                what + ": an AES-GCM key supports the usages encrypt, decrypt, wrapKey and unwrapKey, not " + KeyUsages.Describe(usages & ~AllowedUsages) + ".");
-        }
-
-        byte[] data;
-
-        switch (format)
-        {
-            case KeyFormat.Raw:
-                data = rawData!;
-                if (!IsValidKeyLength((uint) data.Length * 8))
-                {
-                    context.ThrowDataError(
-                        what + ": " + ((uint) data.Length * 8) + " is not a valid AES key length (128, 192 or 256 bits).");
-                }
-
-                break;
-
-            case KeyFormat.Jwk:
-                data = jwk!.RequireOctAndDecodeKey(context, what);
-
-                // "If the length in bits of data is 128 / 192 / 256: if the alg field of jwk is present and
-                // is not A128GCM / A192GCM / A256GCM, then throw a DataError. Otherwise: throw a DataError."
-                // The final "otherwise" is what catches a key of any other length, so the length check and
-                // the alg check are one step here rather than two.
-                if (!IsValidKeyLength((uint) data.Length * 8))
-                {
-                    context.ThrowDataError(
-                        what + ": " + ((uint) data.Length * 8) + " is not a valid AES key length (128, 192 or 256 bits).");
-                }
-
-                var expectedAlg = JwkAlgorithm((uint) data.Length * 8);
-                if (jwk.Alg is not null && !string.Equals(jwk.Alg, expectedAlg, StringComparison.Ordinal))
-                {
-                    context.ThrowDataError(
-                        what + ": the alg field of the JSON Web Key is '" + jwk.Alg + "' rather than '" + expectedAlg + "', which is what a " + (data.Length * 8) + "-bit AES-GCM key requires.");
-                }
-
-                jwk.ValidateUseKeyOpsAndExt(context, usages, extractable, "enc", what);
-                break;
-
-            default:
-                context.ThrowNotSupportedError(what + ": an AES-GCM key cannot be imported from the '" + KeyFormats.NameOf(format) + "' format.");
-                return default;
-        }
-
-        return (data, new CryptoKeyAlgorithm(AlgorithmNormalization.AesGcm, (uint) data.Length * 8, HashName: null));
-    }
-
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#aes-gcm-operations-get-key-length — "If the length member of
-    /// normalizedDerivedKeyAlgorithm is not 128, 192 or 256, then throw an OperationError. Return the length
-    /// member of normalizedDerivedKeyAlgorithm."
-    /// </summary>
-    /// <remarks>
-    /// The registered parameters are <c>AesDerivedKeyParams</c>, which is <c>AesKeyGenParams</c> declared a
-    /// second time under another name — one <c>required [EnforceRange] unsigned short length</c> — so the
-    /// member is already read and range-checked by the time this is called, and the three lengths AES has are
-    /// the whole of what is left to say.
-    /// </remarks>
-    internal static uint GetKeyLength(CryptoContext context, NormalizedAlgorithm normalized, string what)
-    {
-        var length = normalized.Length!.Value;
-
-        if (!IsValidKeyLength(length))
-        {
-            context.ThrowOperationError(what + ": " + length + " is not a valid AES key length (128, 192 or 256 bits).");
-        }
-
-        return length;
-    }
-
-    /// <summary>
-    /// https://w3c.github.io/webcrypto/#aes-gcm-operations-export-key
-    /// </summary>
-    internal static JsValue ExportKey(CryptoContext context, JsCryptoKey key, KeyFormat format, string what)
-    {
-        switch (format)
-        {
-            case KeyFormat.Raw:
-                // Copied on the way out: what a script is handed is mutable, and the key is not.
-                return context.CreateArrayBuffer(key.Handle.ToArray());
-
-            case KeyFormat.Jwk:
-                return JsonWebKeyData.CreateOctExport(
-                    context.Engine,
-                    key.Handle,
-                    JwkAlgorithm(key.Algorithm.Length),
-                    key.Usages,
-                    key.Extractable);
-
-            default:
-                context.ThrowNotSupportedError(what + ": an AES-GCM key cannot be exported to the '" + KeyFormats.NameOf(format) + "' format.");
-                return JsValue.Undefined;
-        }
-    }
 
     /// <summary>
     /// https://w3c.github.io/webcrypto/#aes-gcm-operations-encrypt
@@ -332,34 +187,6 @@ internal static class AesGcmAlgorithm
         }
 
         return new AesGcm(key.Handle, tagBytes);
-    }
-
-    /// <summary>The three key lengths AES has, in bits.</summary>
-    private static bool IsValidKeyLength(uint bits) => bits is 128 or 192 or 256;
-
-    /// <summary>
-    /// The JWK <c>alg</c> field naming an AES-GCM key of a given length —
-    /// https://www.rfc-editor.org/rfc/rfc7518#section-4.7.
-    /// </summary>
-    /// <remarks>
-    /// The three lengths AES has are spelled out and the default throws rather than one of them standing in
-    /// as the fallback: a key of another length labelled <c>A256GCM</c> would be a JWK naming an algorithm
-    /// it is not. The lengths have all been checked before a key exists, so the arm is unreachable.
-    /// </remarks>
-    private static string JwkAlgorithm(uint bits)
-    {
-        switch (bits)
-        {
-            case 128:
-                return "A128GCM";
-            case 192:
-                return "A192GCM";
-            case 256:
-                return "A256GCM";
-            default:
-                Throw.InvalidOperationException("Unhandled AES key length of " + bits + " bits.");
-                return null!;
-        }
     }
 }
 #endif
