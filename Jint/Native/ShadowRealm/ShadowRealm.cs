@@ -30,14 +30,17 @@ public sealed class ShadowRealm : ObjectInstance
 
     public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
     {
+        using var ownership = _engine.EnterHostCall();
         var callerRealm = _engine.Realm;
-        var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
-        var parser = _engine.GetParserFor(parserOptions);
-        return PerformShadowRealmEval(sourceText, parserOptions, parser, callerRealm);
+        var parser = parsingOptions is null
+            ? _engine.GetParserFor(_engine.GetActiveParserOptions())
+            : _engine.GetParserFor(parsingOptions);
+        return PerformShadowRealmEval(sourceText, parser.Options, parser, callerRealm);
     }
 
     public JsValue Evaluate(in Prepared<Script> preparedScript)
     {
+        using var ownership = _engine.EnterHostCall();
         if (!preparedScript.IsValid)
         {
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
@@ -101,7 +104,7 @@ public sealed class ShadowRealm : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
     /// </summary>
-    internal JsValue PerformShadowRealmEval(string sourceText, ParserOptions parserOptions, Parser parser, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(string sourceText, ParserOptions parserOptions, JintParser parser, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
@@ -126,7 +129,10 @@ public sealed class ShadowRealm : ObjectInstance
             return default;
         }
 
-        return PerformShadowRealmEvalInternal(new Prepared<Script>(script, parserOptions), callerRealm);
+        return PerformShadowRealmEvalInternal(new Prepared<Script>(
+            script,
+            parserOptions,
+            parsingConstraints: parser.Constraints), callerRealm);
     }
 
     internal JsValue PerformShadowRealmEval(in Prepared<Script> preparedScript, Realm callerRealm)
@@ -164,7 +170,22 @@ public sealed class ShadowRealm : ObjectInstance
 
         // If runningContext is not already suspended, suspend runningContext.
 
-        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions, strict: strictEval);
+        var parsingConstraints = _engine.CombineParsingConstraints(preparedScript.ParsingConstraints);
+        var scriptRecord = new ScriptRecord(
+            evalRealm,
+            script,
+            script.Location.SourceFile,
+            parsingConstraints,
+            preparedScript.ParserOptions);
+        var evalContext = new ExecutionContext(
+            scriptRecord,
+            lexEnv,
+            varEnv,
+            null,
+            evalRealm,
+            null,
+            parserOptions: preparedScript.ParserOptions,
+            strict: strictEval);
         _engine.EnterExecutionContext(in evalContext);
 
         Completion result;

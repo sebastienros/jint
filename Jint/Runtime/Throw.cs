@@ -319,6 +319,10 @@ internal static class Throw
     public static void MeaningfulException(Engine engine, TargetInvocationException exception)
     {
         var meaningfulException = exception.InnerException ?? exception;
+        if (meaningfulException is ParsingLimitException)
+        {
+            ExceptionDispatchInfo.Capture(meaningfulException).Throw();
+        }
 
         if (engine.Options.Interop.ExceptionHandler(meaningfulException))
         {

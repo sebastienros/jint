@@ -23,6 +23,11 @@ public abstract class Module : JsValue, IScriptOrModule
     protected internal readonly Realm _realm;
     internal ModuleEnvironment _environment;
 
+    ParsingConstraints IScriptOrModule.ParsingConstraints => ParsingConstraints;
+    ParserOptions IScriptOrModule.ParserOptions => ParserOptions;
+    internal virtual ParsingConstraints ParsingConstraints => default;
+    internal virtual ParserOptions ParserOptions => null;
+
     /// <summary>
     /// [[LoadedModules]] — the module records this one has already resolved a specifier to. Per
     /// <see href="https://tc39.es/ecma262/#sec-HostLoadImportedModule">HostLoadImportedModule</see> the host

@@ -140,7 +140,13 @@ public class DefaultModuleLoader : ModuleLoader
             Throw.ModuleResolutionException("Module Not Found", specifier, parent: null, fileName);
         }
 
-        return File.ReadAllText(fileName);
+        var maxSourceLength = engine.MaxParsingSourceLength;
+        if (maxSourceLength is null || resolved.ModuleRequest.IsTextModule())
+        {
+            return File.ReadAllText(fileName);
+        }
+
+        return ReadAllText(fileName, maxSourceLength.Value);
     }
 
     protected override byte[] LoadModuleContentsAsBytes(Engine engine, ResolvedSpecifier resolved)
@@ -168,5 +174,27 @@ public class DefaultModuleLoader : ModuleLoader
     private static bool IsRelative(string specifier)
     {
         return specifier.StartsWith('.') || specifier.StartsWith('/');
+    }
+
+    private static string ReadAllText(string fileName, int maxSourceLength)
+    {
+        using var reader = new StreamReader(fileName, detectEncodingFromByteOrderMarks: true);
+        var bufferLength = (int) Math.Min(maxSourceLength + 1L, 4096L);
+        var builder = new System.Text.StringBuilder(bufferLength);
+        var buffer = new char[bufferLength];
+
+        while (builder.Length <= maxSourceLength)
+        {
+            var remaining = maxSourceLength + 1L - builder.Length;
+            var read = reader.Read(buffer, 0, (int) Math.Min(buffer.Length, remaining));
+            if (read == 0)
+            {
+                return builder.ToString();
+            }
+
+            builder.Append(buffer, 0, read);
+        }
+
+        throw new ParsingLimitException(ParsingLimitKind.SourceLength, maxSourceLength, builder.Length);
     }
 }

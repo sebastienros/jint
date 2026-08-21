@@ -159,14 +159,31 @@ public sealed class ModuleBuilder
             {
                 Location = default(SourceLocation).WithSourceFile(location),
             };
-            return new Prepared<AstModule>(exportsOnly, parserOptions);
+            return new Prepared<AstModule>(
+                exportsOnly,
+                parserOptions,
+                parsingConstraints: _engine.CombineParsingConstraints(ParsingConstraints.From(_parsingOptions)));
         }
 
-        var parser = new Parser(parserOptions);
+        var parser = _engine.CreateModuleParser(parserOptions, _parsingOptions);
         try
         {
+            if (_sourceRaw.Count > 1)
+            {
+                long sourceLength = (long) Environment.NewLine.Length * (_sourceRaw.Count - 1);
+                for (var i = 0; i < _sourceRaw.Count; i++)
+                {
+                    sourceLength += _sourceRaw[i].Length;
+                }
+
+                _engine.CheckParsingSourceLength(sourceLength, _parsingOptions);
+            }
+
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return new Prepared<AstModule>(parser.ParseModule(source, location), parserOptions);
+            return new Prepared<AstModule>(
+                parser.ParseModule(source, location),
+                parserOptions,
+                parsingConstraints: parser.Constraints);
         }
         catch (ParseErrorException ex)
         {

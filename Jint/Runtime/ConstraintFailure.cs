@@ -27,6 +27,7 @@ internal static class ConstraintFailure
     /// </remarks>
     internal static bool MustPropagate(Exception exception) => exception
         is ExecutionCanceledException
+        or ParsingLimitException
         or MemoryLimitExceededException
         or StatementsCountOverflowException
         or RecursionDepthOverflowException

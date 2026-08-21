@@ -39,6 +39,7 @@ public sealed class EvalFunction : Function
     private sealed class CacheEntry
     {
         public required ParserOptions ParserOptions { get; init; }
+        public required ParsingConstraints ParsingConstraints { get; init; }
         public required Script Script { get; init; }
         public required JintScript JintScript { get; init; }
         public required HoistingScope HoistingScope { get; init; }
@@ -151,6 +152,8 @@ public sealed class EvalFunction : Function
         // For direct eval, inherit caller's strictness
         var strictParse = direct && strictCaller;
         var source = x.ToString();
+        var parsingConstraints = _engine.GetActiveParsingConstraints();
+        parsingConstraints.CheckSourceLength(source.Length);
 
         var cacheable = source.Length <= CacheMaxSourceLength;
         var cacheKey = new CacheKey(source, strictParse);
@@ -158,7 +161,8 @@ public sealed class EvalFunction : Function
         if (!cacheable
             || _evalCache is null
             || !_evalCache.TryGetValue(cacheKey, out var cached)
-            || !(ReferenceEquals(cached.ParserOptions, adjustedParserOptions) || cached.ParserOptions.Equals(adjustedParserOptions)))
+            || !(ReferenceEquals(cached.ParserOptions, adjustedParserOptions) || cached.ParserOptions.Equals(adjustedParserOptions))
+            || !cached.ParsingConstraints.Equals(parsingConstraints))
         {
             entryIsShared = false;
 
@@ -187,6 +191,7 @@ public sealed class EvalFunction : Function
             cached = new CacheEntry
             {
                 ParserOptions = adjustedParserOptions,
+                ParsingConstraints = parsingConstraints,
                 Script = parsedScript,
                 JintScript = new JintScript(parsedScript),
                 HoistingScope = hoistingScope,

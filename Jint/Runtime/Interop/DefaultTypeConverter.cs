@@ -368,6 +368,11 @@ public class DefaultTypeConverter : ITypeConverter
         }
         catch (Exception e)
         {
+            if (e is ParsingLimitException)
+            {
+                throw;
+            }
+
             // check if we can do a cast with operator overloading
             if (TryCastWithOperators(value, type, valueType, out var invoke))
             {

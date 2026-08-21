@@ -57,6 +57,9 @@ internal class SourceTextModule : CyclicModule
 {
     internal readonly AstModule _source;
     private readonly ParserOptions _parserOptions;
+    private readonly ParsingConstraints _parsingConstraints;
+    internal override ParsingConstraints ParsingConstraints => _parsingConstraints;
+    internal override ParserOptions ParserOptions => _parserOptions;
     private ExecutionContext _context;
     private ObjectInstance? _importMeta;
     private readonly List<ImportEntry>? _importEntries;
@@ -74,6 +77,7 @@ internal class SourceTextModule : CyclicModule
         Debug.Assert(source.IsValid);
         _source = source.Program!;
         _parserOptions = source.ParserOptions!;
+        _parsingConstraints = engine.CombineParsingConstraints(source.ParsingConstraints);
 
         // https://tc39.es/ecma262/#sec-parsemodule
 
@@ -397,7 +401,14 @@ internal class SourceTextModule : CyclicModule
     {
         // Module code is always strict; the moduleContext carries strict:true, replacing the
         // former StrictModeScope(strict: true, force: true).
-        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm, parserOptions: _parserOptions, strict: true);
+        var moduleContext = new ExecutionContext(
+            this,
+            _environment,
+            _environment,
+            privateEnvironment: null,
+            _realm,
+            parserOptions: _parserOptions,
+            strict: true);
         if (!_hasTLA)
         {
             var result = Completion.Empty();

@@ -87,11 +87,15 @@ public static class ModuleFactory
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = LocationOf(resolved);
-        var parserOptions = (parsingOptions ?? ModuleParsingOptions.Default).GetParserOptions();
-        var parser = new Parser(parserOptions);
+        parsingOptions ??= ModuleParsingOptions.Default;
+        var parserOptions = parsingOptions.GetParserOptions();
+        var parser = engine.CreateModuleParser(parserOptions, parsingOptions);
         var module = parser.ParseModuleGuarded(engine, code, source);
 
-        return BuildSourceTextModule(engine, new Prepared<AstModule>(module, parserOptions));
+        return BuildSourceTextModule(engine, new Prepared<AstModule>(
+            module,
+            parserOptions,
+            parsingConstraints: parser.Constraints));
     }
 
     /// <summary>
@@ -126,6 +130,7 @@ public static class ModuleFactory
     public static Module BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string jsonString)
     {
         var source = LocationOf(resolved);
+        engine.CheckParsingSourceLength(jsonString.Length);
         JsValue module;
         try
         {
@@ -199,6 +204,13 @@ public static class ModuleFactory
     /// <c>with { type: … }</c> the same way.
     /// </summary>
     internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, string code)
+        => BuildFromContents(engine, resolved, code, engine.GetActiveParsingConstraints());
+
+    internal static Module BuildFromContents(
+        Engine engine,
+        ResolvedSpecifier resolved,
+        string code,
+        ParsingConstraints parsingConstraints)
     {
         if (resolved.ModuleRequest.IsBytesModule())
         {
@@ -212,10 +224,18 @@ public static class ModuleFactory
 
         if (resolved.ModuleRequest.IsJsonModule())
         {
+            parsingConstraints.CheckSourceLength(code.Length);
             return BuildJsonModule(engine, resolved, code);
         }
 
-        return BuildSourceTextModule(engine, resolved, code);
+        var source = LocationOf(resolved);
+        var parserOptions = ModuleParsingOptions.Default.GetParserOptions();
+        var parser = JintParser.Create(parserOptions, in parsingConstraints);
+        var module = parser.ParseModuleGuarded(engine, code, source);
+        return BuildSourceTextModule(engine, new Prepared<AstModule>(
+            module,
+            parserOptions,
+            parsingConstraints: parsingConstraints));
     }
 
     /// <summary>
@@ -223,12 +243,19 @@ public static class ModuleFactory
     /// produced raw bytes.
     /// </summary>
     internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
+        => BuildFromContents(engine, resolved, bytes, engine.GetActiveParsingConstraints());
+
+    internal static Module BuildFromContents(
+        Engine engine,
+        ResolvedSpecifier resolved,
+        byte[] bytes,
+        ParsingConstraints parsingConstraints)
     {
         if (resolved.ModuleRequest.IsBytesModule())
         {
             return BuildBytesModule(engine, resolved, bytes);
         }
 
-        return BuildFromContents(engine, resolved, System.Text.Encoding.UTF8.GetString(bytes));
+        return BuildFromContents(engine, resolved, System.Text.Encoding.UTF8.GetString(bytes), parsingConstraints);
     }
 }

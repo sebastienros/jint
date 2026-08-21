@@ -47,6 +47,11 @@ public partial class Options
     public ConstraintOptions Constraints { get; } = new();
 
     /// <summary>
+    /// Resource limits applied while parsing scripts and modules.
+    /// </summary>
+    public ParsingOptions Parsing { get; } = new();
+
+    /// <summary>
     /// CLR interop related options.
     /// </summary>
     public InteropOptions Interop { get; } = new();
@@ -819,6 +824,29 @@ public partial class Options
         /// How many iterations is Atomics.pause allowed to instruct to wait using <see cref="System.Threading.Thread.SpinWait"/>, defaults to 10 000.
         /// </summary>
         public int MaxAtomicsPauseIterations { get; set; } = 10_000;
+    }
+
+    /// <summary>
+    /// Resource limits applied before and during parsing. These limits also apply to code compiled by
+    /// <c>eval</c>, function constructors, ShadowRealm evaluation, and module loaders.
+    /// </summary>
+    public sealed class ParsingOptions
+    {
+        /// <summary>
+        /// The maximum number of UTF-16 code units the parser may receive.
+        /// <see langword="null"/> (the default) means no limit.
+        /// </summary>
+        /// <remarks>
+        /// This counts <see cref="string.Length"/>, not encoded bytes. Module loaders which decode bytes are
+        /// checked after decoding. Generated source-offset padding and function-constructor wrappers also count.
+        /// </remarks>
+        public int? MaxSourceLength { get; set; }
+
+        /// <summary>
+        /// The maximum number of AST nodes the parser may produce.
+        /// <see langword="null"/> (the default) means no limit.
+        /// </summary>
+        public int? MaxNodeCount { get; set; }
     }
 
     /// <summary>

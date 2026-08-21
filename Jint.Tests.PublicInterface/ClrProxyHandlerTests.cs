@@ -677,6 +677,29 @@ public class ClrProxyHandlerTests
     }
 
     [Fact]
+    public void ParsingLimitFromAnyTrapRemainsFatal()
+    {
+        var engine = new Engine(options =>
+        {
+            options.CatchClrExceptions();
+            options.Parsing.MaxSourceLength = 100;
+        });
+        var handler = new DelegatingProxyHandler
+        {
+            OnSet = (_, _, _, _) =>
+            {
+                engine.Evaluate(new string(' ', 110));
+                return true;
+            }
+        };
+        engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
+
+        Invoking(() => engine.Evaluate("try { p.x = 1; } catch { globalThis.caught = true; }"))
+            .Should().ThrowExactly<ParsingLimitException>();
+        engine.GetValue("caught").Should().BeUndefined();
+    }
+
+    [Fact]
     public void FactoriesValidateArguments()
     {
         var engine = new Engine();
