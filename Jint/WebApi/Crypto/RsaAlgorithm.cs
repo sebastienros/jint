@@ -1,26 +1,10 @@
 #if NET8_0_OR_GREATER
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.WebApi.Crypto;
-
-/// <summary>
-/// The two halves of a generated RSA key pair, with the usages each of them ends up carrying.
-/// </summary>
-/// <remarks>
-/// One <see cref="CryptoKeyAlgorithm"/> for both, because the specification builds exactly one
-/// <c>RsaHashedKeyAlgorithm</c> and sets the <c>[[algorithm]]</c> slot of both keys to it.
-/// </remarks>
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct RsaKeyPairMaterial(
-    byte[] PublicHandle,
-    KeyUsage PublicUsages,
-    byte[] PrivateHandle,
-    KeyUsage PrivateUsages,
-    CryptoKeyAlgorithm Algorithm);
 
 /// <summary>
 /// The three RSA algorithms — RSASSA-PKCS1-v1_5 (https://w3c.github.io/webcrypto/#rsassa-pkcs1), RSA-PSS
@@ -122,7 +106,7 @@ internal static class RsaAlgorithm
     /// https://w3c.github.io/webcrypto/#rsa-oaep-operations-generate-key, which differ only in step 1's
     /// usage set and in the name the resulting dictionary carries.
     /// </summary>
-    internal static RsaKeyPairMaterial GenerateKey(
+    internal static AsymmetricKeyPairMaterial GenerateKey(
         CryptoContext context,
         NormalizedAlgorithm normalized,
         KeyUsage usages,
@@ -180,7 +164,7 @@ internal static class RsaAlgorithm
             modulusLength,
             Minimal(publicExponent));
 
-        return new RsaKeyPairMaterial(
+        return new AsymmetricKeyPairMaterial(
             publicHandle,
             usages & (isCipher ? PublicCipherUsages : PublicSignatureUsages),
             privateHandle,

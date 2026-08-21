@@ -862,16 +862,19 @@ public class SubtleCryptoKeyTests
     }
 
     [Theory]
-    [InlineData("sign", "'ECDSA'")]
+    [InlineData("sign", "'X25519'")]
     [InlineData("verify", "'Ed25519'")]
     [InlineData("encrypt", "'AES-CBC'")]
     [InlineData("decrypt", "{ name: 'AES-CTR' }")]
-    [InlineData("generateKey", "'ECDH'")]
+    [InlineData("generateKey", "'HKDF'")]
     [InlineData("importKey", "'PBKDF2'")]
-    // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs, and
-    // RSASSA-PKCS1-v1_5 signs and never encrypts.
+    // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs,
+    // RSASSA-PKCS1-v1_5 signs and never encrypts, and ECDH — which has keys here and no operation on them
+    // yet — neither signs nor encrypts.
     [InlineData("sign", "'RSA-OAEP'")]
     [InlineData("encrypt", "'RSASSA-PKCS1-v1_5'")]
+    [InlineData("sign", "'ECDH'")]
+    [InlineData("encrypt", "'ECDSA'")]
     public void RefusesAnUnregisteredAlgorithmWithANotSupportedError(string operation, string algorithm)
     {
         var engine = WebEngine();

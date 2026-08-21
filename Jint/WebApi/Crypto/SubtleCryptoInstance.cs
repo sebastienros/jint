@@ -19,9 +19,10 @@ namespace Jint.WebApi.Crypto;
 /// <para>
 /// <b>Eight of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
 /// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and <c>exportKey</c>, over the algorithms
-/// <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits), <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c> and
-/// <c>RSA-OAEP</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and SHA-512 — plus those four SHA
-/// hashes for <c>digest</c>, and the key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
+/// <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits), <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c>,
+/// <c>RSA-OAEP</c>, <c>ECDSA</c> and <c>ECDH</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and
+/// SHA-512, and each of the elliptic-curve ones over P-256, P-384 and P-521 — plus those four SHA hashes for
+/// <c>digest</c>, and the key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
 /// <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are <b>absent</b> rather than
 /// present-and-throwing, so a library that checks
 /// <c>typeof crypto.subtle.deriveBits === 'function'</c> before reaching for it gets the truthful answer and
@@ -30,6 +31,13 @@ namespace Jint.WebApi.Crypto;
 /// <c>NotSupportedError</c>, which is what the specification says a name that is not registered for an
 /// operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does <c>encrypt</c> with
 /// <c>HMAC</c>.
+/// </para>
+/// <para>
+/// So <c>ECDH</c> is here for its <i>keys</i> alone — <c>generateKey</c>, <c>importKey</c> and
+/// <c>exportKey</c> — and a key it makes may carry the <c>deriveKey</c> and <c>deriveBits</c> usages that no
+/// operation on this object consumes. That is not a half-implemented algorithm but the same shape AES-GCM's
+/// <c>wrapKey</c> and <c>unwrapKey</c> usages have always had: the usage bits are checked and split exactly
+/// as the specification says, and the operations that read them are the absent ones above.
 /// </para>
 /// <para>
 /// <b>Nothing here ever throws to its caller.</b> WebIDL turns an exception out of a promise-returning
@@ -148,6 +156,8 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 case AlgorithmNormalization.RsassaPkcs1V15:
                 case AlgorithmNormalization.RsaPss:
                     return Context.CreateArrayBuffer(RsaAlgorithm.Sign(Context, normalized, cryptoKey, message, what));
+                case AlgorithmNormalization.Ecdsa:
+                    return Context.CreateArrayBuffer(EcAlgorithm.Sign(Context, normalized, cryptoKey, message, what));
                 default:
                     return UnhandledAlgorithm(normalized.Name, CryptoOperation.Sign);
             }
@@ -180,6 +190,10 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 case AlgorithmNormalization.RsassaPkcs1V15:
                 case AlgorithmNormalization.RsaPss:
                     return RsaAlgorithm.Verify(Context, normalized, cryptoKey, signatureBytes, message, what)
+                        ? JsBoolean.True
+                        : JsBoolean.False;
+                case AlgorithmNormalization.Ecdsa:
+                    return EcAlgorithm.Verify(Context, normalized, cryptoKey, signatureBytes, message, what)
                         ? JsBoolean.True
                         : JsBoolean.False;
                 default:
@@ -253,10 +267,10 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// </summary>
     /// <remarks>
     /// Which arm of the union is returned is the algorithm's business: the symmetric algorithms produce a
-    /// single secret <c>CryptoKey</c>, and the three RSA algorithms produce a <c>CryptoKeyPair</c>. The
-    /// public half is always extractable, whatever <c>extractable</c> asked for — a public key is public —
-    /// and the two halves split the requested usages between them by the usage intersection each algorithm's
-    /// steps name.
+    /// single secret <c>CryptoKey</c>, and the three RSA algorithms and the two elliptic-curve ones produce a
+    /// <c>CryptoKeyPair</c>. The public half is always extractable, whatever <c>extractable</c> asked for — a
+    /// public key is public — and the two halves split the requested usages between them by the usage
+    /// intersection each algorithm's steps name, which for an ECDH public key is the empty list.
     /// </remarks>
     [JsFunction(Name = "generateKey", Length = 3)]
     private JsValue GenerateKey(JsValue thisObject, JsValue algorithm, JsValue extractable, JsValue keyUsages)
@@ -281,6 +295,10 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 case AlgorithmNormalization.RsaPss:
                 case AlgorithmNormalization.RsaOaep:
                     return CreateKeyPair(RsaAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, what);
+
+                case AlgorithmNormalization.Ecdsa:
+                case AlgorithmNormalization.Ecdh:
+                    return CreateKeyPair(EcAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, what);
 
                 default:
                     return UnhandledAlgorithm(normalized.Name, CryptoOperation.GenerateKey);
@@ -327,7 +345,7 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// <c>['verify']</c> is a pair nobody can sign with, which is the very mistake this catches, while a pair
     /// generated with <c>['sign']</c> has a public half carrying no usages and is perfectly ordinary.
     /// </summary>
-    private JsObject CreateKeyPair(in RsaKeyPairMaterial material, bool extractable, string what)
+    private JsObject CreateKeyPair(in AsymmetricKeyPairMaterial material, bool extractable, string what)
     {
         RequireUsableKey(CryptoKeyTypes.Private, material.PrivateUsages, what);
 
@@ -404,6 +422,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                         usages,
                         what);
 
+                case AlgorithmNormalization.Ecdsa:
+                case AlgorithmNormalization.Ecdh:
+                    return CreateImportedKey(
+                        EcAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
+
                 default:
                     return UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
             }
@@ -452,6 +478,9 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 case AlgorithmNormalization.RsaPss:
                 case AlgorithmNormalization.RsaOaep:
                     return RsaAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+                case AlgorithmNormalization.Ecdsa:
+                case AlgorithmNormalization.Ecdh:
+                    return EcAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
                 default:
                     return UnhandledAlgorithm(cryptoKey.Algorithm.Name, CryptoOperation.ExportKey);
             }

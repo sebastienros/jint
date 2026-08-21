@@ -220,7 +220,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
-| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
+| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
@@ -250,15 +250,29 @@ a `fetch` listener can take over every request you route into the engine.
 
 `crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
 `exportKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**,
-**AES-GCM** at 128, 192 and 256 bits, and the RSA family — **RSASSA-PKCS1-v1_5** and **RSA-PSS** for
-signatures, **RSA-OAEP** for encryption. Keys are real `CryptoKey` objects with `type`, `extractable`,
-`algorithm` and `usages`, and `generateKey` for an RSA algorithm hands back a `CryptoKeyPair`, which is the
-plain `{ privateKey, publicKey }` dictionary the specification defines rather than an interface. The key
-material is never reachable from script except through `exportKey` on an extractable key: `raw` bytes or a
-`kty: "oct"` JSON Web Key for a symmetric key, and `spki`, `pkcs8` or a `kty: "RSA"` JSON Web Key for an RSA
-one. `deriveKey`, `deriveBits`, `wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so
-`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path; so is every
-elliptic-curve algorithm.
+**AES-GCM** at 128, 192 and 256 bits, the RSA family — **RSASSA-PKCS1-v1_5** and **RSA-PSS** for signatures,
+**RSA-OAEP** for encryption — and the elliptic curves **P-256**, **P-384** and **P-521** under **ECDSA** and
+**ECDH**. Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and `usages`, and
+`generateKey` for an asymmetric algorithm hands back a `CryptoKeyPair`, which is the plain
+`{ privateKey, publicKey }` dictionary the specification defines rather than an interface. The key material
+is never reachable from script except through `exportKey` on an extractable key: `raw` bytes or a
+`kty: "oct"` JSON Web Key for a symmetric key, `spki`, `pkcs8` or a `kty: "RSA"` JSON Web Key for an RSA one,
+and all four of those — `raw` being the uncompressed point `04||X||Y` — for an elliptic-curve one.
+`deriveKey`, `deriveBits`, `wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so
+`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path.
+
+ECDH is therefore here **for its keys alone**: you can generate, import and export an ECDH key pair, and the
+private half may carry the `deriveKey` and `deriveBits` usages, but nothing on `crypto.subtle` consumes them
+yet — the same position AES-GCM's `wrapKey` and `unwrapKey` usages have always been in. An ECDSA key carries
+only its curve: the hash lives in the `EcdsaParams` of each `sign` and `verify` call, so one P-256 key signs
+under SHA-256 and SHA-512 alike. Signatures are the raw `r || s` concatenation at the curve's field width
+(64, 96 and 132 bytes) that the Web Cryptography API defines — not the DER `SEQUENCE` that .NET's
+`ECDsa.SignData` produces when asked for `DSASignatureFormat.Rfc3279DerSequence`, so a host verifying a
+script's signature with `ECDsa` must pass `IeeeP1363FixedFieldConcatenation`. An elliptic-curve JSON Web
+Key's `x`, `y` and `d` are fixed-width, as RFC 7518 §6.2 requires and unlike RSA's minimal-length integers,
+so a coordinate whose leading byte is zero keeps it; and an exported EC JWK carries no `alg`, exactly as the
+export steps say, though `ES256`/`ES384`/`ES512` are honoured on the way in (`ES512` names **P-521** — the
+number is the hash's).
 
 Nothing here ever throws: a promise-returning WebIDL operation converts every failure into a rejection. An
 algorithm that is not registered for the operation is a `NotSupportedError` `DOMException`, a key used

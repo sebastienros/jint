@@ -27,15 +27,36 @@ internal static class CryptoKeyTypes
 /// </para>
 /// </summary>
 /// <remarks>
+/// <para>
 /// One struct rather than a type per dictionary, for the reason <see cref="NormalizedAlgorithm"/> is one
-/// class: the union of the members across the dictionaries this engine produces is five fields, and which
-/// dictionary a value describes is decided by which of them are filled in. <see cref="PublicExponent"/> is
-/// the discriminator — an <c>RsaHashedKeyAlgorithm</c> is the only one that has one, so a non-null value
-/// there means <see cref="Length"/> is meaningless and <see cref="ModulusLength"/> is what describes the key.
+/// class: the union of the members across the dictionaries this engine produces is six fields, and which
+/// dictionary a value describes is decided by which of them are filled in.
+/// </para>
+/// <para>
+/// <b>Two of the six are discriminators</b>, and they are tested in this order, because the dictionaries
+/// they name carry none of the other members at all:
+/// </para>
+/// <list type="number">
+/// <item>
+/// <see cref="NamedCurve"/> non-null means an <c>EcKeyAlgorithm</c>: <see cref="Length"/>,
+/// <see cref="HashName"/>, <see cref="ModulusLength"/> and <see cref="PublicExponent"/> are all unused, an
+/// EC key being described by its curve and nothing else. It is tested first precisely because it is the one
+/// dictionary that fills in <i>only</i> its own member — an <c>AesKeyAlgorithm</c> is what a null
+/// <see cref="HashName"/> would otherwise be read as.
+/// </item>
+/// <item>
+/// <see cref="PublicExponent"/> non-null means an <c>RsaHashedKeyAlgorithm</c>: <see cref="Length"/> is
+/// meaningless and <see cref="ModulusLength"/> is what describes the key.
+/// </item>
+/// </list>
+/// <para>
+/// With neither set the key is symmetric, and a null <see cref="HashName"/> then separates an
+/// <c>AesKeyAlgorithm</c> from an <c>HmacKeyAlgorithm</c>.
+/// </para>
 /// </remarks>
 /// <param name="Name">
-/// The recognized algorithm name — <c>HMAC</c>, <c>AES-GCM</c>, <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c> or
-/// <c>RSA-OAEP</c>.
+/// The recognized algorithm name — <c>HMAC</c>, <c>AES-GCM</c>, <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c>,
+/// <c>RSA-OAEP</c>, <c>ECDSA</c> or <c>ECDH</c>.
 /// </param>
 /// <param name="Length">
 /// The length of a symmetric key in bits, which <c>HmacKeyAlgorithm</c> and <c>AesKeyAlgorithm</c> both
@@ -53,13 +74,34 @@ internal static class CryptoKeyTypes
 /// <c>BigInteger</c> is (https://w3c.github.io/webcrypto/#big-integer) and surfaced to script as a
 /// <c>Uint8Array</c>. <see langword="null"/> for every symmetric algorithm.
 /// </param>
+/// <param name="NamedCurve">
+/// The <c>namedCurve</c> member of an <c>EcKeyAlgorithm</c> — <c>P-256</c>, <c>P-384</c> or <c>P-521</c>, in
+/// the registered spelling. <see langword="null"/> for every algorithm that is not an elliptic-curve one.
+/// </param>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct CryptoKeyAlgorithm(
     string Name,
     uint Length,
     string? HashName,
     uint ModulusLength = 0,
-    byte[]? PublicExponent = null);
+    byte[]? PublicExponent = null,
+    string? NamedCurve = null);
+
+/// <summary>
+/// The two halves of a generated asymmetric key pair, with the usages each of them ends up carrying.
+/// </summary>
+/// <remarks>
+/// One <see cref="CryptoKeyAlgorithm"/> for both halves, because every generate operation that produces a
+/// pair builds exactly one key algorithm dictionary and sets the <c>[[algorithm]]</c> slot of both keys to
+/// it — one <c>RsaHashedKeyAlgorithm</c> for the RSA family, one <c>EcKeyAlgorithm</c> for ECDSA and ECDH.
+/// </remarks>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct AsymmetricKeyPairMaterial(
+    byte[] PublicHandle,
+    KeyUsage PublicUsages,
+    byte[] PrivateHandle,
+    KeyUsage PrivateUsages,
+    CryptoKeyAlgorithm Algorithm);
 
 /// <summary>
 /// A <c>CryptoKey</c> — "an opaque reference to keying material".
@@ -131,6 +173,16 @@ internal sealed class JsCryptoKey : ObjectInstance
         .Add("hash")
         .Build();
 
+    /// <summary>
+    /// <c>EcKeyAlgorithm</c>, https://w3c.github.io/webcrypto/#EcKeyAlgorithm-dictionary, whose one own
+    /// member is <c>namedCurve</c> — so <c>name</c> comes first, from <c>KeyAlgorithm</c>. There is no
+    /// <c>hash</c>: an ECDSA key's hash belongs to each sign and verify call, not to the key.
+    /// </summary>
+    private static readonly JsObjectLayout _ecKeyAlgorithmLayout = JsObjectLayout.CreateBuilder()
+        .Add("name")
+        .Add("namedCurve")
+        .Build();
+
     private readonly byte[] _handle;
 
     private ObjectInstance? _algorithmCached;
@@ -158,9 +210,9 @@ internal sealed class JsCryptoKey : ObjectInstance
     /// </summary>
     /// <remarks>
     /// What the bytes <i>are</i> is the algorithm's business: for a symmetric key they are the key material
-    /// itself, and for an RSA key they are the DER encoding of a <c>SubjectPublicKeyInfo</c> or of a
-    /// <c>PrivateKeyInfo</c>. Holding a serialized form rather than a live
-    /// <see cref="System.Security.Cryptography.RSA"/> is deliberate: an <c>RSA</c> is
+    /// itself, and for every asymmetric key — RSA, ECDSA and ECDH alike — they are the DER encoding of a
+    /// <c>SubjectPublicKeyInfo</c> or of a <c>PrivateKeyInfo</c>. Holding a serialized form rather than a
+    /// live <see cref="System.Security.Cryptography.AsymmetricAlgorithm"/> is deliberate: one is
     /// <see cref="IDisposable"/> and would give a script-reachable object a native lifetime the garbage
     /// collector decides, where a byte array has none. Each operation rehydrates one, uses it and disposes it
     /// inside a single <c>using</c>, which costs a key import per call and buys a <c>CryptoKey</c> that is
@@ -200,7 +252,12 @@ internal sealed class JsCryptoKey : ObjectInstance
 
         var name = JsString.Create(Algorithm.Name);
 
-        if (Algorithm.PublicExponent is { } publicExponent)
+        // The discriminators, in the order the remarks on CryptoKeyAlgorithm give them.
+        if (Algorithm.NamedCurve is { } namedCurve)
+        {
+            _algorithmCached = JsObject.Create(_engine, _ecKeyAlgorithmLayout, [name, JsString.Create(namedCurve)]);
+        }
+        else if (Algorithm.PublicExponent is { } publicExponent)
         {
             var rsaHash = JsObject.Create(_engine, _keyAlgorithmLayout, [JsString.Create(Algorithm.HashName!)]);
             _algorithmCached = JsObject.Create(

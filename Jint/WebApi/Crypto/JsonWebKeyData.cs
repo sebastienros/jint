@@ -30,30 +30,30 @@ internal readonly record struct RsaJwkPrivateFields(
 /// </summary>
 /// <remarks>
 /// <para>
-/// A documented simplification: the dictionary declares eighteen members and this reads the fourteen an
-/// <c>oct</c> key or an <c>RSA</c> key can be described by — <c>alg</c>, <c>d</c>, <c>dp</c>, <c>dq</c>,
-/// <c>e</c>, <c>ext</c>, <c>k</c>, <c>key_ops</c>, <c>kty</c>, <c>n</c>, <c>p</c>, <c>q</c>, <c>qi</c> and
-/// <c>use</c>. A getter on one of the four elliptic-curve or multi-prime members — <c>crv</c>, <c>x</c>,
-/// <c>y</c> and <c>oth</c> — is therefore not invoked, where a browser's WebIDL conversion would invoke it
-/// and could raise a <c>TypeError</c> from converting its value. The specification's own note covers the
-/// difference: "fields that are not explicitly referred to in the key import procedures for an algorithm are
-/// ignored".
+/// A documented simplification: the dictionary declares eighteen members and this reads the seventeen an
+/// <c>oct</c>, an <c>RSA</c> or an <c>EC</c> key can be described by — <c>alg</c>, <c>crv</c>, <c>d</c>,
+/// <c>dp</c>, <c>dq</c>, <c>e</c>, <c>ext</c>, <c>k</c>, <c>key_ops</c>, <c>kty</c>, <c>n</c>, <c>p</c>,
+/// <c>q</c>, <c>qi</c>, <c>use</c>, <c>x</c> and <c>y</c>. The one left is <c>oth</c>, so a getter on it is
+/// not invoked where a browser's WebIDL conversion would invoke it and could raise a <c>TypeError</c> from
+/// converting its value. The specification's own note covers the difference: "fields that are not explicitly
+/// referred to in the key import procedures for an algorithm are ignored".
 /// </para>
 /// <para>
-/// <c>oth</c> is the one whose absence is worth naming, because a JWK carrying it describes a key with more
-/// than two prime factors and the five CRT fields read here then describe only the first two. Nothing
-/// silently succeeds: the parameters are handed to the platform's own RSA importer, which validates them
-/// against <c>n</c> and refuses the mismatch, so such a key is a <c>DataError</c> rather than a key that is
-/// quietly wrong.
+/// <c>oth</c>'s absence is worth naming, because a JWK carrying it describes an RSA key with more than two
+/// prime factors and the five CRT fields read here then describe only the first two. Nothing silently
+/// succeeds: the parameters are handed to the platform's own RSA importer, which validates them against
+/// <c>n</c> and refuses the mismatch, so such a key is a <c>DataError</c> rather than a key that is quietly
+/// wrong.
 /// </para>
 /// <para>
-/// The fourteen that <i>are</i> read are read in lexicographical order, which is the order WebIDL converts a
+/// The seventeen that <i>are</i> read are read in lexicographical order, which is the order WebIDL converts a
 /// dictionary's members in, so a JWK built out of getters sees them run in the order a browser runs them.
 /// </para>
 /// </remarks>
 internal sealed class JsonWebKeyData
 {
     private static readonly JsString _algKey = new("alg");
+    private static readonly JsString _crvKey = new("crv");
     private static readonly JsString _dKey = new("d");
     private static readonly JsString _dpKey = new("dp");
     private static readonly JsString _dqKey = new("dq");
@@ -67,6 +67,8 @@ internal sealed class JsonWebKeyData
     private static readonly JsString _qKey = new("q");
     private static readonly JsString _qiKey = new("qi");
     private static readonly JsString _useKey = new("use");
+    private static readonly JsString _xKey = new("x");
+    private static readonly JsString _yKey = new("y");
 
     /// <summary>
     /// The shape <c>exportKey("jwk")</c> answers with for a symmetric key. Both algorithms set every one of
@@ -114,8 +116,46 @@ internal sealed class JsonWebKeyData
         .Add("qi")
         .Build();
 
+    /// <summary>
+    /// The shape <c>exportKey("jwk")</c> answers with for an elliptic-curve <i>public</i> key: the three
+    /// members Section 6.2.1 of JSON Web Algorithms defines, plus the three every export carries — again in
+    /// lexicographical order.
+    /// </summary>
+    /// <remarks>
+    /// <b>There is no <c>alg</c>.</b> The RSA export steps set one and the ECDSA and ECDH export steps
+    /// deliberately do not: an EC key's curve is in <c>crv</c>, and for ECDSA the hash is not a property of
+    /// the key at all, so there is nothing an <c>alg</c> could truthfully name. Import still reads the field
+    /// when it is present — a JOSE document carries <c>ES256</c> — which is why the two directions are not
+    /// symmetric here and are symmetric for RSA. It is what a browser exports too.
+    /// </remarks>
+    private static readonly JsObjectLayout _ecPublicExportLayout = JsObjectLayout.CreateBuilder()
+        .Add("crv")
+        .Add("ext")
+        .Add("key_ops")
+        .Add("kty")
+        .Add("x")
+        .Add("y")
+        .Build();
+
+    /// <summary>
+    /// The shape <c>exportKey("jwk")</c> answers with for an elliptic-curve <i>private</i> key: the public
+    /// members plus <c>d</c> of Section 6.2.2.1, in lexicographical order.
+    /// </summary>
+    private static readonly JsObjectLayout _ecPrivateExportLayout = JsObjectLayout.CreateBuilder()
+        .Add("crv")
+        .Add("d")
+        .Add("ext")
+        .Add("key_ops")
+        .Add("kty")
+        .Add("x")
+        .Add("y")
+        .Build();
+
     /// <summary>The <c>alg</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? Alg { get; private set; }
+
+    /// <summary>The <c>crv</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Crv { get; private set; }
 
     /// <summary>The <c>d</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? D { get; private set; }
@@ -156,6 +196,12 @@ internal sealed class JsonWebKeyData
     /// <summary>The <c>use</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? Use { get; private set; }
 
+    /// <summary>The <c>x</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? X { get; private set; }
+
+    /// <summary>The <c>y</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Y { get; private set; }
+
     /// <summary>
     /// Converts the ECMAScript object a script passed as <c>keyData</c> to the dictionary.
     /// </summary>
@@ -164,6 +210,7 @@ internal sealed class JsonWebKeyData
         var jwk = new JsonWebKeyData
         {
             Alg = ReadString(source, _algKey),
+            Crv = ReadString(source, _crvKey),
             D = ReadString(source, _dKey),
             Dp = ReadString(source, _dpKey),
             Dq = ReadString(source, _dqKey),
@@ -177,6 +224,8 @@ internal sealed class JsonWebKeyData
             Q = ReadString(source, _qKey),
             Qi = ReadString(source, _qiKey),
             Use = ReadString(source, _useKey),
+            X = ReadString(source, _xKey),
+            Y = ReadString(source, _yKey),
         };
 
         return jwk;
@@ -459,6 +508,67 @@ internal sealed class JsonWebKeyData
                 Encode(fields.P),
                 Encode(fields.Q),
                 Encode(fields.Qi),
+            ]);
+    }
+
+    /// <summary>
+    /// The object <c>exportKey("jwk")</c> resolves with for an elliptic-curve public key: <c>crv</c>, and
+    /// <c>x</c> and <c>y</c> "according to the definition in Section 6.2.1.2 [and 6.2.1.3] of JSON Web
+    /// Algorithms", plus the three fields every export carries. See <see cref="_ecPublicExportLayout"/> for
+    /// why there is no <c>alg</c>.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="x"/> and <paramref name="y"/> arrive at the curve's own field width and are encoded as
+    /// they are — Section 6.2.1.2 says "The length of this octet string MUST be the full size of a coordinate
+    /// for the curve", which is the opposite of the minimal-length encoding every RSA field uses, and it is
+    /// what makes a coordinate whose leading byte is zero keep its width instead of losing it.
+    /// </remarks>
+    internal static JsObject CreateEcPublicExport(
+        Engine engine,
+        string namedCurve,
+        ReadOnlySpan<byte> x,
+        ReadOnlySpan<byte> y,
+        KeyUsage usages,
+        bool extractable)
+    {
+        return JsObject.Create(
+            engine,
+            _ecPublicExportLayout,
+            [
+                JsString.Create(namedCurve),
+                extractable ? JsBoolean.True : JsBoolean.False,
+                KeyUsages.ToArray(engine, usages),
+                JsString.Create("EC"),
+                Encode(x),
+                Encode(y),
+            ]);
+    }
+
+    /// <summary>
+    /// The object <c>exportKey("jwk")</c> resolves with for an elliptic-curve private key: the public
+    /// members plus <c>d</c> "according to the definition in Section 6.2.2.1 of JSON Web Algorithms", which
+    /// is fixed-width for the same reason the coordinates are.
+    /// </summary>
+    internal static JsObject CreateEcPrivateExport(
+        Engine engine,
+        string namedCurve,
+        ReadOnlySpan<byte> x,
+        ReadOnlySpan<byte> y,
+        ReadOnlySpan<byte> d,
+        KeyUsage usages,
+        bool extractable)
+    {
+        return JsObject.Create(
+            engine,
+            _ecPrivateExportLayout,
+            [
+                JsString.Create(namedCurve),
+                Encode(d),
+                extractable ? JsBoolean.True : JsBoolean.False,
+                KeyUsages.ToArray(engine, usages),
+                JsString.Create("EC"),
+                Encode(x),
+                Encode(y),
             ]);
     }
 
