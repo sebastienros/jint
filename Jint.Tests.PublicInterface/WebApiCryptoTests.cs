@@ -109,11 +109,18 @@ public class WebApiCryptoTests
         engine.Evaluate("typeof crypto.subtle.importKey").AsString().Should().Be("function");
         engine.Evaluate("typeof CryptoKey").AsString().Should().Be("function");
 
-        // Key derivation and key wrapping are absent, not present-and-throwing, so a library that checks
-        // before reaching for one takes its fallback path.
+        // Key derivation is here, with the arities WebIDL gives it — deriveBits declares two required
+        // arguments because its `length` is optional and nullable.
         engine.Evaluate("""
-            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("undefined,undefined,undefined,undefined");
+            ['deriveBits', 'deriveKey']
+                .map(name => typeof crypto.subtle[name] + ':' + crypto.subtle[name].length).join(',')
+            """).AsString().Should().Be("function:2,function:5");
+
+        // Key wrapping is absent, not present-and-throwing, so a library that checks before reaching for one
+        // takes its fallback path.
+        engine.Evaluate("""
+            ['wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
+            """).AsString().Should().Be("undefined,undefined");
     }
 
     [Fact]
@@ -216,6 +223,54 @@ public class WebApiCryptoTests
             """).UnwrapIfPromise();
 
         result.AsString().Should().Be("OperationError:true,OperationError:true,OperationError:true");
+    }
+
+    [Fact]
+    public void ReportsEveryDerivationRefusalAsACatchableDomException()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
+
+        // Each of these is a shape the platform reports with a CLR exception of its own — an
+        // ArgumentOutOfRangeException for an HKDF output past 255 hash blocks and for a zero-length one, an
+        // ArgumentException for two ECDH keys of different sizes — and every one of them has to reach the
+        // script as a DOMException instead. A CLR exception erupting out of a promise-returning operation is
+        // the one thing this API must never do, and it is exactly what a host embedding the engine cannot
+        // catch.
+        var result = engine.Evaluate("""
+            (async () => {
+                const seen = [];
+                const attempt = async fn => {
+                    try { seen.push('ok:' + await fn()); }
+                    catch (e) { seen.push(e.name + ':' + (e instanceof DOMException)); }
+                };
+
+                const ikm = await crypto.subtle.importKey('raw', new Uint8Array(22), 'HKDF', false, ['deriveBits']);
+                const hkdf = { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: new Uint8Array(0) };
+
+                // Past 255 * hashLength.
+                await attempt(() => crypto.subtle.deriveBits(hkdf, ikm, (255 * 32 + 1) * 8));
+                // Zero bits, which is the empty byte sequence and not a failure.
+                await attempt(async () => (await crypto.subtle.deriveBits(hkdf, ikm, 0)).byteLength);
+
+                const password = await crypto.subtle.importKey('raw', new Uint8Array(8), 'PBKDF2', false, ['deriveBits']);
+                // An iteration count no execution constraint could interrupt.
+                await attempt(() => crypto.subtle.deriveBits(
+                    { name: 'PBKDF2', salt: new Uint8Array(8), iterations: 2 ** 31, hash: 'SHA-256' }, password, 256));
+
+                const p256 = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+                const p384 = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-384' }, false, ['deriveBits']);
+
+                // Two keys of different sizes, which the platform reports as an ArgumentException.
+                await attempt(() => crypto.subtle.deriveBits({ name: 'ECDH', public: p384.publicKey }, p256.privateKey, 256));
+                // More bits than the curve has.
+                await attempt(() => crypto.subtle.deriveBits({ name: 'ECDH', public: p256.publicKey }, p256.privateKey, 384));
+
+                return seen.join(',');
+            })()
+            """).UnwrapIfPromise();
+
+        result.AsString().Should().Be(
+            "OperationError:true,ok:0,OperationError:true,InvalidAccessError:true,OperationError:true");
     }
 
     [Fact]

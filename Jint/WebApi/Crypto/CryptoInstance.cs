@@ -26,9 +26,9 @@ namespace Jint.WebApi.Crypto;
 /// nowhere near this file.
 /// </para>
 /// <para>
-/// <c>crypto.subtle</c> exists and carries <b>eight of the twelve operations</b>: <c>digest</c>,
-/// <c>sign</c>, <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and
-/// <c>exportKey</c>. <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are absent
+/// <c>crypto.subtle</c> exists and carries <b>ten of the twelve operations</b>: <c>digest</c>,
+/// <c>sign</c>, <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>,
+/// <c>exportKey</c>, <c>deriveBits</c> and <c>deriveKey</c>. <c>wrapKey</c> and <c>unwrapKey</c> are absent
 /// rather than present-and-throwing, so the feature detection a library performing cryptography starts with
 /// gets the truthful answer about each operation it means to use. See <see cref="SubtleCryptoInstance"/>.
 /// </para>

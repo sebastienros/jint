@@ -231,6 +231,34 @@ internal static class HmacAlgorithm
     }
 
     /// <summary>
+    /// https://w3c.github.io/webcrypto/#hmac-operations-get-key-length — the internal operation
+    /// <c>deriveKey</c> runs over its <c>derivedKeyType</c> to decide how many bits to derive.
+    /// </summary>
+    /// <remarks>
+    /// The registered parameters are <c>HmacImportParams</c>, the same dictionary <c>importKey</c> takes, and
+    /// the three cases are its <c>length</c> member: absent means the hash's block size, non-zero means
+    /// itself, and a present zero is a <b><c>TypeError</c></b>. That last one is the specification's own
+    /// choice and is worth not tidying — every other "this value is wrong" in this folder is a
+    /// <c>DataError</c>, an <c>OperationError</c> or a <c>SyntaxError</c>, and HMAC's own <c>generateKey</c>
+    /// answers the very same zero with an <c>OperationError</c> and its <c>importKey</c> with a
+    /// <c>DataError</c>.
+    /// </remarks>
+    internal static uint GetKeyLength(CryptoContext context, NormalizedAlgorithm normalized, string what)
+    {
+        if (normalized.Length is not { } length)
+        {
+            return BlockSizeInBits(normalized.HashName!);
+        }
+
+        if (length == 0)
+        {
+            context.ThrowTypeError(what + ": a derived HMAC key of zero bits was asked for.");
+        }
+
+        return length;
+    }
+
+    /// <summary>
     /// https://w3c.github.io/webcrypto/#hmac-operations-export-key
     /// </summary>
     internal static JsValue ExportKey(CryptoContext context, JsCryptoKey key, KeyFormat format, string what)

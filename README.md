@@ -220,7 +220,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s) | `StructuredClone` | ✔ shipped |
-| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
+| `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
@@ -248,22 +248,48 @@ neighbouring one — a cache outlives the evaluation that filled it, so where it
 is a decision you make rather than inherit; and `FetchEvents` is the third, because a script that can register
 a `fetch` listener can take over every request you route into the engine.
 
-`crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
-`exportKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**,
-**AES-GCM** at 128, 192 and 256 bits, the RSA family — **RSASSA-PKCS1-v1_5** and **RSA-PSS** for signatures,
-**RSA-OAEP** for encryption — and the elliptic curves **P-256**, **P-384** and **P-521** under **ECDSA** and
-**ECDH**. Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and `usages`, and
+`crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey`,
+`exportKey`, `deriveBits` and `deriveKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed
+algorithm's inner hash), **HMAC**, **AES-GCM** at 128, 192 and 256 bits, the RSA family —
+**RSASSA-PKCS1-v1_5** and **RSA-PSS** for signatures, **RSA-OAEP** for encryption — the elliptic curves
+**P-256**, **P-384** and **P-521** under **ECDSA** and **ECDH**, and **HKDF** and **PBKDF2** for derivation.
+Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and `usages`, and
 `generateKey` for an asymmetric algorithm hands back a `CryptoKeyPair`, which is the plain
 `{ privateKey, publicKey }` dictionary the specification defines rather than an interface. The key material
 is never reachable from script except through `exportKey` on an extractable key: `raw` bytes or a
 `kty: "oct"` JSON Web Key for a symmetric key, `spki`, `pkcs8` or a `kty: "RSA"` JSON Web Key for an RSA one,
 and all four of those — `raw` being the uncompressed point `04||X||Y` — for an elliptic-curve one.
-`deriveKey`, `deriveBits`, `wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so
-`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path.
+`wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so `typeof crypto.subtle.wrapKey`
+tells a library the truth and it takes its fallback path.
 
-ECDH is therefore here **for its keys alone**: you can generate, import and export an ECDH key pair, and the
-private half may carry the `deriveKey` and `deriveBits` usages, but nothing on `crypto.subtle` consumes them
-yet — the same position AES-GCM's `wrapKey` and `unwrapKey` usages have always been in. An ECDSA key carries
+**The registries are per operation, and they are not symmetric.** HKDF and PBKDF2 register `importKey`,
+`deriveBits` and the internal *get key length* and nothing else: there is nothing to `generateKey` (the key
+*is* the password, or the input keying material you already have) and nothing to `exportKey`, their import
+steps refusing any `extractable` that is not `false`. So a PBKDF2 key is a one-way door — the bytes go in and
+only derived material comes out. ECDH registers `deriveBits` and never `sign`; ECDSA the reverse. An
+AES-GCM key may still carry the `wrapKey` and `unwrapKey` usages that nothing here consumes.
+
+`deriveKey` is a composition rather than an algorithm of its own: it derives bits with one algorithm and
+imports them with another, so `deriveKey(pbkdf2Params, password, { name: 'AES-GCM', length: 256 }, …)` hands
+back exactly the key `importKey('raw', …)` would have made from the same bytes. What it will not do is derive
+an *asymmetric* key: RSA and the elliptic curves register `importKey` but not *get key length*, so a
+`derivedKeyType` naming one is a `NotSupportedError` before anything is derived — which is what a browser
+answers too. The `length` argument of `deriveBits` is optional and nullable, and the three algorithms read a
+null differently: ECDH returns the whole shared secret (and truncates to a *bit*, not a byte, when you do
+give a length), while HKDF and PBKDF2 have no natural output size and refuse it with an `OperationError`.
+A length that is not a multiple of eight is likewise an `OperationError` for those two and a bit-exact
+truncation for ECDH, and a length of zero is the empty `ArrayBuffer` for all three.
+
+The two shapes an embedder actually reaches for are both one call each. A password becomes a content key —
+`deriveKey({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, password, { name: 'AES-GCM', length: 256 },
+false, ['encrypt', 'decrypt'])` — and two parties agree one, `deriveKey({ name: 'ECDH', public: theirPublicKey },
+myPrivateKey, 'HKDF', false, ['deriveBits'])` followed by an HKDF expansion, which is the worked example the
+specification itself gives. Together with the signature side that was already here, a script can now do the
+whole of a JOSE flow in-engine: `HS*` under HMAC, `RS*` under RSASSA-PKCS1-v1_5, `PS*` under RSA-PSS and
+`ES*` under ECDSA for signing and verification, and PBKDF2 or ECDH-plus-HKDF for the key that protects the
+payload.
+
+An ECDSA key carries
 only its curve: the hash lives in the `EcdsaParams` of each `sign` and `verify` call, so one P-256 key signs
 under SHA-256 and SHA-512 alike. Signatures are the raw `r || s` concatenation at the curve's field width
 (64, 96 and 132 bytes) that the Web Cryptography API defines — not the DER `SEQUENCE` that .NET's
@@ -300,6 +326,13 @@ Where .NET's own cryptography is narrower than the specification the difference 
   execution constraint can interrupt.
 - **RSA `importKey`** from a JSON Web Key needs the CRT parameters `p`, `q`, `dp`, `dq` and `qi`, which
   `RSAParameters` describes a private key by; a JWK carrying `d` alone is a `DataError`.
+- **PBKDF2 `deriveBits`**: `iterations` must be at most **4,194,304** (2^22). The algorithm has no ceiling
+  of its own, but PBKDF2 is a loop whose only purpose is to be slow, whose trip count comes straight from
+  script, and which happens inside one BCL call — so `iterations: 2 ** 40` is one line of script that no
+  timeout, statement budget or cancellation token can interrupt. The cap is above every OWASP 2023
+  recommendation for the function (1,300,000 for SHA-1, 600,000 for SHA-256, 210,000 for SHA-512) and bounds
+  a single call to roughly 1.7 seconds at the ceiling itself. It is the same reasoning as the 8192-bit
+  ceiling on RSA key generation above.
 
 `TextDecoder` understands every encoding the [Encoding Standard](https://encoding.spec.whatwg.org/#names-and-labels)
 names, with all of their labels, except the seven legacy multi-byte ones (`Big5`, `EUC-JP`, `EUC-KR`, `GBK`,
