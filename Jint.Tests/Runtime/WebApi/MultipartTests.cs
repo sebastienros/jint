@@ -17,6 +17,10 @@ namespace Jint.Tests.Runtime.WebApi;
 /// The serialization is asserted <b>byte for byte</b> against a hand-written expectation rather than only
 /// through a round trip: a writer and a reader that agree with each other and with nothing else would pass
 /// every round-trip test and still produce a body no server can read.
+/// <para>
+/// The sibling arm of the same algorithm, <c>application/x-www-form-urlencoded</c>, is in
+/// <see cref="UrlEncodedBodyTests"/>.
+/// </para>
 /// </remarks>
 public class MultipartTests
 {
@@ -267,21 +271,6 @@ public class MultipartTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
         engine.Evaluate("r.formData().then(() => 'resolved', e => e.constructor.name)")
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
-    }
-
-    [Fact]
-    public void ParsesAnUrlEncodedBody()
-    {
-        var engine = WebEngine();
-        engine.Execute(@"var r = new Response('a=1&b=hello+world&a=%C3%A9', {
-                headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' } });");
-
-        engine.Evaluate("r.formData().then(fd => fd.getAll('a').join(',') + '|' + fd.get('b'))")
-            .UnwrapIfPromise().AsString().Should().Be("1,é|hello world");
-
-        // A URLSearchParams body implies that Content-Type, so it round-trips without one being set by hand.
-        engine.Evaluate("new Response(new URLSearchParams({ q: 'a b' })).formData().then(fd => fd.get('q'))")
-            .UnwrapIfPromise().AsString().Should().Be("a b");
     }
 
     [Fact]

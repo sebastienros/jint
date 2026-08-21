@@ -40,14 +40,6 @@ internal enum WptDivergence
     NeedsWebAssembly,
 
     /// <summary>
-    /// The test reaches for <c>Request</c> or <c>Response</c>. Those are the fetch object model, which lands
-    /// with the fetch feature; <c>WebApiFeatures.Default</c> deliberately never includes it, and this driver
-    /// enables nothing else. The suites keep these cases beside the <c>URLSearchParams</c> ones because a
-    /// browser parses <c>application/x-www-form-urlencoded</c> in both places with the same algorithm.
-    /// </summary>
-    NeedsFetchObjectModel,
-
-    /// <summary>
     /// The test detaches a buffer by posting it through a <c>MessageChannel</c>. Message ports are a worker
     /// primitive and Jint has no worker story, so this is the corpus meeting an environment it was not
     /// written for rather than a gap to close.

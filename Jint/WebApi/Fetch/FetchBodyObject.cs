@@ -616,6 +616,15 @@ internal static class FetchBody
 
         if (mimeType is not null && string.Equals(mimeType.Essence, FormUrlEncodedEssence, StringComparison.Ordinal))
         {
+            // The essence alone decides, so every parameter is ignored — including the `charset` the two
+            // legacy forms carry (`charset=windows-1252`, `charset=shift_jis`). The parser is UTF-8 only,
+            // which is the only conforming encoding; see FormUrlEncoded's own remarks.
+            //
+            // "If entries is failure, then throw a TypeError" has no reachable arm here:
+            // https://url.spec.whatwg.org/#concept-urlencoded-parser has no failure step at all — it splits
+            // on 0x26 (&), then on the first 0x3D (=), and percent-decodes what is left, so every byte
+            // sequence is a parse. An ill-formed UTF-8 run becomes U+FFFD rather than a failure, and a
+            // stray 0x25 (%) that begins no escape is kept verbatim.
             return BuildFormData(engine, realm, FormUrlEncoded.Parse(bytes.ToArray()));
         }
 
