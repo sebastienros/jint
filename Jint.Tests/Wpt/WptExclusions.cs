@@ -184,13 +184,26 @@ internal enum WptDivergence
 /// scoped entry is invisible: it excludes nothing and the staleness rule does not ask it to match, so the
 /// discipline stays exact on every leg rather than being loosened to their union.
 /// </param>
-internal sealed record WptExclusion(string File, string TestName, WptDivergence Divergence, System.Runtime.InteropServices.OSPlatform? Platform = null)
+/// <param name="ExceptPlatform">
+/// The one operating system this entry does <b>not</b> apply on, or <see langword="null"/>. The mirror image
+/// of <paramref name="Platform"/>, and its worked example is the same file's copy-order rows: a
+/// <c>decryption … during call</c> test that fails everywhere else <i>passes</i> on macOS, because the
+/// platform's tag refusal produces the very <c>OperationError</c> the test asserts — for the wrong reason,
+/// which the assertion cannot see. The entry would be stale there, so it excuses itself from that leg.
+/// </param>
+internal sealed record WptExclusion(
+    string File,
+    string TestName,
+    WptDivergence Divergence,
+    System.Runtime.InteropServices.OSPlatform? Platform = null,
+    System.Runtime.InteropServices.OSPlatform? ExceptPlatform = null)
 {
     internal bool Matches(string testName) => MatchesPattern(TestName, testName);
 
     /// <summary>Whether this entry participates on the operating system the run is on.</summary>
     internal bool AppliesOnThisPlatform =>
-        Platform is not { } platform || System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(platform);
+        (Platform is not { } platform || System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(platform))
+        && (ExceptPlatform is not { } excluded || !System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(excluded));
 
     /// <summary>
     /// Whether <paramref name="value"/> is what <paramref name="pattern"/> names: an ordinal match, unless

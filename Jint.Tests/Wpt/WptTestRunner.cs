@@ -411,13 +411,13 @@ public class WptTestRunner
         // as one "* during call" so that the tag-length rows above are not silently filed under the wrong
         // cause: those two fail before the ordering could ever matter.
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage, ExceptPlatform: MacOs),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 128-bit tag, 96-bit iv with * during call", WptDivergence.NeedsTriage),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 128-bit tag, 96-bit iv decryption with * during call", WptDivergence.NeedsTriage),
 
