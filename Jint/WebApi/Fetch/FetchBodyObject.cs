@@ -365,6 +365,35 @@ internal static class FetchBody
     }
 
     /// <summary>
+    /// Hands over a body's bytes for a consumer outside the <c>Body</c> mixin — the Cache API's "read all
+    /// bytes from reader". A null body answers <see langword="null"/> synchronously; a buffered body is
+    /// disturbed and answered synchronously; a stream body is fully read, disturbing it, and answers on the
+    /// engine's thread when the read settles.
+    /// </summary>
+    internal static void ReadBodyBytes(
+        Engine engine,
+        Realm realm,
+        FetchBodyObject body,
+        Action<ReadOnlyMemory<byte>?> onBytes,
+        Action<JsValue> onError)
+    {
+        if (!body.HasBody)
+        {
+            onBytes(null);
+            return;
+        }
+
+        if (body.Stream is null)
+        {
+            body.MarkSourceDisturbed();
+            onBytes(body.Source!.Value);
+            return;
+        }
+
+        FullyRead(engine, realm, body.Stream!, bytes => onBytes(bytes.WrittenSpan.ToArray()), onError);
+    }
+
+    /// <summary>
     /// Reads a request body that only exists as a stream into the bytes the transport has to send.
     /// </summary>
     /// <remarks>

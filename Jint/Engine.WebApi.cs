@@ -103,7 +103,7 @@ internal sealed class WebApiEngineState
     /// </summary>
     private List<JsWebSocket>? _webSockets;
 
-    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null)
+    internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null)
     {
         _engine = engine;
         _timeProvider = timeProvider;
@@ -117,6 +117,7 @@ internal sealed class WebApiEngineState
         _localStorageProvider = storage?.LocalStorageProvider;
         _sessionStorageProvider = storage?.SessionStorageProvider;
         _storageQuotaBytes = storage?.MaxTotalBytes ?? Options.StorageOptions.DefaultMaxTotalBytes;
+        CacheProvider = cacheProvider;
 
         // Both halves of the time origin, read back to back: the monotonic reading every later now() is a
         // duration from, and the wall-clock moment that reading corresponds to.
@@ -146,6 +147,19 @@ internal sealed class WebApiEngineState
     /// engine is built, so that no background thread ever reaches into <see cref="Options"/>.
     /// </summary>
     internal Options.FetchOptions? FetchOptions { get; }
+
+    /// <summary>
+    /// Where the <c>caches</c> object keeps what a script stored, or <see langword="null"/> when the Cache
+    /// API is off. Resolved once, when the engine is built — either the host's provider or a private
+    /// in-memory one — so two engines built from one shared <see cref="Options"/> do not share a cache
+    /// unless the host deliberately gave them one provider.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately untouched by <see cref="ResetTransientState"/>: the provider is host storage, not engine
+    /// state, so a pooled engine's next cycle finds what the previous one cached — the same answer the module
+    /// registry gets from a restore.
+    /// </remarks>
+    internal CacheStorageProvider? CacheProvider { get; }
 
     /// <summary>
     /// How many requests are in flight, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c>
