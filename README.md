@@ -2217,7 +2217,7 @@ engine.Invoke("add", 1, 2); // -> 3
 ```
 ## Accessing .NET assemblies and classes
 
-You can allow an engine to access any .NET class by configuring the engine instance like this:
+You can allow an engine to access types from the core assembly that contains `System.Object` by configuring the engine instance like this:
 ```c#
 var engine = new Engine(cfg => cfg.AllowClr());
 ```
@@ -2235,12 +2235,49 @@ jint> log('Hello World !');
 => "Hello World !"
 ```
 
-When allowing the CLR, you can optionally pass custom assemblies to load types from. 
+When allowing the CLR, you can instead pass the exact assemblies from which namespace lookup may resolve types.
 ```c#
 var engine = new Engine(cfg => cfg
     .AllowClr(typeof(Bar).Assembly)
 );
 ```
+
+`AllowedAssemblies` is a closed namespace-discovery allow-list. Namespace lookup admits only effectively
+public types: a top-level type must be public, and every declaring type in a nested chain must be public.
+Supplying an assembly does not implicitly add the core runtime, Jint, the calling assembly, or the executing
+assembly. Add every assembly whose public types must be discoverable:
+
+```c#
+var engine = new Engine(cfg => cfg.AllowClr(
+    typeof(object).Assembly,
+    typeof(Bar).Assembly));
+```
+
+This is a security-relevant compatibility change. Earlier releases could resolve core runtime and Jint types
+outside a narrow `AllowedAssemblies` list. Hosts that intentionally relied on that fallback must now list the
+required assemblies. `AllowClr()` without arguments continues to add the assembly containing `System.Object`.
+Passing an explicitly empty assembly array adds nothing, so a dynamically computed allow-list fails closed.
+
+This list is not a complete sandbox for everything a discovered type can do. An admitted API may itself load
+assemblies, resolve types, access files, start processes, or return powerful objects. For untrusted scripts,
+prefer leaving CLR access disabled; otherwise combine the minimum assembly set with a positive
+`TypeResolver.MemberFilter`, purpose-built projected capabilities, and process isolation.
+
+The boundary applies to `System` and `importNamespace`, including nested and generic type definitions.
+`TypeResolver.MemberFilter` is also consulted for each discovered type and for nested types. Generic type
+arguments must already be `TypeReference` values; passing one does not make its assembly discoverable.
+An explicitly exported `TypeReference`, such as the example below, remains a host-granted capability even
+when its assembly is absent from `AllowedAssemblies`, while its constructors, static members, and nested
+types still obey `MemberFilter`. Converting that explicit reference to a `System.Type` object and back through
+`clrHelper` preserves the same capability; an unrelated `System.Type` object must satisfy the namespace policy.
+
+`AllowGetType` exposes instance `object.GetType` and the type-widening `clrHelper.unwrap`, `typeOf`,
+`typeToObject`, and `objectToType` operations. This means `clrHelper.unwrap` now throws unless
+`AllowGetType` is enabled. The helper operations cannot widen to a type rejected by the namespace policy.
+Jint filters the static `System.Type.GetType(string)` family from ordinary member resolution, but
+`AllowGetType` is not a general type-resolution or reflection sandbox: other APIs admitted by the host can
+carry equivalent authority. `AllowSystemReflection` must be enabled before namespace lookup may resolve
+`System.Reflection` types; leave both options disabled for untrusted scripts.
 
 and then to assign local namespaces the same way `System` does it for you, use `importNamespace`
 ```javascript

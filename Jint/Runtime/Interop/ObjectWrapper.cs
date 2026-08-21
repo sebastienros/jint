@@ -353,7 +353,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
                     if (_engine.Options.Interop.ThrowOnUnresolvedMember)
                     {
-                        throw new MissingMemberException($"Cannot access property '{member}' on type '{ClrType.FullName}");
+                        throw TypeResolver.CreateMissingMemberException(_engine, ClrType, member);
                     }
 
                     // there's no such property, but we can allow extending by calling base
@@ -674,7 +674,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             && !_typeDescriptor.IsDictionary
             && _engine.Options.Interop.ThrowOnUnresolvedMember)
         {
-            throw new MissingMemberException($"Cannot access property '{property}' on type '{ClrType.FullName}");
+            throw TypeResolver.CreateMissingMemberException(_engine, ClrType, property.ToString());
         }
 
         return protoResult;

@@ -251,16 +251,20 @@ public partial class Options
         if (Interop.Enabled)
         {
 #pragma warning disable IL2026
+            var typeResolutionPolicy = new ClrTypeResolutionPolicy(Interop);
 
-            engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
+            engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System", typeResolutionPolicy), PropertyFlag.AllForbidden));
 
             engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
                     engine,
                     "importNamespace",
-                    (_, arguments) => new NamespaceReference(engine, arguments.At(0).IsNullOrUndefined() ? null : TypeConverter.ToString(arguments.At(0)))),
+                    (_, arguments) => new NamespaceReference(
+                        engine,
+                        arguments.At(0).IsNullOrUndefined() ? null : TypeConverter.ToString(arguments.At(0)),
+                        typeResolutionPolicy)),
                 PropertyFlag.AllForbidden));
 
-            engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop)), PropertyFlag.AllForbidden));
+            engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop, typeResolutionPolicy)), PropertyFlag.AllForbidden));
 
 #pragma warning restore IL2026
         }
@@ -425,20 +429,34 @@ public partial class Options
         public bool Enabled { get; set; }
 
         /// <summary>
-        /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists and open a way to reflection.
-        /// Defaults to false.
+        /// Whether to expose instance <see cref="object.GetType"/> members and the type-widening operations
+        /// <c>clrHelper.unwrap</c>, <c>typeOf</c>, <c>typeToObject</c>, and <c>objectToType</c>. Defaults to false.
         /// </summary>
         /// <remarks>
+        /// Jint filters the static <see cref="Type.GetType(string)"/> family from ordinary member resolution.
+        /// This is not a general type-resolution or reflection sandbox: other APIs admitted by the host can
+        /// carry equivalent authority. Type-widening <c>clrHelper</c> operations additionally
+        /// require the resulting type to satisfy the namespace-resolution assembly, reflection, and
+        /// <see cref="TypeResolver.MemberFilter"/> policy. A <see cref="Jint.Runtime.Interop.TypeReference"/> converted
+        /// to a <see cref="Type"/> object and back preserves that already-explicit capability.
+        /// <para>
         /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
         /// engine that already exists: resolved members are cached under the value captured then, so a later
-        /// change could only be honoured by some reads and not others.
+        /// change could only be honoured by some reads and not others. Enabling it grants powerful reflection
+        /// capabilities and is not recommended for untrusted scripts.
+        /// </para>
         /// </remarks>
         public bool AllowGetType { get; set; }
 
         /// <summary>
-        /// Whether Jint should allow wrapping objects from System.Reflection namespace.
-        /// Defaults to false.
+        /// Whether Jint should allow resolving or wrapping types from the <c>System.Reflection</c> namespace.
+        /// Defaults to false. A <see cref="TypeReference"/> explicitly exported by the host remains an explicit
+        /// capability and is not subject to namespace-resolution policy.
         /// </summary>
+        /// <remarks>
+        /// Namespace resolution reads this once when the engine installs its CLR globals. Configure it before
+        /// constructing the engine.
+        /// </remarks>
         public bool AllowSystemReflection { get; set; }
 
         /// <summary>
@@ -611,8 +629,19 @@ public partial class Options
         public ClrResolutionErrorDecoratorDelegate? ClrResolutionErrorDecorator { get; set; }
 
         /// <summary>
-        /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
+        /// Assemblies from which <see cref="Jint.Runtime.Interop.NamespaceReference"/> may resolve CLR types.
         /// </summary>
+        /// <remarks>
+        /// This is a closed allow-list: no calling, executing, or core runtime assembly is searched implicitly.
+        /// <see cref="OptionsExtensions.AllowClr(Options)"/> adds the assembly containing <see cref="object"/>
+        /// for compatibility with core CLR type access. Passing an empty array to
+        /// <see cref="OptionsExtensions.AllowClr(Options, Assembly[])"/> adds no assemblies.
+        /// The list is snapshotted when the engine installs its CLR globals. It does not restrict ordinary CLR
+        /// objects, delegates, or <see cref="TypeReference"/> values explicitly exported by the host; those are
+        /// capabilities in their own right. Namespace lookup admits only public top-level types and nested
+        /// types whose complete declaring-type chain is public. Resolved types must also satisfy
+        /// <see cref="TypeResolver.MemberFilter"/> and <see cref="AllowSystemReflection"/>.
+        /// </remarks>
         public List<Assembly> AllowedAssemblies { get; set; } = new();
 
         /// <summary>
