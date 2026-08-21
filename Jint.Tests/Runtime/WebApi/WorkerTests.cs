@@ -129,6 +129,13 @@ public class WorkerTests
         "Host.StringCompilationAllowed",
         "AgentCanSuspend",
         "Json.MaxParseDepth",
+        "Parsing.MaxSourceLength",
+        "Parsing.MaxNodeCount",
+        "Modules.MaxModuleCount",
+        "Modules.MaxTotalModuleSourceBytes",
+        "Modules.MaxModuleGraphDepth",
+        "Modules.MaxModuleResolutionHops",
+        "ResultLimits",
     ];
 
     /// <summary>
@@ -157,21 +164,33 @@ public class WorkerTests
     /// </summary>
     private static Options Hardened()
     {
+        // "Hardened" describes the scenario, but what each case needs is only a value a fresh Options does
+        // not have — and the security stack flipped two defaults (#3057 turned the stack-overflow guard on,
+        // #3058 turned agent suspension off), so for those two the non-default value is the PERMISSIVE one.
+        // The copy is value fidelity in both directions: a worker matches its parent's posture exactly.
         var options = new Options();
         options.Constraints.MaxRecursionDepth = 7;
         options.Constraints.MaxExecutionStackCount = 123;
-        options.Constraints.StackOverflowGuard = true;
+        options.Constraints.StackOverflowGuard = false;
         options.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(250);
         options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500);
         options.Constraints.MaxArraySize = 4096;
         options.Constraints.MaxAtomicsPauseIterations = 17;
         options.Host.StringCompilationAllowed = false;
-        options.AgentCanSuspend = false;
+        options.AgentCanSuspend = true;
         options.Json.MaxParseDepth = 3;
+        options.Parsing.MaxSourceLength = 64_000;
+        options.Parsing.MaxNodeCount = 9_000;
+        options.Modules.MaxModuleCount = 11;
+        options.Modules.MaxTotalModuleSourceBytes = 256_000;
+        options.Modules.MaxModuleGraphDepth = 5;
+        options.Modules.MaxModuleResolutionHops = 13;
+        options.ResultLimits = new ResultLimits(maxDepth: 6);
         return options;
     }
 
-    private static object Read(Options options, string setting) => setting switch
+    // object? because the two nullable parser bounds box to null on a fresh Options.
+    private static object? Read(Options options, string setting) => setting switch
     {
         "Constraints.MaxRecursionDepth" => options.Constraints.MaxRecursionDepth,
         "Constraints.MaxExecutionStackCount" => options.Constraints.MaxExecutionStackCount,
@@ -183,6 +202,15 @@ public class WorkerTests
         "Host.StringCompilationAllowed" => options.Host.StringCompilationAllowed,
         "AgentCanSuspend" => options.AgentCanSuspend,
         "Json.MaxParseDepth" => options.Json.MaxParseDepth,
+        "Parsing.MaxSourceLength" => options.Parsing.MaxSourceLength,
+        "Parsing.MaxNodeCount" => options.Parsing.MaxNodeCount,
+        "Modules.MaxModuleCount" => options.Modules.MaxModuleCount,
+        "Modules.MaxTotalModuleSourceBytes" => options.Modules.MaxTotalModuleSourceBytes,
+        "Modules.MaxModuleGraphDepth" => options.Modules.MaxModuleGraphDepth,
+        "Modules.MaxModuleResolutionHops" => options.Modules.MaxModuleResolutionHops,
+
+        // Class-typed and shared by reference, so identity is the copy the case asserts.
+        "ResultLimits" => options.ResultLimits,
         _ => throw new ArgumentOutOfRangeException(nameof(setting), setting, "unknown setting"),
     };
 

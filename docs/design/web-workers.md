@@ -494,13 +494,16 @@ outside `Options.Constraints` is inherited" treated them as one rule. Corrected:
   all **seven** `Options.Constraints` value settings (`MaxRecursionDepth`, `MaxExecutionStackCount`,
   `StackOverflowGuard` — the only cover for `eval`-shaped recursion — plus `RegexTimeout`, `PromiseTimeout`,
   `MaxArraySize`, `MaxAtomicsPauseIterations`), `Host.StringCompilationAllowed` (otherwise `new Worker()` is a
-  documented **eval-escape** from a hardened parent), `AgentCanSuspend` and `Json.MaxParseDepth`. It lives in
+  documented **eval-escape** from a hardened parent), `AgentCanSuspend`, `Json.MaxParseDepth`, the parser bounds
+  (`Parsing.MaxSourceLength`, `Parsing.MaxNodeCount`), the four module-graph limits (`Modules.MaxModuleCount`,
+  `MaxTotalModuleSourceBytes`, `MaxModuleGraphDepth`, `MaxModuleResolutionHops` — the loader is a grant and
+  stays behind, the limits are restrictions and travel) and `Options.ResultLimits`. It lives in
   `Options.cs`, **beside the options it names** rather than in the feature that consumes it, so that a settings
   PR adding a new restriction has the classification in front of it.
 - **The classification is pinned reflectively.** `Options.SecurityPostureInherited`,
   `SecurityPostureNotInherited` and `SecurityPostureExcludedGroups` state it in code, and
   `Jint.Tests/Runtime/OptionsSecurityPostureTests.cs` fails unless every value-typed public settable property on
-  `Options`, `Constraints`, `Host` and `Json` is in one of the first two lists, and every option group is either
+  `Options`, `Constraints`, `Host`, `Json`, `Parsing` and `Modules` is in one of the first two lists, and every option group is either
   scanned or named in the third. `Interop`, `Modules` and `WebApi` are excluded wholesale as grant-shaped, and
   each exclusion carries its reason in code. So the sebros security stack cannot silently become a
   `new Worker()` escape hatch on the day each part lands; if a hardened profile arrives as one switch, the

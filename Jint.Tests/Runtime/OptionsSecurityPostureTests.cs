@@ -20,8 +20,8 @@ namespace Jint.Tests.Runtime;
 /// </para>
 /// <para>
 /// The scanned scope is deliberately narrow and stated in one place: <see cref="Options"/> itself plus the
-/// three groups the copy reads — <c>Constraints</c>, <c>Host</c> and <c>Json</c> — and within them the
-/// <b>value-typed</b> public settable properties, which is what "a setting" means here. Delegates, collections
+/// groups the copy reads — <c>Constraints</c>, <c>Host</c>, <c>Json</c>, <c>Parsing</c> and <c>Modules</c> —
+/// and within them the <b>value-typed</b> public settable properties, which is what "a setting" means here. Delegates, collections
 /// and anything reference-typed are host wiring rather than posture: a resolver, a loader, a converter or a
 /// provider is an object the host hands over deliberately, per engine. Every other option group is excluded
 /// wholesale, and <c>Options.SecurityPostureExcludedGroups</c> is where each exclusion is argued — a group
@@ -40,6 +40,8 @@ public class OptionsSecurityPostureTests
         ("Constraints.", typeof(Options.ConstraintOptions)),
         ("Host.", typeof(Options.HostOptions)),
         ("Json.", typeof(Options.JsonOptions)),
+        ("Parsing.", typeof(Options.ParsingOptions)),
+        ("Modules.", typeof(Options.ModuleOptions)),
     ];
 
     private static List<string> ValueSettings()

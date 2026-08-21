@@ -277,6 +277,17 @@ public partial class Options
         target.Host.StringCompilationAllowed = source.Host.StringCompilationAllowed;
         target.AgentCanSuspend = source.AgentCanSuspend;
         target.Json.MaxParseDepth = source.Json.MaxParseDepth;
+        target.Parsing.MaxSourceLength = source.Parsing.MaxSourceLength;
+        target.Parsing.MaxNodeCount = source.Parsing.MaxNodeCount;
+        target.Modules.MaxModuleCount = source.Modules.MaxModuleCount;
+        target.Modules.MaxTotalModuleSourceBytes = source.Modules.MaxTotalModuleSourceBytes;
+        target.Modules.MaxModuleGraphDepth = source.Modules.MaxModuleGraphDepth;
+        target.Modules.MaxModuleResolutionHops = source.Modules.MaxModuleResolutionHops;
+
+        // Class-typed, so outside the reflective pin's value-typed scan — classified here instead. The
+        // limits bundle is sealed and shared by reference, exactly as sharing one Options between engines
+        // already shares it; a bounded parent's conversions must not become unbounded in its worker.
+        target.ResultLimits = source.ResultLimits;
     }
 
     /// <summary>
@@ -310,6 +321,18 @@ public partial class Options
 
         // The JSON parser's depth bound.
         "Json.MaxParseDepth",
+
+        // The parser's own bounds: source length and AST size. A worker parses whatever its loader hands it,
+        // so a parent bounded against parser abuse spawns workers bounded the same way.
+        "Parsing.MaxSourceLength",
+        "Parsing.MaxNodeCount",
+
+        // The module-graph bounds. They restrict how much code a graph may pull in, whichever loader the
+        // provider installs — the loader is a grant and stays behind, the limits are restrictions and travel.
+        "Modules.MaxModuleCount",
+        "Modules.MaxTotalModuleSourceBytes",
+        "Modules.MaxModuleGraphDepth",
+        "Modules.MaxModuleResolutionHops",
     ];
 
     /// <summary>
@@ -335,6 +358,14 @@ public partial class Options
         // Grant-shaped: the only feature it carries today is CLR task interop, and interop grants are the
         // host's to make deliberately, per engine.
         "ExperimentalFeatures",
+
+        // Grant-shaped: installs the CommonJS `require` shim into the second engine's global. Whether a
+        // worker gets it is its provider's module story, not its parent's.
+        "Modules.RegisterRequire",
+
+        // Exposure, which is a grant: detailed load errors name paths and hosts a hardened parent may be
+        // redacting. The restrictive default is false, and a worker starts there whatever the parent chose.
+        "Modules.ExposeDetailedLoadErrors",
     ];
 
     /// <summary>
@@ -348,9 +379,10 @@ public partial class Options
         // decides to give it, which may be none, a read-only view, or the parent's own.
         "Interop",
 
-        // Grant-shaped: the module loader IS the permission to read code, and it belongs to the thread and the
-        // base of the engine that uses it. A second engine's loader is the host's to choose.
-        "Modules",
+        // Modules is deliberately NOT here: it used to be excluded wholesale as grant-shaped, and stopped
+        // being classifiable that way the day it gained value-typed graph limits beside its loader. The group
+        // is scanned now — the loader and load policy are reference-typed host objects the scan never sees
+        // (grants, per engine), the numeric limits travel, and the two boolean grants are named above.
 
         // Grant-shaped at the top: the feature mask IS the grant, and it is computed explicitly rather than
         // copied (network, storage, routing and the worker capability itself are subtracted), while the rest

@@ -159,7 +159,9 @@ public sealed class WorkerRequest
     /// <item><description>
     /// copies the parent's restrictive security posture (<c>Options.CopySecurityPosture</c>: the seven
     /// <see cref="Options.ConstraintOptions"/> value settings, <c>Host.StringCompilationAllowed</c>,
-    /// <see cref="Options.AgentCanSuspend"/> and <c>Json.MaxParseDepth</c>);
+    /// <see cref="Options.AgentCanSuspend"/>, <c>Json.MaxParseDepth</c>, the parser bounds
+    /// (<c>Parsing.MaxSourceLength</c>, <c>Parsing.MaxNodeCount</c>), the four module-graph limits and
+    /// <see cref="Options.ResultLimits"/>);
     /// </description></item>
     /// <item><description>
     /// sets <c>WebApi.Features</c> to the parent's set minus every grant a worker never inherits, plus
