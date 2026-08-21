@@ -815,6 +815,225 @@ only destinations you would let the script *write* to, not merely read. And as w
 bound the engine's own lifetime for untrusted script rather than pooling an engine a script
 may leave connected.
 
+### TM-25: Web Crypto work factors are attacker-chosen and uninterruptible
+
+**Threat.** Three `crypto.subtle` operations take their cost from a number the script writes
+down. `generateKey` for RSA is a prime search whose cost grows far faster than the modulus
+does. `deriveBits` for PBKDF2 is a loop whose only purpose is to be slow and whose trip count
+is the `iterations` member. `deriveBits` for HKDF expands to a length the caller asks for.
+Each of them is **one BCL call**, so the whole of the work happens between two interpreter
+statements: `TimeoutInterval`, `MaxStatements`, `LimitMemory` and a `CancellationToken` are
+checkpoints *around* it and none of them can interrupt it. `iterations: 2 ** 40` is one line
+of script that would otherwise run for days.
+
+This is [TM-04](#tm-04-infinite-loops-and-computational-denial-of-service)'s computational
+denial of service arriving in
+[TM-08](#tm-08-blocking-host-calls-and-atomicswait-evade-timely-cancellation)'s
+uninterruptible-call shape, with one difference that makes it sharper than either: no host
+wrote the call and no host can decline to expose it, because — unlike `fetch`, `EventSource`,
+`WebSocket`, `Storage` and the Cache API — `WebApiFeatures.Crypto` **is** part of
+`WebApiFeatures.Default`. A host that asked for "the web APIs" already has all three work
+factors.
+
+**Existing mitigations.**
+
+- Each of the three has a ceiling this engine imposes, checked *before* the call is made and
+  reported as an `OperationError` that names the restriction rather than pretending the request
+  was invalid:
+  - **RSA key generation** — `RsaAlgorithm.MaxGeneratedModulusLength` = 8192 bits. The platform
+    itself goes to 16384, which is minutes of CPU inside one synchronous operation; 8192 is
+    above every key size in use and bounds a generation to seconds. It is checked ahead of the
+    specification's own parameter validation, so the arithmetic that validation performs on
+    2^*modulusLength* is bounded before it is performed.
+  - **PBKDF2 iterations** — `Pbkdf2Algorithm.MaxIterations` = 2^22 = 4,194,304, which is above
+    every OWASP 2023 recommendation for the function (1,300,000 for SHA-1, 600,000 for SHA-256,
+    210,000 for SHA-512) and bounds one call to roughly 1.7 seconds at the ceiling itself —
+    measured 0.35 s for SHA-256, 1.5 s for SHA-1 and 1.7 s for SHA-512.
+  - **HKDF expansion** — `255 * hashLen`, which is RFC 5869's own limit rather than one this
+    engine invented (the expansion counter `T(1) … T(N)` is a single octet) and is the
+    specification's step 3. `HkdfAlgorithm.DeriveBits` checks it here rather than leaving it to
+    `HKDF.DeriveKey`, whose refusal is an `ArgumentOutOfRangeException` that would erupt out of a
+    promise-returning operation.
+- The ceilings are the engine's, so they hold whatever the platform's provider would have
+  accepted; the platform's own `LegalKeySizes` is then consulted as well
+  (`RsaAlgorithm.RequireGeneratableModulusLength`).
+- `crypto.getRandomValues` carries the standard's 65,536-byte quota
+  (`CryptoInstance.MaxRandomBytes`), so the generator cannot be asked for an unbounded draw in
+  one call.
+- A key's `[[handle]]` is DER rather than a live `RSA`, so no operating-system key handle is
+  tied to a garbage-collection schedule and a script cannot accumulate native key material.
+
+**Missing or residual mitigation.**
+
+- **The ceilings are fixed constants, not options.** A host can neither lower nor raise them, so
+  an untrusted script may always spend one 8192-bit generation or one 2^22-iteration derivation
+  per call — and may make such calls in a loop. A ceiling bounds one call and never a sequence,
+  which is [TM-09](#tm-09-a-sequence-of-engine-entries-escapes-a-per-entry-budget)'s shape
+  reappearing inside a single run.
+- Nothing bounds how many crypto operations one script performs, and a wall-clock constraint
+  notices the overrun only once the call it was armed against has returned.
+- `sign`, `verify`, `encrypt`, `decrypt`, `digest` and `wrapKey` carry no work factor: their
+  cost scales with the length of their input, so what bounds them is what bounds the script's
+  allocations — `LimitMemory` and `MaxArraySize` — and each is still one uninterruptible call
+  over a buffer whose size the script chose.
+- Key *import* is a parse, and its cost belongs to the platform's ASN.1 or JWK reader rather
+  than to anything this engine schedules.
+
+**Required host action.** Budget for crypto as CPU the request has to pay for, not as a
+constraint the engine will enforce: size the outer, process-level deadline so that it survives
+at least one ceiling-cost operation, since neither `TimeoutInterval` nor an
+`OperationDeadlineConstraint` can preempt one. Where a script has no business generating keys or
+stretching passwords, drop the feature —
+`options.UseWebApis(WebApiFeatures.Default & ~WebApiFeatures.Crypto)` — rather than relying on
+the ceilings. Keep the worker's operating-system CPU limit as the only mechanism that can
+actually stop a call in progress.
+
+### TM-26: `FetchEvents` lets script claim the host's inbound requests
+
+**Threat.** `WebApiFeatures.FetchEvents` runs the opposite direction to
+[TM-21](#tm-21-fetch-turns-script-into-a-client-of-the-hosts-network-position): where `fetch`
+lets a script reach *out* to the network, this routes requests the host already holds *in* to
+the script. With it enabled, one line — `addEventListener('fetch', e => e.respondWith(…))` —
+makes the evaluated script the answer to every request the host passes to
+`Engine.Advanced.InvokeFetchHandler`. A script submitted to compute a value can instead decide
+what the server replies with, and read everything the request carries on the way. The
+registration leaves no trace in the script's own result, so a host that only inspects the
+returned value never sees it happen.
+
+**Existing mitigations.**
+
+- **Off by default and never part of `WebApiFeatures.Default`**, which the enum states as a
+  standing promise alongside `Fetch` and `Storage`.
+- **Disjoint from `Fetch` in both directions.** `WebApiRegistration.ExpandFeatures` closes this
+  flag over `GlobalEvents`, `Url` and `Files` and pointedly not over `Fetch`, so naming it
+  grants no outbound network access and `UseFetch()` grants no inbound routing. Enabling it
+  installs `Headers`, `Request` and `Response` — a listener that cannot build a `Response` has
+  nothing to respond with — and not `fetch`, the same split
+  `Engine.Advanced.SetFetchHandler` already makes.
+- **A handler the host registered outranks every listener.** `RequireFetchRoute` reads the
+  `SetFetchHandler` slot first and returns it outright; listeners are consulted only where there
+  was nothing to win against, so script cannot take a route away from the host by adding a line.
+  `Engine.Advanced.HasFetchHandler` reports that registration alone and deliberately answers
+  `false` for an engine whose script registered a listener, so script cannot change the host's
+  own record of what the host did either.
+- **An unanswered dispatch fails the operation.** When no listener called `respondWith()` —
+  because none did, or because the ones that ran threw — `DispatchFetchEvent` raises, and
+  `InvokeFetchHandler` turns that into the operation's failure. There is no fall-through to a
+  network an embedded engine does not have, and no empty success response.
+- **Only the engine's own event can be responded to.** `respondWith()` and `waitUntil()` run the
+  Service Workers Standard's first step — an untrusted event cannot be extended
+  (`JsFetchEvent.AddLifetimePromise`) — so a script that constructs its own `FetchEvent` and
+  dispatches it cannot manufacture a response, and the host's operation can only ever settle
+  from the event `FetchEventConstructor.CreateTrustedFetchEvent` made for a real inbound request.
+- **One constraint bracket covers the whole dispatch.** `DispatchFetchEvent` wraps
+  `listeners.DispatchEvent` in a single `Engine.ExecuteWithConstraints` — which is literally what
+  `Engine.Call` does for the handler route — so however many listeners run, they share one
+  `MaxStatements` allowance and one armed timeout instead of each being handed a fresh budget.
+- A constraint failure is a `JintException` that is not a `JavaScriptException`, so it erupts
+  past a `DiagnosticsSink` and becomes the operation's failure rather than a promise that never
+  settles.
+- `RestoreGlobalSnapshot` drops the synthetic global listener target
+  (`WebApiEngineState.ResetTransientState`), so listeners registered in one cycle cannot answer
+  the next cycle's requests on a pooled engine.
+
+**Missing or residual mitigation.**
+
+- **A listener sees the request as the host routed it in — that is the feature, not a leak.**
+  The URL, method, headers and the fully buffered body are all readable by script, so anything
+  the host would not show the script must not be in the `HttpRequestMessage` it hands to
+  `InvokeFetchHandler`.
+- Listener registration is script state, not host state: it comes and goes with the evaluation
+  cycle, a script may add one after the host looked, and one that exists may still decline to
+  respond. `HasFetchHandler` is therefore not a way to ask whether the engine can serve a
+  request.
+- The value the operation settles from is a script-built `Response` — status, headers and body
+  are all the script's, and validating them on the way out is the host's job.
+- The bracket bounds the dispatch, not the turns the host pumps afterwards: an `async` listener's
+  continuations are separate entries with budgets of their own
+  ([TM-09](#tm-09-a-sequence-of-engine-entries-escapes-a-per-entry-budget)).
+- With a `DiagnosticsSink` set, a listener that responds and *then* throws still serves its
+  response; with no sink the same script fails the operation. The two configurations disagree
+  deliberately, because with nowhere to report to, preferring the response would lose the
+  exception entirely.
+
+**Required host action.** Do not enable it for untrusted script: a host that wants a script to
+handle requests should name the handler itself with `SetFetchHandler`, which is resolved once,
+at a point the host chose, and which script cannot displace. Where the feature is enabled,
+strip the request down to what the script may see before routing it, treat everything on the
+returned `Response` as untrusted input, bracket the whole request — the invocation plus every
+turn pumped after it — in an `OperationDeadlineConstraint`, and use a fresh engine per request
+so that one script's listener cannot answer the next script's traffic.
+
+### TM-27: A shared `BroadcastChannelBroker` is a channel between engines
+
+**Threat.** `Options.MessagingOptions.Broker` is the one setting whose purpose is to join two
+engines: `BroadcastChannel` objects on engines sharing a broker hear each other by name, so
+scripts the host runs in what it treats as separate sandboxes can signal one another, coordinate,
+and pass data. This is
+[TM-19](#tm-19-shared-mutable-values-become-covert-channels)'s shared-mutable-state threat
+arriving as a configuration option rather than as a leaked object, and it is reached without any
+host object being projected at all — a channel name is an arbitrary attacker-chosen string, so
+two scripts that know the same name are in contact. A subscription is also a strong reference
+chain from the broker to the engine, so a broker outliving an engine keeps that engine, its
+realm and everything its listeners closed over reachable.
+
+**Existing mitigations.**
+
+- **The default is private.** A `null` `Broker` gives each engine a broker of its own
+  (`WebApiEngineState.BroadcastChannels`), so channels on one engine hear each other and nothing
+  crosses an engine boundary unless the host deliberately shared one. It is defaulted lazily, so
+  an engine that never creates a channel allocates nothing.
+- **The broker is read once, when the engine is built** (`WebApiEngineState.AttachMessaging`), so
+  assigning one to shared `Options` afterwards does not reach an engine that already exists.
+- **No `JsValue` crosses.** `JsBroadcastChannel.PostMessage` serializes on the sending engine's
+  thread into a `SerializationRecord` that belongs to no engine, and only that record is
+  enqueued. Deserialization, the `MessageEvent` and the listeners all run on whichever thread
+  pumps the *receiving* engine, so an engine nobody pumps never takes delivery.
+- **Serialize once, copy per destination.** One broadcast produces one record and every
+  destination deserializes that same record, which makes it the one thing in the engine
+  deserialized more than once — so `JsBroadcastChannel.Receive` constructs its
+  `StructuredDeserializer` with `sharedRecord: true` and the byte storage is **copied** rather
+  than adopted (`StructuredDeserializer.DeserializeArrayBuffer`). Without that, two receivers
+  would come away with two `ArrayBuffer`s over one `byte[]` and each could see the other's
+  writes — a cross-engine aliasing channel underneath the serialization boundary.
+- **There is no transfer list**, so no `ArrayBuffer` is ever detached by a broadcast, and an
+  uncloneable value is a synchronous `DataCloneError` at the `postMessage` call.
+- **Three paths release a subscription**, each unsubscribing from the broker so a finished engine
+  stops being reachable from it: `close()` from script, `RestoreGlobalSnapshot` (whose
+  `WebApiEngineState.ResetTransientState` calls `CloseBroadcastChannels`), and `Engine.Dispose`
+  (whose `WebApiEngineState.Dispose` calls the same method).
+- **A channel belongs to the evaluation cycle it was created in.**
+  `BroadcastChannelSubscription` captures `Engine.EventLoopGeneration` at construction rather
+  than reading the receiver's current one from the sender's thread, and a delivery both
+  early-outs on the sender's side and is fenced at dequeue on the receiver's — so a message
+  cannot run a dead cycle's listeners against restored globals.
+- A channel name whose last subscriber leaves is removed from the broker's map outright, so a
+  script cycling through names cannot grow it.
+
+**Missing or residual mitigation.**
+
+- **Engines that share a broker trust each other with volume: no quota exists.** Nothing bounds
+  message size, message rate, how many channels one engine opens, or how deep a queue a message
+  builds on a receiver that is pumped slowly or not at all. One script can fill another engine's
+  event loop, and the receiving engine spends its own constraint budget deserializing and
+  dispatching what arrived.
+- Retention is strong and there is no finalizer-driven cleanup and none planned: a host sharing
+  one broker between long-lived and short-lived engines must dispose or restore the short-lived
+  ones, or the broker keeps every one of them alive.
+- One broker is one agent cluster and one origin — exactly as much separation as the host's
+  decision to share it leaves. The broker enforces no per-tenant partitioning, and a channel name
+  is not a secret.
+- The broker is deliberately **not** reset by `RestoreGlobalSnapshot`: what a restore ends is the
+  channels, not the cluster they were in, so a pooled engine rejoins the same broker in the next
+  cycle.
+
+**Required host action.** Share a broker only within one trust domain, and give mutually
+distrusting scripts the private default by saying nothing. Where one is shared, treat every
+message delivered on a channel as untrusted input, apply the receiving engine's time, statement
+and memory constraints to the turns that deliver it, and dispose or restore any engine that
+leaves the cluster. Do not treat a channel name as a capability, and do not use a broker as a
+control plane for anything the scripts on the other side are not allowed to trigger.
+
 ## Hardened deployment baseline
 
 The numbers below are examples only. Measure normal workloads and choose smaller limits that

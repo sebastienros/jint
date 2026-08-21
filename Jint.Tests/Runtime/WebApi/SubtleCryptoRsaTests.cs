@@ -1002,6 +1002,25 @@ public class SubtleCryptoRsaTests
     }
 
     [Fact]
+    public void TheGenerationCeilingIsExactlyTheDocumentedFigure()
+    {
+        var engine = WebEngine();
+
+        // 8256 bits is a length only this engine's own ceiling refuses: above 8192, a multiple of every
+        // platform's stride, and well inside what RSA.Create would generate — so the refusal, and the figure
+        // its message names, pin the ceiling's value rather than a band around it. The threat model's TM-25
+        // quotes the number; this is what keeps the quote true. (The theory above cannot: its rows sit below
+        // the platform floor, off the stride, or at and above the platform's own maximum, so each is refused
+        // by something whatever the ceiling says.)
+        Settle(engine, """
+            crypto.subtle.generateKey(
+                { name: 'RSA-OAEP', modulusLength: 8256, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+                false, ['encrypt', 'decrypt'])
+                .then(() => 'generated', e => e.name + '/' + e.message.includes('8192'))
+            """).AsString().Should().Be("OperationError/true");
+    }
+
+    [Fact]
     public void TheKeyGenerationMembersAreRequiredAndRangeChecked()
     {
         var engine = WebEngine();
