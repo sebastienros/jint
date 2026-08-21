@@ -3,8 +3,15 @@
 // and keep conditional compilation out of the pump.
 #pragma warning disable CA1822
 
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Jint.Constraints;
 using Jint.Native.Atomics;
+using Jint.Runtime;
 
 namespace Jint;
 
@@ -15,6 +22,11 @@ namespace Jint;
 // TimeUntilNextPumpScheduledWork. Declaring every hook here on every target framework, with the conditional
 // compilation inside the bodies, is what keeps #if out of EventLoop.RunAvailableContinuations,
 // Engine.DrainEventLoopUntil and Engine.AwaitPromiseSettlementAsync entirely.
+//
+// The host-facing half of the same subject lives here too: TimeUntilNextScheduledWork answers *when* to pump,
+// and WaitForScheduledWork parks the calling thread until that answer is "now" — the piece a host driving one
+// engine per thread was missing, because a job arriving from another thread has no due time to report and so
+// could only be found by polling.
 public partial class Engine
 {
     /// <summary>
@@ -118,6 +130,31 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Whether the pump has something to run the instant it is called, without consulting any clock: a job is
+    /// queued, or — on net8.0 and later — an idle callback is waiting for the queue to drain, which it does the
+    /// moment a pump starts.
+    /// </summary>
+    /// <remarks>
+    /// The one home for that composition, so that <see cref="AdvancedOperations.TimeUntilNextScheduledWork"/>
+    /// and <see cref="WaitForScheduledWork"/> can never disagree about what "work is available now" means. Like
+    /// every other hook in this file it is declared on every target framework with the conditional compilation
+    /// inside its body.
+    /// </remarks>
+    internal bool HasImmediatePumpWork()
+    {
+        if (_eventLoop.HasPendingJobs)
+        {
+            return true;
+        }
+
+#if NET8_0_OR_GREATER
+        return _webApi is { HasPendingIdleWork: true };
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>
     /// How long the engine may idle before work it scheduled for itself needs the pump: the earlier of the
     /// next <c>Atomics.waitAsync</c> deadline and — on net8.0 and later — the next due web-API timer.
     /// <see langword="null"/> when neither pends; zero or negative means something is due right now.
@@ -135,6 +172,294 @@ public partial class Engine
 #endif
 
         return untilWaiter;
+    }
+
+    /// <summary>
+    /// What one pass of the pump wait needs to know: whether there is work the calling thread could run right
+    /// now, and otherwise how long the engine's own schedule allows it to idle before there will be.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ScheduledWorkState(bool IsAvailable, TimeSpan? UntilDue);
+
+    /// <summary>
+    /// Nothing to run and nothing scheduled: the answer for an engine that only another thread can wake.
+    /// </summary>
+    private static readonly ScheduledWorkState NoScheduledWork = new(IsAvailable: false, UntilDue: null);
+
+    /// <summary>
+    /// The pump wait's view of <see cref="AdvancedOperations.TimeUntilNextScheduledWork"/>, differing from it
+    /// in exactly one way: nested inside a running job nothing counts as available.
+    /// </summary>
+    /// <remarks>
+    /// That carve-out is the rule <see cref="Runtime.EventLoop.WaitForWork"/> and
+    /// <see cref="DrainEventLoopUntil"/> already apply, for the reason they document — the re-entrancy guard
+    /// makes the queue unrunnable from inside a job, so reporting it as available would hand the caller a
+    /// <see langword="true"/> whose <see cref="AdvancedOperations.ProcessTasks"/> does nothing, and its loop
+    /// would spin hot for the whole of its ceiling. Reporting nothing instead lets the wait run its course and
+    /// answer <see langword="false"/>, which costs one bounded idle and no CPU.
+    /// </remarks>
+    private ScheduledWorkState InspectScheduledWork()
+    {
+        if (_eventLoop.IsRunningJob)
+        {
+            return NoScheduledWork;
+        }
+
+        // Anything already queued is work the caller could run the moment this returns, and no clock can
+        // improve on that answer — the same first question TimeUntilNextScheduledWork asks, through the same
+        // helper, so the two can never disagree about what "now" means.
+        if (HasImmediatePumpWork())
+        {
+            return new ScheduledWorkState(IsAvailable: true, UntilDue: null);
+        }
+
+        if (TimeUntilNextPumpScheduledWork() is not { } untilDue)
+        {
+            return NoScheduledWork;
+        }
+
+        return untilDue <= TimeSpan.Zero
+            ? new ScheduledWorkState(IsAvailable: true, UntilDue: null)
+            : new ScheduledWorkState(IsAvailable: false, untilDue);
+    }
+
+    /// <summary>
+    /// The longest span a single blocking wait may ask for. <see cref="ManualResetEventSlim.Wait(TimeSpan)"/>
+    /// and <see cref="Task.Delay(TimeSpan)"/> both reject anything above <see cref="int.MaxValue"/>
+    /// milliseconds, and the wait loops around anyway, so a longer ceiling is served by several passes.
+    /// </summary>
+    private static readonly TimeSpan MaxSingleWaitInterval = TimeSpan.FromMilliseconds(int.MaxValue);
+
+    private static readonly double MillisecondsPerStopwatchTick = 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// How much of the caller's ceiling a wait has already spent, measured on the monotonic clock.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Stopwatch"/> rather than the wall clock, for the reason
+    /// <see cref="Native.Atomics.AtomicsWaiterDeadlines"/> beside it records: a ceiling a host passed must
+    /// not be cut short by an NTP step forwards or stretched by one backwards. Elapsed-since-start rather
+    /// than an absolute deadline, so that a ceiling as large as <see cref="TimeSpan.MaxValue"/> — which a
+    /// host spelling "effectively no bound" may well pass — cannot overflow the arithmetic.
+    /// </remarks>
+    private static TimeSpan ElapsedSince(long startTimestamp)
+        => TimeSpan.FromMilliseconds((Stopwatch.GetTimestamp() - startTimestamp) * MillisecondsPerStopwatchTick);
+
+    /// <summary>
+    /// Links the caller's token with a registered <see cref="CancellationConstraint"/>'s, exactly as
+    /// <see cref="DrainEventLoopUntil"/> does: an engine that has been cancelled has nothing worth waiting
+    /// for, and the two tokens keep different contracts on the way out.
+    /// </summary>
+    private CancellationToken BuildPumpWaitToken(
+        CancellationToken cancellationToken,
+        out CancellationTokenSource? linkedTokenSource)
+    {
+        linkedTokenSource = null;
+
+        var constraintToken = Constraints.Find<CancellationConstraint>()?.Token ?? default;
+        if (!cancellationToken.CanBeCanceled)
+        {
+            return constraintToken;
+        }
+
+        if (!constraintToken.CanBeCanceled)
+        {
+            return cancellationToken;
+        }
+
+        linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, constraintToken);
+        return linkedTokenSource.Token;
+    }
+
+    /// <summary>
+    /// Decides which contract a cancellation during an idle wait belongs to, mirroring
+    /// <see cref="DrainEventLoopUntil"/>: the caller's own token is reported back to the caller, while the
+    /// engine's <see cref="CancellationConstraint"/> surfaces the way per-statement execution reports it.
+    /// </summary>
+    [DoesNotReturn]
+    private static void RethrowPumpWaitCancellation(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Throw.ExecutionCanceledException();
+    }
+
+    /// <summary>
+    /// How long this pass may block: the smaller of what is left of the caller's ceiling and the engine's own
+    /// next due time, clamped to <see cref="MaxSingleWaitInterval"/>. <see langword="null"/> means the ceiling
+    /// has run out.
+    /// </summary>
+    private static TimeSpan? NextPumpWaitInterval(TimeSpan? remaining, TimeSpan? untilDue)
+    {
+        var interval = Timeout.InfiniteTimeSpan;
+        if (remaining is { } left)
+        {
+            if (left <= TimeSpan.Zero)
+            {
+                return null;
+            }
+
+            interval = left;
+        }
+
+        if (untilDue is { } due && (interval == Timeout.InfiniteTimeSpan || due < interval))
+        {
+            interval = due;
+        }
+
+        // Timeout.InfiniteTimeSpan is negative, so it can never trip this — a wait with no bound at all keeps
+        // asking for none, and only a genuinely huge ceiling is served in several passes.
+        return interval > MaxSingleWaitInterval ? MaxSingleWaitInterval : interval;
+    }
+
+    /// <summary>
+    /// The body of <see cref="AdvancedOperations.WaitForScheduledWork"/>, which owns the engine for the whole
+    /// of it — see that method's remarks for why.
+    /// </summary>
+    internal bool WaitForScheduledWork(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        using var ownership = EnterHostCall();
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var state = InspectScheduledWork();
+        if (state.IsAvailable)
+        {
+            return true;
+        }
+
+        var infinite = timeout == Timeout.InfiniteTimeSpan;
+        if (!infinite && timeout <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        var waitToken = BuildPumpWaitToken(cancellationToken, out var linkedTokenSource);
+        try
+        {
+            var start = Stopwatch.GetTimestamp();
+            while (true)
+            {
+                var remaining = infinite ? (TimeSpan?) null : timeout - ElapsedSince(start);
+                if (NextPumpWaitInterval(remaining, state.UntilDue) is not { } interval)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    _eventLoop.WaitForWork(completedEvent: null, interval, waitToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    RethrowPumpWaitCancellation(cancellationToken);
+                }
+
+                state = InspectScheduledWork();
+                if (state.IsAvailable)
+                {
+                    return true;
+                }
+            }
+        }
+        finally
+        {
+            linkedTokenSource?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The body of <see cref="AdvancedOperations.WaitForScheduledWorkAsync"/>. The reservation is taken by the
+    /// caller — synchronously, so an engine already in use refuses before a <see cref="Task"/> exists — and
+    /// released here, because everything after the first <c>await</c> belongs to this method.
+    /// </summary>
+    /// <remarks>
+    /// The discipline is the one every async host entry uses: <see cref="ReserveAsyncHostOperation"/> holds the
+    /// engine across every await, since no thread stays claimed over one, and each moment that actually reads
+    /// engine state re-claims the resuming thread with <see cref="EnterTransferredHostCall"/> — which is what
+    /// makes the timer and atomics heaps <see cref="TimeUntilNextPumpScheduledWork"/> walks safe to read from
+    /// whichever thread the continuation lands on. Deliberately <em>not</em> mirrored from
+    /// <see cref="AwaitPromiseSettlementAsync"/>: its <c>_hostCallbackAdmission</c> bracket around the await
+    /// exists to keep a converted host callback admissible while script is suspended, and this wait runs no
+    /// script at all. It also leaves <c>_pendingAsyncOperations</c> alone for the same reason — that counter
+    /// answers "is an evaluation suspended", and the reservation alone is what a restore has to refuse.
+    /// </remarks>
+    private async Task<bool> WaitForScheduledWorkCoreAsync(object owner, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        CancellationTokenSource? linkedTokenSource = null;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ScheduledWorkState state;
+            CancellationToken waitToken;
+            using (EnterTransferredHostCall(owner))
+            {
+                state = InspectScheduledWork();
+                waitToken = BuildPumpWaitToken(cancellationToken, out linkedTokenSource);
+            }
+
+            if (state.IsAvailable)
+            {
+                return true;
+            }
+
+            var infinite = timeout == Timeout.InfiniteTimeSpan;
+            if (!infinite && timeout <= TimeSpan.Zero)
+            {
+                return false;
+            }
+
+            var start = Stopwatch.GetTimestamp();
+            while (true)
+            {
+                var remaining = infinite ? (TimeSpan?) null : timeout - ElapsedSince(start);
+                if (NextPumpWaitInterval(remaining, state.UntilDue) is not { } interval)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    if (interval == Timeout.InfiniteTimeSpan)
+                    {
+                        // Nothing is scheduled and the caller asked for no ceiling, so only an Enqueue can
+                        // change the answer — and that is exactly what the unbounded overload waits for.
+                        await _eventLoop.WaitForEventAsync(waitToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await _eventLoop.WaitForEventAsync(interval, waitToken).ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    RethrowPumpWaitCancellation(cancellationToken);
+                }
+
+                // The bounded overload reports a cancelled wait by returning rather than by throwing — it
+                // races the registration against a Task.Delay through WhenAny, which never throws — so the
+                // token has to be re-read here as well as caught above.
+                if (waitToken.IsCancellationRequested)
+                {
+                    RethrowPumpWaitCancellation(cancellationToken);
+                }
+
+                using (EnterTransferredHostCall(owner))
+                {
+                    state = InspectScheduledWork();
+                }
+
+                if (state.IsAvailable)
+                {
+                    return true;
+                }
+            }
+        }
+        finally
+        {
+            linkedTokenSource?.Dispose();
+            ReleaseAsyncHostOperation(owner);
+        }
     }
 
     public partial class AdvancedOperations
@@ -211,39 +536,30 @@ public partial class Engine
         ///     SleepUntilNextFrame();
         /// }
         /// </code>
-        /// A message pump with no frame of its own can sleep on the value instead, keeping a ceiling so that
-        /// work arriving from a background thread is still picked up:
+        /// A message pump with no frame of its own does not need to read the value at all:
+        /// <see cref="WaitForScheduledWork"/> already parks on it, and — unlike a sleep — also wakes on a job
+        /// that arrives from another thread, which has no due time for this property to report.
         /// <code>
-        /// var until = engine.Advanced.TimeUntilNextScheduledWork ?? TimeSpan.FromMilliseconds(50);
-        /// if (until > TimeSpan.Zero)
+        /// while (running)
         /// {
-        ///     Thread.Sleep(until &lt; TimeSpan.FromMilliseconds(50) ? until : TimeSpan.FromMilliseconds(50));
+        ///     engine.Advanced.ProcessTasks();
+        ///     engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
         /// }
-        ///
-        /// engine.Advanced.ProcessTasks();
         /// </code>
         /// </example>
         public TimeSpan? TimeUntilNextScheduledWork
         {
             get
             {
-                // Anything already queued is work the pump can run now, so no clock can improve on the
-                // answer. This check lives here rather than in the internal aggregate below, because the
-                // engine's own wait loops clamp on that aggregate while the queue may be unrunnable from
-                // where they stand — a zero there would spin them hot for their caller's whole timeout.
-                if (_engine._eventLoop.HasPendingJobs)
+                // Anything already queued — and an idle callback, which becomes runnable the moment the queue
+                // drains — is work the pump can run now, so no clock can improve on the answer. This check
+                // lives here rather than in TimeUntilNextPumpScheduledWork, because the engine's own wait
+                // loops clamp on that aggregate while the queue may be unrunnable from where they stand — a
+                // zero there would spin them hot for their caller's whole timeout.
+                if (_engine.HasImmediatePumpWork())
                 {
                     return TimeSpan.Zero;
                 }
-
-#if NET8_0_OR_GREATER
-                // An idle callback becomes runnable the moment the job queue drains, so it is work for now
-                // rather than work for later.
-                if (_engine._webApi is { } webApi && webApi.HasPendingIdleWork)
-                {
-                    return TimeSpan.Zero;
-                }
-#endif
 
                 var next = _engine.TimeUntilNextPumpScheduledWork();
 
@@ -252,6 +568,149 @@ public partial class Engine
                 // I".
                 return next is { } value && value < TimeSpan.Zero ? TimeSpan.Zero : next;
             }
+        }
+
+        /// <summary>
+        /// Blocks the calling thread until this engine has work worth pumping, or <paramref name="timeout"/>
+        /// elapses. Returns <see langword="true"/> when there is (probably) work — call
+        /// <see cref="ProcessTasks"/> next — and <see langword="false"/> on timeout.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>It does not pump.</b> The canonical loop is still
+        /// <see cref="TimeUntilNextScheduledWork"/>/<see cref="ProcessTasks"/> and there is deliberately no
+        /// third method that drains for a budget; this answers only the question a sleep answered badly, which
+        /// is <i>how long may this thread idle</i>. What a sleep cannot do is notice a job that arrived from
+        /// <em>another</em> thread — a settled interop <see cref="Task"/>, a message posted into this engine,
+        /// a module load completing — because such a job has no due time for
+        /// <see cref="TimeUntilNextScheduledWork"/> to report and so could only be found by polling. That is
+        /// the whole of what this adds: a host that slept on a 20 ms ceiling paid up to 20 ms of latency on
+        /// every one of those arrivals.
+        /// </para>
+        /// <para>
+        /// The wait ends as soon as any of these is true, whichever comes first:
+        /// <list type="bullet">
+        /// <item><description>a job is enqueued, from this thread or any other;</description></item>
+        /// <item><description>
+        /// work the engine scheduled for <em>itself</em> comes due — a <c>setTimeout</c> or
+        /// <c>setInterval</c> callback, an <c>AbortSignal.timeout()</c>, a delayed <c>scheduler.postTask</c>,
+        /// an <c>Atomics.waitAsync</c> deadline. The wait is bounded internally by that due time, so a
+        /// <c>setTimeout(f, 1)</c> wakes it in about a millisecond rather than at
+        /// <paramref name="timeout"/>;
+        /// </description></item>
+        /// <item><description><paramref name="timeout"/> elapses, which is the <see langword="false"/>;</description></item>
+        /// <item><description>
+        /// <paramref name="cancellationToken"/> is cancelled, which throws
+        /// <see cref="OperationCanceledException"/>.
+        /// </description></item>
+        /// </list>
+        /// A registered <see cref="Constraints.CancellationConstraint"/> ends the wait too, and reports itself
+        /// as <see cref="ExecutionCanceledException"/> exactly as per-statement execution does — an engine that
+        /// has been cancelled has nothing left worth waiting for. Both exceptions leave the engine usable.
+        /// </para>
+        /// <para>
+        /// <b>Treat <see langword="true"/> as a hint and re-check your own condition.</b> Spurious wakes are
+        /// expected: work can be dropped at dequeue because it belongs to an evaluation cycle
+        /// <see cref="RestoreGlobalSnapshot"/> has ended, and a wake races anything else the host does. A
+        /// <see langword="false"/> is equally not a promise that nothing arrived — it says only that nothing
+        /// had arrived when the ceiling ran out.
+        /// </para>
+        /// <para>
+        /// <b>Single drainer.</b> The wait claims the engine for its whole duration, so a second thread calling
+        /// it — or calling any other guarded entry — is refused with
+        /// <see cref="InvalidOperationException"/>: <i>"This Engine is already in use by another thread or has
+        /// an asynchronous operation in progress."</i> That is the engine's ordinary admission rule rather than
+        /// anything this method adds, and it is what makes one-thread-per-engine self-enforcing. Enqueueing
+        /// into a waiting engine from another thread is unaffected — that path is deliberately unguarded, and
+        /// is what wakes the wait. One consequence worth knowing: an authorized host callback arriving from
+        /// another thread while this wait is parked is refused for as long as it is parked, where a
+        /// <c>Thread.Sleep</c> would have admitted it. A host that needs such callbacks admitted while idle
+        /// should not park the engine's own thread here.
+        /// </para>
+        /// <para>
+        /// <b>Do not call it from inside a job</b> — from host code reached by a promise reaction, a timer
+        /// callback or an event listener. The re-entrancy guard makes the queue unrunnable from there, so
+        /// nothing counts as available and the call simply idles out its ceiling and answers
+        /// <see langword="false"/>. That is the same rule the engine's own wait loops apply, and it is chosen
+        /// over refusing outright because this wait — unlike a blocking module import — genuinely can end:
+        /// what it cannot do is make the pump you would call next do anything.
+        /// </para>
+        /// <para>
+        /// Available on <b>every</b> target framework and unaffected by which web APIs are enabled.
+        /// </para>
+        /// </remarks>
+        /// <param name="timeout">
+        /// The ceiling on how long to block. A non-positive value does not block at all and simply answers
+        /// with what is available right now; <see cref="Timeout.InfiniteTimeSpan"/> waits indefinitely, which
+        /// is only safe together with a <paramref name="cancellationToken"/>.
+        /// </param>
+        /// <param name="cancellationToken">Ends the wait with an <see cref="OperationCanceledException"/>.</param>
+        /// <returns>Whether there is (probably) work for <see cref="ProcessTasks"/> to run.</returns>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+        /// <exception cref="ExecutionCanceledException">A registered cancellation constraint fired.</exception>
+        /// <exception cref="InvalidOperationException">Another thread is using this engine.</exception>
+        /// <example>
+        /// One thread per engine — the shape this exists for:
+        /// <code>
+        /// while (!token.IsCancellationRequested)
+        /// {
+        ///     engine.Advanced.ProcessTasks();
+        ///
+        ///     try
+        ///     {
+        ///         engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+        ///     }
+        ///     catch (OperationCanceledException)
+        ///     {
+        ///         break;
+        ///     }
+        /// }
+        /// </code>
+        /// </example>
+        public bool WaitForScheduledWork(TimeSpan timeout, CancellationToken cancellationToken = default)
+            => _engine.WaitForScheduledWork(timeout, cancellationToken);
+
+        /// <summary>
+        /// The asynchronous form of <see cref="WaitForScheduledWork"/>: the same contract, without holding a
+        /// thread while it waits.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Everything <see cref="WaitForScheduledWork"/> documents applies — it does not pump, a
+        /// <see langword="true"/> is a hint, the wait is bounded by the engine's own next due time, and a
+        /// registered <see cref="Constraints.CancellationConstraint"/> ends it as
+        /// <see cref="ExecutionCanceledException"/>. Only the ownership differs.
+        /// </para>
+        /// <para>
+        /// <b>Ownership spans the whole await.</b> No thread stays claimed across an <c>await</c>, so this
+        /// reserves the engine the way every other asynchronous host entry does: the reservation is taken
+        /// <em>synchronously</em>, so an engine already in use is refused with the admission
+        /// <see cref="InvalidOperationException"/> before a <see cref="Task"/> exists, and it is held until the
+        /// returned task completes. While it is held the engine refuses every guarded entry from every thread,
+        /// this one included — so <see cref="ProcessTasks"/> belongs after the <c>await</c>, never beside it.
+        /// The continuation resumes on whichever thread the runtime hands it, which is why the engine is
+        /// re-claimed for each look at its schedule.
+        /// </para>
+        /// <para>
+        /// Because the reservation is taken synchronously, this can never be called from inside a job: a job
+        /// runs with the engine already claimed, so the call is refused rather than idling out its ceiling the
+        /// way the synchronous form does.
+        /// </para>
+        /// </remarks>
+        /// <param name="timeout">
+        /// The ceiling on how long to wait. A non-positive value does not wait at all;
+        /// <see cref="Timeout.InfiniteTimeSpan"/> waits indefinitely.
+        /// </param>
+        /// <param name="cancellationToken">Ends the wait with an <see cref="OperationCanceledException"/>.</param>
+        /// <returns>Whether there is (probably) work for <see cref="ProcessTasks"/> to run.</returns>
+        /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+        public Task<bool> WaitForScheduledWorkAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            // Taken here rather than inside the async body so that the admission failure is reported to the
+            // caller synchronously, exactly as EvaluateAsync and its siblings report it; the body owns the
+            // release, because everything after its first await belongs to it.
+            var owner = _engine.ReserveAsyncHostOperation();
+            return _engine.WaitForScheduledWorkCoreAsync(owner, timeout, cancellationToken);
         }
     }
 }
