@@ -1,7 +1,10 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using System.Threading;
 using Jint;
+using Jint.Runtime;
+using Jint.Runtime.Modules;
 using Jint.WebApi;
 
 namespace Jint.Tests.PublicInterface;
@@ -19,9 +22,11 @@ namespace Jint.Tests.PublicInterface;
 /// over rather than things a host builds.
 /// </para>
 /// <para>
-/// <see cref="TypeofWorkerIsUndefinedEvenWithTheFlagAndProvider"/> is the pin that keeps this change from
-/// being the one that also moves the engine: the constructor, the worker global and the error channels land
-/// in their own changes, and until they do a script cannot tell that any of this exists.
+/// <see cref="TypeofWorkerAnswersOnlyWithBothTheFlagAndAProvider"/> replaced the foundation's
+/// no-script-surface pin, deliberately: that one asserted <c>typeof Worker === 'undefined'</c> even with the
+/// flag <i>and</i> a provider, which was true exactly while the constructor did not exist. Now that it does,
+/// the same question has a three-way answer and the pin asserts it — the absent-with-flag-alone and
+/// absent-with-provider-alone halves are the ones that survived unchanged.
 /// </para>
 /// </remarks>
 public class WebApiWorkerTests
@@ -108,28 +113,347 @@ public class WebApiWorkerTests
         (WebApiFeatures.Default & WebApiFeatures.Workers).Should().Be(WebApiFeatures.None);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TypeofWorkerIsUndefinedEvenWithTheFlagAndProvider(bool enableWorkers)
+    /// <summary>
+    /// The <c>Worker</c> global needs the flag <b>and</b> a provider, and there is deliberately no way to get a
+    /// constructor that can only throw: a worker needs a thread and a pump, and Jint never starts either.
+    /// </summary>
+    [Fact]
+    public void TypeofWorkerAnswersOnlyWithBothTheFlagAndAProvider()
     {
         var provider = new RecordingWorkerProvider();
-        var engine = new Engine(options =>
+
+        var neither = new Engine(options => options.UseWebApis());
+        neither.Evaluate("typeof Worker").AsString().Should().Be("undefined");
+
+        var flagOnly = new Engine(options => options.UseWebApis(WebApiFeatures.Default | WebApiFeatures.Workers));
+        flagOnly.Evaluate("typeof Worker").AsString().Should().Be("undefined", "with no provider there is no thread");
+
+        var providerOnly = new Engine(options =>
         {
             options.UseWebApis();
-            if (enableWorkers)
-            {
-                options.UseWorkers(provider);
-            }
+            options.WebApi.Workers.Provider = provider;
+        });
+        providerOnly.Evaluate("typeof Worker").AsString().Should().Be("undefined", "the flag is still the grant");
+
+        var both = new Engine(options => options.UseWebApis().UseWorkers(provider));
+        both.Evaluate("typeof Worker").AsString().Should().Be("function");
+
+        // The interface objects that would make `self instanceof WorkerGlobalScope` lie stay absent whatever
+        // was enabled — the ruling this feature shares with the interface-globals decision.
+        both.Evaluate("typeof WorkerGlobalScope").AsString().Should().Be("undefined");
+        both.Evaluate("typeof DedicatedWorkerGlobalScope").AsString().Should().Be("undefined");
+
+        provider.Requests.Should().Be(0, "building an engine consults no provider");
+    }
+
+    /// <summary>
+    /// A provider that refuses everything is still reachable, and its refusal is what the script sees.
+    /// </summary>
+    [Fact]
+    public void AProviderRefusalIsReachableFromScript()
+    {
+        var provider = new RecordingWorkerProvider();
+        var engine = new Engine(options => options.UseWebApis().UseWorkers(provider));
+
+        var exception = Assert.Throws<JavaScriptException>(
+            () => engine.Execute("new Worker('./worker.js', { type: 'module' })"));
+
+        exception.Error.Get("name").AsString().Should().Be("SecurityError");
+        provider.Requests.Should().Be(1);
+    }
+
+    /// <summary>
+    /// A worker gets strictly fewer capabilities than its creator, and the one that matters most is the
+    /// network. Reachable through the real constructor now, rather than through a hand-built request.
+    /// </summary>
+    [Fact]
+    public void AWorkerDoesNotInheritNetworkAccess()
+    {
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
+        {
+            ["./worker.js"] = """
+                report('fetch:' + typeof fetch);
+                report('WebSocket:' + typeof WebSocket);
+                report('EventSource:' + typeof EventSource);
+                report('localStorage:' + typeof localStorage);
+                report('caches:' + typeof caches);
+                report('Worker:' + typeof Worker);
+                report('postMessage:' + typeof postMessage);
+                """,
         });
 
-        engine.Evaluate("typeof Worker").AsString().Should().Be(
-            "undefined",
-            "the constructor lands in its own change; nothing about this one is observable to a script");
+        var parent = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.Default | WebApiFeatures.Fetch | WebApiFeatures.WebSocket | WebApiFeatures.Storage | WebApiFeatures.CacheApi);
+            options.UseWorkers(host);
+        });
 
-        engine.Evaluate("typeof WorkerGlobalScope").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof DedicatedWorkerGlobalScope").AsString().Should().Be("undefined");
-        provider.Requests.Should().Be(0);
+        parent.Evaluate("typeof fetch").AsString().Should().Be("function", "the parent really was granted it");
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        host.Drain(parent);
+
+        host.Log.Should().Be(
+            "fetch:undefined,WebSocket:undefined,EventSource:undefined,localStorage:undefined,caches:undefined,Worker:undefined,postMessage:function");
+    }
+
+    /// <summary>
+    /// One provider serving a pool of engines reaches per-request policy through
+    /// <c>request.Parent.Advanced.HostDefined</c>, which is per engine and which the engine never reads.
+    /// </summary>
+    [Fact]
+    public void TheProviderCanReachPerRequestStateThroughHostDefined()
+    {
+        var seen = new List<string>();
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string> { ["./worker.js"] = "" })
+        {
+            Inspect = request => seen.Add((string) request.Parent.Advanced.HostDefined!),
+        };
+
+        var shared = new Options().UseWebApis().UseWorkers(host);
+
+        var tenantA = new Engine(shared);
+        tenantA.Advanced.HostDefined = "tenant-a";
+        var tenantB = new Engine(shared);
+        tenantB.Advanced.HostDefined = "tenant-b";
+
+        tenantA.Execute("new Worker('./worker.js', { type: 'module' });");
+        tenantB.Execute("new Worker('./worker.js', { type: 'module' });");
+
+        seen.Should().Equal("tenant-a", "tenant-b");
+    }
+
+    /// <summary>
+    /// <c>OnWorkerStarted</c> is where a host starts pumping, so the engine it is handed has to be one the host
+    /// can pump on its own thread — which means the engine wiring must have let go of it first.
+    /// </summary>
+    [Fact]
+    public void OnWorkerStartedSeesAPumpableEngine()
+    {
+        var pumpedInsideCallback = false;
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string> { ["./worker.js"] = "report('ran');" })
+        {
+            OnStarted = connection =>
+            {
+                // The host's very first act, on the parent's thread, exactly as a thread-per-worker provider's
+                // Thread.Start would be — and it has to be allowed.
+                connection.Worker.Advanced.ProcessTasks();
+                pumpedInsideCallback = true;
+            },
+        };
+
+        var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
+        parent.Execute("new Worker('./worker.js', { type: 'module' });");
+
+        pumpedInsideCallback.Should().BeTrue();
+        host.Log.Should().Be("ran", "the worker's module runs on the first pump the host gives it");
+    }
+
+    /// <summary>
+    /// Several workers cooperating on one host loop — the game-frame shape — each make progress, and neither
+    /// starves the other.
+    /// </summary>
+    [Fact]
+    public void TwoWorkersPumpedFromOneLoopBothMakeProgress()
+    {
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
+        {
+            ["./a.js"] = "addEventListener('message', e => postMessage('a:' + e.data));",
+            ["./b.js"] = "addEventListener('message', e => postMessage('b:' + e.data));",
+        });
+
+        var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
+        parent.Execute("""
+            var got = [];
+            var a = new Worker('./a.js', { type: 'module' });
+            var b = new Worker('./b.js', { type: 'module' });
+            a.onmessage = e => got.push(e.data);
+            b.onmessage = e => got.push(e.data);
+            a.postMessage(1);
+            b.postMessage(2);
+            """);
+
+        host.Connections.Should().HaveCount(2);
+        host.Drain(parent);
+
+        var got = parent.Evaluate("got.slice().sort().join(',')").AsString();
+        got.Should().Be("a:1,b:2");
+    }
+
+    /// <summary>
+    /// The shape the feature exists for: the host gives each worker a thread of its own, and a full
+    /// <c>postMessage</c> round trip crosses it.
+    /// </summary>
+    /// <remarks>
+    /// Event-driven throughout, with a ten-second ceiling on every wait so that a loaded machine makes this
+    /// slower rather than redder. The worker's thread parks on its own reset event, which the parent's pump
+    /// wakes — the engine's own wait primitive is a separate change and this deliberately does not depend on
+    /// it.
+    /// </remarks>
+    [Fact]
+    public void AHostProviderThreadPerWorkerRoundTrips()
+    {
+        using var host = new ThreadPerWorkerHost();
+
+        var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
+        parent.Execute("""
+            var got = null;
+            var w = new Worker('./worker.js', { type: 'module' });
+            w.onmessage = e => { got = e.data; };
+            w.postMessage('ping');
+            """);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (DateTime.UtcNow < deadline && parent.Evaluate("got").IsNull())
+        {
+            parent.Advanced.ProcessTasks();
+            host.Answered.Wait(TimeSpan.FromMilliseconds(50));
+        }
+
+        parent.Evaluate("got").AsString().Should().Be("pong:ping");
+
+        parent.Execute("w.terminate();");
+        host.WaitForPumpToLeave();
+    }
+
+    /// <summary>
+    /// A provider the test drives itself: it builds the worker engine over an in-memory module map, starts no
+    /// thread, and lets the test decide when each worker gets a turn.
+    /// </summary>
+    private sealed class PumpOnDemandWorkerHost : WorkerProvider
+    {
+        private readonly Dictionary<string, string> _modules;
+        private readonly List<string> _log = new();
+
+        public PumpOnDemandWorkerHost(Dictionary<string, string> modules) => _modules = modules;
+
+        public Action<WorkerRequest>? Inspect { get; set; }
+
+        public Action<WorkerConnection>? OnStarted { get; set; }
+
+        public List<WorkerConnection> Connections { get; } = new();
+
+        public string Log => string.Join(",", _log);
+
+        public override Engine? CreateWorkerEngine(WorkerRequest request)
+        {
+            Inspect?.Invoke(request);
+
+            var options = request.CreateDefaultOptions();
+            options.Modules.ModuleLoader = new MapModuleLoader(_modules);
+
+            var engine = new Engine(options);
+            engine.SetValue("report", new Action<string>(_log.Add));
+            return engine;
+        }
+
+        public override void OnWorkerStarted(WorkerConnection connection)
+        {
+            Connections.Add(connection);
+            OnStarted?.Invoke(connection);
+        }
+
+        public void Drain(Engine parent, int rounds = 50)
+        {
+            for (var i = 0; i < rounds; i++)
+            {
+                foreach (var connection in Connections)
+                {
+                    connection.Worker.Advanced.ProcessTasks();
+                }
+
+                parent.Advanced.ProcessTasks();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The thread-per-worker shape, written the way <see cref="WorkerProvider"/> documents it: the connection
+    /// is registered before the pump starts, the loop watches <see cref="WorkerConnection.IsEnded"/>, and the
+    /// engine is disposed on the thread that was pumping it.
+    /// </summary>
+    private sealed class ThreadPerWorkerHost : WorkerProvider, IDisposable
+    {
+        private readonly ManualResetEventSlim _left = new(false);
+        private Thread? _thread;
+
+        public ManualResetEventSlim Answered { get; } = new(false);
+
+        public override Engine? CreateWorkerEngine(WorkerRequest request)
+        {
+            var options = request.CreateDefaultOptions();
+            options.Modules.ModuleLoader = new MapModuleLoader(new Dictionary<string, string>
+            {
+                ["./worker.js"] = "addEventListener('message', e => { postMessage('pong:' + e.data); answered(); });",
+            });
+
+            var engine = new Engine(options);
+            engine.SetValue("answered", new Action(() => Answered.Set()));
+            return engine;
+        }
+
+        public override void OnWorkerStarted(WorkerConnection connection)
+        {
+            _thread = new Thread(() =>
+            {
+                try
+                {
+                    while (!connection.IsEnded)
+                    {
+                        connection.Worker.Advanced.ProcessTasks();
+                        connection.TerminationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(5));
+                    }
+                }
+                catch (ExecutionCanceledException)
+                {
+                    // terminate()'s cooperative half, observed on this thread. Leaving is what it asks for.
+                }
+                finally
+                {
+                    // On the pumping thread, after the loop — never from OnWorkerEnded.
+                    connection.Worker.Dispose();
+                    _left.Set();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "worker pump",
+            };
+
+            _thread.Start();
+        }
+
+        public void WaitForPumpToLeave()
+            => _left.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the loop observes IsEnded and leaves");
+
+        public void Dispose()
+        {
+            _left.Dispose();
+            Answered.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// A module loader over a dictionary, built out of the public module API alone.
+    /// </summary>
+    private sealed class MapModuleLoader : IModuleLoader
+    {
+        private readonly Dictionary<string, string> _sources;
+
+        public MapModuleLoader(Dictionary<string, string> sources) => _sources = sources;
+
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            if (!_sources.ContainsKey(moduleRequest.Specifier))
+            {
+                throw new ModuleResolutionException("Module not found", moduleRequest.Specifier, referencingModuleLocation, filePath: null);
+            }
+
+            return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.RelativeOrAbsolute);
+        }
+
+        public Jint.Runtime.Modules.Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => ModuleFactory.BuildSourceTextModule(engine, resolved, _sources[resolved.Key]);
     }
 }
 #endif
