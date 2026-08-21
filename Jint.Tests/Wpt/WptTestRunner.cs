@@ -211,6 +211,9 @@ public class WptTestRunner
     /// <c>* =&gt; windows-1252</c> below says exactly "every label of windows-1252 fails" and stops saying it
     /// the moment one of them stops.
     /// </remarks>
+    /// <summary>The one platform any exclusion is scoped to today; see <c>WptExclusion.Platform</c>.</summary>
+    private static readonly System.Runtime.InteropServices.OSPlatform MacOs = System.Runtime.InteropServices.OSPlatform.OSX;
+
     private static readonly WptExclusion[] _exclusions =
     [
         new("encoding/textdecoder-eof.any.js", "TextDecoder end-of-queue handling", WptDivergence.NeedsLegacyMultiByteEncodings),
@@ -379,6 +382,30 @@ public class WptTestRunner
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 64-bit tag, 96-bit iv decryption with altered ciphertext during call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 64-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters),
         new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 64-bit tag, 96-bit iv with * during call", WptDivergence.NeedsPlatformCryptoParameters),
+
+        // The four tag lengths between 96 and 120 bits work on Windows (CNG) and Linux (OpenSSL), whose
+        // AesGcm.TagByteSizes is 12 to 16 — and not on macOS, where Apple's implementation answers 16 to 16
+        // and the engine's ask-the-platform gate refuses everything shorter. These rows therefore PASS on two
+        // legs and FAIL on the third, which no platform-neutral entry can say; they are scoped to macOS, where
+        // the staleness rule still holds them to matching real failures. The "during call" variants are
+        // absent here deliberately: those rows fail on every OS for the copy-order reason and are the
+        // NeedsTriage entries below.
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 96-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 104-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 112-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv decryption with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
+        new("WebCryptoAPI/encrypt_decrypt/aes_gcm.https.any.js", "AES-GCM *, 120-bit tag, 96-bit iv with * after call", WptDivergence.NeedsPlatformCryptoParameters, MacOs),
 
         // The same file's copy-order rows, for the five tag lengths that do work. Spelled per tag rather than
         // as one "* during call" so that the tag-length rows above are not silently filed under the wrong
@@ -666,7 +693,10 @@ public class WptTestRunner
 
         outcome.HarnessError.Should().BeNull($"{file} must run to completion");
 
-        var exclusions = Array.FindAll(_exclusions, e => string.Equals(e.File, file, StringComparison.Ordinal));
+        // An entry scoped to another operating system is invisible here — it excludes nothing and the
+        // staleness rules below do not ask it to match, which is what keeps the table exact per OS.
+        var exclusions = Array.FindAll(_exclusions,
+            e => string.Equals(e.File, file, StringComparison.Ordinal) && e.AppliesOnThisPlatform);
         var matchedFailing = new bool[exclusions.Length];
         var matchedPassing = new List<string>?[exclusions.Length];
         var failures = new List<string>();

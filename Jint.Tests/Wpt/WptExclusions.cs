@@ -55,7 +55,9 @@ internal enum WptDivergence
     /// </description></item>
     /// <item><description>
     /// AES-GCM takes a <b>96- to 128-bit tag</b> (<c>AesGcm.TagByteSizes</c> is 12 to 16), where the
-    /// specification's list also holds 32 and 64.
+    /// specification's list also holds 32 and 64 — and on macOS <b>only 128 bits</b>, Apple's implementation
+    /// answering 16 to 16, which is why the 96- to 120-bit rows are the platform-scoped entries the
+    /// <c>Platform</c> parameter exists for.
     /// </description></item>
     /// <item><description>
     /// RSA-OAEP takes <b>no label</b>: .NET exposes OAEP through <c>RSAEncryptionPadding</c>, which has no
@@ -173,9 +175,22 @@ internal enum WptDivergence
 /// blanket over cases that work.
 /// </param>
 /// <param name="Divergence">Which category of not-passing this is.</param>
-internal sealed record WptExclusion(string File, string TestName, WptDivergence Divergence)
+/// <param name="Platform">
+/// The one operating system this entry applies on, or <see langword="null"/> — almost always null — for an
+/// entry that applies everywhere. A platform-scoped entry exists for the case where the <i>platform's</i>
+/// crypto draws its limits differently per OS: Apple's AES-GCM takes only a 128-bit tag where CNG and
+/// OpenSSL take 96 to 128 bits, so the sub-128-bit-tag rows pass on Windows and Linux and fail on macOS —
+/// no platform-neutral entry can name them without covering passing tests somewhere. On any other OS a
+/// scoped entry is invisible: it excludes nothing and the staleness rule does not ask it to match, so the
+/// discipline stays exact on every leg rather than being loosened to their union.
+/// </param>
+internal sealed record WptExclusion(string File, string TestName, WptDivergence Divergence, System.Runtime.InteropServices.OSPlatform? Platform = null)
 {
     internal bool Matches(string testName) => MatchesPattern(TestName, testName);
+
+    /// <summary>Whether this entry participates on the operating system the run is on.</summary>
+    internal bool AppliesOnThisPlatform =>
+        Platform is not { } platform || System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(platform);
 
     /// <summary>
     /// Whether <paramref name="value"/> is what <paramref name="pattern"/> names: an ordinal match, unless
