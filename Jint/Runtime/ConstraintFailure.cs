@@ -1,3 +1,5 @@
+using Jint.Runtime.Modules;
+
 namespace Jint.Runtime;
 
 /// <summary>
@@ -31,6 +33,7 @@ internal static class ConstraintFailure
         or MemoryLimitExceededException
         or StatementsCountOverflowException
         or RecursionDepthOverflowException
+        or ModuleGraphLimitException
         or TimeoutException
         or OperationCanceledException
         or PlatformNotSupportedException

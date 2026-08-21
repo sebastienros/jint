@@ -137,6 +137,31 @@ public sealed class ModuleBuilder
     }
 
     /// <summary>
+    /// Returns the UTF-8 byte count of the accumulated source, or 0 for exports-only/prepared modules.
+    /// </summary>
+    internal long GetSourceByteCount()
+    {
+        if (_module is not null)
+        {
+            return 0; // Prepared module — original source size unknowable.
+        }
+
+        if (_sourceRaw.Count == 0)
+        {
+            return 0; // Exports-only — no source.
+        }
+
+        long bytes = 0;
+        foreach (var s in _sourceRaw)
+        {
+            bytes += System.Text.Encoding.UTF8.GetByteCount(s);
+        }
+
+        bytes += (long) (_sourceRaw.Count - 1) * System.Text.Encoding.UTF8.GetByteCount(Environment.NewLine);
+        return bytes;
+    }
+
+    /// <summary>
     /// Parses the accumulated source, naming the module <paramref name="location"/>. That is the key the loader
     /// resolved the registration to rather than the name it was registered under, since it is what the module's
     /// own relative imports are resolved against; the two are the same string unless the loader canonicalized.

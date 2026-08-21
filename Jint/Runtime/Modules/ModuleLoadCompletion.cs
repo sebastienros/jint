@@ -59,6 +59,13 @@ public sealed class ModuleLoadCompletion
     private readonly MemoryLimitConstraint.OperationState? _memoryState;
     private readonly ParsingConstraints _parsingConstraints;
 
+    /// <summary>
+    /// The engine cancellation token that governed the load when it was registered. A deferred settle can run
+    /// on a background thread while an async host operation owns the engine, so it must neither enter the
+    /// engine to rediscover this state nor observe a token installed for a later operation.
+    /// </summary>
+    private readonly CancellationToken _cancellationToken;
+
     private readonly List<Waiter> _waiters = new();
     private int _settled;
 
@@ -83,6 +90,7 @@ public sealed class ModuleLoadCompletion
         _realm = Engine.Realm;
         _memoryState = Engine.CaptureMemoryLimitState();
         _parsingConstraints = Engine.GetActiveParsingConstraints();
+        _cancellationToken = Engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
     }
 
     /// <summary>The engine the module is being loaded for.</summary>
@@ -106,7 +114,13 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(code));
         }
 
-        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, code, _parsingConstraints)));
+        Settle(() => Build(() =>
+        {
+            _modules.EnsureModuleRegistrationAllowed(
+                _cacheKey,
+                System.Text.Encoding.UTF8.GetByteCount(code));
+            return ModuleFactory.BuildFromContents(Engine, Resolved, code, _parsingConstraints);
+        }));
     }
 
     /// <summary>
@@ -120,7 +134,11 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(bytes));
         }
 
-        Settle(() => Build(() => ModuleFactory.BuildFromContents(Engine, Resolved, bytes, _parsingConstraints)));
+        Settle(() => Build(() =>
+        {
+            _modules.EnsureModuleRegistrationAllowed(_cacheKey, bytes.Length);
+            return ModuleFactory.BuildFromContents(Engine, Resolved, bytes, _parsingConstraints);
+        }));
     }
 
     /// <summary>
@@ -146,7 +164,8 @@ public sealed class ModuleLoadCompletion
     /// <summary>
     /// Fails the load. Every importer waiting on it — the promise from a dynamic <c>import()</c>, the load
     /// phase of a static import graph — is rejected with an <c>Error</c> carrying
-    /// <paramref name="exception"/>'s message.
+    /// <paramref name="exception"/>'s message. Engine resource-limit and cancellation exceptions propagate
+    /// instead, because turning them into a script-catchable rejection would defeat the bound.
     /// </summary>
     public void SetError(Exception exception)
     {
@@ -155,7 +174,7 @@ public sealed class ModuleLoadCompletion
             Throw.ArgumentNullException(nameof(exception));
         }
 
-        if (exception is ParsingLimitException)
+        if (MustPropagateLoaderException(exception, _cancellationToken))
         {
             Settle(() => Propagate(exception));
             return;
@@ -176,6 +195,16 @@ public sealed class ModuleLoadCompletion
         Settle(() => Fail(exception: null, error: null, message ?? "Could not load module"));
     }
 
+    internal void SetConstraintError(Exception exception)
+    {
+        Settle(() =>
+        {
+            _modules.RemovePendingLoad(_cacheKey);
+            _waiters.Clear();
+            ExceptionDispatchInfo.Capture(exception).Throw();
+        });
+    }
+
     internal void AddWaiter(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleLoadPayload payload)
     {
         _waiters.Add(new Waiter(referrer, referrerLocation, request, payload));
@@ -184,6 +213,8 @@ public sealed class ModuleLoadCompletion
     internal void OpenInlineSettleWindow() => _inlineSettleThreadId = Environment.CurrentManagedThreadId;
 
     internal void CloseInlineSettleWindow() => _inlineSettleThreadId = -1;
+
+    internal CancellationToken CancellationToken => _cancellationToken;
 
     private void Settle(Action onEngineThread)
     {
@@ -240,7 +271,7 @@ public sealed class ModuleLoadCompletion
                 // Registration is inside the try so a throwing debugger callback cannot leave the waiters
                 // stranded below with the module half-registered above them.
                 _modules.RemovePendingLoad(_cacheKey);
-                _modules.RegisterModule(_cacheKey, module);
+                _modules.RegisterModuleWithAccounting(_cacheKey, module, module.SourceByteLength);
             }
             catch (JavaScriptException ex)
             {
@@ -374,6 +405,34 @@ public sealed class ModuleLoadCompletion
     /// recurses too deeply fails outside every one of these catches.
     /// </remarks>
     internal static bool MustPropagate(Exception exception) => ConstraintFailure.MustPropagate(exception);
+
+    internal static bool MustPropagateLoaderException(Engine engine, Exception exception)
+        => MustPropagateLoaderException(
+            exception,
+            engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None);
+
+    private static bool MustPropagateLoaderException(Exception exception, CancellationToken cancellationToken)
+    {
+        if (exception is ExecutionCanceledException
+            or ParsingLimitException
+            or MemoryLimitExceededException
+            or StatementsCountOverflowException
+            or RecursionDepthOverflowException
+            or ModuleGraphLimitException
+            or System.Text.RegularExpressions.RegexMatchTimeoutException
+            or OutOfMemoryException)
+        {
+            return true;
+        }
+
+        if (exception is OperationCanceledException)
+        {
+            return Throw.IsEngineAbortException(exception)
+                   || cancellationToken.IsCancellationRequested;
+        }
+
+        return exception is TimeoutException && Throw.IsEngineAbortException(exception);
+    }
 
     private Native.Object.ObjectInstance CreateError(string message) => Engine.Realm.Intrinsics.Error.Construct(message);
 

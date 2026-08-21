@@ -113,6 +113,14 @@ public partial class Engine
         private JsValue? _lastLoadFailureError;
         private ExceptionDispatchInfo? _lastLoadFailure;
 
+        // --- Module graph limit accounting ---
+
+        /// <summary>Cumulative count of distinct module records registered in this engine.</summary>
+        private int _registeredModuleCount;
+
+        /// <summary>Cumulative total UTF-8 source bytes of all registered modules.</summary>
+        private long _totalModuleSourceBytes;
+
         public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
             ModuleLoader = moduleLoader;
@@ -144,9 +152,117 @@ public partial class Engine
         /// </summary>
         internal int PendingModuleLoadCount => _pendingLoads?.Count ?? 0;
 
+        // --- Guarded resolution and registration ---
+
+        /// <summary>
+        /// Resolves a module request through the loader, enforcing policy and consuming one resolution hop.
+        /// All import-driven resolution call sites must go through this method so policy cannot be bypassed.
+        /// </summary>
+        private ResolvedSpecifier GuardedResolve(
+            string? referrerLocation,
+            ModuleRequest request,
+            ModuleLoadBudget budget)
+        {
+            budget.ConsumeResolutionHop(request.Specifier);
+
+            var resolved = ModuleLoader.Resolve(referrerLocation, request);
+
+            var policy = _engine.Options.Modules.LoadPolicy;
+            if (policy is not null && !policy.AllowLoad(referrerLocation, request, resolved))
+            {
+                Throw.ModuleResolutionException("Module load denied by policy", request.Specifier, referrerLocation);
+            }
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// Resolves for registration indexing. Applies policy but does NOT consume a resolution hop, so
+        /// accumulated registrations do not exhaust a per-operation budget on pooled engines.
+        /// </summary>
+        private ResolvedSpecifier? GuardedResolveForIndex(string specifier)
+        {
+            var resolved = ModuleLoader.Resolve(referencingModuleLocation: null, new ModuleRequest(specifier, []));
+
+            var policy = _engine.Options.Modules.LoadPolicy;
+            if (policy is not null && !policy.AllowLoad(null, new ModuleRequest(specifier, []), resolved))
+            {
+                return null; // Silently skip indexing for denied specifiers.
+            }
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// Checks module count and source byte limits, then registers the module.
+        /// </summary>
+        internal void EnsureModuleRegistrationAllowed(
+            ModuleCacheKey cacheKey,
+            long sourceByteCount)
+        {
+            var opts = _engine.Options.Modules;
+
+            if (opts.MaxModuleCount != int.MaxValue && _registeredModuleCount >= opts.MaxModuleCount)
+            {
+                throw new ModuleGraphLimitException(
+                    $"Module count limit of {opts.MaxModuleCount} exceeded while registering module '{cacheKey.Key}'.");
+            }
+
+            if (sourceByteCount < 0)
+            {
+                Throw.InvalidOperationException("A module source byte count cannot be negative.");
+            }
+
+            if (opts.MaxTotalModuleSourceBytes != long.MaxValue
+                && sourceByteCount > opts.MaxTotalModuleSourceBytes - _totalModuleSourceBytes)
+            {
+                throw new ModuleGraphLimitException(
+                    $"Module total source byte limit of {opts.MaxTotalModuleSourceBytes} exceeded while registering module '{cacheKey.Key}'.");
+            }
+        }
+
+        internal void RegisterModuleWithAccounting(ModuleCacheKey cacheKey, Module module, long sourceByteCount)
+        {
+            if (_modules.TryGetValue(cacheKey, out var existing))
+            {
+                if (!ReferenceEquals(existing, module))
+                {
+                    Throw.InvalidOperationException(
+                        $"Module '{cacheKey.Key}' is already registered with a different module record.");
+                }
+
+                return;
+            }
+
+            EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount);
+            var sourceBytesReserved = false;
+            _registeredModuleCount++;
+            try
+            {
+                _totalModuleSourceBytes = checked(_totalModuleSourceBytes + sourceByteCount);
+                sourceBytesReserved = true;
+                // Reserve the budget before the debugger callback inside RegisterModule can re-enter the
+                // engine. A nested load must observe this module's pending charge rather than over-commit the
+                // limit, and a throwing callback rolls the reservation back with the failed registration.
+                RegisterModule(cacheKey, module);
+            }
+            catch
+            {
+                _registeredModuleCount--;
+                if (sourceBytesReserved)
+                {
+                    _totalModuleSourceBytes -= sourceByteCount;
+                }
+                throw;
+            }
+        }
+
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
-            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
+            var moduleResolution = GuardedResolve(
+                referencingModuleLocation,
+                request,
+                new ModuleLoadBudget(_engine.Options.Modules));
             var cacheKey = ModuleCacheKey.From(moduleResolution);
 
             if (_modules.TryGetValue(cacheKey, out var module))
@@ -207,14 +323,15 @@ public partial class Engine
             ResolvedSpecifier moduleResolution;
             try
             {
-                moduleResolution = ModuleLoader.Resolve(referrerLocation, request);
+                moduleResolution = GuardedResolve(referrerLocation, request, payload.Budget);
             }
             catch (JavaScriptException ex)
             {
                 Finish(module: null, ex.Error, ex);
                 return;
             }
-            catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
+            catch (Exception ex) when (_engine._eventLoop.IsRunningJob
+                                       && !ModuleLoadCompletion.MustPropagateLoaderException(_engine, ex))
             {
                 // A loader signals refusal with whatever exception it likes — DefaultModuleLoader throws
                 // ModuleResolutionException, a sibling of JavaScriptException that the catch above does not
@@ -276,6 +393,7 @@ public partial class Engine
 
             if (AsyncModuleLoader is not null)
             {
+                EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount: 0);
                 var completion = new ModuleLoadCompletion(this, moduleResolution, cacheKey);
                 completion.AddWaiter(referrer, referrerLocation, request, payload);
                 (_pendingLoads ??= new Dictionary<ModuleCacheKey, ModuleLoadCompletion>())[cacheKey] = completion;
@@ -293,7 +411,7 @@ public partial class Engine
                     // a rejection rather than an exception on whatever thread happened to be evaluating. The
                     // filter is what keeps an exception thrown *after* an inline settle propagating: SetError
                     // on a settled completion is a no-op, and Build deliberately rethrows non-module failures.
-                    if (ModuleLoadCompletion.MustPropagate(ex))
+                    if (ModuleLoadCompletion.MustPropagateLoaderException(_engine, ex))
                     {
                         // A constraint that becomes a rejection no longer bounds anything: the same cancelled
                         // engine with a synchronous loader surfaces ExecutionCanceledException, and a host's
@@ -490,6 +608,7 @@ public partial class Engine
             // the pass as already running and cannot start a second one over the same registrations. The
             // trade-off is that such a re-entrant call consults the index before this pass has finished
             // filling it and may miss a still-unindexed registration.
+            var previousIndexedBuildersVersion = _indexedBuildersVersion;
             _indexedBuildersVersion = _buildersVersion;
 
             List<string>? pending = null;
@@ -506,69 +625,89 @@ public partial class Engine
                 return;
             }
 
-            foreach (var specifier in pending)
+            string? indexingSpecifier = null;
+            try
             {
-                // Marked before resolving, so a specifier the loader refuses is attempted once rather than on
-                // every load.
-                (_indexedBuilders ??= new HashSet<string>(StringComparer.Ordinal)).Add(specifier);
-
-                string? resolvedKey;
-                try
+                foreach (var specifier in pending)
                 {
-                    // A registration is a top-level name, so it is resolved the way Modules.Import resolves
-                    // one: against no referrer.
-                    resolvedKey = ModuleLoader.Resolve(referencingModuleLocation: null, new ModuleRequest(specifier, [])).Key;
-                }
+                    indexingSpecifier = specifier;
+
+                    // Marked before resolving, so a specifier the loader refuses is attempted once rather than
+                    // on every load.
+                    (_indexedBuilders ??= new HashSet<string>(StringComparer.Ordinal)).Add(specifier);
+
+                    string? resolvedKey;
+                    try
+                    {
+                        // A registration is a top-level name, so it is resolved the way Modules.Import resolves
+                        // one: against no referrer. Uses GuardedResolveForIndex so policy applies but no
+                        // resolution-hop budget is consumed — registration indexing is not per-import work.
+                        var resolved = GuardedResolveForIndex(specifier);
+                        resolvedKey = resolved?.Key;
+                    }
 #pragma warning disable CA1031 // a loader may signal "I will not resolve that" with any exception it likes
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                    catch (Exception ex) when (ex is not OperationCanceledException
+                                               && !ModuleLoadCompletion.MustPropagateLoaderException(_engine, ex))
 #pragma warning restore CA1031
+                    {
+                        // A loader is free to reject a specifier outright - DefaultModuleLoader throws for a
+                        // directory import, an unauthorized path or an invalid specifier. Such a registration is
+                        // simply left unindexed, leaving it exactly as reachable as it was before this index
+                        // existed, and the attempt is not repeated. Letting the exception out would instead fail
+                        // an unrelated import that merely happened to run the indexing pass. Cancellation is
+                        // different: it is the host calling off the whole operation, not the loader refusing one
+                        // name, so it propagates.
+                        continue;
+                    }
+
+                    if (resolvedKey is null)
+                    {
+                        // A loader compiled without nullable annotations can hand back a null key instead of
+                        // throwing; treat it as the refusal it is rather than failing the triggering import.
+                        continue;
+                    }
+
+                    if (string.Equals(resolvedKey, specifier, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    string? collidingRegistration = null;
+                    if (_builders.ContainsKey(resolvedKey))
+                    {
+                        collidingRegistration = resolvedKey;
+                    }
+                    else if (_builderKeys is not null
+                        && _builderKeys.TryGetValue(resolvedKey, out var other)
+                        && !string.Equals(other, specifier, StringComparison.Ordinal)
+                        && _builders.ContainsKey(other))
+                    {
+                        collidingRegistration = other;
+                    }
+
+                    if (collidingRegistration is not null)
+                    {
+                        // Two live registrations sharing one resolved identity: whichever lost would be silently
+                        // unreachable under every name - its own raw name resolves to the shared key too - which
+                        // is the exact failure this index exists to eliminate. So it fails as loudly as
+                        // registering the same spelling twice fails in Add.
+                        Throw.InvalidOperationException(
+                            $"Module '{specifier}' resolves to '{resolvedKey}', which already identifies the registration '{collidingRegistration}'. Two registrations must not resolve to the same specifier.");
+                    }
+
+                    (_builderKeys ??= new Dictionary<string, string>(StringComparer.Ordinal))[resolvedKey] = specifier;
+                    indexingSpecifier = null;
+                }
+            }
+            catch
+            {
+                if (indexingSpecifier is not null)
                 {
-                    // A loader is free to reject a specifier outright - DefaultModuleLoader throws for a
-                    // directory import, an unauthorized path or an invalid specifier. Such a registration is
-                    // simply left unindexed, leaving it exactly as reachable as it was before this index
-                    // existed, and the attempt is not repeated. Letting the exception out would instead fail
-                    // an unrelated import that merely happened to run the indexing pass. Cancellation is
-                    // different: it is the host calling off the whole operation, not the loader refusing one
-                    // name, so it propagates.
-                    continue;
+                    _indexedBuilders?.Remove(indexingSpecifier);
                 }
 
-                if (resolvedKey is null)
-                {
-                    // A loader compiled without nullable annotations can hand back a null key instead of
-                    // throwing; treat it as the refusal it is rather than failing the triggering import.
-                    continue;
-                }
-
-                if (string.Equals(resolvedKey, specifier, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                string? collidingRegistration = null;
-                if (_builders.ContainsKey(resolvedKey))
-                {
-                    collidingRegistration = resolvedKey;
-                }
-                else if (_builderKeys is not null
-                    && _builderKeys.TryGetValue(resolvedKey, out var other)
-                    && !string.Equals(other, specifier, StringComparison.Ordinal)
-                    && _builders.ContainsKey(other))
-                {
-                    collidingRegistration = other;
-                }
-
-                if (collidingRegistration is not null)
-                {
-                    // Two live registrations sharing one resolved identity: whichever lost would be silently
-                    // unreachable under every name - its own raw name resolves to the shared key too - which
-                    // is the exact failure this index exists to eliminate. So it fails as loudly as
-                    // registering the same spelling twice fails in Add.
-                    Throw.InvalidOperationException(
-                        $"Module '{specifier}' resolves to '{resolvedKey}', which already identifies the registration '{collidingRegistration}'. Two registrations must not resolve to the same specifier.");
-                }
-
-                (_builderKeys ??= new Dictionary<string, string>(StringComparer.Ordinal))[resolvedKey] = specifier;
+                _indexedBuildersVersion = previousIndexedBuildersVersion;
+                throw;
             }
         }
 
@@ -600,10 +739,12 @@ public partial class Engine
             // registration name would leave a builder module reached through the index resolving its nested
             // imports against a name the loader never produced. A module supplied pre-compiled keeps its
             // prepare-time name instead; see ModuleBuilder.AddModule.
+            var sourceByteCount = moduleBuilder.GetSourceByteCount();
+            EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount);
             var parsedModule = moduleBuilder.Parse(cacheKey.Key);
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
             var module = new BuilderModule(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
-            RegisterModule(cacheKey, module);
+            RegisterModuleWithAccounting(cacheKey, module, sourceByteCount);
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
@@ -611,8 +752,10 @@ public partial class Engine
 
         private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
+            EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount: 0);
             var module = ModuleLoader.LoadModule(_engine, moduleResolution);
-            RegisterModule(cacheKey, module);
+            var sourceBytes = module.SourceByteLength;
+            RegisterModuleWithAccounting(cacheKey, module, sourceBytes);
             return module;
         }
 
@@ -706,7 +849,8 @@ public partial class Engine
 
         private ObjectInstance ImportCore(ModuleRequest request, string? referencingModuleLocation)
         {
-            var module = LoadRootModule(request, referencingModuleLocation);
+            var budget = new ModuleLoadBudget(_engine.Options.Modules);
+            var module = LoadRootModule(request, referencingModuleLocation, budget);
 
             // The specification's load phase. Everything the module imports has to be present before it can
             // be linked, and with an asynchronous loader "present" is not something the engine can arrange by
@@ -719,7 +863,7 @@ public partial class Engine
             // load either way.
             if (module is CyclicModule { Status: ModuleStatus.New })
             {
-                RunLoadPhaseBlocking(module);
+                RunLoadPhaseBlocking(module, budget);
             }
 
             if (module is not CyclicModule cyclicModule)
@@ -798,7 +942,11 @@ public partial class Engine
         {
             var request = new ModuleRequest(specifier, []);
             var capability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
-            var payload = new DynamicImportPayload(_engine, request, capability);
+            var payload = new DynamicImportPayload(
+                _engine,
+                request,
+                capability,
+                new ModuleLoadBudget(_engine.Options.Modules));
 
             try
             {
@@ -808,7 +956,7 @@ public partial class Engine
             {
                 capability.Reject(ex.Error);
             }
-            catch (Exception ex) when (!ModuleLoadCompletion.MustPropagate(ex))
+            catch (Exception ex) when (!ModuleLoadCompletion.MustPropagateLoaderException(_engine, ex))
             {
                 // Resolution refusals arrive as ModuleResolutionException — not JavaScriptException — and the
                 // same failure delivered through the loader's asynchronous settle would arrive as the
@@ -817,7 +965,6 @@ public partial class Engine
                 // start call.
                 capability.Reject(_engine.Realm.Intrinsics.Error.Construct(ex.Message));
             }
-
             var operation = new ModuleImportOperation(_engine, capability.PromiseInstance);
 
             // Reactions rather than polling, so that the operation is also what marks the rejection handled and
@@ -892,9 +1039,12 @@ public partial class Engine
         /// Loads the root of a module graph: a <c>HostLoadImportedModule</c> call like any other, so with an
         /// asynchronous loader it may only finish on a later turn of the event loop.
         /// </summary>
-        private Module LoadRootModule(ModuleRequest request, string? referencingModuleLocation)
+        private Module LoadRootModule(
+            ModuleRequest request,
+            string? referencingModuleLocation,
+            ModuleLoadBudget budget)
         {
-            var payload = new RootModuleLoadPayload();
+            var payload = new RootModuleLoadPayload(budget);
             _engine._host.LoadImportedModule(referrer: null, referencingModuleLocation, request, payload);
 
             if (!payload.IsCompleted)
@@ -937,9 +1087,12 @@ public partial class Engine
         /// Runs <see cref="Module.LoadRequestedModules"/> and, for an asynchronous loader, drives the event
         /// loop until the graph is in. Throws whatever the load failed with.
         /// </summary>
-        private void RunLoadPhaseBlocking(Module module)
+        private void RunLoadPhaseBlocking(Module module, ModuleLoadBudget budget)
         {
-            if (module.LoadRequestedModules() is not JsPromise loadPromise)
+            var loadResult = module is CyclicModule cyclicModule
+                ? cyclicModule.LoadRequestedModulesWithBudget(budget)
+                : module.LoadRequestedModules();
+            if (loadResult is not JsPromise loadPromise)
             {
                 return;
             }

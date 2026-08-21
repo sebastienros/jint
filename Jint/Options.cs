@@ -896,6 +896,54 @@ public partial class Options
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
         public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+
+        /// <summary>
+        /// Maximum number of distinct module records an engine may register over its lifetime. Charged once per
+        /// successfully registered module (cache key); cached, duplicate or coalesced loads do not recharge.
+        /// Programmatic modules (<see cref="Engine.ModuleOperations.Add(string,string)"/>) participate.
+        /// <see cref="int.MaxValue"/> means unlimited (the default). A non-positive finite value throws at
+        /// engine construction.
+        /// </summary>
+        public int MaxModuleCount { get; set; } = int.MaxValue;
+
+        /// <summary>
+        /// Maximum cumulative UTF-8 encoded source bytes across all modules registered in an engine's lifetime.
+        /// Charged once per distinct module at registration time. Modules whose original encoded source size is
+        /// unknowable — exports-only builders, prepared modules, and custom <see cref="Module"/> records —
+        /// charge 0 bytes; raw byte modules use their exact byte length; string sources use their UTF-8 byte
+        /// count. <see cref="long.MaxValue"/> means unlimited (the default). A non-positive finite value throws
+        /// at engine construction.
+        /// </summary>
+        public long MaxTotalModuleSourceBytes { get; set; } = long.MaxValue;
+
+        /// <summary>
+        /// Maximum conservative import-chain depth in a module graph load. Root is depth 1. Strongly connected
+        /// cycles are collapsed for traversal but contribute every module in the cycle to the depth; the longest
+        /// path through that acyclic component graph is enforced. The result is deterministic regardless of DFS
+        /// sibling order or asynchronous completion order and never lets a cycle increase depth without bound.
+        /// A depth that exceeds this limit throws <see cref="ModuleGraphLimitException"/>.
+        /// <see cref="int.MaxValue"/> means unlimited (the default). A non-positive finite value throws at
+        /// engine construction.
+        /// </summary>
+        public int MaxModuleGraphDepth { get; set; } = int.MaxValue;
+
+        /// <summary>
+        /// Maximum number of module-loader <see cref="IModuleLoader.Resolve"/> calls per top-level import or
+        /// load operation. Cached <c>[[LoadedModules]]</c> hits do not count. The budget resets for each
+        /// <see cref="Engine.ModuleOperations.Import(string)"/>,
+        /// <see cref="Engine.ModuleOperations.StartImport(string)"/>, or host call to
+        /// <see cref="Jint.Runtime.Modules.Module.LoadRequestedModules()"/>. Registration indexing does not consume hops, so pooled
+        /// engines never fail from accumulated registrations. <see cref="int.MaxValue"/> means unlimited
+        /// (the default). A non-positive finite value throws at engine construction.
+        /// </summary>
+        public int MaxModuleResolutionHops { get; set; } = int.MaxValue;
+
+        /// <summary>
+        /// An optional policy consulted after resolution but before a module is loaded or fetched. A denial
+        /// throws <see cref="ModuleResolutionException"/> and follows existing sync/rejection behaviour.
+        /// <c>null</c> means no policy (the default — everything the loader resolves is allowed).
+        /// </summary>
+        public IModuleLoadPolicy? LoadPolicy { get; set; }
     }
 
     /// <summary>

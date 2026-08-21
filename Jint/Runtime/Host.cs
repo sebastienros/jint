@@ -203,7 +203,11 @@ public class Host
     /// onto the previous stage's promise, so a load that is still in flight simply means the next stage runs
     /// on a later event-loop turn.
     /// </remarks>
-    internal virtual void ContinueDynamicImport(Module module, ModuleRequest moduleRequest, PromiseCapability payload)
+    internal virtual void ContinueDynamicImport(
+        Module module,
+        ModuleRequest moduleRequest,
+        PromiseCapability payload,
+        ModuleLoadBudget budget)
     {
         // Step 3 of https://tc39.es/proposal-source-phase-imports/#sec-ContinueDynamicImport: a source-phase
         // import settles here and goes no further — the module is never linked or evaluated. It resolves with
@@ -239,7 +243,9 @@ public class Host
         JsValue loadResult;
         try
         {
-            loadResult = module.LoadRequestedModules();
+            loadResult = module is CyclicModule cyclicModule
+                ? cyclicModule.LoadRequestedModulesWithBudget(budget)
+                : module.LoadRequestedModules();
         }
         catch (JavaScriptException ex)
         {

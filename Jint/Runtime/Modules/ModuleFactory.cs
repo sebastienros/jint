@@ -92,10 +92,12 @@ public static class ModuleFactory
         var parser = engine.CreateModuleParser(parserOptions, parsingOptions);
         var module = parser.ParseModuleGuarded(engine, code, source);
 
-        return BuildSourceTextModule(engine, new Prepared<AstModule>(
+        var result = BuildSourceTextModule(engine, new Prepared<AstModule>(
             module,
             parserOptions,
             parsingConstraints: parser.Constraints));
+        result.SourceByteLength = System.Text.Encoding.UTF8.GetByteCount(code);
+        return result;
     }
 
     /// <summary>
@@ -142,7 +144,9 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildJsonModule(engine, module, source);
+        var result = BuildJsonModule(engine, module, source);
+        result.SourceByteLength = System.Text.Encoding.UTF8.GetByteCount(jsonString);
+        return result;
     }
 
     /// <summary>
@@ -177,7 +181,9 @@ public static class ModuleFactory
 
         var uint8Array = engine.Realm.Intrinsics.Uint8Array.Construct([arrayBuffer], engine.Realm.Intrinsics.Uint8Array);
 
-        return new SyntheticModule(engine, engine.Realm, uint8Array, LocationOf(resolved));
+        var result = new SyntheticModule(engine, engine.Realm, uint8Array, LocationOf(resolved));
+        result.SourceByteLength = bytes.Length;
+        return result;
     }
 
     /// <summary>
@@ -194,7 +200,9 @@ public static class ModuleFactory
     /// </remarks>
     public static Module BuildTextModule(Engine engine, ResolvedSpecifier resolved, string text)
     {
-        return new SyntheticModule(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
+        var result = new SyntheticModule(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
+        result.SourceByteLength = System.Text.Encoding.UTF8.GetByteCount(text);
+        return result;
     }
 
     /// <summary>
@@ -232,10 +240,12 @@ public static class ModuleFactory
         var parserOptions = ModuleParsingOptions.Default.GetParserOptions();
         var parser = JintParser.Create(parserOptions, in parsingConstraints);
         var module = parser.ParseModuleGuarded(engine, code, source);
-        return BuildSourceTextModule(engine, new Prepared<AstModule>(
+        var result = BuildSourceTextModule(engine, new Prepared<AstModule>(
             module,
             parserOptions,
             parsingConstraints: parsingConstraints));
+        result.SourceByteLength = System.Text.Encoding.UTF8.GetByteCount(code);
+        return result;
     }
 
     /// <summary>
@@ -256,6 +266,12 @@ public static class ModuleFactory
             return BuildBytesModule(engine, resolved, bytes);
         }
 
-        return BuildFromContents(engine, resolved, System.Text.Encoding.UTF8.GetString(bytes), parsingConstraints);
+        var module = BuildFromContents(
+            engine,
+            resolved,
+            System.Text.Encoding.UTF8.GetString(bytes),
+            parsingConstraints);
+        module.SourceByteLength = bytes.Length;
+        return module;
     }
 }

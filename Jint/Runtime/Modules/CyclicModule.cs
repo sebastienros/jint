@@ -61,6 +61,11 @@ public abstract class CyclicModule : Module
     /// </remarks>
     public override JsValue LoadRequestedModules()
     {
+        return LoadRequestedModulesWithBudget(new ModuleLoadBudget(_engine.Options.Modules));
+    }
+
+    internal JsValue LoadRequestedModulesWithBudget(ModuleLoadBudget budget)
+    {
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
 
         // The load-phase promise is engine-internal plumbing: the blocking Import consumes its rejection by
@@ -69,53 +74,85 @@ public abstract class CyclicModule : Module
         // unhandled-rejection event for a promise the host never created and cannot observe.
         ((JsPromise) capability.PromiseInstance).PromiseIsHandled = true;
 
-        var state = new GraphLoadingState(capability);
-        InnerModuleLoading(state, this);
+        var state = new GraphLoadingState(capability, this, budget);
+        InnerModuleLoading(state, this, depth: 1);
         return capability.PromiseInstance;
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLoading
     /// </summary>
-    internal static void InnerModuleLoading(GraphLoadingState state, Module module)
+    internal static void InnerModuleLoading(GraphLoadingState state, Module module, int depth)
     {
         if (!state.IsLoading)
         {
             Throw.InvalidOperationException("Error while loading module: the graph loading state is no longer loading");
         }
 
-        if (module is CyclicModule cyclicModule
-            && cyclicModule.Status == ModuleStatus.New
-            && !state.Visited.Contains(cyclicModule))
+        state.Enqueue(module, depth);
+        if (!state.TryBeginProcessing())
         {
-            state.Visited.Add(cyclicModule);
-            state.PendingModulesCount += cyclicModule._requestedModules.Count;
-
-            foreach (var request in cyclicModule._requestedModules)
-            {
-                if (cyclicModule.TryGetLoadedModule(request, out var loaded))
-                {
-                    InnerModuleLoading(state, loaded);
-                }
-                else
-                {
-                    // HostLoadImportedModule finishes the request - now or on a later turn - by calling
-                    // FinishLoadingImportedModule, which re-enters this method through
-                    // GraphLoadingState.Continue.
-                    cyclicModule._engine._host.LoadImportedModule(cyclicModule, request, state);
-                }
-
-                // Step 2.d.iii: a failed sibling ends the whole load; the remaining requests must not be
-                // started. Only reachable for a loader that answers synchronously - an asynchronous one has
-                // not settled anything by the time control returns here.
-                if (!state.IsLoading)
-                {
-                    return;
-                }
-            }
+            return;
         }
 
-        state.SettleOnePendingModule();
+        try
+        {
+            while (state.IsLoading && state.TryDequeue(out var pending))
+            {
+                var pendingModule = pending.Module;
+                if (pendingModule is CyclicModule { Status: ModuleStatus.New } cyclicModule
+                    && !state.TryExpand(cyclicModule))
+                {
+                    state.SettleOnePendingModule();
+                    continue;
+                }
+
+                var maximumDepth = state.Budget.MaximumGraphDepth;
+                if (maximumDepth != int.MaxValue && pending.Depth > maximumDepth)
+                {
+                    state.IsLoading = false;
+                    throw new ModuleGraphLimitException(
+                        $"Module graph depth limit of {maximumDepth} exceeded while loading '{pendingModule.Location}'.");
+                }
+
+                if (pendingModule is CyclicModule { Status: ModuleStatus.New } newCyclicModule)
+                {
+                    state.PendingModulesCount += newCyclicModule._requestedModules.Count;
+                    var childDepth = checked(pending.Depth + 1);
+
+                    foreach (var request in newCyclicModule._requestedModules)
+                    {
+                        if (newCyclicModule.TryGetLoadedModule(request, out var loaded))
+                        {
+                            state.RecordEdge(newCyclicModule, loaded);
+                            state.Enqueue(loaded, childDepth);
+                        }
+                        else
+                        {
+                            // A synchronous completion enqueues its module while this loop is running; an
+                            // asynchronous one resumes the same loop on the later engine turn that settles it.
+                            newCyclicModule._engine._host.LoadImportedModule(
+                                newCyclicModule,
+                                request,
+                                new GraphModuleLoadPayload(state, newCyclicModule, childDepth));
+                        }
+
+                        // Step 2.d.iii: a failed sibling ends the whole load; the remaining requests must not be
+                        // started. Only reachable for a loader that answers synchronously.
+                        if (!state.IsLoading)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                state.SettleOnePendingModule();
+            }
+        }
+        finally
+        {
+            state.EndProcessing();
+        }
     }
 
     /// <summary>

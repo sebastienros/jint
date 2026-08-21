@@ -81,6 +81,8 @@ Defaults are compatibility choices, not a hardened profile.
 | Writes through projected CLR objects | Enabled | A default engine can mutate host objects passed with `SetValue` |
 | CLR array conversion | Live view | Script writes can mutate a projected CLR array |
 | Modules | Disabled | The fail-fast loader rejects imports |
+| Module graph limits | Unlimited | Count, source bytes, graph depth, and resolution hops are unbounded unless configured |
+| Module load policy | None | A custom loader's resolved targets are unrestricted unless a policy is configured |
 | `require` | Disabled | No CommonJS-like loader global |
 | Web platform APIs (`Options.WebApi.Features`) | `None` | No `console`, timers, `URL`, `Blob`, … globals exist |
 | `fetch` | Disabled, and never part of `WebApiFeatures.Default` | Only `UseFetch()` grants script outbound HTTP |
@@ -218,27 +220,31 @@ independent process/container CPU and wall-clock limit.
   a script-catchable rejection.
 - The default file loader reads at most the configured source length plus one UTF-16 code
   unit before rejecting, rather than materializing the complete oversized source string.
+- `MaxTotalModuleSourceBytes` can reject loader-provided source before Jint parses it.
 
 **Missing or residual mitigation.**
 
 - Initial `Execute(string)` and `Evaluate(string)` parse before
   `ExecuteWithConstraints`; execution timeout, statement, and memory constraints do not
   bound that parse; parser limits are separate and opt-in.
-- The source limit counts decoded UTF-16 code units, not transport bytes. Custom loaders
-  have already allocated the string they return, and byte-backed sources are checked after
-  decoding unless the loader enforces an earlier byte cap.
+- The parser source limit counts decoded UTF-16 code units, not transport bytes. The module
+  graph byte limit checks loader-provided bytes before decoding, but a custom loader may
+  already have buffered an oversized response before handing its contents to Jint.
 - The node limit bounds the completed AST size, not every speculative parser operation or a
   wall-clock CPU budget. Dynamic parsing cannot be preempted while Acornima is between node
   completions.
 - Prepared scripts and modules are not rechecked when executed. The host that prepares or
   accepts a prepared AST is responsible for applying preparation limits at that trust
   boundary. Those limits do continue to govern dynamic source compiled while it executes.
+- Prepared modules and custom module records have no original encoded source length and
+  therefore contribute zero to `MaxTotalModuleSourceBytes`.
 - Parser limits do not cap aggregate imported source, module count, graph depth, or network
   policy.
 
-**Required host action.** Configure both parser limits, cap encoded request/module bytes and
-source offsets before Jint, cap module count and graph depth, and parse in the disposable
-worker. Disable string compilation unless it is a requirement.
+**Required host action.** Configure parser source and node limits plus module count, byte,
+depth, and hop limits. Cap encoded request/module bytes, source offsets, and custom-loader
+transport responses before Jint, and parse in the disposable worker. Disable string
+compilation unless it is a requirement.
 
 ### TM-06: Memory exhaustion
 
@@ -393,19 +399,33 @@ traces, and `import.meta.url` can disclose paths, hostnames, queries, or credent
 - `DefaultModuleLoader` restricts resolution to its base URI by default.
 - The default loader has no package or HTTP support.
 - Module loads are cached per engine and async loads can be coalesced.
+- `MaxModuleCount`, `MaxTotalModuleSourceBytes`, `MaxModuleGraphDepth`, and
+  `MaxModuleResolutionHops` can bound a configured graph. Limit failures propagate like
+  execution constraints rather than becoming catchable import rejections.
+- `IModuleLoadPolicy` can inspect every final resolved target. `ModuleAllowlistPolicy`
+  provides composable scheme, exact-host, exact-origin, canonical-file-root, and bare-
+  specifier controls.
 
 **Missing or residual mitigation.**
 
-- Custom loader policy is entirely host-defined.
-- Jint has no universal scheme, origin, redirect, DNS, response-byte, graph-size, or graph-
-  depth policy.
+- All graph limits and policy are opt-in.
+- The built-in policy sees the final `ResolvedSpecifier`, not redirects, DNS answers, or
+  transport response headers inside a custom loader. Redirect count, every redirect target,
+  resolved IP ranges, transport bytes, and timeouts remain loader responsibilities.
+- Prepared modules, exports-only modules, and custom module records whose encoded source
+  size is unknowable contribute zero to the source-byte limit.
+- Graph depth and resolution hops are per top-level load. A script can stage a larger
+  engine-lifetime graph across multiple dynamic imports or by loading dependencies first;
+  `MaxModuleCount` and the cumulative source-byte limit remain the aggregate bounds.
+- File-root policy is lexical and does not resolve symbolic links or Windows reparse points;
+  an allowed root containing attacker-controlled links can still escape the lexical root.
 - Base-path checking is not a replacement for filesystem permissions or an OS sandbox.
 - Async loader failures expose the supplied exception message to script.
 
-**Required host action.** Prefer host-registered modules. Otherwise use explicit scheme,
-origin, resolved-IP, path, redirect, size, count, depth, and timeout allow-lists. Use a
-credential-free module identity, sanitize loader errors, and apply restrictive filesystem
-and network policy to the worker.
+**Required host action.** Prefer host-registered modules. Otherwise configure all four graph
+limits and an `IModuleLoadPolicy`; also enforce resolved-IP, redirect, transport-size, and
+timeout policy inside the loader. Use a credential-free module identity, sanitize loader
+errors, and apply restrictive filesystem and network policy to the worker.
 
 ### TM-12: Cross-request state leakage and prototype pollution
 
@@ -1115,6 +1135,26 @@ finally
 }
 ```
 
+If untrusted scripts must use modules, replace the modules-disabled baseline with explicit
+limits and an allowlist matched to the loader:
+
+```csharp
+options.EnableModules(moduleRoot);
+options.Modules.MaxModuleCount = 50;
+options.Modules.MaxTotalModuleSourceBytes = 1_000_000;
+options.Modules.MaxModuleGraphDepth = 10;
+options.Modules.MaxModuleResolutionHops = 200;
+options.Modules.LoadPolicy = new ModuleAllowlistPolicy
+{
+    AllowedSchemes = { "file" },
+    AllowedFileRoots = { moduleRoot },
+};
+```
+
+A network loader must additionally enforce redirect targets/count, DNS and resolved-IP
+policy, response bytes, and timeout/cancellation inside the loader. Jint cannot observe
+those transport steps.
+
 This configuration is incomplete without host controls:
 
 1. Reject oversized encoded script and module input before decoding, and configure Jint's
@@ -1134,14 +1174,16 @@ Before deploying a host that executes untrusted scripts:
 
 - [ ] CLR namespace access, `AllowGetType`, reflection, debugger, and `Atomics.wait` are off.
 - [ ] Projected host objects are immutable or intentionally capability-scoped and read-only.
-- [ ] Source, module graph, callback, result, and log limits are enforced outside Jint.
+- [ ] Initial source, callback, result, and log limits are enforced outside Jint; all four
+  Jint module graph limits are configured when modules are enabled.
 - [ ] Time, statement, memory, recursion, stack, array, regex, promise, and operation limits
   are explicitly configured and tested with adversarial inputs.
 - [ ] Async API cancellation is paired with an engine cancellation constraint.
 - [ ] No engine, mutable host object, `JsValue`, module, or request context crosses trust
   domains.
-- [ ] Custom module loaders enforce scheme, origin, IP, path, redirect, size, and timeout
-  policies and disclose no secrets in names or errors.
+- [ ] An `IModuleLoadPolicy` restricts final resolved targets, and custom module loaders
+  enforce scheme, origin, redirect, resolved-IP, path, transport-size, and timeout policies
+  and disclose no secrets in names or errors.
 - [ ] `fetch` is off, or its `UrlFilter`, `AllowedSchemes`, `MaxResponseBytes`,
   `MaxRedirects`, `Timeout`, and `MaxConcurrentRequests` allow-list the destinations and the
   budgets the workload actually needs, and worker egress is restricted at the network layer

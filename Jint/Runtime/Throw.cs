@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
@@ -46,6 +47,18 @@ internal static class Throw
     public static string SafeToDisplayString(JsValue value)
     {
         return value.IsObject() ? "[object]" : value.ToString();
+    }
+
+    internal static bool IsEngineAbortException(Exception exception)
+        => EngineAbortRegistry.Exceptions.TryGetValue(exception, out _);
+
+    private static void MarkEngineAbort(Exception exception)
+        => EngineAbortRegistry.Exceptions.Add(exception, EngineAbortRegistry.Marker);
+
+    private static class EngineAbortRegistry
+    {
+        internal static readonly ConditionalWeakTable<Exception, object> Exceptions = new();
+        internal static readonly object Marker = new();
     }
 
     [DoesNotReturn]
@@ -201,19 +214,25 @@ internal static class Throw
     [DoesNotReturn]
     public static void TimeoutException()
     {
-        throw new TimeoutException();
+        var exception = new TimeoutException();
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
     public static void TimeoutException(string message)
     {
-        throw new TimeoutException(message);
+        var exception = new TimeoutException(message);
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
     public static void OperationCanceledException(CancellationToken cancellationToken)
     {
-        throw new OperationCanceledException(cancellationToken);
+        var exception = new OperationCanceledException(cancellationToken);
+        MarkEngineAbort(exception);
+        throw exception;
     }
 
     [DoesNotReturn]
