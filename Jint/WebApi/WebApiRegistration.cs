@@ -231,6 +231,16 @@ internal static class WebApiRegistration
             Install(global, engine, "CompressionStream", static e => e.Realm.Intrinsics.CompressionStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "DecompressionStream", static e => e.Realm.Intrinsics.DecompressionStream, PropertyFlag.NonEnumerable);
         }
+
+        if ((features & WebApiFeatures.WebSocket) != WebApiFeatures.None)
+        {
+            Install(global, engine, "WebSocket", static e => e.Realm.Intrinsics.WebSocket, PropertyFlag.NonEnumerable);
+            Install(global, engine, "CloseEvent", static e => e.Realm.Intrinsics.CloseEvent, PropertyFlag.NonEnumerable);
+
+            // MessageEvent is the HTML Standard's; the messaging and event-source features install the same
+            // intrinsic, and Install is non-clobbering, so an engine with any combination gets one object.
+            Install(global, engine, "MessageEvent", static e => e.Realm.Intrinsics.MessageEvent, PropertyFlag.NonEnumerable);
+        }
     }
 
     /// <summary>
@@ -272,6 +282,8 @@ internal static class WebApiRegistration
     /// so installing fetch without them would ship an interface that throws on its own members. An
     /// <c>EventSource</c> is an <c>EventTarget</c> for the same kind of reason, and the reconnect delay it
     /// schedules rides the queue that flag creates.
+    /// A <c>WebSocket</c> <i>is</i> an <c>EventTarget</c> too, and answers a binary message with a
+    /// <c>Blob</c> whenever <c>binaryType</c> says so — the same argument for the same two features.
     /// </para>
     /// </remarks>
     private static WebApiFeatures ExpandFeatures(WebApiFeatures features)
@@ -288,6 +300,11 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.EventSource) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events;
+        }
+
+        if ((features & WebApiFeatures.WebSocket) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events | WebApiFeatures.Files;
         }
 
         return features;
@@ -312,7 +329,7 @@ internal static class WebApiRegistration
         // in-flight set here, the scheduler keeps its own task queues here, and storage keeps its providers
         // here, which is why each of them wants the state even without the timers flag.
         const WebApiFeatures NeedsEngineState =
-            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage;
+            WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket;
 
         // The diagnostics sink is the one thing here no feature flag governs: a host that set one gets the
         // channel whatever else it did or did not ask for, which is why it is read before the flags are.
@@ -339,7 +356,7 @@ internal static class WebApiRegistration
         // Options — and so that a host mutating them afterwards does not change an engine that already exists.
         // EventSource reads the same group: it is a second grant of network access over the same transport
         // and the same policy, so either flag is reason enough to keep them.
-        const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource;
+        const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket;
         var fetch = (features & NeedsFetchOptions) != WebApiFeatures.None ? options.WebApi.Fetch : null;
 
         var scheduler = (features & WebApiFeatures.Scheduler) != WebApiFeatures.None

@@ -235,6 +235,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
+| `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
@@ -644,6 +645,65 @@ reconnection with it, and nothing from the ended cycle is ever dispatched into t
 long-lived and reconnects *on a delay the server chooses*, with no deadline to end it. See
 [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-22 — the short version is to bound the engine's own lifetime
 for untrusted script rather than pooling an engine a script may leave streaming.
+
+### `WebSocket` is the third separate grant
+
+Sockets are their own opt-in, exactly as `fetch` and `EventSource` are: `UseWebSocket()` enables none of the
+other two, they enable no sockets, and `UseWebApis()` enables none of the three. They share their settings,
+not their permission.
+
+```csharp
+var engine = new Engine(options => options.UseWebApis().UseWebSocket(net =>
+{
+    net.AllowedSchemes.Remove("http");                   // wss only
+    net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    net.MaxResponseBytes = 1024 * 1024;                  // the largest single message
+    net.MaxConcurrentRequests = 2;                       // at most two sockets open at once
+}));
+
+engine.Execute("""
+    const ws = new WebSocket('wss://api.example.org/feed', ['v2']);
+    ws.onopen = () => ws.send('hello');
+    ws.onmessage = e => console.log(e.data);
+    ws.onclose = e => console.log(e.code, e.reason, e.wasClean);
+    """);
+
+while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
+```
+
+It is the standard's own object: `url`, `readyState` with the four ready-state constants, `bufferedAmount`,
+`protocol` and `extensions` as the handshake negotiated them, `binaryType` switching binary messages between
+`Blob` (the default, as in a browser) and `ArrayBuffer`, `send` of a string, `Blob`, `ArrayBuffer` or a view
+over one, `close(code, reason)` with the standard's validation, the `onopen`/`onmessage`/`onerror`/`onclose`
+handlers, and the full `EventTarget` surface underneath them. A close lands as the real `CloseEvent` —
+`code`, `reason`, `wasClean` — with RFC 6455's 1000 for a clean close and 1006 when the transport simply
+died. Every event dispatches from the engine's job queue on the engine's thread, only while you pump.
+
+**It reads `Options.WebApi.Fetch`**, with the scheme list read in its WebSocket sense: `http` admits `ws`
+and `https` admits `wss` — so a policy written for fetch carries over — and naming `ws` or `wss` outright
+works too, for a host that wants sockets and not fetches. The `UrlFilter` is shown the `ws:` URL the script
+asked for, which fails safe: a filter that tests `uri.Scheme == "https"` refuses every socket rather than
+admitting one it was never shown. There is no per-hop re-check because there are no hops — the WHATWG
+handshake forbids redirects outright. Three settings shift meaning the same way they do for an event stream:
+
+- **`Timeout` bounds the opening handshake only.** The peer has to answer it; a socket that then idles for an
+  hour is a socket doing its job.
+- **`MaxResponseBytes` bounds one message**, which is what actually has to be held in memory. A peer message
+  over the cap fails the connection with close code 1009 rather than buffering without bound.
+- **`MaxConcurrentRequests` bounds the sockets one engine may have open**, counted separately from fetches
+  and event streams, because a socket holds its connection for as long as it lives. The constructor refuses
+  the one over the limit.
+
+The lifecycle is fenced exactly as a fetch is: the realm and the event-loop generation are captured at
+construction, so `Engine.Advanced.RestoreGlobalSnapshot` closes the socket and nothing from the ended cycle
+— no message, no `close` event — is ever dispatched into the restored engine. An execution constraint that
+erupts through a handler stays a constraint: it is never flattened into an `error` event a script could
+swallow.
+
+**Security.** Everything [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-21 says about destinations applies
+here, and TM-22's caveat applies doubly: a socket is long-lived by design and the peer can keep it alive
+indefinitely, so bound the engine's lifetime for untrusted script rather than pooling an engine a script may
+leave connected.
 
 ### Hosting a fetch handler
 

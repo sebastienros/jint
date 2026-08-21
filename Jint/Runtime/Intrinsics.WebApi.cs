@@ -20,6 +20,7 @@ using Jint.WebApi.Storage;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
+using Jint.WebApi.WebSockets;
 
 namespace Jint.Runtime;
 
@@ -136,6 +137,17 @@ public sealed partial class Intrinsics
     internal EventSourceConstructor EventSource =>
         _eventSource ??= new EventSourceConstructor(_engine, _realm, EventTarget);
 
+
+    private WebSocketConstructor? _webSocket;
+    private CloseEventConstructor? _closeEvent;
+
+    /// <summary><c>CloseEvent</c> inherits from <c>Event</c>.</summary>
+    internal CloseEventConstructor CloseEvent =>
+        _closeEvent ??= new CloseEventConstructor(_engine, _realm, Event);
+
+    /// <summary><c>WebSocket</c> inherits from <c>EventTarget</c>.</summary>
+    internal WebSocketConstructor WebSocket =>
+        _webSocket ??= new WebSocketConstructor(_engine, _realm, EventTarget);
     private HeadersConstructor? _headers;
     private RequestConstructor? _request;
     private ResponseConstructor? _response;
