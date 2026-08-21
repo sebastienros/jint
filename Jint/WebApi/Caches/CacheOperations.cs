@@ -380,7 +380,7 @@ internal static class CacheOperations
         }
         catch (CacheQuotaExceededException ex)
         {
-            capability.Reject(realm.Intrinsics.DomException.CreateException(DomExceptionNames.QuotaExceeded, ex.Message));
+            capability.Reject(realm.Intrinsics.QuotaExceededError.CreateException(ex.Message, ex.Quota, ex.Requested));
         }
         catch (Exception ex) when (!ConstraintFailure.MustPropagate(ex))
         {

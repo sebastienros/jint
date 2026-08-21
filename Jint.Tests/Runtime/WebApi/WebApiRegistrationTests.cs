@@ -20,7 +20,7 @@ public class WebApiRegistrationTests
     {
         var engine = WebEngine();
 
-        foreach (var name in new[] { "console", "DOMException" })
+        foreach (var name in new[] { "console", "DOMException", "QuotaExceededError" })
         {
             var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
 
@@ -54,12 +54,16 @@ public class WebApiRegistrationTests
     [Fact]
     public void InstallsDomExceptionForAnyFeatureButNotForNone()
     {
-        // DOMException has no flag of its own: it exists whenever any web API does.
-        new Engine(options => options.UseWebApis(WebApiFeatures.Console))
-            .Evaluate("typeof DOMException").AsString().Should().Be("function");
+        // DOMException has no flag of its own: it exists whenever any web API does. Neither has the one
+        // interface WebIDL derives from it, https://webidl.spec.whatwg.org/#quotaexceedederror, and for the
+        // same reason — several features report a refusal with it.
+        var enabled = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
+        enabled.Evaluate("typeof DOMException").AsString().Should().Be("function");
+        enabled.Evaluate("typeof QuotaExceededError").AsString().Should().Be("function");
 
-        new Engine(options => options.WebApi.Features = WebApiFeatures.None)
-            .Evaluate("typeof DOMException").AsString().Should().Be("undefined");
+        var none = new Engine(options => options.WebApi.Features = WebApiFeatures.None);
+        none.Evaluate("typeof DOMException").AsString().Should().Be("undefined");
+        none.Evaluate("typeof QuotaExceededError").AsString().Should().Be("undefined");
     }
 
     [Fact]
@@ -71,6 +75,7 @@ public class WebApiRegistrationTests
         // browser, where these APIs are [Exposed=*].
         engine.Evaluate("new ShadowRealm().evaluate('typeof console')").AsString().Should().Be("undefined");
         engine.Evaluate("new ShadowRealm().evaluate('typeof DOMException')").AsString().Should().Be("undefined");
+        engine.Evaluate("new ShadowRealm().evaluate('typeof QuotaExceededError')").AsString().Should().Be("undefined");
 
         // ... and the outer realm still has them.
         engine.Evaluate("typeof console").AsString().Should().Be("object");
@@ -96,6 +101,7 @@ public class WebApiRegistrationTests
 
         engine.Evaluate("typeof console").AsString().Should().Be("object");
         engine.Evaluate("new DOMException('y', 'AbortError').code").AsNumber().Should().Be(20);
+        engine.Evaluate("new QuotaExceededError('y', { quota: 1, requested: 2 }).requested").AsNumber().Should().Be(2);
         engine.Evaluate("typeof e").AsString().Should().Be("undefined");
     }
 

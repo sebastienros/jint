@@ -132,6 +132,21 @@ internal sealed class StructuredSerializer
         SerializedObject record;
         switch (source)
         {
+            // WebIDL declares QuotaExceededError [Serializable] too, and its steps run DOMException's and then
+            // add [[Quota]] and [[Requested]] — https://webidl.spec.whatwg.org/#quotaexceedederror. Checked
+            // before the DOMException arm it derives from, so the interface survives a clone rather than
+            // flattening into a DOMException that merely wears the name.
+            case JsQuotaExceededError quotaExceeded:
+                record = new SerializedQuotaExceededError
+                {
+                    Name = quotaExceeded.Name.ToString(),
+                    Message = quotaExceeded.Message.ToString(),
+                    Stack = ReadStack(quotaExceeded),
+                    Quota = quotaExceeded.Quota.IsNull() ? null : ((JsNumber) quotaExceeded.Quota)._value,
+                    Requested = quotaExceeded.Requested.IsNull() ? null : ((JsNumber) quotaExceeded.Requested)._value,
+                };
+                break;
+
             // WebIDL declares DOMException [Serializable]; its serialization steps carry the name and the
             // message. https://webidl.spec.whatwg.org/#idl-DOMException — checked before the ErrorInstance arm
             // below, which it derives from.

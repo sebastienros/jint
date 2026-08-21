@@ -34,9 +34,10 @@ namespace Jint.WebApi;
 /// <see cref="StorageQuotaExceededException"/> rather than by silently dropping or altering it.
 /// </para>
 /// <para>
-/// <b>Exceptions.</b> A <see cref="StorageQuotaExceededException"/> from <see cref="SetItem"/> becomes a
-/// <c>QuotaExceededError</c> <c>DOMException</c> the script can catch, which is exactly what the
-/// specification's "if value cannot be stored, then throw a QuotaExceededError" step asks for. Every other
+/// <b>Exceptions.</b> A <see cref="StorageQuotaExceededException"/> from <see cref="SetItem"/> becomes the
+/// <c>QuotaExceededError</c> (https://webidl.spec.whatwg.org/#quotaexceedederror) the script can catch, which
+/// is exactly what the specification's "if value cannot be stored, then throw a QuotaExceededError" step asks
+/// for — and it carries whatever <c>quota</c> and <c>requested</c> the exception named. Every other
 /// exception propagates to the host as itself: an I/O failure in a database-backed provider is a host
 /// problem, and turning it into a JavaScript error the script swallows would hide it.
 /// </para>
@@ -111,8 +112,8 @@ public abstract class StorageProvider
     /// <param name="key">The key to write. Never <see langword="null"/>.</param>
     /// <param name="value">The value to store. Never <see langword="null"/>.</param>
     /// <exception cref="StorageQuotaExceededException">
-    /// The value cannot be stored. The script sees a catchable <c>QuotaExceededError</c>
-    /// <c>DOMException</c>, and the store must be left exactly as it was.
+    /// The value cannot be stored. The script sees a catchable <c>QuotaExceededError</c>, and the store must
+    /// be left exactly as it was.
     /// </exception>
     public abstract void SetItem(string key, string value);
 
@@ -132,13 +133,22 @@ public abstract class StorageProvider
 
 /// <summary>
 /// Thrown by a <see cref="StorageProvider"/> that cannot store a value, and turned by the engine into the
-/// <c>QuotaExceededError</c> <c>DOMException</c> the Web Storage standard's <c>setItem</c> raises. Requires
-/// .NET 8 or higher.
+/// <c>QuotaExceededError</c> the Web Storage standard's <c>setItem</c> raises. Requires .NET 8 or higher.
 /// </summary>
 /// <remarks>
-/// This is the one exception a provider may use to reach the script: its message becomes the
-/// <c>DOMException</c>'s message, and everything else a provider throws reaches the host unchanged. It is
-/// deliberately not a <c>JintException</c> — a host raises it, the engine only translates it.
+/// <para>
+/// This is the one exception a provider may use to reach the script: its message becomes the error's message,
+/// and everything else a provider throws reaches the host unchanged. It is deliberately not a
+/// <c>JintException</c> — a host raises it, the engine only translates it.
+/// </para>
+/// <para>
+/// <see cref="Quota"/> and <see cref="Requested"/> are the two numbers
+/// <see href="https://webidl.spec.whatwg.org/#quotaexceedederror">QuotaExceededError</see> carries, and the
+/// engine passes whatever this exception holds straight through to the script. They are
+/// <see langword="null"/> unless a constructor was given them, which is what the interface says an
+/// unspecified quota reads as — a provider that has no meaningful figure to report leaves them alone rather
+/// than inventing one.
+/// </para>
 /// </remarks>
 public sealed class StorageQuotaExceededException : Exception
 {
@@ -151,7 +161,7 @@ public sealed class StorageQuotaExceededException : Exception
     }
 
     /// <summary>
-    /// Initializes a new instance with the message the script's <c>DOMException</c> will carry.
+    /// Initializes a new instance with the message the script's error will carry.
     /// </summary>
     /// <param name="message">The message, which reaches the script.</param>
     public StorageQuotaExceededException(string message) : base(message)
@@ -166,5 +176,42 @@ public sealed class StorageQuotaExceededException : Exception
     public StorageQuotaExceededException(string message, Exception innerException) : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// Initializes a new instance that also reports how much room there was and how much the write wanted,
+    /// which the script reads back as <c>error.quota</c> and <c>error.requested</c>.
+    /// </summary>
+    /// <param name="message">The message, which reaches the script.</param>
+    /// <param name="quota">How much the store may hold, in whatever unit the provider counts in.</param>
+    /// <param name="requested">
+    /// How much the refused write would have taken the store to, in that same unit. It is the <i>total</i>
+    /// rather than the increment, which is what makes it comparable with <paramref name="quota"/>.
+    /// </param>
+    /// <param name="innerException">The underlying failure, which the script never sees.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A value is negative or not finite, or <paramref name="requested"/> is less than
+    /// <paramref name="quota"/> — the three things
+    /// <see href="https://webidl.spec.whatwg.org/#quotaexceedederror">QuotaExceededError</see> forbids, checked
+    /// here so that a mistake is reported where it was made rather than reaching the script as a nonsensical
+    /// pair of numbers.
+    /// </exception>
+    public StorageQuotaExceededException(string message, double quota, double requested, Exception? innerException = null)
+        : base(message, innerException)
+    {
+        QuotaExceededAmounts.Validate(quota, requested);
+        Quota = quota;
+        Requested = requested;
+    }
+
+    /// <summary>
+    /// How much the store may hold, or <see langword="null"/> when this exception does not say.
+    /// </summary>
+    public double? Quota { get; }
+
+    /// <summary>
+    /// How much the refused write would have taken the store to, or <see langword="null"/> when this exception
+    /// does not say.
+    /// </summary>
+    public double? Requested { get; }
 }
 #endif

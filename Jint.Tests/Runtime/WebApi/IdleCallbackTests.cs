@@ -309,11 +309,13 @@ public class IdleCallbackTests
             try {
                 requestIdleCallback(() => {}, { timeout: 100 });
             } catch (e) {
-                log.push(e.constructor.name, e.name);
+                log.push(e.constructor.name, e.name, e.code, e.quota, e.requested);
             }
             """);
 
-        Log(engine).Should().Be("DOMException,QuotaExceededError");
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the cap it hit and the
+        // count the refused registration would have taken the engine to.
+        Log(engine).Should().Be("QuotaExceededError,QuotaExceededError,22,1,2");
     }
 
     /// <summary>

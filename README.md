@@ -215,7 +215,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | API | Feature flag | Status |
 | --- | --- | --- |
 | `console` (`log`/`warn`/`error`/`group`/`count`/`time`/`assert`/`trace`/`dir`/`table`) | `WebApiFeatures.Console` | ✔ shipped |
-| `DOMException` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
+| `DOMException` / `QuotaExceededError` | *(no flag — installed whenever any feature is enabled)* | ✔ shipped |
 | `setTimeout` / `setInterval` / `clearTimeout` / `clearInterval` / `queueMicrotask` | `WebApiFeatures.Timers` | ✔ shipped |
 | `TextEncoder` (UTF-8) / `TextDecoder` (UTF-8, UTF-16LE/BE, every legacy single-byte encoding, `x-user-defined`; `fatal`, `ignoreBOM`, streaming) | `Encoding` | ✔ shipped |
 | `atob` / `btoa` | `Base64` | ✔ shipped |
@@ -453,7 +453,8 @@ dry, so `Promise.resolve().then(f)` always beats `setTimeout(g, 0)`, each timer 
 checkpoint, and no interval can starve promise reactions. Timers are scheduled against
 `Options.WebApi.Timers.TimeProvider`, so handing the engine a fake clock makes a suite that exercises them
 deterministic and instant; `MaxActiveTimers` (1000 by default) bounds how many a script may register at once
-and turns the excess into a catchable `QuotaExceededError` `DOMException`. A callback that throws erupts out
+and turns the excess into a catchable `QuotaExceededError` carrying the cap as `quota` and the count that
+would have been reached as `requested`. A callback that throws erupts out
 of whatever was pumping — the same contract a promise reaction has — and the rest of the queue runs on the
 next pump, unless you installed a `DiagnosticsSink`, in which case it is reported to that instead and the
 pump carries on.
@@ -928,10 +929,11 @@ stored, and `storage.getItem('getItem')` still reads it back.
 per-tenant cache or a request-scoped dictionary; the engine implements the algorithms and never persists
 anything itself. With no provider each engine gets its own `InMemoryStorageProvider` — nothing is shared
 between engines, nothing survives one, and `Options.WebApi.Storage.MaxTotalBytes` (5 MB by default) bounds it,
-turning an over-quota `setItem` into the catchable `QuotaExceededError` `DOMException` the standard names.
-Your own provider raises the same error by throwing `StorageQuotaExceededException`; anything else it throws
-reaches you unchanged rather than becoming a JavaScript error the script can swallow. A provider reached from
-engines that run concurrently must be thread-safe.
+turning an over-quota `setItem` into the catchable `QuotaExceededError` the standard names — with `quota` and
+`requested` filled in, so a script can report how far over it went. Your own provider raises the same error by
+throwing `StorageQuotaExceededException`, and the constructor overload taking `quota` and `requested` is how it
+supplies those two numbers; anything else it throws reaches you unchanged rather than becoming a JavaScript
+error the script can swallow. A provider reached from engines that run concurrently must be thread-safe.
 
 **There is no `storage` event.** Every mutating step ends in "broadcast", which notifies *other* browsing
 contexts sharing an origin — a multi-context feature, and an engine has one context. `StorageEvent` is absent
@@ -1516,7 +1518,8 @@ one `CacheWrite` — the removals and the additions of a whole operation togethe
 in a transaction gets the standard's all-or-nothing behaviour for free. A request/response pair crosses that
 seam as `CacheEntry`, a plain CLR record with no engine reference in it, so it can go into a dictionary, a
 file, SQL or Redis. Everything is called on the engine's thread, synchronously, and any exception becomes a
-rejection: `CacheQuotaExceededException` as the `QuotaExceededError` a browser raises, anything else as a
+rejection: `CacheQuotaExceededException` as the `QuotaExceededError` a browser raises — optionally carrying
+`quota` and `requested` — anything else as a
 `TypeError` whose cause your host can read with `JintException.TryGetClrException`.
 
 Enabling it also brings `Headers`, `Request` and `Response` (and `Events`, `Url`, `Files` under them), because

@@ -184,7 +184,9 @@ public partial class Options
         /// <summary>
         /// The quota a defaulted <see cref="InMemoryStorageProvider"/> enforces, in the UTF-16 bytes its
         /// documentation describes. Defaults to five mebibytes. A <c>setItem</c> that would exceed it throws
-        /// a <c>DOMException</c> named <c>QuotaExceededError</c>, which the script can catch.
+        /// a <c>QuotaExceededError</c> (https://webidl.spec.whatwg.org/#quotaexceedederror) the script can
+        /// catch, whose <c>quota</c> is this value and whose <c>requested</c> is the size the refused write
+        /// would have taken the store to.
         /// </summary>
         /// <remarks>
         /// Read once, when the engine is built, and only for a provider this engine defaulted: a
@@ -448,9 +450,10 @@ public partial class Options
 
         /// <summary>
         /// The most timers one engine may have registered at once. Defaults to 1000. A
-        /// <c>setTimeout</c> or <c>setInterval</c> call that would exceed it throws a <c>DOMException</c>
-        /// named <c>QuotaExceededError</c> — the script sees a normal exception it can catch, and the engine
-        /// stays usable.
+        /// <c>setTimeout</c> or <c>setInterval</c> call that would exceed it throws a
+        /// <c>QuotaExceededError</c> (https://webidl.spec.whatwg.org/#quotaexceedederror) whose <c>quota</c>
+        /// is this value and whose <c>requested</c> is the count the refused registration would have reached —
+        /// the script sees a normal exception it can catch, and the engine stays usable.
         /// </summary>
         /// <remarks>
         /// Counts timers that are <i>registered</i>, so a <c>setInterval</c> occupies one slot for as long as

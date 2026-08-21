@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.WebApi.DomException;
 
 namespace Jint.WebApi.Timers;
 
@@ -121,10 +120,13 @@ internal sealed class TimerFunctions
         {
             // Not a specified failure mode — the specification assumes a browser's resources — but an engine
             // embedded in a server cannot let a script register timers without bound. QuotaExceededError is
-            // the name WebIDL gives "the host refused because a limit was reached".
-            var quotaExceeded = _realm.Intrinsics.DomException.CreateException(
-                DomExceptionNames.QuotaExceeded,
-                $"Failed to execute '{name}': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
+            // what WebIDL gives "the host refused because a limit was reached", and unlike getRandomValues
+            // there is no algorithm here declining to name the numbers: the cap and the count are exactly what
+            // https://webidl.spec.whatwg.org/#quotaexceedederror added `quota` and `requested` for.
+            var quotaExceeded = _realm.Intrinsics.QuotaExceededError.CreateException(
+                $"Failed to execute '{name}': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.",
+                quota: _timers.RefusalQuota,
+                requested: _timers.RefusalRequested);
 
             var location = _engine._lastSyntaxElement?.Location ?? default;
             Throw.JavaScriptException(_engine, quotaExceeded, in location);

@@ -315,12 +315,32 @@ internal sealed class SerializedError : SerializedObject
 /// The <c>DOMException</c> serialization steps, https://webidl.spec.whatwg.org/#idl-DOMException: the name and
 /// the message, and nothing else. <c>code</c> is derived from the name on the way back out.
 /// </summary>
-internal sealed class SerializedDomException : SerializedObject
+internal class SerializedDomException : SerializedObject
 {
     internal string Name { get; init; } = null!;
 
     internal string Message { get; init; } = null!;
 
     internal string? Stack { get; init; }
+}
+
+/// <summary>
+/// The <c>QuotaExceededError</c> serialization steps, https://webidl.spec.whatwg.org/#quotaexceedederror:
+/// "Run the DOMException serialization steps", then <c>[[Quota]]</c> and <c>[[Requested]]</c>.
+/// </summary>
+/// <remarks>
+/// A record of its own rather than two nullable fields on the base, because the discriminator cannot be the
+/// name: <c>new DOMException('x', 'QuotaExceededError')</c> is a plain <c>DOMException</c> wearing the name and
+/// has to come back as one. Deriving it is what makes "run the base steps" literal — the two switches that
+/// consume these records match it before <see cref="SerializedDomException"/>, and the compiler refuses the
+/// other order.
+/// </remarks>
+internal sealed class SerializedQuotaExceededError : SerializedDomException
+{
+    /// <summary>The <c>[[Quota]]</c>: a number, or <see langword="null"/>.</summary>
+    internal double? Quota { get; init; }
+
+    /// <summary>The <c>[[Requested]]</c>: a number, or <see langword="null"/>.</summary>
+    internal double? Requested { get; init; }
 }
 #endif

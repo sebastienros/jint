@@ -104,16 +104,6 @@ internal enum WptDivergence
     NeedsKeyEncapsulation,
 
     /// <summary>
-    /// The test asserts the WebIDL <c>QuotaExceededError</c> <i>interface</i> —
-    /// https://webidl.spec.whatwg.org/#quotaexceedederror, which since 2025 derives from <c>DOMException</c>
-    /// and carries <c>quota</c> and <c>requested</c>. <c>CryptoInstance.GetRandomValues</c> documents the
-    /// choice it makes instead: the name on a plain <c>DOMException</c>, which is what every browser did
-    /// until that change and what the <c>getRandomValues</c> algorithm's own wording asks for. The interface
-    /// is a DOM-wide change rather than a crypto one, so it is not this feature's to make.
-    /// </summary>
-    NeedsQuotaExceededErrorInterface,
-
-    /// <summary>
     /// The test is over Curve25519 — X25519 or Ed25519. The BCL ships neither, so the whole family is out of
     /// scope for a crypto layer built on it; the files dedicated to those curves are not vendored at all (see
     /// <c>Vendor/README.md</c>) and this category is for the rows that sit inside a file which is otherwise

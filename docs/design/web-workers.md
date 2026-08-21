@@ -61,7 +61,7 @@ public partial class Options
         public WorkerProvider? Provider { get; set; }
 
         /// How many live workers one engine may have. Defaults to 8; `new Worker` beyond it is a
-        /// QuotaExceededError DOMException, the same refusal MaxActiveTimers makes.
+        /// QuotaExceededError, the same refusal MaxActiveTimers makes.
         public int MaxWorkers { get; set; } = 8;
     }
 }
@@ -234,7 +234,8 @@ Shape (b) is the one an embedder with a thread affinity wants, and it is why the
    `TypeError` naming the fix (§5). `options.name` is a `DOMString`. `options.credentials` is accepted and
    ignored — the convention `README.md:773` already records for `mode`, `referrer` and `integrity`.
 2. **Quota.** More than `Options.WebApi.Workers.MaxWorkers` live connections is a `QuotaExceededError`
-   `DOMException`, the same refusal `MaxActiveTimers` makes. A script that can spawn unbounded engines is a
+   (the WebIDL interface, with `quota` and `requested` filled in), the same refusal `MaxActiveTimers` makes.
+   A script that can spawn unbounded engines is a
    fork bomb, and no execution constraint describes engine *count* — the same argument the performance
    timeline's buffer bound makes.
 3. **Mint the termination source.** A `CancellationTokenSource` per worker, created *before* the provider is

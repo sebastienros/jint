@@ -254,9 +254,19 @@ public class WptHarnessTests
     }
 
     /// <summary>
-    /// A stand-in for WebIDL's <c>QuotaExceededError</c> interface, which Jint does not have — the assertion
-    /// reads <c>self.QuotaExceededError</c> at call time, exactly as upstream does, so a test can install one.
+    /// A stand-in for WebIDL's <c>QuotaExceededError</c>, deliberately shadowing the engine's own — the
+    /// assertion reads <c>self.QuotaExceededError</c> at call time, exactly as upstream does, so replacing the
+    /// global is all it takes.
     /// </summary>
+    /// <remarks>
+    /// It stays after Jint grew the real interface (https://webidl.spec.whatwg.org/#quotaexceedederror),
+    /// because these rows are about the <i>shim</i>: a stand-in whose <c>quota</c> and <c>requested</c> the
+    /// test dictates is what lets every arm be exercised from both sides — a wrong number, a failing
+    /// predicate, the constructor call form, the wrong global — none of which an engine-thrown exception with
+    /// two nulls could reach.
+    /// <see cref="TheQuotaAssertionAcceptsTheEnginesOwnQuotaExceededError"/> is the other half, over the real
+    /// one.
+    /// </remarks>
     private const string QuotaPreamble = """
         globalThis.QuotaExceededError = class QuotaExceededError extends Error {
             constructor(requested, quota) {
@@ -283,8 +293,9 @@ public class WptHarnessTests
     [InlineData(
         "assert_throws_quotaexceedederror(QuotaExceededError, throwQuota(9, 8), 9, 8)",
         "assert_throws_quotaexceedederror(function QuotaExceededError() {}, throwQuota(9, 8), 9, 8)")]
-    // A plain DOMException wearing the name and the legacy code is *not* the interface, which is exactly what
-    // getRandomValues throws today — so this row is the engine's own behaviour as much as the shim's.
+    // A plain DOMException wearing the name and the legacy code is *not* the interface — the last assertion,
+    // `e.constructor === constructor`, is what tells the two apart, and it is the whole reason upstream gave
+    // QuotaExceededError an assertion of its own.
     [InlineData(
         "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)",
         "assert_throws_quotaexceedederror(() => { throw new DOMException('x', 'QuotaExceededError'); }, null, null)")]
@@ -297,6 +308,33 @@ public class WptHarnessTests
     {
         StatusOf($"{QuotaPreamble}\ntest(() => {{ {passing} }}, 'row');").Should().Be("PASS");
         StatusOf($"{QuotaPreamble}\ntest(() => {{ {failing} }}, 'row');").Should().Be("FAIL");
+    }
+
+    /// <summary>
+    /// The same assertion over the engine's own <c>QuotaExceededError</c>, with no stand-in installed — which
+    /// is the arrangement the vendored <c>WebCryptoAPI/getRandomValues.any.js</c> rows actually run in.
+    /// </summary>
+    [Fact]
+    public void TheQuotaAssertionAcceptsTheEnginesOwnQuotaExceededError()
+    {
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, reached through the global the
+        // engine installs beside DOMException, with the numbers the constructor was given.
+        StatusOf("test(() => assert_throws_quotaexceedederror(() => { throw new QuotaExceededError('x', { quota: 8, requested: 9 }); }, 9, 8), 'row');")
+            .Should().Be("PASS");
+
+        // Both null is what an instance carries when nothing supplied them, and what getRandomValues throws.
+        StatusOf("test(() => assert_throws_quotaexceedederror(() => { throw new QuotaExceededError('x'); }, null, null), 'row');")
+            .Should().Be("PASS");
+        StatusOf("test(() => assert_throws_quotaexceedederror(() => { crypto.getRandomValues(new Uint8Array(65537)); }, null, null), 'row');")
+            .Should().Be("PASS");
+
+        // The constructor call form finds the same object, since the global *is* the interface object.
+        StatusOf("test(() => assert_throws_quotaexceedederror(QuotaExceededError, () => { throw new QuotaExceededError('x'); }, null, null), 'row');")
+            .Should().Be("PASS");
+
+        // And the failing side: a DOMException merely wearing the name is refused by the constructor check.
+        StatusOf("test(() => assert_throws_quotaexceedederror(() => { throw new DOMException('x', 'QuotaExceededError'); }, null, null), 'row');")
+            .Should().Be("FAIL");
     }
 
     [Fact]
@@ -375,8 +413,8 @@ public class WptHarnessTests
         // https://webidl.spec.whatwg.org/#quotaexceedederror — since it became an interface of its own it is
         // in neither of upstream's tables, so the name and the legacy code 22 are both refused and named at
         // assert_throws_quotaexceedederror. The exception the body throws is precisely the shape that would
-        // have satisfied the old table — a DOMException called QuotaExceededError, which is what Jint's
-        // getRandomValues throws today — so this pins the refusal and not merely a mismatch.
+        // have satisfied the old table — a DOMException called QuotaExceededError, which a script can still
+        // build by hand — so this pins the refusal and not merely a mismatch.
         const string sendItThere = "Test bug: QuotaExceededError needs to be tested for using assert_throws_quotaexceedederror()";
 
         MessageOf("assert_throws_dom('QuotaExceededError', () => { throw new DOMException('x', 'QuotaExceededError'); })")

@@ -153,11 +153,15 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
 
         if (byteLength > MaxRandomBytes)
         {
-            // WebIDL has since given QuotaExceededError an interface of its own carrying `quota` and
-            // `requested`; Jint exposes the name on a plain DOMException, which is what every browser did
-            // until that change and what the algorithm's own wording asks for.
-            ThrowDomException(
-                DomExceptionNames.QuotaExceeded,
+            // The WebIDL interface, https://webidl.spec.whatwg.org/#quotaexceedederror — and with `quota` and
+            // `requested` both null, which is the whole of what step 3 asks for: "throw a QuotaExceededError",
+            // full stop. A specification that wants the two numbers carried has to say so ("throw a
+            // QuotaExceededError whose quota is 42 and requested is 50" is WebIDL's own example), and this one
+            // does not; "both initially null" is then the answer. web-platform-tests asserts exactly that —
+            // `assert_throws_quotaexceedederror(…, null, null, …)` in WebCryptoAPI/getRandomValues.any.js — so
+            // helpfully filling in 65536 and the byte length would fail the corpus rather than improve on it.
+            // The numbers are in the message instead, where nothing is asserting them.
+            ThrowQuotaExceededError(
                 $"Failed to execute 'getRandomValues' on 'Crypto': the ArrayBufferView's byte length ({byteLength}) exceeds the {MaxRandomBytes} bytes of entropy this operation provides.");
         }
 
@@ -240,6 +244,14 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     private void ThrowDomException(string name, string message)
     {
         var exception = _realm.Intrinsics.DomException.CreateException(name, message);
+        var location = _engine._lastSyntaxElement?.Location ?? default;
+        Throw.JavaScriptException(_engine, exception, in location);
+    }
+
+    [DoesNotReturn]
+    private void ThrowQuotaExceededError(string message)
+    {
+        var exception = _realm.Intrinsics.QuotaExceededError.CreateException(message);
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
     }

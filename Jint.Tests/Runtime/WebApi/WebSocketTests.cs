@@ -936,6 +936,16 @@ public class WebSocketTests
         var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/3');"));
         thrown.Error.Get("name").AsString().Should().Be("QuotaExceededError");
 
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the ceiling and the
+        // count the refused socket would have taken the engine to.
+        engine.Evaluate("""
+            (() => {
+                try { new WebSocket('wss://example.org/3'); }
+                catch (e) { return [e instanceof QuotaExceededError, e.code, e.quota, e.requested].join('|'); }
+                return 'no error';
+            })()
+            """).AsString().Should().Be("true|22|2|3");
+
         // A closed socket frees its slot.
         sockets.Created[0].Handshake.SetResult();
         sockets.Created[1].Handshake.SetResult();

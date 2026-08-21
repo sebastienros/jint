@@ -5,7 +5,6 @@ using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.Abort;
-using Jint.WebApi.DomException;
 using Jint.WebApi.Timers;
 
 namespace Jint.WebApi.Scheduling;
@@ -209,8 +208,7 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
         {
             // Not a specified failure mode — the specification assumes a browser's resources — but a delayed
             // task is a timer, and a script must not be able to register them without bound.
-            ThrowDomException(
-                DomExceptionNames.QuotaExceeded,
+            ThrowQuotaExceededError(
                 $"Failed to execute 'postTask' on 'Scheduler': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
         }
 
@@ -298,9 +296,17 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     private PromiseCapability NewPromiseCapability()
         => PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
 
-    private void ThrowDomException(string name, string message)
+    /// <summary>
+    /// The engine's own timer cap, reported as https://webidl.spec.whatwg.org/#quotaexceedederror — the
+    /// interface, carrying the cap and the count, rather than the bare name on a <c>DOMException</c>.
+    /// </summary>
+    private void ThrowQuotaExceededError(string message)
     {
-        var exception = _realm.Intrinsics.DomException.CreateException(name, message);
+        var exception = _realm.Intrinsics.QuotaExceededError.CreateException(
+            message,
+            quota: _timers.RefusalQuota,
+            requested: _timers.RefusalRequested);
+
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
     }

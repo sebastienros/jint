@@ -125,15 +125,91 @@ public class WebApiStorageTests
     {
         var engine = new Engine(options => options.UseStorage(new RefusingStorageProvider()));
 
-        // The host's message reaches the script, which sees a DOMException it can branch on rather than a
-        // CLR exception erupting through the embedder.
+        // The host's message reaches the script, which sees a QuotaExceededError it can branch on rather than
+        // a CLR exception erupting through the embedder. A provider that named no figures leaves both members
+        // null, which is what https://webidl.spec.whatwg.org/#quotaexceedederror says an unstated quota is.
         engine.Evaluate("""
             (() => {
                 try { localStorage.setItem('a', '1'); }
-                catch (e) { return [e.name, e.message, e instanceof DOMException, e.code].join('|'); }
+                catch (e) {
+                    return [
+                        e.name,
+                        e.message,
+                        e instanceof QuotaExceededError,
+                        e instanceof DOMException,
+                        e.code,
+                        String(e.quota),
+                        String(e.requested)
+                    ].join('|');
+                }
                 return 'no throw';
             })()
-            """).AsString().Should().Be("QuotaExceededError|this store is full|true|22");
+            """).AsString().Should().Be("QuotaExceededError|this store is full|true|true|22|null|null");
+    }
+
+    [Fact]
+    public void AProviderCanReportHowMuchRoomThereWasAndHowMuchWasWanted()
+    {
+        var engine = new Engine(options => options.UseStorage(new BudgetedStorageProvider()));
+
+        // The constructor overload that takes the two numbers is the host's channel into
+        // https://webidl.spec.whatwg.org/#quotaexceedederror's `quota` and `requested`.
+        engine.Evaluate("""
+            (() => {
+                try { localStorage.setItem('a', '1'); }
+                catch (e) { return [e.name, e.quota, e.requested].join('|'); }
+                return 'no throw';
+            })()
+            """).AsString().Should().Be("QuotaExceededError|100|140");
+    }
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    public void ABudgetOfZeroOrLessReportsAQuotaOfZeroRatherThanANegativeOne(long maxTotalBytes)
+    {
+        var engine = new Engine(options =>
+        {
+            options.UseStorage();
+            options.WebApi.Storage.MaxTotalBytes = maxTotalBytes;
+        });
+
+        // https://webidl.spec.whatwg.org/#quotaexceedederror refuses a negative `quota` outright, so a budget
+        // of −1 is reported as the nothing it actually admits. `requested` is the size the store would have
+        // reached — 2 * (1 + 1) for this pair — not the increment.
+        engine.Evaluate("""
+            (() => {
+                try { localStorage.setItem('a', '1'); }
+                catch (e) { return [e.name, e.quota, e.requested].join('|'); }
+                return 'no throw';
+            })()
+            """).AsString().Should().Be("QuotaExceededError|0|4");
+    }
+
+    [Theory]
+    // The three things the interface forbids, refused where the host makes the mistake rather than reaching
+    // the script as a pair of numbers that cannot both be true.
+    [InlineData(-1d, 5d)]
+    [InlineData(5d, -1d)]
+    [InlineData(9d, 8d)]
+    [InlineData(double.NaN, 1d)]
+    [InlineData(1d, double.PositiveInfinity)]
+    public void AnIllFormedQuotaPairIsRefusedAtTheExceptionsOwnConstructor(double quota, double requested)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new StorageQuotaExceededException("x", quota, requested));
+    }
+
+    [Fact]
+    public void AWellFormedQuotaPairIsKeptOnTheException()
+    {
+        var exception = new StorageQuotaExceededException("x", quota: 8, requested: 8);
+
+        exception.Quota.Should().Be(8);
+        exception.Requested.Should().Be(8);
+
+        // The constructors that do not take them leave both unset, which is what null means here.
+        new StorageQuotaExceededException("x").Quota.Should().BeNull();
+        new StorageQuotaExceededException().Requested.Should().BeNull();
     }
 
     [Fact]
@@ -324,6 +400,28 @@ public class WebApiStorageTests
         public override string? GetItem(string key) => null;
 
         public override void SetItem(string key, string value) => throw new StorageQuotaExceededException("this store is full");
+
+        public override void RemoveItem(string key)
+        {
+        }
+
+        public override void Clear()
+        {
+        }
+    }
+
+    /// <summary>
+    /// A provider that refuses every write and says by how much, which is what the <c>quota</c>/<c>requested</c>
+    /// constructor overload is for.
+    /// </summary>
+    private sealed class BudgetedStorageProvider : StorageProvider
+    {
+        public override IReadOnlyList<string> Keys => [];
+
+        public override string? GetItem(string key) => null;
+
+        public override void SetItem(string key, string value)
+            => throw new StorageQuotaExceededException("over budget", quota: 100, requested: 140);
 
         public override void RemoveItem(string key)
         {

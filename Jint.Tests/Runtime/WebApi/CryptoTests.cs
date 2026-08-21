@@ -135,13 +135,27 @@ public class CryptoTests
         // Step 3: "If byteLength is greater than 65536, throw a QuotaExceededError" — so 65536 itself is fine.
         engine.Evaluate("crypto.getRandomValues(new Uint8Array(65536)).byteLength").AsNumber().Should().Be(65536);
 
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, not merely the name on a
+        // DOMException. `quota` and `requested` are both null: the algorithm says only "throw a
+        // QuotaExceededError" and names no numbers, and an instance's two members are "both initially null".
+        // WebCryptoAPI/getRandomValues.any.js asserts exactly this pair.
         engine.Evaluate("""
             (() => {
                 try { crypto.getRandomValues(new Uint8Array(65537)); }
-                catch (e) { return [e instanceof DOMException, e.name, e.code].join('|'); }
+                catch (e) {
+                    return [
+                        e instanceof QuotaExceededError,
+                        e instanceof DOMException,
+                        e.constructor === QuotaExceededError,
+                        e.name,
+                        e.code,
+                        String(e.quota),
+                        String(e.requested)
+                    ].join('|');
+                }
                 return 'no error';
             })()
-            """).AsString().Should().Be("true|QuotaExceededError|22");
+            """).AsString().Should().Be("true|true|true|QuotaExceededError|22|null|null");
     }
 
     [Fact]
