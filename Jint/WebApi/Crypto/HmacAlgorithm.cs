@@ -30,24 +30,52 @@ internal static class HmacAlgorithm
     /// 1024 for SHA-384 and SHA-512. It is the "recommended length" an <c>HmacKeyGenParams</c> without a
     /// <c>length</c> member asks for.
     /// </summary>
-    internal static uint BlockSizeInBits(string hashName) => hashName switch
+    /// <remarks>
+    /// Every registered hash is spelled out and the default throws rather than one of them standing in as
+    /// the fallback: a hash registered later would otherwise be silently given SHA-512's block size.
+    /// </remarks>
+    internal static uint BlockSizeInBits(string hashName)
     {
-        AlgorithmNormalization.Sha1 or AlgorithmNormalization.Sha256 => 512,
-        _ => 1024,
-    };
+        switch (hashName)
+        {
+            case AlgorithmNormalization.Sha1:
+            case AlgorithmNormalization.Sha256:
+                return 512;
+            case AlgorithmNormalization.Sha384:
+            case AlgorithmNormalization.Sha512:
+                return 1024;
+            default:
+                Throw.InvalidOperationException("Unhandled HMAC hash algorithm '" + hashName + "'.");
+                return 0;
+        }
+    }
 
     /// <summary>
     /// The JWK <c>alg</c> field naming an HMAC key with a given inner hash —
     /// https://www.rfc-editor.org/rfc/rfc7518#section-3.1, plus <c>HS1</c>, which the Web Cryptography API
     /// names for SHA-1.
     /// </summary>
-    internal static string JwkAlgorithm(string hashName) => hashName switch
+    /// <remarks>
+    /// The default throws for the reason <see cref="BlockSizeInBits"/> gives, and here the consequence is
+    /// worse: a hash silently labelled <c>HS512</c> would produce a JWK that names the wrong algorithm.
+    /// </remarks>
+    internal static string JwkAlgorithm(string hashName)
     {
-        AlgorithmNormalization.Sha1 => "HS1",
-        AlgorithmNormalization.Sha256 => "HS256",
-        AlgorithmNormalization.Sha384 => "HS384",
-        _ => "HS512",
-    };
+        switch (hashName)
+        {
+            case AlgorithmNormalization.Sha1:
+                return "HS1";
+            case AlgorithmNormalization.Sha256:
+                return "HS256";
+            case AlgorithmNormalization.Sha384:
+                return "HS384";
+            case AlgorithmNormalization.Sha512:
+                return "HS512";
+            default:
+                Throw.InvalidOperationException("Unhandled HMAC hash algorithm '" + hashName + "'.");
+                return null!;
+        }
+    }
 
     /// <summary>The usages an HMAC key may carry: "sign" and "verify".</summary>
     private const KeyUsage AllowedUsages = KeyUsage.Sign | KeyUsage.Verify;
@@ -214,7 +242,7 @@ internal static class HmacAlgorithm
                 return context.CreateArrayBuffer(key.Handle.ToArray());
 
             case KeyFormat.Jwk:
-                return JsonWebKeyData.CreateExport(
+                return JsonWebKeyData.CreateOctExport(
                     context.Engine,
                     key.Handle,
                     JwkAlgorithm(key.Algorithm.HashName!),

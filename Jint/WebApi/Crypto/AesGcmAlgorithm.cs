@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using System.Security.Cryptography;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.WebApi.Crypto;
 
@@ -153,7 +154,7 @@ internal static class AesGcmAlgorithm
                 return context.CreateArrayBuffer(key.Handle.ToArray());
 
             case KeyFormat.Jwk:
-                return JsonWebKeyData.CreateExport(
+                return JsonWebKeyData.CreateOctExport(
                     context.Engine,
                     key.Handle,
                     JwkAlgorithm(key.Algorithm.Length),
@@ -317,11 +318,25 @@ internal static class AesGcmAlgorithm
     /// The JWK <c>alg</c> field naming an AES-GCM key of a given length —
     /// https://www.rfc-editor.org/rfc/rfc7518#section-4.7.
     /// </summary>
-    private static string JwkAlgorithm(uint bits) => bits switch
+    /// <remarks>
+    /// The three lengths AES has are spelled out and the default throws rather than one of them standing in
+    /// as the fallback: a key of another length labelled <c>A256GCM</c> would be a JWK naming an algorithm
+    /// it is not. The lengths have all been checked before a key exists, so the arm is unreachable.
+    /// </remarks>
+    private static string JwkAlgorithm(uint bits)
     {
-        128 => "A128GCM",
-        192 => "A192GCM",
-        _ => "A256GCM",
-    };
+        switch (bits)
+        {
+            case 128:
+                return "A128GCM";
+            case 192:
+                return "A192GCM";
+            case 256:
+                return "A256GCM";
+            default:
+                Throw.InvalidOperationException("Unhandled AES key length of " + bits + " bits.");
+                return null!;
+        }
+    }
 }
 #endif

@@ -51,9 +51,14 @@ internal sealed class CryptoKeyConstructor : Constructor
     /// Builds a key in this realm. The one place a <see cref="JsCryptoKey"/> is created, so the prototype
     /// cannot be forgotten on some path.
     /// </summary>
-    internal JsCryptoKey CreateKey(byte[] handle, CryptoKeyAlgorithm algorithm, bool extractable, KeyUsage usages)
+    internal JsCryptoKey CreateKey(
+        byte[] handle,
+        string keyType,
+        CryptoKeyAlgorithm algorithm,
+        bool extractable,
+        KeyUsage usages)
     {
-        return new JsCryptoKey(_engine, handle, algorithm, extractable, usages)
+        return new JsCryptoKey(_engine, handle, keyType, algorithm, extractable, usages)
         {
             _prototype = PrototypeObject,
         };

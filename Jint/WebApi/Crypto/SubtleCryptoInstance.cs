@@ -19,12 +19,14 @@ namespace Jint.WebApi.Crypto;
 /// <para>
 /// <b>Eight of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
 /// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and <c>exportKey</c>, over the algorithms
-/// <c>HMAC</c> (SHA-1, SHA-256, SHA-384, SHA-512) and <c>AES-GCM</c> (128, 192 and 256 bits), plus the four
-/// SHA hashes for <c>digest</c>. <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are
-/// <b>absent</b> rather than present-and-throwing, and so is every asymmetric algorithm, so a library that
-/// checks <c>typeof crypto.subtle.deriveBits === 'function'</c> before reaching for it gets the truthful
-/// answer and takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine
-/// without the crypto feature. An algorithm that is absent for a <i>particular</i> operation is a
+/// <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits), <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c> and
+/// <c>RSA-OAEP</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and SHA-512 — plus those four SHA
+/// hashes for <c>digest</c>, and the key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
+/// <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are <b>absent</b> rather than
+/// present-and-throwing, so a library that checks
+/// <c>typeof crypto.subtle.deriveBits === 'function'</c> before reaching for it gets the truthful answer and
+/// takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine without the
+/// crypto feature. An algorithm that is absent for a <i>particular</i> operation is a
 /// <c>NotSupportedError</c>, which is what the specification says a name that is not registered for an
 /// operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does <c>encrypt</c> with
 /// <c>HMAC</c>.
@@ -65,6 +67,19 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 {
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString SubtleCryptoToStringTag = new("SubtleCrypto");
+
+    /// <summary>
+    /// <c>CryptoKeyPair</c> — https://w3c.github.io/webcrypto/#keypair. It is a <i>dictionary</i>, not an
+    /// interface, so what <c>generateKey</c> resolves with for an asymmetric algorithm is an ordinary object
+    /// with two own data properties and <c>Object.prototype</c> behind it: there is no <c>CryptoKeyPair</c>
+    /// interface object to be found on the global, in a browser as much as here. The member order is
+    /// WebIDL's own for converting a dictionary to an object,
+    /// https://webidl.spec.whatwg.org/#es-dictionary — lexicographic, so <c>privateKey</c> comes first.
+    /// </summary>
+    private static readonly JsObjectLayout _cryptoKeyPairLayout = JsObjectLayout.CreateBuilder()
+        .Add("privateKey")
+        .Add("publicKey")
+        .Build();
 
     private readonly Realm _realm;
 
@@ -124,9 +139,18 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Sign, "sign", what);
 
-            // HMAC is the only algorithm registered for this operation, and the check above has just proved
-            // the key was made for the algorithm that normalization returned — so the dispatch is decided.
-            return Context.CreateArrayBuffer(HmacAlgorithm.Sign(cryptoKey, message));
+            // The check above has just proved the key was made for the algorithm normalization returned, so
+            // the key's own name and this one are the same string and either could decide the dispatch.
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.Hmac:
+                    return Context.CreateArrayBuffer(HmacAlgorithm.Sign(cryptoKey, message));
+                case AlgorithmNormalization.RsassaPkcs1V15:
+                case AlgorithmNormalization.RsaPss:
+                    return Context.CreateArrayBuffer(RsaAlgorithm.Sign(Context, normalized, cryptoKey, message, what));
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Sign);
+            }
         });
     }
 
@@ -149,7 +173,18 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Verify, "verify", what);
 
-            return HmacAlgorithm.Verify(cryptoKey, signatureBytes, message) ? JsBoolean.True : JsBoolean.False;
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.Hmac:
+                    return HmacAlgorithm.Verify(cryptoKey, signatureBytes, message) ? JsBoolean.True : JsBoolean.False;
+                case AlgorithmNormalization.RsassaPkcs1V15:
+                case AlgorithmNormalization.RsaPss:
+                    return RsaAlgorithm.Verify(Context, normalized, cryptoKey, signatureBytes, message, what)
+                        ? JsBoolean.True
+                        : JsBoolean.False;
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Verify);
+            }
         });
     }
 
@@ -170,9 +205,15 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Encrypt, "encrypt", what);
 
-            // AES-GCM is the only algorithm registered for this operation, so — as in sign above — the check
-            // that the key was made for the normalized algorithm is what decides the dispatch.
-            return Context.CreateArrayBuffer(AesGcmAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.AesGcm:
+                    return Context.CreateArrayBuffer(AesGcmAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
+                case AlgorithmNormalization.RsaOaep:
+                    return Context.CreateArrayBuffer(RsaAlgorithm.Encrypt(Context, normalized, cryptoKey, plaintext, what));
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Encrypt);
+            }
         });
     }
 
@@ -193,7 +234,15 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             RequireKeyFor(normalized, cryptoKey, KeyUsage.Decrypt, "decrypt", what);
 
-            return Context.CreateArrayBuffer(AesGcmAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.AesGcm:
+                    return Context.CreateArrayBuffer(AesGcmAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
+                case AlgorithmNormalization.RsaOaep:
+                    return Context.CreateArrayBuffer(RsaAlgorithm.Decrypt(Context, normalized, cryptoKey, ciphertext, what));
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.Decrypt);
+            }
         });
     }
 
@@ -203,8 +252,11 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
     /// boolean extractable, sequence&lt;KeyUsage&gt; keyUsages)</c>.
     /// </summary>
     /// <remarks>
-    /// Both algorithms here produce a single secret key, never a pair, so the union's second arm — and with
-    /// it <c>CryptoKeyPair</c>, which has no interface object in this engine — is unreachable.
+    /// Which arm of the union is returned is the algorithm's business: the symmetric algorithms produce a
+    /// single secret <c>CryptoKey</c>, and the three RSA algorithms produce a <c>CryptoKeyPair</c>. The
+    /// public half is always extractable, whatever <c>extractable</c> asked for — a public key is public —
+    /// and the two halves split the requested usages between them by the usage intersection each algorithm's
+    /// steps name.
     /// </remarks>
     [JsFunction(Name = "generateKey", Length = 3)]
     private JsValue GenerateKey(JsValue thisObject, JsValue algorithm, JsValue extractable, JsValue keyUsages)
@@ -217,18 +269,77 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
             var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.GenerateKey, what);
 
-            var material = string.Equals(normalized.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
-                ? HmacAlgorithm.GenerateKey(Context, normalized, usages, what)
-                : AesGcmAlgorithm.GenerateKey(Context, normalized, usages, what);
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.Hmac:
+                    return CreateSecretKey(HmacAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, usages, what);
 
-            // "If result is a CryptoKey object: If the [[type]] internal slot of result is 'secret' or
-            // 'private' and usages is empty, then throw a SyntaxError." A secret key nobody may use is a
-            // mistake, not a key, and it is caught here rather than inside the algorithm because it is the
-            // same mistake whichever algorithm made the key.
-            RequireNonEmptyUsages(usages, what);
+                case AlgorithmNormalization.AesGcm:
+                    return CreateSecretKey(AesGcmAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, usages, what);
 
-            return _realm.Intrinsics.CryptoKey.CreateKey(material.Handle, material.Algorithm, isExtractable, usages);
+                case AlgorithmNormalization.RsassaPkcs1V15:
+                case AlgorithmNormalization.RsaPss:
+                case AlgorithmNormalization.RsaOaep:
+                    return CreateKeyPair(RsaAlgorithm.GenerateKey(Context, normalized, usages, what), isExtractable, what);
+
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.GenerateKey);
+            }
         });
+    }
+
+    /// <summary>
+    /// The tail of <c>generateKey</c> for an algorithm that produced one secret key: "If result is a
+    /// CryptoKey object: If the [[type]] internal slot of result is 'secret' or 'private' and usages is
+    /// empty, then throw a SyntaxError." A secret key nobody may use is a mistake, not a key, and it is
+    /// caught here rather than inside the algorithm because it is the same mistake whichever algorithm made
+    /// the key.
+    /// </summary>
+    private JsCryptoKey CreateSecretKey(
+        (byte[] Handle, CryptoKeyAlgorithm Algorithm) material,
+        bool extractable,
+        KeyUsage usages,
+        string what)
+    {
+        RequireUsableKey(CryptoKeyTypes.Secret, usages, what);
+        return _realm.Intrinsics.CryptoKey.CreateKey(material.Handle, CryptoKeyTypes.Secret, material.Algorithm, extractable, usages);
+    }
+
+    /// <summary>
+    /// The same tail for a key an asymmetric algorithm's <c>importKey</c> produced, where the type is the
+    /// algorithm's answer rather than a foregone <c>"secret"</c> — which is exactly what decides whether the
+    /// empty usages list is a mistake.
+    /// </summary>
+    private JsCryptoKey CreateImportedKey(
+        (byte[] Handle, string KeyType, CryptoKeyAlgorithm Algorithm) imported,
+        bool extractable,
+        KeyUsage usages,
+        string what)
+    {
+        RequireUsableKey(imported.KeyType, usages, what);
+        return _realm.Intrinsics.CryptoKey.CreateKey(imported.Handle, imported.KeyType, imported.Algorithm, extractable, usages);
+    }
+
+    /// <summary>
+    /// The tail of <c>generateKey</c> for an algorithm that produced a pair: "If result is a CryptoKeyPair
+    /// object: If the [[usages]] internal slot of the privateKey attribute of result is the empty sequence,
+    /// then throw a SyntaxError." It is the private half alone that has to be usable — a pair generated with
+    /// <c>['verify']</c> is a pair nobody can sign with, which is the very mistake this catches, while a pair
+    /// generated with <c>['sign']</c> has a public half carrying no usages and is perfectly ordinary.
+    /// </summary>
+    private JsObject CreateKeyPair(in RsaKeyPairMaterial material, bool extractable, string what)
+    {
+        RequireUsableKey(CryptoKeyTypes.Private, material.PrivateUsages, what);
+
+        // "Set the [[extractable]] internal slot of publicKey to true" — the public half of a pair is always
+        // extractable, because there is nothing about it to protect.
+        var publicKey = _realm.Intrinsics.CryptoKey.CreateKey(
+            material.PublicHandle, CryptoKeyTypes.Public, material.Algorithm, extractable: true, material.PublicUsages);
+
+        var privateKey = _realm.Intrinsics.CryptoKey.CreateKey(
+            material.PrivateHandle, CryptoKeyTypes.Private, material.Algorithm, extractable, material.PrivateUsages);
+
+        return JsObject.Create(_engine, _cryptoKeyPairLayout, [privateKey, publicKey]);
     }
 
     /// <summary>
@@ -268,13 +379,34 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 Context.ThrowTypeError(what + ": the '" + KeyFormats.NameOf(keyFormat) + "' format needs a buffer source, not a JsonWebKey object.");
             }
 
-            var material = string.Equals(normalized.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
-                ? HmacAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what)
-                : AesGcmAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, isExtractable, usages, what);
+            switch (normalized.Name)
+            {
+                case AlgorithmNormalization.Hmac:
+                    return CreateSecretKey(
+                        HmacAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
 
-            RequireNonEmptyUsages(usages, what);
+                case AlgorithmNormalization.AesGcm:
+                    return CreateSecretKey(
+                        AesGcmAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
 
-            return _realm.Intrinsics.CryptoKey.CreateKey(material.Handle, material.Algorithm, isExtractable, usages);
+                case AlgorithmNormalization.RsassaPkcs1V15:
+                case AlgorithmNormalization.RsaPss:
+                case AlgorithmNormalization.RsaOaep:
+                    return CreateImportedKey(
+                        RsaAlgorithm.ImportKey(Context, keyFormat, rawData, jwk, normalized, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
+
+                default:
+                    return UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
+            }
         });
     }
 
@@ -310,9 +442,19 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                 Context.ThrowInvalidAccessError(what + ": the key is not extractable.");
             }
 
-            return string.Equals(cryptoKey.Algorithm.Name, AlgorithmNormalization.Hmac, StringComparison.Ordinal)
-                ? HmacAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what)
-                : AesGcmAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+            switch (cryptoKey.Algorithm.Name)
+            {
+                case AlgorithmNormalization.Hmac:
+                    return HmacAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+                case AlgorithmNormalization.AesGcm:
+                    return AesGcmAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+                case AlgorithmNormalization.RsassaPkcs1V15:
+                case AlgorithmNormalization.RsaPss:
+                case AlgorithmNormalization.RsaOaep:
+                    return RsaAlgorithm.ExportKey(Context, cryptoKey, keyFormat, what);
+                default:
+                    return UnhandledAlgorithm(cryptoKey.Algorithm.Name, CryptoOperation.ExportKey);
+            }
         });
     }
 
@@ -383,15 +525,37 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
     /// <summary>
     /// "If the [[type]] internal slot of result is 'secret' or 'private' and usages is empty, then throw a
-    /// SyntaxError" — the step <c>generateKey</c> and <c>importKey</c> both end in. Every key this engine
-    /// makes is a secret one.
+    /// SyntaxError" — the step <c>generateKey</c> and <c>importKey</c> both end in.
     /// </summary>
-    private void RequireNonEmptyUsages(KeyUsage usages, string what)
+    /// <remarks>
+    /// The two types the step names are exactly the two that carry material nobody else has: a key nobody may
+    /// use is then a mistake rather than a key, because it can never be anything else. A <b>public</b> key is
+    /// deliberately outside the check and may carry no usages at all —
+    /// <c>importKey('spki', …, false, [])</c> succeeds, which is how a script imports a certificate's key to
+    /// read its <c>algorithm</c> without granting it a use, and it is also what makes the public half of a
+    /// pair generated with <c>['sign']</c> alone a perfectly ordinary key.
+    /// </remarks>
+    private void RequireUsableKey(string keyType, KeyUsage usages, string what)
     {
-        if (usages == KeyUsage.None)
+        if (usages != KeyUsage.None || string.Equals(keyType, CryptoKeyTypes.Public, StringComparison.Ordinal))
         {
-            Context.ThrowSyntaxError(what + ": a secret key must be created with at least one usage.");
+            return;
         }
+
+        Context.ThrowSyntaxError(what + ": a " + keyType + " key must be created with at least one usage.");
+    }
+
+    /// <summary>
+    /// The arm of every dispatch below that cannot be reached: normalization matched the name against the
+    /// very registry that decides which algorithms an operation has, one call earlier. It throws rather than
+    /// falling through to a neighbouring algorithm, so that registering a name without implementing it fails
+    /// loudly instead of quietly running the wrong cipher.
+    /// </summary>
+    private static JsValue UnhandledAlgorithm(string name, CryptoOperation operation)
+    {
+        Throw.InvalidOperationException(
+            "Unhandled algorithm '" + name + "' for the " + AlgorithmNormalization.NameOf(operation) + " operation.");
+        return null!;
     }
 
     /// <summary>

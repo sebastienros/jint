@@ -673,7 +673,7 @@ public class SubtleCryptoKeyTests
 
             let failure;
             try {
-                await crypto.subtle.importKey('jwk', jwk, 'RSA-OAEP', true, ['sign']);
+                await crypto.subtle.importKey('jwk', jwk, 'PBKDF2', true, ['sign']);
             } catch (e) {
                 failure = e.name;
             }
@@ -862,12 +862,16 @@ public class SubtleCryptoKeyTests
     }
 
     [Theory]
-    [InlineData("sign", "'RSASSA-PKCS1-v1_5'")]
-    [InlineData("verify", "'ECDSA'")]
+    [InlineData("sign", "'ECDSA'")]
+    [InlineData("verify", "'Ed25519'")]
     [InlineData("encrypt", "'AES-CBC'")]
     [InlineData("decrypt", "{ name: 'AES-CTR' }")]
-    [InlineData("generateKey", "'RSA-OAEP'")]
+    [InlineData("generateKey", "'ECDH'")]
     [InlineData("importKey", "'PBKDF2'")]
+    // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs, and
+    // RSASSA-PKCS1-v1_5 signs and never encrypts.
+    [InlineData("sign", "'RSA-OAEP'")]
+    [InlineData("encrypt", "'RSASSA-PKCS1-v1_5'")]
     public void RefusesAnUnregisteredAlgorithmWithANotSupportedError(string operation, string algorithm)
     {
         var engine = WebEngine();

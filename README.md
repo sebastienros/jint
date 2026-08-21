@@ -246,26 +246,43 @@ other, for the neighbouring one — a cache outlives the evaluation that filled 
 and what bounds it, is a decision you make rather than inherit.
 
 `crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
-`exportKey`**, over SHA-1/256/384/512 (for `digest` and as HMAC's inner hash), **HMAC**, and **AES-GCM** at
-128, 192 and 256 bits. Keys are real `CryptoKey` objects with `type`, `extractable`, `algorithm` and
-`usages`; the key material is never reachable from script except through `exportKey` on an extractable key,
-as `raw` bytes or as a JSON Web Key (`kty: "oct"`). `deriveKey`, `deriveBits`, `wrapKey`, `unwrapKey` and
-every asymmetric algorithm are *absent* rather than present-and-throwing, so
-`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path.
+`exportKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**,
+**AES-GCM** at 128, 192 and 256 bits, and the RSA family — **RSASSA-PKCS1-v1_5** and **RSA-PSS** for
+signatures, **RSA-OAEP** for encryption. Keys are real `CryptoKey` objects with `type`, `extractable`,
+`algorithm` and `usages`, and `generateKey` for an RSA algorithm hands back a `CryptoKeyPair`, which is the
+plain `{ privateKey, publicKey }` dictionary the specification defines rather than an interface. The key
+material is never reachable from script except through `exportKey` on an extractable key: `raw` bytes or a
+`kty: "oct"` JSON Web Key for a symmetric key, and `spki`, `pkcs8` or a `kty: "RSA"` JSON Web Key for an RSA
+one. `deriveKey`, `deriveBits`, `wrapKey` and `unwrapKey` are *absent* rather than present-and-throwing, so
+`typeof crypto.subtle.deriveBits` tells a library the truth and it takes its fallback path; so is every
+elliptic-curve algorithm.
 
 Nothing here ever throws: a promise-returning WebIDL operation converts every failure into a rejection. An
 algorithm that is not registered for the operation is a `NotSupportedError` `DOMException`, a key used
-against its own `usages` or against another algorithm is an `InvalidAccessError`, a malformed JWK is a
-`DataError`, a usage list an algorithm does not support is a `SyntaxError`, and anything an argument
-conversion refuses is a `TypeError`. An AES-GCM decryption that does not authenticate is one
+against its own `usages`, against another algorithm, or against the wrong half of its pair (signing with a
+public key) is an `InvalidAccessError`, a malformed JWK or a DER structure that is not what its format names
+is a `DataError`, a usage list an algorithm does not support is a `SyntaxError`, and anything an argument
+conversion refuses is a `TypeError`. An AES-GCM or RSA-OAEP decryption that does not authenticate is one
 `OperationError` carrying nothing about which part of the input was wrong. The work is synchronous, so the
 promise is already settled when you get it.
 
-Two limits of .NET's AES-GCM are visible, and both are reported as the `OperationError` the algorithm's own
-steps end in: the `iv` must be the 96 bits NIST SP 800-38D recommends, and `tagLength` must be 96, 104, 112,
-120 or 128 — the specification also lists 32 and 64, which `System.Security.Cryptography.AesGcm` will not
-produce. The ciphertext is `ciphertext || tag`, exactly as the specification defines it, so a host reading a
-script's output with `AesGcm` splits the last `tagLength / 8` bytes off itself.
+Where .NET's own cryptography is narrower than the specification the difference is visible, always as the
+`OperationError` the algorithm's own steps end in and always with a message naming the restriction:
+
+- **AES-GCM**: the `iv` must be the 96 bits NIST SP 800-38D recommends, and `tagLength` must be 96, 104,
+  112, 120 or 128 — the specification also lists 32 and 64, which `System.Security.Cryptography.AesGcm` will
+  not produce. The ciphertext is `ciphertext || tag`, exactly as the specification defines it, so a host
+  reading a script's output with `AesGcm` splits the last `tagLength / 8` bytes off itself.
+- **RSA-PSS**: `RSASignaturePadding.Pss` takes no salt-length parameter and always uses the hash's own
+  output length, so `saltLength` is accepted at that one value (20, 32, 48 or 64 for SHA-1/256/384/512) and
+  refused at any other rather than signing with a salt nobody asked for.
+- **RSA-OAEP**: `RSAEncryptionPadding` carries a hash and no label, so `label` must be absent or empty.
+- **RSA `generateKey`**: `publicExponent` must be 65537, which is the only exponent `RSA.Create` can be
+  asked for, and `modulusLength` must be one the platform will generate (512 to 16384 in steps of 64 on
+  Windows, of 8 elsewhere) and at most 8192, which is this engine's own ceiling on a prime search that no
+  execution constraint can interrupt.
+- **RSA `importKey`** from a JSON Web Key needs the CRT parameters `p`, `q`, `dp`, `dq` and `qi`, which
+  `RSAParameters` describes a private key by; a JWK carrying `d` alone is a `DataError`.
 
 `TextDecoder` understands every encoding the [Encoding Standard](https://encoding.spec.whatwg.org/#names-and-labels)
 names, with all of their labels, except the seven legacy multi-byte ones (`Big5`, `EUC-JP`, `EUC-KR`, `GBK`,

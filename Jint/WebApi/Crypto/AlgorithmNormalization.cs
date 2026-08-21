@@ -32,10 +32,11 @@ internal enum CryptoOperation
 /// </summary>
 /// <remarks>
 /// All four values are recognized by the WebIDL conversion, and a fifth spelling is a <c>TypeError</c>
-/// because the argument's IDL type is an enumeration. <c>spki</c> and <c>pkcs8</c> then reach the
-/// algorithm's own import steps and earn the <c>NotSupportedError</c> those steps specify for a format they
-/// do not handle — which for a symmetric key is every format but <c>raw</c> and <c>jwk</c>, in a browser as
-/// much as here.
+/// because the argument's IDL type is an enumeration. Which of them an algorithm accepts is then the
+/// algorithm's own business, and a format it does not handle earns the <c>NotSupportedError</c> its steps
+/// specify — <c>spki</c> and <c>pkcs8</c> describe an asymmetric key, so a symmetric algorithm refuses both,
+/// and <c>raw</c> describes a symmetric one, so an RSA algorithm refuses it. That is what a browser answers
+/// too.
 /// </remarks>
 internal enum KeyFormat
 {
@@ -56,13 +57,31 @@ internal static class KeyFormats
     internal const string Pkcs8 = "pkcs8";
     internal const string Jwk = "jwk";
 
-    internal static string NameOf(KeyFormat format) => format switch
+    /// <summary>
+    /// Every value is spelled out and the default throws, rather than one of them standing in as the
+    /// fallback: this string reaches a script in an error message naming the format it asked for, so a value
+    /// added to <see cref="KeyFormat"/> without a case here must fail loudly rather than call itself
+    /// <c>"jwk"</c>.
+    /// </summary>
+    internal static string NameOf(KeyFormat format)
     {
-        KeyFormat.Raw => Raw,
-        KeyFormat.Spki => Spki,
-        KeyFormat.Pkcs8 => Pkcs8,
-        _ => Jwk,
-    };
+        switch (format)
+        {
+            case KeyFormat.Raw:
+                return Raw;
+            case KeyFormat.Spki:
+                return Spki;
+            case KeyFormat.Pkcs8:
+                return Pkcs8;
+            case KeyFormat.Jwk:
+                return Jwk;
+            default:
+                // Unreachable: every KeyFormat is above, and the only producer of one is the WebIDL
+                // enumeration conversion, which recognizes exactly those four.
+                Throw.InvalidOperationException("Unhandled key format '" + format + "'.");
+                return null!;
+        }
+    }
 }
 
 /// <summary>
@@ -71,10 +90,11 @@ internal static class KeyFormats
 /// </summary>
 /// <remarks>
 /// One class rather than a dictionary type per pair, because the union of the members across the pairs this
-/// engine registers is six fields and nothing reads a field its own operation did not fill in. A member that
+/// engine registers is ten fields and nothing reads a field its own operation did not fill in. A member that
 /// the specification calls "not present" is <see langword="null"/> here, which is the distinction several
 /// steps turn on — <c>HmacKeyGenParams</c>'s absent <c>length</c> means the hash's block size, where a
-/// present zero is an <c>OperationError</c>.
+/// present zero is an <c>OperationError</c>, and <c>RsaOaepParams</c>'s absent <c>label</c> means the empty
+/// byte sequence.
 /// </remarks>
 internal sealed class NormalizedAlgorithm
 {
@@ -100,6 +120,24 @@ internal sealed class NormalizedAlgorithm
 
     /// <summary>The <c>tagLength</c> member of <c>AesGcmParams</c>, in bits.</summary>
     internal int? TagLength { get; set; }
+
+    /// <summary>The <c>modulusLength</c> member of <c>RsaHashedKeyGenParams</c>, in bits.</summary>
+    internal uint? ModulusLength { get; set; }
+
+    /// <summary>
+    /// The <c>publicExponent</c> member of <c>RsaHashedKeyGenParams</c> — a <c>BigInteger</c>, which is the
+    /// big-endian magnitude of an unsigned integer.
+    /// </summary>
+    internal byte[]? PublicExponent { get; set; }
+
+    /// <summary>The <c>saltLength</c> member of <c>RsaPssParams</c>, in <i>bytes</i>.</summary>
+    internal uint? SaltLength { get; set; }
+
+    /// <summary>
+    /// The <c>label</c> member of <c>RsaOaepParams</c>, copied at normalization time, or
+    /// <see langword="null"/> when it is not present — which the operation reads as the empty byte sequence.
+    /// </summary>
+    internal byte[]? Label { get; set; }
 }
 
 /// <summary>
@@ -138,11 +176,19 @@ internal static class AlgorithmNormalization
     /// <summary>https://w3c.github.io/webcrypto/#aes-gcm-registration</summary>
     internal const string AesGcm = "AES-GCM";
 
+    /// <summary>https://w3c.github.io/webcrypto/#rsassa-pkcs1-registration</summary>
+    internal const string RsassaPkcs1V15 = "RSASSA-PKCS1-v1_5";
+
+    /// <summary>https://w3c.github.io/webcrypto/#rsa-pss-registration</summary>
+    internal const string RsaPss = "RSA-PSS";
+
+    /// <summary>https://w3c.github.io/webcrypto/#rsa-oaep-registration</summary>
+    internal const string RsaOaep = "RSA-OAEP";
+
     private static readonly string[] _digestAlgorithms = [Sha1, Sha256, Sha384, Sha512];
-    private static readonly string[] _hmacOnly = [Hmac];
-    private static readonly string[] _aesGcmOnly = [AesGcm];
-    private static readonly string[] _keyAlgorithms = [Hmac, AesGcm];
-    private static readonly string[] _none = [];
+    private static readonly string[] _signatureAlgorithms = [Hmac, RsassaPkcs1V15, RsaPss];
+    private static readonly string[] _cipherAlgorithms = [AesGcm, RsaOaep];
+    private static readonly string[] _keyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep];
 
     private static readonly JsString _nameKey = new("name");
     private static readonly JsString _hashKey = new("hash");
@@ -150,31 +196,73 @@ internal static class AlgorithmNormalization
     private static readonly JsString _ivKey = new("iv");
     private static readonly JsString _additionalDataKey = new("additionalData");
     private static readonly JsString _tagLengthKey = new("tagLength");
+    private static readonly JsString _modulusLengthKey = new("modulusLength");
+    private static readonly JsString _publicExponentKey = new("publicExponent");
+    private static readonly JsString _saltLengthKey = new("saltLength");
+    private static readonly JsString _labelKey = new("label");
 
     /// <summary>
     /// The associative container "stored at the <c>op</c> key of <c>supportedAlgorithms</c>".
     /// </summary>
-    internal static string[] RegisteredFor(CryptoOperation operation) => operation switch
+    /// <remarks>
+    /// Every operation is spelled out and the default throws rather than answering the empty registry: an
+    /// operation added to <see cref="CryptoOperation"/> without an entry here would silently register nothing
+    /// for it, so every algorithm name would be a <c>NotSupportedError</c> and the new operation would look
+    /// implemented while doing nothing.
+    /// </remarks>
+    internal static string[] RegisteredFor(CryptoOperation operation)
     {
-        CryptoOperation.Digest => _digestAlgorithms,
-        CryptoOperation.Encrypt or CryptoOperation.Decrypt => _aesGcmOnly,
-        CryptoOperation.Sign or CryptoOperation.Verify => _hmacOnly,
-        CryptoOperation.GenerateKey or CryptoOperation.ImportKey or CryptoOperation.ExportKey => _keyAlgorithms,
-        _ => _none,
-    };
+        switch (operation)
+        {
+            case CryptoOperation.Digest:
+                return _digestAlgorithms;
+            case CryptoOperation.Encrypt:
+            case CryptoOperation.Decrypt:
+                return _cipherAlgorithms;
+            case CryptoOperation.Sign:
+            case CryptoOperation.Verify:
+                return _signatureAlgorithms;
+            case CryptoOperation.GenerateKey:
+            case CryptoOperation.ImportKey:
+            case CryptoOperation.ExportKey:
+                return _keyAlgorithms;
+            default:
+                Throw.InvalidOperationException("Unhandled crypto operation '" + operation + "'.");
+                return null!;
+        }
+    }
 
     /// <summary>The name an error message calls the operation, which is also the method's own name.</summary>
-    internal static string NameOf(CryptoOperation operation) => operation switch
+    /// <remarks>
+    /// Every operation is spelled out and the default throws, for the reason <see cref="RegisteredFor"/>
+    /// gives: an operation without a case here would call itself <c>"exportKey"</c> in every message it
+    /// produced.
+    /// </remarks>
+    internal static string NameOf(CryptoOperation operation)
     {
-        CryptoOperation.Digest => "digest",
-        CryptoOperation.Encrypt => "encrypt",
-        CryptoOperation.Decrypt => "decrypt",
-        CryptoOperation.Sign => "sign",
-        CryptoOperation.Verify => "verify",
-        CryptoOperation.GenerateKey => "generateKey",
-        CryptoOperation.ImportKey => "importKey",
-        _ => "exportKey",
-    };
+        switch (operation)
+        {
+            case CryptoOperation.Digest:
+                return "digest";
+            case CryptoOperation.Encrypt:
+                return "encrypt";
+            case CryptoOperation.Decrypt:
+                return "decrypt";
+            case CryptoOperation.Sign:
+                return "sign";
+            case CryptoOperation.Verify:
+                return "verify";
+            case CryptoOperation.GenerateKey:
+                return "generateKey";
+            case CryptoOperation.ImportKey:
+                return "importKey";
+            case CryptoOperation.ExportKey:
+                return "exportKey";
+            default:
+                Throw.InvalidOperationException("Unhandled crypto operation '" + operation + "'.");
+                return null!;
+        }
+    }
 
     /// <summary>
     /// The <c>AlgorithmIdentifier</c> conversion alone — <c>typedef (object or DOMString)</c>, so an object
@@ -305,8 +393,39 @@ internal static class AlgorithmNormalization
                 normalized.TagLength = ReadOptionalOctet(context, algorithm, _tagLengthKey, what);
                 break;
 
+            // RsaHashedKeyGenParams, which all three RSA algorithms register for generateKey. The members are
+            // read in WebIDL's own order — RsaKeyGenParams' `modulusLength` and `publicExponent` first
+            // because it is the less derived dictionary, then RsaHashedKeyGenParams' own `hash`.
+            case (RsassaPkcs1V15, CryptoOperation.GenerateKey):
+            case (RsaPss, CryptoOperation.GenerateKey):
+            case (RsaOaep, CryptoOperation.GenerateKey):
+                normalized.ModulusLength = ReadRequiredUnsignedLong(context, algorithm, _modulusLengthKey, what);
+                normalized.PublicExponent = ReadRequiredBigInteger(context, algorithm, _publicExponentKey, what);
+                normalized.HashName = ReadRequiredHash(context, algorithm, what);
+                break;
+
+            // RsaHashedImportParams, whose one member is the hash.
+            case (RsassaPkcs1V15, CryptoOperation.ImportKey):
+            case (RsaPss, CryptoOperation.ImportKey):
+            case (RsaOaep, CryptoOperation.ImportKey):
+                normalized.HashName = ReadRequiredHash(context, algorithm, what);
+                break;
+
+            // RsaPssParams: `required [EnforceRange] unsigned long saltLength`, in bytes.
+            case (RsaPss, CryptoOperation.Sign):
+            case (RsaPss, CryptoOperation.Verify):
+                normalized.SaltLength = ReadRequiredUnsignedLong(context, algorithm, _saltLengthKey, what);
+                break;
+
+            // RsaOaepParams: `BufferSource label`, which is optional and has no default.
+            case (RsaOaep, CryptoOperation.Encrypt):
+            case (RsaOaep, CryptoOperation.Decrypt):
+                normalized.Label = ReadOptionalBufferSource(context, algorithm, _labelKey, what);
+                break;
+
             // Every remaining pair registers `None` as its parameters, so the Algorithm dictionary — the one
-            // member of which has already been read — is the whole of it.
+            // member of which has already been read — is the whole of it. RSASSA-PKCS1-v1_5's sign and
+            // verify are in that set, as is every algorithm's exportKey.
             default:
                 break;
         }
@@ -400,6 +519,53 @@ internal static class AlgorithmNormalization
         }
 
         return (uint) EnforceRange(context, value, key, what, uint.MaxValue);
+    }
+
+    private static uint ReadRequiredUnsignedLong(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
+    {
+        var value = algorithm?.Get(key) ?? JsValue.Undefined;
+        if (value.IsUndefined())
+        {
+            context.ThrowTypeError(what + ": required member " + key + " is undefined.");
+        }
+
+        return (uint) EnforceRange(context, value, key, what, uint.MaxValue);
+    }
+
+    /// <summary>
+    /// A <c>required BigInteger</c> member, which is <c>typedef Uint8Array BigInteger</c> —
+    /// https://w3c.github.io/webcrypto/#big-integer. WebIDL's conversion for a specific typed array type
+    /// accepts that type and nothing else (https://webidl.spec.whatwg.org/#es-buffer-source-types), so an
+    /// <c>ArrayBuffer</c>, a <c>DataView</c> or an <c>Int8Array</c> is a <c>TypeError</c> here where a
+    /// <c>BufferSource</c> member would have taken all three.
+    /// </summary>
+    /// <remarks>
+    /// The copy is this engine's own rather than the normalization step's: that step names members "of the
+    /// type BufferSource", which a <c>Uint8Array</c> typedef is not, so nothing in the specification requires
+    /// one here. The hazard it exists for is the same one, though — normalization goes on to read a
+    /// <c>hash</c> member, which may run a script's getter with this very array in scope — so the bytes are
+    /// taken now.
+    /// </remarks>
+    private static byte[] ReadRequiredBigInteger(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
+    {
+        var value = algorithm?.Get(key) ?? JsValue.Undefined;
+        if (value.IsUndefined())
+        {
+            context.ThrowTypeError(what + ": required member " + key + " is undefined.");
+        }
+
+        if (value is not JsTypedArray { _arrayElementType: TypedArrayElementType.Uint8 })
+        {
+            context.ThrowTypeError(what + ": member " + key + " is not of type 'Uint8Array'.");
+        }
+
+        if (IsSharedBufferSource(value))
+        {
+            context.ThrowTypeError(what + ": member " + key + " is backed by a SharedArrayBuffer, which this operation does not accept.");
+        }
+
+        BufferSource.TryGetBytes(value, out var bytes);
+        return bytes.ToArray();
     }
 
     private static uint ReadRequiredUnsignedShort(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
