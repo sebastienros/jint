@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System.Runtime.CompilerServices;
+using Jint.Native;
 
 namespace Jint.Runtime.Interop;
 
@@ -11,10 +12,13 @@ internal sealed class ClrHelper
     // not a supported pattern - member resolution could not honour a later change either, since the accessor
     // cache is partitioned by the value captured at construction.
     private readonly bool _allowGetType;
+    private readonly ClrTypeResolutionPolicy _typeResolutionPolicy;
+    private readonly ConditionalWeakTable<ObjectWrapper, TypeReference> _explicitTypeCapabilities = new();
 
-    internal ClrHelper(Options.InteropOptions interopOptions)
+    internal ClrHelper(Options.InteropOptions interopOptions, ClrTypeResolutionPolicy typeResolutionPolicy)
     {
         _allowGetType = interopOptions.AllowGetType;
+        _typeResolutionPolicy = typeResolutionPolicy;
     }
 
     /// <summary>
@@ -34,6 +38,8 @@ internal sealed class ClrHelper
     public JsValue Unwrap(ObjectWrapper obj)
 #pragma warning restore CA1822
     {
+        MustAllowGetType();
+        MustAllowType(obj.Target.GetType());
         return ObjectWrapper.Create(obj.Engine, obj.Target);
     }
 
@@ -57,6 +63,7 @@ internal sealed class ClrHelper
     public JsValue TypeOf(ObjectWrapper obj)
     {
         MustAllowGetType();
+        MustAllowType(obj.ClrType);
         return TypeReference.CreateTypeReference(obj.Engine, obj.ClrType);
     }
 
@@ -67,7 +74,13 @@ internal sealed class ClrHelper
     {
         MustAllowGetType();
         var engine = type.Engine;
-        return engine.Options.Interop.WrapObjectHandler.Invoke(engine, type.ReferenceType, null) ?? JsValue.Undefined;
+        var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, type.ReferenceType, null);
+        if (wrapped is ObjectWrapper objectWrapper)
+        {
+            _explicitTypeCapabilities.Remove(objectWrapper);
+            _explicitTypeCapabilities.Add(objectWrapper, type);
+        }
+        return wrapped ?? JsValue.Undefined;
     }
 
     /// <summary>
@@ -78,6 +91,13 @@ internal sealed class ClrHelper
         MustAllowGetType();
         if (obj.Target is Type t)
         {
+            if (_explicitTypeCapabilities.TryGetValue(obj, out var explicitType)
+                && ReferenceEquals(explicitType.ReferenceType, t))
+            {
+                return explicitType;
+            }
+
+            MustAllowType(t);
             return TypeReference.CreateTypeReference(obj.Engine, t);
         }
 
@@ -90,6 +110,14 @@ internal sealed class ClrHelper
         if (!_allowGetType)
         {
             Throw.InvalidOperationException("Invalid when Engine.Options.Interop.AllowGetType == false");
+        }
+    }
+
+    private void MustAllowType(Type type)
+    {
+        if (!_typeResolutionPolicy.Allows(type))
+        {
+            Throw.InvalidOperationException("The CLR type is not allowed by the engine's namespace resolution policy");
         }
     }
 }

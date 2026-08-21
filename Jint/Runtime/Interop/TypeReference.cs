@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
@@ -11,14 +10,18 @@ using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop;
 
+/// <summary>
+/// An explicit host-granted capability for constructing a CLR type and accessing its static members.
+/// </summary>
+/// <remarks>
+/// An explicitly exported reference is not restricted by <see cref="Options.InteropOptions.AllowedAssemblies"/>,
+/// which governs namespace discovery. Its constructors, static members, and nested types still pass through
+/// <see cref="TypeResolver.MemberFilter"/>, <see cref="Options.InteropOptions.AllowGetType"/>, and the other
+/// member-resolution safeguards.
+/// </remarks>
 public sealed class TypeReference : Constructor, IObjectWrapper
 {
     private static readonly JsString _name = new("typereference");
-    private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
-    private static readonly ConcurrentDictionary<MemberAccessorKey, ReflectionAccessor> _memberAccessors = new();
-
-    private readonly record struct MemberAccessorKey(Type Type, string PropertyName);
-
     private TypeReference(
         Engine engine,
         [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
@@ -79,14 +82,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             }
             else
             {
-                constructors = _constructorCache.GetOrAdd(
-                    referenceType,
-                    t =>
-                    {
-                        List<ConstructorInfo> constructors = [.. t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)];
-                        constructors.RemoveAll(x => !engine.Options.Interop.TypeResolver.MemberFilter(x));
-                        return MethodDescriptor.Build(constructors);
-                    });
+                constructors = engine.Options.Interop.TypeResolver.GetConstructors(engine, referenceType);
 
                 Func<MethodDescriptor, MethodResolverState, JsCallArguments> argumentProvider = static (method, state) =>
                 {
@@ -319,25 +315,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                 .CreatePropertyDescriptor(_engine, ReferenceType, name, enumerable: true);
         }
 
-        var key = new MemberAccessorKey(ReferenceType, name);
-        if (!_memberAccessors.TryGetValue(key, out var accessor))
-        {
-            accessor = ResolveMemberAccessor(_engine, key.Type, key.PropertyName);
-
-            // The cache is process-wide, so an accessor may only enter it when it captures nothing bound to
-            // a single engine. Everything this path can produce is derived from the reflected type alone — a
-            // PropertyInfo or FieldInfo and the delegates compiled from it, a MethodDescriptor set, or a
-            // ConstantValueAccessor over a primitive enum value — and the engine-affine parts are built per
-            // call in CreatePropertyDescriptor below. The one exception is a nested type: it resolves to an
-            // accessor holding a TypeReference, an object owned by this engine, so caching it would keep the
-            // engine, its realm and all of its intrinsics alive for the lifetime of the process and hand this
-            // engine's object to any other engine that later asks for the same member. Those are re-resolved.
-            if (accessor is not NestedTypeAccessor)
-            {
-                // racy, we don't care: both racers resolved the same member the same way
-                _memberAccessors.TryAdd(key, accessor);
-            }
-        }
+        var accessor = _engine.Options.Interop.TypeResolver.GetStaticAccessor(_engine, ReferenceType, name);
 
         return accessor.CreatePropertyDescriptor(_engine, ReferenceType, name, enumerable: true);
     }
@@ -390,10 +368,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             return ConstantValueAccessor.NullAccessor;
         }
 
-        const BindingFlags BindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-        return typeResolver.TryFindMemberAccessor(engine, type, name, BindingFlags, indexerToTry: null, out var accessor)
-            ? accessor
-            : ConstantValueAccessor.NullAccessor;
+        return typeResolver.GetStaticAccessor(engine, type, name);
     }
 
     public object Target => ReferenceType;

@@ -77,7 +77,8 @@ Defaults are compatibility choices, not a hardened profile.
 | Control | Default | Security effect |
 | --- | --- | --- |
 | CLR namespace access (`Interop.Enabled`) | Disabled | `System`, `importNamespace`, and `clrHelper` are not installed |
-| `AllowGetType`, `AllowSystemReflection` | Disabled | Blocks important reflection and allow-list bypass paths |
+| `AllowGetType`, `AllowSystemReflection` | Disabled | Blocks instance type discovery, type widening, and reflection namespace/object access |
+| `AllowedAssemblies` | Empty until `AllowClr` adds entries | Closed allow-list for `System` / `importNamespace` type discovery, not for what admitted APIs can do |
 | Writes through projected CLR objects | Enabled | A default engine can mutate host objects passed with `SetValue` |
 | CLR array conversion | Live view | Script writes can mutate a projected CLR array |
 | Modules | Disabled | The fail-fast loader rejects imports |
@@ -106,29 +107,49 @@ Defaults are compatibility choices, not a hardened profile.
 
 ### TM-01: CLR access becomes process authority
 
-**Threat.** Enabling CLR interop lets script reach powerful .NET APIs. Core library types
-can be resolved even when `AllowedAssemblies` is empty or narrow, so that collection must
-not be treated as a complete sandbox allow-list. Enabling `AllowGetType` can open further
-type-resolution and reflection paths. The result can be filesystem or environment access,
-network access, process creation, native interop, or arbitrary code execution with the
-worker's identity.
+**Threat.** Enabling CLR interop lets script reach powerful .NET APIs. A type admitted by
+the namespace allow-list, explicitly exported as a `TypeReference`, or returned through a
+projected host object carries the authority of its exposed constructors and members. The
+result can be filesystem or environment access, network access, process creation, native
+interop, or arbitrary code execution with the worker's identity.
 
 **Existing mitigations.**
 
 - CLR namespace access, `AllowGetType`, and `AllowSystemReflection` are disabled by default.
-- `TypeResolver.MemberFilter` can filter projected members.
+- `AllowedAssemblies` is a closed allow-list for namespace discovery, including nested and
+  generic type definitions. Namespace lookup admits only effectively public types: top-level
+  types must be public, and every declaring type in a nested chain must be public. `AllowClr()`
+  without arguments adds only the core assembly that contains `System.Object`; supplying
+  assemblies adds only those assemblies.
+- `TypeResolver.MemberFilter` filters namespace-discovered types, nested types, constructors,
+  and projected members.
+- `AllowGetType` does not expose the static `System.Type.GetType(string)` family. Its
+  `clrHelper` type-widening operations also enforce the namespace type policy.
+- `AllowSystemReflection` gates namespace discovery and wrapping for `System.Reflection`.
 - `ExposeDetailedResolutionErrors` is disabled by default.
 
 **Missing or residual mitigation.**
 
 - Jint cannot reduce the operating-system authority of an enabled CLR API.
-- `AllowedAssemblies` is not a complete capability boundary for core runtime types.
+- `AllowedAssemblies` governs namespace discovery only. Host-projected objects, delegates,
+  and explicitly exported `TypeReference` values are separate capabilities and can expose
+  types from assemblies absent from that list.
+- A type admitted from an allowed assembly may itself load assemblies, resolve or instantiate
+  types by name, or return powerful objects. Assembly membership alone is therefore not a
+  complete capability boundary; a positive member allow-list is still required.
 - A member filter is host code and can be incomplete or become stale as types evolve.
+- Enabling `AllowGetType` still grants runtime type discovery for otherwise admitted objects.
+- Filtering one well-known static type-resolution family is defense in depth, not a general
+  barrier: other admitted APIs may carry equivalent type-resolution or invocation authority.
+- Enabling `AllowSystemReflection`, or explicitly exporting reflection capabilities, restores
+  the authority those APIs carry.
 
-**Required host action.** Never call `AllowClr` for untrusted scripts. Never enable
-`AllowGetType` or `AllowSystemReflection`. If CLR projection is unavoidable, use a dedicated
-allow-listing `TypeResolver`, test it as a security boundary, and still isolate the worker at
-the operating-system level.
+**Required host action.** Prefer leaving CLR namespace access disabled for untrusted scripts.
+If it is unavoidable, pass the minimum explicit assembly set to `AllowClr`, use a dedicated
+allow-listing `TypeResolver`, leave `AllowGetType` and `AllowSystemReflection` disabled, and
+test the complete exported capability surface. Treat every projected object, delegate, and
+explicit `TypeReference` as outside the assembly boundary, and audit every admitted member
+for authority it can return or exercise. Still isolate the worker at the operating-system level.
 
 ### TM-02: Projected host objects and delegates act as ambient capabilities
 

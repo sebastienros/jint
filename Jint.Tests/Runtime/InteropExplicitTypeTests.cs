@@ -221,8 +221,27 @@ public class InteropExplicitTypeTests
     [Fact]
     public void ClrHelperUnwrap()
     {
-        _engine.Evaluate("holder.I1.Name").Should().NotBe(holder.CI1.Name);
-        _engine.Evaluate("clrHelper.unwrap(holder.I1).Name").Should().Be(holder.CI1.Name);
+        var engine = new Engine(options =>
+        {
+            options.AllowClr(typeof(CI1).Assembly);
+            options.Interop.AllowGetType = true;
+        }).SetValue("holder", holder);
+
+        engine.Evaluate("holder.I1.Name").Should().NotBe(holder.CI1.Name);
+        engine.Evaluate("clrHelper.unwrap(holder.I1).Name").Should().Be(holder.CI1.Name);
+    }
+
+    [Fact]
+    public void ClrHelperUnwrapRequiresAllowGetType()
+    {
+        var engine = new Engine(options => options.AllowClr(typeof(CI1).Assembly))
+            .SetValue("holder", holder);
+
+        var ex = Invoking(() => engine.Evaluate("clrHelper.unwrap(holder.I1)"))
+            .Should()
+            .ThrowExactly<InvalidOperationException>()
+            .Which;
+        ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
     [Fact]
@@ -316,7 +335,7 @@ public class InteropExplicitTypeTests
 
         runner.Invoke(new Engine(cfg =>
         {
-            cfg.AllowClr();
+            cfg.AllowClr(typeof(TypeHolder).Assembly);
             cfg.Interop.AllowGetType = true;
         }));
 

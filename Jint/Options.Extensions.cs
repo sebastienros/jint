@@ -303,8 +303,22 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Allows scripts to call CLR types directly like <example>System.IO.File</example>
+    /// Allows scripts to resolve CLR types from the core assembly containing <see cref="object"/> through
+    /// <c>System</c> and <c>importNamespace</c>.
     /// </summary>
+    public static Options AllowClr(this Options options)
+    {
+        return options.AllowClr(typeof(object).Assembly);
+    }
+
+    /// <summary>
+    /// Allows scripts to resolve CLR types from the supplied assemblies through <c>System</c> and
+    /// <c>importNamespace</c>.
+    /// </summary>
+    /// <remarks>
+    /// The supplied assemblies are a closed namespace-resolution allow-list. They do not restrict CLR objects,
+    /// delegates, or <see cref="TypeReference"/> values explicitly exported by the host.
+    /// </remarks>
     public static Options AllowClr(this Options options, params Assembly[] assemblies)
     {
         options.Interop.Enabled = true;

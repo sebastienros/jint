@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
@@ -18,9 +19,17 @@ namespace Jint.Runtime.Interop;
 [RequiresUnreferencedCode("Dynamic loading")]
 public class NamespaceReference : ObjectInstance, ICallable
 {
-    private readonly string? _path;
+    private static readonly ConditionalWeakTable<Assembly, Dictionary<string, Type>> _typesByAssembly = new();
 
-    public NamespaceReference(Engine engine, string? path) : base(engine)
+    private readonly string? _path;
+    private readonly ClrTypeResolutionPolicy _policy;
+
+    public NamespaceReference(Engine engine, string? path)
+        : this(engine, path, new ClrTypeResolutionPolicy(engine.Options.Interop))
+    {
+    }
+
+    internal NamespaceReference(Engine engine, string? path, ClrTypeResolutionPolicy policy) : base(engine)
     {
         // Member access resolves namespace/type segments, not ordinary property lookup, so the
         // prototype-method inline cache must skip this receiver. See InternalTypes.ExoticGet.
@@ -28,6 +37,7 @@ public class NamespaceReference : ObjectInstance, ICallable
         // ICallable to bind a generic type, so call sites must see this as callable.
         _type |= InternalTypes.ExoticGet | InternalTypes.Callable;
         _path = path;
+        _policy = policy;
     }
 
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
@@ -51,7 +61,10 @@ public class NamespaceReference : ObjectInstance, ICallable
                 || !genericTypeReference.IsObject()
                 || genericTypeReference.AsObject() is not TypeReference tr)
             {
-                Throw.TypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
+                var message = _policy.ExposeDetailedResolutionErrors
+                    ? "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?"
+                    : "Invalid generic CLR type parameter.";
+                Throw.TypeError(_engine.Realm, message);
                 return default;
             }
 
@@ -71,9 +84,14 @@ public class NamespaceReference : ObjectInstance, ICallable
 
             return TypeReference.CreateTypeReference(Engine, genericType);
         }
-        catch (Exception e)
+        catch (Exception e) when (!Throw.MustPropagateHostException(e))
         {
-            Throw.InvalidOperationException($"Invalid generic type parameter on {_path}, if this is not a generic type / method, are you missing a lookup assembly?", e);
+            if (_policy.ExposeDetailedResolutionErrors)
+            {
+                Throw.InvalidOperationException($"Invalid generic type parameter on {_path}, if this is not a generic type / method, are you missing a lookup assembly?", e);
+            }
+
+            Throw.InvalidOperationException("Could not construct the requested generic CLR type.");
             return null;
         }
     }
@@ -92,113 +110,60 @@ public class NamespaceReference : ObjectInstance, ICallable
     {
         if (_engine.TypeCache.TryGetValue(path, out var type))
         {
-            if (type == null)
+            if (type == null || !_policy.Allows(type))
             {
-                return new NamespaceReference(_engine, path);
+                return new NamespaceReference(_engine, path, _policy);
             }
 
             return TypeReference.CreateTypeReference(_engine, type);
         }
 
-        // in CoreCLR, for example, classes that used to be in
-        // mscorlib were moved away, and only stubs remained, because
-        // of that, we do the search on the lookup assemblies first,
-        // and only then in mscorlib. Probelm usage: System.IO.File.CreateText
-
-        // search in loaded assemblies
-        var lookupAssemblies = new[] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() };
-
-        foreach (var assembly in lookupAssemblies)
-        {
-            type = assembly.GetType(path);
-            if (type != null)
-            {
-                _engine.TypeCache.Add(path, type);
-                return TypeReference.CreateTypeReference(_engine, type);
-            }
-        }
-
-        // search in lookup assemblies
+        // Search only the host's closed allow-list. Explicit TypeReference values are separate capabilities.
         var comparedPath = path.Replace('+', '.');
-        foreach (var assembly in _engine.Options.Interop.AllowedAssemblies)
+        foreach (var assembly in _policy.AllowedAssemblies)
         {
             type = assembly.GetType(path);
-            if (type != null)
+            if (type is null)
+            {
+                type = GetTypeByNormalizedName(assembly, comparedPath);
+            }
+
+            if (type is not null)
             {
                 _engine.TypeCache.Add(path, type);
-                return TypeReference.CreateTypeReference(_engine, type);
+                return _policy.Allows(type)
+                    ? TypeReference.CreateTypeReference(_engine, type)
+                    : new NamespaceReference(_engine, path, _policy);
             }
-
-            var lastPeriodPos = path.LastIndexOf('.');
-            if (lastPeriodPos != -1)
-            {
-                var trimPath = path.Substring(0, lastPeriodPos);
-                type = GetType(assembly, trimPath);
-            }
-            if (type != null)
-            {
-                foreach (Type nType in GetAllNestedTypes(type))
-                {
-                    if (nType.FullName != null && nType.FullName.Replace('+', '.').Equals(comparedPath, StringComparison.Ordinal))
-                    {
-                        _engine.TypeCache.Add(comparedPath, nType);
-                        return TypeReference.CreateTypeReference(_engine, nType);
-                    }
-                }
-            }
-        }
-
-        // search for type in mscorlib
-        type = System.Type.GetType(path);
-        if (type != null)
-        {
-            _engine.TypeCache.Add(path, type);
-            return TypeReference.CreateTypeReference(_engine, type);
         }
 
         // the new path doesn't represent a known class, thus return a new namespace instance
 
         _engine.TypeCache.Add(path, null);
-        return new NamespaceReference(_engine, path);
+        return new NamespaceReference(_engine, path, _policy);
     }
 
-    /// <summary>   Gets a type. </summary>
-    ///<remarks>Nested type separators are converted to '.' instead of '+' </remarks>
-    /// <param name="assembly"> The assembly. </param>
-    /// <param name="typeName"> Name of the type. </param>
-    ///
-    /// <returns>   The type. </returns>
     [RequiresUnreferencedCode("Assembly type loading")]
-    private static Type? GetType(Assembly assembly, string typeName)
+    private static Type? GetTypeByNormalizedName(Assembly assembly, string typeName)
     {
-        var compared = typeName.Replace('+', '.');
-        foreach (Type t in assembly.GetTypes())
+        var types = _typesByAssembly.GetValue(assembly, static a =>
         {
-            if (string.Equals(t.FullName?.Replace('+', '.'), compared, StringComparison.Ordinal))
+            var result = new Dictionary<string, Type>(StringComparer.Ordinal);
+            foreach (var type in a.GetTypes())
             {
-                return t;
+                if (!ClrTypeResolutionPolicy.IsPubliclyAccessibleType(type))
+                {
+                    continue;
+                }
+
+                if (type.FullName?.Replace('+', '.') is { } name && !result.ContainsKey(name))
+                {
+                    result.Add(name, type);
+                }
             }
-        }
-
-        return null;
-    }
-
-    private static Type[] GetAllNestedTypes(Type type)
-    {
-        var types = new List<Type>();
-        AddNestedTypesRecursively(types, type);
-        return types.ToArray();
-    }
-
-    private static void AddNestedTypesRecursively(
-        List<Type> types,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicNestedTypes)] Type type)
-    {
-        foreach (var nestedType in type.GetNestedTypes(BindingFlags.Public))
-        {
-            types.Add(nestedType);
-            AddNestedTypesRecursively(types, nestedType);
-        }
+            return result;
+        });
+        return types.TryGetValue(typeName, out var type) ? type : null;
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
@@ -209,5 +174,52 @@ public class NamespaceReference : ObjectInstance, ICallable
     public override string ToString()
     {
         return "[CLR namespace: " + _path + "]";
+    }
+}
+
+internal sealed class ClrTypeResolutionPolicy
+{
+    private readonly bool _allowSystemReflection;
+    private readonly TypeResolver _typeResolver;
+
+    internal ClrTypeResolutionPolicy(Options.InteropOptions options)
+    {
+        AllowedAssemblies = new HashSet<Assembly>(options.AllowedAssemblies);
+        _allowSystemReflection = options.AllowSystemReflection;
+        ExposeDetailedResolutionErrors = options.ExposeDetailedResolutionErrors;
+        _typeResolver = options.TypeResolver;
+    }
+
+    internal HashSet<Assembly> AllowedAssemblies { get; }
+
+    internal bool ExposeDetailedResolutionErrors { get; }
+
+    internal bool Allows(Type type)
+    {
+        return AllowedAssemblies.Contains(type.Assembly)
+               && IsPubliclyAccessibleType(type)
+               && (_allowSystemReflection
+                   || type.Namespace?.StartsWith("System.Reflection", StringComparison.Ordinal) != true)
+               && _typeResolver.FilterType(type);
+    }
+
+    internal static bool IsPubliclyAccessibleType(Type type)
+    {
+        if (!type.IsNested)
+        {
+            return type.IsPublic;
+        }
+
+        while (type.IsNested)
+        {
+            if (!type.IsNestedPublic)
+            {
+                return false;
+            }
+
+            type = type.DeclaringType!;
+        }
+
+        return type.IsPublic;
     }
 }

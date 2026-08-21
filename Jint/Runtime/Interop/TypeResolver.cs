@@ -29,20 +29,22 @@ public sealed class TypeResolver
     public static readonly TypeResolver Default = new();
 
     private readonly ConcurrentDictionary<AccessorCacheKey, ReflectionAccessor> _reflectionAccessors = new();
+    private readonly ConcurrentDictionary<StaticAccessorCacheKey, ReflectionAccessor> _staticAccessors = new();
+    private readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructors = new();
 
     /// <summary>
     /// How many accessors this resolver currently holds. The cache never evicts, so this is the retention
     /// the resolver commits to: it must stay bounded by the distinct members the engines using it resolve,
     /// and must not grow with the number of engines constructed.
     /// </summary>
-    internal int ResolvedAccessorCount => _reflectionAccessors.Count;
+    internal int ResolvedAccessorCount => _reflectionAccessors.Count + _staticAccessors.Count;
 
     private Predicate<MemberInfo> _memberFilter = static _ => true;
     private Func<MemberInfo, IEnumerable<string>> _memberNameCreator = NameCreator;
     private StringComparer _memberNameComparer = DefaultMemberNameComparer.Instance;
 
     /// <summary>
-    /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
+    /// Registers a filter that determines whether a type or member is exposed to interop or returned as undefined.
     /// By default allows all but will also be limited by <see cref="Options.InteropOptions.AllowGetType"/> configuration.
     /// </summary>
     /// <remarks>
@@ -50,6 +52,11 @@ public sealed class TypeResolver
     /// accessor was produced under the previous filter, and a member it exposed (or hid) would otherwise keep
     /// being served from the cache to engines that ask afterwards, in this engine and in every other one
     /// sharing the resolver. Assigning the same instance back costs nothing.
+    /// <para>
+    /// <see cref="NamespaceReference"/> consults the filter for each top-level or nested type it discovers.
+    /// A root <see cref="TypeReference"/> explicitly exported by the host is already a capability and bypasses
+    /// that type check, but its constructors, static members, and nested types still use this filter.
+    /// </para>
     /// </remarks>
     /// <seealso cref="Options.InteropOptions.AllowGetType"/>
     public Predicate<MemberInfo> MemberFilter
@@ -75,7 +82,12 @@ public sealed class TypeResolver
     /// have had to reason about anyway. Mutate the settings before handing the resolver to an engine when
     /// that matters.
     /// </remarks>
-    private void InvalidateResolvedAccessors() => _reflectionAccessors.Clear();
+    private void InvalidateResolvedAccessors()
+    {
+        _reflectionAccessors.Clear();
+        _staticAccessors.Clear();
+        _constructors.Clear();
+    }
 
     internal bool Filter(Engine engine, Type targetType, MemberInfo m)
     {
@@ -101,8 +113,21 @@ public sealed class TypeResolver
             }
         }
 
+        if (m is MethodInfo { IsStatic: true, DeclaringType: not null } method
+            && method.DeclaringType == typeof(Type)
+            && string.Equals(method.Name, nameof(Type.GetType), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         return (AllowGetType(engine) || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && _memberFilter(m);
     }
+
+    /// <summary>
+    /// Whether a type discovered through a namespace is part of the host's type allow-list. Explicitly exported
+    /// <see cref="TypeReference"/> values do not use this check.
+    /// </summary>
+    internal bool FilterType(Type type) => _memberFilter(type);
 
     /// <summary>
     /// Gives the exposed names for a member. Allows to expose C# convention following member like IsSelected
@@ -227,7 +252,7 @@ public sealed class TypeResolver
                 && ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor)
                 && engine.Options.Interop.ThrowOnUnresolvedMember)
             {
-                throw new MissingMemberException($"Cannot access property '{member}' on type '{type.FullName}");
+                throw CreateMissingMemberException(engine, type, member);
             }
             return accessor;
         }
@@ -247,6 +272,59 @@ public sealed class TypeResolver
         }
 
         return accessor;
+    }
+
+    internal ReflectionAccessor GetStaticAccessor(
+        Engine engine,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type,
+        string member)
+    {
+        var profile = engine._interopResolutionProfile;
+        if (!profile.IsCaptured)
+        {
+            return ResolveStaticAccessor(engine, type, member);
+        }
+
+        var key = new StaticAccessorCacheKey(type, member, profile);
+        if (_staticAccessors.TryGetValue(key, out var accessor))
+        {
+            return accessor;
+        }
+
+        accessor = ResolveStaticAccessor(engine, type, member);
+        if (IsShareable(engine, accessor))
+        {
+            _staticAccessors.TryAdd(key, accessor);
+        }
+
+        return accessor;
+    }
+
+    internal MethodDescriptor[] GetConstructors(
+        Engine engine,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
+    {
+        return _constructors.GetOrAdd(
+            type,
+            t =>
+            {
+                List<ConstructorInfo> constructors = [.. t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)];
+                constructors.RemoveAll(x => !Filter(engine, t, x));
+                return MethodDescriptor.Build(constructors);
+            });
+    }
+
+    private ReflectionAccessor ResolveStaticAccessor(
+        Engine engine,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type,
+        string member)
+    {
+        const BindingFlags BindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+        return TryFindMemberAccessor(engine, type, member, BindingFlags, indexerToTry: null, out var accessor)
+            ? accessor
+            : ConstantValueAccessor.NullAccessor;
     }
 
     /// <summary>
@@ -434,10 +512,18 @@ public sealed class TypeResolver
 
         if (throwOnError && engine.Options.Interop.ThrowOnUnresolvedMember)
         {
-            throw new MissingMemberException($"Cannot access property '{memberName}' on type '{type.FullName}");
+            throw CreateMissingMemberException(engine, type, memberName);
         }
 
         return ConstantValueAccessor.NullAccessor;
+    }
+
+    internal static MissingMemberException CreateMissingMemberException(Engine engine, Type type, string member)
+    {
+        var message = engine.Options.Interop.ExposeDetailedResolutionErrors
+            ? $"Cannot access property '{member}' on type '{type.FullName}"
+            : "Cannot access the requested CLR member.";
+        return new MissingMemberException(message);
     }
 
     private static bool ContainsMethodWithSameSignature(List<MethodInfo>? methods, MethodInfo method)
@@ -678,14 +764,23 @@ public sealed class TypeResolver
             }
         }
 
-        foreach (var m in type.GetMethods(bindingFlags ?? MethodBindingFlags(engine)))
+        var methodBindingFlags = bindingFlags ?? MethodBindingFlags(engine);
+
+        foreach (var m in type.GetMethods(methodBindingFlags))
         {
             AddMethod(m);
         }
 
         foreach (var iface in type.GetInterfaces())
         {
-            foreach (var m in iface.GetMethods())
+            // Reflect the interface with the lane's own flags. A parameterless GetMethods() reports
+            // public instance *and* static members whatever the caller asked for, so the static-only
+            // lookup behind a TypeReference used to pick up instance interface methods. On .NET
+            // Framework that is how System.Type's COM mirrors — _Type and _MemberInfo, which declare
+            // an instance GetType(), InvokeMember(), GetMethod() and the rest — reached script as
+            // static members of System.Type, past the static Type.GetType guard in Filter, which
+            // never matched them because they are not static.
+            foreach (var m in iface.GetMethods(methodBindingFlags))
             {
                 AddMethod(m, skipIfSignatureAlreadyPresent: true);
             }
@@ -717,7 +812,7 @@ public sealed class TypeResolver
 
         // look for nested type
         var nestedType = type.GetNestedType(memberName, bindingFlags ?? BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static);
-        if (nestedType != null)
+        if (nestedType != null && Filter(engine, type, nestedType))
         {
             var typeReference = TypeReference.CreateTypeReference(engine, nestedType);
             accessor = new NestedTypeAccessor(typeReference);
@@ -790,6 +885,12 @@ internal readonly record struct AccessorCacheKey(
     Type Type,
     Key PropertyName,
     MemberResolutionRequirement Requirement,
+    InteropResolutionProfile Profile);
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct StaticAccessorCacheKey(
+    Type Type,
+    string PropertyName,
     InteropResolutionProfile Profile);
 
 /// <summary>
