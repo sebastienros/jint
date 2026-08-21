@@ -549,6 +549,14 @@ internal sealed class WebApiEngineState
         _globalEventTarget ??= new GlobalEventTarget(_engine, _engine._mainRealm);
 
     /// <summary>
+    /// The same target, or <see langword="null"/> when nothing has built one yet. What
+    /// <c>Engine.Advanced.InvokeFetchHandler</c> asks, because a host invoking a handler must not be the thing
+    /// that creates a listener list: an engine whose script never called <c>addEventListener</c> answers the
+    /// question with one field read and allocates nothing.
+    /// </summary>
+    internal GlobalEventTarget? GlobalEventTargetIfCreated => _globalEventTarget;
+
+    /// <summary>
     /// <c>reportError(e)</c>: HTML's <i>report an exception</i> —
     /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. See
     /// <c>ReportErrorFunction</c>.

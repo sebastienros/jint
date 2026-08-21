@@ -9,6 +9,7 @@ using Jint.WebApi.DomException;
 using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.FetchEvents;
 using Jint.WebApi.Files;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
@@ -384,6 +385,15 @@ public sealed partial class Intrinsics
     /// </summary>
     internal GlobalEventFunctions GlobalEventFunctions =>
         _globalEventFunctions ??= Jint.WebApi.GlobalEvents.GlobalEventFunctions.Create(_engine, _realm);
+
+    private FetchEventConstructor? _fetchEvent;
+
+    /// <summary>
+    /// <c>FetchEvent</c> inherits from <c>ExtendableEvent</c> in the IDL and from <c>Event</c> here, which is
+    /// the whole of the flat-shape reduction — <c>Jint.WebApi.FetchEvents.JsFetchEvent</c> argues it.
+    /// </summary>
+    internal FetchEventConstructor FetchEvent =>
+        _fetchEvent ??= new FetchEventConstructor(_engine, _realm, Event);
 
     private StorageConstructor? _storage;
     private JsStorage? _localStorage;

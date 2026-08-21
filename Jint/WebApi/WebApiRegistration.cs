@@ -215,6 +215,17 @@ internal static class WebApiRegistration
             Install(global, engine, "PromiseRejectionEvent", static e => e.Realm.Intrinsics.PromiseRejectionEvent, PropertyFlag.NonEnumerable);
         }
 
+        if ((features & WebApiFeatures.FetchEvents) != WebApiFeatures.None)
+        {
+            // A listener that cannot build a Response has nothing to respond with, so this feature installs
+            // the object model exactly as SetFetchHandler does — and, like it, pointedly not `fetch`. Unlike
+            // it, the install happens while the engine is being built, so a module that constructs a Response
+            // at top level works without the host having had to register anything first.
+            InstallFetchModel(engine);
+
+            Install(global, engine, "FetchEvent", static e => e.Realm.Intrinsics.FetchEvent, PropertyFlag.NonEnumerable);
+        }
+
         if ((features & WebApiFeatures.Crypto) != WebApiFeatures.None)
         {
             // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
@@ -430,6 +441,18 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams;
         }
 
+        // Deliberately BEFORE the GlobalEvents rule below, which is what turns the flag added here into
+        // WebApiFeatures.Events as well. What a fetch listener is registered with is the global
+        // addEventListener, and what it answers with is a Response — so the closure is exactly the set
+        // fetch-handler hosting already demands (Events | Url | Files), reached through the feature that owns
+        // the listener list. Pointedly not WebApiFeatures.Fetch: dispatching an inbound request into script is
+        // a different grant from letting the script reach out to the network, the same split
+        // Engine.Advanced.SetFetchHandler makes when it installs the object model and not `fetch`.
+        if ((features & WebApiFeatures.FetchEvents) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.GlobalEvents | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
         // The three global operations register listeners on an EventTarget and dispatch an Event, and the two
         // interface objects the feature adds are Event subclasses — so without the events feature it would
         // install operations with nothing to use them on.
@@ -470,10 +493,13 @@ internal static class WebApiRegistration
     /// keeps its providers here, which is why each of them wants the state even without the timers flag.
     /// The global events keep their synthetic listener target here. That flag is named explicitly rather than
     /// left to the closure that already brings <see cref="WebApiFeatures.Events"/> with it, because the reason
-    /// it needs the state is its own — a target to fire at, not the time origin the events feature wants.
+    /// it needs the state is its own — a target to fire at, not the time origin the events feature wants. The
+    /// fetch events are named for the same reason once more removed: what
+    /// <c>Engine.Advanced.InvokeFetchHandler</c> reads is that very target plus the registered handler slot,
+    /// both of which live here, and a closure is not a reason to depend on one.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents;
 
     /// <summary>
     /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
