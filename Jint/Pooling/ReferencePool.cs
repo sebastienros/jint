@@ -27,6 +27,12 @@ internal sealed class ReferencePool
     /// </summary>
     internal int CreatedCount { get; private set; }
 
+    /// <summary>
+    /// How many instances the pool is holding right now, for
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>; at most <see cref="PoolSize"/>.
+    /// </summary>
+    internal int PooledCount => _pool.PooledCount;
+
     private Reference Factory()
     {
         CreatedCount++;

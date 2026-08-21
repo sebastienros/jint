@@ -359,6 +359,12 @@ internal sealed class WebApiEngineState
         => Diagnostics?.Report(DiagnosticEvent.ForPromiseRejection(promise, operation));
 
     /// <summary>
+    /// Registered timers that have not fired and have not been cleared, for
+    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>.
+    /// </summary>
+    internal int PendingTimerCount => Timers?.Count ?? 0;
+
+    /// <summary>
     /// Drops the state that belongs to the evaluation cycle a <c>RestoreGlobalSnapshot</c> has just ended.
     /// </summary>
     /// <remarks>
