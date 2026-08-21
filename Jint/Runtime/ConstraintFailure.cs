@@ -19,6 +19,11 @@ internal static class ConstraintFailure
     /// <see cref="RecursionDepthOverflowException"/> belongs here for the same reason as the rest, and reaches
     /// these paths whenever host code re-enters the engine — a module resolve hook or a virtual file system
     /// written in script, which is a shape hosts really do use.
+    /// <see cref="PlatformNotSupportedException"/> is on the list for the same reason but arrives by a
+    /// different route: <see cref="Jint.Constraints.MemoryLimitConstraint"/> raises it when the runtime does
+    /// not expose <c>GC.GetAllocatedBytesForCurrentThread</c>, so a configured allocation budget cannot be
+    /// enforced at all. That is a bound failing closed, and a job that turned it into a rejection would go on
+    /// running unbounded.
     /// </remarks>
     internal static bool MustPropagate(Exception exception) => exception
         is ExecutionCanceledException
@@ -27,5 +32,6 @@ internal static class ConstraintFailure
         or RecursionDepthOverflowException
         or TimeoutException
         or OperationCanceledException
+        or PlatformNotSupportedException
         or OutOfMemoryException;
 }

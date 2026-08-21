@@ -141,20 +141,21 @@ internal static class PromiseOperations
         PromiseCapability? resultCapability)
     {
         var wasAlreadyHandled = promise.PromiseIsHandled;
+        var memoryState = engine.CaptureMemoryLimitState();
 
         switch (promise.State)
         {
             case PromiseState.Pending:
-                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled));
-                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected));
+                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled, MemoryState: memoryState));
+                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected, MemoryState: memoryState));
                 break;
 
             case PromiseState.Fulfilled:
-                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled), promise.Value);
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled, MemoryState: memoryState), promise.Value);
 
                 break;
             case PromiseState.Rejected:
-                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected), promise.Value);
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, resultCapability, onRejected, MemoryState: memoryState), promise.Value);
 
                 break;
             default:
@@ -195,20 +196,21 @@ internal static class PromiseOperations
     internal static void PerformPromiseThen(Engine engine, JsPromise promise, IPromiseContinuation continuation)
     {
         var wasAlreadyHandled = promise.PromiseIsHandled;
+        var memoryState = engine.CaptureMemoryLimitState();
 
         switch (promise.State)
         {
             case PromiseState.Pending:
-                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation));
-                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation));
+                (promise.PromiseFulfillReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation, memoryState));
+                (promise.PromiseRejectReactions ??= new List<PromiseReaction>()).Add(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation, memoryState));
                 break;
 
             case PromiseState.Fulfilled:
-                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation), promise.Value);
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Fulfill, Capability: null, Handler: null, continuation, memoryState), promise.Value);
                 break;
 
             case PromiseState.Rejected:
-                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation), promise.Value);
+                engine.AddToEventLoop(new PromiseReaction(ReactionType.Reject, Capability: null, Handler: null, continuation, memoryState), promise.Value);
                 break;
 
             default:

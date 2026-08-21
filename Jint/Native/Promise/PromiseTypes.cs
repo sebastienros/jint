@@ -1,3 +1,5 @@
+using Jint.Constraints;
+
 namespace Jint.Native.Promise;
 
 internal enum PromiseState
@@ -17,7 +19,8 @@ internal sealed record PromiseReaction(
     ReactionType Type,
     PromiseCapability? Capability,
     JsValue? Handler,
-    IPromiseContinuation? Continuation = null
+    IPromiseContinuation? Continuation = null,
+    MemoryLimitConstraint.OperationState? MemoryState = null
 );
 
 /// <summary>

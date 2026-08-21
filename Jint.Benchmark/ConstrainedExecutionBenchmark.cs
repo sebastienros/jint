@@ -16,6 +16,12 @@ namespace Jint.Benchmark;
 /// stays armed. The <c>TimeoutEnabled=true</c> row should track the unconstrained row closely.
 /// </description></item>
 /// <item><description>
+/// <see cref="MemoryLimitEnabled"/> — allocation is an <b>exact</b> constraint and a single statement may
+/// allocate without bound, so every statement reads the current thread's allocation counter. The engine also
+/// snapshots each top-level execution segment so asynchronous continuations can carry the accumulated budget
+/// across thread hops. These rows measure both costs together.
+/// </description></item>
+/// <item><description>
 /// <see cref="StatementLimitEnabled"/> — a statement limit is an <b>exact</b> constraint: its call
 /// frequency <i>is</i> its semantics (it counts the calls), so it cannot be amortized without
 /// changing what it means. It is nevertheless not the generic per-statement path: while it is the
@@ -32,9 +38,8 @@ namespace Jint.Benchmark;
 /// </list>
 ///
 /// Both flags are independent, so the four rows also show whether the two costs compose or
-/// overlap. They compose additively and both stay on the fast lane: a timeout is amortizable, so
-/// it never joins the exact partition, which means the statement limit keeps the inline counter
-/// (and the tight lane) even in the both-enabled row.
+/// overlap. Timeout and statement counting compose additively and stay on the fast lane until a memory limit
+/// joins them; memory accounting deliberately disarms that lane because its exact check cannot be skipped.
 /// </summary>
 [MemoryDiagnoser]
 public class ConstrainedExecutionBenchmark
@@ -51,6 +56,7 @@ public class ConstrainedExecutionBenchmark
     /// </para>
     /// </summary>
     private const int StatementBudget = 100_000_000;
+    private const long MemoryBudget = 1_000_000_000;
 
     private Engine _engine = null!;
     private Prepared<Script> _functionLocalLoop;
@@ -60,6 +66,9 @@ public class ConstrainedExecutionBenchmark
 
     [Params(false, true)]
     public bool StatementLimitEnabled { get; set; }
+
+    [Params(false, true)]
+    public bool MemoryLimitEnabled { get; set; }
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -77,6 +86,7 @@ public class ConstrainedExecutionBenchmark
 
         var timeoutEnabled = TimeoutEnabled;
         var statementLimitEnabled = StatementLimitEnabled;
+        var memoryLimitEnabled = MemoryLimitEnabled;
         _engine = new Engine(options =>
         {
             if (timeoutEnabled)
@@ -87,6 +97,11 @@ public class ConstrainedExecutionBenchmark
             if (statementLimitEnabled)
             {
                 options.MaxStatements(StatementBudget);
+            }
+
+            if (memoryLimitEnabled)
+            {
+                options.LimitMemory(MemoryBudget);
             }
         });
 

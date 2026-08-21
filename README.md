@@ -1981,6 +1981,10 @@ deadline. (Sharing it is not required: building an `Options` per scope is fine w
 scoped state.) Watch for the sentinel trap: `MaxStatements(int.MaxValue)`, `LimitMemory(long.MaxValue)` and
 `TimeoutInterval(TimeSpan.MaxValue)` register *no* constraint at all and remove any previously registered one
 of that kind, so spelling "effectively unlimited" that way leaves you with no limit rather than a large one.
+`LimitMemory` is a managed-allocation budget, not a retained-heap or process-memory quota. It accounts only
+while an engine thread is actively executing the operation, including synchronous host callbacks, and carries
+the accumulated total with promise and module continuations when they resume on another thread. It does not
+charge unrelated allocations while an async operation is suspended.
 
 **Values do not cross engines.** A `JsValue` that is an `ObjectInstance` holds a hard reference to the engine
 and realm that created it, and passing one to a different engine is not supported — it is neither validated
@@ -2269,6 +2273,42 @@ var engine = new Engine(options => {
     options.CancellationToken(cancellationToken);
 }
 ```
+
+`LimitMemory` measures managed bytes allocated while Jint actively executes one top-level operation. Promise
+reactions, `EvaluateAsync` / `InvokeAsync`, and asynchronous module loading keep the originating budget across
+thread hops. Synchronous host callbacks are included; allocations performed by background work before it hands
+a result back to Jint are not. The limit is not retained heap, unmanaged memory, or a process-wide quota, and
+initial source parsing happens before the execution constraint starts. Use an operating-system memory limit for
+a hard worker boundary.
+
+The runtime capability is explicit through `MemoryLimitConstraint.Accuracy`. It is
+`MemoryLimitAccuracy.ExecutionThread` when the per-thread allocation counter is available; otherwise execution
+fails with `PlatformNotSupportedException` rather than silently skipping enforcement.
+
+Like other execution constraints, the allocation budget normally resets for each top-level entry. To cover a
+host operation made from several calls with one budget, retrieve the engine-owned constraint and bracket those
+calls:
+
+```c#
+var engine = new Engine(options => options.LimitMemory(4_000_000));
+var memory = engine.Constraints.Find<MemoryLimitConstraint>()!;
+
+memory.Begin();
+try
+{
+    engine.Execute(initialization);
+    engine.Invoke("render", input);
+}
+finally
+{
+    memory.End();
+}
+```
+
+The memory scope is part of the engine's single-operation ownership contract. Its mutable state and diagnostics
+fail fast with `InvalidOperationException` while another thread or an outstanding async API owns the engine.
+When the bracket contains `EvaluateAsync`, `InvokeAsync`, or `ImportAsync`, await that operation before calling
+`End`; the async owner carries the same memory state through every continuation.
 
 You can also write a custom constraint by deriving from the `Constraint` base class:
 

@@ -174,8 +174,8 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// constraint.
     /// </summary>
     /// <remarks>
-    /// The engine invites every constraint to rewind itself at the start and end of each top-level entry,
-    /// which is what refunds the built-in timeout's deadline to every host call in a loop. Here the window
+    /// The engine invites ordinary resettable constraints to rewind at the start and end of each top-level
+    /// entry, which is what refunds the built-in timeout's deadline to every host call in a loop. Here the window
     /// is the host's to define, and it defines it with <see cref="Begin"/> and <see cref="End"/>, so the
     /// invitation is declined and the budget keeps running across as many entries as the operation makes.
     /// </remarks>

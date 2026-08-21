@@ -12,10 +12,10 @@ namespace Jint.Tests.PublicInterface;
 /// <para>
 /// Every public entry point that runs script — <c>Engine.Execute</c>, <c>Engine.Evaluate</c>,
 /// <c>Engine.Invoke</c>, <c>Engine.Call</c> and the <c>JsValue.Call</c> extension helpers — funnels
-/// through the same internal <c>ExecuteWithConstraints</c>, which calls <c>Constraint.Reset()</c> both
+/// through the same internal <c>ExecuteWithConstraints</c>, which establishes a fresh ordinary budget both
 /// before and after the callback whenever the entry is not nested inside a running evaluation. A single
 /// <c>fn.Call(row)</c> is therefore a full top-level run: it gets its own statement budget, its own
-/// allocation baseline and, above all, its own freshly armed timeout deadline.
+/// allocation-accounting state and, above all, its own freshly armed timeout deadline.
 /// </para>
 /// <para>
 /// <b>What an embedder must take away:</b> constraints bound <em>one</em> entry into the engine, never a
@@ -269,7 +269,7 @@ public class HostCallLoopConstraintTests
     }
 
     [Fact]
-    public void EveryTopLevelHostEntryResetsEveryRegisteredConstraintTwice()
+    public void EveryTopLevelHostEntryResetsRegisteredCustomConstraintsTwice()
     {
         // The mechanism, observed from the public surface: Engine.ExecuteWithConstraints resets before
         // running the callback and again in its finally block, for every non-nested entry.

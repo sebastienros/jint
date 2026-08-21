@@ -163,6 +163,14 @@ public sealed partial class Engine : IDisposable
         return new HostCallScope(this, callbackOwner);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal HostCallScope? EnterHostCallIfNeeded()
+    {
+        return Volatile.Read(ref _ownerThreadId) == System.Environment.CurrentManagedThreadId
+            ? null
+            : EnterHostCall();
+    }
+
     internal HostCallScope EnterHostCallback()
         => EnterHostCall();
 
@@ -756,6 +764,9 @@ public sealed partial class Engine : IDisposable
     // See Engine.Constraints.cs for the partitioning rationale.
     internal readonly Constraint[] _exactConstraints;
     internal readonly Constraint[] _amortizedConstraints;
+    internal readonly MemoryLimitConstraint? _memoryLimitConstraint;
+    private MemoryLimitConstraint.SegmentToken _implicitMemorySegment;
+    private int _implicitMemoryContextDepth;
 
     /// <summary>
     /// Set when the exact partition consists of nothing but a <see cref="MaxStatementsConstraint"/>. That
@@ -964,6 +975,22 @@ public sealed partial class Engine : IDisposable
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;
         _inlineStatementCounter = partitionedConstraints.InlineStatementCounter;
+        MemoryLimitConstraint? memoryLimitConstraint = null;
+        foreach (var constraint in _constraints)
+        {
+            if (constraint is MemoryLimitConstraint candidate)
+            {
+                if (memoryLimitConstraint is not null)
+                {
+                    Throw.InvalidOperationException(
+                        "Only one MemoryLimitConstraint can be registered per Engine. Use LimitMemory to replace the configured limit.");
+                }
+
+                memoryLimitConstraint = candidate;
+            }
+        }
+        _memoryLimitConstraint = memoryLimitConstraint;
+        memoryLimitConstraint?.Attach(this);
 
         // Everything the context snapshots is settled by now (debug mode, the constraint partition),
         // and it must exist before Options.Apply below, whose configuration callbacks may execute
@@ -1170,11 +1197,19 @@ public sealed partial class Engine : IDisposable
             strict: strict);
 
         _executionContexts.Push(in context);
+        if (_memoryLimitConstraint is not null)
+        {
+            BeginImplicitMemoryOperation();
+        }
     }
 
     internal void EnterExecutionContext(in ExecutionContext context)
     {
         _executionContexts.Push(in context);
+        if (_memoryLimitConstraint is not null)
+        {
+            BeginImplicitMemoryOperation();
+        }
     }
 
     /// <summary>
@@ -1199,6 +1234,10 @@ public sealed partial class Engine : IDisposable
             generator: null,
             function: function,
             strict: strict));
+        if (_memoryLimitConstraint is not null)
+        {
+            BeginImplicitMemoryOperation();
+        }
     }
 
     /// <summary>
@@ -1290,14 +1329,71 @@ public sealed partial class Engine : IDisposable
 
     internal void LeaveExecutionContext()
     {
+        if (_implicitMemoryContextDepth != 0 && _implicitMemoryContextDepth == _executionContexts.Count)
+        {
+            LeaveImplicitMemoryOperation();
+            return;
+        }
+
         _executionContexts.Pop();
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void LeaveImplicitMemoryOperation()
+    {
+        var memoryLimit = _memoryLimitConstraint!;
+        var segment = _implicitMemorySegment;
+        try
+        {
+            memoryLimit.Check();
+        }
+        finally
+        {
+            try
+            {
+                memoryLimit.EndSegment(in segment);
+            }
+            finally
+            {
+                _implicitMemoryContextDepth = 0;
+                _implicitMemorySegment = default;
+                _executionContexts.Pop();
+            }
+        }
+    }
+
+    private void BeginImplicitMemoryOperation()
+    {
+        var memoryLimit = _memoryLimitConstraint;
+        if (memoryLimit is null
+            || _executionContexts.Count <= 1
+            || memoryLimit.CurrentOperationState is not null
+            || _implicitMemoryContextDepth != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var state = memoryLimit.BeginEntry();
+            _implicitMemorySegment = memoryLimit.BeginSegment(state);
+            _implicitMemoryContextDepth = _executionContexts.Count;
+        }
+        catch
+        {
+            _executionContexts.Pop();
+            throw;
+        }
     }
 
     internal void ResetConstraints()
     {
         foreach (var constraint in _constraints)
         {
-            constraint.Reset();
+            if (!ReferenceEquals(constraint, _memoryLimitConstraint))
+            {
+                constraint.Reset();
+            }
         }
     }
 
@@ -1489,6 +1585,7 @@ public sealed partial class Engine : IDisposable
         // is what lets the drain tell "work this engine is still waiting for" from "work whose cycle a
         // RestoreGlobalSnapshot has since ended".
         var generation = _eventLoop.Generation;
+        var memoryState = CaptureMemoryLimitState();
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
@@ -1498,7 +1595,7 @@ public sealed partial class Engine : IDisposable
             AddToEventLoop(() =>
             {
                 settle.Call(JsValue.Undefined, [value]);
-            }, generation);
+            }, generation, memoryState);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             promise.CompletedEvent.Set();
@@ -1535,6 +1632,7 @@ public sealed partial class Engine : IDisposable
         // takes (JsValue.ConvertTaskToPromise), so it is the one that carries a fire-and-forget Task across a
         // restore if nothing stamps it.
         var generation = _eventLoop.Generation;
+        var memoryState = CaptureMemoryLimitState();
 
         Action<object?> SettleWithClr(Function settle) => clrValue =>
         {
@@ -1545,7 +1643,7 @@ public sealed partial class Engine : IDisposable
             {
                 var jsValue = JsValue.FromObject(this, clrValue);
                 settle.Call(JsValue.Undefined, [jsValue]);
-            }, generation);
+            }, generation, memoryState);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             // NOTE: We do NOT call RunAvailableContinuations() here because this method is
@@ -1565,16 +1663,38 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void AddToEventLoop(Action continuation)
     {
-        _eventLoop.Enqueue(continuation);
+        _eventLoop.Enqueue(new EventLoopJob(continuation, _eventLoop.Generation, CaptureMemoryLimitState()));
     }
 
     /// <summary>
     /// Enqueues work on behalf of an earlier registration, carrying that registration's generation. Used by
     /// the promise settle closures, which can fire on a background thread long after their cycle ended.
     /// </summary>
+    internal void AddToEventLoop(
+        Action continuation,
+        int generation,
+        MemoryLimitConstraint.OperationState? memoryState)
+    {
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState));
+    }
+
+    /// <summary>
+    /// Enqueues work on behalf of an earlier registration that carries <em>no</em> allocation budget, so the
+    /// turn it runs is outside every operation's memory accounting.
+    /// </summary>
+    /// <remarks>
+    /// The accounted overload above is the one a new caller should reach for. This one exists for the
+    /// host-driven completions whose registration is not part of any single engine operation — a timer, a
+    /// <c>fetch</c> or stream body, a WebSocket or <c>EventSource</c> frame, a <c>MessagePort</c> or
+    /// <c>BroadcastChannel</c> delivery, a finalization-registry cleanup. They keep the generation stamp for
+    /// the reason every cross-cycle enqueue does; what they do not have is one originating operation whose
+    /// budget the turn belongs to. Extending the budget to them is a deliberate change with its own tests,
+    /// not something to slip in by passing whatever state happens to be active at enqueue time — which on a
+    /// background thread is nothing, and on the engine thread is somebody else's operation.
+    /// </remarks>
     internal void AddToEventLoop(Action continuation, int generation)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, generation));
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null));
     }
 
     /// <summary>
@@ -1583,7 +1703,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void AddToEventLoop(PromiseReaction reaction, JsValue value)
     {
-        _eventLoop.Enqueue(new EventLoopJob(reaction, value, _eventLoop.Generation));
+        _eventLoop.Enqueue(new EventLoopJob(reaction, value, _eventLoop.Generation, reaction.MemoryState));
     }
 
     /// <summary>
@@ -1595,12 +1715,40 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Queues the engine-thread half of an asynchronous module load. Separate from
-    /// <see cref="AddToEventLoop(Action, int)"/> only in name, to keep the module loader's one cross-thread
+    /// <see cref="AddToEventLoop(Action, int, MemoryLimitConstraint.OperationState)"/> only in name, to keep the module loader's one cross-thread
     /// entry point findable.
     /// </summary>
-    internal void EnqueueModuleLoadCompletion(Action continuation, int generation)
+    internal void EnqueueModuleLoadCompletion(
+        Action continuation,
+        int generation,
+        MemoryLimitConstraint.OperationState? memoryState)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, generation));
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState));
+    }
+
+    internal MemoryLimitConstraint.OperationState? CaptureMemoryLimitState()
+        => _memoryLimitConstraint?.CaptureOperationState();
+
+    internal void RunEventLoopJob(in EventLoopJob job)
+    {
+        var memoryLimit = _memoryLimitConstraint;
+        if (memoryLimit is null)
+        {
+            job.Run(this);
+            return;
+        }
+
+        var state = memoryLimit.ContinueOrBeginEntry(job.MemoryState);
+        var segment = memoryLimit.BeginSegment(state);
+        try
+        {
+            job.Run(this);
+            memoryLimit.Check();
+        }
+        finally
+        {
+            memoryLimit.EndSegment(in segment);
+        }
     }
 
     /// <summary>
@@ -1888,11 +2036,12 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Re-checks the amortized constraints when control returns from user CLR code to the
-    /// interpreter. The per-statement amortization bounds timeout/cancellation detection latency
-    /// in statement count, which tracks wall-clock time only while statements stay cheap; a single
-    /// host call can take arbitrarily long, so interop call sites re-check after the host code
-    /// returns, keeping detection latency bounded by one host call instead of
+    /// Re-checks constraints that can change materially while user CLR code is running. The per-statement
+    /// amortization bounds timeout/cancellation detection latency in statement count, which tracks wall-clock
+    /// time only while statements stay cheap; a single host call can take arbitrarily long, so interop call
+    /// sites re-check after the host code returns. The memory constraint is exact rather than amortized, but
+    /// belongs here too: a callback can allocate past the budget and return from the script's final statement,
+    /// leaving no later before-statement check to observe it.
     /// <see cref="EvaluationContext.AmortizedConstraintCheckInterval"/> statements' worth of them.
     /// The boundaries of the mechanism are deliberate:
     /// <list type="bullet">
@@ -1933,6 +2082,7 @@ public sealed partial class Engine : IDisposable
     {
         if (_executionContexts.Count > 1 && !_debuggerEvaluating)
         {
+            _memoryLimitConstraint?.Check();
             CheckAmortizedConstraints();
         }
     }
@@ -2309,9 +2459,14 @@ public sealed partial class Engine : IDisposable
         // must not re-arm the outer run's constraints: the outer budget (time/statements) keeps
         // applying to everything the outer script triggers, otherwise `while (true) hostCallback()`
         // where the callback re-enters the engine would reset the timeout on every iteration and
-        // run forever. Keyed on execution-context depth, the same signal the host-boundary
-        // constraint gate uses.
-        var isNested = _executionContexts.Count > 1;
+        // run forever. Host-entry depth covers callbacks that push no interpreter frame; execution-context
+        // depth covers async and generator resumes that have no host entry.
+        var isNested = _hostEntryDepth > 0 || _executionContexts.Count > 1;
+        if (_memoryLimitConstraint is not null)
+        {
+            return ExecuteWithMemoryLimit(strict, callback, isNested);
+        }
+
         if (!isNested)
         {
             ResetConstraints();
@@ -2343,6 +2498,65 @@ public sealed partial class Engine : IDisposable
                 ResetConstraints();
             }
             _agent.ClearKeptObjects();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private T ExecuteWithMemoryLimit<T>(bool strict, Func<T> callback, bool isNested)
+    {
+        var memoryLimit = _memoryLimitConstraint!;
+        if (!isNested)
+        {
+            ResetConstraints();
+        }
+
+        var memoryState = memoryLimit.CurrentOperationState ?? memoryLimit.BeginEntry();
+        var memorySegment = memoryLimit.BeginSegment(memoryState);
+        _hostEntryDepth++;
+
+        var previousStrict = strict && ReplaceTopStrict(true);
+        try
+        {
+            var result = callback();
+            memoryLimit.Check();
+            return result;
+        }
+        finally
+        {
+            if (strict)
+            {
+                ReplaceTopStrict(previousStrict);
+            }
+            _hostEntryDepth--;
+            memoryLimit.EndSegment(in memorySegment);
+            if (!isNested)
+            {
+                ResetConstraints();
+            }
+            _agent.ClearKeptObjects();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal T ExecuteWithMemoryAccounting<T>(Func<T> callback)
+    {
+        var memoryLimit = _memoryLimitConstraint;
+        if (memoryLimit is null)
+        {
+            return callback();
+        }
+
+        var state = memoryLimit.CurrentOperationState ?? memoryLimit.BeginEntry();
+        var segment = memoryLimit.BeginSegment(state);
+        try
+        {
+            var result = callback();
+            memoryLimit.Check();
+            return result;
+        }
+        finally
+        {
+            memoryLimit.EndSegment(in segment);
         }
     }
 

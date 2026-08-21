@@ -227,7 +227,19 @@ most of its time in garbage collection.
 
 **Existing mitigations.**
 
-- `LimitMemory` measures allocations for a top-level engine entry.
+- `LimitMemory` measures managed allocations only while an engine thread is actively
+  executing an operation. It includes synchronous host callbacks and carries the accumulated
+  budget with promise reactions, `EvaluateAsync` / `InvokeAsync`, and asynchronous module
+  loading when they resume on another thread.
+- Per-thread execution segments avoid charging unrelated process allocations while an
+  asynchronous operation is suspended. A missing runtime allocation counter is reported by
+  `MemoryLimitConstraint.Accuracy` and fails execution explicitly instead of silently
+  disabling enforcement.
+- `MemoryLimitConstraint.Begin` / `End` can apply one allocation budget across a host
+  operation made from several top-level engine entries.
+- The engine ownership guard also covers the memory scope's mutable and diagnostic surfaces;
+  another thread, or a host call made while an async API is outstanding, fails before it can
+  reset, disarm, or inspect the in-flight budget.
 - `MaxArraySize` bounds Jint array creation when configured.
 - Some built-ins reject impossible allocations.
 - Recent-wrapper caching is bounded by default; the unbounded identity map is opt-in.
@@ -235,18 +247,20 @@ most of its time in garbage collection.
 **Missing or residual mitigation.**
 
 - No memory or practical array limit is configured by default.
-- The memory constraint measures allocations on the current thread, not retained heap or
-  process memory.
-- It resets for each top-level engine entry.
-- If an async continuation resumes on another thread, the per-thread allocation baseline
-  cannot enforce the same limit.
-- Parsing, host callbacks, module payloads, output serialization, and allocations on other
-  threads are not a hard part of this budget.
+- The memory constraint measures managed allocations during engine execution segments, not
+  retained heap, unmanaged memory, or process memory.
+- It resets for each top-level engine entry unless the host explicitly brackets a multi-entry
+  operation with `Begin` / `End`.
+- Initial source parsing, work performed by asynchronous producers before they return a
+  result, worker threads started by host callbacks, module payload storage outside engine
+  turns, and output serialization are not part of this budget.
 - A managed limit cannot guarantee that the process avoids `OutOfMemoryException`.
 
 **Required host action.** Configure conservative Jint limits, input/module/output limits,
-and an operating-system memory limit. Treat Jint's memory constraint as defense in depth,
-not a heap quota.
+verify `MemoryLimitConstraint.Accuracy`, use `Begin` / `End` when one request drives several
+engine entries, await any asynchronous entry before calling `End`, and enforce an
+operating-system memory limit. Treat Jint's memory constraint as defense in depth, not a heap
+quota.
 
 ### TM-07: Stack exhaustion terminates the process
 
