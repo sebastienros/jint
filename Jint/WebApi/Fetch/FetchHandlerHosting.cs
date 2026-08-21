@@ -49,8 +49,13 @@ internal static class FetchHandlerHosting
     /// <param name="realm">The principal realm, whose intrinsics the request's prototypes come from.</param>
     /// <param name="message">The host's request.</param>
     /// <param name="body">The request body, already read; <see langword="null"/> when there is no content.</param>
+    /// <param name="signal">
+    /// The signal this request's <c>signal</c> is. A <c>Request</c>'s signal is never null, so the caller
+    /// always supplies one; it is built there rather than here because whether it can ever fire is a question
+    /// about the <i>invocation</i> — which host token the host passed — and not about the message.
+    /// </param>
     /// <exception cref="InvalidOperationException">The message cannot be expressed as a <c>Request</c>.</exception>
-    internal static JsRequest CreateRequest(Engine engine, Realm realm, HttpRequestMessage message, byte[]? body)
+    internal static JsRequest CreateRequest(Engine engine, Realm realm, HttpRequestMessage message, byte[]? body, JsAbortSignal signal)
     {
         var method = message.Method.Method;
         if (!FetchValues.IsMethod(method))
@@ -106,10 +111,11 @@ internal static class FetchHandlerHosting
             Url = url,
             Redirect = JsRequest.RedirectFollow,
 
-            // A Request's signal is never null. Nothing aborts this one: an inbound request has no
-            // client-disconnect channel here, so it exists to be forwarded to an outbound fetch and to be
-            // listened to, not to fire.
-            Signal = new JsAbortSignal(engine, realm) { _prototype = realm.Intrinsics.AbortSignal.PrototypeObject },
+            // A Request's signal is never null. Whether this one can ever fire is the host's decision and not
+            // this method's: an invocation given a cancellation token gets a signal bridged to it, and one
+            // given none gets a signal that exists to be forwarded to an outbound fetch and to be listened
+            // to, never to fire.
+            Signal = signal,
         };
 
         // A zero-byte content is a null body rather than an empty one, which is what makes a GET carrying an

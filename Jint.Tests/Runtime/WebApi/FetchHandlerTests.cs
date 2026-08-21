@@ -133,8 +133,9 @@ public class FetchHandlerTests
             };
             """);
 
-        // An inbound request has no client-disconnect channel here, so the signal exists to be listened to and
-        // to be forwarded to an outbound fetch — never to fire by itself.
+        // An invocation given no cancellation token has no client-disconnect channel, so its signal exists to
+        // be listened to and to be forwarded to an outbound fetch — never to fire by itself. The overload
+        // that takes one is what makes it fire; see FetchHandlerAbortTests.
         Answer(engine, Post("{}")).Should().Be("true,false,false");
     }
 
