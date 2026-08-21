@@ -138,9 +138,18 @@ public static class ModuleFactory
         {
             module = new JsonParser(engine).Parse(jsonString);
         }
-        catch (Exception)
+        catch (Exception ex) when (!ModuleLoadCompletion.MustPropagate(ex))
         {
-            Throw.SyntaxError(engine.Realm, $"Could not load module {source}");
+            var message = engine.Options.Modules.ExposeDetailedLoadErrors
+                ? $"Could not load module {source}: {ex.Message}"
+                : "Could not load module.";
+            var error = Throw.CreateClrError(
+                engine,
+                ex,
+                message,
+                engine.Realm.Intrinsics.SyntaxError,
+                moduleErrorPolicyApplied: true);
+            Throw.JavaScriptException(engine, error, in AstExtensions.DefaultLocation);
             module = null;
         }
 

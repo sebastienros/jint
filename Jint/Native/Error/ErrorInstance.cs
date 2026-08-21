@@ -8,7 +8,11 @@ namespace Jint.Native.Error;
 /// rather than as one field per fact. Errors that came out of CLR interop are a small minority of the errors
 /// an engine builds, so a field per fact would have every error object carrying the ones it never fills.
 /// </summary>
-internal sealed record ClrErrorContext(Type? ResolutionType, string? ResolutionMemberName, Exception? ClrException);
+internal sealed record ClrErrorContext(
+    Type? ResolutionType,
+    string? ResolutionMemberName,
+    Exception? ClrException,
+    object? ModuleErrorPolicyToken);
 
 /// <summary>
 /// Marks an object that carries the specification's <c>[[ErrorData]]</c> internal slot, which is the brand
@@ -61,6 +65,9 @@ public class ErrorInstance : ObjectInstance
     /// </summary>
     internal Exception? ClrException => _clrContext?.ClrException;
 
+    internal bool HasModuleErrorPolicyToken(object token)
+        => ReferenceEquals(_clrContext?.ModuleErrorPolicyToken, token);
+
     /// <summary>
     /// Records where a failed CLR resolution came from, keeping any exception already recorded.
     /// </summary>
@@ -73,7 +80,11 @@ public class ErrorInstance : ObjectInstance
     /// </remarks>
     internal void SetClrResolutionInfo(Type clrType, string? memberName)
     {
-        _clrContext = new ClrErrorContext(clrType, memberName, _clrContext?.ClrException);
+        _clrContext = new ClrErrorContext(
+            clrType,
+            memberName,
+            _clrContext?.ClrException,
+            _clrContext?.ModuleErrorPolicyToken);
     }
 
     /// <summary>
@@ -83,7 +94,21 @@ public class ErrorInstance : ObjectInstance
     internal void SetClrException(Exception clrException)
     {
         var existing = _clrContext;
-        _clrContext = new ClrErrorContext(existing?.ResolutionType, existing?.ResolutionMemberName, clrException);
+        _clrContext = new ClrErrorContext(
+            existing?.ResolutionType,
+            existing?.ResolutionMemberName,
+            clrException,
+            existing?.ModuleErrorPolicyToken);
+    }
+
+    internal void SetModuleErrorPolicyToken(object token)
+    {
+        var existing = _clrContext;
+        _clrContext = new ClrErrorContext(
+            existing?.ResolutionType,
+            existing?.ResolutionMemberName,
+            existing?.ClrException,
+            token);
     }
 
     /// <summary>

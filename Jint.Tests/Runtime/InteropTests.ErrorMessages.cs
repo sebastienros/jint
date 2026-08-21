@@ -109,8 +109,8 @@ public partial class InteropTests
 
         var ex = Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>().Which;
 
-        // historical terse text (names the type, as it always has) but none of the added detail
-        ex.Message.Should().Be("Could not resolve a constructor for type Jint.Tests.Runtime.CtorFails for given arguments");
+        ex.Message.Should().Be("Could not resolve a constructor for the specified arguments.");
+        ex.Message.Should().NotContain(nameof(CtorFails));
         ex.Message.Should().NotContain("provided arguments");
         ex.Message.Should().NotContain("candidate signatures");
     }

@@ -222,6 +222,7 @@ public class ModuleTests
     [Fact]
     public void ShouldPropagateParseError()
     {
+        _engine.Options.Modules.ExposeDetailedLoadErrors = true;
         _engine.Modules.Add("imported", "export const invalid;");
         _engine.Modules.Add("my-module", "import { invalid } from 'imported';");
 
@@ -233,6 +234,7 @@ public class ModuleTests
     [Fact]
     public void ShouldPropagateLinkError()
     {
+        _engine.Options.Modules.ExposeDetailedLoadErrors = true;
         _engine.Modules.Add("imported", "export invalid;");
         _engine.Modules.Add("my-module", "import { value } from 'imported';");
 

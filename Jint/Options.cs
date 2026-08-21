@@ -582,7 +582,20 @@ public partial class Options
         public bool ChainClrExceptionAsInnerException { get; set; }
 
         /// <summary>
-        /// Called after a JavaScript error object is created from a CLR exception (when <see cref="ExceptionHandler"/> returns true).
+        /// When <c>true</c>, JavaScript errors created from CLR exceptions expose the original exception
+        /// message to script code. Defaults to <c>false</c>, so exception messages, paths, URLs and other host
+        /// details are not disclosed to untrusted scripts.
+        /// </summary>
+        /// <remarks>
+        /// The original exception is retained either way and can be read host-side through
+        /// <see cref="JintException.TryGetClrException"/>. This setting only changes the script-visible
+        /// message. Treat it as a development option.
+        /// </remarks>
+        public bool ExposeDetailedExceptionMessages { get; set; }
+
+        /// <summary>
+        /// Called after a JavaScript error object is created from a CLR exception, either because
+        /// <see cref="ExceptionHandler"/> returned true or because a module loader exception became an import error.
         /// Allows decorating the error object with additional properties or modifying its state.
         /// The decorator receives the engine instance, the created error object, and the original CLR exception.
         /// </summary>
@@ -969,6 +982,14 @@ public partial class Options
         /// <c>null</c> means no policy (the default — everything the loader resolves is allowed).
         /// </summary>
         public IModuleLoadPolicy? LoadPolicy { get; set; }
+
+        /// <summary>
+        /// When <c>true</c>, module loading failures expose the original exception message to script code.
+        /// Defaults to <c>false</c>, so paths, URLs, transport details and other host information are replaced
+        /// with a generic message. The original exception remains available to the host through
+        /// <see cref="JintException.TryGetClrException"/>.
+        /// </summary>
+        public bool ExposeDetailedLoadErrors { get; set; }
     }
 
     /// <summary>

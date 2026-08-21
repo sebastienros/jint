@@ -275,7 +275,7 @@ public class HostDelegateTests
         engine.SetValue("boom", new Func<int>(() => throw new InvalidOperationException("host failure")));
 
         engine.Evaluate("var m; try { boom(); } catch (e) { m = e.message; } m")
-            .AsString().Should().Be("host failure");
+            .AsString().Should().Be("A host operation failed.");
     }
 
     [Fact]

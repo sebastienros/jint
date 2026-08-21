@@ -65,9 +65,10 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     /// thread, at any time.
     /// </summary>
     /// <remarks>
-    /// A faulted task fails the load, rejecting every importer waiting on it with the exception's message —
-    /// which is the behaviour a host wants for an HTTP 404 or a cancelled fetch. It is not a way to abort the
-    /// engine: to bound execution, register a constraint on <see cref="Options"/>.
+    /// A faulted task fails the load. Its exception is retained for host-side diagnostics while the
+    /// script-visible message is generic unless detailed load errors are explicitly enabled. Cancellation
+    /// exceptions remain control flow and abort the engine operation rather than becoming a catchable import
+    /// rejection.
     /// </remarks>
     protected abstract Task<string> LoadModuleContentsAsync(Engine engine, ResolvedSpecifier resolved, CancellationToken cancellationToken);
 
@@ -98,7 +99,8 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     {
         if (task is null)
         {
-            completion.SetError($"'{nameof(LoadModuleContentsAsync)}' returned null for '{completion.Resolved.ModuleRequest.Specifier}'.");
+            completion.SetError(new InvalidOperationException(
+                $"'{nameof(LoadModuleContentsAsync)}' returned null for '{completion.Resolved.ModuleRequest.Specifier}'."));
             return;
         }
 
@@ -123,7 +125,8 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     {
         if (task is null)
         {
-            completion.SetError($"'{nameof(LoadModuleContentsAsBytesAsync)}' returned null for '{completion.Resolved.ModuleRequest.Specifier}'.");
+            completion.SetError(new InvalidOperationException(
+                $"'{nameof(LoadModuleContentsAsBytesAsync)}' returned null for '{completion.Resolved.ModuleRequest.Specifier}'."));
             return;
         }
 
@@ -183,7 +186,7 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
             }
             else
             {
-                completion.SetError($"Loading module '{completion.Resolved.ModuleRequest.Specifier}' was canceled.");
+                completion.SetError(new TaskCanceledException(task));
             }
             return true;
         }

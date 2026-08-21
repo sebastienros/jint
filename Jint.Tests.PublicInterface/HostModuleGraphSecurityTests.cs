@@ -838,7 +838,7 @@ public sealed class HostModuleGraphSecurityTests
 
         Invoking(() => engine.Modules.Import("cancel"))
             .Should().Throw<JavaScriptException>()
-            .WithMessage("*Could not load module cancel*");
+            .WithMessage("Could not load module.");
     }
 
     [Fact]
@@ -849,7 +849,7 @@ public sealed class HostModuleGraphSecurityTests
 
         Invoking(() => engine.Modules.Import("timeout"))
             .Should().Throw<JavaScriptException>()
-            .WithMessage("*Could not load module timeout*");
+            .WithMessage("Could not load module.");
     }
 
     [Fact]

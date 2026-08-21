@@ -271,7 +271,9 @@ public class AsyncModuleLoaderTests
         var engine = CreateEngine(loader);
 
         var ex = await Invoking(() => engine.Modules.ImportAsync("./main.js")).Should().ThrowAsync<PromiseRejectedException>();
-        ex.Which.RejectedValue.Get("message").AsString().Should().Contain("404 ./missing.js");
+        ex.Which.RejectedValue.Get("message").AsString().Should().Be("Could not load module.");
+        JintException.TryGetClrException(ex.Which, out var clrException).Should().BeTrue();
+        clrException.Should().BeOfType<FileNotFoundException>().Which.Message.Should().Contain("404 ./missing.js");
     }
 
     [Fact]
@@ -306,7 +308,7 @@ public class AsyncModuleLoaderTests
         loader.Fail("./gone.js", new HttpRequestExceptionStandIn("connection refused"));
         engine.Advanced.ProcessTasks();
 
-        engine.Evaluate("outcome").AsString().Should().Be("connection refused");
+        engine.Evaluate("outcome").AsString().Should().Be("Could not load module.");
     }
 
     [Fact]
@@ -457,7 +459,7 @@ public class AsyncModuleLoaderTests
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
-        import.Error!.Get("message").AsString().Should().Be("asset bundle missing");
+        import.Error!.Get("message").AsString().Should().Be("Could not load module.");
         Invoking(() => import.GetResult()).Should().Throw<PromiseRejectedException>();
     }
 
@@ -558,7 +560,10 @@ public class AsyncModuleLoaderTests
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
-        import.Error!.Get("message").AsString().Should().Be("transport exploded");
+        import.Error!.Get("message").AsString().Should().Be("Could not load module.");
+        var exception = Invoking(() => import.GetResult()).Should().Throw<PromiseRejectedException>().Which;
+        JintException.TryGetClrException(exception, out var clrException).Should().BeTrue();
+        clrException.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("transport exploded");
     }
 
     private sealed class ThrowingLoader : IAsyncModuleLoader
@@ -589,10 +594,10 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public Task ACanceledFetchRejectsTheImportAsCanceled() => DedicatedThread.RunAsync(() =>
+    public Task ACanceledFetchIsAnOrdinarySanitizedLoadFailure() => DedicatedThread.RunAsync(() =>
     {
-        // Task.IsCanceled is not Task.IsFaulted - there is no exception object to take a message from - so
-        // the base class has to say what happened itself.
+        // This token belongs to the transport, not the engine operation. It is therefore an ordinary load
+        // failure and crosses the same disclosure boundary as every other loader exception.
         var loader = new TokenCapturingLoader();
         var engine = CreateEngine(loader);
 
@@ -609,9 +614,8 @@ public class AsyncModuleLoaderTests
             Thread.Sleep(1);
         }
 
-        import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
-        import.Error!.Get("message").AsString().Should().Be("Loading module './doomed.js' was canceled.");
+        import.Error!.Get("message").AsString().Should().Be("Could not load module.");
     });
 
     [Fact]
@@ -1044,7 +1048,7 @@ public class AsyncModuleLoaderTests
 
         first.IsCompleted.Should().BeTrue("the resolution failure must settle the import rather than strand it");
         first.IsFaulted.Should().BeTrue();
-        first.Error!.Get("message").AsString().Should().Contain("not allowed");
+        first.Error!.Get("message").AsString().Should().Be("Could not load module.");
 
         second.IsCompleted.Should().BeTrue("every waiter attached to the shared load must be finished, not only the first");
         second.IsFaulted.Should().BeTrue();
@@ -1109,7 +1113,7 @@ public class AsyncModuleLoaderTests
 
         import.IsCompleted.Should().BeTrue("the hook failure must settle the import rather than strand it");
         import.IsFaulted.Should().BeTrue();
-        import.Error!.Get("message").AsString().Should().Contain("source hook failed");
+        import.Error!.Get("message").AsString().Should().Be("Could not load module.");
     });
 
     private sealed class ThrowingModuleSourceLoader : AsyncModuleLoader
@@ -1155,10 +1159,14 @@ public class AsyncModuleLoaderTests
         // The failure travels from the queued build to the blocking importer as a promise rejection, which
         // can carry only the error value — but an error UI reads JavaScriptException.Location, and the parse
         // error knows its file, line and column. The original exception must survive the crossing.
-        var engine = new Engine(options => options.EnableModules(new BackgroundDictionaryLoader(new Dictionary<string, string>
+        var engine = new Engine(options =>
         {
-            ["./broken.js"] = "export const ok = 1;\nexport const = broken;",
-        })));
+            options.EnableModules(new BackgroundDictionaryLoader(new Dictionary<string, string>
+            {
+                ["./broken.js"] = "export const ok = 1;\nexport const = broken;",
+            }));
+            options.Modules.ExposeDetailedLoadErrors = true;
+        });
 
         var ex = Invoking(() => engine.Modules.Import("./broken.js"))
             .Should().Throw<JavaScriptException>().Which;
@@ -1168,12 +1176,11 @@ public class AsyncModuleLoaderTests
     }
 
     [Fact]
-    public Task AResolutionFailureReachesTheBlockingImportAsTheOriginalException() => DedicatedThread.RunAsync(() =>
+    public Task AResolutionFailureReachesTheBlockingImportThroughTheDisclosurePolicy() => DedicatedThread.RunAsync(() =>
     {
-        // With a synchronous loader, Resolve throwing ModuleResolutionException propagates out of Import as
-        // itself. The asynchronous pipeline reduces it to a rejection on the way through the event loop — the
-        // refusal here happens inside the queued build of './mid.js', two loads deep — and the blocking
-        // importer must still catch what the synchronous stack would have thrown.
+        // The refusal happens inside the queued build of './mid.js', two loads deep. Once it crosses that
+        // asynchronous module boundary, a blocking importer must see the same sanitized error as every other
+        // importer; the original remains available only through the host diagnostic contract.
         var loader = new BackgroundDictionaryLoader(new Dictionary<string, string>
         {
             ["./root.js"] = "import './mid.js';",
@@ -1183,8 +1190,12 @@ public class AsyncModuleLoaderTests
 
         var engine = CreateEngine(loader);
 
-        Invoking(() => engine.Modules.Import("./root.js"))
-            .Should().Throw<ModuleResolutionException>()
+        var exception = Invoking(() => engine.Modules.Import("./root.js"))
+            .Should().Throw<JavaScriptException>().Which;
+
+        exception.Message.Should().Be("Could not load module.");
+        JintException.TryGetClrException(exception, out var original).Should().BeTrue();
+        original.Should().BeOfType<ModuleResolutionException>()
             .Which.Specifier.Should().Be("./forbidden.js");
     });
 
@@ -1268,7 +1279,7 @@ public class AsyncModuleLoaderTests
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
-        import.Error!.Get("message").AsString().Should().Contain("not allowed");
+        import.Error!.Get("message").AsString().Should().Be("Could not load module.");
     }
 
     [Fact]

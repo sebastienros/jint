@@ -201,7 +201,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             {
                 var message = engine.Options.Interop.ExposeDetailedResolutionErrors
                     ? InteropErrorHelper.CreateNoMatchingConstructorMessage(referenceType, arguments, constructors)
-                    : $"Could not resolve a constructor for type {referenceType} for given arguments";
+                    : "Could not resolve a constructor for the specified arguments.";
                 Throw.InteropResolutionError(realm, message, referenceType, memberName: null, arguments, constructors);
             }
 

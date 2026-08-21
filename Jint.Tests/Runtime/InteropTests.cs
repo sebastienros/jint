@@ -2753,7 +2753,11 @@ public partial class InteropTests : IDisposable
     {
         var exceptionMessage = "myExceptionMessage";
 
-        var engine = new Engine(o => o.CatchClrExceptions())
+        var engine = new Engine(o =>
+            {
+                o.CatchClrExceptions();
+                o.Interop.ExposeDetailedExceptionMessages = true;
+            })
             .SetValue("throwMyException", new Action(() => { throw new Exception(exceptionMessage); }))
             .SetValue("Thrower", typeof(Thrower))
             .Execute(@"
@@ -2785,7 +2789,11 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void CaughtClrExceptionShouldExposeJavaScriptLocation()
     {
-        var engine = new Engine(o => o.CatchClrExceptions())
+        var engine = new Engine(o =>
+            {
+                o.CatchClrExceptions();
+                o.Interop.ExposeDetailedExceptionMessages = true;
+            })
             .SetValue("Thrower", typeof(Thrower));
 
         const string script = @"// line 1
@@ -2938,7 +2946,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var exceptionMessage = "myExceptionMessage";
 
-        var engine = new Engine(o => o.CatchClrExceptions(e => e is NotSupportedException))
+        var engine = new Engine(o =>
+            {
+                o.CatchClrExceptions(e => e is NotSupportedException);
+                o.Interop.ExposeDetailedExceptionMessages = true;
+            })
             .SetValue("throwMyException1", new Action(() => { throw new NotSupportedException(exceptionMessage); }))
             .SetValue("throwMyException2", new Action(() => { throw new ArgumentNullException(); }))
             .SetValue("Thrower", typeof(Thrower))
@@ -3035,7 +3047,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var errorObject = result.AsObject();
         errorObject.Get("customProperty").AsString().Should().Be("decorated");
         errorObject.Get("clrType").AsString().Should().Be("System.InvalidOperationException");
-        errorObject.Get("message").AsString().Should().Be($"[Decorated] {exceptionMessage}");
+        errorObject.Get("message").AsString().Should().Be("[Decorated] A host operation failed.");
     }
 
     [Fact]
@@ -4084,7 +4096,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldBeJavaScriptException()
     {
-        var engine = new Engine(cfg => cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions());
+        var engine = new Engine(cfg =>
+        {
+            cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions();
+            cfg.Interop.ExposeDetailedExceptionMessages = true;
+        });
         engine.SetValue("Dimensional", typeof(Dimensional));
 
         engine.Execute(@"	
@@ -4211,7 +4227,11 @@ wrap();
     [Fact]
     public void ShouldConvertClrExceptionsToErrors()
     {
-        var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
+        var engine = new Engine(opts =>
+        {
+            opts.CatchClrExceptions(exc => exc is InvalidOperationException);
+            opts.Interop.ExposeDetailedExceptionMessages = true;
+        });
         engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
         const string Source = @"
 function wrap() {
@@ -4227,7 +4247,11 @@ wrap();
     [Fact]
     public void ShouldAllowCatchingConvertedClrExceptions()
     {
-        var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
+        var engine = new Engine(opts =>
+        {
+            opts.CatchClrExceptions(exc => exc is InvalidOperationException);
+            opts.Interop.ExposeDetailedExceptionMessages = true;
+        });
         engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
         const string Source = @"
 try {

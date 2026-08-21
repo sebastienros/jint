@@ -2875,9 +2875,11 @@ engine.SetValue("parse", new Action<string>(s => new XmlDocument().LoadXml(s)));
 engine.Evaluate("parse('<not xml')");
 ```
 
-`CatchClrExceptions` changes that: the exception becomes a JavaScript `Error` carrying its message, which the
-script can `try`/`catch` like any other. The predicate overload decides per exception, so you can let the
-script handle what it should handle and keep the rest fatal.
+`CatchClrExceptions` changes that: the exception becomes a JavaScript `Error` which the script can
+`try`/`catch` like any other. Its message is `A host operation failed.` by default; the original message,
+stack trace and inner exceptions remain host-only. The predicate overload decides per exception, so you can
+let the script handle what it should handle and keep the rest fatal. Cancellation, timeout, memory, statement
+and recursion-limit exceptions always remain control flow and are never converted into script errors.
 
 ```c#
 var engine = new Engine(options => options.CatchClrExceptions(e => e is not OperationCanceledException));
@@ -2926,6 +2928,28 @@ Two related accessors work the same way: `JintException.TryGetJavaScriptLocation
 exception, and `TryGetClrType`/`TryGetClrMemberName` report the type and member behind a failed interop
 resolution. To shape what the *script* sees — rewrite the message, attach an error code —
 use `DecorateClrExceptionErrors`.
+
+### Detailed development errors
+
+Host exception messages, module loader failures, and CLR method/constructor resolution details are redacted by
+default because they commonly contain secrets, filesystem paths, URLs, CLR type names and candidate signatures.
+`ExposeDetailedErrors` restores the previous development-friendly messages across all three surfaces:
+
+```c#
+var engine = new Engine(options => options
+    .CatchClrExceptions()
+    .EnableModules(loader)
+    .ExposeDetailedErrors());
+```
+
+Use it only when scripts and their error output are trusted. For narrower opt-ins, set
+`options.Interop.ExposeDetailedExceptionMessages`, `options.Interop.ExposeDetailedResolutionErrors`, or
+`options.Modules.ExposeDetailedLoadErrors` individually. These settings affect only script-visible messages;
+`TryGetClrException`, `TryGetClrType`, `TryGetClrMemberName`, and the CLR error decorators retain full host-side
+diagnostics under the safe defaults. `ModuleLoadCompletion.SetError(string)` remains an explicit script-facing
+message; use `SetError(Exception)` when the detail must be retained for the host and redacted from script.
+`DecorateClrExceptionErrors` also runs once for a module loader exception's final script-visible error, so the
+same host-side decorator can attach a safe error code to interop and module failures.
 
 ### Raising an error from host code
 

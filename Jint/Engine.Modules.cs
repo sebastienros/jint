@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Jint.Native;
+using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -112,6 +113,11 @@ public partial class Engine
         /// </summary>
         private JsValue? _lastLoadFailureError;
         private ExceptionDispatchInfo? _lastLoadFailure;
+
+        private object _moduleErrorPolicyToken = new();
+        private bool _moduleErrorPolicyInitialized;
+        private bool _moduleErrorPolicyExposeDetails;
+        private Options.ClrExceptionErrorDecoratorDelegate? _moduleErrorPolicyDecorator;
 
         // --- Module graph limit accounting ---
 
@@ -327,7 +333,10 @@ public partial class Engine
             }
             catch (JavaScriptException ex)
             {
-                Finish(module: null, ex.Error, ex);
+                var error = HasModuleErrorPolicyApplied(ex.Error)
+                    ? ex.Error
+                    : CreateLoadError(ex);
+                Finish(module: null, error, ex);
                 return;
             }
             catch (Exception ex) when (_engine._eventLoop.IsRunningJob
@@ -340,7 +349,7 @@ public partial class Engine
                 // left: escaping would erupt out of ProcessTasks with the graph state's pending count never
                 // decremented, stranding the import promise forever. The refusal becomes the load's failure,
                 // and the original exception travels along for the blocking importer to rethrow.
-                Finish(module: null, _engine.Realm.Intrinsics.Error.Construct(ex.Message), ex);
+                Finish(module: null, CreateLoadError(ex), ex);
                 return;
             }
 
@@ -378,12 +387,14 @@ public partial class Engine
                 }
                 catch (JavaScriptException ex) when (_engine._eventLoop.IsRunningJob)
                 {
-                    builderError = ex.Error;
+                    builderError = HasModuleErrorPolicyApplied(ex.Error)
+                        ? ex.Error
+                        : CreateLoadError(ex);
                     builderException = ex;
                 }
                 catch (Exception ex) when (_engine._eventLoop.IsRunningJob && !ModuleLoadCompletion.MustPropagate(ex))
                 {
-                    builderError = _engine.Realm.Intrinsics.Error.Construct(ex.Message);
+                    builderError = CreateLoadError(ex);
                     builderException = ex;
                 }
 
@@ -440,7 +451,9 @@ public partial class Engine
             }
             catch (JavaScriptException ex)
             {
-                loadError = ex.Error;
+                loadError = HasModuleErrorPolicyApplied(ex.Error)
+                    ? ex.Error
+                    : CreateLoadError(ex);
                 loadException = ex;
             }
 
@@ -451,7 +464,10 @@ public partial class Engine
 
             void Finish(Module? module, JsValue? error, Exception? exception = null)
             {
-                if (error is not null && exception is not null)
+                if (error is not null
+                    && exception is JavaScriptException javaScriptException
+                    && ReferenceEquals(javaScriptException.Error, error)
+                    && HasModuleErrorPolicyApplied(error))
                 {
                     RememberLoadFailure(error, exception);
                 }
@@ -531,6 +547,35 @@ public partial class Engine
             _lastLoadFailureError = error;
             _lastLoadFailure = ExceptionDispatchInfo.Capture(exception);
         }
+
+        private ObjectInstance CreateLoadError(Exception exception)
+        {
+            var message = _engine.Options.Modules.ExposeDetailedLoadErrors
+                ? exception.Message
+                : "Could not load module.";
+            return Throw.CreateClrError(_engine, exception, message, moduleErrorPolicyApplied: true);
+        }
+
+        internal object GetModuleErrorPolicyToken()
+        {
+            var exposeDetails = _engine.Options.Modules.ExposeDetailedLoadErrors;
+            var decorator = _engine.Options.Interop.ClrExceptionErrorDecorator;
+            if (!_moduleErrorPolicyInitialized
+                || exposeDetails != _moduleErrorPolicyExposeDetails
+                || !ReferenceEquals(decorator, _moduleErrorPolicyDecorator))
+            {
+                _moduleErrorPolicyToken = new object();
+                _moduleErrorPolicyExposeDetails = exposeDetails;
+                _moduleErrorPolicyDecorator = decorator;
+                _moduleErrorPolicyInitialized = true;
+            }
+
+            return _moduleErrorPolicyToken;
+        }
+
+        internal bool HasModuleErrorPolicyApplied(JsValue error)
+            => error is ErrorInstance errorInstance
+               && errorInstance.HasModuleErrorPolicyToken(GetModuleErrorPolicyToken());
 
         /// <summary>
         /// Rethrows the original exception <paramref name="error"/> was reduced from, stack intact, when it
@@ -954,7 +999,9 @@ public partial class Engine
             }
             catch (JavaScriptException ex)
             {
-                capability.Reject(ex.Error);
+                capability.Reject(HasModuleErrorPolicyApplied(ex.Error)
+                    ? ex.Error
+                    : CreateLoadError(ex));
             }
             catch (Exception ex) when (!ModuleLoadCompletion.MustPropagateLoaderException(_engine, ex))
             {
@@ -963,7 +1010,7 @@ public partial class Engine
                 // operation's Error. One failure must not have two delivery channels depending on where it
                 // happened, and host code written to the poll-then-GetResult pattern must not crash at the
                 // start call.
-                capability.Reject(_engine.Realm.Intrinsics.Error.Construct(ex.Message));
+                capability.Reject(CreateLoadError(ex));
             }
             var operation = new ModuleImportOperation(_engine, capability.PromiseInstance);
 

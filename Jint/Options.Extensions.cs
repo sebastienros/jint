@@ -360,9 +360,29 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Exposes detailed CLR exception, CLR resolution and module loading messages to script code.
+    /// Off by default because those messages can contain host types, signatures, paths, URLs and inner-system
+    /// details. Intended for trusted development environments only.
+    /// </summary>
+    /// <remarks>
+    /// This does not control host-side diagnostics. Original CLR and module exceptions remain available through
+    /// <see cref="JintException.TryGetClrException"/>, and CLR resolution metadata through
+    /// <see cref="JintException.TryGetClrType"/> and <see cref="JintException.TryGetClrMemberName"/>, whether
+    /// detailed messages are exposed or not.
+    /// </remarks>
+    public static Options ExposeDetailedErrors(this Options options, bool expose = true)
+    {
+        options.Interop.ExposeDetailedExceptionMessages = expose;
+        options.Interop.ExposeDetailedResolutionErrors = expose;
+        options.Modules.ExposeDetailedLoadErrors = expose;
+        return options;
+    }
+
+    /// <summary>
     /// Sets a decorator function that is called after a JavaScript error object is created from a CLR exception.
     /// The decorator can add custom properties, modify the error message, or enrich the error with additional context.
-    /// This is only called when <see cref="CatchClrExceptions(Options)"/> is enabled and the exception is caught.
+    /// It is called when <see cref="CatchClrExceptions(Options)"/> converts a host exception and when a module
+    /// loader exception becomes an import error.
     /// </summary>
     /// <param name="options">The engine options.</param>
     /// <param name="decorator">A function that receives the engine, the created error object, and the original CLR exception.</param>
