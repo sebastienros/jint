@@ -6,6 +6,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using Jint.WebApi;
 
 namespace Jint.Tests.Wpt;
 
@@ -43,6 +44,22 @@ internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, strin
 /// its assertions are decided by the queue's own ordering. The clock is <see cref="TimeProvider.System"/> and
 /// the drive loop below is what pumps it: a timer fires on a <c>ProcessTasks</c> at or after its due time,
 /// exactly as it does for an embedder.
+/// </para>
+/// <para>
+/// <b>The engine also carries the fetch object model, and pointedly not <c>fetch</c>.</b>
+/// <c>Headers</c>, <c>Request</c> and <c>Response</c> are not in <see cref="WebApiFeatures.Default"/> —
+/// they ship with <see cref="WebApiFeatures.Fetch"/> — but a corpus reaches an algorithm through every
+/// entry point the platform gives it, and for one file here that means the object model:
+/// <c>url/urlencoded-parser.any.js</c> runs each of its 35 inputs through <c>URLSearchParams</c>,
+/// <c>Request.formData()</c> <i>and</i> <c>Response.formData()</c>, because a browser parses
+/// <c>application/x-www-form-urlencoded</c> with one algorithm in all three places. Withholding the three
+/// interfaces would not test less of Jint, it would only turn a third of that file into an exclusion.
+/// <c>WebApiRegistration.InstallFetchModel</c> is the same door <c>Engine.Advanced.SetFetchHandler</c>
+/// opens for a host that must build a <c>Response</c> without being granted the network, and no shipped
+/// feature flag names the model on its own — <see cref="WebApiFeatures.Fetch"/>,
+/// <see cref="WebApiFeatures.CacheApi"/> and <see cref="WebApiFeatures.FetchEvents"/> each bring it with
+/// something else. <b>Outbound network access is still what no suite gets</b>: the three interfaces
+/// construct, parse and serialize, and nothing here can open a socket.
 /// </para>
 /// <para>
 /// <b>Variants are not sharded.</b> A <c>// META: variant=?1-1000</c> line splits a suite across browser
@@ -166,6 +183,9 @@ internal static class WptHarness
             // A guard on a hung script rather than a budget anything is measured against; see the field.
             options.TimeoutInterval(_harnessDeadline);
         });
+
+        // Headers, Request and Response, which no feature flag names on their own — see the class remarks.
+        WebApiRegistration.InstallFetchModel(engine);
 
         // The shim's `fetch` is this and nothing else: a reader over the vendored tree, so that a suite's
         // `fetch("resources/urltestdata.json")` finds its corpus. A path the corpus does not hold is a

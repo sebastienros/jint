@@ -13,12 +13,15 @@ keeps them intact through embedding.
 ## What runs this
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one xUnit theory case per `.any.js` file, on a fresh engine built with
-`UseWebApis(WebApiFeatures.Default)`. `Jint.Tests/Wpt/Prelude/testharness-shim.js` — *not* vendored — stands
-in for upstream's `testharness.js`; its header says what it implements and where it deliberately differs.
-`WptHarness.cs` documents the two decisions a reader is most likely to want: the engine supplies its own
-`setTimeout` — the shim's `step_timeout` is a forwarder onto it, so the streams suites' 45 timer sites are
-decided by the shipped `TimerQueue` — and `// META: variant=` sharding is ignored because one unsharded run
-is the union of every variant.
+`UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and
+pointedly not `fetch`, so no suite gets outbound network access. `Jint.Tests/Wpt/Prelude/testharness-shim.js`
+— *not* vendored — stands in for upstream's `testharness.js`; its header says what it implements and where it
+deliberately differs. `WptHarness.cs` documents the three decisions a reader is most likely to want: the
+engine supplies its own `setTimeout` — the shim's `step_timeout` is a forwarder onto it, so the streams
+suites' 45 timer sites are decided by the shipped `TimerQueue` — `// META: variant=` sharding is ignored
+because one unsharded run is the union of every variant, and why the object model is there at all
+(`url/urlencoded-parser.any.js` runs each of its 35 inputs through `URLSearchParams`, `Request.formData()`
+and `Response.formData()`, one algorithm reached three ways).
 
 Four standards are vendored: `url/` and `encoding/` as one suite each, `WebCryptoAPI/` as **eight** and
 `streams/` as **six** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles`

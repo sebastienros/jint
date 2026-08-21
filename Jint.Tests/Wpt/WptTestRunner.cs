@@ -394,11 +394,6 @@ public class WptTestRunner
         new("encoding/textencoder-constructor-non-utf.any.js", "Encoding argument supported for decode: ISO-2022-JP", WptDivergence.NeedsLegacyMultiByteEncodings),
         new("encoding/textencoder-constructor-non-utf.any.js", "Encoding argument supported for decode: Shift_JIS", WptDivergence.NeedsLegacyMultiByteEncodings),
         new("encoding/textencoder-constructor-non-utf.any.js", "Encoding argument supported for decode: gb18030", WptDivergence.NeedsLegacyMultiByteEncodings),
-        // ---------------------------------------------------------------- url
-        // The second half of the urlencoded parser suite feeds the same corpus through Request.formData()
-        // and Response.formData(); the URLSearchParams half of every row passes.
-        new("url/urlencoded-parser.any.js", "request.formData() with input: *", WptDivergence.NeedsFetchObjectModel),
-        new("url/urlencoded-parser.any.js", "response.formData() with input: *", WptDivergence.NeedsFetchObjectModel),
 
         // ---------------------------------------------------------------- encoding
         // common/sab.js takes its SharedArrayBuffer constructor from WebAssembly.Memory. Note that

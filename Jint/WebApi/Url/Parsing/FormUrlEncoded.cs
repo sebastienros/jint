@@ -35,6 +35,13 @@ internal static class FormUrlEncoded
     /// https://url.spec.whatwg.org/#concept-urlencoded-parser — the byte-sequence parser the string parser
     /// above is defined in terms of, and what a request body reaches directly.
     /// </summary>
+    /// <remarks>
+    /// <b>It cannot fail</b>, which is why it returns a list rather than a list-or-failure. The algorithm
+    /// splits on 0x26 (&amp;), then on the first 0x3D (=), and percent-decodes what is left; none of those
+    /// steps has a failure arm, an ill-formed UTF-8 run decodes to U+FFFD and a stray 0x25 (%) that begins
+    /// no escape is kept verbatim. Callers written against a specification that says "if entries is failure,
+    /// then throw a TypeError" — <c>formData()</c> is the one — therefore have nothing to test.
+    /// </remarks>
     internal static List<FormUrlEncodedEntry> Parse(byte[] bytes)
     {
         var output = new List<FormUrlEncodedEntry>();
