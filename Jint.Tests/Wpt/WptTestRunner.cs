@@ -1,13 +1,15 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using System.Reflection;
 using System.Text;
 
 namespace Jint.Tests.Wpt;
 
 /// <summary>
-/// Runs the vendored web-platform-tests suites for the URL, Encoding, Web Cryptography and Streams standards,
-/// one theory case per <c>.any.js</c> file, under the harness shim in <c>Prelude/testharness-shim.js</c>.
+/// Runs the vendored web-platform-tests suites for the URL, URL Pattern, Encoding, Web Cryptography,
+/// Streams, Compression and File API standards, one theory case per <c>.any.js</c> file, under the harness
+/// shim in <c>Prelude/testharness-shim.js</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,14 +27,16 @@ namespace Jint.Tests.Wpt;
 /// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
 /// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
-/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed;
-/// <c>Vendor/README.md</c> analyses each.
+/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed
+/// and the one the File API corpus did — an <c>Array.prototype.values</c> defect with no web API in it at
+/// all; <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
-/// <b>The WebCryptoAPI and streams corpora are one suite per directory</b> rather than one for the lot,
-/// because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is
-/// deliberate: a suite is a theory, a theory is a line in a test report, and fourteen of them tell a reader
-/// which operation went red where two would not.
+/// <b>The WebCryptoAPI, streams and FileAPI corpora are one suite per directory</b> rather than one for the
+/// lot, because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is
+/// deliberate: a suite is a theory, a theory is a line in a test report, and seventeen of them tell a reader
+/// which operation went red where three would not. <c>compression/</c> and <c>urlpattern/</c> have a single
+/// directory apiece and are therefore one suite apiece.
 /// </para>
 /// </remarks>
 public class WptTestRunner
@@ -118,6 +122,45 @@ public class WptTestRunner
         // reason but inside test bodies.
         ("streams/readable-byte-streams/construct-byob-request.any.js",
             "reads the interface objects as globals at file scope; Jint installs only the five constructible ones"),
+
+        // ---------------------------------------------------------------- compression
+        // Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM and, for the second,
+        // a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The
+        // shim's `fetch` is a *text* reader over the vendored tree (see its header), so neither the transport
+        // nor the accessor exists here, and vendoring a third of a megabyte of video to compress it would be
+        // a strange thing for this corpus to carry. compression-stream.any.js additionally calls `fetch` at
+        // file scope, so its failure could not even be a per-test one.
+        ("compression/compression-output-length.any.js", "fetches a 384 kB binary media fixture from the wpt server"),
+        ("compression/compression-stream.any.js", "fetches binary media fixtures from the wpt server, at file scope"),
+
+        // The file writes a member plus one trailing byte and never closes the writer, so the second
+        // `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the
+        // second of the two divergences DecompressionCodec documents (see WptDivergence.NeedsIncrementalInflater)
+        // — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing.
+        // A stalled run is a harness error for the whole file, which no per-test exclusion can name, exactly
+        // as streams/readable-byte-streams/construct-byob-request.any.js is. The divergence itself is still
+        // asserted, by decompression-corrupt-input.any.js's four excluded rows.
+        ("compression/decompression-extra-input.any.js",
+            "hangs on the trailing-byte divergence rather than failing a test"),
+
+        // ---------------------------------------------------------------- urlpattern
+        // Byte-identical to urlpattern.any.js — upstream ships both so a browser runs the corpus over http
+        // and over https, and Jint has no scheme to be served over. Vendoring it would run the same 370 cases
+        // twice and assert nothing the first run did not.
+        ("urlpattern/urlpattern.https.any.js", "byte-identical to urlpattern.any.js, which is vendored"),
+
+        // ---------------------------------------------------------------- FileAPI
+        // All four POST a FormData to wptserve's `/fetch/api/resources/echo-content.py` and assert on the
+        // multipart body that comes back, so they need the fetch object model, an outbound request and the
+        // server's own Python handler. Serializing a FormData as multipart/form-data is a fetch body's job
+        // and arrives with that feature; WebApiFeatures.Default never includes it.
+        ("FileAPI/file/send-file-formdata*.any.js", "posts multipart/form-data to wptserve's echo-content.py"),
+
+        // The one file in the FileAPI root that is neither vendored nor a browsing-context test. Jint has no
+        // FileReader — a Blob is read here through text()/arrayBuffer()/bytes()/stream() — and the file is
+        // about the reader's state machine (readyState, abort, the progress events) rather than about a Blob.
+        // Its sibling unicode.any.js needs no reader at all and *is* vendored.
+        ("FileAPI/fileReader.any.js", "FileReader is not implemented"),
     ];
 
     /// <summary>
@@ -294,6 +337,45 @@ public class WptTestRunner
         ["streams/piping/then-interception.any.js"] = 2,
         ["streams/piping/throwing-options.any.js"] = 8,
         ["streams/piping/transform-streams.any.js"] = 1,
+
+        ["compression/compression-bad-chunks.any.js"] = 28,
+        ["compression/compression-constructor-error.any.js"] = 3,
+        ["compression/compression-including-empty-chunk.any.js"] = 12,
+        ["compression/compression-large-flush-output.any.js"] = 4,
+        ["compression/compression-multiple-chunks.any.js"] = 60,
+        ["compression/compression-with-detach.any.js"] = 1,
+        ["compression/decompression-bad-chunks.any.js"] = 36,
+        ["compression/decompression-buffersource.any.js"] = 48,
+        ["compression/decompression-constructor-error.any.js"] = 3,
+        ["compression/decompression-correct-input.any.js"] = 4,
+        ["compression/decompression-corrupt-input.any.js"] = 29,
+        ["compression/decompression-empty-input.any.js"] = 4,
+        ["compression/decompression-split-chunk.any.js"] = 60,
+        ["compression/decompression-uint8array-output.any.js"] = 4,
+        ["compression/decompression-with-detach.any.js"] = 1,
+
+        // 369 entries in resources/urlpatterntestdata.json plus the promise_test that loads it. Rounded
+        // down, because this one really is a corpus and upstream adds rows to it.
+        ["urlpattern/urlpattern.any.js"] = 350,
+        ["urlpattern/urlpattern-constructor.any.js"] = 2,
+        ["urlpattern/urlpattern-hasregexpgroups.any.js"] = 1,
+
+        ["FileAPI/blob/Blob-array-buffer.any.js"] = 5,
+        ["FileAPI/blob/Blob-bytes.any.js"] = 5,
+        ["FileAPI/blob/Blob-constructor-detached-buffer.any.js"] = 4,
+        ["FileAPI/blob/Blob-constructor-endings.any.js"] = 11,
+        ["FileAPI/blob/Blob-constructor.any.js"] = 70,
+        ["FileAPI/blob/Blob-newobject.any.js"] = 4,
+        ["FileAPI/blob/Blob-slice-overflow.any.js"] = 4,
+        ["FileAPI/blob/Blob-slice.any.js"] = 150,
+        ["FileAPI/blob/Blob-stream.any.js"] = 6,
+        ["FileAPI/blob/Blob-text.any.js"] = 8,
+        ["FileAPI/blob/Blob-textStream.any.js"] = 8,
+
+        ["FileAPI/file/File-constructor-endings.any.js"] = 11,
+        ["FileAPI/file/File-constructor.any.js"] = 49,
+
+        ["FileAPI/unicode.any.js"] = 4,
     };
 
     /// <summary>
@@ -605,6 +687,71 @@ public class WptTestRunner
             "terminate() should abort writable immediately after readable.cancel()", WptDivergence.NeedsTriage),
         new("streams/piping/general-addition.any.js",
             "enqueue() must not synchronously call write algorithm", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- compression
+        // Every "brotli" row of every file. The Compression Standard's CompressionFormat enumeration lists
+        // brotli, and its constructor step 1 — "if format is unsupported in CompressionStream, then throw a
+        // TypeError" — is what makes refusing it conforming rather than wrong; the corpus loops over the
+        // enumeration and assumes support. See WptDivergence.NeedsBrotli, which records that .NET does ship
+        // BrotliStream, so this is a gap to close rather than a platform limit.
+        new("compression/compression-bad-chunks.any.js", "chunk of type * should error the stream for brotli", WptDivergence.NeedsBrotli),
+        new("compression/compression-including-empty-chunk.any.js", "the result of compressing * with brotli should be 'HelloHello'", WptDivergence.NeedsBrotli),
+        new("compression/compression-large-flush-output.any.js", "brotli compression with large flush output", WptDivergence.NeedsBrotli),
+        new("compression/compression-multiple-chunks.any.js", "compressing * chunks with brotli should work", WptDivergence.NeedsBrotli),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type * should error the stream for brotli", WptDivergence.NeedsBrotli),
+        new("compression/decompression-buffersource.any.js", "chunk of type * should work for brotli", WptDivergence.NeedsBrotli),
+        new("compression/decompression-correct-input.any.js", "decompressing brotli input should work", WptDivergence.NeedsBrotli),
+        new("compression/decompression-empty-input.any.js", "decompressing brotli empty input should work", WptDivergence.NeedsBrotli),
+        new("compression/decompression-split-chunk.any.js", "decompressing splitted chunk into pieces of size * should work in brotli", WptDivergence.NeedsBrotli),
+        new("compression/decompression-uint8array-output.any.js", "decompressing brotli output should give Uint8Array chunks", WptDivergence.NeedsBrotli),
+
+        // The SharedArrayBuffer rows of the two bad-chunk files, which take their SAB constructor from
+        // WebAssembly.Memory through their own inline helper rather than through common/sab.js. Named one
+        // format at a time, because the brotli row of each pair is above under a different reason and an
+        // exclusion has to say which one applies.
+        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for gzip", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for gzip", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for gzip", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for gzip", WptDivergence.NeedsWebAssembly),
+
+        // The two lenient-decompression divergences DecompressionCodec documents, and the only four rows in
+        // the whole corpus that assert them: a member that ends early and a member with something after it.
+        // Spelled out per format rather than globbed over the quoted name, because the brotli rows of the
+        // same two families are above under NeedsBrotli — they never reach the point where this divergence
+        // could decide them — and deflate-raw is not one of this file's three formats at all.
+        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'deflate' should give an error", WptDivergence.NeedsIncrementalInflater),
+        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'gzip' should give an error", WptDivergence.NeedsIncrementalInflater),
+        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'deflate' should give an error", WptDivergence.NeedsIncrementalInflater),
+        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'gzip' should give an error", WptDivergence.NeedsIncrementalInflater),
+        new("compression/decompression-corrupt-input.any.js", "the unchanged input for 'brotli' should decompress successfully", WptDivergence.NeedsBrotli),
+        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'brotli' should give an error", WptDivergence.NeedsBrotli),
+        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'brotli' should give an error", WptDivergence.NeedsBrotli),
+
+        // ---------------------------------------------------------------- FileAPI
+        // Blob.textStream(), which https://w3c.github.io/FileAPI/#dom-blob-textstream added and this Blob
+        // does not have. Two entries rather than one `*` over the file: the existence row and the seven that
+        // call the method say different things, and the file is 8-for-8 red today only because the method is
+        // wholly absent.
+        new("FileAPI/blob/Blob-textStream.any.js", "textStream method existence", WptDivergence.NeedsBlobTextStream),
+        new("FileAPI/blob/Blob-textStream.any.js", "Blob.textStream() *", WptDivergence.NeedsBlobTextStream),
+
+        // Three rows of Blob-constructor.any.js, and they are one engine defect rather than three Blob ones
+        // — see WptDivergence.NeedsTriage and Vendor/README.md. Recorded rather than fixed, because the
+        // change that first runs a suite is not the change that moves the engine.
+        new("FileAPI/blob/Blob-constructor.any.js",
+            "A plain object with @@iterator should be treated as a sequence for the blobParts argument.", WptDivergence.NeedsTriage),
+        new("FileAPI/blob/Blob-constructor.any.js",
+            "ToUint32 should be applied to the length and any exceptions should be propagated.", WptDivergence.NeedsTriage),
+        new("FileAPI/blob/Blob-constructor.any.js",
+            "Getters and value conversions should happen in order until an exception is thrown.", WptDivergence.NeedsTriage),
     ];
 
     public static IEnumerable<object[]> UrlSuiteFiles() => Cases("url");
@@ -671,6 +818,31 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> StreamsPipingSuiteFiles() => Cases("streams/piping");
 
+    /// <summary>
+    /// The Compression Standard's corpus and the URL Pattern one, a single directory each.
+    /// </summary>
+    public static IEnumerable<object[]> CompressionSuiteFiles() => Cases("compression");
+
+    public static IEnumerable<object[]> UrlPatternSuiteFiles() => Cases("urlpattern");
+
+    /// <summary>
+    /// The File API's three vendored suites: its two directories, plus the one root file that is about a
+    /// <c>Blob</c> rather than about a <c>FileReader</c> — see <see cref="_notVendored"/> for the one that
+    /// is not.
+    /// </summary>
+    private static readonly string[] _fileApiSuites =
+    [
+        "FileAPI",
+        "FileAPI/blob",
+        "FileAPI/file",
+    ];
+
+    public static IEnumerable<object[]> FileApiSuiteFiles() => Cases("FileAPI");
+
+    public static IEnumerable<object[]> FileApiBlobSuiteFiles() => Cases("FileAPI/blob");
+
+    public static IEnumerable<object[]> FileApiFileSuiteFiles() => Cases("FileAPI/file");
+
     [Theory]
     [MemberData(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
@@ -735,6 +907,26 @@ public class WptTestRunner
     [MemberData(nameof(StreamsPipingSuiteFiles))]
     public void RunsTheStreamsPipingSuite(string file) => RunSuiteFile(file);
 
+    [Theory]
+    [MemberData(nameof(CompressionSuiteFiles))]
+    public void RunsTheCompressionSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(UrlPatternSuiteFiles))]
+    public void RunsTheUrlPatternSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FileApiSuiteFiles))]
+    public void RunsTheFileApiSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FileApiBlobSuiteFiles))]
+    public void RunsTheFileApiBlobSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FileApiFileSuiteFiles))]
+    public void RunsTheFileApiFileSuite(string file) => RunSuiteFile(file);
+
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.
     /// </summary>
@@ -786,13 +978,16 @@ public class WptTestRunner
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
         WptCorpus.TestFiles("url").Should().HaveCountGreaterThan(15);
         WptCorpus.TestFiles("encoding").Should().HaveCountGreaterThan(15);
+        WptCorpus.TestFiles("compression").Should().HaveCountGreaterThan(10);
+        WptCorpus.TestFiles("urlpattern").Should().HaveCountGreaterThan(2);
 
-        // And a WebCryptoAPI or streams sub-directory that lost its theory member would be a suite nothing
-        // runs, which the minimum-test check above cannot see: it proves a file is declared, not that a
-        // theory reaches it. Every declared suite must therefore produce cases, and every vendored .any.js
+        // And a WebCryptoAPI, streams or FileAPI sub-directory that lost its theory member would be a suite
+        // nothing runs, which the minimum-test check above cannot see: it proves a file is declared, not that
+        // a theory reaches it. Every declared suite must therefore produce cases, and every vendored .any.js
         // must belong to one of the declared suites.
         CheckSuiteGroup("WebCryptoAPI/", _webCryptoSuites);
         CheckSuiteGroup("streams/", _streamsSuites);
+        CheckSuiteGroup("FileAPI/", _fileApiSuites);
 
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
 
@@ -819,6 +1014,83 @@ public class WptTestRunner
         }
     }
 
+    /// <summary>
+    /// Every vendored <c>.any.js</c> is reached by exactly one theory, and every theory reaches only
+    /// vendored files.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The check above proves a file is <i>declared</i> — that it has a minimum-test entry and belongs to a
+    /// suite in one of the suite arrays. It cannot prove anything <i>runs</i> it: those arrays are prose
+    /// until a <c>[Theory]</c> with a matching <c>[MemberData]</c> exists, and deleting the theory (or its
+    /// attribute, or renaming the member it names) would leave a whole standard silently unrun with the
+    /// whole inventory still green. So this walks the theories themselves and holds their union to the
+    /// corpus.
+    /// </para>
+    /// <para>
+    /// It is also what stops two theories overlapping. Suites are directories and
+    /// <see cref="WptCorpus.TestFiles"/> never descends, so a file belongs to exactly one — a second theory
+    /// covering it would double every one of its cases and, worse, make an exclusion that is stale in one
+    /// theory look live because the other still matched it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryVendoredTestFileIsReachedByExactlyOneTheory()
+    {
+        var reachedBy = new Dictionary<string, string>(StringComparer.Ordinal);
+        var theories = 0;
+
+        foreach (var method in typeof(WptTestRunner).GetMethods(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var memberData = method.GetCustomAttributes<MemberDataAttribute>().ToArray();
+            if (memberData.Length == 0)
+            {
+                continue;
+            }
+
+            method.GetCustomAttribute<TheoryAttribute>()
+                .Should().NotBeNull($"{method.Name} carries [MemberData] and so must be a [Theory]");
+            theories++;
+
+            foreach (var attribute in memberData)
+            {
+                var member = typeof(WptTestRunner).GetMethod(
+                    attribute.MemberName,
+                    BindingFlags.Public | BindingFlags.Static);
+                member.Should().NotBeNull($"{method.Name} names \"{attribute.MemberName}\"");
+
+                var rows = (IEnumerable<object[]>) member!.Invoke(null, null)!;
+                var any = false;
+                foreach (var row in rows)
+                {
+                    any = true;
+                    var file = (string) row[0];
+                    reachedBy.TryGetValue(file, out var already).Should().BeFalse(
+                        $"{file} is reached by both {already} and {method.Name}");
+                    reachedBy[file] = method.Name;
+                }
+
+                any.Should().BeTrue($"{attribute.MemberName} must produce cases");
+            }
+        }
+
+        // A floor rather than an equality, so adding a standard needs no edit here — but low enough to be
+        // meaningless only if most of the file were deleted, which is the failure this number guards.
+        theories.Should().BeGreaterThanOrEqualTo(20, "each vendored suite is one theory");
+
+        var vendored = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var path in WptCorpus.Paths)
+        {
+            if (path.EndsWith(".any.js", StringComparison.Ordinal))
+            {
+                vendored.Add(path);
+            }
+        }
+
+        reachedBy.Keys.Should().BeEquivalentTo(vendored,
+            "every vendored .any.js must be reached by a theory, and a theory must reach nothing else");
+    }
+
     [Fact]
     public void TheHarnessShimAndItsHelpersAreEmbedded()
     {
@@ -843,8 +1115,24 @@ public class WptTestRunner
                      "streams/resources/rs-test-templates.js",
                      "streams/resources/rs-utils.js",
                      "streams/resources/test-utils.js",
-                     // The two garbage-collection files name it as `/common/gc.js`, from the wpt root.
+                     // The two streams garbage-collection files and FileAPI/blob/Blob-stream.any.js name it
+                     // as `/common/gc.js`, from the wpt root.
                      "common/gc.js",
+                     "compression/resources/formats.js",
+                     "compression/resources/decompress.js",
+                     "compression/resources/decompression-input.js",
+                     "compression/resources/concatenate-stream.js",
+                     // Vendored third-party code with its own licence beside it: three compression files
+                     // check their own output by inflating it with pako rather than with the engine's own
+                     // DecompressionStream, which is the point — a round trip through one implementation
+                     // proves nothing about the bytes.
+                     "compression/third_party/pako/pako_inflate.min.js",
+                     "urlpattern/resources/urlpatterntests.js",
+                     "urlpattern/resources/urlpattern-hasregexpgroups-tests.js",
+                     "urlpattern/resources/urlpatterntestdata.json",
+                     // Named as `../support/Blob.js` from both FileAPI suites, which is the one shape of
+                     // META reference that leaves a suite's own directory.
+                     "FileAPI/support/Blob.js",
                  })
         {
             WptCorpus.Contains(helper).Should().BeTrue($"{helper} must be embedded");

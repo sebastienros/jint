@@ -139,6 +139,56 @@ internal enum WptDivergence
     NeedsStreamInterfaceGlobals,
 
     /// <summary>
+    /// <para>
+    /// The test asks for the <c>brotli</c> <c>CompressionFormat</c>, which
+    /// https://compression.spec.whatwg.org/#compressionstream lists in the enumeration and which this engine
+    /// answers with the <c>TypeError</c> the constructor's own step 1 asks for — "if <i>format</i> is
+    /// unsupported in <c>CompressionStream</c>, then throw a <c>TypeError</c>". Refusing it is therefore
+    /// conforming; the corpus loops over the whole enumeration and assumes support, so every one of its
+    /// per-format families has a brotli row that fails on the constructor before reaching what the file is
+    /// actually about.
+    /// </para>
+    /// <para>
+    /// <b>This is the one category here that is neither a platform limit nor a deliberate reduction.</b>
+    /// .NET ships <c>BrotliStream</c> in <c>System.IO.Compression</c>, on exactly the pull-stream shape
+    /// <c>CompressionCodec</c>/<c>DecompressionCodec</c> already drive for the other three formats, so
+    /// closing it is a feature to add rather than something the BCL forbids. It stays out of this change
+    /// because a corpus that first runs a suite must not also be the change that moves the engine.
+    /// </para>
+    /// </summary>
+    NeedsBrotli,
+
+    /// <summary>
+    /// <para>
+    /// The test asserts one of the two lenient-decompression divergences <c>DecompressionCodec</c> documents
+    /// on itself: https://compression.spec.whatwg.org/#decompressionstream makes it an error for a stream to
+    /// end before its member is complete, and an error for anything to follow the member. Detecting either
+    /// needs to know how many of the bytes handed over the decompressor actually consumed, and .NET exposes
+    /// no incremental inflater — only <c>GZipStream</c>, <c>ZLibStream</c> and <c>DeflateStream</c>, which
+    /// pull from a source stream, buffer input internally and report neither figure. So a truncated stream
+    /// ends its readable side cleanly and trailing bytes are ignored.
+    /// </para>
+    /// <para>
+    /// Four rows of <c>decompression-corrupt-input.any.js</c> are the whole of it, and everything the
+    /// decompressor itself rejects — a bad header, a failed CRC32/ADLER32, a malformed DEFLATE block, a
+    /// dictionary-compressed stream, an empty input — is still an error and still passes, which is the case
+    /// that matters for telling corrupt input from good. The one file that asserts the same divergence by
+    /// <i>waiting</i> for the error rather than by comparing a result,
+    /// <c>compression/decompression-extra-input.any.js</c>, is not vendored: it stalls rather than fails.
+    /// </para>
+    /// </summary>
+    NeedsIncrementalInflater,
+
+    /// <summary>
+    /// The test calls <c>Blob.textStream()</c> — https://w3c.github.io/FileAPI/#dom-blob-textstream, which
+    /// the File API added after Jint's <c>Blob</c> was written and which is normative rather than optional.
+    /// Its algorithm is three steps over pieces this engine already has (get the blob's stream, set up a
+    /// <c>TextDecoderStream</c> with UTF-8, pipe one through the other), so this is a gap to close and not a
+    /// decision; the whole of <c>Blob-textStream.any.js</c> is red for the method simply being absent.
+    /// </summary>
+    NeedsBlobTextStream,
+
+    /// <summary>
     /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
     /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
     /// suites up deliberately recorded them rather than fixing them: the point was to find out what they
@@ -160,8 +210,8 @@ internal enum WptDivergence
     /// documenting the divergence on itself and raising it upstream as
     /// https://github.com/w3c/webcrypto/issues/560.
     /// <para>
-    /// <b>The streams corpus filed five more, and they are the category's whole contents today.</b> Each is
-    /// analysed in <c>Vendor/README.md</c>; in one line apiece:
+    /// <b>The streams corpus filed five, and the File API corpus one more.</b> Each is analysed in
+    /// <c>Vendor/README.md</c>; in one line apiece:
     /// </para>
     /// <list type="bullet">
     /// <item><description>
@@ -179,6 +229,18 @@ internal enum WptDivergence
     /// <c>piping/general-addition.any.js</c>: an <c>enqueue()</c> on the source of a running <c>pipeTo()</c>
     /// reaches the sink's <c>write</c> synchronously, where https://streams.spec.whatwg.org/#rs-pipe-to reads
     /// the chunk in a reaction to the reader's promise and can never be synchronous with the enqueue.
+    /// </description></item>
+    /// <item><description>
+    /// <b>Three rows of <c>FileAPI/blob/Blob-constructor.any.js</c>, and the defect is not in <c>Blob</c> at
+    /// all — it is in <c>Array.prototype.values</c>/<c>keys</c>/<c>entries</c>.</b>
+    /// https://tc39.es/ecma262/#sec-array.prototype.values is <i>ToObject(this)</i> and then
+    /// <i>CreateArrayIterator</i>, which never reads <c>length</c>; the iterator's own step 1.b does
+    /// <i>LengthOfArrayLike</i> on each <c>next()</c>. <c>ArrayPrototype.Values</c> instead gates on
+    /// <c>ObjectInstance.IsArrayLike</c> — a <c>length</c> that is present, is already a <c>JsNumber</c>, and
+    /// is non-negative — and throws <c>TypeError: cannot construct iterator</c> when it is not, so
+    /// <c>[...Array.prototype.values.call({})]</c> is a <c>TypeError</c> where the specification says
+    /// <c>[]</c>. Reproduces with no web API involved at all; see <c>Vendor/README.md</c> for the six shapes
+    /// and what each one should answer.
     /// </description></item>
     /// </list>
     /// </summary>

@@ -508,6 +508,15 @@
         throw new AssertionError('did not throw' + describe(description));
     }
 
+    // A feature the specification *requires*, missing. Upstream's own body is
+    // `assert(!!condition, "assert_implements", description)` — an ordinary AssertionError and therefore an
+    // ordinary FAIL. The pairing with `assert_implements_optional` below is the whole point of having two:
+    // upstream splits "the spec says this must exist" from "the spec says this may exist", and only the
+    // second is excused as PRECONDITION_FAILED. A shim that collapsed them would quietly demote a real gap.
+    function assert_implements(condition, description) {
+        assert(!!condition, 'assert_implements' + describe(description));
+    }
+
     // An optional feature this implementation does not have. Not a failure: the test is recorded
     // PRECONDITION_FAILED, which is upstream's third outcome and this shim's only use of one.
     function assert_implements_optional(condition, description) {
@@ -866,6 +875,7 @@
     global.assert_throws_dom = assert_throws_dom;
     global.assert_throws_quotaexceedederror = assert_throws_quotaexceedederror;
     global.assert_throws_exactly = assert_throws_exactly;
+    global.assert_implements = assert_implements;
     global.assert_implements_optional = assert_implements_optional;
     // Upstream exposes both of these, and the WebCryptoAPI suites use the first: `err instanceof
     // AssertionError` is how a `catch` that classifies its own errors tells a failed assertion — which it must
