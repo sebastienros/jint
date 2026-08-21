@@ -487,13 +487,13 @@ public class SubtleCryptoTests
     }
 
     [Fact]
-    public void ExposesDigestAndTheKeyedOperationsAndKeyDerivationButNotKeyWrapping()
+    public void ExposesAllTwelveOperations()
     {
         var engine = WebEngine();
 
-        // Absent rather than present-and-throwing: a library checking `typeof crypto.subtle.wrapKey` before
-        // reaching for it has to get the truthful answer, which is the same reason `crypto.subtle` itself is
-        // absent from an engine without the crypto feature.
+        // The whole SubtleCrypto surface is here, which is what a library checking `typeof
+        // crypto.subtle.wrapKey` before reaching for it now finds. `crypto.subtle` itself remains absent from
+        // an engine without the crypto feature, which is the same promise one level up.
         engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
 
         engine.Evaluate("""
@@ -502,7 +502,7 @@ public class SubtleCryptoTests
 
         engine.Evaluate("""
             ['wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
-            """).AsString().Should().Be("");
+            """).AsString().Should().Be("wrapKey,unwrapKey");
 
         // As with crypto itself, the operation is an own property with a built-in method's attributes, so
         // enumeration sees nothing.

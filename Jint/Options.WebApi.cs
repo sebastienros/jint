@@ -587,13 +587,15 @@ public enum WebApiFeatures
     /// <summary>
     /// The <c>crypto</c> object: <c>getRandomValues</c> and <c>randomUUID</c>, both backed by the BCL's
     /// cryptographically secure generator, plus <c>crypto.subtle</c> and the <c>CryptoKey</c> interface
-    /// object. <c>subtle</c> carries <c>digest</c> (SHA-1, SHA-256, SHA-384, SHA-512), <c>sign</c>,
-    /// <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>,
-    /// <c>exportKey</c>, <c>deriveBits</c> and <c>deriveKey</c> over HMAC, AES-GCM, RSASSA-PKCS1-v1_5,
-    /// RSA-PSS, RSA-OAEP, ECDSA, ECDH, HKDF and PBKDF2 — the elliptic-curve pair over P-256, P-384 and
-    /// P-521 — with the <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c> key formats. Key <i>wrapping</i>
-    /// is not implemented and <c>wrapKey</c>/<c>unwrapKey</c> are absent rather than present-and-throwing, so
-    /// feature detection sees the truth. HKDF and PBKDF2 keys are <c>importKey</c>-only and never
+    /// object. <c>subtle</c> carries all twelve operations — <c>digest</c> (SHA-1, SHA-256, SHA-384,
+    /// SHA-512), <c>sign</c>, <c>verify</c>, <c>encrypt</c>, <c>decrypt</c>, <c>generateKey</c>,
+    /// <c>importKey</c>, <c>exportKey</c>, <c>deriveBits</c>, <c>deriveKey</c>, <c>wrapKey</c> and
+    /// <c>unwrapKey</c> — over HMAC, AES-CTR, AES-CBC, AES-GCM, AES-KW, RSASSA-PKCS1-v1_5, RSA-PSS,
+    /// RSA-OAEP, ECDSA, ECDH, HKDF and PBKDF2 — the AES family at 128, 192 and 256 bits and the
+    /// elliptic-curve pair over P-256, P-384 and P-521 — with the <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and
+    /// <c>jwk</c> key formats. The registries are per operation and asymmetric: AES-KW wraps and unwraps and
+    /// never encrypts, where AES-CTR, AES-CBC, AES-GCM and RSA-OAEP encrypt and are reached for wrapping
+    /// through the specification's own fallback. HKDF and PBKDF2 keys are <c>importKey</c>-only and never
     /// extractable, which is what their own registrations say; and PBKDF2's iteration count is capped at
     /// 2^22 by this engine, because the loop is one uninterruptible call that no execution constraint can
     /// bound. Neither <c>subtle</c> nor <c>CryptoKey</c> has a flag of its own: <c>subtle</c> is a readonly

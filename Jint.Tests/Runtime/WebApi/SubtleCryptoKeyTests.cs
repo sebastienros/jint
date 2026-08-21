@@ -864,8 +864,8 @@ public class SubtleCryptoKeyTests
     [Theory]
     [InlineData("sign", "'X25519'")]
     [InlineData("verify", "'Ed25519'")]
-    [InlineData("encrypt", "'AES-CBC'")]
-    [InlineData("decrypt", "{ name: 'AES-CTR' }")]
+    [InlineData("encrypt", "'AES-XTS'")]
+    [InlineData("decrypt", "{ name: 'ChaCha20-Poly1305' }")]
     [InlineData("generateKey", "'HKDF'")]
     [InlineData("importKey", "'X25519'")]
     // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs,
@@ -908,11 +908,12 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(
                 "function,function,function,function,function,function,function,function,function,function");
 
-        // Absent rather than present-and-throwing: `typeof crypto.subtle.wrapKey` is how a library that does
-        // cryptography decides whether it can, and it has to get the truthful answer.
+        // Key wrapping completes the interface — `typeof crypto.subtle.wrapKey` is how a library that does
+        // cryptography decides whether it can, and it has to get the truthful answer. See
+        // SubtleCryptoAesWrapTests for the operations themselves.
         engine.Evaluate("""
             ['wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
-            """).AsString().Should().Be("");
+            """).AsString().Should().Be("wrapKey,unwrapKey");
     }
 
     [Fact]
@@ -924,12 +925,13 @@ public class SubtleCryptoKeyTests
         // `length` argument is `optional [EnforceRange] unsigned long? length = null`, so it does not count.
         // A browser predating that change to the IDL answers 3; Node, which has taken it, answers 2.
         engine.Evaluate("""
-            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey', 'deriveBits', 'deriveKey']
+            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey',
+             'deriveBits', 'deriveKey', 'wrapKey', 'unwrapKey']
                 .map(name => name + ':' + crypto.subtle[name].length + ':' + crypto.subtle[name].name).join(',')
             """).AsString().Should().Be(
                 "digest:2:digest,sign:3:sign,verify:4:verify,encrypt:3:encrypt,decrypt:3:decrypt,"
                 + "generateKey:3:generateKey,importKey:5:importKey,exportKey:2:exportKey,"
-                + "deriveBits:2:deriveBits,deriveKey:5:deriveKey");
+                + "deriveBits:2:deriveBits,deriveKey:5:deriveKey,wrapKey:4:wrapKey,unwrapKey:7:unwrapKey");
 
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
     }
