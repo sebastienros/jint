@@ -11,13 +11,21 @@ using Jint.WebApi.Streams;
 namespace Jint.WebApi.Fetch;
 
 /// <summary>
-/// A network response body, streamed: the HTTP content on one side and a <c>ReadableStream</c> on the other,
-/// joined by demand rather than by a buffer.
+/// A network response body, streamed: the HTTP content on one side and a readable <i>byte</i> stream on the
+/// other, joined by demand rather than by a buffer.
 /// <para>
 /// https://fetch.spec.whatwg.org/#concept-response-body
 /// </para>
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>The stream is a byte stream</b>, as https://fetch.spec.whatwg.org/#concept-body requires of every
+/// body ("set up with byte reading support"), so a consumer may read it BYOB and recycle one buffer across
+/// the whole download. No <c>autoAllocateChunkSize</c> is set: the transport reads into a pooled array on
+/// its own thread and cannot write into a script's buffer across that boundary, so a BYOB read is served
+/// out of the controller's queue like any other. What a default reader sees is unchanged — one
+/// <c>Uint8Array</c> per chunk the transport produced.
+/// </para>
 /// <para>
 /// <b>The two halves never touch each other's state directly.</b> The engine half — the underlying source's
 /// <c>pull</c> and <c>cancel</c>, and everything that reaches the controller — runs on the engine thread and
@@ -134,9 +142,10 @@ internal sealed class FetchBodyStream : IDisposable
         }
 
         // A high water mark of zero means the transport is only asked for bytes once a consumer wants them:
-        // nothing is read ahead into a queue the script may never drain.
-        _stream = ReadableStreamOperations.CreateReadableStream(
-            engine, realm, static () => JsValue.Undefined, PullAlgorithm, CancelAlgorithm, highWaterMark: 0);
+        // nothing is read ahead into a queue the script may never drain. CreateReadableByteStream fixes that
+        // mark at zero, which is what the default-controller predecessor asked for explicitly.
+        _stream = ReadableStreamOperations.CreateReadableByteStream(
+            engine, realm, static () => JsValue.Undefined, PullAlgorithm, CancelAlgorithm);
 
         engine._webApi?.RegisterBodyStream(this);
 
@@ -168,8 +177,8 @@ internal sealed class FetchBodyStream : IDisposable
         _finished = true;
         CancelTransport();
 
-        ReadableStreamDefaultControllerOperations.Error(
-            _stream.DefaultController,
+        ReadableByteStreamControllerOperations.Error(
+            _stream.ByteController,
             _realm.Intrinsics.TypeError.Construct("Failed to fetch: the engine's globals were restored while the response body was still streaming"));
 
         ResolvePull();
@@ -292,7 +301,7 @@ internal sealed class FetchBodyStream : IDisposable
         {
             _finished = true;
             _engine._webApi?.UnregisterBodyStream(this);
-            ReadableStreamDefaultControllerOperations.Error(_stream.DefaultController, FetchOperation.NetworkError(_realm, failure));
+            ReadableByteStreamControllerOperations.Error(_stream.ByteController, FetchOperation.NetworkError(_realm, failure));
             ResolvePull();
             return;
         }
@@ -301,12 +310,14 @@ internal sealed class FetchBodyStream : IDisposable
         {
             _finished = true;
             _engine._webApi?.UnregisterBodyStream(this);
-            ReadableStreamDefaultControllerOperations.Close(_stream.DefaultController);
+            ByteStreams.CloseAndReleasePendingByob(_stream.ByteController);
             ResolvePull();
             return;
         }
 
-        ReadableStreamDefaultControllerOperations.Enqueue(_stream.DefaultController, ByteStreams.NewUint8Array(_engine, _realm, chunk));
+        // The array is the transport's own copy, taken out of the pooled buffer before it was posted, so
+        // nothing else will ever read it and the byte controller can take it as it stands.
+        ByteStreams.EnqueueOwnedBytes(_stream.ByteController, chunk);
 
         // Resolved after the enqueue, so the reaction that lets the controller pull again observes the chunk
         // already in the queue.

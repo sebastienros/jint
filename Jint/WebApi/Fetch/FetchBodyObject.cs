@@ -304,6 +304,12 @@ internal static class FetchBody
     /// used the moment a stream exists — for a network response, or for a body a script has already asked
     /// <c>body</c> for — because from then on the two objects' streams have to be different objects with
     /// independent queues.
+    /// <para>
+    /// The tee goes through <see cref="ReadableStreamOperations.Tee"/> rather than straight to the default
+    /// algorithm, because https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the kind of
+    /// controller the stream has: a body's own stream is a byte stream, and its two branches have to be byte
+    /// streams too or a clone would quietly lose BYOB reading.
+    /// </para>
     /// </remarks>
     internal static void CloneBody(FetchBodyObject source, FetchBodyObject target)
     {
@@ -318,7 +324,7 @@ internal static class FetchBody
             return;
         }
 
-        var (branch1, branch2) = ReadableStreamTee.Tee(stream);
+        var (branch1, branch2) = ReadableStreamOperations.Tee(stream);
         source.ReplaceStream(branch1);
         target.SetStreamBody(branch2);
     }
