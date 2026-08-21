@@ -186,7 +186,12 @@ public class InteropIntegerCoercionBoxingTests
     public void CanAssignIntegerToLongArrayElement()
     {
         var host = new CollectionHost();
-        var engine = CreateEngine().SetValue("host", host);
+        var engine = new Engine(options =>
+            {
+                options.AllowClrWrite();
+                options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
+            })
+            .SetValue("host", host);
 
         engine.Execute("host.LongArray[0] = 42;");
         host.LongArray[0].Should().Be(42L);

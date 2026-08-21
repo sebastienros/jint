@@ -313,6 +313,7 @@ public class ClrWriteConfigurationTests
                 if (allowWrite)
                 {
                     options.AllowClrWrite();
+                    options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
                 }
             })
             .SetValue("host", host)

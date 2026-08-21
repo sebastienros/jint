@@ -371,12 +371,12 @@ public partial class Engine
         /// for audits, assertions and regression tests, never for production branching.
         /// </para>
         /// <para>
-        /// The motivating case: <see cref="ArrayConversionMode.LiveView"/> has been the default since 4.14, and
-        /// the two modes differ in behavior a script can observe — a live view writes through to the CLR array
-        /// and tracks its contents, a copy does neither. A host that does not own all of its Jint consumers has
-        /// no way to find out whether any CLR array crosses into script at all, let alone under which
-        /// semantics, short of auditing every transitive caller by hand. Reading the counters around a run
-        /// answers it directly.
+        /// The motivating case: <see cref="ArrayConversionMode.Copy"/> is the default, while
+        /// <see cref="ArrayConversionMode.LiveView"/> is an explicit performance opt-in, and the two modes differ
+        /// in behavior a script can observe — a live view writes through to the CLR array and tracks its contents,
+        /// while a copy does neither. A host that does not own all of its Jint consumers has no way to find out
+        /// whether any CLR array crosses into script at all, let alone under which semantics, short of auditing
+        /// every transitive caller by hand. Reading the counters around a run answers it directly.
         /// </para>
         /// <para>
         /// Scope, stated honestly. What is counted is a conversion that actually went through the

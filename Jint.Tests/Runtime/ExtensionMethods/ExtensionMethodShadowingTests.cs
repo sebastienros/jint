@@ -121,9 +121,13 @@ public class ExtensionMethodShadowingTests
     }
 
     [Fact]
-    public void LinqChainWorksUnderLiveViewDefault()
+    public void LinqChainWorksUnderExplicitLiveView()
     {
-        var engine = new Engine(options => options.AddExtensionMethods(typeof(Enumerable)));
+        var engine = new Engine(options =>
+        {
+            options.AddExtensionMethods(typeof(Enumerable));
+            options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
+        });
         engine.SetValue("stringList", new List<string> { "working", "linq" });
 
         // the ToArray() result is a live array wrapper whose pure-extension 'Enumerable.Join'

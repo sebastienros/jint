@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
@@ -262,50 +263,253 @@ internal static class DefaultObjectConverter
         // static cross-engine memoization, so per-engine option state can never be baked into the
         // memoized mapper.
         var arrayType = v.GetType();
-        if (e._objectWrapperCache?.TryGetValue(v, out var cached) == true
-            && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == arrayType))
+        var copyContext = e._arrayCopyContext;
+        if (copyContext?.TryGetGraphCopy(v, out var inProgress) == true)
         {
+            copyContext.ObserveDependency(inProgress);
+            return inProgress;
+        }
+
+        if (e._objectWrapperCache?.TryGetValue(v, out var cached) == true
+            && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == arrayType)
+            && (copyContext is null || copyContext.CanReuseCachedArray((Array) v, cached)))
+        {
+            copyContext?.ObserveDependency(cached);
             return cached;
         }
 
-        if (e._recentObjectWrapperCache?.TryGet(v, arrayType) is { } recentlyConverted)
+        if (e._recentObjectWrapperCache?.TryGet(v, arrayType) is { } recentlyConverted
+            && (copyContext is null || copyContext.CanReuseCachedArray((Array) v, recentlyConverted)))
         {
+            copyContext?.ObserveDependency(recentlyConverted);
             return recentlyConverted;
         }
 
         if (e.Options.Interop.ArrayConversion == ArrayConversionMode.LiveView
             && TryConvertArrayLiveView(e, v, arrayType, out var liveView))
         {
+            if (liveView is ObjectInstance liveViewObject)
+            {
+                copyContext?.ObserveDependency(liveViewObject);
+            }
+
             return liveView;
         }
 
-        var array = (Array) v;
-        var arrayLength = (uint) array.Length;
-
-        var values = new JsValue[arrayLength];
-        for (uint i = 0; i < arrayLength; ++i)
-        {
-            values[i] = JsValue.FromObject(e, array.GetValue(i));
-        }
-
-        var result = new JsArray(e, values);
-        e._arrayCopyConversions++;
-
-        if (e.Options.Interop.TrackObjectWrapperIdentity)
-        {
-            e._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
-            // the table may hold a wrapper for a different exposed view of the same
-            // object (the type-guarded lookup above missed it) — last view wins
-            e._objectWrapperCache.Remove(v);
-            e._objectWrapperCache.Add(v, result);
-        }
-        else if (e.Options.Interop.CacheRecentObjectWrappers)
-        {
-            e._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
-            e._recentObjectWrapperCache.Add(v, result);
-        }
-
+        copyContext ??= e._arrayCopyContext = new ArrayCopyContext();
+        var result = copyContext.IsActive
+            ? CopyArrayGraph(e, (Array) v, copyContext)
+            : e.ExecuteWithMemoryAccounting(() => CopyArrayGraph(e, (Array) v, copyContext));
+        copyContext.ObserveDependency(result);
         return result;
+    }
+
+    private static JsArray CopyArrayGraph(Engine engine, Array source, ArrayCopyContext copyContext)
+    {
+        engine.CheckInteropProjectionConstraints();
+        var result = CreateArraySnapshot(engine, source);
+        engine.CheckInteropProjectionConstraints();
+        var isRootCopy = !copyContext.IsActive;
+        var savepoint = copyContext.CreateSavepoint(engine);
+        var stack = new List<ArrayCopyFrame>(capacity: 4);
+        var workUntilConstraintCheck = Engine.ConstraintCheckInterval;
+        var succeeded = false;
+        copyContext.Begin(source, result);
+        stack.Add(new ArrayCopyFrame(source, result, Index: 0));
+        try
+        {
+            while (stack.Count > 0)
+            {
+                var frameIndex = stack.Count - 1;
+                var frame = stack[frameIndex];
+                if (frame.Index >= frame.Result.Length)
+                {
+                    copyContext.Complete(
+                        engine,
+                        frame.Source,
+                        frame.Result,
+                        engine.Options.Interop.TrackObjectWrapperIdentity,
+                        engine.Options.Interop.CacheRecentObjectWrappers);
+                    copyContext.End(frame.Source);
+                    stack.RemoveAt(frameIndex);
+                    continue;
+                }
+
+                var index = frame.Index;
+                stack[frameIndex] = frame with { Index = index + 1 };
+                if (--workUntilConstraintCheck == 0)
+                {
+                    engine.CheckInteropProjectionConstraints();
+                    workUntilConstraintCheck = Engine.ConstraintCheckInterval;
+                }
+
+                var element = frame.Source.GetValue(index);
+                JsValue converted;
+                if (element is Array child)
+                {
+                    if (!TryConvertNestedArrayObserved(
+                            engine,
+                            child,
+                            copyContext,
+                            frame.Result,
+                            out var nestedConverted))
+                    {
+                        if (child.Length >= Engine.ConstraintCheckInterval)
+                        {
+                            engine.CheckInteropProjectionConstraints();
+                        }
+
+                        var childResult = CreateArraySnapshot(engine, child);
+                        if (child.Length >= Engine.ConstraintCheckInterval)
+                        {
+                            engine.CheckInteropProjectionConstraints();
+                        }
+
+                        copyContext.Begin(child, childResult);
+                        copyContext.RecordDependency(frame.Result, childResult);
+                        frame.Result.SetIndexValue(index, childResult, updateLength: false);
+                        stack.Add(new ArrayCopyFrame(child, childResult, Index: 0));
+                        continue;
+                    }
+
+                    converted = nestedConverted;
+                }
+                else
+                {
+                    if (engine._objectConverters is null)
+                    {
+                        converted = JsValue.FromObject(engine, element);
+                    }
+                    else
+                    {
+                        var observation = copyContext.BeginDependencyObservation();
+                        try
+                        {
+                            converted = JsValue.FromObject(engine, element);
+                        }
+                        finally
+                        {
+                            copyContext.EndDependencyObservation(frame.Result, observation);
+                        }
+                    }
+                }
+
+                copyContext.RecordDependency(frame.Result, converted);
+                frame.Result.SetIndexValue(index, converted, updateLength: false);
+            }
+
+            if (isRootCopy)
+            {
+                copyContext.Publish(engine);
+                engine.CheckInteropProjectionConstraints();
+                copyContext.CommitDiagnostics(engine);
+            }
+
+            succeeded = true;
+            return result;
+        }
+        finally
+        {
+            for (var i = stack.Count - 1; i >= 0; i--)
+            {
+                copyContext.End(stack[i].Source);
+            }
+
+            if (!succeeded)
+            {
+                copyContext.Rollback(engine, in savepoint);
+            }
+            else
+            {
+                ArrayCopyContext.Commit(in savepoint);
+            }
+
+            if (isRootCopy)
+            {
+                copyContext.DiscardCompleted();
+            }
+        }
+    }
+
+    private static JsArray CreateArraySnapshot(Engine engine, Array source)
+    {
+        var length = (uint) source.Length;
+        return new JsArray(engine, new JsValue[length]);
+    }
+
+    private static bool TryConvertNestedArray(
+        Engine engine,
+        Array array,
+        ArrayCopyContext copyContext,
+        [NotNullWhen(true)] out JsValue? result)
+    {
+        if (engine._objectConverters is not null)
+        {
+            foreach (var converter in engine._objectConverters)
+            {
+                if (converter.TryConvert(engine, array, out result))
+                {
+                    return true;
+                }
+            }
+        }
+
+        var arrayType = array.GetType();
+        // A nested array may reuse a snapshot from an older graph unless its CLR graph reaches an
+        // array currently being copied. In that case the older snapshot points back to an older
+        // root and would splice two generations of a cycle together.
+        if (engine._objectWrapperCache?.TryGetValue(array, out var cached) == true
+            && (cached is not ObjectWrapper cachedWrapper || cachedWrapper.ClrType == arrayType)
+            && copyContext.CanReuseCachedArray(array, cached))
+        {
+            result = cached;
+            return true;
+        }
+
+        if (engine._recentObjectWrapperCache?.TryGet(array, arrayType) is { } recentlyConverted
+            && copyContext.CanReuseCachedArray(array, recentlyConverted))
+        {
+            result = recentlyConverted;
+            return true;
+        }
+
+        if (copyContext.TryGetGraphCopy(array, out var graphCopy))
+        {
+            result = graphCopy;
+            return true;
+        }
+
+        if (engine.Options.Interop.ArrayConversion == ArrayConversionMode.LiveView
+            && TryConvertArrayLiveView(engine, array, arrayType, out result))
+        {
+            return true;
+        }
+
+        result = null;
+        return false;
+    }
+
+    private static bool TryConvertNestedArrayObserved(
+        Engine engine,
+        Array array,
+        ArrayCopyContext copyContext,
+        ObjectInstance parent,
+        [NotNullWhen(true)] out JsValue? result)
+    {
+        if (engine._objectConverters is null)
+        {
+            return TryConvertNestedArray(engine, array, copyContext, out result);
+        }
+
+        var observation = copyContext.BeginDependencyObservation();
+        try
+        {
+            return TryConvertNestedArray(engine, array, copyContext, out result);
+        }
+        finally
+        {
+            copyContext.EndDependencyObservation(parent, observation);
+        }
     }
 
     /// <summary>
@@ -351,7 +555,363 @@ internal static class DefaultObjectConverter
         result = wrapped;
         return true;
     }
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ArrayCopyFrame(Array Source, JsArray Result, uint Index);
 }
+
+internal sealed class ArrayCopyContext
+{
+    private const int MaximumRetainedBookkeepingCapacity = 1024;
+
+    private readonly ConditionalWeakTable<object, ObjectInstance> _inProgress = new();
+    private readonly ConditionalWeakTable<object, ObjectInstance> _completedIdentityCopies = new();
+    private readonly ConditionalWeakTable<object, ArrayToken> _arrayTokens = new();
+    private readonly ConditionalWeakTable<ObjectInstance, ArrayToken> _snapshotTokens = new();
+    private readonly ConditionalWeakTable<ObjectInstance, ArrayDependencies> _arrayDependencies = new();
+    private readonly HashSet<ArrayToken> _inProgressTokens = [];
+    private readonly List<CompletedArrayCopy> _completed = [];
+    private readonly List<PublishedIdentityCopy> _publishedIdentityCopies = [];
+    private readonly List<List<ObjectInstance>?> _dependencyObservations = [];
+    private int _depth;
+
+    public bool IsActive => _depth > 0;
+
+    public bool TryGetGraphCopy(object target, [NotNullWhen(true)] out ObjectInstance? result)
+        => _inProgress.TryGetValue(target, out result)
+            || _completedIdentityCopies.TryGetValue(target, out result);
+
+    public ArrayCopySavepoint CreateSavepoint(Engine engine)
+    {
+        if (!engine.Options.Interop.TrackObjectWrapperIdentity
+            && engine.Options.Interop.CacheRecentObjectWrappers)
+        {
+            var createdRecentCache = engine._recentObjectWrapperCache is null;
+            engine._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
+            return new(
+                _completed.Count,
+                _publishedIdentityCopies.Count,
+                engine._recentObjectWrapperCache,
+                engine._recentObjectWrapperCache.BeginTransaction(),
+                createdRecentCache);
+        }
+
+        return new(
+            _completed.Count,
+            _publishedIdentityCopies.Count,
+            RecentCache: null,
+            RecentTransaction: null,
+            CreatedRecentCache: false);
+    }
+
+    public void Begin(object target, ObjectInstance result)
+    {
+        if (!_arrayTokens.TryGetValue(target, out var token))
+        {
+            token = new ArrayToken();
+            _arrayTokens.Add(target, token);
+        }
+
+        _inProgress.Add(target, result);
+        _snapshotTokens.Add(result, token);
+        _inProgressTokens.Add(token);
+        _depth++;
+    }
+
+    public void Complete(
+        Engine engine,
+        object target,
+        ObjectInstance result,
+        bool trackIdentity,
+        bool cacheRecent)
+    {
+        _completed.Add(new CompletedArrayCopy(target, result, trackIdentity));
+        if (trackIdentity)
+        {
+            // Defer publication to the engine caches until the root copy succeeds, but preserve the
+            // same reuse semantics for repeated references within the graph being converted.
+            _completedIdentityCopies.Add(target, result);
+        }
+        else if (cacheRecent)
+        {
+            // Add to the real bounded ring so array and non-array conversions share one eviction timeline.
+            // Its active transaction restores the previous state if the graph later fails.
+            engine._recentObjectWrapperCache ??= new RecentObjectWrapperCache();
+            engine._recentObjectWrapperCache.Add(target, result);
+        }
+    }
+
+    public void End(object target)
+    {
+        if (_arrayTokens.TryGetValue(target, out var token))
+        {
+            _inProgressTokens.Remove(token);
+        }
+
+        _inProgress.Remove(target);
+        _depth--;
+    }
+
+    public void RecordDependency(ObjectInstance parent, JsValue value)
+    {
+        if (value is not ObjectInstance child
+            || !_snapshotTokens.TryGetValue(child, out var token))
+        {
+            return;
+        }
+
+        if (!_arrayDependencies.TryGetValue(parent, out var dependencies))
+        {
+            dependencies = new ArrayDependencies();
+            _arrayDependencies.Add(parent, dependencies);
+        }
+
+        dependencies.Add(token, child);
+    }
+
+    public DependencyObservation BeginDependencyObservation()
+    {
+        var observation = new DependencyObservation(_dependencyObservations.Count);
+        _dependencyObservations.Add(null);
+        return observation;
+    }
+
+    public void ObserveDependency(ObjectInstance snapshot)
+    {
+        if (!_snapshotTokens.TryGetValue(snapshot, out _))
+        {
+            return;
+        }
+
+        for (var i = 0; i < _dependencyObservations.Count; i++)
+        {
+            var items = _dependencyObservations[i] ??= [];
+            if (!items.Contains(snapshot))
+            {
+                items.Add(snapshot);
+            }
+        }
+    }
+
+    public void EndDependencyObservation(ObjectInstance parent, DependencyObservation observation)
+    {
+        var last = _dependencyObservations.Count - 1;
+        if (last != observation.Depth)
+        {
+            Throw.InvalidOperationException("Array dependency observations must end in stack order.");
+        }
+
+        var items = _dependencyObservations[last];
+        _dependencyObservations.RemoveAt(last);
+        if (items is null)
+        {
+            return;
+        }
+
+        foreach (var snapshot in items)
+        {
+            RecordDependency(parent, snapshot);
+        }
+    }
+
+    public bool IsCompletedByCurrentGraph(object target, ObjectInstance result)
+    {
+        for (var i = _completed.Count - 1; i >= 0; i--)
+        {
+            var copy = _completed[i];
+            if (ReferenceEquals(copy.Target, target) && ReferenceEquals(copy.Result, result))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public bool CanReuseCachedArray(Array source, ObjectInstance result)
+    {
+        if (!IsActive
+            || IsCompletedByCurrentGraph(source, result))
+        {
+            return true;
+        }
+
+        if (!_arrayDependencies.TryGetValue(result, out _))
+        {
+            return true;
+        }
+
+        var pending = new List<ObjectInstance>(capacity: 4) { result };
+        var visited = new HashSet<ObjectInstance> { result };
+        while (pending.Count > 0)
+        {
+            var last = pending.Count - 1;
+            var current = pending[last];
+            pending.RemoveAt(last);
+            if (!_arrayDependencies.TryGetValue(current, out var dependencies))
+            {
+                continue;
+            }
+
+            foreach (var dependency in dependencies.Items)
+            {
+                if (_inProgressTokens.Contains(dependency.Token))
+                {
+                    return false;
+                }
+
+                if (dependency.Snapshot.TryGetTarget(out var snapshot)
+                    && visited.Add(snapshot))
+                {
+                    pending.Add(snapshot);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public void Publish(Engine engine)
+    {
+        foreach (var copy in _completed)
+        {
+            if (copy.TrackIdentity)
+            {
+                engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
+                engine._objectWrapperCache.TryGetValue(copy.Target, out var previous);
+                _publishedIdentityCopies.Add(new PublishedIdentityCopy(copy.Target, previous));
+                // The table may hold a wrapper for a different exposed view of the same object.
+                engine._objectWrapperCache.Remove(copy.Target);
+                engine._objectWrapperCache.Add(copy.Target, copy.Result);
+            }
+        }
+
+    }
+
+    public void CommitDiagnostics(Engine engine)
+    {
+        engine._arrayCopyConversions += _completed.Count;
+    }
+
+    public void DiscardCompleted()
+    {
+        foreach (var copy in _completed)
+        {
+            if (copy.TrackIdentity)
+            {
+                _completedIdentityCopies.Remove(copy.Target);
+            }
+        }
+
+        _completed.Clear();
+        _publishedIdentityCopies.Clear();
+        if (_completed.Capacity > MaximumRetainedBookkeepingCapacity)
+        {
+            _completed.Capacity = 0;
+        }
+
+        if (_publishedIdentityCopies.Capacity > MaximumRetainedBookkeepingCapacity)
+        {
+            _publishedIdentityCopies.Capacity = 0;
+        }
+
+    }
+
+    public static void Commit(in ArrayCopySavepoint savepoint)
+    {
+        if (savepoint.RecentCache is { } recentCache
+            && savepoint.RecentTransaction is { } recentTransaction)
+        {
+            recentCache.Commit(in recentTransaction);
+        }
+    }
+
+    public void Rollback(Engine engine, in ArrayCopySavepoint savepoint)
+    {
+        for (var i = _publishedIdentityCopies.Count - 1; i >= savepoint.PublishedIdentityCount; i--)
+        {
+            var publication = _publishedIdentityCopies[i];
+            engine._objectWrapperCache!.Remove(publication.Target);
+            if (publication.Previous is not null)
+            {
+                engine._objectWrapperCache.Add(publication.Target, publication.Previous);
+            }
+        }
+
+        _publishedIdentityCopies.RemoveRange(
+            savepoint.PublishedIdentityCount,
+            _publishedIdentityCopies.Count - savepoint.PublishedIdentityCount);
+
+        for (var i = _completed.Count - 1; i >= savepoint.CompletedCount; i--)
+        {
+            var copy = _completed[i];
+            if (copy.TrackIdentity)
+            {
+                _completedIdentityCopies.Remove(copy.Target);
+            }
+        }
+
+        if (savepoint.RecentCache is { } recentCache
+            && savepoint.RecentTransaction is { } recentTransaction)
+        {
+            recentCache.Rollback(in recentTransaction);
+            if (savepoint.CreatedRecentCache)
+            {
+                engine._recentObjectWrapperCache = null;
+            }
+        }
+
+        _completed.RemoveRange(savepoint.CompletedCount, _completed.Count - savepoint.CompletedCount);
+    }
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CompletedArrayCopy(
+        object Target,
+        ObjectInstance Result,
+        bool TrackIdentity);
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct PublishedIdentityCopy(object Target, ObjectInstance? Previous);
+
+    private sealed class ArrayToken;
+
+    private sealed class ArrayDependencies
+    {
+        private readonly List<ArrayDependency> _items = [];
+
+        public IReadOnlyList<ArrayDependency> Items => _items;
+
+        public void Add(ArrayToken token, ObjectInstance snapshot)
+        {
+            for (var i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].Snapshot.TryGetTarget(out var existing)
+                    && ReferenceEquals(existing, snapshot))
+                {
+                    return;
+                }
+            }
+
+            _items.Add(new ArrayDependency(token, new WeakReference<ObjectInstance>(snapshot)));
+        }
+    }
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ArrayDependency(
+        ArrayToken Token,
+        WeakReference<ObjectInstance> Snapshot);
+
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct DependencyObservation(int Depth);
+}
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct ArrayCopySavepoint(
+    int CompletedCount,
+    int PublishedIdentityCount,
+    RecentObjectWrapperCache? RecentCache,
+    RecentObjectWrapperCache.Transaction? RecentTransaction,
+    bool CreatedRecentCache);
 
 /// <summary>
 /// Bounded ring of most recently wrapped CLR objects, looked up by reference identity.
@@ -364,7 +924,9 @@ internal sealed class RecentObjectWrapperCache
 
     private readonly object?[] _targets = new object?[Capacity];
     private readonly ObjectInstance[] _wrappers = new ObjectInstance[Capacity];
+    private List<Mutation>? _mutations;
     private int _next;
+    private int _transactionDepth;
 
     public ObjectInstance? TryGet(object target, Type clrType)
     {
@@ -391,6 +953,12 @@ internal sealed class RecentObjectWrapperCache
     public void Add(object target, ObjectInstance wrapper)
     {
         var index = _next;
+        if (_transactionDepth > 0)
+        {
+            _mutations ??= [];
+            _mutations.Add(new Mutation(index, _targets[index], _wrappers[index]));
+        }
+
         _targets[index] = target;
         _wrappers[index] = wrapper;
         _next = (index + 1) & (Capacity - 1);
@@ -402,4 +970,64 @@ internal sealed class RecentObjectWrapperCache
         Array.Clear(_wrappers, 0, _wrappers.Length);
         _next = 0;
     }
+
+    public Transaction BeginTransaction()
+    {
+        _transactionDepth++;
+        return new(_mutations?.Count ?? 0, _next);
+    }
+
+    public void Commit(in Transaction transaction)
+    {
+        _transactionDepth--;
+        if (_transactionDepth == 0)
+        {
+            ReleaseMutationsIfOversized();
+        }
+    }
+
+    public void Rollback(in Transaction transaction)
+    {
+        if (_mutations is { } mutations)
+        {
+            for (var i = mutations.Count - 1; i >= transaction.MutationCount; i--)
+            {
+                var mutation = mutations[i];
+                _targets[mutation.Index] = mutation.Target;
+                _wrappers[mutation.Index] = mutation.Wrapper!;
+            }
+
+            mutations.RemoveRange(transaction.MutationCount, mutations.Count - transaction.MutationCount);
+        }
+
+        _next = transaction.Next;
+        _transactionDepth--;
+        if (_transactionDepth == 0)
+        {
+            ReleaseMutationsIfOversized();
+        }
+    }
+
+    private void ReleaseMutationsIfOversized()
+    {
+        if (_mutations is not { } mutations)
+        {
+            return;
+        }
+
+        if (mutations.Capacity > 1024)
+        {
+            _mutations = null;
+        }
+        else
+        {
+            mutations.Clear();
+        }
+    }
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct Mutation(int Index, object? Target, ObjectInstance? Wrapper);
+
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct Transaction(int MutationCount, int Next);
 }

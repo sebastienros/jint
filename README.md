@@ -1821,6 +1821,33 @@ You can check out [the engine comparison results](Jint.Benchmark), bear in mind 
 Notes for hosts that project their own objects into script, pool engines, or bound execution. Each of these
 is a cost model rather than a rule; the XML documentation on the named APIs has the detail.
 
+**Migrating CLR array projections.** CLR arrays now default to `ArrayConversionMode.Copy`. This is a breaking
+compatibility change from the live-view default introduced in 4.14: the safer default gives script a native,
+independent `JsArray` snapshot (`Array.isArray` is `true`) that it can mutate and resize without changing the
+host's array, and later CLR-side mutations are not visible through that snapshot. The default recent-wrapper
+cache means repeated crossings of the same CLR array reuse that first snapshot while it remains cached, so
+JavaScript identity and script-side mutations persist across those reads; `TrackObjectWrapperIdentity` extends
+that identity for the wrapper-map lifetime, while disabling both caches restores a fresh snapshot per crossing.
+
+Hosts that intentionally need shared mutable state can preserve the previous behavior explicitly:
+
+```c#
+var engine = new Engine(options =>
+    options.Interop.ArrayConversion = ArrayConversionMode.LiveView);
+```
+
+`LiveView` avoids the copy and its allocation, and exposes a fixed-size array-like wrapper. Reads stay connected
+to the CLR array, but selecting `LiveView` does not grant write authority: script mutations that would reach the
+backing array remain denied unless `AllowClrWrite()` is separately enabled. With both opt-ins, element writes
+change the CLR array. Repeated wrappers over the same CLR array compare equal by target identity even with caches
+disabled; the wrapper caches determine whether the same wrapper instance is reused. It is not a native JavaScript
+array (`Array.isArray` is `false`), and resizing operations throw. Multidimensional and non-zero-based CLR arrays
+remain unsupported in either mode: non-empty instances fail during conversion, while zero-length instances
+currently fall through as empty snapshots. Choose `Copy` for isolation and JavaScript-array compatibility; opt
+into `LiveView` when live observation and avoiding the initial O(N) copy and allocation are required, and
+authorize writes separately. Once a snapshot is cached, its native JavaScript-array element access can be as
+fast as or faster than traversing the live wrapper.
+
 **Projecting host data.** Subclassing `ObjectInstance` is the most expensive way to expose data. Such a
 receiver gets no own-property inline caching — every own read reaches your `GetOwnProperty` and allocates the
 `PropertyDescriptor` it returns. Cheaper options, in order of preference:
