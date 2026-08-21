@@ -95,7 +95,7 @@ Defaults are compatibility choices, not a hardened profile.
 | Promise wait timeout | 10 seconds | Bounds host APIs that wait for promise or module settlement |
 | Concurrent `Engine` use | Rejected | Public host entries throw instead of racing or silently serializing |
 | Dynamic `eval` / `Function` compilation | Enabled | Script can create and parse additional source at runtime |
-| `Atomics.wait` suspension | Enabled | Script may block the engine thread, including indefinitely |
+| `Atomics.wait` suspension | Disabled | A default engine rejects synchronous waits with `TypeError`; `Atomics.waitAsync` remains available |
 | Debugger | Disabled | Debug callbacks and debugger expressions are inactive |
 | Detailed CLR resolution errors | Disabled | Reduces script-visible CLR surface disclosure |
 | Detailed caught CLR exception messages | Disabled | Replaces host exception text with a generic script-visible error |
@@ -362,23 +362,29 @@ Keep process isolation so a runtime or host stack failure cannot kill unrelated 
 **Threat.** A projected delegate, property getter, converter, synchronous module loader, or
 CLR method can block indefinitely. Constraint checks occur after ordinary interop calls
 return; they cannot interrupt the call. `Atomics.wait` can block the engine thread with an
-infinite timeout and `AgentCanSuspend` defaults to `true`.
+infinite timeout when a worker-like host explicitly opts in with `AgentCanSuspend = true`.
 
 **Existing mitigations.**
 
 - Time and cancellation constraints detect an overrun after many interop calls return.
-- `AgentCanSuspend = false` disables `Atomics.wait`.
+- `AgentCanSuspend` defaults to `false`; `Atomics.wait` throws `TypeError` before registering
+  a waiter unless the host opts in.
+- `Atomics.waitAsync` remains available without blocking the engine thread.
 - `MaxAtomicsPauseIterations` caps `Atomics.pause` spin work.
 - Async host and module APIs avoid holding a thread while waiting for I/O.
 
 **Missing or residual mitigation.**
 
+- Setting `AgentCanSuspend = true` restores the previous behavior, including an indefinite
+  wait when script omits the timeout.
 - There is no safe in-process mechanism to abort a blocked .NET call or thread.
 - Timing out Jint does not necessarily stop an underlying host Task or external operation.
 
-**Required host action.** Set `AgentCanSuspend = false`. Do not expose blocking APIs. Make
-host operations asynchronous, bounded, and cancellation-aware. Kill the isolated worker
-when the outer deadline expires.
+**Required host action.** Keep `AgentCanSuspend = false` for untrusted scripts and prefer
+`Atomics.waitAsync`. A worker-like host that requires synchronous waits must opt in explicitly
+and accept that only termination of its isolated worker can preempt an indefinite wait. Do
+not expose blocking APIs. Make host operations asynchronous, bounded, and cancellation-aware.
+Kill the isolated worker when the outer deadline expires.
 
 ### TM-09: A sequence of engine entries escapes a per-entry budget
 

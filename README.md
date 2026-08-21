@@ -3150,6 +3150,18 @@ grammar shape, encoded response bytes, module count, graph depth, redirects, or 
 transport and module-graph policy in the host and keep hostile parsing inside a disposable worker with
 OS-level memory and CPU limits.
 
+**Migration note — `Atomics.wait`:** synchronous suspension is disabled by default. Calling
+`Atomics.wait` on a default engine throws a JavaScript `TypeError` before registering a waiter, while
+`Atomics.waitAsync` remains available. A worker-like host that deliberately runs Jint where blocking is
+acceptable can restore the previous behavior explicitly:
+
+```c#
+var engine = new Engine(options => options.AgentCanSuspend = true);
+```
+
+Do not enable this on a request, UI, or event-loop thread: a script can call `Atomics.wait` without a
+timeout and block that thread indefinitely.
+
 ## Branches and releases
 
 - The recommended branch is __main__, any PR should target this branch

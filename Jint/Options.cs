@@ -216,12 +216,13 @@ public partial class Options
 
     /// <summary>
     /// Whether the agent can suspend (block) via Atomics.wait().
-    /// Defaults to true. Set to false for main-thread-like environments where blocking is not allowed.
+    /// Defaults to false. Worker-like hosts that deliberately allow blocking suspension must opt in.
+    /// This option does not affect Atomics.waitAsync().
     /// </summary>
     /// <remarks>
     /// https://tc39.es/ecma262/#sec-agentcansuspend
     /// </remarks>
-    public bool AgentCanSuspend { get; set; } = true;
+    public bool AgentCanSuspend { get; set; }
 
     /// <summary>
     /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
