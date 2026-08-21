@@ -353,6 +353,28 @@ public class WptHarnessTests
     }
 
     [Fact]
+    public void AMissingRequiredFeatureIsAnOrdinaryFailure()
+    {
+        // The sibling of the test above, and the pairing is the point: upstream has two assertions because
+        // the specification has two kinds of feature. `assert_implements` is for one the specification
+        // *requires*, so a falsy condition is an ordinary FAIL that has to be excluded and explained —
+        // never the PRECONDITION_FAILED that would quietly demote it. urlpattern's hasRegExpGroups suite is
+        // what reaches for it, guarding its whole body on the member being there at all.
+        StatusOf("test(() => assert_implements('x' in { x: 1 }, 'why'), 'row');").Should().Be("PASS");
+        StatusOf("test(() => assert_implements(false, 'why'), 'row');").Should().Be("FAIL");
+
+        // Truthiness, not identity: upstream's body is `assert(!!condition, …)`, so a suite may pass it the
+        // member it is probing for rather than a boolean.
+        StatusOf("test(() => assert_implements(0, 'why'), 'row');").Should().Be("FAIL");
+        StatusOf("test(() => assert_implements('non-empty', 'why'), 'row');").Should().Be("PASS");
+
+        // And it is an AssertionError like every other, which is what a suite's own classifying `catch`
+        // relies on.
+        StatusOf("test(() => { try { assert_implements(false, 'why'); } catch (e) { assert_true(e instanceof AssertionError); assert_false(e instanceof OptionalFeatureUnsupportedError); throw e; } }, 'row');")
+            .Should().Be("FAIL");
+    }
+
+    [Fact]
     public void AssertionErrorIsAGlobalTheSuitesCanBranchOn()
     {
         // The WebCryptoAPI suites wrap an operation in try/catch and re-throw only `err instanceof

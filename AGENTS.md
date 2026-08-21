@@ -483,6 +483,16 @@ so a suite that schedules a timer exercises the shipped `TimerQueue`. And **`// 
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
 run of a file is the union of all of its variants.
 
+A fifth thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
+report is a test, so a file that cannot produce one — a throw at file scope, or a run that **stalls** — is a
+harness error covering the whole file and has to go in `_notVendored` with its reason rather than in the
+exclusion table. Two files are there for that today, and they are opposite ends of the same idea:
+`streams/readable-byte-streams/construct-byob-request.any.js` throws before registering a case, and
+`compression/decompression-extra-input.any.js` registers four and then waits forever on a stream that a
+conforming implementation would have errored. Prefer a sibling file that asserts the same property by
+*comparing a result* — `decompression-corrupt-input.any.js` does, in four rows — and say in the not-vendored
+row which one it is, so the divergence is still pinned somewhere.
+
 ## Modules
 
 ```csharp

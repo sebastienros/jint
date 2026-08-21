@@ -10,6 +10,12 @@ License it carries. Paths under this directory mirror paths in the wpt tree, whi
 `// META: script=` and `fetch()` resolution rely on — see `Jint.Tests.csproj` for the `LogicalName` that
 keeps them intact through embedding.
 
+One directory carries a second licence, because upstream vendors third-party code of its own:
+`compression/third_party/pako/` is [pako](https://github.com/nodeca/pako) under the MIT License, with wpt's
+own copy of that licence and its `README` beside the minified inflater. Three compression files check their
+output by inflating it with pako rather than with the engine's own `DecompressionStream`, which is the point
+— a round trip through one implementation proves nothing about the bytes.
+
 ## What runs this
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one xUnit theory case per `.any.js` file, on a fresh engine built with
@@ -23,10 +29,12 @@ because one unsharded run is the union of every variant, and why the object mode
 (`url/urlencoded-parser.any.js` runs each of its 35 inputs through `URLSearchParams`, `Request.formData()`
 and `Response.formData()`, one algorithm reached three ways).
 
-Four standards are vendored: `url/` and `encoding/` as one suite each, `WebCryptoAPI/` as **eight** and
-`streams/` as **six** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles`
-lists a directory's own files and never descends. That is 151 theory cases: 48 of them the WebCryptoAPI
-corpus's 24,136 assertions, 64 the streams corpus's 1,150, and the whole driver runs in about 50 seconds.
+Seven standards are vendored: `url/`, `encoding/`, `compression/` and `urlpattern/` as one suite each,
+`FileAPI/` as **three** (its root, `blob/` and `file/`), `WebCryptoAPI/` as **eight** and `streams/` as
+**six** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
+directory's own files and never descends. That is 183 theory cases: 48 of them the WebCryptoAPI corpus's
+24,136 assertions, 64 the streams corpus's 1,150, 15 the compression corpus's 297, 3 the URL Pattern
+corpus's 373 and 14 the File API's 342; the whole driver runs in about a minute.
 
 Tests that do not pass are named in the driver's exclusion table with the category they belong to. An entry
 there must match at least one failing test and no passing one, so a fix, a rename or a corpus bump cannot
@@ -54,18 +62,31 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `streams/readable-streams/owning-type*.tentative.any.js` | Upstream's `.tentative` marker again: owning-type readable streams are a proposal the Streams Standard has not adopted. |
 | `streams/*/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
 | `streams/readable-byte-streams/construct-byob-request.any.js` | Reads `ReadableByteStreamController.prototype` and calls `new ReadableStreamBYOBRequest(…)` at *file scope*. Neither is a global here — see "Streams, including byte streams" in the repository README for the reduction — so the file throws before registering a test, and a harness error is for the whole file rather than something a per-test exclusion can name. The seven rows of `default-reader.any.js` that fail for the same reason fail *inside* test bodies, so those are in the exclusion table under `NeedsStreamInterfaceGlobals`. |
+| `compression/compression-output-length.any.js`, `compression/compression-stream.any.js` | Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM, and for the second a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The shim's `fetch` is a *text* reader over the vendored tree, so neither the transport nor the accessor exists here, and vendoring a third of a megabyte of video in order to compress it would be a strange thing for this corpus to carry. `compression-stream.any.js` additionally calls `fetch` at file scope, so its failure could not even be a per-test one. |
+| `compression/decompression-extra-input.any.js` | Writes a member plus one trailing byte and never closes the writer, so its second `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the second of `DecompressionCodec`'s two documented divergences — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing, which is a harness error no per-test exclusion can name. The divergence is still asserted, by the four excluded rows of `decompression-corrupt-input.any.js`. |
+| `urlpattern/urlpattern.https.any.js` | Byte-identical to `urlpattern.any.js` (both are two `// META:` lines). Upstream ships both so a browser runs the corpus over http and over https; Jint has no scheme to be served over, so the second copy would run the same 370 cases again and assert nothing the first did not. |
+| `urlpattern/*.tentative.any.js`, `urlpattern/*.tentative.https.any.js` | Upstream's `.tentative` marker: `compare()` and `generate()` are proposals the URL Pattern Standard has not adopted. Covered by the two existing `*.tentative.*` rows. |
+| `FileAPI/file/send-file-formdata*.any.js` | All four POST a `FormData` to wptserve's `/fetch/api/resources/echo-content.py` and assert on the multipart body that comes back, so they need the fetch object model, an outbound request and the server's own Python handler. Serializing a `FormData` as `multipart/form-data` is a fetch body's job and arrives with that feature, which `WebApiFeatures.Default` never includes. |
+| `FileAPI/fileReader.any.js` | Jint has no `FileReader` — a `Blob` is read here through `text()`, `arrayBuffer()`, `bytes()` and `stream()` — and this file is about that reader's state machine (`readyState`, `abort()`, the progress events) rather than about a `Blob`. It is the only `.any.js` in the File API's root that is not vendored; its sibling `unicode.any.js` needs no reader and is. |
 
 Nothing was left out for being slow. Every vendored file was timed at the pin; the slowest is
 `derive_bits_keys/pbkdf2.https.any.js` at ~20 s for 8,632 cases (it is `// META: timeout=long` and sharded
 nine ways upstream), then `generateKey/successes_RSA-OAEP.https.any.js` at ~7 s, which really does generate
-156 RSA key pairs. Everything else is under 2 s. The whole streams corpus is 6.4 s for its 64 files, the
+156 RSA key pairs. Everything else is under 3 s. The whole streams corpus is 6.4 s for its 64 files, the
 slowest being `readable-byte-streams/templated.any.js` at ~2.1 s and `readable-streams/templated.any.js` at
 ~1.0 s — both are `rs-test-templates.js` run over every stream shape — so nothing there is near the bar
 either.
 
-Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`
-and `.xhtml` tests are for a browsing context — which is what excludes
-`WebCryptoAPI/algorithm-discards-context.https.window.js`.
+The three corpora added last measure 2.6 s (compression, 15 files), 3.1 s (urlpattern, 3 files) and 0.2 s
+(FileAPI, 14 files), run one after another on one thread. Two files carry almost all of that: `urlpattern.any.js`
+at ~2.9 s, which is 369 patterns each compiled and then matched, and `compression/compression-large-flush-output.any.js`
+at ~1.5 s, which compresses half a megabyte and inflates it again with pako. Both are `// META: timeout=long`
+upstream. Everything else in the three is under 120 ms.
+
+Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`,
+`.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what excludes
+`WebCryptoAPI/algorithm-discards-context.https.window.js`, `FileAPI/blob/Blob-constructor-dom.window.js`,
+`FileAPI/blob/Blob-in-worker.worker.js` and `FileAPI/file/Worker-read-file-constructor.worker.js`.
 
 ## Two copies of `urltestdata.json`
 
@@ -106,9 +127,9 @@ prose where a browser answers `InvalidAccessError`.
 
 ## What the streams corpus says about this engine
 
-1,150 assertions across 64 files, of which **16 do not pass** — the highest-passing corpus vendored so far,
-which is what one expects of an implementation written operation by operation against the standard, and also
-why the sixteen are worth naming individually.
+1,150 assertions across 64 files, of which **16 do not pass** — 98.6%, which is what one expects of an
+implementation written operation by operation against the standard, and also why the sixteen are worth naming
+individually. (Only the URL Pattern corpus below beats it, at 100%.)
 
 Eleven are a decision already taken. Seven rows of `readable-streams/default-reader.any.js` reach for the
 `ReadableStreamDefaultReader` **global** (`NeedsStreamInterfaceGlobals`): only the five interfaces a script
@@ -160,6 +181,92 @@ environment without `TestUtils.gc()`, `gc()` or `GCController`, browsers include
 garbage and warns on the console. So these files assert that a stream and its reader keep working *across* a
 point where a collection may have happened, never that one did; they are vendored on the same terms a browser
 runs them without `--expose-gc`.
+
+## What the compression corpus says about this engine
+
+297 assertions across 15 files, of which **84 do not pass** — and 68 of those are one word.
+
+**`brotli` is 68 of the 84** (`NeedsBrotli`). The Compression Standard's `CompressionFormat` enumeration
+lists `brotli` alongside `deflate`, `deflate-raw` and `gzip`, and the corpus's `resources/formats.js` loops
+over all four, so every per-format family in every file has a brotli row. Refusing it is *conforming* —
+`new CompressionStream(format)` step 1 is "if *format* is unsupported in `CompressionStream`, then throw a
+`TypeError`", which is exactly what this engine answers — but the corpus does not ask that question, it
+assumes support. This is nevertheless the one exclusion category in this directory that is neither a platform
+limit nor a deliberate reduction: **.NET ships `BrotliStream`**, on the same pull-stream shape
+`CompressionCodec`/`DecompressionCodec` already drive for the other three formats, so it is a feature to add.
+
+**12 are `NeedsWebAssembly`**: the `SharedArrayBuffer` and shared-`Uint8Array` rows of the two bad-chunk
+files, which build their SAB through `WebAssembly.Memory` inline rather than through `common/sab.js`.
+
+**The remaining 4 are the two lenient-decompression divergences, and they are the reason this corpus was
+worth running.** `DecompressionCodec` documents both on itself: the standard makes it an error for a stream
+to end before its member is complete and an error for anything to follow the member, and detecting either
+needs to know how many of the bytes handed over the decompressor actually *consumed* — which .NET's pull
+streams do not report. `decompression-corrupt-input.any.js` is the only file in the corpus that asserts them,
+in four rows (`truncating the input` and `trailing junk`, for `deflate` and for `gzip`), and they are excluded
+under `NeedsIncrementalInflater` with that citation. Everything else that file checks passes: a bad CMF or
+gzip ID, a bad FCHECK, an FHCRC flag, a corrupted last data byte, a wrong ADLER32, CRC32 or ISIZE, a
+dictionary-compressed stream, and every field the formats say may hold anything. So the divergence is exactly
+"a corrupt member is still rejected; an *incomplete* or *over-long* one is not", which is what the class says.
+
+A fifth file, `decompression-extra-input.any.js`, asserts the trailing-byte half by *waiting* for the error
+rather than by comparing a result, and therefore stalls instead of failing — see the not-vendored table.
+
+## What the URL Pattern corpus says about this engine
+
+**373 assertions across 3 files, all of them passing** — the first corpus vendored here with no exclusion at
+all. 369 of those are `resources/urlpatterntestdata.json` driven through `runTests`, which for every entry
+compiles the pattern, compares all nine component pattern strings against what the constructor should have
+canonicalized them to, and then checks `test()` and the whole `exec()` result object including the group
+captures. `urlpattern-hasregexpgroups.any.js` guards its body with `assert_implements`, which is the one
+assertion this change added to the shim.
+
+## What the File API corpus says about this engine
+
+342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), of which **11 do not pass**.
+
+**8 are `Blob.textStream()`** (`NeedsBlobTextStream`), which
+[the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) after this `Blob` was written. It is
+normative rather than optional, and its algorithm is three steps over pieces the engine already has — get the
+blob's stream, set up a `TextDecoderStream` with UTF-8, pipe one through the other — so `Blob-textStream.any.js`
+is 8-for-8 red purely because the method is absent.
+
+**The other 3 are `NeedsTriage`, and the defect is not in `Blob` at all.** All three rows of
+`Blob-constructor.any.js` fail with `TypeError: cannot construct iterator`, thrown by
+`Array.prototype.values`:
+
+```js
+[...Array.prototype.values.call({})]                    // spec: []           Jint: TypeError
+[...Array.prototype.values.call({length: '3', 0: 'a', 1: 'b', 2: 'c'})]
+                                                        // spec: [a, b, c]    Jint: TypeError
+[...Array.prototype.values.call({length: -1})]          // spec: []           Jint: TypeError
+[...Array.prototype.values.call({length: null})]        // spec: []           Jint: TypeError
+[...Array.prototype.values.call({length: true, 0: 'a'})]// spec: ['a']        Jint: TypeError
+Array.prototype.values.call({get length() { throw e; }})// spec: throws at the first next()
+                                                        // Jint: throws at values()
+```
+
+[`Array.prototype.values`](https://tc39.es/ecma262/#sec-array.prototype.values) is *ToObject(this)* followed
+by *CreateArrayIterator(O, value)*, and neither step reads `length`; the iterator's own closure does
+*LengthOfArrayLike* — a `Get` and a `ToLength` — on each `next()`. `ArrayPrototype.Values` instead gates on
+`ObjectInstance.IsArrayLike`, which demands a `length` that is *present*, already a `JsNumber`, and
+non-negative, and throws when it is not. That is wrong in six ways at once: absent means 0, a string or a
+boolean is coerced, a negative clamps to 0, and the read belongs to `next()` rather than to `values()`.
+`keys` and `entries` have the same three-line body and the same defect.
+
+The corpus reaches it because `new Blob(x)` converts `x` to a WebIDL `sequence`, and the file deliberately
+hands it plain objects whose `@@iterator` *is* `Array.prototype[Symbol.iterator]` — which is how a browser's
+`Blob` sees `{length: 1, 0: 'PASS'}` as a one-element sequence. It reproduces with no web API enabled at all,
+which is what makes it an engine finding rather than a `Blob` one. The rest of `Blob-constructor.any.js`'s 73
+rows pass, including the sibling that supplies a numeric `length` and the one that supplies a hand-written
+`@@iterator`.
+
+`Blob-stream.any.js` passes, and it is worth knowing why it can: it calls `garbageCollect()` from
+`/common/gc.js`, whose fallback merely allocates a lot of garbage, so it asserts that a blob's stream keeps
+working *across* a point where a collection may have happened — the same terms a browser runs it on without
+`--expose-gc`. `Blob-constructor-detached-buffer.any.js` passes on the strength of
+`Engine.Advanced`'s message ports: it detaches its buffer with
+`new MessageChannel().port1.postMessage(buffer, [buffer])`.
 
 ## Updating the pin
 
