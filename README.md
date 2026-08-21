@@ -987,6 +987,70 @@ standard also calls errors are the documented exception, because .NET exposes no
 could report them: a stream that ends mid-member closes cleanly instead, and bytes following a complete
 member are ignored. A stream that ends with no compressed bytes at all *is* refused.
 
+### Bridging a stream to `System.IO.Stream`
+
+`Engine.Advanced` connects the two worlds in both directions, so a host never has to write the pump itself:
+
+```csharp
+var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams | WebApiFeatures.Encoding));
+
+// A .NET stream the script can read, with backpressure: nothing is read until the queue wants a chunk.
+engine.SetValue("input", engine.Advanced.CreateReadableStream(File.OpenRead("in.txt")));
+
+// A .NET stream the script can write; `await writer.close()` is its proof the bytes were flushed.
+engine.SetValue("output", engine.Advanced.CreateWritableStream(File.Create("out.txt")));
+
+// And a script stream read back into .NET — here, a file transformed through a script TransformStream.
+var upperCased = engine.Evaluate("""
+    input.pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        controller.enqueue(new TextEncoder().encode(text.toUpperCase()));
+      }
+    }))
+    """);
+
+var copy = engine.Advanced.StartReadableStreamCopy(upperCased, File.Create("shouted.txt"));
+while (!copy.IsCompleted)
+{
+    engine.Advanced.ProcessTasks();   // the host owns the turns
+}
+
+Console.WriteLine($"{copy.GetResult()} bytes");   // throws PromiseRejectedException if the copy failed
+```
+
+**The threading contract is the whole design, and it is the same one the timers have.** Everything that
+touches the engine happens on the engine's thread, from an event-loop job stamped with the cycle it was
+registered in; everything that touches your `Stream` happens on whichever thread the BCL's asynchronous I/O
+completes on, and produces nothing but bytes and exceptions. Three consequences:
+
+- **The engine must be given turns or nothing moves.** An `await` in script, `EvaluateAsync`, a blocking
+  `UnwrapIfPromise`, or your own `engine.Advanced.ProcessTasks()` loop. An engine nobody pumps never reads a
+  byte. A read that completes synchronously — a `MemoryStream`, a warm page cache — is delivered on the spot
+  instead, so such a stream costs no thread hop at all.
+- **Hand the stream over and stop touching it.** A read or a write may be in flight whenever the script is
+  asking for a chunk. By default the engine closes it for you: when the script reads to the end or cancels,
+  when it closes or aborts a writable stream, when a copy finishes, or when `RestoreGlobalSnapshot` ends the
+  cycle. `LeaveOpen` keeps ownership with you.
+- **Pick the copy entry point by who owns the thread.** `StartReadableStreamCopy` returns a polling handle and
+  runs nothing on its own, which is what a game loop or a UI thread needs; `CopyReadableStreamAsync` awaits
+  instead and runs its turns on whichever thread resumes the await. This is exactly the
+  `Engine.Modules.StartImport` / `ImportAsync` split, and for the same reason.
+
+Backpressure is the standard's own, in both directions: `HighWaterMark` chunks are read ahead, `writer.ready`
+stops being resolved once that many are queued, and a copy has one chunk in flight at a time. A failure on
+your stream errors the script's stream with a `TypeError` whose message names the exception's *type* but not
+its text — the exception itself rides the error value, where
+[`JintException.TryGetClrException`](#getting-the-original-exception-back) can read it and the script cannot.
+
+What a script may write to a host stream is a `BufferSource`, a `Blob` or a string (UTF-8 encoded). Anything
+else is a `TypeError` rather than a stringification, because `[object Object]` silently appended to your file
+is not a failure mode worth having.
+
+There is deliberately **no adapter presenting a script's `ReadableStream` as a `System.IO.Stream`**. Its
+`Read` would have to drive the engine from whichever thread called it, which is the one thing a single-threaded
+engine cannot allow; the copy operation above is the same capability with the thread question answered.
+
 
 ## Node compatibility (opt-in)
 
