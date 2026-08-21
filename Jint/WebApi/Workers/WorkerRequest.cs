@@ -187,20 +187,29 @@ public sealed class WorkerRequest
     /// <b>Constraint instances are never copied</b>, only factories. A <c>Constraint</c> carries
     /// per-execution state (a statement counter, an allocation baseline, a deadline) and is documented
     /// single-engine-only, so sharing one between a parent and a worker on two threads would share one counter
-    /// and let either engine's reset rewind the other's. A parent that registered an instance directly
-    /// therefore gets an <i>unbounded</i> worker; the fix is one line — register a factory instead
-    /// (<c>options.Constraint(() =&gt; new MyConstraint())</c>), which every built-in constraint extension
-    /// already does.
+    /// and let either engine's reset rewind the other's. That is no longer merely a documented rule for the
+    /// one constraint where sharing corrupts an accounting rather than a count:
+    /// <see cref="Jint.Constraints.MemoryLimitConstraint"/> refuses a second engine outright — its
+    /// <c>Attach</c> throws <c>InvalidOperationException</c> ("can only be registered with one Engine …
+    /// register a constraint factory when Options is shared") — so an implementation that copied instances
+    /// here would fail loudly on the second engine rather than silently share a budget. A parent that
+    /// registered an instance directly therefore gets an <i>unbounded</i> worker; the fix is one line —
+    /// register a factory instead (<c>options.Constraint(() =&gt; new MyConstraint())</c>), which every
+    /// built-in constraint extension already does.
     /// </para>
     /// <para>
-    /// <b>A pumped worker is bounded by cancellation-shaped constraints only.</b> <c>ProcessTasks</c> runs jobs
-    /// raw, so a worker that is only ever pumped never has its constraints reset: a replayed
-    /// <c>TimeoutInterval</c> never fires, a replayed <c>LimitMemory</c> never fires, and <c>MaxStatements</c>
-    /// becomes a lifetime budget rather than a per-run one. The two that behave are the two whose <c>Reset</c>
-    /// is a deliberate no-op — the cancellation constraint registered above, and
-    /// <c>OperationDeadlineConstraint</c>, which is <i>the</i> worker budget: armed once from a
-    /// <c>(budget, token)</c> pair, per engine, and amortizable so the interpreter's tight-loop lane stays
-    /// armed.
+    /// <b>What a replayed constraint is actually worth on an engine that is only ever pumped.</b>
+    /// <c>ProcessTasks</c> runs jobs raw rather than through <c>ExecuteWithConstraints</c>, so nothing calls
+    /// <c>ResetConstraints()</c> between them: a replayed <c>TimeoutInterval</c> <b>never fires</b> (its
+    /// deadline stays at the unarmed sentinel) and <c>MaxStatements</c> becomes a <i>lifetime</i> budget that
+    /// eventually throws forever rather than a per-run one. <b>Memory is the exception</b>: every event-loop
+    /// job runs inside an allocation segment and is checked as it completes, carrying the operation state
+    /// captured when the job was registered across continuations and thread hops, so a replayed
+    /// <c>LimitMemory</c> genuinely bounds each job chain on a pumped worker. The worker budget is therefore a
+    /// pair — <see cref="Jint.Constraints.OperationDeadlineConstraint"/> for wall-clock and
+    /// <see cref="Jint.Constraints.MemoryLimitConstraint"/> for allocations, both armed once by the host with
+    /// <c>Begin</c>/<c>End</c> and both surviving every per-entry reset — while the cancellation constraint
+    /// registered above handles termination.
     /// </para>
     /// <para>
     /// It is a convenience, not a security boundary — see <see cref="WorkerProvider"/>.

@@ -352,9 +352,14 @@ public partial class Options
         // base of the engine that uses it. A second engine's loader is the host's to choose.
         "Modules",
 
-        // Grant-shaped: the feature mask is the grant, and it is computed explicitly rather than copied
-        // (network, storage, routing and the worker capability itself are subtracted). What is left in the
-        // group is host wiring — providers, sinks, clocks, quotas — rather than restrictions.
+        // Grant-shaped at the top: the feature mask IS the grant, and it is computed explicitly rather than
+        // copied (network, storage, routing and the worker capability itself are subtracted), while the rest
+        // of the group is host wiring — providers, sinks, clocks. What value settings it has are per-feature
+        // caps living on the sub-groups (Timers.MaxActiveTimers, Storage.MaxTotalBytes, Fetch.MaxResponseBytes
+        // …), and each of those rides with the feature it bounds: a second engine that was not granted the
+        // feature cannot reach the cap, and one that was is being granted the capability deliberately, by a
+        // host that is choosing the cap in the same breath. Named here rather than copied, so that this is a
+        // decision on the record and not a group nobody looked at.
         "WebApi",
 
         // Host diagnostics, and engine-affine: a debugger attached to one engine says nothing about another
