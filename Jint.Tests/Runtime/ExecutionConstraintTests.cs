@@ -137,6 +137,15 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void OnlyMemoryAccountingPlatformFailuresPropagateAsConstraintFailures()
+    {
+        ConstraintFailure.MustPropagate(new PlatformNotSupportedException("unrelated host feature"))
+            .Should().BeFalse();
+        ConstraintFailure.MustPropagate(new MemoryLimitPlatformNotSupportedException("allocation counter"))
+            .Should().BeTrue();
+    }
+
+    [Fact]
     public void ShouldThrowTimeout()
     {
         Invoking(() => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")).Should().ThrowExactly<TimeoutException>();

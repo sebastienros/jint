@@ -358,10 +358,18 @@ most of its time in garbage collection.
   executing an operation. It includes synchronous host callbacks and carries the accumulated
   budget with promise reactions, `EvaluateAsync` / `InvokeAsync`, and asynchronous module
   loading when they resume on another thread.
+- Finite web continuations (fetch/stream completions, timers, idle callbacks and scheduler
+  tasks) retain their registration operation's budget. Persistent external event sources
+  start a fresh ordinary budget per delivered event, so a long-lived port, channel, socket or
+  event stream does not inherit the already-spent budget of the operation that created it.
 - Per-thread execution segments avoid charging unrelated process allocations while an
   asynchronous operation is suspended. A missing runtime allocation counter is reported by
   `MemoryLimitConstraint.Accuracy` and fails execution explicitly instead of silently
   disabling enforcement.
+- Exceeding the limit ends the current transient async cycle: queued jobs, pending loads and
+  scheduled web work are discarded, host-stream bridges are abandoned, and the generation
+  fence rejects completions that arrive later. It does not roll back global mutations already
+  performed by the failed operation.
 - `MemoryLimitConstraint.Begin` / `End` can apply one allocation budget across a host
   operation made from several top-level engine entries.
 - The engine ownership guard also covers the memory scope's mutable and diagnostic surfaces;

@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
@@ -235,6 +236,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    internal static void ConstraintTimeoutException()
+    {
+        throw ConstraintFailure.Mark(new TimeoutException());
+    }
+
+    [DoesNotReturn]
     public static void TimeoutException(string message)
     {
         var exception = new TimeoutException(message);
@@ -243,11 +250,23 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    internal static void ConstraintTimeoutException(string message)
+    {
+        throw ConstraintFailure.Mark(new TimeoutException(message));
+    }
+
+    [DoesNotReturn]
     public static void OperationCanceledException(CancellationToken cancellationToken)
     {
         var exception = new OperationCanceledException(cancellationToken);
         MarkEngineAbort(exception);
         throw exception;
+    }
+
+    [DoesNotReturn]
+    internal static void ConstraintOperationCanceledException(CancellationToken cancellationToken)
+    {
+        throw ConstraintFailure.Mark(new OperationCanceledException(cancellationToken));
     }
 
     [DoesNotReturn]
@@ -443,9 +462,21 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    internal static void MemoryLimitPlatformNotSupportedException(string message)
+    {
+        throw new MemoryLimitPlatformNotSupportedException(message);
+    }
+
+    [DoesNotReturn]
     public static void MemoryLimitExceededException(string message)
     {
         throw new MemoryLimitExceededException(message);
+    }
+
+    [DoesNotReturn]
+    internal static void MemoryLimitExceededException(string message, Exception? innerException)
+    {
+        throw new MemoryLimitExceededException(message, innerException);
     }
 
     [DoesNotReturn]

@@ -44,7 +44,8 @@ internal sealed class TimeConstraint : Constraint
         var deadline = _deadline;
         if (deadline != 0 && Stopwatch.GetTimestamp() >= deadline)
         {
-            Throw.TimeoutException();
+            BeforeFailure?.Invoke();
+            Throw.ConstraintTimeoutException();
         }
     }
 

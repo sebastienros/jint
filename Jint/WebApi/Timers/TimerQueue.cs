@@ -292,14 +292,14 @@ internal sealed class TimerEntry
         JsValue[] arguments,
         long requestedDelay,
         bool repeat,
-        int generation)
+        EventLoopRegistration registration)
     {
         _queue = queue;
         _callback = callback;
         _arguments = arguments;
         RequestedDelay = requestedDelay;
         Repeat = repeat;
-        Generation = generation;
+        Registration = registration;
     }
 
     /// <summary>The id <c>setTimeout</c> returned, assigned by <see cref="TimerQueue.Schedule"/>.</summary>
@@ -319,7 +319,8 @@ internal sealed class TimerEntry
     /// into a cycle a <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> started is dropped at
     /// dequeue even if something bypassed <see cref="TimerQueue.Clear"/>.
     /// </summary>
-    internal int Generation { get; }
+    internal EventLoopRegistration Registration { get; }
+    internal int Generation => Registration.Generation;
 
     /// <summary>Set by <see cref="TimerQueue.Cancel"/>; the schedule discards a marked entry lazily.</summary>
     internal bool Cancelled { get; set; }

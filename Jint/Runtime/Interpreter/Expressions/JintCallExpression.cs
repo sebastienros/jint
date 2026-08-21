@@ -369,6 +369,7 @@ internal sealed class JintCallExpression : JintExpression
             if (recursionDepth > engine._maxRecursionDepth)
             {
                 // automatically pops the current element as it was never reached
+                engine.PreserveConstraintFailure();
                 Throw.RecursionDepthOverflowException(callStack);
             }
 
@@ -529,6 +530,7 @@ internal sealed class JintCallExpression : JintExpression
         if (recursionDepth > engine._maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
+            engine.PreserveConstraintFailure();
             Throw.RecursionDepthOverflowException(callStack);
         }
 
@@ -630,6 +632,7 @@ internal sealed class JintCallExpression : JintExpression
 
         if (recursionDepth > engine._maxRecursionDepth)
         {
+            engine.PreserveConstraintFailure();
             Throw.RecursionDepthOverflowException(callStack);
         }
 
@@ -735,6 +738,7 @@ internal sealed class JintCallExpression : JintExpression
 
         if (recursionDepth > engine._maxRecursionDepth)
         {
+            engine.PreserveConstraintFailure();
             Throw.RecursionDepthOverflowException(callStack);
         }
 

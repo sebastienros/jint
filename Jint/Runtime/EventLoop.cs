@@ -6,6 +6,11 @@ using Jint.Native.Promise;
 
 namespace Jint.Runtime;
 
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+internal readonly record struct EventLoopRegistration(
+    int Generation,
+    MemoryLimitConstraint.OperationState? MemoryState);
+
 /// <summary>
 /// A single queued event-loop entry: either an opaque <see cref="Action"/> continuation or a
 /// promise reaction job carried as its (reaction, argument) pair so that enqueueing a reaction

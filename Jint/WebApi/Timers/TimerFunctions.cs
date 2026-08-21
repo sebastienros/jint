@@ -145,7 +145,13 @@ internal sealed class TimerFunctions
         // engine's argument pool and is reused as soon as this call returns.
         var extraArguments = arguments.Length > 2 ? arguments[2..] : [];
 
-        var entry = new TimerEntry(_timers, callback, extraArguments, delay, repeat, _engine.EventLoopGeneration);
+        var entry = new TimerEntry(
+            _timers,
+            callback,
+            extraArguments,
+            delay,
+            repeat,
+            _engine.CaptureEventLoopRegistration());
         return JsNumber.Create(_timers.Schedule(entry));
     }
 

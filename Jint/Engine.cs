@@ -110,6 +110,7 @@ public sealed partial class Engine : IDisposable
     private object? _hostCallbackAdmissionClosed;
     private int _hostCallbackAdmission;
     private int _hostReentryThreadId;
+    private MemoryLimitConstraint.OperationState? _transferredMemoryState;
     private ManualResetEventSlim? _ownershipReleased;
     private ConditionalWeakTable<ObjectInstance, HostCallbackAuthorization>? _hostCallbackAuthorizations;
 
@@ -178,13 +179,14 @@ public sealed partial class Engine : IDisposable
     internal HostCallScope EnterHostCallback()
         => EnterHostCall();
 
-    internal HostCallScope EnterTransferredHostCallback(object? expectedOwner)
+    internal HostCallScope EnterTransferredHostCallback(object? expectedAuthorization)
     {
-        if (expectedOwner is null)
+        if (expectedAuthorization is not HostCallbackAuthorization authorization)
         {
             return EnterHostCall();
         }
 
+        var expectedOwner = authorization.Owner;
         var owner = Volatile.Read(ref _asyncOwner);
         if (owner is null
             || (!ReferenceEquals(owner, expectedOwner)
@@ -208,7 +210,10 @@ public sealed partial class Engine : IDisposable
 
         try
         {
-            return EnterTransferredHostCall(owner, callback: true);
+            return EnterTransferredHostCall(
+                owner,
+                callback: true,
+                authorization.MemoryState);
         }
         catch
         {
@@ -238,18 +243,23 @@ public sealed partial class Engine : IDisposable
                 ?? newAuthorizations;
         }
 
-        authorizations.GetOrCreateValue(callback).Owner = owner;
+        var authorization = authorizations.GetOrCreateValue(callback);
+        authorization.Owner = owner;
+        authorization.MemoryState = CaptureMemoryLimitState();
     }
 
     internal object? GetHostCallbackOwner(ObjectInstance callback)
     {
         var authorizations = _hostCallbackAuthorizations;
         return authorizations is not null && authorizations.TryGetValue(callback, out var authorization)
-            ? authorization.Owner
+            ? authorization
             : null;
     }
 
-    internal HostCallScope EnterTransferredHostCall(object owner, bool callback = false)
+    internal HostCallScope EnterTransferredHostCall(
+        object owner,
+        bool callback = false,
+        MemoryLimitConstraint.OperationState? callbackMemoryState = null)
     {
         if (!ReferenceEquals(Volatile.Read(ref _asyncOwner), owner))
         {
@@ -260,7 +270,9 @@ public sealed partial class Engine : IDisposable
         if (Volatile.Read(ref _ownerThreadId) == threadId)
         {
             _ownerDepth++;
-            return new HostCallScope(this, callback ? owner : null);
+            return CreateTransferredHostCallScope(
+                callback ? owner : null,
+                callbackMemoryState);
         }
 
         AcquireHostCall(threadId);
@@ -280,7 +292,9 @@ public sealed partial class Engine : IDisposable
 
         _ownerDepth = 1;
         _ownerToken = owner;
-        return new HostCallScope(this, callback ? owner : null);
+        return CreateTransferredHostCallScope(
+            callback ? owner : null,
+            callbackMemoryState);
     }
 
     private bool TryEnterHostCall(out HostCallScope scope)
@@ -381,12 +395,28 @@ public sealed partial class Engine : IDisposable
 
         var depth = _ownerDepth;
         var previousReentryThreadId = Volatile.Read(ref _hostReentryThreadId);
+        var previousTransferredMemoryState = Volatile.Read(ref _transferredMemoryState);
+        MemoryLimitConstraint.OperationState? memoryState = null;
+        MemoryLimitConstraint.SegmentToken memorySegment = default;
+        var hasMemorySegment = _memoryLimitConstraint?.TrySuspendActiveSegment(
+            out memoryState,
+            out memorySegment) == true;
+        Volatile.Write(ref _transferredMemoryState, memoryState);
         Volatile.Write(ref _hostReentryThreadId, System.Environment.CurrentManagedThreadId);
         _ownerDepth = 0;
         _ownerToken = null;
         Volatile.Write(ref _ownerThreadId, 0);
         Volatile.Read(ref _ownershipReleased)?.Set();
-        return new HostCallSuspension(this, owner, previousOwnerToken, depth, previousReentryThreadId, ownsReservation);
+        return new HostCallSuspension(
+            this,
+            owner,
+            previousOwnerToken,
+            depth,
+            previousReentryThreadId,
+            ownsReservation,
+            hasMemorySegment,
+            memorySegment,
+            previousTransferredMemoryState);
     }
 
     private void ResumeHostCall(
@@ -394,7 +424,10 @@ public sealed partial class Engine : IDisposable
         object? previousOwnerToken,
         int depth,
         int previousReentryThreadId,
-        bool ownsReservation)
+        bool ownsReservation,
+        bool hasMemorySegment,
+        MemoryLimitConstraint.SegmentToken memorySegment,
+        MemoryLimitConstraint.OperationState? previousTransferredMemoryState)
     {
         if (ownsReservation)
         {
@@ -418,9 +451,32 @@ public sealed partial class Engine : IDisposable
             }
         }
 
+        Volatile.Write(ref _transferredMemoryState, previousTransferredMemoryState);
+        if (hasMemorySegment)
+        {
+            _memoryLimitConstraint!.EndSegment(in memorySegment);
+        }
+
         _ownerDepth = depth;
         _ownerToken = previousOwnerToken;
         Volatile.Write(ref _hostReentryThreadId, previousReentryThreadId);
+    }
+
+    private HostCallScope CreateTransferredHostCallScope(
+        object? callbackOwner,
+        MemoryLimitConstraint.OperationState? callbackMemoryState = null)
+    {
+        var memoryState = callbackMemoryState ?? Volatile.Read(ref _transferredMemoryState);
+        if (memoryState is null || _memoryLimitConstraint is null)
+        {
+            return new HostCallScope(this, callbackOwner);
+        }
+
+        return new HostCallScope(
+            this,
+            callbackOwner,
+            _memoryLimitConstraint.BeginSegment(
+                _memoryLimitConstraint.ContinueOrBeginEntry(memoryState)));
     }
 
     private void ReleaseHostCallbackAdmission(object owner)
@@ -508,22 +564,44 @@ public sealed partial class Engine : IDisposable
     {
         private readonly Engine _engine;
         private readonly object? _callbackOwner;
+        private readonly MemoryLimitConstraint.SegmentToken _memorySegment;
+        private readonly bool _hasMemorySegment;
 
         internal HostCallScope(Engine engine)
         {
             _engine = engine;
             _callbackOwner = null;
+            _memorySegment = default;
+            _hasMemorySegment = false;
         }
 
         internal HostCallScope(Engine engine, object? callbackOwner)
         {
             _engine = engine;
             _callbackOwner = callbackOwner;
+            _memorySegment = default;
+            _hasMemorySegment = false;
+        }
+
+        internal HostCallScope(
+            Engine engine,
+            object? callbackOwner,
+            MemoryLimitConstraint.SegmentToken memorySegment)
+        {
+            _engine = engine;
+            _callbackOwner = callbackOwner;
+            _memorySegment = memorySegment;
+            _hasMemorySegment = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
+            if (_hasMemorySegment)
+            {
+                _engine._memoryLimitConstraint!.EndSegment(in _memorySegment);
+            }
+
             _engine.ExitHostCall();
             if (_callbackOwner is not null)
             {
@@ -535,11 +613,18 @@ public sealed partial class Engine : IDisposable
     private sealed class HostCallbackAuthorization
     {
         private object? _owner;
+        private MemoryLimitConstraint.OperationState? _memoryState;
 
         internal object? Owner
         {
             get => Volatile.Read(ref _owner);
             set => Volatile.Write(ref _owner, value);
+        }
+
+        internal MemoryLimitConstraint.OperationState? MemoryState
+        {
+            get => Volatile.Read(ref _memoryState);
+            set => Volatile.Write(ref _memoryState, value);
         }
     }
 
@@ -551,6 +636,9 @@ public sealed partial class Engine : IDisposable
         private readonly int _depth;
         private readonly int _previousReentryThreadId;
         private readonly bool _ownsReservation;
+        private readonly bool _hasMemorySegment;
+        private readonly MemoryLimitConstraint.SegmentToken _memorySegment;
+        private readonly MemoryLimitConstraint.OperationState? _previousTransferredMemoryState;
 
         internal HostCallSuspension(
             Engine engine,
@@ -558,7 +646,10 @@ public sealed partial class Engine : IDisposable
             object? previousOwnerToken,
             int depth,
             int previousReentryThreadId,
-            bool ownsReservation)
+            bool ownsReservation,
+            bool hasMemorySegment,
+            MemoryLimitConstraint.SegmentToken memorySegment,
+            MemoryLimitConstraint.OperationState? previousTransferredMemoryState)
         {
             _engine = engine;
             _owner = owner;
@@ -566,6 +657,9 @@ public sealed partial class Engine : IDisposable
             _depth = depth;
             _previousReentryThreadId = previousReentryThreadId;
             _ownsReservation = ownsReservation;
+            _hasMemorySegment = hasMemorySegment;
+            _memorySegment = memorySegment;
+            _previousTransferredMemoryState = previousTransferredMemoryState;
         }
 
         public void Dispose()
@@ -575,7 +669,10 @@ public sealed partial class Engine : IDisposable
                 _previousOwnerToken,
                 _depth,
                 _previousReentryThreadId,
-                _ownsReservation);
+                _ownsReservation,
+                _hasMemorySegment,
+                _memorySegment,
+                _previousTransferredMemoryState);
         }
     }
 
@@ -1004,6 +1101,16 @@ public sealed partial class Engine : IDisposable
         }
         _memoryLimitConstraint = memoryLimitConstraint;
         memoryLimitConstraint?.Attach(this);
+        if (memoryLimitConstraint is not null)
+        {
+            foreach (var constraint in _constraints)
+            {
+                if (!ReferenceEquals(constraint, memoryLimitConstraint))
+                {
+                    constraint.BeforeFailure = EndImplicitMemoryOperationWithoutCheck;
+                }
+            }
+        }
 
         // Everything the context snapshots is settled by now (debug mode, the constraint partition),
         // and it must exist before Options.Apply below, whose configuration callbacks may execute
@@ -1464,6 +1571,40 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    private void EndImplicitMemoryOperationWithoutCheck()
+    {
+        if (_implicitMemoryContextDepth == 0)
+        {
+            return;
+        }
+
+        var segment = _implicitMemorySegment;
+        _memoryLimitConstraint!.EndSegment(in segment);
+        _implicitMemoryContextDepth = 0;
+        _implicitMemorySegment = default;
+    }
+
+    internal void PreserveConstraintFailure() => EndImplicitMemoryOperationWithoutCheck();
+
+    internal Exception? AbortMemoryLimitedOperation()
+    {
+        Exception? cleanupFailure = null;
+        try
+        {
+            ResetTransientEvaluationState();
+        }
+        catch (Exception exception)
+        {
+            cleanupFailure = exception;
+        }
+        finally
+        {
+            EventLoop.NextGeneration();
+        }
+
+        return cleanupFailure;
+    }
+
     internal void ResetConstraints()
     {
         foreach (var constraint in _constraints)
@@ -1795,17 +1936,24 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     /// <remarks>
     /// The accounted overload above is the one a new caller should reach for. This one exists for the
-    /// host-driven completions whose registration is not part of any single engine operation — a timer, a
-    /// <c>fetch</c> or stream body, a WebSocket or <c>EventSource</c> frame, a <c>MessagePort</c> or
-    /// <c>BroadcastChannel</c> delivery, a finalization-registry cleanup. They keep the generation stamp for
-    /// the reason every cross-cycle enqueue does; what they do not have is one originating operation whose
-    /// budget the turn belongs to. Extending the budget to them is a deliberate change with its own tests,
-    /// not something to slip in by passing whatever state happens to be active at enqueue time — which on a
-    /// background thread is nothing, and on the engine thread is somebody else's operation.
+    /// persistent external events whose registration is not part of any single engine operation — a WebSocket
+    /// or <c>EventSource</c> frame, a <c>MessagePort</c> or <c>BroadcastChannel</c> delivery, host
+    /// cancellation, or finalization-registry cleanup. They keep the generation stamp for the reason every
+    /// cross-cycle enqueue does; what they do not have is one originating operation whose budget the turn
+    /// belongs to. Finite continuations such as timers, fetch and stream operations use
+    /// <see cref="EventLoopRegistration"/> instead.
     /// </remarks>
     internal void AddToEventLoop(Action continuation, int generation)
     {
         _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null));
+    }
+
+    internal void AddToEventLoop(Action continuation, EventLoopRegistration registration)
+    {
+        _eventLoop.Enqueue(new EventLoopJob(
+            continuation,
+            registration.Generation,
+            registration.MemoryState));
     }
 
     /// <summary>
@@ -1823,6 +1971,9 @@ public sealed partial class Engine : IDisposable
     /// rather than applied — see <see cref="EventLoop.Generation"/>.
     /// </summary>
     internal int EventLoopGeneration => _eventLoop.Generation;
+
+    internal EventLoopRegistration CaptureEventLoopRegistration()
+        => new(_eventLoop.Generation, CaptureMemoryLimitState());
 
     /// <summary>
     /// Queues the engine-thread half of an asynchronous module load. Separate from
@@ -1853,8 +2004,44 @@ public sealed partial class Engine : IDisposable
         var segment = memoryLimit.BeginSegment(state);
         try
         {
+            memoryLimit.Check();
             job.Run(this);
             memoryLimit.Check();
+        }
+        catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
+        {
+            memoryLimit.Check();
+            throw;
+        }
+        finally
+        {
+            memoryLimit.EndSegment(in segment);
+        }
+    }
+
+    internal void RunWithMemoryAccounting(
+        MemoryLimitConstraint.OperationState? operationState,
+        Action callback)
+    {
+        var memoryLimit = _memoryLimitConstraint;
+        if (memoryLimit is null)
+        {
+            callback();
+            return;
+        }
+
+        var state = memoryLimit.ContinueOrBeginEntry(operationState);
+        var segment = memoryLimit.BeginSegment(state);
+        try
+        {
+            memoryLimit.Check();
+            callback();
+            memoryLimit.Check();
+        }
+        catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
+        {
+            memoryLimit.Check();
+            throw;
         }
         finally
         {
@@ -2086,7 +2273,7 @@ public sealed partial class Engine : IDisposable
         // Avoid allocating the enumerator because we run this loop very often.
         foreach (var constraint in _constraints)
         {
-            constraint.Check();
+            CheckConstraint(constraint);
         }
 
         if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
@@ -2110,7 +2297,7 @@ public sealed partial class Engine : IDisposable
         // Avoid allocating the enumerator because we run this loop very often.
         foreach (var constraint in _exactConstraints)
         {
-            constraint.Check();
+            CheckConstraint(constraint);
         }
 
         // After the constraints on purpose: a statement a constraint refused is a statement that never ran.
@@ -2142,7 +2329,33 @@ public sealed partial class Engine : IDisposable
 
         foreach (var constraint in _amortizedConstraints)
         {
+            CheckConstraint(constraint);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void CheckConstraint(Constraint constraint)
+    {
+        if (_memoryLimitConstraint is null)
+        {
             constraint.Check();
+            return;
+        }
+
+        CheckConstraintWithMemory(constraint);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void CheckConstraintWithMemory(Constraint constraint)
+    {
+        try
+        {
+            constraint.Check();
+        }
+        catch
+        {
+            EndImplicitMemoryOperationWithoutCheck();
+            throw;
         }
     }
 
@@ -2649,9 +2862,15 @@ public sealed partial class Engine : IDisposable
         var previousStrict = strict && ReplaceTopStrict(true);
         try
         {
+            memoryLimit.Check();
             var result = callback();
             memoryLimit.Check();
             return result;
+        }
+        catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
+        {
+            memoryLimit.Check();
+            throw;
         }
         finally
         {
@@ -2682,9 +2901,15 @@ public sealed partial class Engine : IDisposable
         var segment = memoryLimit.BeginSegment(state);
         try
         {
+            memoryLimit.Check();
             var result = callback();
             memoryLimit.Check();
             return result;
+        }
+        catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
+        {
+            memoryLimit.Check();
+            throw;
         }
         finally
         {
@@ -3675,6 +3900,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
+            PreserveConstraintFailure();
             Throw.RecursionDepthOverflowException(CallStack);
         }
 
@@ -3707,6 +3933,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
+            PreserveConstraintFailure();
             Throw.RecursionDepthOverflowException(CallStack);
         }
 

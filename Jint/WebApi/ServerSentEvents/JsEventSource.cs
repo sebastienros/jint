@@ -363,7 +363,7 @@ internal sealed class JsEventSource : JsEventTarget
             [],
             ReconnectionTime,
             repeat: false,
-            _engine.EventLoopGeneration);
+            _engine.CaptureEventLoopRegistration());
 
         _reconnectTimerId = timers.Schedule(entry);
         return true;

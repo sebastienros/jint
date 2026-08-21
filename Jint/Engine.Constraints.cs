@@ -127,7 +127,7 @@ public partial class Engine
             using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
-                constraint.Check();
+                _engine.CheckConstraint(constraint);
             }
         }
 

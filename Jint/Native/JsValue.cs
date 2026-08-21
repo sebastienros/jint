@@ -5,6 +5,7 @@ using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
@@ -205,7 +206,19 @@ public abstract partial class JsValue : IEquatable<JsValue>
             {
                 if (continuationAction.IsFaulted)
                 {
-                    rejectClr(continuationAction.Exception);
+                    var aggregate = continuationAction.Exception;
+                    if (FindConstraintFailure(aggregate) is { } failure)
+                    {
+                        var dispatch = ExceptionDispatchInfo.Capture(failure);
+                        // A constraint failure ends its originating generation before this Task continuation
+                        // observes it. Deliver the failure itself in the new generation; using the captured
+                        // registration would fence off the only notification the awaiting host can receive.
+                        engine.AddToEventLoop(dispatch.Throw, engine.EventLoopGeneration);
+                    }
+                    else
+                    {
+                        rejectClr(aggregate);
+                    }
                 }
                 else if (continuationAction.IsCanceled)
                 {
@@ -238,6 +251,37 @@ public abstract partial class JsValue : IEquatable<JsValue>
             continuationOptions: TaskContinuationOptions.AttachedToParent | TaskContinuationOptions.ExecuteSynchronously);
 
         return promise;
+    }
+
+    private static Exception? FindConstraintFailure(Exception? exception)
+    {
+        if (exception is null)
+        {
+            return null;
+        }
+
+        if (ConstraintFailure.MustPropagate(exception))
+        {
+            return exception;
+        }
+
+        if (exception is TargetInvocationException { InnerException: { } inner })
+        {
+            return FindConstraintFailure(inner);
+        }
+
+        if (exception is AggregateException aggregate)
+        {
+            foreach (var candidate in aggregate.InnerExceptions)
+            {
+                if (FindConstraintFailure(candidate) is { } failure)
+                {
+                    return failure;
+                }
+            }
+        }
+
+        return null;
     }
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]

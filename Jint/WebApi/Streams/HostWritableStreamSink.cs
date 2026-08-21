@@ -83,6 +83,7 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
                 "The host stream was released: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was created in."));
             return promise;
         }
+        var registration = OperationRegistration;
 
         if (bytes.IsEmpty)
         {
@@ -138,7 +139,15 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
                 // permanently lost.
                 ArrayPool<byte>.Shared.Return(buffer);
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => SettleWrite(failure, capability));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => SettleWrite(failure, capability, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -151,9 +160,12 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
     /// On the engine thread: end the in-flight write and settle its promise. A rejection is what errors the
     /// writable stream, which is the standard's own reaction to a sink whose <c>write()</c> failed.
     /// </summary>
-    private void SettleWrite(Exception? failure, PromiseCapability capability)
+    private void SettleWrite(
+        Exception? failure,
+        PromiseCapability capability,
+        bool operationEnded = false)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (failure is not null && FinishBridge())
         {
@@ -190,6 +202,7 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
             capability.Resolve(JsValue.Undefined);
             return promise;
         }
+        var registration = OperationRegistration;
 
         var task = FlushAndDisposeAsync();
 
@@ -213,7 +226,15 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
             completed =>
             {
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => SettleClose(failure, capability));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => SettleClose(failure, capability, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -259,9 +280,12 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
     /// On the engine thread: the close is over, one way or the other, and the bridge is done with the host's
     /// stream whichever way it went.
     /// </summary>
-    private void SettleClose(Exception? failure, PromiseCapability capability)
+    private void SettleClose(
+        Exception? failure,
+        PromiseCapability capability,
+        bool operationEnded = false)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (FinishBridge())
         {

@@ -75,7 +75,7 @@ namespace Jint.WebApi.Fetch;
 internal sealed class FetchRequestBodyStream : ReadRequest
 {
     private readonly Engine _engine;
-    private readonly int _generation;
+    private readonly EventLoopRegistration _registration;
     private readonly JsReadableStreamDefaultReader _reader;
 
     /// <summary>
@@ -104,7 +104,7 @@ internal sealed class FetchRequestBodyStream : ReadRequest
     internal FetchRequestBodyStream(Engine engine, JsReadableStream stream)
     {
         _engine = engine;
-        _generation = engine.EventLoopGeneration;
+        _registration = engine.CaptureEventLoopRegistration();
 
         // The fetch takes the body: the stream is locked and disturbed from here on, exactly as a buffered
         // upload's full read left it. The caller has already ruled out an unusable body.
@@ -226,7 +226,9 @@ internal sealed class FetchRequestBodyStream : ReadRequest
 
                 // The generation stamp is what stops a chunk written before Engine.Advanced
                 // .RestoreGlobalSnapshot from resuming a read against the restored engine.
-                self._engine.AddToEventLoop(() => self.OnWriteCompleted(task.IsCompletedSuccessfully), self._generation);
+                self._engine.AddToEventLoop(
+                    () => self.OnWriteCompleted(task.IsCompletedSuccessfully),
+                    self._registration);
             },
             this,
             CancellationToken.None,

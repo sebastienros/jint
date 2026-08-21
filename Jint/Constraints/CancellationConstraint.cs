@@ -30,6 +30,7 @@ public sealed class CancellationConstraint : Constraint
     {
         if (_cancellationToken.IsCancellationRequested)
         {
+            BeforeFailure?.Invoke();
             Throw.ExecutionCanceledException();
         }
     }

@@ -157,7 +157,15 @@ public sealed class MemoryLimitConstraint : Constraint
         var usage = GetUsage(state);
         if (state.Exceeded || usage > _memoryLimit)
         {
-            state.Exceeded = true;
+            if (!state.Exceeded)
+            {
+                state.Exceeded = true;
+                var cleanupFailure = _engine?.AbortMemoryLimitedOperation();
+                Throw.MemoryLimitExceededException(
+                    $"Script has allocated {usage} but is limited to {_memoryLimit}",
+                    cleanupFailure);
+            }
+
             Throw.MemoryLimitExceededException($"Script has allocated {usage} but is limited to {_memoryLimit}");
         }
     }
@@ -201,6 +209,21 @@ public sealed class MemoryLimitConstraint : Constraint
     }
 
     internal OperationState? CurrentOperationState => _activeState;
+
+    internal bool TrySuspendActiveSegment(
+        out OperationState? operationState,
+        out SegmentToken segment)
+    {
+        operationState = _activeState;
+        if (operationState is null)
+        {
+            segment = default;
+            return false;
+        }
+
+        segment = BeginSegment(state: null);
+        return true;
+    }
 
     internal void Attach(Engine engine)
     {
@@ -335,9 +358,10 @@ public sealed class MemoryLimitConstraint : Constraint
     {
         if (!GCPolyfills.AllocatedBytesForCurrentThreadIsSupported)
         {
-            Throw.PlatformNotSupportedException(
+            Throw.MemoryLimitPlatformNotSupportedException(
                 "The current runtime does not expose GC.GetAllocatedBytesForCurrentThread, so Jint cannot enforce a memory allocation limit without charging unrelated process allocations.");
         }
+
     }
 
     internal sealed class OperationState
@@ -351,3 +375,6 @@ public sealed class MemoryLimitConstraint : Constraint
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct SegmentToken(bool Switched, OperationState? PreviousState, int PreviousDepth);
 }
+
+internal sealed class MemoryLimitPlatformNotSupportedException(string message)
+    : PlatformNotSupportedException(message);

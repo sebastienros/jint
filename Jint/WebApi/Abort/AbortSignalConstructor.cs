@@ -96,7 +96,13 @@ internal sealed partial class AbortSignalConstructor : Constructor
         }
 
         var signal = CreateSignal();
-        var entry = new TimerEntry(timers, new TimeoutAbortAlgorithm(signal, _realm), [], delay, repeat: false, _engine.EventLoopGeneration);
+        var entry = new TimerEntry(
+            timers,
+            new TimeoutAbortAlgorithm(signal, _realm),
+            [],
+            delay,
+            repeat: false,
+            _engine.CaptureEventLoopRegistration());
         timers.Schedule(entry);
         return signal;
     }

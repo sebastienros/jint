@@ -53,6 +53,7 @@ internal abstract class HostStreamBridge
     private const int Released = 3;
 
     private int _state;
+    private EventLoopRegistration _operationRegistration;
 
     protected HostStreamBridge(Engine engine, Realm realm, Stream stream, bool leaveOpen, CancellationToken hostCancellation)
     {
@@ -82,6 +83,8 @@ internal abstract class HostStreamBridge
     /// <summary>The evaluation cycle this bridge belongs to. See the remarks on the class.</summary>
     protected int Generation { get; }
 
+    protected EventLoopRegistration OperationRegistration => _operationRegistration;
+
     /// <summary>
     /// The token every read and write runs under. Cancelled by <see cref="FinishBridge"/>, so a stream that
     /// is blocked in a read stops being blocked when the script cancels or the engine is restored.
@@ -98,7 +101,16 @@ internal abstract class HostStreamBridge
     /// Claims the right to start one read or write. <see langword="false"/> means the bridge has been
     /// finished — cancelled, closed, or abandoned by a restore — and no further I/O may be started.
     /// </summary>
-    protected bool TryBeginOperation() => Interlocked.CompareExchange(ref _state, Busy, Idle) == Idle;
+    protected bool TryBeginOperation()
+    {
+        if (Interlocked.CompareExchange(ref _state, Busy, Idle) != Idle)
+        {
+            return false;
+        }
+
+        _operationRegistration = Engine.CaptureEventLoopRegistration();
+        return true;
+    }
 
     /// <summary>
     /// Ends the in-flight read or write. Called on whichever thread the I/O completed on, <b>before</b> its
@@ -203,7 +215,8 @@ internal abstract class HostStreamBridge
     /// <summary>
     /// Queues the engine-thread half of an I/O completion, carrying the cycle the bridge was created in.
     /// </summary>
-    protected void Enqueue(Action job) => Engine.AddToEventLoop(job, Generation);
+    protected void Enqueue(Action job, EventLoopRegistration registration)
+        => Engine.AddToEventLoop(job, registration);
 
     /// <summary>
     /// The chunk a host stream's bytes are delivered to script as: a fresh <c>Uint8Array</c> over a copy,

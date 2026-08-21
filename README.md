@@ -2820,10 +2820,18 @@ var engine = new Engine(options => {
 
 `LimitMemory` measures managed bytes allocated while Jint actively executes one top-level operation. Promise
 reactions, `EvaluateAsync` / `InvokeAsync`, and asynchronous module loading keep the originating budget across
-thread hops. Synchronous host callbacks are included; allocations performed by background work before it hands
-a result back to Jint are not. The limit is not retained heap, unmanaged memory, or a process-wide quota, and
-initial source parsing happens before the execution constraint starts. Use an operating-system memory limit for
-a hard worker boundary.
+thread hops. Finite web continuations such as fetch and stream completions, timers, idle callbacks and scheduler
+tasks do the same. Persistent external event sources — message ports, broadcast channels, sockets, event streams,
+host cancellation and finalization cleanup — start a fresh ordinary budget for each delivered task rather than
+accumulating forever against the operation that created the object. Synchronous host callbacks are included;
+allocations performed by background work before it hands a result back to Jint are not. The limit is not retained
+heap, unmanaged memory, or a process-wide quota, and initial source parsing happens before the execution
+constraint starts. Use an operating-system memory limit for a hard worker boundary.
+
+Exceeding the limit ends that evaluation cycle's transient asynchronous work: queued jobs, pending loads,
+timers and scheduler/idle tasks are discarded, host-stream bridges are abandoned, and completions arriving
+later are rejected by the event-loop generation fence. Global bindings are not rolled back; use a snapshot or
+a fresh engine when request isolation requires that.
 
 The runtime capability is explicit through `MemoryLimitConstraint.Accuracy`. It is
 `MemoryLimitAccuracy.ExecutionThread` when the per-thread allocation counter is available; otherwise execution
