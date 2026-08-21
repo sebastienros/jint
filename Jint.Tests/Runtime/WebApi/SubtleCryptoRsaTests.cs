@@ -1145,15 +1145,26 @@ public class SubtleCryptoRsaTests
             })()
             """).AsString().Should().Be("true:function,true:function,true:function,true:function");
 
-        // ... and each of them settles as a rejection carrying a DOMException.
-        Settle(engine, """
+        // ... and each of them settles as a rejection carrying a DOMException. The JWK probe is the one row
+        // whose outcome is the platform's to decide: its 17-bit modulus is refused at *import* by an
+        // implementation that validates there (Windows CNG, a DataError) and accepted by one that validates
+        // at *use* (OpenSSL) — where encrypting with it is then refused, still as the wrapped OperationError.
+        // Either way, no CryptographicException reaches script, which is what this test exists to prove.
+        var settled = Settle(engine, """
             Promise.all([
                 crypto.subtle.importKey('spki', new Uint8Array([9, 9, 9]), { name: 'RSA-PSS', hash: 'SHA-256' }, false, ['verify']).catch(e => e.name),
                 crypto.subtle.importKey('pkcs8', new Uint8Array([9, 9, 9]), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']).catch(e => e.name),
-                crypto.subtle.importKey('jwk', { kty: 'RSA', n: 'AQAB', e: 'AQAB' }, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']).catch(e => e.name),
+                crypto.subtle.importKey('jwk', { kty: 'RSA', n: 'AQAB', e: 'AQAB' }, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
+                    .then(
+                        key => crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, new Uint8Array(1)).then(() => 'encrypted', e => 'imported+' + e.name),
+                        e => e.name),
                 crypto.subtle.generateKey({ name: 'RSA-PSS', modulusLength: 7, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, false, ['sign']).catch(e => e.name),
             ]).then(names => names.join(','))
-            """).AsString().Should().Be("DataError,DataError,DataError,OperationError");
+            """).AsString();
+
+        settled.Should().BeOneOf(
+            "DataError,DataError,DataError,OperationError",
+            "DataError,DataError,imported+OperationError,OperationError");
     }
 
     [Fact]
