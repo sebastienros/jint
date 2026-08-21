@@ -26,9 +26,10 @@ namespace Jint.Tests.Runtime.WebApi;
 /// this engine's parsing and re-encoding against an encoding it did not produce.
 /// </para>
 /// <para>
-/// ECDH appears throughout for its keys and nowhere for an operation, because it has none here yet:
-/// <c>deriveKey</c> and <c>deriveBits</c> are absent from <c>crypto.subtle</c>, which
-/// <see cref="SubtleCryptoTests"/> pins, so an ECDH key carrying those usages is a key nothing consumes.
+/// ECDH appears throughout for its <i>keys</i>: what it does with them — <c>deriveBits</c>, and the
+/// <c>deriveKey</c> composition over it — lives in <see cref="SubtleCryptoDeriveTests"/>, together with the
+/// RFC 5903 agreement vector. What is pinned here is the split that keeps the two elliptic-curve algorithms
+/// apart: an ECDH key carries only the derivation usages and an ECDSA key only the signature ones.
 /// </para>
 /// </remarks>
 public class SubtleCryptoEcTests
@@ -903,14 +904,15 @@ public class SubtleCryptoEcTests
     }
 
     [Fact]
-    public void AnEcdhPrivateKeyMayCarryTheDerivationUsagesNothingConsumesYet()
+    public void AnEcdhPrivateKeyCarriesTheDerivationUsagesAndNoOthers()
     {
         var engine = WebEngine();
 
-        // deriveKey and deriveBits are absent from crypto.subtle, so these usages are real, checked, split
-        // and reported — and no operation reads them. That is the position AES-GCM's wrapKey and unwrapKey
-        // usages have always been in, and it is what makes the derive operations an addition rather than a
-        // change to the keys a script already makes.
+        // The usage set an ECDH key may be imported with is exactly ['deriveKey', 'deriveBits'], and it is
+        // checked before a byte of the key data is parsed — so a request naming a signature usage is the
+        // SyntaxError the usages earn rather than anything the DER might have said. It is the mirror of the
+        // ECDSA key one test above, and between them they are what keeps `sign` and `deriveBits` from ever
+        // meeting the same key.
         Settle(engine, $$"""
             crypto.subtle.importKey('pkcs8', bytes('{{Es256Pkcs8Hex}}'), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey', 'deriveBits'])
                 .then(key => key.type + '/' + key.usages.join('+'), e => e.name)
@@ -1141,8 +1143,8 @@ public class SubtleCryptoEcTests
         var engine = WebEngine();
 
         // ECDSA registers sign, verify, generateKey, importKey and exportKey; ECDH registers generateKey,
-        // importKey, exportKey and — for a later slice — deriveBits. An algorithm that is not registered for
-        // an operation is a NotSupportedError, decided before any key is looked at.
+        // importKey, exportKey and deriveBits. An algorithm that is not registered for an operation is a
+        // NotSupportedError, decided before any key is looked at.
         Settle(engine, $$"""
             (async () => {
                 const outcomes = [];
@@ -1166,10 +1168,20 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be(
                 "NotSupportedError,NotSupportedError,NotSupportedError,NotSupportedError,ok,ok");
 
-        // The derive operations are still absent rather than present-and-throwing, which is what a library
-        // that means to use them checks before it reaches for one.
-        engine.Evaluate("['deriveKey', 'deriveBits'].filter(name => name in crypto.subtle).join(',')")
-            .AsString().Should().Be("");
+        // ECDSA is not registered for deriveBits and ECDH is, which is the one asymmetry between the two
+        // that is not about usages. SubtleCryptoDeriveTests carries the derivations themselves.
+        Settle(engine, $$"""
+            (async () => {
+                const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+                const outcomes = [];
+                const attempt = async fn => { try { await fn(); outcomes.push('ok'); } catch (e) { outcomes.push(e.name); } };
+
+                await attempt(() => crypto.subtle.deriveBits({ name: 'ECDSA', public: pair.publicKey }, pair.privateKey, 128));
+                await attempt(() => crypto.subtle.deriveBits({ name: 'ECDH', public: pair.publicKey }, pair.privateKey, 128));
+
+                return outcomes.join(',');
+            })()
+            """).AsString().Should().Be("NotSupportedError,ok");
     }
 
     [Fact]

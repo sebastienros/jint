@@ -867,14 +867,15 @@ public class SubtleCryptoKeyTests
     [InlineData("encrypt", "'AES-CBC'")]
     [InlineData("decrypt", "{ name: 'AES-CTR' }")]
     [InlineData("generateKey", "'HKDF'")]
-    [InlineData("importKey", "'PBKDF2'")]
+    [InlineData("importKey", "'X25519'")]
     // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs,
-    // RSASSA-PKCS1-v1_5 signs and never encrypts, and ECDH — which has keys here and no operation on them
-    // yet — neither signs nor encrypts.
+    // RSASSA-PKCS1-v1_5 signs and never encrypts, ECDH derives and never signs, and PBKDF2 — whose keys
+    // this engine imports — does nothing but derive.
     [InlineData("sign", "'RSA-OAEP'")]
     [InlineData("encrypt", "'RSASSA-PKCS1-v1_5'")]
     [InlineData("sign", "'ECDH'")]
     [InlineData("encrypt", "'ECDSA'")]
+    [InlineData("sign", "'PBKDF2'")]
     public void RefusesAnUnregisteredAlgorithmWithANotSupportedError(string operation, string algorithm)
     {
         var engine = WebEngine();
@@ -902,14 +903,15 @@ public class SubtleCryptoKeyTests
         var engine = WebEngine();
 
         engine.Evaluate("""
-            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey']
+            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey', 'deriveBits', 'deriveKey']
                 .map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("function,function,function,function,function,function,function,function");
+            """).AsString().Should().Be(
+                "function,function,function,function,function,function,function,function,function,function");
 
-        // Absent rather than present-and-throwing: `typeof crypto.subtle.deriveBits` is how a library that
-        // does cryptography decides whether it can, and it has to get the truthful answer.
+        // Absent rather than present-and-throwing: `typeof crypto.subtle.wrapKey` is how a library that does
+        // cryptography decides whether it can, and it has to get the truthful answer.
         engine.Evaluate("""
-            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
+            ['wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
             """).AsString().Should().Be("");
     }
 
@@ -918,13 +920,16 @@ public class SubtleCryptoKeyTests
     {
         var engine = WebEngine();
 
-        // WebIDL's length counts the required arguments only.
+        // WebIDL's length counts the required arguments only — which is why deriveBits is 2 and not 3: its
+        // `length` argument is `optional [EnforceRange] unsigned long? length = null`, so it does not count.
+        // A browser predating that change to the IDL answers 3; Node, which has taken it, answers 2.
         engine.Evaluate("""
-            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey']
+            ['digest', 'sign', 'verify', 'encrypt', 'decrypt', 'generateKey', 'importKey', 'exportKey', 'deriveBits', 'deriveKey']
                 .map(name => name + ':' + crypto.subtle[name].length + ':' + crypto.subtle[name].name).join(',')
             """).AsString().Should().Be(
                 "digest:2:digest,sign:3:sign,verify:4:verify,encrypt:3:encrypt,decrypt:3:decrypt,"
-                + "generateKey:3:generateKey,importKey:5:importKey,exportKey:2:exportKey");
+                + "generateKey:3:generateKey,importKey:5:importKey,exportKey:2:exportKey,"
+                + "deriveBits:2:deriveBits,deriveKey:5:deriveKey");
 
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
     }

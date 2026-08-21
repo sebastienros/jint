@@ -143,6 +143,29 @@ internal static class AesGcmAlgorithm
     }
 
     /// <summary>
+    /// https://w3c.github.io/webcrypto/#aes-gcm-operations-get-key-length — "If the length member of
+    /// normalizedDerivedKeyAlgorithm is not 128, 192 or 256, then throw an OperationError. Return the length
+    /// member of normalizedDerivedKeyAlgorithm."
+    /// </summary>
+    /// <remarks>
+    /// The registered parameters are <c>AesDerivedKeyParams</c>, which is <c>AesKeyGenParams</c> declared a
+    /// second time under another name — one <c>required [EnforceRange] unsigned short length</c> — so the
+    /// member is already read and range-checked by the time this is called, and the three lengths AES has are
+    /// the whole of what is left to say.
+    /// </remarks>
+    internal static uint GetKeyLength(CryptoContext context, NormalizedAlgorithm normalized, string what)
+    {
+        var length = normalized.Length!.Value;
+
+        if (!IsValidKeyLength(length))
+        {
+            context.ThrowOperationError(what + ": " + length + " is not a valid AES key length (128, 192 or 256 bits).");
+        }
+
+        return length;
+    }
+
+    /// <summary>
     /// https://w3c.github.io/webcrypto/#aes-gcm-operations-export-key
     /// </summary>
     internal static JsValue ExportKey(CryptoContext context, JsCryptoKey key, KeyFormat format, string what)

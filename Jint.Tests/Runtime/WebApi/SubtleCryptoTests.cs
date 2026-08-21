@@ -487,17 +487,21 @@ public class SubtleCryptoTests
     }
 
     [Fact]
-    public void ExposesDigestAndTheKeyedOperationsButNotKeyDerivation()
+    public void ExposesDigestAndTheKeyedOperationsAndKeyDerivationButNotKeyWrapping()
     {
         var engine = WebEngine();
 
-        // Absent rather than present-and-throwing: a library checking `typeof crypto.subtle.deriveBits`
-        // before reaching for it has to get the truthful answer, which is the same reason `crypto.subtle`
-        // itself is absent from an engine without the crypto feature.
+        // Absent rather than present-and-throwing: a library checking `typeof crypto.subtle.wrapKey` before
+        // reaching for it has to get the truthful answer, which is the same reason `crypto.subtle` itself is
+        // absent from an engine without the crypto feature.
         engine.Evaluate("typeof crypto.subtle.digest").AsString().Should().Be("function");
 
         engine.Evaluate("""
-            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
+            ['deriveKey', 'deriveBits'].filter(name => name in crypto.subtle).join(',')
+            """).AsString().Should().Be("deriveKey,deriveBits");
+
+        engine.Evaluate("""
+            ['wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
             """).AsString().Should().Be("");
 
         // As with crypto itself, the operation is an own property with a built-in method's attributes, so

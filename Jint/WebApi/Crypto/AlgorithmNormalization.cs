@@ -12,9 +12,16 @@ namespace Jint.WebApi.Crypto;
 /// <summary>
 /// The operations <c>supportedAlgorithms</c> is keyed by —
 /// https://w3c.github.io/webcrypto/#algorithm-normalization-internal — restricted to the ones this engine
-/// implements. <c>deriveBits</c>, <c>wrapKey</c>, <c>unwrapKey</c> and <c>get key length</c> are absent
-/// because no method that would reach them exists.
+/// implements. <c>wrapKey</c> and <c>unwrapKey</c> are absent because no method that would reach them exists.
 /// </summary>
+/// <remarks>
+/// <see cref="DeriveKey"/> is the one member that is <b>not</b> a key of that container. There is no
+/// "deriveKey" registry: the <c>deriveKey</c> method normalizes its <c>algorithm</c> for <c>deriveBits</c>
+/// and its <c>derivedKeyType</c> for both <c>importKey</c> and <c>get key length</c>, so the only thing the
+/// member names is the method — which is what <see cref="AlgorithmNormalization.NameOf"/> reports in an error
+/// message and what <c>SubtleCrypto</c> dispatches on.
+/// <see cref="AlgorithmNormalization.RegisteredFor"/> therefore refuses it rather than answering with a list.
+/// </remarks>
 internal enum CryptoOperation
 {
     Digest,
@@ -25,6 +32,9 @@ internal enum CryptoOperation
     GenerateKey,
     ImportKey,
     ExportKey,
+    DeriveBits,
+    DeriveKey,
+    GetKeyLength,
 }
 
 /// <summary>
@@ -144,6 +154,28 @@ internal sealed class NormalizedAlgorithm
     /// verbatim — the operation is what decides whether it names a curve at all.
     /// </summary>
     internal string? NamedCurve { get; set; }
+
+    /// <summary>
+    /// The <c>salt</c> member of <c>HkdfParams</c> or <c>Pbkdf2Params</c>, copied at normalization time. It
+    /// is a required member of both, so an empty salt — which RFC 5869 §2.2 explicitly permits and treats as
+    /// <c>HashLen</c> zero bytes — is spelled as a zero-length <c>Uint8Array</c> and never as an absent one.
+    /// </summary>
+    internal byte[]? Salt { get; set; }
+
+    /// <summary>
+    /// The <c>info</c> member of <c>HkdfParams</c>, copied at normalization time. Required, like
+    /// <see cref="Salt"/>, so "no context information" is the empty byte sequence rather than an omission.
+    /// </summary>
+    internal byte[]? Info { get; set; }
+
+    /// <summary>The <c>iterations</c> member of <c>Pbkdf2Params</c>.</summary>
+    internal uint? Iterations { get; set; }
+
+    /// <summary>
+    /// The <c>public</c> member of <c>EcdhKeyDeriveParams</c> — "the peer's EC public key". Its IDL type is
+    /// the <c>CryptoKey</c> <i>interface</i>, so nothing is coerced into one.
+    /// </summary>
+    internal JsCryptoKey? PublicKey { get; set; }
 }
 
 /// <summary>
@@ -197,6 +229,12 @@ internal static class AlgorithmNormalization
     /// <summary>https://w3c.github.io/webcrypto/#ecdh-registration</summary>
     internal const string Ecdh = "ECDH";
 
+    /// <summary>https://w3c.github.io/webcrypto/#hkdf-registration</summary>
+    internal const string Hkdf = "HKDF";
+
+    /// <summary>https://w3c.github.io/webcrypto/#pbkdf2-registration</summary>
+    internal const string Pbkdf2 = "PBKDF2";
+
     /// <summary>
     /// The three values <c>NamedCurve</c> takes — https://w3c.github.io/webcrypto/#dfn-NamedCurve, "NIST
     /// recommended curve P-256, also known as secp256r1" and its two siblings.
@@ -216,7 +254,28 @@ internal static class AlgorithmNormalization
     private static readonly string[] _digestAlgorithms = [Sha1, Sha256, Sha384, Sha512];
     private static readonly string[] _signatureAlgorithms = [Hmac, RsassaPkcs1V15, RsaPss, Ecdsa];
     private static readonly string[] _cipherAlgorithms = [AesGcm, RsaOaep];
-    private static readonly string[] _keyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
+
+    /// <summary>
+    /// The three key registries are separate lists because the registrations are: HKDF and PBKDF2 register
+    /// <c>importKey</c> and nothing else, so a script may build one of their keys and can neither generate one
+    /// (there is nothing to generate — the "key" is a password or an input keying material the caller already
+    /// has) nor export one (their keys are non-extractable by construction).
+    /// </summary>
+    private static readonly string[] _generateKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
+    private static readonly string[] _importKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh, Hkdf, Pbkdf2];
+    private static readonly string[] _exportKeyAlgorithms = [Hmac, AesGcm, RsassaPkcs1V15, RsaPss, RsaOaep, Ecdsa, Ecdh];
+
+    /// <summary>The three algorithms registered for <c>deriveBits</c>.</summary>
+    private static readonly string[] _deriveAlgorithms = [Ecdh, Hkdf, Pbkdf2];
+
+    /// <summary>
+    /// The algorithms registered for <c>get key length</c>, which is the internal operation <c>deriveKey</c>
+    /// runs over its <c>derivedKeyType</c> to decide how many bits to derive. HKDF and PBKDF2 are in the list
+    /// and answer <see langword="null"/>: a key of theirs has no length of its own, which is exactly what
+    /// makes <c>deriveKey(ecdhParams, priv, 'HKDF', …)</c> — deriving the whole shared secret into an HKDF
+    /// key — the shape the specification's own worked example uses.
+    /// </summary>
+    private static readonly string[] _keyLengthAlgorithms = [Hmac, AesGcm, Hkdf, Pbkdf2];
 
     private static readonly JsString _nameKey = new("name");
     private static readonly JsString _hashKey = new("hash");
@@ -229,6 +288,10 @@ internal static class AlgorithmNormalization
     private static readonly JsString _saltLengthKey = new("saltLength");
     private static readonly JsString _labelKey = new("label");
     private static readonly JsString _namedCurveKey = new("namedCurve");
+    private static readonly JsString _saltKey = new("salt");
+    private static readonly JsString _infoKey = new("info");
+    private static readonly JsString _iterationsKey = new("iterations");
+    private static readonly JsString _publicMemberKey = new("public");
 
     /// <summary>
     /// The associative container "stored at the <c>op</c> key of <c>supportedAlgorithms</c>".
@@ -252,9 +315,21 @@ internal static class AlgorithmNormalization
             case CryptoOperation.Verify:
                 return _signatureAlgorithms;
             case CryptoOperation.GenerateKey:
+                return _generateKeyAlgorithms;
             case CryptoOperation.ImportKey:
+                return _importKeyAlgorithms;
             case CryptoOperation.ExportKey:
-                return _keyAlgorithms;
+                return _exportKeyAlgorithms;
+            case CryptoOperation.DeriveBits:
+                return _deriveAlgorithms;
+            case CryptoOperation.GetKeyLength:
+                return _keyLengthAlgorithms;
+            case CryptoOperation.DeriveKey:
+                // Not a key of supportedAlgorithms at all — see the remarks on CryptoOperation. Answering
+                // with any list would make `normalizing an algorithm` for it look meaningful.
+                Throw.InvalidOperationException(
+                    "The deriveKey method normalizes for deriveBits, importKey and get key length; there is no deriveKey registry.");
+                return null!;
             default:
                 Throw.InvalidOperationException("Unhandled crypto operation '" + operation + "'.");
                 return null!;
@@ -287,6 +362,14 @@ internal static class AlgorithmNormalization
                 return "importKey";
             case CryptoOperation.ExportKey:
                 return "exportKey";
+            case CryptoOperation.DeriveBits:
+                return "deriveBits";
+            case CryptoOperation.DeriveKey:
+                return "deriveKey";
+            case CryptoOperation.GetKeyLength:
+                // The specification's own name for it. It is not a method, so this reaches a script only
+                // inside the NotSupportedError a derivedKeyType that no algorithm registers earns.
+                return "get key length";
             default:
                 Throw.InvalidOperationException("Unhandled crypto operation '" + operation + "'.");
                 return null!;
@@ -402,15 +485,20 @@ internal static class AlgorithmNormalization
         switch (normalized.Name, operation)
         {
             // HmacKeyGenParams and HmacImportParams declare the same two members, and the difference between
-            // them is entirely in what the two operations do with `length`.
+            // them is entirely in what the three operations do with `length`. HMAC registers HmacImportParams
+            // for `get key length` too, which is the third reading of it.
             case (Hmac, CryptoOperation.GenerateKey):
             case (Hmac, CryptoOperation.ImportKey):
+            case (Hmac, CryptoOperation.GetKeyLength):
                 normalized.HashName = ReadRequiredHash(context, algorithm, what);
                 normalized.Length = ReadOptionalUnsignedLong(context, algorithm, _lengthKey, what);
                 break;
 
-            // AesKeyGenParams: `required [EnforceRange] unsigned short length`.
+            // AesKeyGenParams: `required [EnforceRange] unsigned short length`. AesDerivedKeyParams, which
+            // AES-GCM registers for `get key length`, is that dictionary declared a second time under another
+            // name — same one member, same type.
             case (AesGcm, CryptoOperation.GenerateKey):
+            case (AesGcm, CryptoOperation.GetKeyLength):
                 normalized.Length = ReadRequiredUnsignedShort(context, algorithm, _lengthKey, what);
                 break;
 
@@ -469,9 +557,32 @@ internal static class AlgorithmNormalization
                 normalized.HashName = ReadRequiredHash(context, algorithm, what);
                 break;
 
+            // HkdfParams. WebIDL converts a dictionary by walking the inherited dictionaries from least to
+            // most derived and each dictionary's own members in *lexicographical* order —
+            // https://webidl.spec.whatwg.org/#es-dictionary — so after Algorithm's `name` the getters run in
+            // the order hash, info, salt, and not the order the IDL block writes them in.
+            case (Hkdf, CryptoOperation.DeriveBits):
+                normalized.HashName = ReadRequiredHash(context, algorithm, what);
+                normalized.Info = ReadRequiredBufferSource(context, algorithm, _infoKey, what);
+                normalized.Salt = ReadRequiredBufferSource(context, algorithm, _saltKey, what);
+                break;
+
+            // Pbkdf2Params, in the same lexicographical order: hash, iterations, salt.
+            case (Pbkdf2, CryptoOperation.DeriveBits):
+                normalized.HashName = ReadRequiredHash(context, algorithm, what);
+                normalized.Iterations = ReadRequiredUnsignedLong(context, algorithm, _iterationsKey, what);
+                normalized.Salt = ReadRequiredBufferSource(context, algorithm, _saltKey, what);
+                break;
+
+            // EcdhKeyDeriveParams, whose one member is `required CryptoKey public`.
+            case (Ecdh, CryptoOperation.DeriveBits):
+                normalized.PublicKey = ReadRequiredCryptoKey(context, algorithm, _publicMemberKey, what);
+                break;
+
             // Every remaining pair registers `None` as its parameters, so the Algorithm dictionary — the one
             // member of which has already been read — is the whole of it. RSASSA-PKCS1-v1_5's sign and
-            // verify are in that set, as is every algorithm's exportKey.
+            // verify are in that set, as is every algorithm's exportKey, HKDF's and PBKDF2's importKey, and
+            // HKDF's and PBKDF2's `get key length`.
             default:
                 break;
         }
@@ -512,6 +623,33 @@ internal static class AlgorithmNormalization
         }
 
         return TypeConverter.ToString(value);
+    }
+
+    /// <summary>
+    /// A <c>required CryptoKey</c> member — the one member of <c>EcdhKeyDeriveParams</c>.
+    /// </summary>
+    /// <remarks>
+    /// An interface type converts nothing: WebIDL accepts a platform object implementing that interface and
+    /// raises a <c>TypeError</c> for everything else, https://webidl.spec.whatwg.org/#es-interface. So an
+    /// ordinary object shaped like a key — or a real key's own <c>algorithm</c> dictionary, which is the
+    /// mistake this is most likely to catch — is a <c>TypeError</c> here rather than a failure deep inside
+    /// the derivation.
+    /// </remarks>
+    private static JsCryptoKey ReadRequiredCryptoKey(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
+    {
+        var value = algorithm?.Get(key) ?? JsValue.Undefined;
+        if (value.IsUndefined())
+        {
+            context.ThrowTypeError(what + ": required member " + key + " is undefined.");
+        }
+
+        if (value is JsCryptoKey cryptoKey)
+        {
+            return cryptoKey;
+        }
+
+        context.ThrowTypeError(what + ": member " + key + " is not of type 'CryptoKey'.");
+        return null!;
     }
 
     private static byte[] ReadRequiredBufferSource(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
@@ -585,7 +723,7 @@ internal static class AlgorithmNormalization
             return null;
         }
 
-        return (uint) EnforceRange(context, value, key, what, uint.MaxValue);
+        return (uint) EnforceRange(context, value, "member " + key, what, uint.MaxValue);
     }
 
     private static uint ReadRequiredUnsignedLong(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
@@ -596,7 +734,7 @@ internal static class AlgorithmNormalization
             context.ThrowTypeError(what + ": required member " + key + " is undefined.");
         }
 
-        return (uint) EnforceRange(context, value, key, what, uint.MaxValue);
+        return (uint) EnforceRange(context, value, "member " + key, what, uint.MaxValue);
     }
 
     /// <summary>
@@ -643,7 +781,7 @@ internal static class AlgorithmNormalization
             context.ThrowTypeError(what + ": required member " + key + " is undefined.");
         }
 
-        return (uint) EnforceRange(context, value, key, what, ushort.MaxValue);
+        return (uint) EnforceRange(context, value, "member " + key, what, ushort.MaxValue);
     }
 
     private static int? ReadOptionalOctet(CryptoContext context, ObjectInstance? algorithm, JsString key, string what)
@@ -654,7 +792,31 @@ internal static class AlgorithmNormalization
             return null;
         }
 
-        return (int) EnforceRange(context, value, key, what, byte.MaxValue);
+        return (int) EnforceRange(context, value, "member " + key, what, byte.MaxValue);
+    }
+
+    /// <summary>
+    /// The <c>optional [EnforceRange] unsigned long? length = null</c> argument of <c>deriveBits</c>, which
+    /// is the only nullable integer in this API.
+    /// </summary>
+    /// <remarks>
+    /// Three spellings mean <see langword="null"/>, and each for its own reason: the argument is
+    /// <b>optional</b>, so omitting it takes the declared default; an omitted argument and an explicit
+    /// <c>undefined</c> are the same thing to WebIDL; and the type is <b>nullable</b>, so an explicit
+    /// <c>null</c> converts to null rather than to zero. Everything else is the ordinary
+    /// <c>[EnforceRange] unsigned long</c> conversion, so <c>NaN</c>, <c>Infinity</c>, <c>-8</c> and
+    /// <c>2 ** 32</c> are <c>TypeError</c>s and not a wrap or a clamp. What the algorithms then do with a
+    /// null differs: ECDH returns the whole shared secret, and HKDF and PBKDF2 have nothing to fall back on
+    /// and raise an <c>OperationError</c>.
+    /// </remarks>
+    internal static uint? ConvertOptionalLength(CryptoContext context, JsValue value, string what, string subject)
+    {
+        if (value.IsUndefined() || value.IsNull())
+        {
+            return null;
+        }
+
+        return (uint) EnforceRange(context, value, subject, what, uint.MaxValue);
     }
 
     /// <summary>
@@ -662,18 +824,18 @@ internal static class AlgorithmNormalization
     /// a value that is not a finite number, or whose truncated value falls outside the type, is a
     /// <c>TypeError</c> rather than a wrap or a clamp.
     /// </summary>
-    private static double EnforceRange(CryptoContext context, JsValue value, JsString key, string what, double max)
+    private static double EnforceRange(CryptoContext context, JsValue value, string subject, string what, double max)
     {
         var number = TypeConverter.ToNumber(value);
         if (!double.IsFinite(number))
         {
-            context.ThrowTypeError(what + ": member " + key + " is not a finite number.");
+            context.ThrowTypeError(what + ": " + subject + " is not a finite number.");
         }
 
         var integer = double.Truncate(number);
         if (integer < 0 || integer > max)
         {
-            context.ThrowTypeError(what + ": member " + key + " is outside the range [0, " + max + "].");
+            context.ThrowTypeError(what + ": " + subject + " is outside the range [0, " + max + "].");
         }
 
         return integer;

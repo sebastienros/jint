@@ -17,27 +17,33 @@ namespace Jint.WebApi.Crypto;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Eight of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
-/// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c> and <c>exportKey</c>, over the algorithms
-/// <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits), <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c>,
-/// <c>RSA-OAEP</c>, <c>ECDSA</c> and <c>ECDH</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and
-/// SHA-512, and each of the elliptic-curve ones over P-256, P-384 and P-521 — plus those four SHA hashes for
-/// <c>digest</c>, and the key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
-/// <c>deriveKey</c>, <c>deriveBits</c>, <c>wrapKey</c> and <c>unwrapKey</c> are <b>absent</b> rather than
-/// present-and-throwing, so a library that checks
-/// <c>typeof crypto.subtle.deriveBits === 'function'</c> before reaching for it gets the truthful answer and
-/// takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine without the
+/// <b>Ten of the twelve operations exist</b>: <c>digest</c>, <c>sign</c>, <c>verify</c>, <c>encrypt</c>,
+/// <c>decrypt</c>, <c>generateKey</c>, <c>importKey</c>, <c>exportKey</c>, <c>deriveBits</c> and
+/// <c>deriveKey</c>, over the algorithms <c>HMAC</c>, <c>AES-GCM</c> (128, 192 and 256 bits),
+/// <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c>, <c>RSA-OAEP</c>, <c>ECDSA</c>, <c>ECDH</c>, <c>HKDF</c> and
+/// <c>PBKDF2</c> — each of the hashed ones over SHA-1, SHA-256, SHA-384 and SHA-512, and each of the
+/// elliptic-curve ones over P-256, P-384 and P-521 — plus those four SHA hashes for <c>digest</c>, and the
+/// key formats <c>raw</c>, <c>spki</c>, <c>pkcs8</c> and <c>jwk</c>.
+/// <c>wrapKey</c> and <c>unwrapKey</c> are <b>absent</b> rather than present-and-throwing, so a library that
+/// checks <c>typeof crypto.subtle.wrapKey === 'function'</c> before reaching for it gets the truthful answer
+/// and takes its fallback path — the same promise <c>crypto.subtle</c> itself makes to an engine without the
 /// crypto feature. An algorithm that is absent for a <i>particular</i> operation is a
 /// <c>NotSupportedError</c>, which is what the specification says a name that is not registered for an
 /// operation is: <c>sign</c> with <c>AES-GCM</c> fails that way, and so does <c>encrypt</c> with
-/// <c>HMAC</c>.
+/// <c>HMAC</c> and <c>generateKey</c> with <c>PBKDF2</c>.
 /// </para>
 /// <para>
-/// So <c>ECDH</c> is here for its <i>keys</i> alone — <c>generateKey</c>, <c>importKey</c> and
-/// <c>exportKey</c> — and a key it makes may carry the <c>deriveKey</c> and <c>deriveBits</c> usages that no
-/// operation on this object consumes. That is not a half-implemented algorithm but the same shape AES-GCM's
-/// <c>wrapKey</c> and <c>unwrapKey</c> usages have always had: the usage bits are checked and split exactly
-/// as the specification says, and the operations that read them are the absent ones above.
+/// The registries are per operation and are not symmetric. <c>HKDF</c> and <c>PBKDF2</c> register
+/// <c>importKey</c>, <c>deriveBits</c> and the internal <c>get key length</c> and nothing else — there is
+/// nothing to <c>generateKey</c> and, their keys being non-extractable by construction, nothing to
+/// <c>exportKey</c>. <c>ECDH</c> registers <c>deriveBits</c> and never <c>sign</c>; <c>ECDSA</c> the reverse.
+/// An AES-GCM key may still carry the <c>wrapKey</c> and <c>unwrapKey</c> usages that no operation here
+/// consumes, which is the one remaining case of a usage bit without an operation behind it.
+/// </para>
+/// <para>
+/// <c>deriveKey</c> is a composition rather than an algorithm: it derives bits with one algorithm and imports
+/// them with another, so the key it hands back is exactly the key <c>importKey</c> would have made from the
+/// same bytes in the <c>raw</c> format.
 /// </para>
 /// <para>
 /// <b>Nothing here ever throws to its caller.</b> WebIDL turns an exception out of a promise-returning
@@ -430,6 +436,20 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                         usages,
                         what);
 
+                case AlgorithmNormalization.Hkdf:
+                    return CreateImportedKey(
+                        HkdfAlgorithm.ImportKey(Context, keyFormat, rawData, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
+
+                case AlgorithmNormalization.Pbkdf2:
+                    return CreateImportedKey(
+                        Pbkdf2Algorithm.ImportKey(Context, keyFormat, rawData, isExtractable, usages, what),
+                        isExtractable,
+                        usages,
+                        what);
+
                 default:
                     return UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
             }
@@ -485,6 +505,201 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
                     return UnhandledAlgorithm(cryptoKey.Algorithm.Name, CryptoOperation.ExportKey);
             }
         });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-deriveBits, whose IDL is
+    /// <c>Promise&lt;ArrayBuffer&gt; deriveBits(AlgorithmIdentifier algorithm, CryptoKey baseKey,
+    /// optional [EnforceRange] unsigned long? length = null)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The declared length is 2, not 3</b>, because WebIDL's <c>length</c> counts the <i>required</i>
+    /// arguments and <c>length</c> has been optional-and-nullable since the specification stopped requiring
+    /// a bit count that ECDH does not need. A browser predating that change answers 3; Node's WebCrypto,
+    /// which has taken the change, answers 2, and so does this.
+    /// </para>
+    /// <para>
+    /// What a null <c>length</c> means is the algorithm's business and the three differ: ECDH returns the
+    /// whole shared secret, and HKDF and PBKDF2 have no natural output size, so their first step is to refuse
+    /// it with an <c>OperationError</c>. A length that is not a multiple of 8 is likewise an
+    /// <c>OperationError</c> for those two and a <i>bit</i>-exact truncation for ECDH, whose steps impose no
+    /// such restriction.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "deriveBits", Length = 2)]
+    private JsValue DeriveBits(JsValue thisObject, JsValue algorithm, JsValue baseKey, JsValue length)
+    {
+        return Perform(thisObject, CryptoOperation.DeriveBits, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(baseKey, what, "parameter 2");
+            var bits = AlgorithmNormalization.ConvertOptionalLength(Context, length, what, "parameter 3");
+
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.DeriveBits, what);
+
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.DeriveBits, "deriveBits", what);
+
+            return Context.CreateArrayBuffer(Derive(normalized, cryptoKey, bits, what));
+        });
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-deriveKey, whose IDL is
+    /// <c>Promise&lt;CryptoKey&gt; deriveKey(AlgorithmIdentifier algorithm, CryptoKey baseKey,
+    /// AlgorithmIdentifier derivedKeyType, boolean extractable, sequence&lt;KeyUsage&gt; keyUsages)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is a composition and not an operation of its own: <b>three</b> normalizations, then a derivation,
+    /// then an import. The <c>algorithm</c> is normalized for <c>deriveBits</c> — there is no "deriveKey"
+    /// registry — and the <c>derivedKeyType</c> is normalized <i>twice</i>, once for <c>importKey</c> and
+    /// once for the internal <c>get key length</c> operation. That second reading is observable: a
+    /// <c>derivedKeyType</c> whose members are getters has each of them called twice, in that order, before
+    /// anything else happens, which is what the specification's steps 4 and 6 say and is the same reason
+    /// every conversion in this file runs before a single algorithm step does.
+    /// </para>
+    /// <para>
+    /// <c>extractable</c> and <c>keyUsages</c> belong to the <b>derived</b> key alone. The base key is
+    /// checked for the <c>deriveKey</c> usage — not <c>deriveBits</c>, even though the bits are what the
+    /// derivation produces — and its own extractability is never consulted, which is what lets a
+    /// non-extractable PBKDF2 password produce an extractable AES-GCM key.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "deriveKey", Length = 5)]
+    private JsValue DeriveKey(
+        JsValue thisObject,
+        JsValue algorithm,
+        JsValue baseKey,
+        JsValue derivedKeyType,
+        JsValue extractable,
+        JsValue keyUsages)
+    {
+        return Perform(thisObject, CryptoOperation.DeriveKey, what =>
+        {
+            var identifier = AlgorithmNormalization.ConvertIdentifier(algorithm);
+            var cryptoKey = RequireCryptoKey(baseKey, what, "parameter 2");
+            var derivedIdentifier = AlgorithmNormalization.ConvertIdentifier(derivedKeyType);
+            var isExtractable = TypeConverter.ToBoolean(extractable);
+            var usages = KeyUsages.ReadSequence(Context, keyUsages, what);
+
+            // Steps 2 to 7, in the specification's order and all three before any step of any algorithm.
+            var normalized = AlgorithmNormalization.Normalize(Context, identifier, CryptoOperation.DeriveBits, what);
+            var normalizedImport = AlgorithmNormalization.Normalize(Context, derivedIdentifier, CryptoOperation.ImportKey, what);
+            var normalizedLength = AlgorithmNormalization.Normalize(Context, derivedIdentifier, CryptoOperation.GetKeyLength, what);
+
+            // Steps 12 and 13: the base key was made for this algorithm, and it permits deriveKey.
+            RequireKeyFor(normalized, cryptoKey, KeyUsage.DeriveKey, "deriveKey", what);
+
+            // Step 14, then step 15.
+            var bits = GetKeyLength(normalizedLength, what);
+            var secret = Derive(normalized, cryptoKey, bits, what);
+
+            // Steps 16 to 19: the derived bytes are imported as though a script had handed them to importKey
+            // in the 'raw' format, so a derived key is exactly as ordinary as an imported one.
+            return ImportDerivedKey(normalizedImport, secret, isExtractable, usages, what);
+        });
+    }
+
+    /// <summary>
+    /// "The derive bits operation specified by normalizedAlgorithm using baseKey, algorithm and length" —
+    /// the one step <c>deriveBits</c> and <c>deriveKey</c> share.
+    /// </summary>
+    private byte[] Derive(NormalizedAlgorithm normalized, JsCryptoKey key, uint? length, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.Ecdh:
+                return EcAlgorithm.DeriveBits(Context, normalized, key, length, what);
+            case AlgorithmNormalization.Hkdf:
+                return HkdfAlgorithm.DeriveBits(Context, normalized, key, length, what);
+            case AlgorithmNormalization.Pbkdf2:
+                return Pbkdf2Algorithm.DeriveBits(Context, normalized, key, length, what);
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.DeriveBits);
+                return null!;
+        }
+    }
+
+    /// <summary>
+    /// "The get key length algorithm specified by normalizedDerivedKeyAlgorithmLength using derivedKeyType" —
+    /// the internal operation https://w3c.github.io/webcrypto/#algorithm-normalization-internal registers
+    /// alongside the script-visible ones.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null"/> is a real answer and not a failure: it is what HKDF and PBKDF2 return, and it
+    /// is then handed to the derive operation as the <c>length</c> argument — so
+    /// <c>deriveKey(ecdhParams, priv, 'HKDF', false, ['deriveBits'])</c> derives the whole shared secret into
+    /// an HKDF key, which is the specification's own worked example, while the same request against a PBKDF2
+    /// base key is the <c>OperationError</c> PBKDF2's first derive step gives a null length.
+    /// </remarks>
+    private uint? GetKeyLength(NormalizedAlgorithm normalized, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.Hmac:
+                return HmacAlgorithm.GetKeyLength(Context, normalized, what);
+            case AlgorithmNormalization.AesGcm:
+                return AesGcmAlgorithm.GetKeyLength(Context, normalized, what);
+            case AlgorithmNormalization.Hkdf:
+                return HkdfAlgorithm.GetKeyLength();
+            case AlgorithmNormalization.Pbkdf2:
+                return Pbkdf2Algorithm.GetKeyLength();
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.GetKeyLength);
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// "The import key operation specified by normalizedDerivedKeyAlgorithmImport using 'raw' as format,
+    /// secret as keyData …" — the tail of <c>deriveKey</c>, which is the body of <c>importKey</c> with the
+    /// format fixed and the key data supplied by the derivation rather than by the caller.
+    /// </summary>
+    /// <remarks>
+    /// Only the four algorithms that also register <c>get key length</c> can arrive here, and not the seven
+    /// that register <c>importKey</c>: step 6 normalizes the same <c>derivedKeyType</c> for that operation
+    /// first, so <c>deriveKey(…, { name: 'RSA-OAEP', hash: 'SHA-256' }, …)</c> is already a
+    /// <c>NotSupportedError</c> by the time anything is derived. An asymmetric key cannot be derived at all,
+    /// which is the registry saying so rather than any step refusing it. Nothing is special-cased for the
+    /// derived case otherwise, so a derived key is the same object an imported one is.
+    /// </remarks>
+    private JsCryptoKey ImportDerivedKey(NormalizedAlgorithm normalized, byte[] secret, bool extractable, KeyUsage usages, string what)
+    {
+        switch (normalized.Name)
+        {
+            case AlgorithmNormalization.Hmac:
+                return CreateSecretKey(
+                    HmacAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, jwk: null, normalized, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.AesGcm:
+                return CreateSecretKey(
+                    AesGcmAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, jwk: null, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.Hkdf:
+                return CreateImportedKey(
+                    HkdfAlgorithm.ImportKey(Context, KeyFormat.Raw, secret, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            case AlgorithmNormalization.Pbkdf2:
+                return CreateImportedKey(
+                    Pbkdf2Algorithm.ImportKey(Context, KeyFormat.Raw, secret, extractable, usages, what),
+                    extractable,
+                    usages,
+                    what);
+
+            default:
+                UnhandledAlgorithm(normalized.Name, CryptoOperation.ImportKey);
+                return null!;
+        }
     }
 
     /// <summary>

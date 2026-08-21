@@ -21,9 +21,9 @@ namespace Jint.WebApi.Crypto;
 /// so that a script-reachable <c>CryptoKey</c> never owns a native key handle. Which class is rehydrated
 /// follows the algorithm the key was made for — <see cref="ECDsa"/> for an ECDSA key and
 /// <see cref="ECDiffieHellman"/> for an ECDH one. The DER is identical either way (both are
-/// <c>id-ecPublicKey</c> with a named curve, and this was verified against the platform), so the split buys
-/// nothing today; it is what makes the derive operations, which need a real
-/// <see cref="ECDiffieHellman"/>, an addition rather than a rewrite.
+/// <c>id-ecPublicKey</c> with a named curve, and this was verified against the platform), and the split is
+/// what lets <c>deriveBits</c> below cast straight to the <see cref="ECDiffieHellman"/> the ECDH primitive
+/// needs.
 /// </para>
 /// <para>
 /// <b>A signature is <c>r || s</c> at fixed field width.</b> "Convert r to a byte sequence of length n and
@@ -63,12 +63,11 @@ namespace Jint.WebApi.Crypto;
 /// does with its minimal-length integers, and the difference is deliberate on both sides.
 /// </para>
 /// <para>
-/// <b>ECDH's <c>deriveKey</c> and <c>deriveBits</c> usages exist and nothing consumes them yet.</b> An ECDH
-/// key generated or imported with them is a perfectly ordinary key that no operation on this
-/// <c>SubtleCrypto</c> accepts, because <c>deriveKey</c> and <c>deriveBits</c> are absent from it — the
-/// situation AES-GCM's <c>wrapKey</c> and <c>unwrapKey</c> usages have been in since AES-GCM landed. The
-/// usage bits are still checked, split and reported exactly as the specification says, so the keys a script
-/// makes today are the keys the derive operations will find when they arrive.
+/// <b>ECDH is the only one of the two that derives.</b> Its <c>deriveBits</c> operation is below; ECDSA has
+/// none, which is why <c>deriveBits({ name: 'ECDSA', … }, …)</c> is a <c>NotSupportedError</c> from the
+/// registry rather than anything this class decides. An ECDH key still carries no <c>sign</c> or
+/// <c>verify</c> usage and an ECDSA key no <c>deriveKey</c> or <c>deriveBits</c> one, so the split the
+/// generate and import steps make is what keeps the two apart from the first line of script.
 /// </para>
 /// </remarks>
 internal static class EcAlgorithm
@@ -610,6 +609,165 @@ internal static class EcAlgorithm
     }
 
     // -------------------------------------------------------------------------------------------------
+    // deriveBits
+    // -------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// https://w3c.github.io/webcrypto/#ecdh-operations-derive-bits — "Perform the ECDH primitive specified
+    /// in [RFC6090] Section 4 … Let secret be a byte sequence containing the result of applying the field
+    /// element to octet string conversion defined in Section 6.2 of [RFC6090] to the output of the ECDH
+    /// primitive."
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The secret is the raw x-coordinate, not a hashed or KDF'd derivative</b>, which is what
+    /// <see cref="ECDiffieHellman.DeriveRawSecretAgreement"/> produces and what the every-other
+    /// <c>DeriveKeyFrom*</c> method on that class deliberately does not — those apply a KDF of their own,
+    /// which would be this engine inventing a derivation the specification does not describe. The raw method
+    /// arrived in .NET 8, which is this feature area's floor anyway.
+    /// </para>
+    /// <para>
+    /// <b>The nine steps run in the specification's order, and the order is observable.</b> A caller passing
+    /// a private key as <c>public</c>, an ECDSA key as <c>public</c>, a public key as <c>baseKey</c>, a
+    /// mismatched curve and an over-long <c>length</c> all earn different errors, and which one a request
+    /// carrying several of those mistakes gets is decided here: the checks on the <c>public</c> member come
+    /// first, then the length ceiling, then the checks on <c>baseKey</c>.
+    /// </para>
+    /// </remarks>
+    internal static byte[] DeriveBits(
+        CryptoContext context,
+        NormalizedAlgorithm normalized,
+        JsCryptoKey key,
+        uint? length,
+        string what)
+    {
+        // Step 1: "Let publicKey be the public member of normalizedAlgorithm."
+        var publicKey = normalized.PublicKey!;
+
+        // Step 2: "If the [[type]] internal slot of publicKey is not 'public', then throw an
+        // InvalidAccessError."
+        if (!string.Equals(publicKey.KeyType, CryptoKeyTypes.Public, StringComparison.Ordinal))
+        {
+            context.ThrowInvalidAccessError(
+                what + ": the public member of the algorithm is a " + publicKey.KeyType + " key, and this operation needs a public one.");
+        }
+
+        // Step 3: "If the name attribute of the [[algorithm]] internal slot of publicKey is not equal to the
+        // name member of normalizedAlgorithm, then throw an InvalidAccessError." An ECDSA key over the very
+        // same curve lands here — the two algorithms share a key encoding and not a purpose.
+        if (!string.Equals(publicKey.Algorithm.Name, normalized.Name, StringComparison.Ordinal))
+        {
+            context.ThrowInvalidAccessError(
+                what + ": the public member of the algorithm is an " + publicKey.Algorithm.Name + " key, not an " + normalized.Name + " one.");
+        }
+
+        // Steps 4 and 5: "Let maximumLength be the length in bits of the output of the field element to octet
+        // string conversion … If length is not null and is greater than maximumLength, then throw an
+        // OperationError." The conversion pads to whole octets, so P-521's maximum is 528 rather than 521.
+        var maximumLength = 8 * FieldSizeInBytes(publicKey.Algorithm.NamedCurve!);
+
+        if (length is { } requested && requested > maximumLength)
+        {
+            context.ThrowOperationError(
+                what + ": a length of " + requested + " bits was asked for, and a shared secret on "
+                + publicKey.Algorithm.NamedCurve + " is " + maximumLength + " bits long.");
+        }
+
+        // Step 6: "If the [[type]] internal slot of key is not 'private', then throw an InvalidAccessError."
+        RequireKeyType(context, key, CryptoKeyTypes.Private, what);
+
+        // Step 7 is already true: the deriveBits method proved the base key's algorithm name equals
+        // normalizedAlgorithm's, and step 3 proved the public key's does, so the two are the same string. It
+        // is written out anyway because the operation is defined to make it, and because that reasoning stops
+        // holding the moment anything reaches these steps by another route.
+        if (!string.Equals(publicKey.Algorithm.Name, key.Algorithm.Name, StringComparison.Ordinal))
+        {
+            context.ThrowInvalidAccessError(
+                what + ": the public member of the algorithm is an " + publicKey.Algorithm.Name + " key and the base key is an "
+                + key.Algorithm.Name + " one.");
+        }
+
+        // Step 8: "If the namedCurve attribute of the [[algorithm]] internal slot of publicKey is not equal
+        // to the namedCurve property of the [[algorithm]] internal slot of key, then throw an
+        // InvalidAccessError." This is the check that stands between a script and a platform
+        // ArgumentException — .NET reports two keys of different sizes that way, which was measured.
+        if (!string.Equals(publicKey.Algorithm.NamedCurve, key.Algorithm.NamedCurve, StringComparison.Ordinal))
+        {
+            context.ThrowInvalidAccessError(
+                what + ": the public key is on the curve " + publicKey.Algorithm.NamedCurve + " and the base key on "
+                + key.Algorithm.NamedCurve + "; an agreement needs one curve.");
+        }
+
+        byte[] secret;
+
+        // Steps 9 and 10: the ECDH primitive, and "If performing the operation results in an error, then
+        // throw an OperationError".
+        using (var privateAlgorithm = CreateFromHandle(context, key, what))
+        using (var publicAlgorithm = CreateFromHandle(context, publicKey, what))
+        {
+            // Both keys were made for ECDH — steps 3 and 7 — and an ECDH key is rehydrated as an
+            // ECDiffieHellman; see the remarks on this class.
+            var privateEcdh = (ECDiffieHellman) privateAlgorithm;
+
+            using var peer = ((ECDiffieHellman) publicAlgorithm).PublicKey;
+
+            try
+            {
+                secret = privateEcdh.DeriveRawSecretAgreement(peer);
+            }
+            catch (Exception e) when (IsDerivationFailure(e))
+            {
+                context.ThrowOperationError(what + ": the shared secret could not be derived.");
+                return null!;
+            }
+        }
+
+        // Step 11: "If length is null: return secret. Otherwise: if the length in bits of secret is less than
+        // length, throw an OperationError; otherwise return a byte sequence containing the first length bits
+        // of secret."
+        if (length is not { } bits)
+        {
+            return secret;
+        }
+
+        if (8L * secret.Length < bits)
+        {
+            // Unreachable: step 5 measured the same curve's field width, and step 8 proved the two keys share
+            // a curve. It is the specification's step and it costs nothing.
+            context.ThrowOperationError(
+                what + ": a length of " + bits + " bits was asked for, and the shared secret is " + (8 * secret.Length) + " bits long.");
+        }
+
+        return FirstBits(secret, bits);
+    }
+
+    /// <summary>
+    /// "A byte sequence containing the first <c>length</c> bits of secret" — <c>ceil(length / 8)</c> bytes,
+    /// with the bits past <c>length</c> in the last one cleared.
+    /// </summary>
+    /// <remarks>
+    /// A length that is not a whole number of bytes is deliberately not refused: the ECDH steps impose no
+    /// such restriction, where HKDF's and PBKDF2's step 1 both do, and truncating to a bit is what the step
+    /// says. Clearing the tail rather than leaving it is what makes the answer a function of
+    /// <c>length</c> alone — the same 230-bit prefix of one secret must be one byte sequence however it was
+    /// asked for.
+    /// </remarks>
+    private static byte[] FirstBits(byte[] secret, uint bits)
+    {
+        var wholeBytes = (int) (bits / 8);
+        var remainder = (int) (bits % 8);
+
+        if (remainder == 0)
+        {
+            return secret.AsSpan(0, wholeBytes).ToArray();
+        }
+
+        var truncated = secret.AsSpan(0, wholeBytes + 1).ToArray();
+        truncated[wholeBytes] &= (byte) (0xFF << (8 - remainder));
+        return truncated;
+    }
+
+    // -------------------------------------------------------------------------------------------------
     // Curves
     // -------------------------------------------------------------------------------------------------
 
@@ -806,6 +964,17 @@ internal static class EcAlgorithm
     /// </summary>
     private static bool IsCryptographicFailure(Exception exception)
         => exception is CryptographicException or PlatformNotSupportedException;
+
+    /// <summary>
+    /// The same two, plus <see cref="ArgumentException"/>, which is how .NET reports two keys of different
+    /// sizes to <see cref="ECDiffieHellman.DeriveRawSecretAgreement"/> ("The keys from both parties must be
+    /// the same size to generate a secret agreement", measured on Windows). The specification's step 8 makes
+    /// that unreachable from <c>deriveBits</c> — but the lesson this file already records for
+    /// <see cref="PlatformNotSupportedException"/> is that guessing which exception type a platform picks is
+    /// how a CLR exception ends up erupting out of a promise-returning operation, and the catch costs nothing.
+    /// </summary>
+    private static bool IsDerivationFailure(Exception exception)
+        => IsCryptographicFailure(exception) || exception is ArgumentException;
 
     private static bool IsEcdh(string algorithmName)
         => string.Equals(algorithmName, AlgorithmNormalization.Ecdh, StringComparison.Ordinal);

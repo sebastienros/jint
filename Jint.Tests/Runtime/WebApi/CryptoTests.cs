@@ -271,23 +271,23 @@ public class CryptoTests
     {
         var engine = WebEngine();
 
-        // `crypto.subtle` exists and answers a SubtleCrypto object. What it carries is the eight operations
-        // over SHA, HMAC and AES-GCM; key derivation and key wrapping are absent rather than
-        // present-and-throwing, because `if (crypto.subtle.deriveBits)` is how a library that does
-        // cryptography decides whether it can, and it has to get the truthful answer — see SubtleCryptoTests
-        // and SubtleCryptoKeyTests for the operations themselves.
+        // `crypto.subtle` exists and answers a SubtleCrypto object. What it carries is the ten operations
+        // over SHA, HMAC, AES-GCM, the RSA family, the elliptic curves, HKDF and PBKDF2; key wrapping is
+        // absent rather than present-and-throwing, because `if (crypto.subtle.wrapKey)` is how a library that
+        // does cryptography decides whether it can, and it has to get the truthful answer — see
+        // SubtleCryptoTests and SubtleCryptoKeyTests for the operations themselves.
         engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
         engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeTrue();
 
         engine.Evaluate("""
-            ['digest', 'encrypt', 'decrypt', 'sign', 'verify', 'generateKey', 'importKey', 'exportKey']
+            ['digest', 'encrypt', 'decrypt', 'sign', 'verify', 'generateKey', 'importKey', 'exportKey', 'deriveBits', 'deriveKey']
                 .map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("function,function,function,function,function,function,function,function");
+            """).AsString().Should().Be(
+                "function,function,function,function,function,function,function,function,function,function");
 
         engine.Evaluate("""
-            ['deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey']
-                .map(name => typeof crypto.subtle[name]).join(',')
-            """).AsString().Should().Be("undefined,undefined,undefined,undefined");
+            ['wrapKey', 'unwrapKey'].map(name => typeof crypto.subtle[name]).join(',')
+            """).AsString().Should().Be("undefined,undefined");
     }
 
     [Fact]

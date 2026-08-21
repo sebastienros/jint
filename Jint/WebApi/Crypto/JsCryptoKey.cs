@@ -33,16 +33,20 @@ internal static class CryptoKeyTypes
 /// dictionary a value describes is decided by which of them are filled in.
 /// </para>
 /// <para>
-/// <b>Two of the six are discriminators</b>, and they are tested in this order, because the dictionaries
+/// <b>Three of the six are discriminators</b>, and they are tested in this order, because the dictionaries
 /// they name carry none of the other members at all:
 /// </para>
 /// <list type="number">
 /// <item>
+/// A <see cref="Name"/> of <c>HKDF</c> or <c>PBKDF2</c> means the bare <c>KeyAlgorithm</c> — a <c>name</c>
+/// and nothing else. It is the one case the other members cannot decide, because every one of them is unset:
+/// for those two algorithms the hash, the salt and the iteration count all belong to each <i>derivation</i>
+/// rather than to the key, so there is nothing left to describe. It is tested first for that reason.
+/// </item>
+/// <item>
 /// <see cref="NamedCurve"/> non-null means an <c>EcKeyAlgorithm</c>: <see cref="Length"/>,
 /// <see cref="HashName"/>, <see cref="ModulusLength"/> and <see cref="PublicExponent"/> are all unused, an
-/// EC key being described by its curve and nothing else. It is tested first precisely because it is the one
-/// dictionary that fills in <i>only</i> its own member — an <c>AesKeyAlgorithm</c> is what a null
-/// <see cref="HashName"/> would otherwise be read as.
+/// EC key being described by its curve and nothing else.
 /// </item>
 /// <item>
 /// <see cref="PublicExponent"/> non-null means an <c>RsaHashedKeyAlgorithm</c>: <see cref="Length"/> is
@@ -50,7 +54,7 @@ internal static class CryptoKeyTypes
 /// </item>
 /// </list>
 /// <para>
-/// With neither set the key is symmetric, and a null <see cref="HashName"/> then separates an
+/// With none of them set the key is symmetric, and a null <see cref="HashName"/> then separates an
 /// <c>AesKeyAlgorithm</c> from an <c>HmacKeyAlgorithm</c>.
 /// </para>
 /// </remarks>
@@ -253,7 +257,11 @@ internal sealed class JsCryptoKey : ObjectInstance
         var name = JsString.Create(Algorithm.Name);
 
         // The discriminators, in the order the remarks on CryptoKeyAlgorithm give them.
-        if (Algorithm.NamedCurve is { } namedCurve)
+        if (IsBareKeyAlgorithm(Algorithm.Name))
+        {
+            _algorithmCached = JsObject.Create(_engine, _keyAlgorithmLayout, [name]);
+        }
+        else if (Algorithm.NamedCurve is { } namedCurve)
         {
             _algorithmCached = JsObject.Create(_engine, _ecKeyAlgorithmLayout, [name, JsString.Create(namedCurve)]);
         }
@@ -277,6 +285,16 @@ internal sealed class JsCryptoKey : ObjectInstance
 
         return _algorithmCached;
     }
+
+    /// <summary>
+    /// The two algorithms whose <c>[[algorithm]]</c> is the bare <c>KeyAlgorithm</c> — see the first
+    /// discriminator in the remarks on <see cref="CryptoKeyAlgorithm"/>. Their import steps say "Let
+    /// algorithm be a new KeyAlgorithm object. Set the name attribute of algorithm to 'HKDF' [or 'PBKDF2']"
+    /// and stop there.
+    /// </summary>
+    private static bool IsBareKeyAlgorithm(string name)
+        => string.Equals(name, AlgorithmNormalization.Hkdf, StringComparison.Ordinal)
+        || string.Equals(name, AlgorithmNormalization.Pbkdf2, StringComparison.Ordinal);
 
     /// <summary>
     /// A <c>BigInteger</c> — https://w3c.github.io/webcrypto/#big-integer, which is
