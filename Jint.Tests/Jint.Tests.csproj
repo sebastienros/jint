@@ -15,6 +15,22 @@
     <EmbeddedResource Include="Runtime\WebApi\Resources\*.json" />
   </ItemGroup>
 
+  <!--
+    The web-platform-tests corpus and the harness shim that runs it. Both carry an explicit LogicalName so
+    the resource key is the file's path in the wpt tree ("wpt/url/resources/urltestdata.json"), which is what
+    a suite's own `fetch("resources/urltestdata.json")` and its `// META: script=/common/...` lines resolve
+    against. The default naming would collapse the directory separators into the same dots the file names
+    already contain, and "wpt.url.url-constructor.any.js" cannot be turned back into a path.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Wpt\Vendor\**\*.js;Wpt\Vendor\**\*.json">
+      <LogicalName>wpt/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Wpt\Prelude\*.js">
+      <LogicalName>wpt-prelude/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>

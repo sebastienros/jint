@@ -19,3 +19,8 @@ Jint.Tests.Test262/** linguist-vendored
 # would change the cache key (hashFiles) and the MSBuild regeneration gate, turning every
 # cross-OS cache restore into a full regeneration.
 Jint.Tests.Test262/Test262Harness.settings.json text eol=lf
+
+# The vendored web-platform-tests corpus is copied verbatim from a pinned upstream commit and is meant to
+# stay byte-identical to it, so that re-fetching at the same SHA produces no diff and the pin means what it
+# says. Upstream is LF, so pin the working tree to LF too rather than letting autocrlf rewrite it.
+Jint.Tests/Wpt/Vendor/** text eol=lf
