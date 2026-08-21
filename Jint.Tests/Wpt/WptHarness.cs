@@ -37,10 +37,12 @@ internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, strin
 /// to enable and therefore shims <c>setTimeout</c> onto the event loop itself — this driver enables
 /// <see cref="WebApiFeatures.Timers"/> and installs no timer of its own, so a suite that schedules one
 /// exercises the shipped <c>TimerQueue</c> and HTML's ordering rather than a second implementation written
-/// for the harness. Nothing in the corpus at the pinned commit uses a timer, so today the decision costs
-/// nothing and buys the guarantee that it stays true when one starts to. The clock is
-/// <see cref="TimeProvider.System"/> and the drive loop below is what pumps it: a timer fires on a
-/// <c>ProcessTasks</c> at or after its due time, exactly as it does for an embedder.
+/// for the harness. The streams corpus is what cashed that in: it reaches for <c>step_timeout</c> — the shim
+/// forwards it straight onto the engine's <c>setTimeout</c> — at 45 sites, through <c>delay()</c> and
+/// <c>flushAsyncEvents()</c> in <c>streams/resources/test-utils.js</c> and directly, so several hundred of
+/// its assertions are decided by the queue's own ordering. The clock is <see cref="TimeProvider.System"/> and
+/// the drive loop below is what pumps it: a timer fires on a <c>ProcessTasks</c> at or after its due time,
+/// exactly as it does for an embedder.
 /// </para>
 /// <para>
 /// <b>Variants are not sharded.</b> A <c>// META: variant=?1-1000</c> line splits a suite across browser

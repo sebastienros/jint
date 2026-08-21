@@ -87,6 +87,14 @@ public class WptHarnessTests
     [InlineData("assert_own_property({ x: 1 }, 'x')", "assert_own_property({}, 'x')")]
     // Own, so a property reached through the prototype chain does not satisfy it.
     [InlineData("assert_own_property([], 'length')", "assert_own_property(Object.create({ x: 1 }), 'x')")]
+    [InlineData("assert_greater_than(2, 1)", "assert_greater_than(1, 2)")]
+    // Strictly greater, so equal is not greater.
+    [InlineData("assert_greater_than(0, -1)", "assert_greater_than(1, 1)")]
+    // The type check is upstream's and is not decoration: `undefined > 0` is false, so without it the failure
+    // would name the comparison rather than the value that could never have satisfied one, and `'10' > 9` is
+    // true, so a string would pass a numeric assertion outright.
+    [InlineData("assert_greater_than(10, 9)", "assert_greater_than('10', 9)")]
+    [InlineData("assert_greater_than(1, 0)", "assert_greater_than(undefined, 0)")]
     public void AnAssertionRecordsBothOutcomes(string passing, string failing)
     {
         StatusOf($"test(() => {{ {passing} }}, 'row');").Should().Be("PASS");
@@ -223,6 +231,8 @@ public class WptHarnessTests
         MessageOf("assert_own_property({}, 'x')").Should().Be("expected property \"x\" missing");
         MessageOf("assert_class_string([], 'URL')").Should().Be("expected \"[object URL]\" but got \"[object Array]\"");
         MessageOf("assert_in_array(4, [1, 2, 3])").Should().Be("value 4 not in array [1, 2, 3]");
+        MessageOf("assert_greater_than(1, 2, 'why')").Should().Be("expected a number greater than 2 but got 1 (why)");
+        MessageOf("assert_greater_than('10', 9)").Should().Be("expected a number but got a string");
     }
 
     [Fact]
@@ -536,6 +546,197 @@ public class WptHarnessTests
 
         outcome.HarnessError.Should().BeNull();
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS");
+    }
+
+    [Fact]
+    public void StepTimeoutSchedulesOnTheEnginesOwnTimerRatherThanOnAHarnessOne()
+    {
+        // The streams corpus reaches for `step_timeout` 45 times, through `delay()` in
+        // resources/test-utils.js and directly. It has to be the shipped TimerQueue that runs the callback,
+        // or the suites would be exercising a second implementation written for the harness — so the
+        // assertion is on the id `setTimeout` handed back, which `clearTimeout` then has to recognise. A
+        // harness-private queue would satisfy neither half.
+        var outcome = Run("""
+            var cancelled = false;
+            var id = step_timeout(() => { cancelled = true; }, 0);
+            clearTimeout(id);
+            promise_test(() => new Promise(resolve => step_timeout(resolve, 1))
+                .then(() => new Promise(resolve => step_timeout(resolve, 1)))
+                .then(() => assert_false(cancelled, 'the engine cleared the timer step_timeout created')),
+                'row');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Fact]
+    public void StepTimeoutForwardsTheArgumentsAfterTheDelay()
+    {
+        var outcome = Run("""
+            var t = async_test('async');
+            step_timeout(t.step_func((a, b) => {
+                assert_equals(a, 'first');
+                assert_equals(b, 'second');
+                t.done();
+            }), 0, 'first', 'second');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Fact]
+    public void TheTestBoundStepTimeoutFailsItsOwnTestRatherThanEruptingIntoThePump()
+    {
+        // `t.step_timeout` is what the corpus actually uses (42 of the 45 sites). The whole difference from
+        // the bare form is that the callback runs as a step of the test, so a throw is recorded against it —
+        // where a raw setTimeout callback would erupt out of whatever happened to be pumping the event loop
+        // and be reported as a harness error for the file.
+        var outcome = Run("""
+            var t = async_test('async');
+            t.step_timeout(() => { assert_true(false, 'inside the timer'); t.done(); }, 0);
+            t.step_timeout(() => t.done(), 1);
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("inside the timer");
+    }
+
+    [Fact]
+    public void TheTestBoundStepTimeoutForwardsItsArgumentsAndRunsWithTheTestAsThis()
+    {
+        var outcome = Run("""
+            var t = async_test('async');
+            t.step_timeout(function (a) {
+                assert_equals(this, t, 'the callback runs with the test as `this`');
+                assert_equals(a, 'forwarded');
+                this.done();
+            }, 0, 'forwarded');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Theory]
+    [InlineData("test(t => { t.add_cleanup(() => { globalThis.ran = true; }); }, 'row');")]
+    [InlineData("promise_test(t => { t.add_cleanup(() => { globalThis.ran = true; }); return Promise.resolve(); }, 'row');")]
+    [InlineData("var t = async_test('row'); t.add_cleanup(() => { globalThis.ran = true; }); t.done();")]
+    public void ACleanupRunsWhateverKindOfTestRegisteredIt(string registration)
+    {
+        // The streams corpus makes this load-bearing rather than tidy: its `patched-global` suites replace
+        // `Object.prototype.then`, `Promise.prototype.then` and `ReadableStream` itself, so a cleanup that
+        // did not run would take every later test in the file down with it. All three entry points funnel
+        // through Test.prototype.complete, and this is what would catch one of them growing its own path.
+        // The check is itself a promise_test so that it is reached after the registration above has finished
+        // — a plain test() runs at file scope, which is before a promise_test's body has run at all.
+        var outcome = Run(
+            $"globalThis.ran = false;\n{registration}\npromise_test(() => {{ assert_true(globalThis.ran); return Promise.resolve(); }}, 'cleanup ran');");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Last().Status.Should().Be("PASS", outcome.Results.Last().Message);
+    }
+
+    [Fact]
+    public void ACleanupRunsBeforeTheNextTestSeesTheGlobalItRestored()
+    {
+        // Ordering, not merely "it ran at some point": the restoration has to be complete by the time the
+        // next test in the file starts, which is the property `patched-global.any.js` depends on.
+        var outcome = Run("""
+            var original = Object.prototype.toString;
+            test(t => {
+                t.add_cleanup(() => { Object.prototype.toString = original; });
+                Object.prototype.toString = () => 'patched';
+                assert_equals({}.toString(), 'patched');
+            }, 'patches');
+            test(() => assert_equals(Object.prototype.toString, original), 'sees it restored');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS");
+    }
+
+    [Fact]
+    public void EveryCleanupRunsEvenWhenAnEarlierOneThrows()
+    {
+        // They undo *different* pieces of shared state, so skipping the rest would poison the file exactly as
+        // not running them at all would. The throw is attributed to the test that registered it, and only
+        // because that test was otherwise passing.
+        var outcome = Run("""
+            globalThis.second = false;
+            test(t => {
+                t.add_cleanup(() => { throw new Error('cleanup blew up'); });
+                t.add_cleanup(() => { globalThis.second = true; });
+            }, 'row');
+            test(() => assert_true(globalThis.second), 'the second cleanup ran anyway');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("cleanup blew up");
+        outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
+    }
+
+    [Fact]
+    public void AThrowingCleanupDoesNotReplaceTheFailureThatExplainsTheTest()
+    {
+        // A test that failed and then left wreckage behind must still report what it was that failed, or the
+        // exclusion table would be triaged from the wrong message.
+        var outcome = Run("""
+            test(t => {
+                t.add_cleanup(() => { throw new Error('cleanup blew up'); });
+                assert_equals('got', 'want', 'the real failure');
+            }, 'row');
+            """);
+
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Be("expected \"want\" but got \"got\" (the real failure)");
+    }
+
+    [Fact]
+    public void ACleanupRunsOnceRatherThanOncePerCompletionAttempt()
+    {
+        // `done()` calls `complete()`, and a suite may call `done()` twice; a cleanup that restored a saved
+        // value would be harmless run twice, but one that counts, closes or releases is not. What this pins
+        // is the phase guard in `complete()`, which is the only thing between the two calls.
+        var outcome = Run("""
+            globalThis.runs = 0;
+            var t = async_test('row');
+            t.add_cleanup(() => { globalThis.runs += 1; });
+            t.done();
+            t.done();
+            test(() => assert_equals(globalThis.runs, 1), 'ran once');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
+    }
+
+    [Fact]
+    public void ACleanupRunsWhenTheTestFinishesRatherThanWhenItFails()
+    {
+        // An async test goes on running steps after one of them has failed, so *when* the cleanup runs is a
+        // contract and not an implementation detail: undoing the patch at the first failure would change what
+        // every later step of that test is looking at. Hanging the call off `record()` — which `fail()` also
+        // calls — is the plausible mistake, and it is exactly what this rules out.
+        var outcome = Run("""
+            globalThis.ran = false;
+            var t = async_test('row');
+            t.add_cleanup(() => { globalThis.ran = true; });
+            t.step(() => assert_true(false, 'deliberate'));
+            var duringTest = globalThis.ran;
+            t.done();
+            test(() => {
+                assert_false(duringTest, 'the cleanup must not run at the moment of failure');
+                assert_true(globalThis.ran, 'and it must have run by the time the test is done');
+            }, 'ordering');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
     }
 
     [Fact]

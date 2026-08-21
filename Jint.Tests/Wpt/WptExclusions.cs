@@ -17,12 +17,25 @@ internal enum WptDivergence
     NeedsLegacyMultiByteEncodings,
 
     /// <summary>
-    /// The test obtains its <c>SharedArrayBuffer</c> constructor through <c>WebAssembly.Memory</c>, which is
-    /// what <c>common/sab.js</c> does — deliberately, so that a browser gated by cross-origin isolation
-    /// still gets one. Jint has <c>SharedArrayBuffer</c> but no <c>WebAssembly</c>, so the helper hands back
+    /// <para>
+    /// The test needs <c>WebAssembly</c>, in one of the two ways a corpus reaches for it. The encoding suites
+    /// obtain their <c>SharedArrayBuffer</c> constructor through <c>WebAssembly.Memory</c>, which is what
+    /// <c>common/sab.js</c> does — deliberately, so that a browser gated by cross-origin isolation still gets
+    /// one. Jint has <c>SharedArrayBuffer</c> but no <c>WebAssembly</c>, so the helper hands back
     /// <see langword="null"/> and every SAB-backed case of the file fails in the helper rather than in the
-    /// code under test. WebAssembly is out of scope for an interpreter, so this is the corpus meeting an
-    /// environment it was not written for rather than a gap to close.
+    /// code under test.
+    /// </para>
+    /// <para>
+    /// <c>streams/readable-byte-streams/non-transferable-buffers.any.js</c> is the second way: a
+    /// <c>WebAssembly.Memory</c> buffer is the only <c>ArrayBuffer</c> a script can obtain that cannot be
+    /// transferred, and the file exists to check that a byte stream refuses one. What the engine does with a
+    /// buffer it cannot take is covered by <c>bad-buffers-and-views.any.js</c> and
+    /// <c>enqueue-with-detached-buffer.any.js</c>, which pass.
+    /// </para>
+    /// <para>
+    /// WebAssembly is out of scope for an interpreter, so this is the corpus meeting an environment it was
+    /// not written for rather than a gap to close.
+    /// </para>
     /// </summary>
     NeedsWebAssembly,
 
@@ -129,6 +142,21 @@ internal enum WptDivergence
     NeedsSecureContextModel,
 
     /// <summary>
+    /// The test names one of the Streams Standard's interface objects as a <b>global</b>. Jint installs only
+    /// the five a script constructs by name — <c>ReadableStream</c>, <c>WritableStream</c>,
+    /// <c>TransformStream</c>, <c>ByteLengthQueuingStrategy</c>, <c>CountQueuingStrategy</c> — and leaves the
+    /// readers, the writer, the four controllers and <c>ReadableStreamBYOBRequest</c> reachable only as
+    /// <c>Object.getPrototypeOf(stream.getReader()).constructor</c> and its siblings, which is where an
+    /// <c>instanceof</c> check and a prototype patch go. That reduction is documented on
+    /// <c>ReadableStreamDefaultReaderConstructor</c> and in <c>README.md</c>; a browser exposes all of them,
+    /// so this is a deliberate difference rather than a gap the corpus discovered. The whole of
+    /// <c>construct-byob-request.any.js</c> is out for it (it reads two of them at file scope, so there is no
+    /// test left to exclude) and seven rows of <c>default-reader.any.js</c> are named individually — the other
+    /// 22 rows of that file obtain the interface through the prototype chain and pass.
+    /// </summary>
+    NeedsStreamInterfaceGlobals,
+
+    /// <summary>
     /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
     /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
     /// suites up deliberately recorded them rather than fixing them: the point was to find out what they
@@ -148,7 +176,29 @@ internal enum WptDivergence
     /// rather than the prose's, so https://github.com/sebastienros/jint/issues/3180 made
     /// <c>EcAlgorithm.DeriveBits</c> run the key-agreement checks before the <i>maximumLength</i> ceiling,
     /// documenting the divergence on itself and raising it upstream as
-    /// https://github.com/w3c/webcrypto/issues/560. The category is empty today, which is what it wants to be.
+    /// https://github.com/w3c/webcrypto/issues/560.
+    /// <para>
+    /// <b>The streams corpus filed five more, and they are the category's whole contents today.</b> Each is
+    /// analysed in <c>Vendor/README.md</c>; in one line apiece:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// The async iterator prototype's <c>next</c> and <c>return</c> are not enumerable, where
+    /// https://webidl.spec.whatwg.org/#js-asynchronous-iterator-prototype-object gives both
+    /// <c>{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }</c>.
+    /// </description></item>
+    /// <item><description>
+    /// Three rows across <c>transform-streams/errors.any.js</c> and <c>general.any.js</c> in which the promise
+    /// <c>readable.cancel()</c> returned <i>rejects</i> with the writable side's error where
+    /// https://streams.spec.whatwg.org/#transform-stream-default-source-cancel fulfils it — one defect seen
+    /// from three angles (<c>writer.abort()</c>, <c>controller.error()</c>, <c>controller.terminate()</c>).
+    /// </description></item>
+    /// <item><description>
+    /// <c>piping/general-addition.any.js</c>: an <c>enqueue()</c> on the source of a running <c>pipeTo()</c>
+    /// reaches the sink's <c>write</c> synchronously, where https://streams.spec.whatwg.org/#rs-pipe-to reads
+    /// the chunk in a reaction to the reader's promise and can never be synchronous with the enqueue.
+    /// </description></item>
+    /// </list>
     /// </summary>
     NeedsTriage,
 }

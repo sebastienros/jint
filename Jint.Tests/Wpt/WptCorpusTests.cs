@@ -22,6 +22,8 @@ public class WptCorpusTests
     // Dot segments are resolved rather than taken literally.
     [InlineData("url/resources", "./urltestdata.json", "url/resources/urltestdata.json")]
     [InlineData("url/resources", "../url-tojson.any.js", "url/url-tojson.any.js")]
+    // Which is the shape every streams suite's META lines have: out of the sub-directory and into resources/.
+    [InlineData("streams/piping", "../resources/test-utils.js", "streams/resources/test-utils.js")]
     public void AReferenceResolvesToAPathInTheTree(string directory, string reference, string expected)
         => WptCorpus.ResolveReference(directory, reference).Should().Be(expected);
 
@@ -52,6 +54,10 @@ public class WptCorpusTests
     [InlineData("Invalid *: *, backed by: SharedArrayBuffer", "Invalid destination: Int8Array, backed by: SharedArrayBuffer", true)]
     [InlineData("a*b*c", "abababc", true)]
     [InlineData("a*b*c", "ababab", false)]
+    // A lone star is every name, which is what an exclusion over a whole file spells. It is only safe
+    // because the driver still refuses it if any test in that file passes.
+    [InlineData("*", "anything", true)]
+    [InlineData("*", "", true)]
     public void AnExclusionMatchesExactlyWhatItsPatternSays(string pattern, string testName, bool expected)
         => WptExclusion.MatchesPattern(pattern, testName).Should().Be(expected);
 }

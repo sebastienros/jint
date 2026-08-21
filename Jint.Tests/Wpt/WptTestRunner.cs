@@ -6,8 +6,8 @@ using System.Text;
 namespace Jint.Tests.Wpt;
 
 /// <summary>
-/// Runs the vendored web-platform-tests suites for the URL, Encoding and Web Cryptography standards, one
-/// theory case per <c>.any.js</c> file, under the harness shim in <c>Prelude/testharness-shim.js</c>.
+/// Runs the vendored web-platform-tests suites for the URL, Encoding, Web Cryptography and Streams standards,
+/// one theory case per <c>.any.js</c> file, under the harness shim in <c>Prelude/testharness-shim.js</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,13 +25,14 @@ namespace Jint.Tests.Wpt;
 /// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
 /// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
-/// https://github.com/sebastienros/jint/issues/3180. The category holds nothing today.
+/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed;
+/// <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
-/// <b>The WebCryptoAPI corpus is one suite per directory</b> rather than one for the lot, because
-/// <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is deliberate:
-/// a suite is a theory, a theory is a line in a test report, and eight of them tell a reader which operation
-/// went red where one would not.
+/// <b>The WebCryptoAPI and streams corpora are one suite per directory</b> rather than one for the lot,
+/// because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is
+/// deliberate: a suite is a theory, a theory is a line in a test report, and fourteen of them tell a reader
+/// which operation went red where two would not.
 /// </para>
 /// </remarks>
 public class WptTestRunner
@@ -94,6 +95,29 @@ public class WptTestRunner
         ("WebCryptoAPI/secure_context/*", "a .sub.html test for a browsing context"),
         ("WebCryptoAPI/import_export/crashtests/*", "a crashtest rather than an assertion"),
         ("WebCryptoAPI/tools/*", "the corpus's own generator, not a test"),
+
+        // ---------------------------------------------------------------- streams
+        // Transferring a stream through postMessage() is the one part of the Streams Standard Jint does not
+        // implement, there being nothing to transfer it to; the directory is worker, iframe and service-worker
+        // plumbing on top of that. https://github.com/sebastienros/jint/issues/3186 is where it lives.
+        ("streams/transferable/*", "transfers a stream through a MessagePort, issue #3186"),
+
+        // Upstream's ".tentative" marker again, this time without the ".https." the WebCryptoAPI files carry:
+        // the owning-type readable streams, a proposal the Streams Standard has not adopted.
+        ("*.tentative.any.js", "tests a proposal the specification has not adopted"),
+
+        // Crash reproductions rather than assertions, the same reason WebCryptoAPI's crashtests are out.
+        ("streams/*/crashtests/*", "a crashtest rather than an assertion"),
+
+        // The file reads ReadableByteStreamController.prototype and calls `new ReadableStreamBYOBRequest(…)`
+        // at file scope. Neither interface object is a global in Jint — the documented reduction is that only
+        // the five interfaces a script constructs by name are installed (README.md, "Streams, including byte
+        // streams") — so the file throws a ReferenceError before registering a single test. A harness error is
+        // for the whole file and no per-test exclusion can name it, which is what puts this row here rather
+        // than in the exclusion table beside default-reader.any.js's seven rows, which fail for the same
+        // reason but inside test bodies.
+        ("streams/readable-byte-streams/construct-byob-request.any.js",
+            "reads the interface objects as globals at file scope; Jint installs only the five constructible ones"),
     ];
 
     /// <summary>
@@ -200,6 +224,76 @@ public class WptTestRunner
         ["WebCryptoAPI/sign_verify/rsa_pss.https.any.js"] = 140,
 
         ["WebCryptoAPI/wrapKey_unwrapKey/wrapKey_unwrapKey.https.any.js"] = 230,
+
+        ["streams/queuing-strategies.any.js"] = 18,
+
+        ["streams/readable-streams/async-iterator.any.js"] = 36,
+        ["streams/readable-streams/bad-strategies.any.js"] = 8,
+        ["streams/readable-streams/bad-underlying-sources.any.js"] = 19,
+        ["streams/readable-streams/cancel.any.js"] = 11,
+        ["streams/readable-streams/constructor.any.js"] = 1,
+        ["streams/readable-streams/count-queuing-strategy-integration.any.js"] = 4,
+        ["streams/readable-streams/default-reader.any.js"] = 26,
+        ["streams/readable-streams/floating-point-total-queue-size.any.js"] = 4,
+        ["streams/readable-streams/from.any.js"] = 45,
+        ["streams/readable-streams/garbage-collection.any.js"] = 5,
+        ["streams/readable-streams/general.any.js"] = 34,
+        ["streams/readable-streams/patched-global.any.js"] = 5,
+        ["streams/readable-streams/reentrant-strategies.any.js"] = 10,
+        ["streams/readable-streams/tee.any.js"] = 23,
+        ["streams/readable-streams/templated.any.js"] = 81,
+
+        ["streams/readable-byte-streams/bad-buffers-and-views.any.js"] = 21,
+        ["streams/readable-byte-streams/enqueue-with-detached-buffer.any.js"] = 1,
+        ["streams/readable-byte-streams/general.any.js"] = 90,
+        ["streams/readable-byte-streams/non-transferable-buffers.any.js"] = 4,
+        ["streams/readable-byte-streams/patched-global.any.js"] = 1,
+        ["streams/readable-byte-streams/read-min.any.js"] = 21,
+        ["streams/readable-byte-streams/respond-after-enqueue.any.js"] = 3,
+        ["streams/readable-byte-streams/tee.any.js"] = 36,
+        ["streams/readable-byte-streams/templated.any.js"] = 30,
+
+        ["streams/writable-streams/aborting.any.js"] = 58,
+        ["streams/writable-streams/bad-strategies.any.js"] = 7,
+        ["streams/writable-streams/bad-underlying-sinks.any.js"] = 14,
+        ["streams/writable-streams/byte-length-queuing-strategy.any.js"] = 1,
+        ["streams/writable-streams/close.any.js"] = 23,
+        ["streams/writable-streams/constructor.any.js"] = 13,
+        ["streams/writable-streams/count-queuing-strategy.any.js"] = 3,
+        ["streams/writable-streams/error.any.js"] = 5,
+        ["streams/writable-streams/floating-point-total-queue-size.any.js"] = 4,
+        ["streams/writable-streams/garbage-collection.any.js"] = 1,
+        ["streams/writable-streams/general.any.js"] = 16,
+        ["streams/writable-streams/properties.any.js"] = 8,
+        ["streams/writable-streams/reentrant-strategy.any.js"] = 7,
+        ["streams/writable-streams/start.any.js"] = 8,
+        ["streams/writable-streams/write.any.js"] = 13,
+
+        ["streams/transform-streams/backpressure.any.js"] = 14,
+        ["streams/transform-streams/cancel.any.js"] = 11,
+        ["streams/transform-streams/errors.any.js"] = 18,
+        ["streams/transform-streams/flush.any.js"] = 6,
+        ["streams/transform-streams/general.any.js"] = 23,
+        ["streams/transform-streams/lipfuzz.any.js"] = 18,
+        ["streams/transform-streams/patched-global.any.js"] = 2,
+        ["streams/transform-streams/properties.any.js"] = 6,
+        ["streams/transform-streams/reentrant-strategies.any.js"] = 11,
+        ["streams/transform-streams/strategies.any.js"] = 10,
+        ["streams/transform-streams/terminate.any.js"] = 6,
+
+        ["streams/piping/abort.any.js"] = 29,
+        ["streams/piping/close-propagation-backward.any.js"] = 16,
+        ["streams/piping/close-propagation-forward.any.js"] = 27,
+        ["streams/piping/error-propagation-backward.any.js"] = 31,
+        ["streams/piping/error-propagation-forward.any.js"] = 28,
+        ["streams/piping/flow-control.any.js"] = 5,
+        ["streams/piping/general-addition.any.js"] = 1,
+        ["streams/piping/general.any.js"] = 14,
+        ["streams/piping/multiple-propagation.any.js"] = 9,
+        ["streams/piping/pipe-through.any.js"] = 38,
+        ["streams/piping/then-interception.any.js"] = 2,
+        ["streams/piping/throwing-options.any.js"] = 8,
+        ["streams/piping/transform-streams.any.js"] = 1,
     };
 
     /// <summary>
@@ -473,6 +567,47 @@ public class WptTestRunner
         new("WebCryptoAPI/generateKey/failures_RSASSA-PKCS1-v1_5.https.any.js", "Bad usages: *apsulate*", WptDivergence.NeedsKeyEncapsulation),
         new("WebCryptoAPI/import_export/ec_importKey_failures_ECDH.https.any.js", "Bad usages: *apsulate*", WptDivergence.NeedsKeyEncapsulation),
         new("WebCryptoAPI/import_export/ec_importKey_failures_ECDSA.https.any.js", "Bad usages: *apsulate*", WptDivergence.NeedsKeyEncapsulation),
+
+        // ---------------------------------------------------------------- streams
+        // Seven rows of one file, each reaching for the `ReadableStreamDefaultReader` global. Named one at a
+        // time rather than globbed: the file's other 22 rows obtain the same interface as
+        // `stream.getReader().constructor` and pass, and two of these seven do reach an assertion — they fail
+        // it with "expected TypeError but got object ReferenceError" rather than with a bare ReferenceError,
+        // which is what a glob over the name would have hidden.
+        new("streams/readable-streams/default-reader.any.js",
+            "ReadableStreamDefaultReader constructor should get a ReadableStream object as argument", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "ReadableStreamDefaultReader closed should always return the same promise object", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "Getting a ReadableStreamDefaultReader via getReader should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via getReader)", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is closed", WptDivergence.NeedsStreamInterfaceGlobals),
+        new("streams/readable-streams/default-reader.any.js",
+            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is errored", WptDivergence.NeedsStreamInterfaceGlobals),
+
+        // The whole file: it obtains a non-transferable ArrayBuffer from WebAssembly.Memory, which is the only
+        // way to get one, so every row fails in the fixture rather than in the code under test. The engine's
+        // own refusal of a detached or non-transferable buffer is covered by bad-buffers-and-views.any.js and
+        // enqueue-with-detached-buffer.any.js, which both pass.
+        new("streams/readable-byte-streams/non-transferable-buffers.any.js", "*", WptDivergence.NeedsWebAssembly),
+
+        // Four genuine defects the corpus found, recorded rather than fixed — see WptDivergence.NeedsTriage
+        // for why the change that first runs a suite is not the change that moves the engine, and
+        // Vendor/README.md for the analysis of each.
+        new("streams/readable-streams/async-iterator.any.js",
+            "Async iterator instances should have the correct list of properties", WptDivergence.NeedsTriage),
+        new("streams/transform-streams/errors.any.js",
+            "abort should set the close reason for the writable when it happens before cancel during start, and cancel should reject", WptDivergence.NeedsTriage),
+        new("streams/transform-streams/errors.any.js",
+            "controller.error() should close writable immediately after readable.cancel()", WptDivergence.NeedsTriage),
+        new("streams/transform-streams/general.any.js",
+            "terminate() should abort writable immediately after readable.cancel()", WptDivergence.NeedsTriage),
+        new("streams/piping/general-addition.any.js",
+            "enqueue() must not synchronously call write algorithm", WptDivergence.NeedsTriage),
     ];
 
     public static IEnumerable<object[]> UrlSuiteFiles() => Cases("url");
@@ -511,6 +646,33 @@ public class WptTestRunner
     public static IEnumerable<object[]> WebCryptoSignVerifySuiteFiles() => Cases("WebCryptoAPI/sign_verify");
 
     public static IEnumerable<object[]> WebCryptoWrapKeySuiteFiles() => Cases("WebCryptoAPI/wrapKey_unwrapKey");
+
+    /// <summary>
+    /// The Streams Standard's corpus, split the same way the WebCryptoAPI one is: the root files are a suite
+    /// and each sub-directory is another, because <see cref="WptCorpus.TestFiles"/> lists a directory's own
+    /// files and never descends. <c>transferable/</c> is not among them — see <see cref="_notVendored"/>.
+    /// </summary>
+    private static readonly string[] _streamsSuites =
+    [
+        "streams",
+        "streams/readable-streams",
+        "streams/readable-byte-streams",
+        "streams/writable-streams",
+        "streams/transform-streams",
+        "streams/piping",
+    ];
+
+    public static IEnumerable<object[]> StreamsSuiteFiles() => Cases("streams");
+
+    public static IEnumerable<object[]> ReadableStreamsSuiteFiles() => Cases("streams/readable-streams");
+
+    public static IEnumerable<object[]> ReadableByteStreamsSuiteFiles() => Cases("streams/readable-byte-streams");
+
+    public static IEnumerable<object[]> WritableStreamsSuiteFiles() => Cases("streams/writable-streams");
+
+    public static IEnumerable<object[]> TransformStreamsSuiteFiles() => Cases("streams/transform-streams");
+
+    public static IEnumerable<object[]> StreamsPipingSuiteFiles() => Cases("streams/piping");
 
     [Theory]
     [MemberData(nameof(UrlSuiteFiles))]
@@ -551,6 +713,30 @@ public class WptTestRunner
     [Theory]
     [MemberData(nameof(WebCryptoWrapKeySuiteFiles))]
     public void RunsTheWebCryptoWrapKeySuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(StreamsSuiteFiles))]
+    public void RunsTheStreamsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(ReadableStreamsSuiteFiles))]
+    public void RunsTheReadableStreamsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(ReadableByteStreamsSuiteFiles))]
+    public void RunsTheReadableByteStreamsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(WritableStreamsSuiteFiles))]
+    public void RunsTheWritableStreamsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(TransformStreamsSuiteFiles))]
+    public void RunsTheTransformStreamsSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(StreamsPipingSuiteFiles))]
+    public void RunsTheStreamsPipingSuite(string file) => RunSuiteFile(file);
 
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.
@@ -604,30 +790,36 @@ public class WptTestRunner
         WptCorpus.TestFiles("url").Should().HaveCountGreaterThan(15);
         WptCorpus.TestFiles("encoding").Should().HaveCountGreaterThan(15);
 
-        // And a WebCryptoAPI sub-directory that lost its theory member would be a suite nothing runs, which
-        // the minimum-test check above cannot see: it proves a file is declared, not that a theory reaches
-        // it. Every declared suite must therefore produce cases, and every vendored .any.js must belong to
-        // one of the declared suites.
-        foreach (var suite in _webCryptoSuites)
-        {
-            WptCorpus.TestFiles(suite).Should().NotBeEmpty($"{suite} must produce theory cases");
-        }
-
-        foreach (var path in WptCorpus.Paths)
-        {
-            if (!path.StartsWith("WebCryptoAPI/", StringComparison.Ordinal)
-                || !path.EndsWith(".any.js", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (Array.TrueForAll(_webCryptoSuites, suite => !WptCorpus.TestFiles(suite).Contains(path)))
-            {
-                problems.Add($"{path} is vendored but belongs to no declared WebCryptoAPI suite, so no theory runs it");
-            }
-        }
+        // And a WebCryptoAPI or streams sub-directory that lost its theory member would be a suite nothing
+        // runs, which the minimum-test check above cannot see: it proves a file is declared, not that a
+        // theory reaches it. Every declared suite must therefore produce cases, and every vendored .any.js
+        // must belong to one of the declared suites.
+        CheckSuiteGroup("WebCryptoAPI/", _webCryptoSuites);
+        CheckSuiteGroup("streams/", _streamsSuites);
 
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
+
+        void CheckSuiteGroup(string prefix, string[] suites)
+        {
+            foreach (var suite in suites)
+            {
+                WptCorpus.TestFiles(suite).Should().NotBeEmpty($"{suite} must produce theory cases");
+            }
+
+            foreach (var path in WptCorpus.Paths)
+            {
+                if (!path.StartsWith(prefix, StringComparison.Ordinal)
+                    || !path.EndsWith(".any.js", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (Array.TrueForAll(suites, suite => !WptCorpus.TestFiles(suite).Contains(path)))
+                {
+                    problems.Add($"{path} is vendored but belongs to no declared {prefix.TrimEnd('/')} suite, so no theory runs it");
+                }
+            }
+        }
     }
 
     [Fact]
@@ -650,6 +842,12 @@ public class WptTestRunner
                      "WebCryptoAPI/util/ec_key_fixtures.js",
                      "WebCryptoAPI/util/rsa_key_fixtures.js",
                      "WebCryptoAPI/util/okp_key_fixtures.js",
+                     "streams/resources/recording-streams.js",
+                     "streams/resources/rs-test-templates.js",
+                     "streams/resources/rs-utils.js",
+                     "streams/resources/test-utils.js",
+                     // The two garbage-collection files name it as `/common/gc.js`, from the wpt root.
+                     "common/gc.js",
                  })
         {
             WptCorpus.Contains(helper).Should().BeTrue($"{helper} must be embedded");
