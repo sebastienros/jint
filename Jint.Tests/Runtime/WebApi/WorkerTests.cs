@@ -281,31 +281,91 @@ public class WorkerTests
     // The connection
     // ---------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// <c>End()</c> is idempotent under <i>concurrent</i> callers, not merely repeated ones — which is the whole
+    /// reason <c>TryEnd</c> takes a lock rather than testing and setting a <c>volatile bool</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rendezvous is the point. An earlier form of this pin used <c>Parallel.For(0, 64, …)</c>, and it
+    /// passed against a <c>TryEnd</c> with the lock removed — five times out of five: the partitioner ramps its
+    /// workers up, so by the time a second one starts the first has long since set the flag and there is no
+    /// race left to lose. A <see cref="Barrier"/> releases every thread into the same instant instead, and the
+    /// threads are reused across rounds so that many attempts cost a handful of threads rather than thousands.
+    /// </para>
+    /// <para>
+    /// The rounds are what make the pin honest rather than lucky: one interleaving proves nothing, and the
+    /// unlocked version loses this within a few rounds. There is no wall-clock assertion anywhere — a slow
+    /// machine makes this test slower, never redder — and the joins carry a ceiling only so that a deadlocked
+    /// <c>End()</c> fails the test instead of hanging the run.
+    /// </para>
+    /// </remarks>
     [Fact]
     public void WorkerConnectionEndIsIdempotentUnderConcurrentCallers()
     {
+        const int Rounds = 64;
+        var racers = Math.Max(4, Environment.ProcessorCount);
+
         using var cts = new CancellationTokenSource();
-        var callbacks = 0;
-        var reasons = new ConcurrentBag<WorkerEndReason>();
-        var connection = new WorkerConnection(
-            new Engine(),
-            new Engine(),
-            "w",
-            reason =>
+
+        var callbacks = new int[Rounds];
+        var reasons = new ConcurrentBag<WorkerEndReason>[Rounds];
+        var connections = new WorkerConnection[Rounds];
+        for (var round = 0; round < Rounds; round++)
+        {
+            var index = round;
+            reasons[index] = [];
+            connections[index] = new WorkerConnection(
+                new Engine(),
+                new Engine(),
+                "w",
+                reason =>
+                {
+                    Interlocked.Increment(ref callbacks[index]);
+                    reasons[index].Add(reason);
+                },
+                cts.Token);
+        }
+
+        using var barrier = new Barrier(racers);
+        var threads = new Thread[racers];
+        for (var i = 0; i < racers; i++)
+        {
+            threads[i] = new Thread(() =>
             {
-                Interlocked.Increment(ref callbacks);
-                reasons.Add(reason);
-            },
-            cts.Token);
+                for (var round = 0; round < Rounds; round++)
+                {
+                    barrier.SignalAndWait();
+                    connections[round].End();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "WorkerConnection.End racer",
+            };
 
-        Parallel.For(0, 64, _ => connection.End());
+            threads[i].Start();
+        }
 
-        Volatile.Read(ref callbacks).Should().Be(1, "the end sequence runs exactly once however many threads race for it");
-        reasons.Should().ContainSingle().Which.Should().Be(WorkerEndReason.Terminated);
-        connection.IsEnded.Should().BeTrue();
-        connection.EndReason.Should().Be(WorkerEndReason.Terminated);
-        connection.IsFaulted.Should().BeFalse();
-        connection.Error.Should().BeNull();
+        foreach (var thread in threads)
+        {
+            thread.Join(TimeSpan.FromSeconds(60)).Should().BeTrue("End() never blocks its caller");
+        }
+
+        for (var round = 0; round < Rounds; round++)
+        {
+            var connection = connections[round];
+
+            Volatile.Read(ref callbacks[round]).Should().Be(
+                1,
+                "round {0}: the end sequence runs exactly once however many threads race for it",
+                round);
+            reasons[round].Should().ContainSingle().Which.Should().Be(WorkerEndReason.Terminated);
+            connection.IsEnded.Should().BeTrue();
+            connection.EndReason.Should().Be(WorkerEndReason.Terminated);
+            connection.IsFaulted.Should().BeFalse();
+            connection.Error.Should().BeNull();
+        }
     }
 
     [Fact]
