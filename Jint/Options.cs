@@ -23,7 +23,11 @@ public partial class Options
     private static readonly TimeZoneInfo _defaultTimeZone = TimeZoneInfo.Local;
 
     private ITimeSystem? _timeSystem;
-    internal List<Action<Engine>> _configurations { get; } = new();
+    internal List<EngineConfiguration> _configurations { get; } = new();
+    internal bool HasUserHostFactory { get; set; }
+    internal bool HasUserEngineConstructionCallback =>
+        HasUserHostFactory
+        || _configurations.Exists(static configuration => configuration.Provenance == EngineConfigurationProvenance.User);
 
     public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
 
@@ -245,7 +249,7 @@ public partial class Options
 
         foreach (var configuration in _configurations)
         {
-            configuration(engine);
+            configuration.Apply(engine);
         }
 
         // add missing bits if needed
@@ -429,6 +433,8 @@ public partial class Options
         /// </summary>
         public bool Enabled { get; set; }
 
+        internal ClrAccessConfiguration ClrAccessConfiguration { get; set; }
+
         /// <summary>
         /// Whether to expose instance <see cref="object.GetType"/> members and the type-widening operations
         /// <c>clrHelper.unwrap</c>, <c>typeOf</c>, <c>typeToObject</c>, and <c>objectToType</c>. Defaults to false.
@@ -559,7 +565,10 @@ public partial class Options
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
         /// </summary>
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => ObjectWrapper.Create(engine, target, type);
+        internal static readonly WrapObjectDelegate _defaultWrapObjectHandler =
+            static (engine, target, type) => ObjectWrapper.Create(engine, target, type);
+
+        public WrapObjectDelegate WrapObjectHandler { get; set; } = _defaultWrapObjectHandler;
 
         /// <summary>
         /// The handler used to build stack traces. Changing this enables mapping
@@ -678,13 +687,19 @@ public partial class Options
         /// <summary>
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
-        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set; } = _ => new ExpandoObject();
+        internal static readonly Func<ObjectInstance, IDictionary<string, object?>> _defaultCreateClrObject =
+            static _ => new ExpandoObject();
+
+        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set; } = _defaultCreateClrObject;
 
         /// <summary>
         /// Strategy to create a CLR object from TypeReference.
         /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
         /// </summary>
-        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject { get; set; } = (_, _, _) => null;
+        internal static readonly Func<Engine, Type, JsValue[], object?> _defaultCreateTypeReferenceObject =
+            static (_, _, _) => null;
+
+        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject { get; set; } = _defaultCreateTypeReferenceObject;
 
         internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
 
@@ -771,7 +786,9 @@ public partial class Options
         /// resolvable through the wrapper's normal member/indexer access for their values to be readable.
         /// Defaults to returning <c>null</c>.
         /// </summary>
-        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = static (_, _) => null;
+        internal static readonly ReportedPropertyKeysDelegate _defaultReportedPropertyKeys = static (_, _) => null;
+
+        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = _defaultReportedPropertyKeys;
     }
 
     public class ConstraintOptions
@@ -795,6 +812,16 @@ public partial class Options
         /// belong to that engine alone.
         /// </summary>
         internal List<Func<Constraint>> ConstraintFactories { get; } = new();
+
+        internal int? RequestedMaxStatements { get; set; }
+
+        internal long? RequestedMemoryLimit { get; set; }
+
+        internal TimeSpan? RequestedTimeoutInterval { get; set; }
+
+        internal bool CancellationConstraintRequested { get; set; }
+
+        internal bool OperationDeadlineConstraintRequested { get; set; }
 
         /// <summary>
         /// Maximum recursion depth allowed, defaults to -1 (no checks).
@@ -953,7 +980,9 @@ public partial class Options
         /// - For object methods and getters/setters, a node of type <see cref="ObjectProperty"/> is passed
         ///   since <c>toString()</c> should include the <c>get</c> or <c>set</c> tokens for getters/setters and the member name as per specification.
         /// </remarks>
-        public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = (_, _) => null;
+        internal static readonly Func<Function, Node, string?> _defaultFunctionToStringHandler = static (_, _) => null;
+
+        public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = _defaultFunctionToStringHandler;
     }
 
     /// <summary>
@@ -1162,6 +1191,24 @@ public enum EnumConversionMode
     /// a value that has no name. Values converted back to the CLR keep accepting both the name and the number.
     /// </summary>
     String,
+}
+
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+internal readonly record struct EngineConfiguration(
+    Action<Engine> Apply,
+    EngineConfigurationProvenance Provenance);
+
+internal enum EngineConfigurationProvenance
+{
+    FirstParty,
+    User
+}
+
+internal enum ClrAccessConfiguration
+{
+    None,
+    Compatibility,
+    Explicit
 }
 
 /// <summary>
