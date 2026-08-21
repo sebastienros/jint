@@ -3,24 +3,63 @@ using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Native.TypedArray;
 
 namespace Jint.WebApi.Crypto;
 
 /// <summary>
+/// The <c>[[type]]</c> internal slot's three values — https://w3c.github.io/webcrypto/#dfn-KeyType. They are
+/// the strings the <c>type</c> attribute answers with, so they are spelled once here rather than at each
+/// algorithm that decides one.
+/// </summary>
+internal static class CryptoKeyTypes
+{
+    internal const string Secret = "secret";
+    internal const string Public = "public";
+    internal const string Private = "private";
+}
+
+/// <summary>
 /// The <c>[[algorithm]]</c> internal slot of a <see cref="JsCryptoKey"/>: a <c>KeyAlgorithm</c>, or one of
-/// the two dictionaries derived from it that the algorithms here produce.
+/// the dictionaries derived from it that the algorithms here produce.
 /// <para>
 /// https://w3c.github.io/webcrypto/#key-algorithm-dictionary
 /// </para>
 /// </summary>
-/// <param name="Name">The recognized algorithm name — <c>HMAC</c> or <c>AES-GCM</c>.</param>
-/// <param name="Length">The length of the key in bits, which both dictionaries carry.</param>
+/// <remarks>
+/// One struct rather than a type per dictionary, for the reason <see cref="NormalizedAlgorithm"/> is one
+/// class: the union of the members across the dictionaries this engine produces is five fields, and which
+/// dictionary a value describes is decided by which of them are filled in. <see cref="PublicExponent"/> is
+/// the discriminator — an <c>RsaHashedKeyAlgorithm</c> is the only one that has one, so a non-null value
+/// there means <see cref="Length"/> is meaningless and <see cref="ModulusLength"/> is what describes the key.
+/// </remarks>
+/// <param name="Name">
+/// The recognized algorithm name — <c>HMAC</c>, <c>AES-GCM</c>, <c>RSASSA-PKCS1-v1_5</c>, <c>RSA-PSS</c> or
+/// <c>RSA-OAEP</c>.
+/// </param>
+/// <param name="Length">
+/// The length of a symmetric key in bits, which <c>HmacKeyAlgorithm</c> and <c>AesKeyAlgorithm</c> both
+/// carry. It is zero and unused for an <c>RsaHashedKeyAlgorithm</c>, which has no such member.
+/// </param>
 /// <param name="HashName">
-/// The <c>hash</c> member of an <c>HmacKeyAlgorithm</c>, or <see langword="null"/> for an
-/// <c>AesKeyAlgorithm</c>, which has none.
+/// The <c>hash</c> member of an <c>HmacKeyAlgorithm</c> or an <c>RsaHashedKeyAlgorithm</c>, or
+/// <see langword="null"/> for an <c>AesKeyAlgorithm</c>, which has none.
+/// </param>
+/// <param name="ModulusLength">
+/// The <c>modulusLength</c> member of an <c>RsaKeyAlgorithm</c>, in bits.
+/// </param>
+/// <param name="PublicExponent">
+/// The <c>publicExponent</c> member of an <c>RsaKeyAlgorithm</c>, held as the big-endian magnitude a
+/// <c>BigInteger</c> is (https://w3c.github.io/webcrypto/#big-integer) and surfaced to script as a
+/// <c>Uint8Array</c>. <see langword="null"/> for every symmetric algorithm.
 /// </param>
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct CryptoKeyAlgorithm(string Name, uint Length, string? HashName);
+internal readonly record struct CryptoKeyAlgorithm(
+    string Name,
+    uint Length,
+    string? HashName,
+    uint ModulusLength = 0,
+    byte[]? PublicExponent = null);
 
 /// <summary>
 /// A <c>CryptoKey</c> — "an opaque reference to keying material".
@@ -78,6 +117,20 @@ internal sealed class JsCryptoKey : ObjectInstance
         .Add("length")
         .Build();
 
+    /// <summary>
+    /// <c>RsaHashedKeyAlgorithm</c>, https://w3c.github.io/webcrypto/#RsaHashedKeyAlgorithm-dictionary. The
+    /// member order is the one WebIDL converts a dictionary in — the inherited dictionaries from least to
+    /// most derived, each one's own members lexicographically — so <c>name</c> comes from
+    /// <c>KeyAlgorithm</c>, then <c>modulusLength</c> and <c>publicExponent</c> from <c>RsaKeyAlgorithm</c>,
+    /// and <c>hash</c> last because it is the derived dictionary's own.
+    /// </summary>
+    private static readonly JsObjectLayout _rsaHashedKeyAlgorithmLayout = JsObjectLayout.CreateBuilder()
+        .Add("name")
+        .Add("modulusLength")
+        .Add("publicExponent")
+        .Add("hash")
+        .Build();
+
     private readonly byte[] _handle;
 
     private ObjectInstance? _algorithmCached;
@@ -86,30 +139,42 @@ internal sealed class JsCryptoKey : ObjectInstance
     internal JsCryptoKey(
         Engine engine,
         byte[] handle,
+        string keyType,
         CryptoKeyAlgorithm algorithm,
         bool extractable,
         KeyUsage usages) : base(engine, ObjectClass.Object)
     {
         _handle = handle;
+        KeyType = keyType;
         Algorithm = algorithm;
         Extractable = extractable;
         Usages = usages;
     }
 
     /// <summary>
-    /// The <c>[[handle]]</c> internal slot. Never handed out: the two callers that need the bytes —
+    /// The <c>[[handle]]</c> internal slot. Never handed out: the callers that need the bytes —
     /// <c>sign</c>/<c>verify</c> and <c>encrypt</c>/<c>decrypt</c> — read them and produce something else,
     /// and <c>exportKey</c> copies.
     /// </summary>
+    /// <remarks>
+    /// What the bytes <i>are</i> is the algorithm's business: for a symmetric key they are the key material
+    /// itself, and for an RSA key they are the DER encoding of a <c>SubjectPublicKeyInfo</c> or of a
+    /// <c>PrivateKeyInfo</c>. Holding a serialized form rather than a live
+    /// <see cref="System.Security.Cryptography.RSA"/> is deliberate: an <c>RSA</c> is
+    /// <see cref="IDisposable"/> and would give a script-reachable object a native lifetime the garbage
+    /// collector decides, where a byte array has none. Each operation rehydrates one, uses it and disposes it
+    /// inside a single <c>using</c>, which costs a key import per call and buys a <c>CryptoKey</c> that is
+    /// exactly as ordinary an object as an HMAC key is.
+    /// </remarks>
     internal ReadOnlySpan<byte> Handle => _handle;
 
     /// <summary>
-    /// The <c>[[type]]</c> internal slot. Every key this engine can build is a symmetric one, so it is always
-    /// <c>"secret"</c>; the attribute is nevertheless read from here rather than hard-coded at the accessor,
-    /// so that a public or private key added later cannot silently answer wrongly. It is not called
-    /// <c>Type</c> because <see cref="JsValue.Type"/> already is.
+    /// The <c>[[type]]</c> internal slot — <c>"secret"</c>, <c>"public"</c> or <c>"private"</c>, one of
+    /// <see cref="CryptoKeyTypes"/>. It is supplied by whichever algorithm made the key, because that is
+    /// where the specification decides it: every step that sets it names the type it is setting. It is not
+    /// called <c>Type</c> because <see cref="JsValue.Type"/> already is.
     /// </summary>
-    internal string KeyType { get; } = "secret";
+    internal string KeyType { get; }
 
     /// <summary>The <c>[[extractable]]</c> internal slot.</summary>
     internal bool Extractable { get; }
@@ -134,19 +199,45 @@ internal sealed class JsCryptoKey : ObjectInstance
         }
 
         var name = JsString.Create(Algorithm.Name);
-        var length = JsNumber.Create(Algorithm.Length);
 
-        if (Algorithm.HashName is null)
+        if (Algorithm.PublicExponent is { } publicExponent)
         {
-            _algorithmCached = JsObject.Create(_engine, _aesKeyAlgorithmLayout, [name, length]);
+            var rsaHash = JsObject.Create(_engine, _keyAlgorithmLayout, [JsString.Create(Algorithm.HashName!)]);
+            _algorithmCached = JsObject.Create(
+                _engine,
+                _rsaHashedKeyAlgorithmLayout,
+                [name, JsNumber.Create(Algorithm.ModulusLength), CreateBigInteger(publicExponent), rsaHash]);
+        }
+        else if (Algorithm.HashName is null)
+        {
+            _algorithmCached = JsObject.Create(_engine, _aesKeyAlgorithmLayout, [name, JsNumber.Create(Algorithm.Length)]);
         }
         else
         {
             var hash = JsObject.Create(_engine, _keyAlgorithmLayout, [JsString.Create(Algorithm.HashName)]);
-            _algorithmCached = JsObject.Create(_engine, _hmacKeyAlgorithmLayout, [name, hash, length]);
+            _algorithmCached = JsObject.Create(_engine, _hmacKeyAlgorithmLayout, [name, hash, JsNumber.Create(Algorithm.Length)]);
         }
 
         return _algorithmCached;
+    }
+
+    /// <summary>
+    /// A <c>BigInteger</c> — https://w3c.github.io/webcrypto/#big-integer, which is
+    /// <c>typedef Uint8Array BigInteger</c> holding "an arbitrary magnitude unsigned integer in big-endian
+    /// order".
+    /// </summary>
+    /// <remarks>
+    /// The bytes are copied into the array rather than shared with the key's own: the algorithm object is an
+    /// ordinary object a script may write into, and what the engine decides is decided from
+    /// <see cref="Algorithm"/> alone. The realm is the engine's active one, which is the very realm
+    /// <c>JsObject.Create</c> anchors the surrounding object to.
+    /// </remarks>
+    private JsTypedArray CreateBigInteger(ReadOnlySpan<byte> magnitude)
+    {
+        var uint8Array = _engine.Realm.Intrinsics.Uint8Array;
+        var array = uint8Array.AllocateTypedArray(uint8Array, (uint) magnitude.Length);
+        TypedArrayConstructor.FillTypedArrayInstance(array, magnitude);
+        return array;
     }
 
     /// <summary>

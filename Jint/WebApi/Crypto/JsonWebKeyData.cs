@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Runtime.InteropServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Object;
@@ -7,41 +8,73 @@ using Jint.Runtime;
 namespace Jint.WebApi.Crypto;
 
 /// <summary>
-/// The members of a <c>JsonWebKey</c> dictionary that a symmetric key uses —
+/// The eight fields a JSON Web Key describes an RSA private key by —
+/// https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2 and, for the first two, #section-6.3.1 — each one
+/// the big-endian magnitude of the value, which is what base64url is applied to.
+/// </summary>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct RsaJwkPrivateFields(
+    byte[] N,
+    byte[] E,
+    byte[] D,
+    byte[] P,
+    byte[] Q,
+    byte[] Dp,
+    byte[] Dq,
+    byte[] Qi);
+
+/// <summary>
+/// The members of a <c>JsonWebKey</c> dictionary that this engine's algorithms use —
 /// https://w3c.github.io/webcrypto/#JsonWebKey-dictionary, whose fields are those of
 /// https://www.rfc-editor.org/rfc/rfc7517 and https://www.rfc-editor.org/rfc/rfc7518.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A documented simplification: the dictionary declares eighteen members and this reads the six an
-/// <c>oct</c> key can be described by (<c>alg</c>, <c>ext</c>, <c>k</c>, <c>key_ops</c>, <c>kty</c>,
-/// <c>use</c>). A getter on one of the twelve asymmetric-key members — <c>crv</c>, <c>n</c>, <c>d</c> and the
-/// rest — is therefore not invoked, where a browser's WebIDL conversion would invoke it and could raise a
-/// <c>TypeError</c> from converting its value. Nothing else can observe the difference: the specification's
-/// own note says that "fields that are not explicitly referred to in the key import procedures for an
-/// algorithm are ignored".
+/// A documented simplification: the dictionary declares eighteen members and this reads the fourteen an
+/// <c>oct</c> key or an <c>RSA</c> key can be described by — <c>alg</c>, <c>d</c>, <c>dp</c>, <c>dq</c>,
+/// <c>e</c>, <c>ext</c>, <c>k</c>, <c>key_ops</c>, <c>kty</c>, <c>n</c>, <c>p</c>, <c>q</c>, <c>qi</c> and
+/// <c>use</c>. A getter on one of the four elliptic-curve or multi-prime members — <c>crv</c>, <c>x</c>,
+/// <c>y</c> and <c>oth</c> — is therefore not invoked, where a browser's WebIDL conversion would invoke it
+/// and could raise a <c>TypeError</c> from converting its value. The specification's own note covers the
+/// difference: "fields that are not explicitly referred to in the key import procedures for an algorithm are
+/// ignored".
 /// </para>
 /// <para>
-/// The six that <i>are</i> read are read in lexicographical order, which is the order WebIDL converts a
+/// <c>oth</c> is the one whose absence is worth naming, because a JWK carrying it describes a key with more
+/// than two prime factors and the five CRT fields read here then describe only the first two. Nothing
+/// silently succeeds: the parameters are handed to the platform's own RSA importer, which validates them
+/// against <c>n</c> and refuses the mismatch, so such a key is a <c>DataError</c> rather than a key that is
+/// quietly wrong.
+/// </para>
+/// <para>
+/// The fourteen that <i>are</i> read are read in lexicographical order, which is the order WebIDL converts a
 /// dictionary's members in, so a JWK built out of getters sees them run in the order a browser runs them.
 /// </para>
 /// </remarks>
 internal sealed class JsonWebKeyData
 {
     private static readonly JsString _algKey = new("alg");
+    private static readonly JsString _dKey = new("d");
+    private static readonly JsString _dpKey = new("dp");
+    private static readonly JsString _dqKey = new("dq");
+    private static readonly JsString _eKey = new("e");
     private static readonly JsString _extKey = new("ext");
     private static readonly JsString _kKey = new("k");
     private static readonly JsString _keyOpsKey = new("key_ops");
     private static readonly JsString _ktyKey = new("kty");
+    private static readonly JsString _nKey = new("n");
+    private static readonly JsString _pKey = new("p");
+    private static readonly JsString _qKey = new("q");
+    private static readonly JsString _qiKey = new("qi");
     private static readonly JsString _useKey = new("use");
 
     /// <summary>
-    /// The shape <c>exportKey("jwk")</c> answers with. Both algorithms set every one of the five, and WebIDL
-    /// converts a dictionary to an object in lexicographical order of its members —
+    /// The shape <c>exportKey("jwk")</c> answers with for a symmetric key. Both algorithms set every one of
+    /// the five, and WebIDL converts a dictionary to an object in lexicographical order of its members —
     /// https://webidl.spec.whatwg.org/#es-dictionary — so one layout describes both and
     /// <c>Object.keys(jwk)</c> is stable.
     /// </summary>
-    private static readonly JsObjectLayout _exportLayout = JsObjectLayout.CreateBuilder()
+    private static readonly JsObjectLayout _octExportLayout = JsObjectLayout.CreateBuilder()
         .Add("alg")
         .Add("ext")
         .Add("k")
@@ -49,8 +82,52 @@ internal sealed class JsonWebKeyData
         .Add("kty")
         .Build();
 
+    /// <summary>
+    /// The shape <c>exportKey("jwk")</c> answers with for an RSA <i>public</i> key: the two members Section
+    /// 6.3.1 of JSON Web Algorithms defines, plus the four every export carries, in lexicographical order.
+    /// </summary>
+    private static readonly JsObjectLayout _rsaPublicExportLayout = JsObjectLayout.CreateBuilder()
+        .Add("alg")
+        .Add("e")
+        .Add("ext")
+        .Add("key_ops")
+        .Add("kty")
+        .Add("n")
+        .Build();
+
+    /// <summary>
+    /// The shape <c>exportKey("jwk")</c> answers with for an RSA <i>private</i> key: the public members plus
+    /// the six of Section 6.3.2, again in lexicographical order.
+    /// </summary>
+    private static readonly JsObjectLayout _rsaPrivateExportLayout = JsObjectLayout.CreateBuilder()
+        .Add("alg")
+        .Add("d")
+        .Add("dp")
+        .Add("dq")
+        .Add("e")
+        .Add("ext")
+        .Add("key_ops")
+        .Add("kty")
+        .Add("n")
+        .Add("p")
+        .Add("q")
+        .Add("qi")
+        .Build();
+
     /// <summary>The <c>alg</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? Alg { get; private set; }
+
+    /// <summary>The <c>d</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? D { get; private set; }
+
+    /// <summary>The <c>dp</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Dp { get; private set; }
+
+    /// <summary>The <c>dq</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Dq { get; private set; }
+
+    /// <summary>The <c>e</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? E { get; private set; }
 
     /// <summary>The <c>ext</c> field, or <see langword="null"/> when it is not present.</summary>
     internal bool? Ext { get; private set; }
@@ -64,6 +141,18 @@ internal sealed class JsonWebKeyData
     /// <summary>The <c>kty</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? Kty { get; private set; }
 
+    /// <summary>The <c>n</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? N { get; private set; }
+
+    /// <summary>The <c>p</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? P { get; private set; }
+
+    /// <summary>The <c>q</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Q { get; private set; }
+
+    /// <summary>The <c>qi</c> field, or <see langword="null"/> when it is not present.</summary>
+    internal string? Qi { get; private set; }
+
     /// <summary>The <c>use</c> field, or <see langword="null"/> when it is not present.</summary>
     internal string? Use { get; private set; }
 
@@ -75,10 +164,18 @@ internal sealed class JsonWebKeyData
         var jwk = new JsonWebKeyData
         {
             Alg = ReadString(source, _algKey),
+            D = ReadString(source, _dKey),
+            Dp = ReadString(source, _dpKey),
+            Dq = ReadString(source, _dqKey),
+            E = ReadString(source, _eKey),
             Ext = ReadBoolean(source, _extKey),
             K = ReadString(source, _kKey),
             KeyOps = ReadStringSequence(context, source, what),
             Kty = ReadString(source, _ktyKey),
+            N = ReadString(source, _nKey),
+            P = ReadString(source, _pKey),
+            Q = ReadString(source, _qKey),
+            Qi = ReadString(source, _qiKey),
             Use = ReadString(source, _useKey),
         };
 
@@ -129,24 +226,48 @@ internal sealed class JsonWebKeyData
     }
 
     /// <summary>
-    /// The first three JWK steps both algorithms share: the key type must be <c>oct</c>, the key must meet
-    /// "the requirements of Section 6.4 of JSON Web Algorithms" — which for an <c>oct</c> key is that
-    /// <c>k</c> is present, https://www.rfc-editor.org/rfc/rfc7518#section-6.4.1 saying "This member MUST be
-    /// present" — and <c>k</c> is then decoded.
+    /// The first three JWK steps both symmetric algorithms share: the key type must be <c>oct</c>, the key
+    /// must meet "the requirements of Section 6.4 of JSON Web Algorithms" — which for an <c>oct</c> key is
+    /// that <c>k</c> is present, https://www.rfc-editor.org/rfc/rfc7518#section-6.4.1 saying "This member
+    /// MUST be present" — and <c>k</c> is then decoded.
     /// </summary>
     internal byte[] RequireOctAndDecodeKey(CryptoContext context, string what)
     {
-        if (!string.Equals(Kty, "oct", StringComparison.Ordinal))
-        {
-            context.ThrowDataError(what + ": the kty field of the JSON Web Key is " + Describe(Kty) + " rather than 'oct'.");
-        }
+        RequireKeyType(context, "oct", what);
 
         if (K is null)
         {
             context.ThrowDataError(what + ": the JSON Web Key has no k field, which Section 6.4.1 of JSON Web Algorithms requires for a key of type 'oct'.");
         }
 
-        return DecodeBase64Url(context, K, what);
+        return DecodeBase64Url(context, K, "k", what);
+    }
+
+    /// <summary>
+    /// "If the kty field of jwk is not a case-sensitive string match to <c>expected</c>, then throw a
+    /// DataError" — the step every algorithm's JWK branch makes, differing only in the type it names.
+    /// </summary>
+    internal void RequireKeyType(CryptoContext context, string expected, string what)
+    {
+        if (!string.Equals(Kty, expected, StringComparison.Ordinal))
+        {
+            context.ThrowDataError(
+                what + ": the kty field of the JSON Web Key is " + Describe(Kty) + " rather than '" + expected + "'.");
+        }
+    }
+
+    /// <summary>
+    /// A JWK field that must be present and must decode as base64url — the shape every RSA parameter has.
+    /// </summary>
+    internal static byte[] RequireBase64UrlField(CryptoContext context, string? value, string field, string what)
+    {
+        if (value is null)
+        {
+            context.ThrowDataError(
+                what + ": the JSON Web Key has no " + field + " field, which JSON Web Algorithms requires for a key of this type.");
+        }
+
+        return DecodeBase64Url(context, value, field, what);
     }
 
     /// <summary>
@@ -161,38 +282,38 @@ internal sealed class JsonWebKeyData
     /// exactly what a base64url string may not contain. Accepting them would mean importing a key from a
     /// document that no other implementation would read.
     /// </remarks>
-    private static byte[] DecodeBase64Url(CryptoContext context, string k, string what)
+    private static byte[] DecodeBase64Url(CryptoContext context, string value, string field, string what)
     {
-        foreach (var c in k)
+        foreach (var c in value)
         {
             var valid = char.IsAsciiLetterOrDigit(c) || c == '-' || c == '_';
             if (!valid)
             {
-                context.ThrowDataError(what + ": the k field of the JSON Web Key contains '" + c + "', which is not a base64url character.");
+                context.ThrowDataError(what + ": the " + field + " field of the JSON Web Key contains '" + c + "', which is not a base64url character.");
             }
         }
 
         // A base64url string of length 4n+1 encodes a fractional byte and cannot be decoded at all.
-        if (k.Length % 4 == 1)
+        if (value.Length % 4 == 1)
         {
-            context.ThrowDataError(what + ": the k field of the JSON Web Key has a length of " + k.Length + ", which no base64url encoding has.");
+            context.ThrowDataError(what + ": the " + field + " field of the JSON Web Key has a length of " + value.Length + ", which no base64url encoding has.");
         }
 
         try
         {
-            return WebEncoders.Base64UrlDecode(k.AsSpan());
+            return WebEncoders.Base64UrlDecode(value.AsSpan());
         }
         catch (FormatException)
         {
-            context.ThrowDataError(what + ": the k field of the JSON Web Key is not a valid base64url encoding.");
+            context.ThrowDataError(what + ": the " + field + " field of the JSON Web Key is not a valid base64url encoding.");
             return null!;
         }
     }
 
     /// <summary>
-    /// The last three JWK steps both algorithms share, in the order they appear in both: <c>use</c>,
+    /// The last three JWK steps every algorithm shares, in the order they appear in all of them: <c>use</c>,
     /// <c>key_ops</c> and <c>ext</c>. <c>expectedUse</c> is "sig" for a signing key and "enc" for an
-    /// encryption key, which is the only part of these three steps that differs between the two.
+    /// encryption key, which is the only part of these three steps that differs between them.
     /// </summary>
     internal void ValidateUseKeyOpsAndExt(
         CryptoContext context,
@@ -261,11 +382,11 @@ internal sealed class JsonWebKeyData
     }
 
     /// <summary>
-    /// The object <c>exportKey("jwk")</c> resolves with: the five fields both algorithms set, with <c>k</c>
-    /// carrying the key material "encoded according to Section 6.4 of JSON Web Algorithms" — base64url with
-    /// no padding.
+    /// The object <c>exportKey("jwk")</c> resolves with for a symmetric key: the five fields both algorithms
+    /// set, with <c>k</c> carrying the key material "encoded according to Section 6.4 of JSON Web Algorithms"
+    /// — base64url with no padding.
     /// </summary>
-    internal static JsObject CreateExport(
+    internal static JsObject CreateOctExport(
         Engine engine,
         ReadOnlySpan<byte> keyMaterial,
         string alg,
@@ -274,7 +395,7 @@ internal sealed class JsonWebKeyData
     {
         return JsObject.Create(
             engine,
-            _exportLayout,
+            _octExportLayout,
             [
                 JsString.Create(alg),
                 extractable ? JsBoolean.True : JsBoolean.False,
@@ -283,6 +404,66 @@ internal sealed class JsonWebKeyData
                 JsString.Create("oct"),
             ]);
     }
+
+    /// <summary>
+    /// The object <c>exportKey("jwk")</c> resolves with for an RSA public key: <c>n</c> and <c>e</c> "set
+    /// according to the corresponding definitions in JSON Web Algorithms, Section 6.3.1", plus the four
+    /// fields every export carries.
+    /// </summary>
+    internal static JsObject CreateRsaPublicExport(
+        Engine engine,
+        string alg,
+        ReadOnlySpan<byte> modulus,
+        ReadOnlySpan<byte> exponent,
+        KeyUsage usages,
+        bool extractable)
+    {
+        return JsObject.Create(
+            engine,
+            _rsaPublicExportLayout,
+            [
+                JsString.Create(alg),
+                Encode(exponent),
+                extractable ? JsBoolean.True : JsBoolean.False,
+                KeyUsages.ToArray(engine, usages),
+                JsString.Create("RSA"),
+                Encode(modulus),
+            ]);
+    }
+
+    /// <summary>
+    /// The object <c>exportKey("jwk")</c> resolves with for an RSA private key: the public members plus
+    /// <c>d</c>, <c>p</c>, <c>q</c>, <c>dp</c>, <c>dq</c> and <c>qi</c> "according to the corresponding
+    /// definitions in JSON Web Algorithms, Section 6.3.2".
+    /// </summary>
+    internal static JsObject CreateRsaPrivateExport(
+        Engine engine,
+        string alg,
+        in RsaJwkPrivateFields fields,
+        KeyUsage usages,
+        bool extractable)
+    {
+        return JsObject.Create(
+            engine,
+            _rsaPrivateExportLayout,
+            [
+                JsString.Create(alg),
+                Encode(fields.D),
+                Encode(fields.Dp),
+                Encode(fields.Dq),
+                Encode(fields.E),
+                extractable ? JsBoolean.True : JsBoolean.False,
+                KeyUsages.ToArray(engine, usages),
+                JsString.Create("RSA"),
+                Encode(fields.N),
+                Encode(fields.P),
+                Encode(fields.Q),
+                Encode(fields.Qi),
+            ]);
+    }
+
+    private static JsString Encode(ReadOnlySpan<byte> value)
+        => JsString.Create(WebEncoders.Base64UrlEncode(value, omitPadding: true));
 
     private static string Describe(string? value) => value is null ? "absent" : "'" + value + "'";
 }
