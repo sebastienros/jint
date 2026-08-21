@@ -10,14 +10,6 @@ namespace Jint.Tests.Wpt;
 internal enum WptDivergence
 {
     /// <summary>
-    /// The test needs one of the Encoding Standard's legacy single-byte or multi-byte decoders
-    /// (<c>windows-1252</c>, <c>shift_jis</c>, <c>gbk</c>, <c>replacement</c>, …). Jint implements
-    /// <c>utf-8</c>, <c>utf-16le</c> and <c>utf-16be</c> and reports every other label as a failure, which
-    /// is what <c>EncodingLabels</c> documents. Tracked by
-    /// https://github.com/sebastienros/jint/issues/3106; the change that lands those decoders removes these
-    /// entries.
-    /// </summary>
-    /// <summary>
     /// The seven legacy multi-byte encodings (Big5, EUC-JP, EUC-KR, GBK, gb18030, ISO-2022-JP, Shift_JIS)
     /// are named by the label table and refused as unsupported; their suites stay red until someone demands
     /// the tables. The single-byte families these entries used to cover are implemented and green.
