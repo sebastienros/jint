@@ -217,9 +217,16 @@ public class EventSourceTests
     /// Pumps the engine until <paramref name="until"/> holds, which is what a host's own loop does. Nothing
     /// an event source produces is delivered any other way.
     /// </summary>
+    /// <remarks>
+    /// The bound is <see cref="TransportSignalCeiling"/> for the reason stated on it: what this turns the
+    /// engine over waiting for is a job queued from the transport's own thread-pool continuation, so a
+    /// fifteen-second window was the same fixed clock over the same hand-over that
+    /// <see cref="CloseStopsEverythingAndDispatchesNothingFurther"/>'s wait already gave up
+    /// (sebastienros/jint#3213). Only a hand-over that never happens can reach a ceiling this far out.
+    /// </remarks>
     private static void Pump(Engine engine, Func<bool> until, string expectation)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline)
         {
             engine.Advanced.ProcessTasks();

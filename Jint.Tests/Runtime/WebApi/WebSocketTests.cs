@@ -25,9 +25,27 @@ namespace Jint.Tests.Runtime.WebApi;
 /// until the state a test is waiting for arrives, and its deadline exists only so that a hang fails the run
 /// instead of hanging it.
 /// </para>
+/// <para>
+/// <b>A test that waits for the send loop runs on <see cref="DedicatedThread.RunAsync"/>.</b> The operation's
+/// outgoing queue is a <c>Channel</c>, which does not allow synchronous continuations, so everything past a
+/// <c>send()</c> or a <c>close()</c> — the write itself, the <c>bufferedAmount</c> release, the Close frame,
+/// and the <c>await sender</c> that has to finish before a <c>close</c> event is dispatched — resumes on a
+/// thread-pool worker. Waiting for one from a body that is itself occupying an xUnit pool worker is the
+/// resource inversion <see cref="DedicatedThread.RunAsync"/> exists for, and it is what turned fixed windows
+/// elsewhere in this suite into flakes (sebastienros/jint#3201, #3213). Tests driven only by the test
+/// thread's own hand-offs — a delivered message, a completed handshake, a refused URL — stay where they are,
+/// because their continuations run inline on the thread that raised them.
+/// </para>
 /// </remarks>
 public class WebSocketTests
 {
+    /// <summary>
+    /// How long a test will wait for something the socket's own loops must produce. The claim is always that
+    /// the write, or the event, happens at all — never how quickly — so this is a ceiling only a genuine
+    /// failure can reach rather than a budget the pool has to beat.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>
     /// A socket the test drives by hand. Its <see cref="ConnectAsync"/> answers a gate the test opens, its
     /// <see cref="ReceiveAsync"/> answers whatever the test has delivered, and everything it was asked to
@@ -180,11 +198,17 @@ public class WebSocketTests
         /// Waits for the send loop — which runs on a thread pool thread, deliberately, so that a socket write
         /// never blocks the engine — to have written <paramref name="count"/> things.
         /// </summary>
+        /// <remarks>
+        /// The bound is <see cref="TransportSignalCeiling"/>, not an interval the send loop is expected to
+        /// beat: every caller of this hands its body to <see cref="DedicatedThread.RunAsync"/>, so the pool
+        /// worker the loop needs is not the one this wait is holding, and only a write that never happens can
+        /// reach the ceiling.
+        /// </remarks>
         internal void WaitForWrites(int count)
         {
             for (var i = 0; i < count; i++)
             {
-                _written.Wait(TimeSpan.FromSeconds(30)).Should().BeTrue("the send loop should have written {0} time(s)", count);
+                _written.Wait(TransportSignalCeiling).Should().BeTrue("the send loop should have written {0} time(s)", count);
             }
         }
     }
@@ -229,7 +253,7 @@ public class WebSocketTests
                 return;
             }
 
-            if (stopwatch.Elapsed > TimeSpan.FromSeconds(30))
+            if (stopwatch.Elapsed > TransportSignalCeiling)
             {
                 Assert.Fail("the engine never reached the state the test was waiting for");
             }
@@ -440,7 +464,7 @@ public class WebSocketTests
     /// message has been received".
     /// </summary>
     [Fact]
-    public void AMessageThatArrivesAfterTheCloseIsDropped()
+    public Task AMessageThatArrivesAfterTheCloseIsDropped() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
             ws.onmessage = e => log.push('message:' + e.data);
@@ -462,10 +486,10 @@ public class WebSocketTests
         PumpUntilLogged(engine, 2);
 
         Log(engine).Should().Be("open:1:|close:1000");
-    }
+    });
 
     [Fact]
-    public void SendMarshalsOnTheEngineThreadAndBufferedAmountFallsWhenTheBytesGoOut()
+    public Task SendMarshalsOnTheEngineThreadAndBufferedAmountFallsWhenTheBytesGoOut() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
         var socket = sockets.Last;
@@ -493,10 +517,10 @@ public class WebSocketTests
 
         socket.Sent[1].IsText.Should().BeFalse();
         socket.Sent[1].Payload.Should().Equal([7, 8, 9], "the bytes were copied when send() was called, not when they were written");
-    }
+    });
 
     [Fact]
-    public void SendAcceptsEveryArmOfTheUnion()
+    public Task SendAcceptsEveryArmOfTheUnion() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
         var socket = sockets.Last;
@@ -516,7 +540,7 @@ public class WebSocketTests
         socket.Sent[2].Payload.Should().Equal([3, 4, 5]);
         socket.Sent[3].Payload.Should().Equal("ab"u8.ToArray());
         socket.Sent[4].Payload.Should().Equal("42"u8.ToArray());
-    }
+    });
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-send step 1.
@@ -542,7 +566,7 @@ public class WebSocketTests
     /// send() method" — https://websockets.spec.whatwg.org/#dom-websocket-bufferedamount.
     /// </summary>
     [Fact]
-    public void SendAfterTheCloseOnlyCountsBytesAndWritesNothing()
+    public Task SendAfterTheCloseOnlyCountsBytesAndWritesNothing() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
         var socket = sockets.Last;
@@ -560,13 +584,13 @@ public class WebSocketTests
         // ... and it never comes down again, because nothing will ever write those bytes.
         engine.Advanced.ProcessTasks();
         engine.Evaluate("ws.bufferedAmount").AsNumber().Should().Be(4);
-    }
+    });
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close step 3.3, then the peer's answer.
     /// </summary>
     [Fact]
-    public void CloseStartsTheHandshakeAndStaysClosingUntilThePeerAnswers()
+    public Task CloseStartsTheHandshakeAndStaysClosingUntilThePeerAnswers() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
             ws.onclose = e => log.push(['close', e.code, e.reason, e.wasClean, e.isTrusted, e instanceof CloseEvent].join(','));
@@ -587,10 +611,10 @@ public class WebSocketTests
 
         Log(engine).Should().Be("open:1:|close,3000,bye,true,true,true");
         engine.Evaluate("ws.readyState").AsNumber().Should().Be(3);
-    }
+    });
 
     [Fact]
-    public void CloseWithNoArgumentsSendsAFrameWithNoBody()
+    public Task CloseWithNoArgumentsSendsAFrameWithNoBody() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
 
@@ -598,10 +622,10 @@ public class WebSocketTests
         sockets.Last.WaitForWrites(1);
 
         sockets.Last.CloseFrames.Should().Equal((null, string.Empty));
-    }
+    });
 
     [Fact]
-    public void QueuedMessagesAreWrittenBeforeTheCloseFrame()
+    public Task QueuedMessagesAreWrittenBeforeTheCloseFrame() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
         var socket = sockets.Last;
@@ -612,14 +636,14 @@ public class WebSocketTests
         // The Close frame goes out last, which is what lets a script send and then close without losing the
         // message it just sent.
         socket.Writes.Should().Equal("text:first", "text:second", "close:1000");
-    }
+    });
 
     /// <summary>
     /// The peer's Close frame: "when the WebSocket closing handshake is started" moves the ready state, and
     /// this endpoint answers with a Close frame of its own before the connection ends.
     /// </summary>
     [Fact]
-    public void APeerInitiatedCloseIsEchoedAndReportedAsClean()
+    public Task APeerInitiatedCloseIsEchoedAndReportedAsClean() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
             ws.onclose = e => log.push(['close', e.code, e.reason, e.wasClean].join(','));
@@ -633,14 +657,14 @@ public class WebSocketTests
 
         Log(engine).Should().Be("open:1:|close,1001,going away,true");
         socket.CloseFrames.Should().Equal((1001, string.Empty));
-    }
+    });
 
     /// <summary>
     /// A Close frame with no status code is 1005, "no status received" —
     /// https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1 — and is answered with a body-less frame.
     /// </summary>
     [Fact]
-    public void APeerCloseWithNoCodeIsReportedAs1005()
+    public Task APeerCloseWithNoCodeIsReportedAs1005() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("ws.onclose = e => log.push('close:' + e.code + ':' + e.wasClean);");
 
@@ -649,7 +673,7 @@ public class WebSocketTests
 
         Log(engine).Should().Be("open:1:|close:1005:true");
         sockets.Last.CloseFrames.Should().Equal((null, string.Empty));
-    }
+    });
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close step 3.2: closing before the connection is
@@ -684,7 +708,7 @@ public class WebSocketTests
     /// queued — and must not be dispatched into a socket the script has since closed.
     /// </summary>
     [Fact]
-    public void AnOpenThatWasAlreadyQueuedIsSuppressedByAClose()
+    public Task AnOpenThatWasAlreadyQueuedIsSuppressedByAClose() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = SocketEngine();
 
@@ -704,7 +728,7 @@ public class WebSocketTests
 
         Log(engine).Should().Be("error|close:1006");
         engine.Evaluate("ws.readyState").AsNumber().Should().Be(3);
-    }
+    });
 
     /// <summary>
     /// A handshake that never succeeds ends in the same pair, which is what
@@ -730,7 +754,7 @@ public class WebSocketTests
     }
 
     [Fact]
-    public void ADroppedConnectionFiresErrorThenClose()
+    public Task ADroppedConnectionFiresErrorThenClose() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
             ws.onerror = () => log.push('error');
@@ -741,14 +765,14 @@ public class WebSocketTests
         PumpUntilLogged(engine, 3);
 
         Log(engine).Should().Be("open:1:|error|close,1006,false");
-    }
+    });
 
     /// <summary>
     /// A message larger than <c>Options.WebApi.Fetch.MaxResponseBytes</c> is the host's own limit rather than
     /// the network's, so unlike every other failure it names itself with RFC 6455's 1009.
     /// </summary>
     [Fact]
-    public void AMessageOverTheCeilingClosesWith1009()
+    public Task AMessageOverTheCeilingClosesWith1009() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
             ws.onerror = () => log.push('error');
@@ -761,7 +785,7 @@ public class WebSocketTests
 
         Log(engine).Should().Be("open:1:|error|close,1009,false");
         sockets.Last.Aborts.Should().Be(1);
-    }
+    });
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close steps 1 and 2.
@@ -789,7 +813,7 @@ public class WebSocketTests
     [InlineData("1000")]
     [InlineData("3000")]
     [InlineData("4999")]
-    public void CloseAcceptsTheCodesAnApplicationMaySend(string code)
+    public Task CloseAcceptsTheCodesAnApplicationMaySend(string code) => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
 
@@ -797,7 +821,7 @@ public class WebSocketTests
         sockets.Last.WaitForWrites(1);
 
         sockets.Last.CloseFrames.Should().Equal((int.Parse(code, System.Globalization.CultureInfo.InvariantCulture), string.Empty));
-    }
+    });
 
     [Fact]
     public void CloseRefusesAReasonLongerThan123Utf8Bytes()
@@ -833,7 +857,7 @@ public class WebSocketTests
     }
 
     [Fact]
-    public void CloseIsIdempotentAndSendsOneFrame()
+    public Task CloseIsIdempotentAndSendsOneFrame() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
 
@@ -841,14 +865,14 @@ public class WebSocketTests
         sockets.Last.WaitForWrites(1);
 
         sockets.Last.CloseFrames.Should().Equal((1000, "first"));
-    }
+    });
 
     /// <summary>
     /// A reason with no code has nowhere to live in the protocol's Close frame, so it travels behind a normal
     /// closure rather than being dropped.
     /// </summary>
     [Fact]
-    public void AReasonWithNoCodeTravelsAsANormalClosure()
+    public Task AReasonWithNoCodeTravelsAsANormalClosure() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
 
@@ -856,7 +880,7 @@ public class WebSocketTests
         sockets.Last.WaitForWrites(1);
 
         sockets.Last.CloseFrames.Should().Equal((1000, "bye"));
-    }
+    });
 
     /// <summary>
     /// The policy refuses the URL, and the script cannot tell that from a refused connection — which
@@ -927,7 +951,7 @@ public class WebSocketTests
     /// flight, since a socket is meant to be long-lived.
     /// </summary>
     [Fact]
-    public void TooManyOpenSocketsIsAQuotaExceededError()
+    public Task TooManyOpenSocketsIsAQuotaExceededError() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = SocketEngine(net => net.MaxConcurrentRequests = 2);
 
@@ -958,7 +982,7 @@ public class WebSocketTests
 
         engine.Execute("new WebSocket('wss://example.org/4');");
         sockets.Created.Should().HaveCount(3);
-    }
+    });
 
     /// <summary>
     /// A restore ends the evaluation cycle, so the socket is dropped rather than left delivering into globals

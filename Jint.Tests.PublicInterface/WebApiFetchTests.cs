@@ -16,12 +16,31 @@ namespace Jint.Tests.PublicInterface;
 /// threads its promise settles on.
 /// </summary>
 /// <remarks>
+/// <para>
 /// This project has no <c>InternalsVisibleTo</c>, so everything here is reachable by a third party — the
 /// stub transport goes in through <c>Options.WebApi.Fetch.HttpClient</c>, which is the same door a host uses
 /// for a <c>DelegatingHandler</c> or an <c>IHttpClientFactory</c> client.
+/// </para>
+/// <para>
+/// <b>A test that waits for the transport runs on <see cref="DedicatedThread.RunAsync"/>.</b> Two things here
+/// only finish on a thread-pool worker: a hanging handler resuming from <c>Task.Delay</c> when its token
+/// fires, and a response body, which the engine pumps from the <c>Task.Run</c> loop inside
+/// <c>FetchBodyStream</c>. Blocking an xUnit pool worker to wait for one is the resource inversion described
+/// on <see cref="DedicatedThread.RunAsync"/> — a saturated pool injects workers at roughly one per 500 ms —
+/// and it is why every window in this class is now <see cref="TransportSignalCeiling"/>, a bound only a
+/// genuine failure can reach, rather than the five and ten second intervals a loaded runner could lose
+/// (sebastienros/jint#3213). Tests whose promise settles at the response headers wait for nothing and stay
+/// where they are.
+/// </para>
 /// </remarks>
 public class WebApiFetchTests
 {
+    /// <summary>
+    /// How long a test will wait for the transport: a request settling, a body arriving, a cancelled request
+    /// seeing its token. The claim is always that it happens at all, never how quickly.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>
     /// A handler that answers immediately or hangs until its token is cancelled, and remembers which.
     /// </summary>
@@ -114,13 +133,13 @@ public class WebApiFetchTests
         var engine = WebEngine(handler, f => f.AllowedSchemes.Remove("http"));
 
         engine.Evaluate("fetch('http://example.org/').then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
-            .UnwrapIfPromise().AsString().Should().Be("TypeError: Failed to fetch");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError: Failed to fetch");
 
         // Refused before a socket was opened.
         handler.Urls.Should().BeEmpty();
 
         // https is still allowed.
-        engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise().AsNumber().Should().Be(200);
+        engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
     }
 
     [Fact]
@@ -130,11 +149,11 @@ public class WebApiFetchTests
         var engine = WebEngine(handler, f => f.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase));
 
         engine.Evaluate("fetch('https://169.254.169.254/latest/meta-data/').then(() => 'resolved', e => e.message)")
-            .UnwrapIfPromise().AsString().Should().Be("Failed to fetch");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("Failed to fetch");
 
         handler.Urls.Should().BeEmpty();
 
-        engine.Evaluate("fetch('https://api.example.org/').then(r => r.status)").UnwrapIfPromise().AsNumber().Should().Be(200);
+        engine.Evaluate("fetch('https://api.example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
     }
 
     [Fact]
@@ -164,7 +183,7 @@ public class WebApiFetchTests
         });
 
         engine.Evaluate("fetch('https://api.example.org/a').then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
-            .UnwrapIfPromise().AsString().Should().Be("TypeError: Failed to fetch");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError: Failed to fetch");
 
         // The filter saw both hops, and only the first reached the transport.
         seen.Should().Equal("https://api.example.org/a", "http://169.254.169.254/latest/meta-data/");
@@ -182,12 +201,12 @@ public class WebApiFetchTests
         var engine = WebEngine(handler, f => f.MaxResponseBytes = 1024);
 
         engine.Evaluate("fetch('https://example.org/').then(() => 'resolved', e => e.constructor.name + '|' + e.message)")
-            .UnwrapIfPromise().AsString().Should()
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should()
             .Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
     }
 
     [Fact]
-    public void CapsTheResponseBodyWithoutAContentLengthWhileItStreams()
+    public Task CapsTheResponseBodyWithoutAContentLengthWhileItStreams() => DedicatedThread.RunAsync(() =>
     {
         // A server that lies about the length, or uses chunked encoding, is caught by the running total
         // rather than by the declared one.
@@ -205,11 +224,11 @@ public class WebApiFetchTests
         var engine = WebEngine(handler, f => f.MaxResponseBytes = 1024);
 
         engine.Evaluate("fetch('https://example.org/').then(r => r.text()).then(() => 'resolved', e => e.constructor.name + '|' + e.message)")
-            .UnwrapIfPromise().AsString().Should().Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
+    });
 
     [Fact]
-    public void TheCapReachesAConsumerThatReadsTheStreamItself()
+    public Task TheCapReachesAConsumerThatReadsTheStreamItself() => DedicatedThread.RunAsync(() =>
     {
         // The same failure through the other door: a script draining response.body chunk by chunk sees the
         // reader's promise reject rather than a body mixin method's.
@@ -236,8 +255,8 @@ public class WebApiFetchTests
             })()")
             // How many bytes arrived first depends on how the transport chunked them; that the read ends in
             // a TypeError rather than in a close is the pin.
-            .UnwrapIfPromise().AsString().Should().StartWith("TypeError after ");
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().StartWith("TypeError after ");
+    });
 
     /// <summary>
     /// Content that streams its bytes and refuses to say how many there are, which is what a chunked
@@ -260,7 +279,7 @@ public class WebApiFetchTests
     }
 
     [Fact]
-    public void ABodyUnderTheCapIsReadInFull()
+    public Task ABodyUnderTheCapIsReadInFull() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -269,11 +288,11 @@ public class WebApiFetchTests
 
         var engine = WebEngine(handler, f => f.MaxResponseBytes = 1024);
         engine.Evaluate("fetch('https://example.org/').then(r => r.text()).then(t => t.length)")
-            .UnwrapIfPromise().AsNumber().Should().Be(1024);
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(1024);
+    });
 
     [Fact]
-    public void AnAbortMidFlightRejectsWithTheReasonAndCancelsTheRequest()
+    public Task AnAbortMidFlightRejectsWithTheReasonAndCancelsTheRequest() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
         var engine = WebEngine(handler);
@@ -282,25 +301,25 @@ public class WebApiFetchTests
                 const c = new AbortController();
                 setTimeout(() => c.abort('stop'), 0);
                 return fetch('https://example.org/', { signal: c.signal }).then(() => 'resolved', e => e);
-            })()").UnwrapIfPromise();
+            })()").UnwrapIfPromise(TransportSignalCeiling);
 
         outcome.AsString().Should().Be("stop");
 
         // The abort reached the socket, not just the promise.
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
-    }
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("aborting a fetch must cancel the request in flight, not merely reject the promise");
+    });
 
     [Fact]
-    public void ADeadlineRejectsWithATimeoutErrorDomException()
+    public Task ADeadlineRejectsWithATimeoutErrorDomException() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
         var engine = WebEngine(handler, f => f.Timeout = TimeSpan.FromMilliseconds(50));
 
         engine.Evaluate("fetch('https://example.org/').then(() => 'resolved', e => e.name + '|' + (e instanceof Error))")
-            .UnwrapIfPromise().AsString().Should().Be("TimeoutError|true");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TimeoutError|true");
 
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
-    }
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("the deadline must reach the request in flight, not merely reject the promise");
+    });
 
     [Fact]
     public void RefusesMoreConcurrentRequestsThanTheHostAllows()
@@ -333,14 +352,14 @@ public class WebApiFetchTests
 
         for (var i = 0; i < 3; i++)
         {
-            engine.Evaluate($"fetch('https://example.org/{i}').then(r => r.status)").UnwrapIfPromise().AsNumber().Should().Be(200);
+            engine.Evaluate($"fetch('https://example.org/{i}').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
         }
 
         handler.Urls.Should().HaveCount(3);
     }
 
     [Fact]
-    public void ARestoreCancelsTheRequestAndTheOldPromiseNeverSettles()
+    public Task ARestoreCancelsTheRequestAndTheOldPromiseNeverSettles() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
         var settled = 0;
@@ -354,7 +373,7 @@ public class WebApiFetchTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         // The socket is let go at once...
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("a restore must cancel the request in flight rather than leave the socket held");
 
         // ... and nothing from the ended cycle ever settles into the restored engine.
         for (var i = 0; i < 20; i++)
@@ -367,10 +386,10 @@ public class WebApiFetchTests
 
         // The engine is perfectly usable afterwards.
         engine.Evaluate("typeof fetch").AsString().Should().Be("function");
-    }
+    });
 
     [Fact]
-    public void AnEngineCancellationSettlesNothingAtAll()
+    public Task AnEngineCancellationSettlesNothingAtAll() => DedicatedThread.RunAsync(() =>
     {
         // A constraint that became a promise rejection would no longer bound anything: script would observe
         // an ordinary failed fetch and carry on.
@@ -387,7 +406,7 @@ public class WebApiFetchTests
         engine.Execute("fetch('https://example.org/').then(record, record);");
 
         cancellation.Cancel();
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("an engine cancellation must reach the request in flight");
 
         for (var i = 0; i < 20; i++)
         {
@@ -396,17 +415,17 @@ public class WebApiFetchTests
         }
 
         Volatile.Read(ref settled).Should().Be(0);
-    }
+    });
 
     [Fact]
-    public void CompletesUnderABlockingUnwrap()
+    public Task CompletesUnderABlockingUnwrap() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
         var engine = WebEngine(handler);
 
         engine.Evaluate("(async () => { const r = await fetch('https://example.org/'); return await r.text(); })()")
-            .UnwrapIfPromise().AsString().Should().Be("ok");
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ok");
+    });
 
     [Fact]
     public async Task CompletesUnderEvaluateAsync()
@@ -419,7 +438,7 @@ public class WebApiFetchTests
     }
 
     [Fact]
-    public void CompletesUnderAHostProcessTasksLoop()
+    public Task CompletesUnderAHostProcessTasksLoop() => DedicatedThread.RunAsync(() =>
     {
         // The shape a game loop or a message pump uses: every turn provably runs on the host's own thread,
         // and nothing here ever blocks on the engine.
@@ -428,7 +447,10 @@ public class WebApiFetchTests
 
         engine.Execute("var text, done = false; fetch('https://example.org/').then(r => r.text()).then(t => { text = t; done = true; });");
 
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        // The loop turns until the body has arrived. Its bound is a ceiling rather than a budget: the body is
+        // delivered by a pool worker, so how many turns that takes is the runner's business and not the
+        // claim — which is that a host driving nothing but ProcessTasks eventually sees the text.
+        var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline && !engine.Evaluate("done").AsBoolean())
         {
             engine.Advanced.ProcessTasks();
@@ -436,7 +458,7 @@ public class WebApiFetchTests
         }
 
         engine.Evaluate("text").AsString().Should().Be("ok");
-    }
+    });
 
     [Fact]
     public void TheHostReadsTheClrExceptionBehindAFailure()
@@ -481,7 +503,7 @@ public class WebApiFetchTests
             }));
 
         engine.Advanced.HostDefined = "tenant-a";
-        engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise().AsNumber().Should().Be(202);
+        engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(202);
 
         seen.Should().Equal("tenant-a");
         byProperty.Urls.Should().BeEmpty();

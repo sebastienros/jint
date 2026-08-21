@@ -13,8 +13,24 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <c>fetch</c> as the Fetch Standard specifies it — https://fetch.spec.whatwg.org/#fetch-method — driven
 /// against a stub <see cref="HttpMessageHandler"/> so that nothing here touches a network.
 /// </summary>
+/// <remarks>
+/// Most of these tests never wait for anything: the handler answers synchronously, so the promise has settled
+/// by the time the drain looks. The two that stream a request body and the two that read a response body do
+/// wait, because both of those cross to a thread-pool worker — <c>FetchRequestBodyStream</c> and
+/// <c>FetchBodyStream</c> are both channel-driven — and those hand their bodies to
+/// <see cref="DedicatedThread.RunAsync"/> so that the wait is not itself holding the worker the transport
+/// needs (sebastienros/jint#3213). Every wall-clock window in the class is
+/// <see cref="TransportSignalCeiling"/>, a bound only a genuine failure to settle can reach, rather than an
+/// interval a loaded runner can lose.
+/// </remarks>
 public class FetchTests
 {
+    /// <summary>
+    /// How long the helpers below will wait for a fetch to settle. Not a measurement and not a budget: what is
+    /// asserted is always what the fetch produced, never how long it took.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>
     /// What one request looked like when the transport sent it.
     /// </summary>
@@ -89,11 +105,11 @@ public class FetchTests
 
     private static JsValue Fetch(HttpMessageHandler handler, string source, Action<Options.FetchOptions>? configure = null)
     {
-        return WebEngine(handler, configure).Evaluate(source).UnwrapIfPromise();
+        return WebEngine(handler, configure).Evaluate(source).UnwrapIfPromise(TransportSignalCeiling);
     }
 
     [Fact]
-    public void ResolvesWithAResponseCarryingTheStatusAndBody()
+    public Task ResolvesWithAResponseCarryingTheStatusAndBody() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -105,10 +121,10 @@ public class FetchTests
 
         var engine = WebEngine(handler);
         engine.Evaluate("fetch('https://example.org/a').then(r => r.status + ':' + r.ok + ':' + r.type + ':' + r.url + ':' + r.redirected)")
-            .UnwrapIfPromise().AsString().Should().Be("201:true:basic:https://example.org/a:false");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("201:true:basic:https://example.org/a:false");
 
-        engine.Evaluate("fetch('https://example.org/a').then(r => r.text())").UnwrapIfPromise().AsString().Should().Be("hello");
-    }
+        engine.Evaluate("fetch('https://example.org/a').then(r => r.text())").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
+    });
 
     [Fact]
     public void SendsTheMethodHeadersAndBodyTheRequestDescribes()
@@ -133,7 +149,7 @@ public class FetchTests
     /// arrives as the bytes the stream produced, chunked because nothing can compute its length in advance.
     /// </summary>
     [Fact]
-    public void AStreamRequestBodyReachesTheTransport()
+    public Task AStreamRequestBodyReachesTheTransport() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
 
@@ -154,7 +170,7 @@ public class FetchTests
 
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract — the ReadableStream arm implies no type.
         request.Header("content-type").Should().BeNull();
-    }
+    });
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-request step 41: a <c>ReadableStream</c> body without
@@ -182,7 +198,7 @@ public class FetchTests
     /// error, which a buffered upload would have propagated verbatim.
     /// </summary>
     [Fact]
-    public void AStreamRequestBodyThatErrorsFailsTheFetch()
+    public Task AStreamRequestBodyThatErrorsFailsTheFetch() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
 
@@ -192,7 +208,7 @@ public class FetchTests
             body: new ReadableStream({ start(c) { c.error(new TypeError('boom')); } }),
         }).then(() => 'resolved', e => e.constructor.name + ': ' + e.message)")
             .AsString().Should().Be("TypeError: Failed to fetch");
-    }
+    });
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status is not 303,
@@ -200,7 +216,7 @@ public class FetchTests
     /// bytes have gone down the first hop's socket and cannot go down a second one.
     /// </summary>
     [Fact]
-    public void AStreamRequestBodyCannotSurviveABodyPreservingRedirect()
+    public Task AStreamRequestBodyCannotSurviveABodyPreservingRedirect() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -226,14 +242,14 @@ public class FetchTests
 
         // The first hop was sent; the second never was.
         handler.Requests.Should().ContainSingle().Which.Url.Should().Be("https://example.org/a");
-    }
+    });
 
     /// <summary>
     /// A 303 is the exemption the step above carves out: it drops the body along with the method, so there
     /// is nothing left to re-send and the redirect is followed as it would be for any other body.
     /// </summary>
     [Fact]
-    public void AStreamRequestBodyFollowsA303ThatDropsIt()
+    public Task AStreamRequestBodyFollowsA303ThatDropsIt() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -260,7 +276,7 @@ public class FetchTests
         handler.Requests.Should().HaveCount(2);
         handler.Requests[1].Method.Should().Be("GET");
         handler.Requests[1].Body.Should().BeNull();
-    }
+    });
 
     [Fact]
     public void MapsEveryResponseHeaderIncludingRepeatedOnes()
@@ -326,7 +342,7 @@ public class FetchTests
 
         var engine = WebEngine(handler);
         engine.Evaluate("fetch('https://example.org/a').then(r => r.url + ':' + r.redirected + ':' + r.status)")
-            .UnwrapIfPromise().AsString().Should().Be("https://example.org/b:true:200");
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("https://example.org/b:true:200");
 
         handler.Requests.Should().HaveCount(2);
         handler.Requests[1].Url.Should().Be("https://example.org/b");
@@ -462,7 +478,7 @@ public class FetchTests
     }
 
     [Fact]
-    public void TheResponseBodyObeysTheUsualConsumeRules()
+    public Task TheResponseBodyObeysTheUsualConsumeRules() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -482,14 +498,14 @@ public class FetchTests
         engine.Execute("var copy = r.clone();");
         engine.Evaluate("r.body === copy.body").AsBoolean().Should().BeFalse();
 
-        engine.Evaluate("r.json()").UnwrapIfPromise().AsObject().Get("a").AsNumber().Should().Be(1);
+        engine.Evaluate("r.json()").UnwrapIfPromise(TransportSignalCeiling).AsObject().Get("a").AsNumber().Should().Be(1);
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
-        engine.Evaluate("r.text().then(() => 'resolved', e => e.constructor.name)").UnwrapIfPromise().AsString().Should().Be("TypeError");
+        engine.Evaluate("r.text().then(() => 'resolved', e => e.constructor.name)").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError");
 
         // The clone carries its own flag over the same bytes.
         engine.Evaluate("copy.bodyUsed").AsBoolean().Should().BeFalse();
-        engine.Evaluate("copy.text()").UnwrapIfPromise().AsString().Should().Be("{\"a\":1}");
-    }
+        engine.Evaluate("copy.text()").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("{\"a\":1}");
+    });
 
     [Fact]
     public void ANetworkFailureRejectsWithAnUninformativeTypeError()
