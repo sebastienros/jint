@@ -22,6 +22,7 @@ using Jint.WebApi.Storage;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
+using Jint.WebApi.Url.Pattern;
 using Jint.WebApi.WebSockets;
 
 namespace Jint.Runtime;
@@ -48,6 +49,7 @@ public sealed partial class Intrinsics
     private StructuredCloneFunction? _structuredClone;
     private UrlConstructor? _webApiUrl;
     private UrlSearchParamsConstructor? _webApiUrlSearchParams;
+    private UrlPatternConstructor? _webApiUrlPattern;
     private CryptoInstance? _crypto;
     private SubtleCryptoInstance? _subtleCrypto;
     private CryptoKeyConstructor? _cryptoKey;
@@ -106,6 +108,9 @@ public sealed partial class Intrinsics
 
     internal UrlSearchParamsConstructor WebApiUrlSearchParams =>
         _webApiUrlSearchParams ??= new UrlSearchParamsConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    internal UrlPatternConstructor WebApiUrlPattern =>
+        _webApiUrlPattern ??= new UrlPatternConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     private EventConstructor? _event;
     private CustomEventConstructor? _customEvent;

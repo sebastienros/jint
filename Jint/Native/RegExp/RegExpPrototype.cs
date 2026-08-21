@@ -1346,7 +1346,13 @@ internal sealed partial class RegExpPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexpbuiltinexec
     /// </summary>
-    private static JsValue RegExpBuiltinExec(JsRegExp R, string s)
+    /// <remarks>
+    /// Internal rather than private because the specification of a host API can name it directly:
+    /// <c>URLPattern</c>'s match algorithm runs <c>RegExpBuiltinExec</c> on each component's regular expression,
+    /// deliberately not <c>RegExpExec</c>, so a script that replaced <c>RegExp.prototype.exec</c> cannot observe
+    /// or alter a <c>URLPattern</c> match.
+    /// </remarks>
+    internal static JsValue RegExpBuiltinExec(JsRegExp R, string s)
     {
         var length = (ulong) s.Length;
         var lastIndex = TypeConverter.ToLength(R.Get(JsRegExp.PropertyLastIndex));
