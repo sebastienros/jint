@@ -783,14 +783,42 @@ public enum WebApiFeatures
     IdleCallback = 1 << 21,
 
     /// <summary>
+    /// <c>addEventListener</c>, <c>removeEventListener</c>, <c>dispatchEvent</c> and <c>self</c> on the global
+    /// scope, with the <c>ErrorEvent</c> and <c>PromiseRejectionEvent</c> interfaces and the
+    /// <c>error</c>, <c>unhandledrejection</c> and <c>rejectionhandled</c> events the engine fires at it —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#the-errorevent-interface.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/>: what these three operations register listeners on is an
+    /// <c>EventTarget</c>, and what they dispatch is an <c>Event</c>, so installing them without that
+    /// feature's machinery would ship operations with no types to use them on.
+    /// </para>
+    /// <para>
+    /// The <b>global object itself is untouched</b> — it does not become an <c>EventTarget</c> and gains no
+    /// prototype it did not have. The listener list lives on a synthetic target the engine keeps beside its
+    /// timers, and the three operations are ordinary global functions bound to it; <c>event.target</c> and a
+    /// listener's <c>this</c> are still the global object, which is what a browser reports.
+    /// </para>
+    /// <para>
+    /// <b>The events feed <see cref="Options.DiagnosticsOptions.Sink"/>, they never replace it.</b> A listener
+    /// calling <c>preventDefault()</c> suppresses a browser's console report; here the sink is still told,
+    /// because a host's log is not something script may switch off. A listener can therefore observe an
+    /// uncaught failure, and cannot hide one.
+    /// </para>
+    /// </remarks>
+    GlobalEvents = 1 << 22,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
     /// <see cref="StructuredClone"/>, <see cref="Crypto"/>, <see cref="Performance"/>, <see cref="Events"/>,
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
-    /// <see cref="Scheduler"/>, <see cref="Messaging"/> <see cref="Reporting"/> and <see cref="Compression"/>; it grows as further
-    /// features land, and never comes to include fetch or <see cref="Storage"/>.
+    /// <see cref="Scheduler"/>, <see cref="Messaging"/>, <see cref="Reporting"/>, <see cref="Compression"/>,
+    /// <see cref="IdleCallback"/> and <see cref="GlobalEvents"/>; it grows as further features land, and never
+    /// comes to include fetch or <see cref="Storage"/>.
     /// </summary>
-    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback,
+    Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents,
 }
 #endif

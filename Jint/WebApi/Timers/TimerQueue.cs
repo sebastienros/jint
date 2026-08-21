@@ -43,12 +43,20 @@ internal sealed class TimerQueue
     /// <summary>Breaks ties between timers due at the same instant, so equal due times fire FIFO.</summary>
     private long _nextSequence;
 
-    internal TimerQueue(TimeProvider timeProvider, int maxActiveTimers, DiagnosticsSink? diagnostics)
+    internal TimerQueue(Engine engine, TimeProvider timeProvider, int maxActiveTimers, DiagnosticsSink? diagnostics)
     {
+        Engine = engine;
         _timeProvider = timeProvider;
         MaxActiveTimers = maxActiveTimers;
         Diagnostics = diagnostics;
     }
+
+    /// <summary>
+    /// The engine these timers belong to. Reached from <see cref="TimerEntry.Fire"/> alone, and only on the
+    /// path where a callback threw — the web-API state it leads to is where HTML's <i>report an exception</i>
+    /// finds a global <c>error</c> listener, if there is one.
+    /// </summary>
+    internal Engine Engine { get; }
 
     /// <summary>
     /// The most timers that may be registered at once, from <c>Options.WebApi.Timers.MaxActiveTimers</c>,
@@ -332,6 +340,11 @@ internal sealed class TimerEntry
         }
         catch (JavaScriptException exception) when (_queue.Diagnostics is { } diagnostics)
         {
+            // WebIDL's "report" behavior is HTML's report an exception, whose step 5 fires an `error` event at
+            // the global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on
+            // and a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
+            _queue.Engine._webApi?.FireGlobalErrorEvent(exception);
+
             // Only a JavaScriptException, which is exactly the class of failure a script could have caught
             // itself. Everything that exists to bound execution — ExecutionCanceledException,
             // TimeoutException, the statement, memory and recursion budgets — is a JintException but not a

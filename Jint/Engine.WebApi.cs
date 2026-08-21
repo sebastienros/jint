@@ -2,8 +2,10 @@
 using System.Diagnostics;
 using Jint.Native.Promise;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
 using Jint.WebApi;
 using Jint.WebApi.Scheduling;
@@ -169,6 +171,14 @@ internal sealed class WebApiEngineState
     private List<JsWebSocket>? _webSockets;
 
     private List<HostAbortSignalBridge>? _hostAbortBridges;
+
+    /// <summary>
+    /// The synthetic target the global <c>addEventListener</c> registers on, or <see langword="null"/> — which
+    /// is what every engine carries until the first of those calls, and forever on one that never enabled
+    /// <see cref="WebApiFeatures.GlobalEvents"/>. That null is the whole cost of the four report sites: a
+    /// failure nobody is listening for reaches one field read.
+    /// </summary>
+    private GlobalEventTarget? _globalEventTarget;
 
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null)
     {
@@ -475,19 +485,75 @@ internal sealed class WebApiEngineState
     internal TimeSpan? TimeUntilNextDueTimer() => Timers?.TimeUntilNextDue();
 
     /// <summary>
-    /// <c>reportError(e)</c>: HTML's <i>report an exception</i> reduced to its last step, since this engine's
-    /// global object is not an <c>EventTarget</c> and so has no <c>error</c> event to fire first. See
+    /// The engine's synthetic global event target, created on first use — which is the first global
+    /// <c>addEventListener</c>, <c>removeEventListener</c> or <c>dispatchEvent</c>, all three of which exist
+    /// only when <see cref="WebApiFeatures.GlobalEvents"/> is on.
+    /// </summary>
+    internal GlobalEventTarget GlobalEventTarget =>
+        _globalEventTarget ??= new GlobalEventTarget(_engine, _engine._mainRealm);
+
+    /// <summary>
+    /// <c>reportError(e)</c>: HTML's <i>report an exception</i> —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. See
     /// <c>ReportErrorFunction</c>.
     /// </summary>
-    internal void ReportError(JsValue value) => Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
+    /// <remarks>
+    /// Step 5 fires an <c>error</c> event at the global scope, which now happens whenever a script registered
+    /// a listener for it; step 6 hands the value to the sink. <b>The two are additive rather than
+    /// alternative:</b> HTML lets a listener's <c>preventDefault()</c> set <i>notHandled</i> false and so
+    /// suppress the console report, and Jint deliberately reports either way — a host's diagnostics channel is
+    /// not something the script it is running may switch off.
+    /// </remarks>
+    internal void ReportError(JsValue value)
+    {
+        if (_globalEventTarget is { } target)
+        {
+            // The location the engine last saw, which for a call from script is the reportError call site —
+            // the same fallback every web API that has to place a failure uses.
+            var location = _engine._lastSyntaxElement?.Location ?? default;
+            target.FireError(ErrorEventDetails.FromReportedValue(value, in location));
+        }
+
+        Diagnostics?.Report(DiagnosticEvent.ForReportedError(value));
+    }
+
+    /// <summary>
+    /// HTML's <i>report an exception</i> for a <see cref="JavaScriptException"/> that escaped a callback the
+    /// engine invoked — a timer handler, an event listener. Step 5 only: the callers own step 6, because the
+    /// sink report they make carries the exception itself and not merely its value.
+    /// </summary>
+    /// <remarks>
+    /// A no-op on an engine that has no global listener, which is every engine until a script registers one.
+    /// It declines to recurse: an exception thrown by a listener <i>while</i> a report is being dispatched
+    /// reaches the sink alone — see <see cref="GlobalEventTarget"/>.
+    /// </remarks>
+    internal void FireGlobalErrorEvent(JavaScriptException exception)
+        => _globalEventTarget?.FireError(ErrorEventDetails.FromException(exception));
 
     /// <summary>
     /// The sink's half of <c>HostPromiseRejectionTracker</c>. Additive to
     /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/>, which has already been raised by the
     /// time this runs: a host with both channels wired sees the pre-existing event behave exactly as it did.
     /// </summary>
+    /// <remarks>
+    /// The <c>unhandledrejection</c> and <c>rejectionhandled</c> events of
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections ride here too, and
+    /// therefore at the <i>tracker's</i> cadence rather than HTML's microtask checkpoint — the divergence
+    /// <see cref="DiagnosticEvent.RejectionHandled"/> documents, inherited whole. Cancelling
+    /// <c>unhandledrejection</c> suppresses a browser's console report; the sink is told regardless, for the
+    /// reason <see cref="ReportError"/> gives.
+    /// </remarks>
     internal void ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
-        => Diagnostics?.Report(DiagnosticEvent.ForPromiseRejection(promise, operation));
+    {
+        if (_globalEventTarget is { } target)
+        {
+            var handled = operation == PromiseRejectionOperation.Handle;
+            var reason = promise.State == PromiseState.Rejected ? promise.Value : JsValue.Undefined;
+            target.FireRejection(handled, promise, reason);
+        }
+
+        Diagnostics?.Report(DiagnosticEvent.ForPromiseRejection(promise, operation));
+    }
 
     /// <summary>
     /// Registered timers that have not fired and have not been cleared, for
@@ -509,7 +575,9 @@ internal sealed class WebApiEngineState
     /// byte — and the reactions that erroring schedules carry the ending cycle's generation, so the fence
     /// discards them exactly as it discards a chunk still on its way. A <c>WebSocket</c> is abandoned the
     /// same way and for the same reason, and fires no further event: its connection is dropped, and its
-    /// <c>close</c> event belongs to a cycle that has ended. The sink is deliberately not reset: it is
+    /// <c>close</c> event belongs to a cycle that has ended. The <b>global event listeners</b> go the same
+    /// way: they are closures over the ended cycle, over globals the restore has just replaced, so an
+    /// <c>error</c> fired afterwards must reach none of them. The sink is deliberately not reset: it is
     /// configuration the engine was built with, like the time origin beside it, and a pooled engine
     /// reporting the next cycle's errors nowhere would be a strange thing for a restore to arrange.
     /// </remarks>
@@ -522,6 +590,11 @@ internal sealed class WebApiEngineState
         AbandonEventSources();
         AbandonWebSockets();
         IdleCallbacks?.Clear();
+
+        // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
+        // and nothing outside this class holds a reference to the old one — the three global operations ask
+        // for it by property on every call.
+        _globalEventTarget = null;
 
         // A signal bridged to a host token belongs to the cycle it was created in: its abort job carries that
         // cycle's generation and would be dropped at dequeue anyway, so keeping the registration alive could

@@ -233,6 +233,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
+| `addEventListener` / `removeEventListener` / `dispatchEvent` / `self` on the global scope, with `ErrorEvent` / `PromiseRejectionEvent` and the `error` / `unhandledrejection` / `rejectionhandled` events | `GlobalEvents` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
 | `fetch` / `Headers` / `Request` / `Response` | `Fetch` — **opt-in on its own, see below** | ✔ shipped |
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
@@ -399,6 +400,9 @@ Install a sink and that is exactly what happens; without one, swallowing the exc
 entirely, so it propagates instead — the same contract a timer callback has. The dispatch state is unwound
 either way, so the event and the target stay usable.
 
+The global scope has its own listener list, behind `WebApiFeatures.GlobalEvents` — see [global `error`
+events](#and-script-can-watch-them-too-global-error-events) below.
+
 `AbortSignal.timeout(ms)` schedules on the same queue the timers use, so it aborts only while the engine is
 being pumped and it counts against `MaxActiveTimers`; that queue exists whenever the `Events` feature does,
 whether or not you also asked for `setTimeout`. `AbortSignal.any(signals)` builds a composite that is
@@ -510,6 +514,50 @@ A sink alone is enough; the `Reporting` feature flag only decides whether script
 built. It is called synchronously, on the engine's thread, and must be thread-safe if the same `Options` builds
 engines that run concurrently. The `JsValue`s on a report belong to the reporting engine: read them inside the
 call rather than stashing them.
+
+### …and script can watch them too: global `error` events
+
+`WebApiFeatures.GlobalEvents` gives the global scope `addEventListener`, `removeEventListener`,
+`dispatchEvent` and `self` (`=== globalThis`), plus the `ErrorEvent` and `PromiseRejectionEvent` interfaces,
+so a script written for a browser or a worker can watch its own failures:
+
+```js
+self.addEventListener('error', e => {
+    // e.message, e.filename, e.lineno, e.colno, e.error
+});
+self.addEventListener('unhandledrejection', e => { /* e.promise, e.reason */ });
+```
+
+`error` is fired for a `reportError(e)` call, for an exception that escaped a timer callback, and for one that
+escaped an event listener — HTML's [report an
+exception](https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception), whose step 5 this is.
+`unhandledrejection` and `rejectionhandled` are fired for the two operations of `HostPromiseRejectionTracker`.
+
+**The global object itself is not an `EventTarget`,** and this feature does not make it one — nothing about
+its prototype, its own properties or the inline caches over them changes. The listener list lives on a
+synthetic target the engine keeps beside its timers; the three operations are ordinary global functions bound
+to it, and `event.target`, `event.currentTarget` and a listener's `this` are the global object, which is what
+a browser reports. The one thing a script could notice is that they ignore their `this`, so
+`const f = addEventListener; f('error', h)` works where a browser raises *Illegal invocation*.
+
+Four rules are worth knowing before you rely on it:
+
+- **The events feed the `DiagnosticsSink`, they never replace it.** `preventDefault()` really does cancel the
+  event — that is HTML's *notHandled* going false — and the sink is told anyway. A script can observe an
+  uncaught failure; it cannot hide one from your log.
+- **Only a `JavaScriptException` is ever dispatched.** A timeout, a cancellation, the statement, memory and
+  recursion budgets keep erupting past both the event and the sink, exactly as they always have. An `error`
+  listener is not a way to swallow a constraint.
+- **A sink is still what turns a callback failure into a *report*.** Firing the event is a step of reporting,
+  so with no sink a throwing timer callback or event listener erupts as before and no listener sees it.
+  `reportError` is the exception, being itself a request to report: it fires the event with or without a sink.
+- **Rejection events arrive at the tracker's cadence, not HTML's microtask checkpoint** — the same documented
+  divergence `DiagnosticEvent.RejectionHandled` carries, so `Promise.reject(e).catch(f)` raises
+  `unhandledrejection` and then `rejectionhandled` where a browser would raise neither.
+
+An exception thrown *while* a report is being dispatched goes to the sink alone and starts no second dispatch,
+which is HTML's re-entrancy rule. And a `RestoreGlobalSnapshot` drops the listeners: they are closures over
+the cycle that just ended, over globals the restore has replaced.
 
 ### Idle callbacks: `requestIdleCallback`
 
