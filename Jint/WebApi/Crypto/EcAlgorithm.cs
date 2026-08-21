@@ -641,8 +641,9 @@ internal static class EcAlgorithm
     /// wider one.) Chrome, Firefox and Safari all report that file 40/40 on wpt.fyi, so the browser answer is
     /// not one vendor's reading. This engine follows them: every key-agreement check runs first, and the
     /// length ceiling is measured only once the pair is known to be one. The disagreement is
-    /// https://github.com/sebastienros/jint/issues/3180, to be raised with w3c/webcrypto; if the
-    /// specification reorders its steps, what goes is this comment and not the code.
+    /// filed as https://github.com/w3c/webcrypto/issues/560 (from
+    /// https://github.com/sebastienros/jint/issues/3180); if the specification reorders its steps, what goes
+    /// is this comment and not the code.
     /// </para>
     /// <para>
     /// <b>The order is observable, which is why the rest of it is spelled out below.</b> A caller passing a
