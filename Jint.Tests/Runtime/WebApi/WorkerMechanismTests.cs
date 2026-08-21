@@ -789,17 +789,30 @@ public class WorkerMechanismTests
     // -------------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// The host ending a connection while the worker's own thread is inside <c>ProcessTasks</c> is the ordinary
-    /// thread-per-worker shape, and it must touch nothing but endpoints, a token and interlocked bookkeeping.
+    /// The host ending a connection while the worker's own thread is <b>provably inside</b> the worker engine
+    /// is the ordinary thread-per-worker shape, and it must touch nothing but endpoints, a token and
+    /// interlocked bookkeeping.
     /// </summary>
+    /// <remarks>
+    /// The rendezvous is the point, and is what makes the pin deterministic rather than lucky: the worker's
+    /// listener parks in a host callback, so its thread owns the engine for as long as the test wants. Anything
+    /// in the end sequence that reached into the worker engine — a <c>ProcessTasks</c>, a <c>Dispose</c>, a
+    /// <c>Constraints.Reset</c> — is then the engine's own concurrent-use exception, thrown out of
+    /// <c>End()</c> on the caller's thread. No wall-clock assertion anywhere; the ceilings only stop a
+    /// deadlock from hanging the run.
+    /// </remarks>
     [Fact]
     public void EndingTheConnectionFromTheParentWhileTheWorkerPumpsDoesNotThrow()
     {
-        using var pumping = new ManualResetEventSlim(false);
-        using var stop = new ManualResetEventSlim(false);
+        using var inside = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
 
-        var host = new TestWorkerHost(Module("addEventListener('message', () => postMessage('pong'));"));
-        host.Configure = engine => engine.SetValue("noop", new Action(() => { }));
+        var host = new TestWorkerHost(Module("addEventListener('message', () => hold());"));
+        host.Configure = engine => engine.SetValue("hold", new Action(() =>
+        {
+            inside.Set();
+            release.Wait(Ceiling);
+        }));
 
         var parent = Parent(host);
         parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
@@ -810,10 +823,9 @@ public class WorkerMechanismTests
         {
             try
             {
-                while (!connection.IsEnded && !stop.IsSet)
+                while (!connection.IsEnded)
                 {
                     connection.Worker.Advanced.ProcessTasks();
-                    pumping.Set();
                 }
             }
             catch (ExecutionCanceledException)
@@ -831,12 +843,18 @@ public class WorkerMechanismTests
         };
 
         pump.Start();
-        pumping.Wait(Ceiling).Should().BeTrue();
 
-        // From the parent's thread, while the worker's thread is inside its pump.
-        connection.End();
+        // The message that parks the worker's thread inside the engine. Posted from the parent's thread, which
+        // is allowed: a port's queue is the one part of another engine any thread may touch.
+        parent.Execute("w.postMessage('park');");
 
-        stop.Set();
+        inside.Wait(Ceiling).Should().BeTrue("the worker's thread has to own its engine before End() means anything");
+
+        // From the parent's thread, with the worker's thread demonstrably inside the worker engine.
+        var end = Record.Exception(connection.End);
+        end.Should().BeNull("ending a connection touches only endpoints, a token and interlocked bookkeeping");
+
+        release.Set();
         pump.Join(Ceiling).Should().BeTrue("the pump loop observes IsEnded and leaves");
         escaped.Should().BeNull();
 

@@ -224,28 +224,55 @@ public class WebApiWorkerTests
     }
 
     /// <summary>
-    /// <c>OnWorkerStarted</c> is where a host starts pumping, so the engine it is handed has to be one the host
-    /// can pump on its own thread — which means the engine wiring must have let go of it first.
+    /// <c>OnWorkerStarted</c> is where a host starts pumping, and a thread-per-worker provider starts that
+    /// thread from inside it — so the engine wiring has to have let go of the worker engine before the call.
     /// </summary>
+    /// <remarks>
+    /// The callback waits for that thread's first pump before returning, which is what makes the pin
+    /// deterministic: the engine is <i>provably</i> still inside <c>OnWorkerStarted</c> while another thread
+    /// enters it. Holding the construction's ownership across the callback makes that pump the engine's own
+    /// concurrent-use exception. Pumping from the callback's own thread would prove nothing — same-thread
+    /// re-entry is always allowed.
+    /// </remarks>
     [Fact]
     public void OnWorkerStartedSeesAPumpableEngine()
     {
-        var pumpedInsideCallback = false;
+        Exception? pumpFailure = null;
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string> { ["./worker.js"] = "report('ran');" })
         {
             OnStarted = connection =>
             {
-                // The host's very first act, on the parent's thread, exactly as a thread-per-worker provider's
-                // Thread.Start would be — and it has to be allowed.
-                connection.Worker.Advanced.ProcessTasks();
-                pumpedInsideCallback = true;
+                using var pumped = new ManualResetEventSlim(false);
+                var pump = new Thread(() =>
+                {
+                    try
+                    {
+                        connection.Worker.Advanced.ProcessTasks();
+                    }
+                    catch (Exception ex)
+                    {
+                        pumpFailure = ex;
+                    }
+                    finally
+                    {
+                        pumped.Set();
+                    }
+                })
+                {
+                    IsBackground = true,
+                    Name = "worker pump",
+                };
+
+                pump.Start();
+                pumped.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+                pump.Join(TimeSpan.FromSeconds(10)).Should().BeTrue();
             },
         };
 
         var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
         parent.Execute("new Worker('./worker.js', { type: 'module' });");
 
-        pumpedInsideCallback.Should().BeTrue();
+        pumpFailure.Should().BeNull("the worker engine is the host's from the moment this callback runs");
         host.Log.Should().Be("ran", "the worker's module runs on the first pump the host gives it");
     }
 
