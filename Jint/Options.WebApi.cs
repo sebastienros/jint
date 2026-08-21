@@ -853,6 +853,41 @@ public enum WebApiFeatures
     GlobalEvents = 1 << 22,
 
     /// <summary>
+    /// The <c>FetchEvent</c> interface and the script-facing registration form the service-worker and
+    /// edge-worker world writes — <c>addEventListener('fetch', event =&gt; event.respondWith(…))</c> —
+    /// https://w3c.github.io/ServiceWorker/#fetchevent-interface. With it enabled,
+    /// <c>Engine.Advanced.InvokeFetchHandler</c> dispatches the inbound request at the global scope as a
+    /// trusted <c>fetch</c> event whenever the host registered no handler of its own, so an unmodified
+    /// Workers-shaped script runs without the host adapting it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never part of <see cref="Default"/>, and deliberately unrelated to <see cref="Fetch"/> in both
+    /// directions:</b> naming this does not enable fetch and naming fetch does not enable this. The two are
+    /// separate grants — <see cref="Fetch"/> lets the script reach <i>out</i> to the network, while this one
+    /// routes requests the host already has <i>in</i> to the script — and coupling them would contradict the
+    /// refusal <c>Engine.Advanced.SetFetchHandler</c> already makes, which installs the object model and
+    /// pointedly not <c>fetch</c>. It is nevertheless a capability worth naming on its own: a script that can
+    /// register a <c>fetch</c> listener can take over every request the host routes into the engine, including
+    /// ones a host handler would otherwise have answered.
+    /// </para>
+    /// <para>
+    /// Implies <see cref="GlobalEvents"/> — which is where <c>addEventListener</c> and the listener list it
+    /// registers on come from, and which brings <see cref="Events"/> with it — plus <see cref="Url"/> and
+    /// <see cref="Files"/>, so that the closure is exactly the set fetch-handler hosting already requires.
+    /// Enabling it also installs <c>Headers</c>, <c>Request</c> and <c>Response</c>, for the reason
+    /// <see cref="CacheApi"/> does: a listener that cannot build a <c>Response</c> has nothing to respond
+    /// with. Unlike the <c>SetFetchHandler</c> door, that install happens while the engine is being built, so
+    /// a module may construct a <c>Response</c> at top level.
+    /// </para>
+    /// <para>
+    /// <b>A handler registered with <c>SetFetchHandler</c> always wins.</b> The listeners are the fallback for
+    /// an engine that has none, never an override of one the host chose.
+    /// </para>
+    /// </remarks>
+    FetchEvents = 1 << 23,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
@@ -860,7 +895,7 @@ public enum WebApiFeatures
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
     /// <see cref="Scheduler"/>, <see cref="Messaging"/>, <see cref="Reporting"/>, <see cref="Compression"/>,
     /// <see cref="IdleCallback"/> and <see cref="GlobalEvents"/>; it grows as further features land, and never
-    /// comes to include fetch or <see cref="Storage"/>.
+    /// comes to include fetch, <see cref="Storage"/> or <see cref="FetchEvents"/>.
     /// </summary>
     Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents,
 }

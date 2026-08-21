@@ -239,12 +239,14 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
 | `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
 | `caches` / `Cache` / `CacheStorage` | `CacheApi` — **opt-in on its own, see below** | ✔ shipped |
+| `FetchEvent` and `addEventListener('fetch', e => e.respondWith(…))` — script-facing request handling | `FetchEvents` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
 grows as the table fills in, and it will never include `fetch`: network egress is always an explicit choice.
-`Storage` is one standing exception, for the reason in its own section below, and `CacheApi` is the
-other, for the neighbouring one — a cache outlives the evaluation that filled it, so where its data goes,
-and what bounds it, is a decision you make rather than inherit.
+`Storage` is one standing exception, for the reason in its own section below; `CacheApi` is another, for the
+neighbouring one — a cache outlives the evaluation that filled it, so where its data goes, and what bounds it,
+is a decision you make rather than inherit; and `FetchEvents` is the third, because a script that can register
+a `fetch` listener can take over every request you route into the engine.
 
 `crypto.subtle` carries **`digest`, `sign`, `verify`, `encrypt`, `decrypt`, `generateKey`, `importKey` and
 `exportKey`**, over SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**,
@@ -1002,8 +1004,9 @@ engine.Execute("function handle(request) { return new Response('hi'); }");
 engine.Advanced.SetFetchHandler(engine.GetValue("handle"));
 ```
 
-**There is no feature flag for this, and registering a handler never grants network access.** What the object
-model needs is the three features its own interfaces are built out of — a `Request` has an `AbortSignal`, its
+**There is no feature flag for registering a handler this way, and doing so never grants network access.**
+(The script-facing form below does have one, because letting a script claim the route is a different
+decision.) What the object model needs is the three features its own interfaces are built out of — a `Request` has an `AbortSignal`, its
 URL is a WHATWG URL, `response.blob()` answers with a `Blob` — so an engine built without `Events | Url |
 Files` refuses the registration with a message naming them. Registering the handler is itself what installs
 the `Headers`, `Request` and `Response` globals, lazily and without replacing anything already under those
@@ -1016,6 +1019,70 @@ response when it runs, does not care.
 Only the request is passed. A Workers handler takes `(request, env, ctx)`; per-request host state reaches this
 one the way it always has, through `engine.Advanced.AddLazyGlobal(...)` or a host function reading
 `engine.Advanced.HostDefined`.
+
+#### The script-facing form: `addEventListener('fetch', …)`
+
+Enable `WebApiFeatures.FetchEvents` and the script registers the handler itself, with no host call at all —
+which is what a service worker and a Cloudflare Workers script written in the older, non-module style look
+like. The host keeps calling exactly the same `InvokeFetchHandler` / `InvokeFetchHandlerAsync` it already
+does:
+
+```js
+// worker.js
+addEventListener('fetch', event => {
+    event.respondWith(handle(event.request));
+
+    // Fire-and-forget work: it keeps the event alive, and it is just jobs you pump.
+    event.waitUntil(recordHit(event.request.url));
+});
+
+async function handle(request) {
+    const body = await request.json();
+    return Response.json({ echoed: body, path: new URL(request.url).pathname });
+}
+```
+
+```csharp
+var engine = new Engine(options => options.UseWebApis(WebApiFeatures.FetchEvents));
+engine.Execute(File.ReadAllText("worker.js"));
+
+using var response = await engine.Advanced.InvokeFetchHandlerAsync(request);
+```
+
+**The flag is its own grant, and is not `Fetch`.** Naming it does not enable `fetch` and enabling `fetch` does
+not name it: one lets the script reach *out* to the network, the other routes requests you already have *in*
+to the script, and coupling them would contradict the refusal `SetFetchHandler` already makes. What it does
+imply is `GlobalEvents` (where `addEventListener` comes from, which brings `Events`), `Url` and `Files` — the
+same closure the object model needs — and it installs `Headers`, `Request` and `Response` while the engine is
+being built, so unlike the `SetFetchHandler` door a module may construct a `Response` at top level.
+
+**A handler registered with `SetFetchHandler` always wins.** The listeners are the fallback for an engine that
+has none, never an override of the one you chose; clearing the handler with `null` is how you hand the route
+over deliberately. `HasFetchHandler` stays strictly about `SetFetchHandler` for the same reason — it is your
+record of what *you* did, and a script must not be able to change the answer. To ask whether a request can be
+served, invoke and let it fail.
+
+**Not responding is a failure, like every other.** A dispatch that reaches no `event.respondWith(...)` — no
+listener called it, or the ones that ran threw — fails the operation with an `InvalidOperationException`,
+because an embedded engine has no network for an unanswered request to fall through to. A listener that throws
+behaves as it does anywhere else on an `EventTarget`: with a `DiagnosticsSink` it is reported and the dispatch
+carries on, so a later listener may still answer; with no sink it propagates, and the invoke turns it into the
+operation's failure. (A listener that answers and *then* throws therefore serves its response on an engine
+with a sink and fails on one without — with nowhere to report to, preferring the response would lose the
+exception entirely.) A constraint firing is neither, and erupts past both.
+
+`FetchEvent` carries `request`, `respondWith(r)` and `waitUntil(f)`, and two reductions from the Service
+Workers Standard are deliberate. There is **no `ExtendableEvent` interface object** — `waitUntil` is a member
+of `FetchEvent.prototype`, the flat shape Workers exposes — and there is **no timed-out flag**, so the event
+stays extendable exactly as long as its own promises are pending and no longer; `respondWith` after the
+dispatch, or `waitUntil` once nothing is outstanding, is an `InvalidStateError`. `respondWith` may be called
+once, stops the dispatch for every later listener, and takes a `Response` or a promise of one. A `waitUntil`
+promise that rejects is reported once, through `unhandledrejection` and the sink, rather than vanishing —
+attaching the lifetime reaction is what would otherwise have made it look handled. `preloadResponse`,
+`clientId`, `resultingClientId`, `replacesClientId` and `handled` are absent rather than faked, since every one
+of them describes a service worker registration that does not exist here. One timing difference from the
+handler form: `respondWith` puts its argument through `PromiseResolve`, so even the most synchronous listener
+needs one turn of the pump.
 
 **Two invoke shapes**, and the difference is who owns the thread. `InvokeFetchHandlerAsync` is the one an
 ASP.NET Core host wants — `await` it and the continuations run wherever the await resumes.

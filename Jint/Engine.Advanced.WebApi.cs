@@ -1,12 +1,16 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
+using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.FetchEvents;
+using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Streams;
 using Jint.WebApi;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Threading;
 
@@ -255,8 +259,18 @@ public partial class Engine
         private const WebApiFeatures FetchModelFeatures = WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
 
         /// <summary>
-        /// Whether a fetch handler is registered on this engine. Requires .NET 8 or higher.
+        /// Whether a fetch handler is registered on this engine <b>through <see cref="SetFetchHandler"/></b>.
+        /// Requires .NET 8 or higher.
         /// </summary>
+        /// <remarks>
+        /// It is deliberately about that registration alone, and answers <see langword="false"/> for an engine
+        /// whose script registered a <c>fetch</c> listener instead (<see cref="WebApiFeatures.FetchEvents"/>) —
+        /// it is the host's own record of what the host did, and a script must not be able to change the
+        /// answer. It is therefore <b>not</b> the way to ask "can this engine serve a request": listeners come
+        /// and go with the evaluation cycle, a script may add one after this was read, and one that exists may
+        /// still decline to respond. Call <see cref="InvokeFetchHandler"/> and let it fail — every other
+        /// failure of an invocation arrives that way too.
+        /// </remarks>
         public bool HasFetchHandler => _engine._webApi?.FetchHandler is not null;
 
         /// <summary>
@@ -308,6 +322,13 @@ public partial class Engine
         /// <see cref="FetchHandlerOperation.IsCompleted"/>. Registering again replaces the previous handler;
         /// passing <see langword="null"/>, <c>undefined</c> or <c>null</c> clears it.
         /// </para>
+        /// <para>
+        /// <b>It outranks the script's own <c>fetch</c> listeners.</b> On an engine with
+        /// <see cref="WebApiFeatures.FetchEvents"/> a script may register a handler itself with
+        /// <c>addEventListener('fetch', …)</c>, and <see cref="InvokeFetchHandler"/> dispatches to those
+        /// listeners <em>only</em> when nothing was registered here. A handler the host named is never taken
+        /// away from it by script — clear it with <see langword="null"/> to hand the route over deliberately.
+        /// </para>
         /// </remarks>
         /// <param name="handler">The handler, or <see langword="null"/> to clear it.</param>
         /// <exception cref="ArgumentException"><paramref name="handler"/> matches none of the three shapes.</exception>
@@ -332,10 +353,22 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Routes an inbound request to the registered fetch handler and hands back an operation the host
-        /// drives with its own pump. Requires .NET 8 or higher.
+        /// Routes an inbound request to the registered fetch handler — or, failing that, to the script's own
+        /// <c>fetch</c> listeners — and hands back an operation the host drives with its own pump. Requires
+        /// .NET 8 or higher.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// <b>Two ways to be routed, in this order.</b> A handler registered with
+        /// <see cref="SetFetchHandler"/> is called with the <c>Request</c>. With no such handler, and only on
+        /// an engine carrying <see cref="WebApiFeatures.FetchEvents"/>, a trusted <c>FetchEvent</c> is
+        /// dispatched at the global scope and the operation settles from whatever a listener passed to
+        /// <c>event.respondWith()</c> — the shape a Cloudflare Workers or service-worker script is written in.
+        /// The order is fixed and not a fallback chain a script can climb: what the host registered wins, and
+        /// listeners are consulted only where there was nothing to win against. A dispatch that reaches no
+        /// <c>respondWith()</c> — because no listener called it, or because the ones that ran threw — fails the
+        /// operation, since an embedded engine has no network for a request to fall through to.
+        /// </para>
         /// <para>
         /// <b>Nothing is pumped here.</b> A handler that answers a <c>Response</c> synchronously produces an
         /// operation that is already complete; one that answers a promise — every <c>async</c> handler, and
@@ -377,7 +410,9 @@ public partial class Engine
         /// </param>
         /// <returns>The invocation in progress; see <see cref="FetchHandlerOperation"/>.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
-        /// <exception cref="InvalidOperationException">No fetch handler is registered on this engine.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Neither a fetch handler nor a <c>fetch</c> listener is registered on this engine.
+        /// </exception>
         public FetchHandlerOperation InvokeFetchHandler(HttpRequestMessage request)
         {
             if (request is null)
@@ -385,13 +420,17 @@ public partial class Engine
                 Throw.ArgumentNullException(nameof(request));
             }
 
-            var handler = RequireFetchHandler();
+            var route = RequireFetchRoute();
+
+            // Before the invocation, so that the evaluation cycle the operation is fenced against is the one
+            // the script actually ran in — a RestoreGlobalSnapshot from inside a listener must abandon this
+            // operation rather than be invisible to it.
             var operation = new FetchHandlerOperation(_engine);
 
             JsValue result;
             try
             {
-                result = CallHandler(handler, request, ReadBody(request));
+                result = InvokeRoute(in route, request, ReadBody(request));
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
@@ -439,8 +478,9 @@ public partial class Engine
         /// <returns>The response the handler produced. The caller owns it and disposes it.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
         /// <exception cref="InvalidOperationException">
-        /// No fetch handler is registered, the request cannot be expressed as a <c>Request</c>, or the handler
-        /// answered with something that is not a <c>Response</c>.
+        /// Neither a fetch handler nor a <c>fetch</c> listener is registered, no listener answered the
+        /// dispatched event with <c>respondWith()</c>, the request cannot be expressed as a <c>Request</c>, or
+        /// the handler answered with something that is not a <c>Response</c>.
         /// </exception>
         /// <exception cref="JavaScriptException">The handler threw.</exception>
         /// <exception cref="PromiseRejectedException">The handler's promise rejected.</exception>
@@ -451,16 +491,27 @@ public partial class Engine
                 Throw.ArgumentNullException(nameof(request));
             }
 
-            var handler = RequireFetchHandler();
+            var route = RequireFetchRoute();
 
             var content = request.Content;
             var body = content is null
                 ? null
                 : await content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
-            var result = CallHandler(handler, request, body);
+            var result = InvokeRoute(in route, request, body);
             var settled = await _engine.UnwrapResultAsync(result, cancellationToken).ConfigureAwait(false);
             return FetchHandlerHosting.CreateResponse(settled);
+        }
+
+        /// <summary>
+        /// Runs whichever of the two routes <see cref="RequireFetchRoute"/> chose, and answers with the value
+        /// the operation settles from.
+        /// </summary>
+        private JsValue InvokeRoute(in FetchRoute route, HttpRequestMessage request, byte[]? body)
+        {
+            return route.Handler is { } handler
+                ? CallHandler(handler, request, body)
+                : DispatchFetchEvent(route.Listeners!, request, body);
         }
 
         /// <summary>
@@ -478,6 +529,58 @@ public partial class Engine
         {
             var jsRequest = FetchHandlerHosting.CreateRequest(_engine, _engine._mainRealm, request, body);
             return _engine.Call(handler.Callable, handler.ThisObject, [jsRequest]);
+        }
+
+        /// <summary>
+        /// The script-facing route: build the same <c>Request</c> the handler route builds, fire a trusted
+        /// <c>fetch</c> event at the global scope, and answer with the promise a listener responded with.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The dispatch is bracketed in <see cref="Engine.ExecuteWithConstraints{T}"/> — which is literally
+        /// what <see cref="Engine.Call(JsValue, JsValue, JsValue[])"/> does for the handler route — so the
+        /// whole dispatch is <b>one</b> entry into the engine and therefore one constraint budget, however many
+        /// listeners run. Bracketing each listener instead would hand every one of them a fresh
+        /// <c>MaxStatements</c> allowance and a freshly armed timeout, which is the trap the constraints
+        /// section of the README warns hosts about.
+        /// </para>
+        /// <para>
+        /// What a throwing listener does is the <c>EventTarget</c> contract unchanged: with a
+        /// <see cref="DiagnosticsSink"/> it is reported and the dispatch carries on to the next listener, so a
+        /// later one may still answer; with no sink the <c>JavaScriptException</c> propagates out of here and
+        /// the caller turns it into the operation's failure. A constraint is neither — it is a
+        /// <c>JintException</c> that is not a <c>JavaScriptException</c>, so it erupts past the sink either
+        /// way and, again, becomes the operation's failure rather than a promise that never settles.
+        /// </para>
+        /// <para>
+        /// One consequence is worth stating on its own, because it is the one place the two configurations
+        /// disagree about a request that <i>was</i> answered: a listener that calls <c>respondWith()</c> and
+        /// <b>then</b> throws serves its response on an engine with a sink — the throw is reported and the
+        /// dispatch finishes normally, which is what a browser does — and fails the operation on an engine
+        /// without one, where the exception is the only thing that can carry the failure anywhere at all. That
+        /// follows from the sink contract rather than from anything decided here: with nowhere to report to,
+        /// preferring the response would lose the exception entirely.
+        /// </para>
+        /// </remarks>
+        private JsPromise DispatchFetchEvent(GlobalEventTarget listeners, HttpRequestMessage request, byte[]? body)
+        {
+            var realm = _engine._mainRealm;
+            var jsRequest = FetchHandlerHosting.CreateRequest(_engine, realm, request, body);
+            var fetchEvent = realm.Intrinsics.FetchEvent.CreateTrustedFetchEvent(jsRequest);
+
+            _engine.ExecuteWithConstraints(_engine.Options.Strict, () =>
+            {
+                listeners.DispatchEvent(fetchEvent);
+                return JsValue.Undefined;
+            });
+
+            if (fetchEvent.ResponsePromise is not { } response)
+            {
+                Throw.InvalidOperationException("The 'fetch' event was dispatched, but no listener called event.respondWith(...), so there is nothing to answer the request with. Call event.respondWith(new Response(...)) synchronously from the listener — an embedded engine has no network for an unanswered request to fall through to.");
+                return null!;
+            }
+
+            return response;
         }
 
         /// <summary>
@@ -499,15 +602,54 @@ public partial class Engine
             return buffer.ToArray();
         }
 
-        private FetchHandler RequireFetchHandler()
+        /// <summary>
+        /// Which of the two registration forms this invocation goes to. Exactly one of the two is set.
+        /// </summary>
+        /// <param name="Handler">The handler <see cref="SetFetchHandler"/> registered, if there is one.</param>
+        /// <param name="Listeners">
+        /// The synthetic global event target to dispatch a <c>FetchEvent</c> at, when there is no handler and
+        /// the script registered a <c>fetch</c> listener instead.
+        /// </param>
+        [StructLayout(LayoutKind.Auto)]
+        private readonly record struct FetchRoute(FetchHandler? Handler, GlobalEventTarget? Listeners);
+
+        /// <summary>
+        /// Decides where an inbound request goes, and refuses the invocation when nothing can take it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The registered handler is looked at first and wins outright.</b> A script that also registered a
+        /// <c>fetch</c> listener does not get to intercept requests the host had already routed somewhere:
+        /// that would let evaluated script take over the engine's request handling by adding one line, which is
+        /// not a decision a script may make for its host.
+        /// </para>
+        /// <para>
+        /// <b>An engine with neither pays two reads.</b> The feature flag is tested before the listener list is
+        /// even asked for, and the list is read through
+        /// <c>WebApiEngineState.GlobalEventTargetIfCreated</c> — a plain field — so an engine that never
+        /// enabled the feature, and one whose script never called <c>addEventListener</c>, both answer without
+        /// allocating anything. There is nothing to race here: listeners are registered by script, and script
+        /// runs on the engine's thread, which is the thread this is being called on.
+        /// </para>
+        /// </remarks>
+        private FetchRoute RequireFetchRoute()
         {
-            var handler = RequireFetchModel().FetchHandler;
-            if (handler is null)
+            var state = RequireFetchModel();
+
+            if (state.FetchHandler is { } handler)
             {
-                Throw.InvalidOperationException("No fetch handler is registered on this engine. Register one with engine.Advanced.SetFetchHandler — a function, an object with a callable 'fetch' property, or the namespace of a module whose default export is one of those.");
+                return new FetchRoute(handler, null);
             }
 
-            return handler;
+            if ((_engine._webApiFeatures & WebApiFeatures.FetchEvents) != WebApiFeatures.None
+                && state.GlobalEventTargetIfCreated is { } listeners
+                && listeners.HasListenerOfType(FetchEventNames.FetchName))
+            {
+                return new FetchRoute(null, listeners);
+            }
+
+            Throw.InvalidOperationException("No fetch handler is registered on this engine, and no script listener is registered for the 'fetch' event. Register a handler with engine.Advanced.SetFetchHandler — a function, an object with a callable 'fetch' property, or the namespace of a module whose default export is one of those — or build the engine with WebApiFeatures.FetchEvents and let the script register one with addEventListener('fetch', event => event.respondWith(...)).");
+            return default;
         }
 
         private WebApiEngineState RequireFetchModel()

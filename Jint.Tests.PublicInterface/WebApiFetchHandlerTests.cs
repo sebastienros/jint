@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Jint;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi;
 using Jint.WebApi.Fetch;
 
 namespace Jint.Tests.PublicInterface;
@@ -613,6 +614,266 @@ public class WebApiFetchHandlerTests
 
         // The handler itself is host state and survives, like Engine.Advanced.HostDefined.
         engine.Advanced.HasFetchHandler.Should().BeTrue();
+    }
+
+    // ---------------------------------------------------------------------------------------------------
+    // The second registration form: WebApiFeatures.FetchEvents and addEventListener('fetch', …).
+    // ---------------------------------------------------------------------------------------------------
+
+    private sealed class RecordingSink : DiagnosticsSink
+    {
+        internal List<DiagnosticEvent> Reports { get; } = new();
+
+        public override void Report(DiagnosticEvent report) => Reports.Add(report);
+    }
+
+    /// <summary>
+    /// Builds an engine with the fetch-events feature and evaluates <paramref name="source"/>, which is
+    /// expected to register its own listener. Nothing is registered with <see cref="Engine.AdvancedOperations.SetFetchHandler"/>.
+    /// </summary>
+    private static Engine Listener(string source, Action<Options>? configure = null)
+    {
+        var engine = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.FetchEvents);
+            configure?.Invoke(options);
+        });
+
+        engine.Execute(source);
+        return engine;
+    }
+
+    [Fact]
+    public void AScriptRegisteredListenerServesTheRequestThroughThePolledShape()
+    {
+        var engine = Listener("addEventListener('fetch', event => event.respondWith(new Response('from ' + event.request.url, { status: 201 })));");
+
+        // Nothing was registered with SetFetchHandler, and the host asks for the request exactly as before.
+        engine.Advanced.HasFetchHandler.Should().BeFalse();
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get("https://example.org/w")));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        Text(response).Should().Be("from https://example.org/w");
+    }
+
+    [Fact]
+    public async Task AScriptRegisteredListenerServesTheRequestThroughTheAwaitableShape()
+    {
+        var engine = Listener("""
+            addEventListener('fetch', event => {
+                event.respondWith(event.request.text().then(body => new Response('echo:' + body)));
+            });
+            """);
+
+        var message = new HttpRequestMessage(HttpMethod.Post, "https://example.org/")
+        {
+            Content = new StringContent("payload", Encoding.UTF8, "text/plain"),
+        };
+
+        using var response = await engine.Advanced.InvokeFetchHandlerAsync(message);
+        (await response.Content.ReadAsStringAsync()).Should().Be("echo:payload");
+    }
+
+    [Fact]
+    public void AnExplicitHandlerAlwaysWinsOverTheScriptsListeners()
+    {
+        var engine = Listener("""
+            globalThis.log = [];
+            addEventListener('fetch', event => { globalThis.log.push('listener'); event.respondWith(new Response('listener')); });
+            globalThis.handler = () => { globalThis.log.push('handler'); return new Response('handler'); };
+            """);
+
+        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+
+        using (var response = engine.Advanced.InvokeFetchHandler(Get()).GetResult())
+        {
+            // A script that adds a listener must not be able to take the route away from the host.
+            Text(response).Should().Be("handler");
+        }
+
+        engine.Evaluate("globalThis.log.join(',')").AsString().Should().Be("handler");
+
+        // Clearing the handler is how a host hands the route over, deliberately.
+        engine.Advanced.SetFetchHandler(null);
+        using var second = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+        Text(second).Should().Be("listener");
+    }
+
+    [Fact]
+    public void WithoutTheFeatureFlagAListenerIsNotConsulted()
+    {
+        // Everything the listener form needs except the flag itself: the global addEventListener is there, so
+        // registering succeeds and simply routes nothing.
+        var engine = new Engine(options => options.UseWebApis(ModelFeatures | WebApiFeatures.GlobalEvents));
+        engine.Execute("addEventListener('fetch', event => event.respondWith(new Response('x')));");
+
+        engine.Evaluate("typeof FetchEvent").AsString().Should().Be("undefined");
+
+        var failure = Assert.Throws<InvalidOperationException>(() => engine.Advanced.InvokeFetchHandler(Get()));
+        failure.Message.Should().Contain("SetFetchHandler");
+        failure.Message.Should().Contain("WebApiFeatures.FetchEvents");
+    }
+
+    [Fact]
+    public void NoListenerRespondingFailsTheOperation()
+    {
+        var engine = Listener("addEventListener('fetch', () => { /* looks at the request and shrugs */ });");
+
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+
+        // There is no network for an unanswered request to fall through to, so this is a failure like any
+        // other — and it arrives through the operation rather than being thrown at the start call.
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("respondWith");
+    }
+
+    [Fact]
+    public async Task NoListenerRespondingThrowsFromTheAwaitableShape()
+    {
+        var engine = Listener("addEventListener('fetch', () => { });");
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => engine.Advanced.InvokeFetchHandlerAsync(Get()));
+        failure.Message.Should().Contain("respondWith");
+    }
+
+    [Fact]
+    public void AListenerThatThrowsFaultsTheOperationWhenNoSinkIsSet()
+    {
+        var engine = Listener("addEventListener('fetch', () => { throw new TypeError('listener boom'); });");
+
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+
+        // With no diagnostics sink an exception escaping a listener propagates — the EventTarget contract,
+        // unchanged — and the invoke turns it into the operation's failure, exactly as it does for a handler
+        // that threw.
+        operation.IsFaulted.Should().BeTrue();
+        var failure = Assert.IsType<JavaScriptException>(operation.Error);
+        failure.Error.Get("name").AsString().Should().Be("TypeError");
+        failure.Message.Should().Be("listener boom");
+    }
+
+    [Fact]
+    public void AListenerThatThrowsIsReportedAndALaterOneStillAnswers()
+    {
+        var sink = new RecordingSink();
+        var engine = Listener(
+            """
+            addEventListener('fetch', () => { throw new TypeError('first fails'); });
+            addEventListener('fetch', event => event.respondWith(new Response('second answers')));
+            """,
+            options => options.UseWebApis(webApi => webApi.Diagnostics.Sink = sink));
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+
+        // A sink is what turns "report the exception and carry on" from a lie into the specified behaviour, so
+        // the request is still served.
+        Text(response).Should().Be("second answers");
+        sink.Reports.Should().Contain(report => report.Kind == DiagnosticEventKind.UncaughtCallbackError);
+    }
+
+    [Fact]
+    public void AConstraintThatFiresDuringTheDispatchFaultsTheOperation()
+    {
+        var engine = Listener(
+            "addEventListener('fetch', event => { let n = 0; for (let i = 0; i < 10000; i++) { n += i; } event.respondWith(new Response(String(n))); });",
+            options => options.MaxStatements(50));
+
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+
+        // A constraint is a JintException that is not a JavaScriptException, so it erupts past a sink and past
+        // the dispatch — and the invoke turns it into the operation's failure rather than leaving the host
+        // polling a promise that can never settle.
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<StatementsCountOverflowException>(operation.Error);
+    }
+
+    [Fact]
+    public void AListenerThatAnswersAndThenThrowsServesItsResponseWhenASinkIsSet()
+    {
+        var sink = new RecordingSink();
+        var engine = Listener(
+            "addEventListener('fetch', event => { event.respondWith(new Response('answered')); throw new Error('after answering'); });",
+            options => options.UseWebApis(webApi => webApi.Diagnostics.Sink = sink));
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+
+        // respondWith() already committed the answer, and reporting the throw is what lets the dispatch finish
+        // — so the request is served and the failure is still visible. This is what a browser does.
+        Text(response).Should().Be("answered");
+        sink.Reports.Should().Contain(report => report.Kind == DiagnosticEventKind.UncaughtCallbackError);
+    }
+
+    [Fact]
+    public void AListenerThatAnswersAndThenThrowsFailsTheOperationWithNoSink()
+    {
+        var engine = Listener("addEventListener('fetch', event => { event.respondWith(new Response('answered')); throw new Error('after answering'); });");
+
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+
+        // The one case where the two configurations disagree about a request that was answered. With nowhere
+        // to report to, preferring the response would lose the exception entirely — so the exception wins and
+        // the host sees the failure, which is the same bargain every other engine-invoked callback makes.
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<JavaScriptException>(operation.Error).Message.Should().Be("after answering");
+    }
+
+    [Fact]
+    public void TheDispatchIsAHostEntryAndArmsTheConstraintsAfresh()
+    {
+        // The loop is there so the listener runs past the amortized check cadence: a wall-clock constraint is
+        // amortizable, so a three-statement listener would never reach a check at all and the test would pass
+        // whatever the dispatch did.
+        var engine = Listener(
+            "addEventListener('fetch', event => { let n = 0; for (let i = 0; i < 500; i++) { n += i; } event.respondWith(new Response('answered')); });",
+            options => options.TimeoutInterval(TimeSpan.FromMilliseconds(200)));
+
+        // Time the host spent between requests is the host's, not the script's. Entering the engine is what
+        // arms the wall-clock budget — a TimeConstraint otherwise measures from the moment the previous entry
+        // returned — so a request arriving long afterwards still gets its whole allowance. The dispatch is
+        // bracketed in exactly what Engine.Call brackets the registered-handler route in, which is what makes
+        // that true here as well.
+        Thread.Sleep(400);
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be("answered");
+    }
+
+    [Fact]
+    public void AListenerInvocationTheEngineFencedOffCompletesAsFaulted()
+    {
+        var engine = Listener("addEventListener('fetch', event => event.respondWith(new Promise(() => { })));");
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+        operation.IsCompleted.Should().BeFalse();
+
+        // The operation records the cycle it was started in before the dispatch runs, so a restore abandons it
+        // just as it abandons one started by a registered handler. A host polling IsCompleted must not poll
+        // forever.
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("abandoned");
+    }
+
+    [Fact]
+    public void TheFeatureInstallsTheObjectModelBeforeAnyScriptRuns()
+    {
+        // Unlike the SetFetchHandler door, whose install happens when the host registers, this one is part of
+        // building the engine — so a module may construct a Response at top level.
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.FetchEvents));
+        engine.Modules.Add("worker", "const canned = new Response('top level'); addEventListener('fetch', e => e.respondWith(canned.clone()));");
+        engine.Modules.Import("worker");
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be("top level");
+
+        // And still no outbound network.
+        engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
     }
 }
 #endif
