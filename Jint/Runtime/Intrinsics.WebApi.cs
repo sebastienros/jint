@@ -10,6 +10,7 @@ using Jint.WebApi.Encoding;
 using Jint.WebApi.Events;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Navigator;
@@ -358,6 +359,26 @@ public sealed partial class Intrinsics
 
     internal ReportErrorFunction ReportError =>
         _reportError ??= new ReportErrorFunction(_engine, _realm, Function.PrototypeObject);
+
+    private ErrorEventConstructor? _errorEvent;
+    private PromiseRejectionEventConstructor? _promiseRejectionEvent;
+    private GlobalEventFunctions? _globalEventFunctions;
+
+    /// <summary><c>ErrorEvent</c> inherits from <c>Event</c>.</summary>
+    internal ErrorEventConstructor ErrorEvent =>
+        _errorEvent ??= new ErrorEventConstructor(_engine, _realm, Event);
+
+    /// <summary><c>PromiseRejectionEvent</c> inherits from <c>Event</c>.</summary>
+    internal PromiseRejectionEventConstructor PromiseRejectionEvent =>
+        _promiseRejectionEvent ??= new PromiseRejectionEventConstructor(_engine, _realm, Event);
+
+    /// <summary>
+    /// The three global event-target operations, which are ordinary functions rather than one object — this
+    /// holder exists only so that a realm builds one of each, and each of the three is itself built on first
+    /// access.
+    /// </summary>
+    internal GlobalEventFunctions GlobalEventFunctions =>
+        _globalEventFunctions ??= Jint.WebApi.GlobalEvents.GlobalEventFunctions.Create(_engine, _realm);
 
     private StorageConstructor? _storage;
     private JsStorage? _localStorage;

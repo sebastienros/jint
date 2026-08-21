@@ -15,9 +15,17 @@ namespace Jint.WebApi;
 /// This is the channel HTML calls <i>reporting an exception</i> —
 /// <see href="https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception">report an
 /// exception</see>. In a browser that algorithm fires an <c>error</c> event at the global object and, if
-/// nothing cancels it, lets "the user agent … report exception to a developer console". Jint's global object
-/// is not an <c>EventTarget</c>, so the event half never applies and the sink <i>is</i> the developer
-/// console: whatever would have been reported arrives here, once, with no way for script to intercept it.
+/// nothing cancels it, lets "the user agent … report exception to a developer console". The sink <i>is</i>
+/// that console.
+/// </para>
+/// <para>
+/// The event half applies too, on an engine that enabled <see cref="WebApiFeatures.GlobalEvents"/>: Jint's
+/// global object is still not an <c>EventTarget</c>, but the feature gives the engine a synthetic global
+/// target that a script registers <c>error</c>, <c>unhandledrejection</c> and <c>rejectionhandled</c>
+/// listeners on. <b>Those events feed this sink, they never replace it.</b> A listener calling
+/// <c>preventDefault()</c> suppresses a browser's console report and deliberately does not suppress this one:
+/// a host's diagnostics channel is not something the script it is running may switch off. So a script can
+/// observe its own failures, and a host still hears every one of them.
 /// </para>
 /// <para>
 /// <b>Setting a sink changes what happens to an exception that escapes an engine-invoked callback.</b> With
@@ -165,6 +173,14 @@ public sealed class DiagnosticEvent
     /// channels telling one story — so the same code produces a report with this
     /// <see langword="false"/> followed by one with it <see langword="true"/>. A host that wants the browser's
     /// shape correlates the pair by <see cref="Promise"/> identity.
+    /// </para>
+    /// <para>
+    /// <b>The <c>unhandledrejection</c> and <c>rejectionhandled</c> events of
+    /// <see cref="WebApiFeatures.GlobalEvents"/> inherit that cadence whole</b>, being fired from this very
+    /// call. A script that registers those listeners therefore sees the same pair a sink does, in the same
+    /// order and at the same moment, rather than the single deferred event a browser would raise; and
+    /// cancelling <c>unhandledrejection</c> suppresses nothing here, for the reason
+    /// <see cref="DiagnosticsSink"/> gives.
     /// </para>
     /// </remarks>
     public bool RejectionHandled { get; }

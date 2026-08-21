@@ -192,6 +192,29 @@ internal static class WebApiRegistration
             Install(global, engine, "AbortSignal", static e => e.Realm.Intrinsics.AbortSignal, PropertyFlag.NonEnumerable);
         }
 
+        if ((features & WebApiFeatures.GlobalEvents) != WebApiFeatures.None)
+        {
+            // WebIDL operations on the global: writable, enumerable and configurable —
+            // https://webidl.spec.whatwg.org/#es-operations. A browser's Window inherits these three from
+            // EventTarget.prototype instead, because its global implements EventTarget; ours does not, and
+            // GlobalEventTarget says why.
+            Install(global, engine, "addEventListener", static e => e.Realm.Intrinsics.GlobalEventFunctions.AddEventListener, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "removeEventListener", static e => e.Realm.Intrinsics.GlobalEventFunctions.RemoveEventListener, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "dispatchEvent", static e => e.Realm.Intrinsics.GlobalEventFunctions.DispatchEvent, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // HTML exposes `self` through a [Replaceable] accessor pair on Window; an ordinary enumerable data
+            // property is the same simplification console, crypto and navigator are installed with. The
+            // PRINCIPAL realm's global object, deliberately: the property lives on that object, so answering
+            // with whichever realm happens to be current when it is first read could make `self === globalThis`
+            // false. https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self
+            Install(global, engine, "self", static e => e._mainRealm.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // The two event interfaces the engine fires at that target. Ordinary WebIDL interface objects:
+            // writable and configurable but not enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
+            Install(global, engine, "ErrorEvent", static e => e.Realm.Intrinsics.ErrorEvent, PropertyFlag.NonEnumerable);
+            Install(global, engine, "PromiseRejectionEvent", static e => e.Realm.Intrinsics.PromiseRejectionEvent, PropertyFlag.NonEnumerable);
+        }
+
         if ((features & WebApiFeatures.Crypto) != WebApiFeatures.None)
         {
             // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
@@ -402,6 +425,14 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams;
         }
 
+        // The three global operations register listeners on an EventTarget and dispatch an Event, and the two
+        // interface objects the feature adds are Event subclasses — so without the events feature it would
+        // install operations with nothing to use them on.
+        if ((features & WebApiFeatures.GlobalEvents) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
+        }
+
         // Deliberately not the other way round: fetch does not bring server-sent events and server-sent
         // events do not bring fetch. They are two separate grants of outbound network access.
         if ((features & WebApiFeatures.EventSource) != WebApiFeatures.None)
@@ -432,9 +463,12 @@ internal static class WebApiRegistration
     /// additionally read the time origin (Event.timeStamp, MessageEvent.timeStamp, performance.now), fetch
     /// keeps its settings and its in-flight set here, the scheduler keeps its own task queues here, and storage
     /// keeps its providers here, which is why each of them wants the state even without the timers flag.
+    /// The global events keep their synthetic listener target here. That flag is named explicitly rather than
+    /// left to the closure that already brings <see cref="WebApiFeatures.Events"/> with it, because the reason
+    /// it needs the state is its own — a target to fire at, not the time origin the events feature wants.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents;
 
     /// <summary>
     /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
@@ -476,7 +510,7 @@ internal static class WebApiRegistration
         var timeProvider = timerOptions.TimeProvider ?? TimeProvider.System;
 
         var timers = (features & NeedsTimerQueue) != WebApiFeatures.None
-            ? new TimerQueue(timeProvider, timerOptions.MaxActiveTimers, diagnostics)
+            ? new TimerQueue(engine, timeProvider, timerOptions.MaxActiveTimers, diagnostics)
             : null;
 
         // The fetch settings are read here, once, so that nothing on a background thread ever reaches into
@@ -534,7 +568,7 @@ internal static class WebApiRegistration
 
         if ((added & NeedsTimerQueue) != WebApiFeatures.None && state.Timers is null)
         {
-            state.AttachTimers(new TimerQueue(state.TimeProvider, timerOptions.MaxActiveTimers, state.Diagnostics));
+            state.AttachTimers(new TimerQueue(engine, state.TimeProvider, timerOptions.MaxActiveTimers, state.Diagnostics));
         }
 
         if ((added & NeedsFetchOptions) != WebApiFeatures.None && state.FetchOptions is null)

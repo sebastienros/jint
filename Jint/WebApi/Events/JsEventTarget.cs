@@ -53,6 +53,12 @@ namespace Jint.WebApi.Events;
 /// a <c>JintException</c> but not one of those, so it erupts whatever the host configured. The dispatch state
 /// is unwound in every case, so the event and the target stay usable.
 /// </para>
+/// <para>
+/// Reporting it is HTML's <i>report an exception</i>, so on an engine with
+/// <see cref="WebApiFeatures.GlobalEvents"/> it also fires an <c>error</c> event at the global scope — which
+/// is where the re-entrancy rule bites, because the listener that just threw may itself have been running as
+/// part of a report. <c>Jint.WebApi.GlobalEvents.GlobalEventTarget</c> is what declines the second dispatch.
+/// </para>
 /// </remarks>
 internal class JsEventTarget : ObjectInstance
 {
@@ -69,6 +75,43 @@ internal class JsEventTarget : ObjectInstance
     internal JsEventTarget(Engine engine, Realm realm) : base(engine, ObjectClass.Object)
     {
         _realm = realm;
+    }
+
+    /// <summary>
+    /// What a dispatch reports as https://dom.spec.whatwg.org/#dom-event-target and
+    /// https://dom.spec.whatwg.org/#dom-event-currenttarget, and therefore the <c>this</c> a listener is
+    /// invoked with.
+    /// </summary>
+    /// <remarks>
+    /// The target itself for every <c>EventTarget</c> a script can reach, which is what the specification
+    /// says. The one override is the engine's synthetic global target, whose listener list is not reachable
+    /// as an object at all: it answers with the global object, so a global <c>error</c> listener sees the
+    /// <c>event.target</c> and the <c>this</c> a browser gives it rather than an object script has no other
+    /// way to name.
+    /// </remarks>
+    internal virtual JsValue EventTargetValue => this;
+
+    /// <summary>
+    /// Whether one dispatch of <paramref name="type"/> could invoke anything at all. The engine asks before
+    /// <i>building</i> a trusted event, so a target nobody listens to costs a walk of an empty list rather
+    /// than an object nothing would have read.
+    /// </summary>
+    internal bool HasListenerOfType(string type)
+    {
+        if (_listeners is not { } listeners)
+        {
+            return false;
+        }
+
+        foreach (var listener in listeners)
+        {
+            if (!listener.Removed && string.Equals(listener.Type, type, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -179,9 +222,11 @@ internal class JsEventTarget : ObjectInstance
     /// <returns>False when the event was canceled, which is what <c>dispatchEvent</c> returns.</returns>
     internal bool DispatchEvent(JsEvent ev)
     {
+        var targetValue = EventTargetValue;
+
         ev.DispatchFlag = true;
-        ev.Target = this;
-        ev.CurrentTarget = this;
+        ev.Target = targetValue;
+        ev.CurrentTarget = targetValue;
         ev.EventPhase = JsEvent.PhaseAtTarget;
 
         try
@@ -277,6 +322,12 @@ internal class JsEventTarget : ObjectInstance
                 // there is somewhere for the report to go. Only a JavaScriptException: everything that bounds
                 // execution is a JintException but not one of these, so a constraint still stops the dispatch
                 // dead. With no sink there is no catch at all — see the class remarks.
+                //
+                // Reporting it is HTML's report an exception, whose step 5 fires an `error` event at the
+                // global scope before step 6's console report. That is a no-op unless the GlobalEvents
+                // feature is on and something is listening, and it declines to recurse when the listener that
+                // just threw was itself running as part of a report.
+                _engine._webApi?.FireGlobalErrorEvent(exception);
                 diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.EventListener));
             }
             finally
