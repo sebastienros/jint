@@ -901,8 +901,40 @@ positive span is how long until the earliest *timed* work — a `setTimeout`, an
 delayed `postTask`, a `requestIdleCallback` timeout, an `Atomics.waitAsync` deadline — comes due; `null` means
 nothing is scheduled. It is available on **every** target framework, not just .NET 8: the atomics deadline it
 reports is a core-engine one. It describes the engine's own schedule and not the outside world, so a `null` is
-"nothing timed is pending" rather than "nothing will ever happen" — keep a cadence of your own for the work
-that arrives from a background thread.
+"nothing timed is pending" rather than "nothing will ever happen".
+
+**`engine.Advanced.WaitForScheduledWork(timeout, token)` is the answer to the work that arrives from a
+background thread.** A loop with no frame of its own would otherwise have to sleep on a ceiling of its own
+choosing, and then a job enqueued from *another* thread — an interop `Task` settling, an asynchronous module
+load completing, a message posted in from a second engine — waits out that ceiling before anything notices it:
+such a job has no due time for `TimeUntilNextScheduledWork` to report, so polling was the only way to find it.
+The wait blocks until there is something worth pumping and returns `true`, or returns `false` when the ceiling
+runs out; the token ends it with an `OperationCanceledException`.
+
+```csharp
+while (!token.IsCancellationRequested)
+{
+    engine.Advanced.ProcessTasks();
+
+    try
+    {
+        engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+    }
+    catch (OperationCanceledException)
+    {
+        break;
+    }
+}
+```
+
+**It does not pump** — `ProcessTasks()` is still the pump, and there is still no third method that drains for
+a budget. It is bounded internally by the engine's own next due time, so a `setTimeout(f, 1)` wakes it in about
+a millisecond rather than at the ceiling above, and the ceiling is only a backstop. Treat a `true` as a hint and
+re-check your own condition: spurious wakes are expected. The wait **claims the engine for its whole duration**,
+so a second thread asking for it — or for anything else guarded — gets the usual *"This Engine is already in use
+by another thread"*, which is what makes one drainer per engine self-enforcing. `WaitForScheduledWorkAsync` is
+the same contract without holding a thread. Both are available on **every** target framework and are unaffected
+by which web APIs are enabled.
 
 **`engine.Advanced.CreateAbortSignal(cancellationToken)`** bridges your cancellation into script: hand the
 returned `AbortSignal` to `fetch`, to `scheduler.postTask`, or to a listener the script adds itself. Requires
