@@ -101,10 +101,14 @@ public class WptTestRunner
         ("WebCryptoAPI/tools/*", "the corpus's own generator, not a test"),
 
         // ---------------------------------------------------------------- streams
-        // Transferring a stream through postMessage() is the one part of the Streams Standard Jint does not
-        // implement, there being nothing to transfer it to; the directory is worker, iframe and service-worker
-        // plumbing on top of that. https://github.com/sebastienros/jint/issues/3186 is where it lives.
-        ("streams/transferable/*", "transfers a stream through a MessagePort, issue #3186"),
+        // The transferable-streams directory is vendored now that transferring a stream works
+        // (https://github.com/sebastienros/jint/issues/3199), but only the one .any.js file it has. The two
+        // .window.js tests drive an iframe and a MessagePort helper page, and resources/ is the iframe,
+        // worker, shared-worker and service-worker plumbing they and the directory's .html files load — all
+        // of it a browsing context, which is what the blanket ".any.js only" rule already excludes; these two
+        // rows say so by name because the directory would otherwise look half-vendored by accident.
+        ("streams/transferable/*.window.js", "drives an iframe and a worker; there is no browsing context here"),
+        ("streams/transferable/resources/*", "the iframe, worker and service-worker pages those tests load"),
 
         // Upstream's ".tentative" marker again, this time without the ".https." the WebCryptoAPI files carry:
         // the owning-type readable streams, a proposal the Streams Standard has not adopted.
@@ -337,6 +341,8 @@ public class WptTestRunner
         ["streams/piping/then-interception.any.js"] = 2,
         ["streams/piping/throwing-options.any.js"] = 8,
         ["streams/piping/transform-streams.any.js"] = 1,
+
+        ["streams/transferable/transform-stream-members.any.js"] = 4,
 
         ["compression/compression-bad-chunks.any.js"] = 28,
         ["compression/compression-constructor-error.any.js"] = 3,
@@ -794,7 +800,8 @@ public class WptTestRunner
     /// <summary>
     /// The Streams Standard's corpus, split the same way the WebCryptoAPI one is: the root files are a suite
     /// and each sub-directory is another, because <see cref="WptCorpus.TestFiles"/> lists a directory's own
-    /// files and never descends. <c>transferable/</c> is not among them — see <see cref="_notVendored"/>.
+    /// files and never descends. <c>transferable/</c> contributes exactly one file — the rest of that
+    /// directory is a browsing context, see <see cref="_notVendored"/>.
     /// </summary>
     private static readonly string[] _streamsSuites =
     [
@@ -804,6 +811,7 @@ public class WptTestRunner
         "streams/writable-streams",
         "streams/transform-streams",
         "streams/piping",
+        "streams/transferable",
     ];
 
     public static IEnumerable<object[]> StreamsSuiteFiles() => Cases("streams");
@@ -817,6 +825,8 @@ public class WptTestRunner
     public static IEnumerable<object[]> TransformStreamsSuiteFiles() => Cases("streams/transform-streams");
 
     public static IEnumerable<object[]> StreamsPipingSuiteFiles() => Cases("streams/piping");
+
+    public static IEnumerable<object[]> TransferableStreamsSuiteFiles() => Cases("streams/transferable");
 
     /// <summary>
     /// The Compression Standard's corpus and the URL Pattern one, a single directory each.
@@ -906,6 +916,10 @@ public class WptTestRunner
     [Theory]
     [MemberData(nameof(StreamsPipingSuiteFiles))]
     public void RunsTheStreamsPipingSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(TransferableStreamsSuiteFiles))]
+    public void RunsTheTransferableStreamsSuite(string file) => RunSuiteFile(file);
 
     [Theory]
     [MemberData(nameof(CompressionSuiteFiles))]

@@ -33,9 +33,7 @@ internal enum ReadableStreamState
 /// </para>
 /// <para>
 /// The <c>[[controller]]</c> slot is a <see cref="JsReadableStreamDefaultController"/> or, for a stream
-/// constructed with <c>type: "bytes"</c>, a <see cref="JsReadableByteStreamController"/>. <c>[[Detached]]</c>
-/// has no counterpart, because a stream can only become detached by being transferred through
-/// <c>postMessage()</c>, and there is nothing to transfer it to.
+/// constructed with <c>type: "bytes"</c>, a <see cref="JsReadableByteStreamController"/>.
 /// </para>
 /// </remarks>
 internal sealed class JsReadableStream : ObjectInstance
@@ -66,6 +64,18 @@ internal sealed class JsReadableStream : ObjectInstance
     /// top, and is maintained so that they can be.
     /// </summary>
     internal bool Disturbed { get; set; }
+
+    /// <summary>
+    /// <c>[[Detached]]</c>, the slot every transferable object carries —
+    /// https://html.spec.whatwg.org/multipage/structured-data.html#transferable-objects. Set once the stream
+    /// has been transferred, which is what makes a second transfer a <c>DataCloneError</c>.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else consults it, and it is deliberately not what makes a transferred stream unusable: the pipe
+    /// the transfer started holds a reader, so the original is <i>locked</i> for as long as it has anything
+    /// left to give. The slot is what still refuses the transfer once that pipe has finished and released it.
+    /// </remarks>
+    internal bool Detached { get; set; }
 
     /// <summary>
     /// https://streams.spec.whatwg.org/#readablestream-reader — the reader the stream is locked to, or

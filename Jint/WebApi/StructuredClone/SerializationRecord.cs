@@ -65,6 +65,13 @@ namespace Jint.WebApi.StructuredClone;
 /// is walked — a port referenced from the message must be the very object <c>ports</c> hands over — and
 /// because the event exposes them in order.
 /// </para>
+/// <para>
+/// It also carries the channels a <i>transferred stream</i> created for itself, which are the results of the
+/// nested serializations the stream transfer steps perform. Those are marked
+/// <see cref="SerializedMessagePort.Nested"/> and never reach <c>event.ports</c>; they are here because
+/// ending a side nobody will ever bind is exactly as necessary for them, and rather more so — a script can
+/// close a port it was given, and can do nothing at all about a stream's private one.
+/// </para>
 /// </param>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SerializationRecord(SerializedValue Root, List<SerializedMessagePort>? TransferredPorts = null);
@@ -272,6 +279,67 @@ internal sealed class SerializedArrayBufferView : SerializedObject
 internal sealed class SerializedMessagePort : SerializedObject
 {
     internal Messaging.MessagePortEndpoint? Endpoint { get; set; }
+
+    /// <summary>
+    /// Whether this holder belongs to a <i>nested</i> StructuredSerializeWithTransfer that a transferable's
+    /// own transfer steps performed — which today means the channel a transferred stream travels over — rather
+    /// than to the transfer list the caller wrote.
+    /// </summary>
+    /// <remarks>
+    /// It decides one thing: <c>event.ports</c> exposes the caller's ports and not a stream's private one. The
+    /// two kinds share <see cref="SerializationRecord.TransferredPorts"/> anyway, because the other thing that
+    /// list is for — ending a side nobody can ever bind — has to reach both, and a stream's channel is
+    /// precisely the side no script could ever end by hand.
+    /// </remarks>
+    internal bool Nested { get; init; }
+}
+
+/// <summary>
+/// A transferred <c>ReadableStream</c>: the standard's data holder, whose <c>[[port]]</c> is the receiving end
+/// of the channel the sender is piping the original stream into.
+/// <para>
+/// https://streams.spec.whatwg.org/#rs-transfer
+/// </para>
+/// </summary>
+/// <remarks>
+/// The standard's <c>[[port]]</c> is the <i>result of a nested StructuredSerializeWithTransfer</i> of one
+/// port; <see cref="SerializedMessagePort"/> is what that result amounts to here, so the field holds one
+/// directly — see <c>TransferableStreams</c>. Settable for the reason every transfer data holder's payload is:
+/// the holder is created before the graph is walked and filled in by step 5.
+/// </remarks>
+internal sealed class SerializedReadableStream : SerializedObject
+{
+    internal SerializedMessagePort Port { get; set; } = null!;
+}
+
+/// <summary>
+/// A transferred <c>WritableStream</c>, the mirror image of <see cref="SerializedReadableStream"/>: the sender
+/// is piping a readable of its own <i>into</i> the original stream, and the port is how chunks reach it.
+/// <para>
+/// https://streams.spec.whatwg.org/#ws-transfer
+/// </para>
+/// </summary>
+internal sealed class SerializedWritableStream : SerializedObject
+{
+    internal SerializedMessagePort Port { get; set; } = null!;
+}
+
+/// <summary>
+/// A transferred <c>TransformStream</c>: its two sides, each transferred in its own right.
+/// <para>
+/// https://streams.spec.whatwg.org/#ts-transfer
+/// </para>
+/// </summary>
+/// <remarks>
+/// <c>[[backpressure]]</c>, <c>[[backpressureChangePromise]]</c> and <c>[[controller]]</c> are deliberately
+/// absent: the standard's transfer-receiving steps set all three to undefined, because what arrives is a
+/// readable and a writable with two channels between them and no transformer of its own.
+/// </remarks>
+internal sealed class SerializedTransformStream : SerializedObject
+{
+    internal SerializedReadableStream Readable { get; set; } = null!;
+
+    internal SerializedWritableStream Writable { get; set; } = null!;
 }
 
 /// <summary>

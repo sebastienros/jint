@@ -102,6 +102,23 @@ internal sealed class JsMessagePort : JsEventTarget
 
     private readonly Action _drainJob;
 
+    /// <summary>
+    /// Where a message goes when the <i>engine</i> owns this port rather than a script — which today means the
+    /// cross-realm transform behind a transferred stream. Set, the deserialized message is handed straight to
+    /// it and no <c>message</c> event is created or dispatched at all.
+    /// </summary>
+    /// <remarks>
+    /// The Streams Standard writes its half as "add a handler for port's <c>message</c> event"
+    /// (https://streams.spec.whatwg.org/#abstract-opdef-setupcrossrealmtransformreadable), and this is that
+    /// handler. It is a delegate rather than an <see cref="EventListenerRegistration"/> for two reasons that
+    /// both come from the port never being reachable by script: no listener can compete with it, so the
+    /// dispatch algorithm has nothing to decide, and a listener would have to be a JavaScript function object
+    /// — one per transferred stream, plus a <c>MessageEvent</c> per chunk — to say exactly what one delegate
+    /// says. Everything else about the port is unchanged: the queue still starts disabled, <see cref="Start"/>
+    /// is still what enables it, and delivery is still one event-loop task per message.
+    /// </remarks>
+    internal Action<JsValue>? InternalMessageHandler { get; set; }
+
     internal JsMessagePort(Engine engine, Realm realm) : this(engine, realm, endpoint: null)
     {
     }
@@ -147,6 +164,41 @@ internal sealed class JsMessagePort : JsEventTarget
     /// prunes on.
     /// </summary>
     internal bool IsInert => _endpoint is not { Closed: false };
+
+    /// <summary>
+    /// Whether this port can never carry anything again: it has been detached or closed, or the side at the
+    /// other end has been closed and nothing it posted is still waiting on this one's queue.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing in the specifications asks this question, and only the cross-realm transform does.</b> HTML
+    /// disentangles a port silently — <c>postMessage</c> to a port whose peer has gone is a no-op, and the
+    /// Streams Standard's <c>PackAndPostMessage</c> inherits that — so a stream piping into a channel whose
+    /// far end was ended would go on reading its source forever and writing into nothing. That is the one
+    /// thing Jint's transferred streams add: the write and pull algorithms consult this and end the stream
+    /// instead. See <c>CrossRealmTransform</c>.
+    /// </para>
+    /// <para>
+    /// The queue test is what makes it safe rather than merely conservative, and it is not an optimization: a
+    /// sender's last act is to post <c>close</c> and <i>then</i> disentangle, so a receiver that asked only
+    /// "is the far side closed" would discard the very message that closes it cleanly. Both halves are read on
+    /// this port's own engine's thread, and the peer's <see cref="MessagePortEndpoint.Closed"/> is written
+    /// after its <see cref="MessagePortEndpoint.Post"/> released this side's lock, so a <see langword="true"/>
+    /// here means every message that will ever arrive has already arrived.
+    /// </para>
+    /// </remarks>
+    internal bool IsChannelExhausted
+    {
+        get
+        {
+            if (_endpoint is not { Closed: false } endpoint)
+            {
+                return true;
+            }
+
+            return endpoint.Peer is not { Closed: false } && !endpoint.HasQueuedMessages;
+        }
+    }
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#message-port-post-message-steps
@@ -331,6 +383,14 @@ internal sealed class JsMessagePort : JsEventTarget
     private void Dispatch(SerializationRecord record)
     {
         var message = new StructuredDeserializer(_engine, _realm).DeserializeWithTransfer(in record);
+
+        // An engine-owned port has no listener list to dispatch to, and nothing that could have added one.
+        if (InternalMessageHandler is { } handler)
+        {
+            handler(message.Value);
+            return;
+        }
+
         var messageEvent = _realm.Intrinsics.MessageEvent.CreateTrustedMessageEvent(_messageEventName, message.Value, message.Ports);
         DispatchEvent(messageEvent);
     }

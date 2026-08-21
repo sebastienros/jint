@@ -50,5 +50,14 @@ internal sealed class JsTransformStream : ObjectInstance
     /// arrives while there is backpressure waits on it.
     /// </summary>
     internal PromiseCapability? BackpressureChangeCapability { get; set; }
+
+    /// <inheritdoc cref="JsReadableStream.Detached" />
+    /// <remarks>
+    /// A transform stream that arrived through a transfer has neither <see cref="Controller"/> nor
+    /// <see cref="Backpressure"/> — its transfer-receiving steps leave all three slots undefined, because a
+    /// transferred transform stream is a readable and a writable that were transferred separately and have no
+    /// transformer between them any more.
+    /// </remarks>
+    internal bool Detached { get; set; }
 }
 #endif

@@ -9,6 +9,7 @@ using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Messaging;
+using Jint.WebApi.Streams;
 
 namespace Jint.WebApi.StructuredClone;
 
@@ -535,11 +536,39 @@ internal sealed class StructuredSerializer
                 continue;
             }
 
-            // Step 2.1 / 2.2: an ArrayBuffer and a MessagePort are the transferables Jint has. A
-            // SharedArrayBuffer is explicitly not one.
+            // Step 2.4 for the three transferable stream interfaces, whose data holders are filled in by
+            // their own transfer steps in CompleteTransfers for exactly the same reason a port's is: the
+            // transfer has side effects — it locks the stream and starts a pipe — and the walk has to be able
+            // to throw first.
+            if (entry is JsReadableStream readable)
+            {
+                var holder = new SerializedReadableStream();
+                _memory[readable] = holder;
+                records.Add(new TransferRecord(readable, holder));
+                continue;
+            }
+
+            if (entry is JsWritableStream writable)
+            {
+                var holder = new SerializedWritableStream();
+                _memory[writable] = holder;
+                records.Add(new TransferRecord(writable, holder));
+                continue;
+            }
+
+            if (entry is JsTransformStream transform)
+            {
+                var holder = new SerializedTransformStream();
+                _memory[transform] = holder;
+                records.Add(new TransferRecord(transform, holder));
+                continue;
+            }
+
+            // Step 2.1 / 2.2: an ArrayBuffer, a MessagePort and the three streams above are the transferables
+            // Jint has. A SharedArrayBuffer is explicitly not one.
             if (entry is not JsArrayBuffer buffer || buffer.IsSharedArrayBuffer)
             {
-                ThrowDataCloneError("Only ArrayBuffer and MessagePort objects can be transferred");
+                ThrowDataCloneError("Only ArrayBuffer, MessagePort, ReadableStream, WritableStream and TransformStream objects can be transferred");
                 return null;
             }
 
@@ -599,6 +628,44 @@ internal sealed class StructuredSerializer
                 continue;
             }
 
+            // Step 5.5.4 for the streams, whose transfer steps live in TransferableStreams. Each of them
+            // performs a nested StructuredSerializeWithTransfer of a port, whose data holder is registered
+            // here so that a record which is never delivered ends that channel too — see
+            // SerializedMessagePort.Nested.
+            if (record.Source is JsReadableStream readable)
+            {
+                ((SerializedReadableStream) record.Target).Port = TransferStreamPort(TransferableStreams.TransferReadable(readable));
+                continue;
+            }
+
+            if (record.Source is JsWritableStream writable)
+            {
+                ((SerializedWritableStream) record.Target).Port = TransferStreamPort(TransferableStreams.TransferWritable(writable));
+                continue;
+            }
+
+            if (record.Source is JsTransformStream transform)
+            {
+                var holder = (SerializedTransformStream) record.Target;
+
+                // Steps 3 and 4 before either side moves: a transform stream with one side locked transfers
+                // neither, so its writable is not left piping into a channel nothing will ever read.
+                TransferableStreams.CheckTransformTransferable(transform);
+
+                holder.Readable = new SerializedReadableStream
+                {
+                    Port = TransferStreamPort(TransferableStreams.TransferReadable(transform.Readable)),
+                };
+
+                holder.Writable = new SerializedWritableStream
+                {
+                    Port = TransferStreamPort(TransferableStreams.TransferWritable(transform.Writable)),
+                };
+
+                transform.Detached = true;
+                continue;
+            }
+
             var buffer = (JsArrayBuffer) record.Source;
 
             // Step 5.1: a buffer detached during the walk cannot be transferred any more.
@@ -612,6 +679,19 @@ internal sealed class StructuredSerializer
             ((SerializedArrayBuffer) record.Target).Bytes = buffer.ArrayBufferData ?? [];
             buffer.DetachArrayBuffer();
         }
+    }
+
+    /// <summary>
+    /// Wraps the channel side a stream's transfer steps produced in the data holder the nested
+    /// StructuredSerializeWithTransfer would have returned, and registers it so that
+    /// <see cref="StrandTransferredPorts(in SerializationRecord)"/> and a discarded port message queue both
+    /// reach it.
+    /// </summary>
+    private SerializedMessagePort TransferStreamPort(Messaging.MessagePortEndpoint endpoint)
+    {
+        var holder = new SerializedMessagePort { Nested = true, Endpoint = endpoint };
+        (_transferredPorts ??= new List<SerializedMessagePort>()).Add(holder);
+        return holder;
     }
 
     [DoesNotReturn]
@@ -638,8 +718,12 @@ internal sealed class StructuredSerializer
 
             // A MessagePort is transferable but not serializable, so reaching one during the walk means it
             // was in the message and not in the transfer list — which the specification refuses at its
-            // "platform object that is not serializable" arm rather than at the transfer steps.
+            // "platform object that is not serializable" arm rather than at the transfer steps. The three
+            // stream interfaces are transferable and not serializable in exactly the same way.
             JsMessagePort => "A MessagePort that was not in the transfer list",
+            JsReadableStream => "A ReadableStream that was not in the transfer list",
+            JsWritableStream => "A WritableStream that was not in the transfer list",
+            JsTransformStream => "A TransformStream that was not in the transfer list",
             _ => "An object",
         };
 

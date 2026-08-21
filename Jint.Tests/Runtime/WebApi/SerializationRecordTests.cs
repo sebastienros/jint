@@ -165,6 +165,44 @@ public class SerializationRecordTests
         engine.Evaluate("moved.postMessage('inert') === undefined").AsBoolean().Should().BeTrue();
     }
 
+    [Fact]
+    public void CarriesExactlyOneChannelSideForATransferredReadableStream()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
+
+        var stream = engine.Evaluate("new ReadableStream({ start(c) { c.enqueue('a'); c.close(); } })");
+
+        var record = new StructuredSerializer(engine, engine.Realm).Serialize(stream, [stream]);
+
+        // A transferred stream is a pipe plus a channel, and only the channel travels: the record must reach
+        // exactly the one side the transfer detached and nothing else engine-affine — no ReadableStream, no
+        // controller, no promise, none of the closures the pipe on the sending side is made of.
+        var sides = new List<object>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var reached = 0;
+        Walk(record, visited, ref reached, sides);
+
+        sides.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void CarriesTwoChannelSidesForATransferredTransformStream()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
+
+        var stream = engine.Evaluate("new TransformStream()");
+
+        var record = new StructuredSerializer(engine, engine.Realm).Serialize(stream, [stream]);
+
+        // One per side, which is what makes a transform stream cost two channels — see TransferableStreams.
+        var sides = new List<object>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var reached = 0;
+        Walk(record, visited, ref reached, sides);
+
+        sides.Should().HaveCount(2);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static bool Forbidden(Type type) => Array.Exists(_forbidden, forbidden => forbidden.IsAssignableFrom(type));
