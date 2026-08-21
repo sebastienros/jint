@@ -96,6 +96,13 @@ public partial class Options
         /// <see cref="WebApiFeatures.Messaging"/>.
         /// </summary>
         public MessagingOptions Messaging { get; } = new();
+
+        /// <summary>
+        /// Settings for <c>Worker</c>, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.Workers"/> — which <see cref="WebApiFeatures.Default"/> never does — and
+        /// <see cref="Options.WorkerOptions.Provider"/> names a provider.
+        /// </summary>
+        public WorkerOptions Workers { get; } = new();
     }
 
     /// <summary>
@@ -130,6 +137,82 @@ public partial class Options
         /// </para>
         /// </remarks>
         public BroadcastChannelBroker? Broker { get; set; }
+    }
+
+    /// <summary>
+    /// Settings for <c>Worker</c>: who builds the engine a worker runs on, and the two per-engine backstops
+    /// that keep a script from manufacturing engines and queues without bound. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// Like every other option group this may be shared by any number of engines, including concurrent ones.
+    /// Sharing one <see cref="Provider"/> between them is the normal case — see <see cref="WorkerProvider"/>
+    /// for how a provider serving a pool reaches per-request policy.
+    /// </remarks>
+    public class WorkerOptions
+    {
+        /// <summary>
+        /// The host's answer to <c>new Worker(...)</c>. <see langword="null"/> — the default — leaves the
+        /// <c>Worker</c> global uninstalled even when <see cref="WebApiFeatures.Workers"/> is on, so
+        /// <c>typeof Worker === 'undefined'</c>: the family's absent-rather-than-throwing convention.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A worker needs a thread and a pump, and Jint never starts either, so there is no default provider
+        /// and there cannot be one. See <see cref="WorkerProvider"/> for what a provider owes and for the
+        /// pooled-host warning about setting this through the live <c>EnableWebApis</c> door.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
+        /// already exists.
+        /// </para>
+        /// </remarks>
+        public WorkerProvider? Provider { get; set; }
+
+        /// <summary>
+        /// How many live worker connections one engine may have at once. Defaults to 16. A
+        /// <c>new Worker(...)</c> beyond it throws a <c>QuotaExceededError</c>
+        /// (https://webidl.spec.whatwg.org/#quotaexceedederror) whose <c>quota</c> is this value and whose
+        /// <c>requested</c> is the count the refused creation would have reached — the script sees a normal
+        /// exception it can catch, and the engine stays usable.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>A per-engine backstop, not the policy.</b> The policy is the provider, which can refuse anything
+        /// by returning <see langword="null"/>; a process-wide or per-tenant budget is the provider's own
+        /// counter, which <see cref="WorkerRequest.Depth"/> and <see cref="WorkerRequest.LiveWorkerCount"/>
+        /// exist to feed. This value bounds one engine's list of children and, on its own, nothing about a
+        /// tree — which is a second reason nesting is off by default.
+        /// </para>
+        /// <para>
+        /// Sixteen is where the browsers converged (Chrome allowed 16 per tab, Firefox 20, Opera refused the
+        /// seventeenth), and the standard explicitly permits refusing on resource grounds. Read once, when the
+        /// engine is built. There is no "unlimited" sentinel: <see cref="int.MaxValue"/> is the way to spell
+        /// effectively unbounded, and a value of zero or less refuses every worker.
+        /// </para>
+        /// </remarks>
+        public int MaxWorkers { get; set; } = 16;
+
+        /// <summary>
+        /// How many messages may sit undelivered in one direction of one worker connection. Defaults to
+        /// 16384. A <c>postMessage</c> that would exceed it throws a <c>QuotaExceededError</c>
+        /// (https://webidl.spec.whatwg.org/#quotaexceedederror).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>A generous backstop against a never-pumped worker, not flow control.</b> Nothing else bounds a
+        /// port's queue, and a worker whose host stops pumping — or whose module is stuck on a load that never
+        /// settles — otherwise grows the sender's live set by one serialization record per message,
+        /// indefinitely, with the whole receiving engine reachable from it. The number is deliberately far
+        /// above any working queue depth: a program that reaches it has a stuck receiver, not a fast sender,
+        /// and a host that wants back-pressure builds it out of messages of its own rather than out of this
+        /// cap.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built. <see cref="int.MaxValue"/> spells effectively unbounded, and a
+        /// value of zero or less refuses every message.
+        /// </para>
+        /// </remarks>
+        public int MaxQueuedMessages { get; set; } = 16384;
     }
 
     /// <summary>
@@ -898,6 +981,37 @@ public enum WebApiFeatures
     FetchEvents = 1 << 23,
 
     /// <summary>
+    /// The <c>Worker</c> interface object and constructor — https://html.spec.whatwg.org/multipage/workers.html.
+    /// A worker is a second <see cref="Engine"/> with its own global, entangled with this one by a
+    /// <c>MessagePort</c> pair neither side ever sees: <c>worker.postMessage</c> and the worker global's own
+    /// <c>postMessage</c> are the two ends.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never part of <see cref="Default"/>, and inert without a provider.</b> A worker needs a thread and a
+    /// pump, and Jint never starts either, so the host supplies the execution resource:
+    /// <c>Options.WebApi.Workers.Provider</c> builds the worker's engine and decides which thread pumps it.
+    /// With this flag on and no provider the <c>Worker</c> global is not installed at all, so
+    /// <c>typeof Worker === 'undefined'</c> — <see cref="WebApiOptionsExtensions.UseWorkers"/> sets the flag
+    /// and the provider together so the two cannot get out of step.
+    /// </para>
+    /// <para>
+    /// Implies <see cref="Messaging"/> and <see cref="GlobalEvents"/> on both engines: the two façades are
+    /// ports, and the worker global's <c>self</c>, <c>addEventListener</c> and <c>error</c> events are what
+    /// <see cref="GlobalEvents"/> installs.
+    /// </para>
+    /// <para>
+    /// <b>A worker gets strictly fewer capabilities than its creator.</b> The default options a provider is
+    /// handed subtract every grant that is only ever given by name — outbound network, storage, the cache API,
+    /// inbound request routing — and this flag itself, so <b>nesting is off by default</b>: a worker that can
+    /// spawn workers is, by implication, a grant of the capability that manufactures engines. A provider that
+    /// wants nesting names this flag and a provider for the child, which is one visible line and the point at
+    /// which it accepts the accounting.
+    /// </para>
+    /// </remarks>
+    Workers = 1 << 24,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
@@ -905,7 +1019,7 @@ public enum WebApiFeatures
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
     /// <see cref="Scheduler"/>, <see cref="Messaging"/>, <see cref="Reporting"/>, <see cref="Compression"/>,
     /// <see cref="IdleCallback"/> and <see cref="GlobalEvents"/>; it grows as further features land, and never
-    /// comes to include fetch, <see cref="Storage"/> or <see cref="FetchEvents"/>.
+    /// comes to include fetch, <see cref="Storage"/>, <see cref="FetchEvents"/> or <see cref="Workers"/>.
     /// </summary>
     Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents,
 }

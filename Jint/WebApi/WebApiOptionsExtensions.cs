@@ -263,6 +263,51 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables the <c>Worker</c> interface object and makes <paramref name="provider"/> the host's answer to
+    /// <c>new Worker(...)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Flag and provider in one call, because either alone does nothing: <see cref="WebApiFeatures.Workers"/>
+    /// without a provider leaves the global uninstalled, and a provider without the flag is never consulted.
+    /// <see cref="WebApiFeatures.Default"/> never includes the flag, so this call — or naming the flag and
+    /// assigning <c>options.WebApi.Workers.Provider</c> — is the only way to get it.
+    /// </para>
+    /// <para>
+    /// <b>This grants a script the ability to make the host create engines and run them on host threads.</b>
+    /// The provider is the policy: it sees every request and refuses by returning <see langword="null"/>. The
+    /// per-engine <c>MaxWorkers</c> cap is only a backstop, and a worker inherits its parent's restrictions
+    /// without inheriting its grants — including this one, so nesting is off unless the provider deliberately
+    /// turns it on. Read <see cref="WorkerProvider"/> before implementing one: which thread each callback runs
+    /// on is the whole contract.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseWorkers(new ThreadPerWorkerProvider()));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="provider">Builds the engine each worker runs on, and decides which thread pumps it.</param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseWorkers(this Options options, WorkerProvider provider)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        if (provider is null)
+        {
+            Throw.ArgumentNullException(nameof(provider));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.Workers;
+        options.WebApi.Workers.Provider = provider;
+        return options;
+    }
+
+    /// <summary>
     /// Enables the <c>console</c> object and sends its output to <paramref name="sink"/>.
     /// </summary>
     /// <param name="options">Options to modify.</param>

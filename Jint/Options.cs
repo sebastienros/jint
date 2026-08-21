@@ -230,6 +230,150 @@ public partial class Options
     public bool AgentCanSuspend { get; set; }
 
     /// <summary>
+    /// Copies the <b>restrictive</b> half of <paramref name="source"/>'s configuration onto
+    /// <paramref name="target"/>: every value setting that narrows what script may do, and nothing that grants
+    /// a capability.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the rule behind a worker inheriting its creator's posture (<c>WorkerRequest.CreateDefaultOptions</c>),
+    /// and it lives here, beside the properties it names, rather than in the feature that consumes it — so that
+    /// a settings PR adding a new restriction has the classification in front of it. Two lists state that
+    /// classification explicitly: <see cref="SecurityPostureInherited"/>, which must name exactly what this
+    /// method copies, and <see cref="SecurityPostureNotInherited"/>, which names every other value-typed
+    /// setting in scope together with the reason it stays behind. A reflective test fails when a new one
+    /// belongs to neither.
+    /// </para>
+    /// <para>
+    /// <b>Withholding a grant and dropping a restriction are opposites.</b> A worker may be given less than its
+    /// creator and never more, which is the shape the web enforces structurally (a worker inherits its
+    /// creator's origin, sandboxing flags and policy, and its cross-origin-isolated capability is floored at
+    /// the owner's, never raised) and which Deno states outright: the permissions of a worker cannot be
+    /// extended beyond its parent's reach. So a hardened parent's <c>StringCompilationAllowed = false</c>
+    /// travels — otherwise <c>new Worker()</c> is an <c>eval</c> escape hatch — while its CLR interop grant,
+    /// its module loader and its network flags do not.
+    /// </para>
+    /// <para>
+    /// Only <i>value</i> settings are copied. Constraint <b>instances</b> are deliberately not: they carry
+    /// per-execution state and are documented single-engine-only, so the caller replays the parent's constraint
+    /// <i>factories</i> instead and each engine gets its own instances.
+    /// </para>
+    /// <para>
+    /// It is a convenience for building a second engine from a first, not a security boundary — a host that
+    /// builds its options from a hardening helper builds the second engine's from the same helper.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The options whose posture is being inherited.</param>
+    /// <param name="target">The fresh options being built. Every setting named here is overwritten.</param>
+    internal static void CopySecurityPosture(Options source, Options target)
+    {
+        target.Constraints.MaxRecursionDepth = source.Constraints.MaxRecursionDepth;
+        target.Constraints.MaxExecutionStackCount = source.Constraints.MaxExecutionStackCount;
+        target.Constraints.StackOverflowGuard = source.Constraints.StackOverflowGuard;
+        target.Constraints.RegexTimeout = source.Constraints.RegexTimeout;
+        target.Constraints.PromiseTimeout = source.Constraints.PromiseTimeout;
+        target.Constraints.MaxArraySize = source.Constraints.MaxArraySize;
+        target.Constraints.MaxAtomicsPauseIterations = source.Constraints.MaxAtomicsPauseIterations;
+        target.Host.StringCompilationAllowed = source.Host.StringCompilationAllowed;
+        target.AgentCanSuspend = source.AgentCanSuspend;
+        target.Json.MaxParseDepth = source.Json.MaxParseDepth;
+    }
+
+    /// <summary>
+    /// Exactly what <see cref="CopySecurityPosture"/> copies, named the way the reflective test names a
+    /// setting: <c>Group.Property</c> for a setting on an option group, the bare name for one on
+    /// <see cref="Options"/> itself.
+    /// </summary>
+    internal static readonly string[] SecurityPostureInherited =
+    [
+        // Every value setting on ConstraintOptions. All seven bound something the script cannot see, and the
+        // default of each is the permissive one, so a worker that did not inherit them would be a way around
+        // a parent that had set them.
+        "Constraints.MaxRecursionDepth",
+        "Constraints.MaxExecutionStackCount",
+        "Constraints.StackOverflowGuard",
+        "Constraints.RegexTimeout",
+        "Constraints.PromiseTimeout",
+        "Constraints.MaxArraySize",
+        "Constraints.MaxAtomicsPauseIterations",
+
+        // eval and new Function. Without this one, building a second engine is an eval escape hatch from a
+        // parent that turned it off.
+        "Host.StringCompilationAllowed",
+
+        // The obsolete alias of the property above; it forwards, so copying that one copies this one.
+        "StringCompilationAllowed",
+
+        // Whether Atomics.wait may block the thread. A second engine that can block a host thread its creator
+        // could not is exactly the shape this rule exists to refuse.
+        "AgentCanSuspend",
+
+        // The JSON parser's depth bound.
+        "Json.MaxParseDepth",
+    ];
+
+    /// <summary>
+    /// Every other value-typed public setting on <see cref="Options"/> and on the groups
+    /// <see cref="CopySecurityPosture"/> reads, with the reason it is not inherited. An entry here is a
+    /// decision, not an omission.
+    /// </summary>
+    internal static readonly string[] SecurityPostureNotInherited =
+    [
+        // Meaningless fresh: module code is strict by specification, and a worker runs a module. The parent's
+        // answer for its own sloppy scripts decides nothing about it.
+        "Strict",
+
+        // Not posture: it decides whether THIS engine keeps the source of the functions IT parsed, for
+        // Function.prototype.toString. A second engine parses a different program, and the default — not
+        // retaining — is the restrictive one, so a fresh engine already takes the safe answer.
+        "RetainFunctionSourceText",
+
+        // Describes a reference resolver, which is a host object rather than a restriction and is not copied.
+        // Interests without their resolver mean nothing, and assigning a resolver resets them anyway.
+        "ReferenceResolverInterests",
+
+        // Grant-shaped: the only feature it carries today is CLR task interop, and interop grants are the
+        // host's to make deliberately, per engine.
+        "ExperimentalFeatures",
+    ];
+
+    /// <summary>
+    /// The option groups <see cref="CopySecurityPosture"/> does not look at, and why. Named rather than left
+    /// implicit so that a group added later has to be classified instead of quietly falling outside the rule.
+    /// </summary>
+    internal static readonly string[] SecurityPostureExcludedGroups =
+    [
+        // Grant-shaped throughout. CLR access is off by default and every setting in the group widens or
+        // narrows a grant the host makes deliberately, per engine — a worker gets the interop its provider
+        // decides to give it, which may be none, a read-only view, or the parent's own.
+        "Interop",
+
+        // Grant-shaped: the module loader IS the permission to read code, and it belongs to the thread and the
+        // base of the engine that uses it. A second engine's loader is the host's to choose.
+        "Modules",
+
+        // Grant-shaped: the feature mask is the grant, and it is computed explicitly rather than copied
+        // (network, storage, routing and the worker capability itself are subtracted). What is left in the
+        // group is host wiring — providers, sinks, clocks, quotas — rather than restrictions.
+        "WebApi",
+
+        // Host diagnostics, and engine-affine: a debugger attached to one engine says nothing about another
+        // nobody is stepping.
+        "Debugger",
+
+        // Host diagnostics: coverage counters are per engine, and a host collecting one engine's coverage did
+        // not ask for a second engine's.
+        "Coverage",
+
+        // Locale data. Reference-typed providers, not restrictions; which data a second engine gets is the
+        // host's to hand over.
+        "Intl",
+
+        // Time-zone and calendar data, for the reason above.
+        "Temporal",
+    ];
+
+    /// <summary>
     /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
     /// once it is loaded.
     /// </summary>
