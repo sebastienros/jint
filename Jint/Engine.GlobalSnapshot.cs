@@ -282,6 +282,11 @@ public partial class Engine
         // queue is the engine's, not the event loop's, so clearing the loop above does not reach it; the
         // generation each entry carries is the second line of defence for one already promoted into a job.
         _webApi?.ResetTransientState();
+
+        // A bridge to a host System.IO.Stream holds an operating-system handle, so the cycle ending has to
+        // close it rather than merely stop delivering its chunks: the generation fence already does the
+        // latter.
+        AbandonHostStreamBridges();
 #endif
 
         _error = null;

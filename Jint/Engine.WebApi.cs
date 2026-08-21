@@ -7,6 +7,7 @@ using Jint.WebApi.Idle;
 using Jint.WebApi;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
+using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.WebSockets;
 
@@ -14,6 +15,60 @@ namespace Jint;
 
 public partial class Engine
 {
+    /// <summary>
+    /// The bridges between a WHATWG stream and a host <see cref="System.IO.Stream"/> this engine has open,
+    /// or <see langword="null"/> — which is what every engine carries until the first
+    /// <c>Engine.Advanced.CreateReadableStream</c> and friends.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately its own field rather than a member of <see cref="WebApiEngineState"/>, which the streams
+    /// feature does not otherwise need: putting it there would mean building that state — and reading a clock
+    /// — for every engine that merely enables <see cref="WebApiFeatures.Streams"/>, and adding a live
+    /// null check to the pump for a feature that never schedules anything. Here, an engine that never bridges
+    /// a stream pays one null field.
+    /// </remarks>
+    private List<HostStreamBridge>? _hostStreamBridges;
+
+    /// <summary>
+    /// Adds a live bridge, so that a <c>RestoreGlobalSnapshot</c> can close the host stream behind it rather
+    /// than leave the handle to a finalizer. Engine thread, from the bridge's own creation.
+    /// </summary>
+    /// <remarks>
+    /// The list is pruned here rather than on release, because a release can happen on whichever thread the
+    /// I/O completed on and this list is engine-thread state. Pruning on every registration bounds it at the
+    /// number of bridges alive at the last one, so a host that opens one stream per request does not
+    /// accumulate.
+    /// </remarks>
+    internal void RegisterHostStreamBridge(HostStreamBridge bridge)
+    {
+        var bridges = _hostStreamBridges ??= new List<HostStreamBridge>();
+        bridges.RemoveAll(static candidate => candidate.IsReleased);
+        bridges.Add(bridge);
+    }
+
+    /// <summary>
+    /// Abandons every live bridge because the evaluation cycle they belong to has ended. Engine thread, from
+    /// <see cref="ResetTransientEvaluationState"/>.
+    /// </summary>
+    internal void AbandonHostStreamBridges()
+    {
+        if (_hostStreamBridges is not { Count: > 0 } bridges)
+        {
+            return;
+        }
+
+        // Copied before the walk, exactly as the in-flight fetches are: abandoning cancels a token source,
+        // and a continuation running synchronously on this very thread must not find the list being
+        // enumerated.
+        var pending = bridges.ToArray();
+        bridges.Clear();
+
+        foreach (var bridge in pending)
+        {
+            bridge.Abandon();
+        }
+    }
+
     /// <summary>
     /// The per-engine state behind the opt-in web APIs, or <see langword="null"/> — which is what a default
     /// engine, and an engine that enabled only stateless features such as <c>console</c>, carries. Every hot

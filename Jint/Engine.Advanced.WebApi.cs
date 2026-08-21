@@ -4,6 +4,7 @@ using Jint.Runtime;
 using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Messaging;
+using Jint.WebApi.Streams;
 using Jint.WebApi;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -484,6 +485,233 @@ public partial class Engine
             }
 
             return signal;
+        }
+
+        /// <summary>
+        /// Wraps a readable <see cref="Stream"/> as a <c>ReadableStream</c> a script can read, cancel, tee
+        /// and pipe. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Threading.</b> Call this on the engine's thread, like every other engine API, and hand the
+        /// result to script from that thread. From then on the split is fixed: the host's stream is read by
+        /// the BCL's asynchronous I/O, on whichever thread that completes on, and each chunk is delivered to
+        /// the engine as an event-loop job. <b>The engine must be given turns for the stream to make
+        /// progress</b> — an <c>await</c> in script, <c>Engine.EvaluateAsync</c>, a blocking
+        /// <c>UnwrapIfPromise</c>, or the host's own <c>engine.Advanced.ProcessTasks()</c> loop. An engine
+        /// nobody pumps never reads a byte, which is the same contract the timers have.
+        /// </para>
+        /// <para>
+        /// <b>The host must not touch the stream once it has handed it over</b> — not read it, not seek it,
+        /// not dispose it — until the bridge is done with it, because a read is in flight whenever the script
+        /// is asking for a chunk. Ownership comes back only when
+        /// <see cref="HostReadableStreamOptions.LeaveOpen"/> says the host kept it, and even then only after
+        /// the stream has been read to the end or cancelled.
+        /// </para>
+        /// <para>
+        /// <b>Backpressure is the standard's.</b> Nothing is read until the stream's queue has room for it —
+        /// see <see cref="HostReadableStreamOptions.HighWaterMark"/> — so a script that stops reading stops
+        /// the host's stream being read too.
+        /// </para>
+        /// <para>
+        /// <b>Failures.</b> A read that throws errors the stream with a <c>TypeError</c> whose message names
+        /// the exception's type but not its text; the exception itself rides the error value and the host
+        /// reads it with <see cref="JintException.TryGetClrException"/>. <c>stream.cancel()</c> stops reading
+        /// and releases the host's stream. <c>Engine.Advanced.RestoreGlobalSnapshot</c> releases it too, and
+        /// leaves the script's outstanding <c>read()</c> pending forever, which is the contract every
+        /// completion registered before a restore has.
+        /// </para>
+        /// <para>
+        /// The result carries the engine's own <c>ReadableStream</c> prototype whether or not
+        /// <see cref="WebApiFeatures.Streams"/> installed the global, so all of its methods work either way;
+        /// what needs the flag is a script saying <c>x instanceof ReadableStream</c>.
+        /// </para>
+        /// </remarks>
+        /// <param name="source">The stream to read. Must be readable.</param>
+        /// <param name="options">How to read it, or <see langword="null"/> for the defaults.</param>
+        /// <returns>A <c>ReadableStream</c> whose chunks are <c>Uint8Array</c>s.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="source"/> cannot be read.</exception>
+        public JsValue CreateReadableStream(Stream source, HostReadableStreamOptions? options = null)
+        {
+            if (source is null)
+            {
+                Throw.ArgumentNullException(nameof(source));
+            }
+
+            if (!source.CanRead)
+            {
+                Throw.ArgumentException("The stream cannot be read.", nameof(source));
+            }
+
+            return HostReadableStreamSource.Create(_engine, _engine.Realm, source, options ?? new HostReadableStreamOptions());
+        }
+
+        /// <summary>
+        /// Wraps a writable <see cref="Stream"/> as a <c>WritableStream</c> a script can write, close, abort
+        /// and pipe into. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Threading.</b> Call this on the engine's thread and hand the result to script from that thread.
+        /// Each chunk is copied out of script's memory on the engine's thread and written by the BCL's
+        /// asynchronous I/O; the write's completion comes back as an event-loop job, so <b>the engine must be
+        /// given turns</b> for a write's promise — and therefore <c>writer.ready</c> and
+        /// <c>writer.close()</c> — ever to settle.
+        /// </para>
+        /// <para>
+        /// <b>The host must not touch the stream once it has handed it over</b>, for the same reason as the
+        /// readable direction: a write may be in flight whenever the script has written a chunk.
+        /// </para>
+        /// <para>
+        /// <b>What a script may write</b> is a <c>BufferSource</c>, a <c>Blob</c> or a string, which is UTF-8
+        /// encoded. Anything else is a <c>TypeError</c> that errors the stream rather than being coerced —
+        /// <c>[object Object]</c> silently appended to a host file is not a failure mode worth having.
+        /// </para>
+        /// <para>
+        /// <b>Backpressure</b> is <c>writer.ready</c>, which stops being resolved once
+        /// <see cref="HostWritableStreamOptions.HighWaterMark"/> chunks are queued.
+        /// </para>
+        /// <para>
+        /// <b>Closing.</b> <c>await writer.close()</c> settles only once the host's stream has been flushed
+        /// and — unless <see cref="HostWritableStreamOptions.LeaveOpen"/> says the host kept it — disposed,
+        /// and rejects with whatever the flush failed with. So a script can prove its output landed.
+        /// <c>abort()</c> and <c>Engine.Advanced.RestoreGlobalSnapshot</c> both release the stream without
+        /// flushing.
+        /// </para>
+        /// </remarks>
+        /// <param name="destination">The stream to write. Must be writable.</param>
+        /// <param name="options">How to write it, or <see langword="null"/> for the defaults.</param>
+        /// <returns>A <c>WritableStream</c> over <paramref name="destination"/>.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="destination"/> cannot be written.</exception>
+        public JsValue CreateWritableStream(Stream destination, HostWritableStreamOptions? options = null)
+        {
+            if (destination is null)
+            {
+                Throw.ArgumentNullException(nameof(destination));
+            }
+
+            if (!destination.CanWrite)
+            {
+                Throw.ArgumentException("The stream cannot be written.", nameof(destination));
+            }
+
+            return HostWritableStreamSink.Create(_engine, _engine.Realm, destination, options ?? new HostWritableStreamOptions());
+        }
+
+        /// <summary>
+        /// Starts reading a script's <c>ReadableStream</c> into a host <see cref="Stream"/> and returns at
+        /// once, without blocking and without a thread of its own. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The host pumps.</b> Every chunk comes out of the engine, so the copy advances only when the
+        /// engine is given turns: call <c>engine.Advanced.ProcessTasks()</c> and watch
+        /// <see cref="HostStreamCopyOperation.IsCompleted"/>. This is the one entry point of the three where
+        /// every turn provably runs where the host wants it, which is what a game loop or a UI thread needs;
+        /// <see cref="CopyReadableStreamAsync"/> is the same operation with the pumping done inside an
+        /// <c>await</c>. Neither may be called from inside an event-loop job.
+        /// </para>
+        /// <para>
+        /// <b>The source is locked</b> for the copy's duration, exactly as <c>pipeTo</c> locks it, and the
+        /// reader is released however the copy ends. A copy that ends early also cancels the source unless
+        /// <see cref="HostStreamCopyOptions.PreventCancel"/> says otherwise.
+        /// </para>
+        /// <para>
+        /// <b>Backpressure</b> is one chunk in flight: the next <c>read()</c> is issued only once the
+        /// previous chunk has reached the host's stream, so a script producing faster than the disk accepts
+        /// feels it through its own stream's queue.
+        /// </para>
+        /// <para>
+        /// <b>Failures</b> all arrive as <see cref="HostStreamCopyOperation.IsFaulted"/> and
+        /// <see cref="HostStreamCopyOperation.Error"/> rather than as exceptions from this call: the source
+        /// already being locked, the source erroring, a chunk that is not a byte sequence, a write that threw,
+        /// a cancelled token (an <c>AbortError</c> <c>DOMException</c>), and a
+        /// <c>RestoreGlobalSnapshot</c> that abandoned the cycle. The destination is released in every one of
+        /// those cases, and flushed only in the successful one.
+        /// </para>
+        /// </remarks>
+        /// <param name="readableStream">A <c>ReadableStream</c> this engine created.</param>
+        /// <param name="destination">The stream to write it to. Must be writable.</param>
+        /// <param name="options">How to copy, or <see langword="null"/> for the defaults.</param>
+        /// <param name="cancellationToken">
+        /// Stops the copy. May be cancelled from any thread; the copy ends on a later turn of the event loop,
+        /// with an <c>AbortError</c> <c>DOMException</c>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="readableStream"/> is not a <c>ReadableStream</c>, or
+        /// <paramref name="destination"/> cannot be written.
+        /// </exception>
+        public HostStreamCopyOperation StartReadableStreamCopy(
+            JsValue readableStream,
+            Stream destination,
+            HostStreamCopyOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (readableStream is null)
+            {
+                Throw.ArgumentNullException(nameof(readableStream));
+            }
+
+            if (destination is null)
+            {
+                Throw.ArgumentNullException(nameof(destination));
+            }
+
+            if (readableStream is not JsReadableStream source)
+            {
+                Throw.ArgumentException("The value is not a ReadableStream.", nameof(readableStream));
+                return null!;
+            }
+
+            if (!destination.CanWrite)
+            {
+                Throw.ArgumentException("The stream cannot be written.", nameof(destination));
+            }
+
+            return HostStreamCopy.Start(
+                _engine,
+                _engine.Realm,
+                source,
+                destination,
+                options ?? new HostStreamCopyOptions(),
+                cancellationToken);
+        }
+
+        /// <summary>
+        /// Reads a script's <c>ReadableStream</c> into a host <see cref="Stream"/>, driving the engine while
+        /// it waits. Requires .NET 8 or higher.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The engine is single-threaded and this does not change that: turns run one at a time, on whichever
+        /// thread resumes the await. A host with a thread affinity — a game loop, a UI thread — wants
+        /// <see cref="StartReadableStreamCopy"/> and its own pump instead, so that every turn runs where the
+        /// host needs it to. Everything else about the copy is identical; see that method.
+        /// </para>
+        /// <para>
+        /// <b>The wait is bounded by <c>Options.Constraints.PromiseTimeout</c></b>, which defaults to ten
+        /// seconds — the same bound <c>Engine.EvaluateAsync</c> and <c>Engine.Modules.ImportAsync</c> carry.
+        /// A copy that can legitimately take longer than that needs the host to raise it, or to poll
+        /// <see cref="StartReadableStreamCopy"/> instead. The copy itself keeps running when the wait gives
+        /// up.
+        /// </para>
+        /// </remarks>
+        /// <returns>How many bytes reached <paramref name="destination"/>.</returns>
+        /// <exception cref="PromiseRejectedException">
+        /// The copy failed; see <see cref="HostStreamCopyOperation.Error"/> for what the value can be.
+        /// </exception>
+        public async Task<long> CopyReadableStreamAsync(
+            JsValue readableStream,
+            Stream destination,
+            HostStreamCopyOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            var operation = StartReadableStreamCopy(readableStream, destination, options, cancellationToken);
+            await _engine.UnwrapResultAsync(operation.Promise, CancellationToken.None).ConfigureAwait(false);
+            return operation.BytesWritten;
         }
     }
 }
