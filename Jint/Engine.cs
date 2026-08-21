@@ -880,6 +880,13 @@ public sealed partial class Engine : IDisposable
             strict: _isStrict || scriptRecord.EcmaScriptCode.Strict);
 
         EnterExecutionContext(in scriptContext);
+
+        // Depth of the call stack when THIS evaluation began. A nested evaluation (a host callback
+        // inside a running script calling Execute/Evaluate) sits above live frames belonging to the
+        // outer run; an unhandled throw here must unwind only the frames this evaluation pushed,
+        // not clear the whole stack (which desynced the outer run's balanced pops and truncated its
+        // subsequently captured stack traces).
+        var callStackDepthOnEntry = CallStack.Count;
         try
         {
             var script = scriptRecord.EcmaScriptCode;
@@ -900,14 +907,14 @@ public sealed partial class Engine : IDisposable
             catch
             {
                 // unhandled exception
-                ResetCallStack();
+                CallStack.TrimTo(callStackDepthOnEntry);
                 throw;
             }
 
             if (result.Type == CompletionType.Throw)
             {
                 var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
-                ResetCallStack();
+                CallStack.TrimTo(callStackDepthOnEntry);
                 throw ex;
             }
 

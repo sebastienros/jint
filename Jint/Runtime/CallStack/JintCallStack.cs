@@ -220,6 +220,22 @@ internal sealed class JintCallStack
         _statistics?.Clear();
     }
 
+    /// <summary>
+    /// Pops frames until only <paramref name="targetDepth"/> remain. Used when an unhandled throw
+    /// unwinds a nested script evaluation (a host callback re-entering the engine mid-run): only the
+    /// frames that evaluation pushed are discarded, so an OUTER still-live run keeps its frames \u2014
+    /// its stack traces stay intact and its balanced pops stay balanced. Popping (rather than
+    /// clearing) also keeps the recursion-depth statistics and the profiler's enter/exit stream
+    /// consistent. A no-op when the stack is already at or below <paramref name="targetDepth"/>.
+    /// </summary>
+    internal void TrimTo(int targetDepth)
+    {
+        while (_stack._size > targetDepth)
+        {
+            Pop();
+        }
+    }
+
     public override string ToString()
     {
         return string.Join("->", _stack.Select(static cse => cse.ToString()).Reverse());
