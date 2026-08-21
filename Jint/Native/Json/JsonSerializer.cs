@@ -27,9 +27,9 @@ namespace Jint.Native.Json;
 /// across calls — every field the per-call prologue only conditionally assigns (the replacer function, the
 /// replacer-array property list, the indentation and the cycle-detection stack) is reset at the start of
 /// each <c>Serialize</c> call, so a previous call cannot leak state into the next, including a call that
-/// threw part-way through on a circular structure. It is not thread-safe: that per-call state is instance
-/// state, so two concurrent calls on one instance corrupt each other's output. Hold one per engine (and
-/// serialize access to the engine anyway, which is itself single-threaded), or construct one per call as
+/// threw part-way through on a circular structure. The same instance cannot be re-entered from a
+/// <c>toJSON</c>, replacer, or host callback because its per-call state is instance state. Hold one per engine
+/// (and serialize access to the engine anyway, which is itself single-threaded), or construct one per call as
 /// <c>JSON.stringify</c> does.
 /// </para>
 /// <para>
@@ -44,9 +44,9 @@ namespace Jint.Native.Json;
 /// <b>Document length.</b> The <see cref="JsValue"/>-returning overloads produce a JavaScript string and
 /// are bounded by the same maximum length as every other way of building one: a document that would
 /// exceed it raises <c>RangeError: Invalid string length</c>, which a script can catch, and raises it
-/// while the document is being built rather than after it has been paid for. The
-/// <see cref="IBufferWriter{T}"/> overloads produce bytes the host consumes and never a string, so the
-/// language's limit does not apply to them; they remain bounded only by what a CLR array can hold.
+/// while the document is being built rather than after it has been paid for. Configured
+/// <see cref="ResultLimits"/> additionally bound both overload families, including exact UTF-8 bytes before
+/// an <see cref="IBufferWriter{T}"/> is touched. The compatibility default is unlimited.
 /// </para>
 /// <para>
 /// <b>BigInt.</b> A <c>BigInt</c> that reaches the output throws a
@@ -70,6 +70,12 @@ public sealed class JsonSerializer
     private string _gap = string.Empty;
     private List<JsValue>? _propertyList;
     private bool _hasReplacerFunction;
+    private ResultLimits _limits = ResultLimits.Unlimited;
+    private long _propertyCount;
+    private int _depth;
+    private long _maxOutputBytes;
+    private ResultLimit? _documentLengthResultLimit;
+    private bool _active;
 
     // The largest document this call is allowed to build. JsString.MaxLength for the overloads whose
     // result is a JavaScript string, so JSON.stringify can no longer hand back a string the engine's
@@ -107,7 +113,15 @@ public sealed class JsonSerializer
     /// </returns>
     public JsValue Serialize(JsValue value)
     {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined);
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, _engine.Options.ResultLimits);
+    }
+
+    /// <summary>
+    /// Serializes <paramref name="value"/> using explicit host output limits.
+    /// </summary>
+    public JsValue SerializeWithLimits(JsValue value, ResultLimits limits)
+    {
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, limits);
     }
 
     /// <summary>
@@ -128,31 +142,55 @@ public sealed class JsonSerializer
     /// </returns>
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
-        if (!TryCreateHolder(value, replacer, space, JsString.MaxLength, out var wrapper))
-        {
-            return JsValue.Undefined;
-        }
+        return Serialize(value, replacer, space, _engine.Options.ResultLimits);
+    }
 
-        var json = new ValueStringBuilder();
+    /// <summary>
+    /// Serializes <paramref name="value"/> with the JSON replacer and spacing rules while enforcing explicit
+    /// host output limits.
+    /// </summary>
+    public JsValue Serialize(JsValue value, JsValue replacer, JsValue space, ResultLimits limits)
+    {
+        return _engine.ExecuteWithConstraints(
+            _engine.Options.Strict,
+            () => SerializeEntry(value, replacer, space, limits));
+    }
+
+    private JsValue SerializeEntry(JsValue value, JsValue replacer, JsValue space, ResultLimits limits)
+    {
+        Enter();
         try
         {
-            if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+            if (!TryCreateHolder(value, replacer, space, JsString.MaxLength, utf8: false, limits, out var wrapper))
             {
                 return JsValue.Undefined;
             }
 
-            // The walk refuses an over-long document while it is being built; this catches the one
-            // thing a single append can still overshoot by — the expansion of a quoted string's
-            // escapes — before the document is turned into a JsString.
-            ThrowIfDocumentLengthExceeded(json.Length);
-            return new JsString(json.ToString());
+            var json = new ValueStringBuilder();
+            try
+            {
+                if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+                {
+                    return JsValue.Undefined;
+                }
+
+                // The walk refuses an over-long document while it is being built; this catches the one
+                // thing a single append can still overshoot by — the expansion of a quoted string's
+                // escapes — before the document is turned into a JsString.
+                ThrowIfDocumentLengthExceeded(json.Length);
+                return new JsString(json.ToString());
+            }
+            finally
+            {
+                // Dispose rather than the ToString() this used to end in: on the throwing path that
+                // materialized the whole partial document, which is up to half a billion characters the
+                // caller never sees. ToString() disposes on the way out, so this is a no-op after it.
+                json.Dispose();
+            }
         }
         finally
         {
-            // Dispose rather than the ToString() this used to end in: on the throwing path that
-            // materialized the whole partial document, which is up to half a billion characters the
-            // caller never sees. ToString() disposes on the way out, so this is a no-op after it.
-            json.Dispose();
+            _active = false;
         }
     }
 
@@ -168,7 +206,15 @@ public sealed class JsonSerializer
     /// </returns>
     public bool Serialize(JsValue value, IBufferWriter<byte> writer)
     {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer);
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer, _engine.Options.ResultLimits);
+    }
+
+    /// <summary>
+    /// Serializes <paramref name="value"/> as UTF-8 using explicit host output limits.
+    /// </summary>
+    public bool Serialize(JsValue value, IBufferWriter<byte> writer, ResultLimits limits)
+    {
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer, limits);
     }
 
     /// <summary>
@@ -192,31 +238,81 @@ public sealed class JsonSerializer
     /// </remarks>
     public bool Serialize(JsValue value, JsValue replacer, JsValue space, IBufferWriter<byte> writer)
     {
+        return Serialize(value, replacer, space, writer, _engine.Options.ResultLimits);
+    }
+
+    /// <summary>
+    /// Serializes <paramref name="value"/> as UTF-8 with the JSON replacer and spacing rules while enforcing
+    /// explicit host output limits.
+    /// </summary>
+    public bool Serialize(
+        JsValue value,
+        JsValue replacer,
+        JsValue space,
+        IBufferWriter<byte> writer,
+        ResultLimits limits)
+    {
         if (writer is null)
         {
             Throw.ArgumentNullException(nameof(writer));
         }
 
-        if (!TryCreateHolder(value, replacer, space, ClrLimits.MaxArrayLength, out var wrapper))
-        {
-            return false;
-        }
+        return _engine.ExecuteWithConstraints(
+            _engine.Options.Strict,
+            () => SerializeEntry(value, replacer, space, writer, limits));
+    }
 
-        var json = new ValueStringBuilder();
+    private bool SerializeEntry(
+        JsValue value,
+        JsValue replacer,
+        JsValue space,
+        IBufferWriter<byte> writer,
+        ResultLimits limits)
+    {
+        Enter();
         try
         {
-            if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+            if (!TryCreateHolder(value, replacer, space, ClrLimits.MaxArrayLength, utf8: true, limits, out var wrapper))
             {
                 return false;
             }
 
-            WriteUtf8(json.AsSpan(), writer);
-            return true;
+            var json = new ValueStringBuilder();
+            try
+            {
+                if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+                {
+                    return false;
+                }
+
+                var byteCount = GetUtf8ByteCount(json.AsSpan());
+                if (byteCount > _maxOutputBytes)
+                {
+                    ThrowResultLimit(ResultLimit.OutputBytes, _maxOutputBytes, byteCount);
+                }
+
+                WriteUtf8(json.AsSpan(), writer);
+                return true;
+            }
+            finally
+            {
+                json.Dispose();
+            }
         }
         finally
         {
-            json.Dispose();
+            _active = false;
         }
+    }
+
+    private void Enter()
+    {
+        if (_active)
+        {
+            Throw.InvalidOperationException("The JsonSerializer instance is already serializing a value.");
+        }
+
+        _active = true;
     }
 
     /// <summary>
@@ -224,10 +320,40 @@ public sealed class JsonSerializer
     /// gap, and builds the wrapper object the value is serialized out of. Returns <see langword="false"/>
     /// for the inputs that produce no output at all.
     /// </summary>
-    private bool TryCreateHolder(JsValue value, JsValue replacer, JsValue space, long maxDocumentLength, out ObjectInstance wrapper)
+    private bool TryCreateHolder(
+        JsValue value,
+        JsValue replacer,
+        JsValue space,
+        long maxDocumentLength,
+        bool utf8,
+        ResultLimits limits,
+        out ObjectInstance wrapper)
     {
+        if (limits is null)
+        {
+            Throw.ArgumentNullException(nameof(limits));
+        }
+
         _stack = new ObjectTraverseStack(_engine);
-        _maxDocumentLength = maxDocumentLength;
+        _limits = limits;
+        var resultLength = limits.MaxOutputCharacters;
+        _documentLengthResultLimit = ResultLimit.OutputCharacters;
+        if (utf8 && limits.MaxOutputBytes < resultLength)
+        {
+            // Every UTF-16 code unit contributes at least one UTF-8 byte, so this is a conservative
+            // pre-allocation bound. The finished document is counted exactly before the writer is touched.
+            resultLength = limits.MaxOutputBytes;
+            _documentLengthResultLimit = ResultLimit.OutputBytes;
+        }
+
+        _maxDocumentLength = System.Math.Min(maxDocumentLength, resultLength);
+        _maxOutputBytes = limits.MaxOutputBytes;
+        if (maxDocumentLength < resultLength)
+        {
+            _documentLengthResultLimit = null;
+        }
+        _propertyCount = 0;
+        _depth = 0;
 
         // JSON.stringify allocates a serializer per call, but the type is public and a host may hold an
         // instance across calls: every field the prologue only conditionally assigns has to be cleared
@@ -280,8 +406,77 @@ public sealed class JsonSerializer
     {
         if (length > _maxDocumentLength)
         {
+            if (_documentLengthResultLimit is { } resultLimit)
+            {
+                ThrowResultLimit(resultLimit, _maxDocumentLength, length);
+            }
+
             Throw.RangeError(_engine.Realm, "Invalid string length");
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ThrowIfStringLengthExceeded(int length)
+    {
+        if (length > _limits.MaxStringLength)
+        {
+            ThrowResultLimit(ResultLimit.StringLength, _limits.MaxStringLength, length);
+        }
+    }
+
+    private void CountProperties(long count)
+    {
+        var observed = checked(_propertyCount + count);
+        if (observed > _limits.MaxPropertyCount)
+        {
+            ThrowResultLimit(ResultLimit.PropertyCount, _limits.MaxPropertyCount, observed);
+        }
+
+        _propertyCount = observed;
+    }
+
+    private void EnterContainer(ObjectInstance value)
+    {
+        var observed = _depth + 1;
+        if (observed > _limits.MaxDepth)
+        {
+            ThrowResultLimit(ResultLimit.Depth, _limits.MaxDepth, observed);
+        }
+
+        _stack.Enter(value);
+        _depth = observed;
+    }
+
+    private void ExitContainer()
+    {
+        _stack.Exit();
+        _depth--;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowResultLimit(ResultLimit limit, long maximum, long observed)
+    {
+        throw new ResultLimitExceededException(limit, maximum, observed);
+    }
+
+    private static long GetUtf8ByteCount(ReadOnlySpan<char> chars)
+    {
+        const int CharChunkLength = 1024;
+        const int ByteChunkLength = 4096;
+
+        var encoder = Encoding.UTF8.GetEncoder();
+        Span<byte> destination = stackalloc byte[ByteChunkLength];
+        long total = 0;
+        while (!chars.IsEmpty)
+        {
+            var chunk = chars.Length <= CharChunkLength ? chars : chars.Slice(0, CharChunkLength);
+            var flush = chunk.Length == chars.Length;
+            encoder.Convert(chunk, destination, flush, out var charsUsed, out var bytesUsed, out _);
+            total += bytesUsed;
+            chars = chars.Slice(charsUsed);
+        }
+
+        return total;
     }
 
     /// <summary>
@@ -347,6 +542,7 @@ public sealed class JsonSerializer
             {
                 _propertyList = new List<JsValue>();
                 var len = oi.GetLength();
+                CountProperties(len);
                 var k = 0;
                 while (k < len)
                 {
@@ -374,9 +570,13 @@ public sealed class JsonSerializer
                         }
                     }
 
-                    if (!item.IsUndefined() && !_propertyList.Contains(item))
+                    if (!item.IsUndefined())
                     {
-                        _propertyList.Add(item);
+                        ThrowIfStringLengthExceeded(((JsString) item).Length);
+                        if (!_propertyList.Contains(item))
+                        {
+                            _propertyList.Add(item);
+                        }
                     }
 
                     k++;
@@ -385,7 +585,7 @@ public sealed class JsonSerializer
         }
     }
 
-    private static string BuildSpacingGap(JsValue space)
+    private string BuildSpacingGap(JsValue space)
     {
         if (space.IsObject())
         {
@@ -414,6 +614,7 @@ public sealed class JsonSerializer
 
         if (space.IsString())
         {
+            ThrowIfStringLengthExceeded(((JsString) space).Length);
             var stringSpace = space.ToString();
             return stringSpace.Length <= 10 ? stringSpace : stringSpace.Substring(0, 10);
         }
@@ -450,13 +651,10 @@ public sealed class JsonSerializer
 
         if (value.IsString())
         {
+            ThrowIfStringLengthExceeded(((JsString) value).Length);
             var stringValue = value.ToString();
 
-            // Quoting adds the two quotes and can only expand what is between them, so the unquoted
-            // length is a lower bound on what this append costs. Checking here refuses a string that
-            // cannot fit before it is copied into the document — including the case where the string
-            // is the whole document.
-            ThrowIfDocumentLengthExceeded(json.Length + 2L + stringValue.Length);
+            ThrowIfQuotedStringLengthExceeded(json.Length, stringValue);
 
             QuoteJSONString(stringValue, ref json);
             return SerializeResult.NotUndefined;
@@ -499,6 +697,7 @@ public sealed class JsonSerializer
             // Handle RawJSON objects - output rawJSON property directly
             if (objectInstance is JsRawJson rawJson)
             {
+                ThrowIfStringLengthExceeded(rawJson.RawJson.Length);
                 // Raw JSON text and the host hook below are copied through verbatim, so what they
                 // add is exactly their length: both are single appends large enough to be worth
                 // refusing before the copy.
@@ -521,6 +720,7 @@ public sealed class JsonSerializer
                 var hostJson = serialize(wrapper.Target, _gap, _indent);
                 if (hostJson is { Length: > 0 })
                 {
+                    ThrowIfStringLengthExceeded(hostJson.Length);
                     ThrowIfDocumentLengthExceeded(json.Length + (long) hostJson.Length);
                     json.Append(hostJson);
                 }
@@ -677,6 +877,36 @@ public sealed class JsonSerializer
         json.Append('"');
     }
 
+    private void ThrowIfQuotedStringLengthExceeded(long currentLength, string value)
+    {
+        if (_documentLengthResultLimit is null)
+        {
+            ThrowIfDocumentLengthExceeded(currentLength + 2L + value.Length);
+            return;
+        }
+
+        long quotedLength = 2;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (char.IsSurrogatePair(value, i))
+            {
+                quotedLength += 2;
+                i++;
+            }
+            else if (c is '\"' or '\\' or '\b' or '\f' or '\n' or '\r' or '\t')
+            {
+                quotedLength += 2;
+            }
+            else
+            {
+                quotedLength += c < 0x20 || char.IsSurrogate(c) ? 6 : 1;
+            }
+
+            ThrowIfDocumentLengthExceeded(currentLength + quotedLength);
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AppendJsonStringCharacter(string value, ref int index, ref ValueStringBuilder json)
     {
@@ -735,13 +965,16 @@ public sealed class JsonSerializer
     private void SerializeJSONArray(ObjectInstance value, ref ValueStringBuilder json)
     {
         var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length));
+        CountProperties(len);
         if (len == 0)
         {
+            EnterContainer(value);
+            ExitContainer();
             json.Append("[]");
             return;
         }
 
-        _stack.Enter(value);
+        EnterContainer(value);
         var stepback = _indent;
         if (_gap.Length > 0)
         {
@@ -792,7 +1025,7 @@ public sealed class JsonSerializer
 
         if (!hasPrevious)
         {
-            _stack.Exit();
+            ExitContainer();
             _indent = stepback;
             json.Append("[]");
             return;
@@ -805,7 +1038,7 @@ public sealed class JsonSerializer
         }
         json.Append(']');
 
-        _stack.Exit();
+        ExitContainer();
         _indent = stepback;
     }
 
@@ -824,16 +1057,29 @@ public sealed class JsonSerializer
             return;
         }
 
-        var enumeration = _propertyList is null
-            ? PropertyEnumeration.FromObjectInstance(value)
-            : PropertyEnumeration.FromList(_propertyList);
+        PropertyEnumeration enumeration;
+        if (_propertyList is null)
+        {
+            var keys = value.GetOwnPropertyKeys(Types.String);
+            CountProperties(keys.Count);
+            RemoveUnserializableProperties(value, keys);
+            enumeration = PropertyEnumeration.FromList(keys);
+        }
+        else
+        {
+            CountProperties(_propertyList.Count);
+            enumeration = PropertyEnumeration.FromList(_propertyList);
+        }
+
         if (enumeration.IsEmpty)
         {
+            EnterContainer(value);
+            ExitContainer();
             json.Append("{}");
             return;
         }
 
-        _stack.Enter(value);
+        EnterContainer(value);
         var stepback = _indent;
         if (_gap.Length > 0)
         {
@@ -871,7 +1117,10 @@ public sealed class JsonSerializer
                 json.Append(_indent);
             }
 
-            QuoteJSONString(p.ToString(), ref json);
+            ThrowIfStringLengthExceeded(((JsString) p).Length);
+            var propertyName = p.ToString();
+            ThrowIfQuotedStringLengthExceeded(json.Length, propertyName);
+            QuoteJSONString(propertyName, ref json);
             json.Append(':');
             if (_gap.Length > 0)
             {
@@ -890,7 +1139,7 @@ public sealed class JsonSerializer
 
         if (!hasPrevious)
         {
-            _stack.Exit();
+            ExitContainer();
             _indent = stepback;
             json.Append("{}");
             return;
@@ -903,7 +1152,7 @@ public sealed class JsonSerializer
         }
         json.Append('}');
 
-        _stack.Exit();
+        ExitContainer();
         _indent = stepback;
     }
 
@@ -934,11 +1183,14 @@ public sealed class JsonSerializer
 
         if (keys.Length == 0)
         {
+            EnterContainer(value);
+            ExitContainer();
             json.Append("{}");
             return true;
         }
 
-        _stack.Enter(value);
+        CountProperties(keys.Length);
+        EnterContainer(value);
         var stepback = _indent;
         if (_gap.Length > 0)
         {
@@ -975,6 +1227,8 @@ public sealed class JsonSerializer
                 json.Append(_indent);
             }
 
+            ThrowIfStringLengthExceeded(keys[i].Name.Length);
+            ThrowIfQuotedStringLengthExceeded(json.Length, keys[i].Name);
             QuoteJSONString(keys[i].Name, ref json);
             json.Append(':');
             if (_gap.Length > 0)
@@ -1015,7 +1269,7 @@ public sealed class JsonSerializer
 
         if (!hasPrevious)
         {
-            _stack.Exit();
+            ExitContainer();
             _indent = stepback;
             json.Append("{}");
             return true;
@@ -1028,7 +1282,7 @@ public sealed class JsonSerializer
         }
         json.Append('}');
 
-        _stack.Exit();
+        ExitContainer();
         _indent = stepback;
         return true;
     }
@@ -1050,27 +1304,25 @@ public sealed class JsonSerializer
         public static PropertyEnumeration FromList(List<JsValue> keys)
             => new PropertyEnumeration(keys, keys.Count == 0);
 
-        public static PropertyEnumeration FromObjectInstance(ObjectInstance instance)
-        {
-            var allKeys = instance.GetOwnPropertyKeys(Types.String);
-            RemoveUnserializableProperties(instance, allKeys);
-            return new PropertyEnumeration(allKeys, allKeys.Count == 0);
-        }
-
-        private static void RemoveUnserializableProperties(ObjectInstance instance, List<JsValue> keys)
-        {
-            for (var i = 0; i < keys.Count; i++)
-            {
-                var key = keys[i];
-                if (instance.ProbeOwnPropertyChecked(key) != OwnPropertyProbe.Enumerable)
-                {
-                    keys.RemoveAt(i);
-                    i--;
-                }
-            }
-        }
-
         public readonly List<JsValue> Keys;
         public readonly bool IsEmpty;
+    }
+
+    private void RemoveUnserializableProperties(ObjectInstance instance, List<JsValue> keys)
+    {
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (i > 0 && i % ConstraintCheckInterval == 0)
+            {
+                _engine.Constraints.Check();
+            }
+
+            var key = keys[i];
+            if (instance.ProbeOwnPropertyChecked(key) != OwnPropertyProbe.Enumerable)
+            {
+                keys.RemoveAt(i);
+                i--;
+            }
+        }
     }
 }

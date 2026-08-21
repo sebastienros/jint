@@ -413,14 +413,7 @@ public sealed class ModuleLoadCompletion
 
     private static bool MustPropagateLoaderException(Exception exception, CancellationToken cancellationToken)
     {
-        if (exception is ExecutionCanceledException
-            or ParsingLimitException
-            or MemoryLimitExceededException
-            or StatementsCountOverflowException
-            or RecursionDepthOverflowException
-            or ModuleGraphLimitException
-            or System.Text.RegularExpressions.RegexMatchTimeoutException
-            or OutOfMemoryException)
+        if (Throw.MustPropagateHostException(exception))
         {
             return true;
         }

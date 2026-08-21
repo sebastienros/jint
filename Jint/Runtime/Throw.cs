@@ -52,6 +52,19 @@ internal static class Throw
     internal static bool IsEngineAbortException(Exception exception)
         => EngineAbortRegistry.Exceptions.TryGetValue(exception, out _);
 
+    internal static bool MustPropagateHostException(Exception exception) => exception
+        is global::Jint.Runtime.ExecutionCanceledException
+        or global::Jint.ParsingLimitException
+        or global::Jint.Runtime.MemoryLimitExceededException
+        or global::Jint.Runtime.ResultLimitExceededException
+        or global::Jint.Runtime.StatementsCountOverflowException
+        or global::Jint.Runtime.RecursionDepthOverflowException
+        or global::Jint.Runtime.Modules.ModuleGraphLimitException
+        or System.Text.RegularExpressions.RegexMatchTimeoutException
+        or System.PlatformNotSupportedException
+        or System.OutOfMemoryException
+        || IsEngineAbortException(exception);
+
     private static void MarkEngineAbort(Exception exception)
         => EngineAbortRegistry.Exceptions.Add(exception, EngineAbortRegistry.Marker);
 
@@ -338,7 +351,7 @@ internal static class Throw
     public static void MeaningfulException(Engine engine, TargetInvocationException exception)
     {
         var meaningfulException = exception.InnerException ?? exception;
-        if (meaningfulException is ParsingLimitException)
+        if (MustPropagateHostException(meaningfulException))
         {
             ExceptionDispatchInfo.Capture(meaningfulException).Throw();
         }

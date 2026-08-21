@@ -1,10 +1,186 @@
 ﻿using Jint.Native;
 using Jint.Native.Json;
+using Jint.Runtime;
+using System.Buffers;
 
 namespace Jint.Tests.Runtime;
 
 public class JsonSerializerTests
 {
+    [Fact]
+    public void ResultLimitsAreInclusiveAndDefaultsRemainCompatible()
+    {
+        using var engine = new Engine();
+        var value = engine.Evaluate("({ a: [1, 2], b: 'text' })");
+        var expected = "{\"a\":[1,2],\"b\":\"text\"}";
+
+        new JsonSerializer(engine).Serialize(value).AsString().Should().Be(expected);
+        new JsonSerializer(engine).SerializeWithLimits(
+            value,
+            new ResultLimits(
+                maxDepth: 2,
+                maxPropertyCount: 4,
+                maxStringLength: 4,
+                maxOutputCharacters: expected.Length)).AsString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void ReentrantUseOfTheSameInstanceCannotReplaceOuterLimits()
+    {
+        var engine = new Engine();
+        var serializer = new JsonSerializer(engine);
+        var nestedWasRejected = false;
+        engine.SetValue("reenter", new Func<string>(() =>
+        {
+            try
+            {
+                serializer.SerializeWithLimits(new JsString("unbounded"), ResultLimits.Unlimited);
+            }
+            catch (InvalidOperationException)
+            {
+                nestedWasRejected = true;
+            }
+
+            return "1234";
+        }));
+        var value = engine.Evaluate("({ toJSON() { return reenter(); } })");
+
+        Invoking(() => serializer.SerializeWithLimits(value, new ResultLimits(maxStringLength: 3)))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+        nestedWasRejected.Should().BeTrue();
+        serializer.Serialize(new JsString("ok")).AsString().Should().Be("\"ok\"");
+    }
+
+    [Fact]
+    public void JsonLimitsDepthPropertiesStringsAndCharacters()
+    {
+        using var engine = new Engine();
+        var serializer = new JsonSerializer(engine);
+
+        AssertLimit(
+            () => serializer.SerializeWithLimits(engine.Evaluate("({ a: { b: 1 } })"), new ResultLimits(maxDepth: 1)),
+            ResultLimit.Depth);
+        AssertLimit(
+            () => serializer.SerializeWithLimits(engine.Evaluate("[1, 2, 3]"), new ResultLimits(maxPropertyCount: 2)),
+            ResultLimit.PropertyCount);
+        AssertLimit(
+            () => serializer.SerializeWithLimits(new JsString("1234"), new ResultLimits(maxStringLength: 3)),
+            ResultLimit.StringLength);
+        AssertLimit(
+            () => serializer.SerializeWithLimits(new JsString("1234"), new ResultLimits(maxOutputCharacters: 5)),
+            ResultLimit.OutputCharacters);
+    }
+
+    [Fact]
+    public void EscapingIsCountedBeforeTheQuotedStringIsAppended()
+    {
+        using var engine = new Engine();
+        var value = new JsString(new string('\0', 20));
+
+        AssertLimit(
+            () => new JsonSerializer(engine).SerializeWithLimits(
+                value,
+                new ResultLimits(maxOutputCharacters: 100)),
+            ResultLimit.OutputCharacters);
+    }
+
+    [Fact]
+    public void StringLengthIsCheckedBeforeAConcatenatedStringIsFlattened()
+    {
+        using var engine = new Engine();
+        var value = (JsString.ConcatenatedString) engine.Evaluate("""
+            var values = ["a"];
+            values[0] += "b";
+            values[0] += "c";
+            values[0];
+            """);
+        value._value.Should().Be("ab");
+
+        AssertLimit(
+            () => new JsonSerializer(engine).SerializeWithLimits(
+                value,
+                new ResultLimits(maxStringLength: 2)),
+            ResultLimit.StringLength);
+        value._value.Should().Be("ab");
+    }
+
+    [Fact]
+    public void BoxedStringsUseObservableStringCoercion()
+    {
+        using var engine = new Engine();
+
+        engine.Evaluate("""
+            var value = new String("original");
+            value.toString = function () { return "overridden"; };
+            JSON.stringify(value);
+            """).AsString().Should().Be("\"overridden\"");
+
+        engine.Evaluate("""
+            var key = new String("a");
+            key.toString = function () { return "selected"; };
+            JSON.stringify({ a: 1, selected: 2 }, [key]);
+            """).AsString().Should().Be("{\"selected\":2}");
+    }
+
+    [Fact]
+    public void PropertyLimitFiresBeforeJsonGetter()
+    {
+        using var engine = new Engine();
+        var value = engine.Evaluate("""
+            globalThis.reads = 0;
+            ({ get a() { reads++; return 1; }, get b() { reads++; return 2; } })
+            """);
+
+        AssertLimit(
+            () => new JsonSerializer(engine).SerializeWithLimits(value, new ResultLimits(maxPropertyCount: 1)),
+            ResultLimit.PropertyCount);
+        engine.GetValue("reads").AsNumber().Should().Be(0);
+    }
+
+    [Fact]
+    public void Utf8LimitIsExactAndWriterIsUntouchedOnFailure()
+    {
+        using var engine = new Engine();
+        var serializer = new JsonSerializer(engine);
+        var value = new JsString("é");
+        var writer = new CountingBufferWriter();
+
+        serializer.Serialize(value, writer, new ResultLimits(maxOutputBytes: 4)).Should().BeTrue();
+        writer.WrittenCount.Should().Be(4);
+
+        writer = new CountingBufferWriter();
+        AssertLimit(
+            () => serializer.Serialize(value, writer, new ResultLimits(maxOutputBytes: 3)),
+            ResultLimit.OutputBytes);
+        writer.WrittenCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void ConfiguredLimitsAlsoBoundScriptStringify()
+    {
+        using var engine = new Engine(options =>
+            options.ResultLimits = new ResultLimits(maxOutputCharacters: 5));
+
+        Invoking(() => engine.Evaluate("try { JSON.stringify([1, 2, 3]); } catch { 'caught'; }"))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+    }
+
+    [Fact]
+    public void ToJsonExecutionUsesEngineConstraints()
+    {
+        using var engine = new Engine(options => options.MaxStatements(100));
+        var value = engine.Evaluate("({ toJSON() { while (true) {} } })");
+
+        Invoking(() => new JsonSerializer(engine).SerializeWithLimits(value, ResultLimits.Conservative))
+            .Should().ThrowExactly<StatementsCountOverflowException>();
+    }
+
+    private static void AssertLimit(Action action, ResultLimit limit)
+    {
+        Invoking(action).Should().ThrowExactly<ResultLimitExceededException>()
+            .Which.Limit.Should().Be(limit);
+    }
+
     [Fact]
     public void CanStringifyBasicTypes()
     {
@@ -279,5 +455,42 @@ public class JsonSerializerTests
             """).AsBoolean();
 
         ok.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A minimal <see cref="IBufferWriter{T}"/> for the byte-writing overloads. Hand-written rather than
+    /// <c>ArrayBufferWriter&lt;byte&gt;</c> because that type is internal in the <c>System.Memory</c> package
+    /// this project compiles against on .NET Framework, and the API under test takes the interface anyway.
+    /// </summary>
+    private sealed class CountingBufferWriter : IBufferWriter<byte>
+    {
+        private byte[] _buffer = new byte[256];
+
+        public int WrittenCount { get; private set; }
+
+        public void Advance(int count) => WrittenCount += count;
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            Grow(sizeHint);
+            return _buffer.AsMemory(WrittenCount);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0)
+        {
+            Grow(sizeHint);
+            return _buffer.AsSpan(WrittenCount);
+        }
+
+        private void Grow(int sizeHint)
+        {
+            var needed = WrittenCount + Math.Max(sizeHint, 1);
+            if (needed <= _buffer.Length)
+            {
+                return;
+            }
+
+            Array.Resize(ref _buffer, Math.Max(needed, _buffer.Length * 2));
+        }
     }
 }

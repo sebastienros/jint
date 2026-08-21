@@ -2045,7 +2045,50 @@ charge unrelated allocations while an async operation is suspended.
 **Values do not cross engines.** A `JsValue` that is an `ObjectInstance` holds a hard reference to the engine
 and realm that created it, and passing one to a different engine is not supported — it is neither validated
 nor made safe. `Prepared<Script>` / `Prepared<Module>` and `ModuleBuilder` are the supported ways to share
-work between engines; convert to CLR values (`ToObject()`) to move data.
+work between engines. For a script result, prefer
+`engine.Advanced.ConvertResult(value, limits)`: it copies arrays, typed arrays, array buffers, maps, sets and
+enumerable own properties into a detached CLR data graph while incrementally enforcing depth, cumulative
+property/element count, individual string length, aggregate characters and binary bytes. Cycles, functions and
+symbols are rejected. A CLR wrapper is already host-owned, so conversion returns its target without walking or
+limiting that target's graph.
+
+**Bound untrusted output.** `Options.ResultLimits` defaults to `ResultLimits.Unlimited` for compatibility.
+`ResultLimits.Conservative` is an opt-in starting point, not a complete sandbox profile:
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.ResultLimits = ResultLimits.Conservative;
+    options.TimeoutInterval(TimeSpan.FromSeconds(2));
+    options.MaxStatements(50_000);
+    options.LimitMemory(16_000_000);
+});
+
+var value = engine.Evaluate(source);
+var result = engine.Advanced.ConvertResult(value);
+```
+
+The same option bounds Jint's `JsonSerializer` and script-visible `JSON.stringify`; per-call overloads can use
+a tighter policy. JSON output counts escaped UTF-16 characters before appending and exact UTF-8 bytes before
+touching an `IBufferWriter<byte>`. Conversion and serialization run under execution constraints because getters,
+proxy traps, `toJSON`, replacers and error `stack` accessors can execute script. Limits do not make host code
+interruptible: pair them with time, statement, cancellation, memory and stack constraints plus an outer worker
+deadline.
+
+`Evaluate`, `ConvertResult`, `JsonSerializer`, and bounded error rendering are separate top-level entries. If
+evaluation plus result handling is one request, bracket every phase with the same `OperationDeadlineConstraint`
+`Begin`/`End` pair; otherwise each phase receives a fresh ordinary per-entry budget.
+
+For CLR conversion, `MaxPropertyCount` is the structural-work and container-allocation bound. Shared references
+that are not cycles are copied once per occurrence, so a graph can amplify as it is detached; string, character
+and binary-byte limits do not bound that shape by themselves.
+
+Jint cannot impose these limits inside external serializers. `System.Text.Json`, Newtonsoft.Json, a configured
+`Interop.SerializeToJson` delegate, custom logging/diagnostic formatters, and serialization of a returned CLR
+wrapper target remain the host's responsibility. The delegate's returned JSON text is capped before Jint copies
+it, but any work or allocation the delegate performed to produce that string has already happened. Standard
+`Exception.ToString()` and debugger frontends are external sinks too; use
+`JavaScriptException.GetJavaScriptErrorString(limits)` for bounded script-error text.
 
 ## Profiling scripts (opt-in)
 

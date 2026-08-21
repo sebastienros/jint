@@ -368,7 +368,7 @@ public class DefaultTypeConverter : ITypeConverter
         }
         catch (Exception e)
         {
-            if (e is ParsingLimitException)
+            if (Throw.MustPropagateHostException(e))
             {
                 throw;
             }

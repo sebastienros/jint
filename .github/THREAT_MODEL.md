@@ -98,6 +98,7 @@ Defaults are compatibility choices, not a hardened profile.
 | Debugger | Disabled | Debug callbacks and debugger expressions are inactive |
 | Detailed CLR resolution errors | Disabled | Reduces script-visible CLR surface disclosure |
 | Function source retention | Disabled | Submitted function source is not retained solely for `toString()` |
+| Result conversion and JSON output limits | Unlimited | Compatibility default; hostile output is unbounded unless the host opts in |
 
 ## Threat inventory
 
@@ -341,9 +342,13 @@ when the outer deadline expires.
 
 ### TM-09: A sequence of engine entries escapes a per-entry budget
 
-**Threat.** `Execute`, `Evaluate`, `Invoke`, and `Call` are separate top-level runs. Built-in
+**Threat.** `Execute`, `Evaluate`, `Invoke`, `Call`, `Advanced.ConvertResult`, public
+`JsonSerializer.Serialize` calls, and bounded
+`JavaScriptException.GetJavaScriptErrorString` are separate top-level runs. Built-in
 constraints reset around each one, so a host loop that invokes a script once per record
-grants a fresh timeout, statement budget, and allocation baseline to every call.
+grants a fresh timeout, statement budget, and allocation baseline to every call. Evaluating
+a result and then converting or serializing it also grants each phase a fresh budget unless
+the host brackets both with one operation deadline.
 
 **Existing mitigations.**
 
@@ -355,9 +360,10 @@ grants a fresh timeout, statement budget, and allocation baseline to every call.
 - Jint cannot infer which entries form one server request.
 - `OperationDeadlineConstraint` is inert unless the host explicitly brackets the operation.
 
-**Required host action.** Arm one operation deadline around all engine work for the request,
-including module import, callbacks, and result handling. Keep per-entry constraints as an
-additional ceiling.
+**Required host action.** Arm one `OperationDeadlineConstraint` around all engine work for the
+request, including module import, callbacks, `ConvertResult`, `JsonSerializer`, and bounded error
+rendering. When evaluation and conversion or serialization form one request, they must be inside
+the same `Begin`/`End` pair. Keep per-entry constraints as an additional ceiling.
 
 ### TM-10: Async and promise work outlives the request
 
@@ -560,16 +566,39 @@ run additional code and consume CPU or memory outside the intended execution bud
 
 - The host controls whether and how values cross out of the engine.
 - `JSON.parse` has a configurable maximum parse depth.
+- `ResultLimits` can bound conversion/serialization depth, cumulative properties or elements,
+  individual strings, aggregate characters, and UTF-8 or binary bytes.
+- `Advanced.ConvertResult` copies Jint-owned arrays, typed arrays, maps, sets, and enumerable
+  object properties to a detached CLR graph, rejects cycles, and enforces the selected limits
+  before known-size output allocations and before property getters are read.
+- Jint's JSON serializer enforces the same limits while walking, counts escaped characters
+  before appending, and checks exact UTF-8 bytes before touching a writer.
+- Conversion, JSON serialization, and bounded JavaScript error rendering run under execution
+  constraints because getters, proxy traps, `toJSON`, replacers, and `stack` accessors can run
+  script.
 
 **Missing or residual mitigation.**
 
-- Jint does not impose a universal response byte, object depth, property count, or host
-  serializer limit.
+- Result limits are unlimited by default.
+- Shared references that are not cycles are converted once per occurrence and can amplify the
+  detached CLR graph. `MaxPropertyCount` is the structural-work and container-allocation bound;
+  string, character, and binary-byte limits do not substitute for it.
+- Proxy `ownKeys` and host property-key hooks can allocate their key list before Jint receives
+  and counts it; memory constraints and process isolation remain the backstop.
+- Observable coercion hooks on boxed strings and numbers must run before Jint knows the
+  resulting primitive's size; they can allocate before the result limiter can inspect it.
+- A CLR wrapper target is already host-owned and is returned without walking its object graph.
+- `System.Text.Json`, Newtonsoft.Json, configured `Interop.SerializeToJson` delegates, custom
+  converters, logging formatters, standard `Exception.ToString()`, and debugger frontends run
+  outside Jint's bounded walker. Jint can cap a delegate's returned text before copying it, but
+  cannot undo work already performed inside the delegate.
 - Returning an engine-owned `JsValue` extends the engine and realm lifetime.
 
-**Required host action.** Define a small result schema, copy only approved primitive fields,
-cap depth/property count/bytes, serialize under the outer request budget, reject cycles, and
-discard engine-owned values with the engine.
+**Required host action.** Define a small result schema, configure and tune `ResultLimits` (the
+`Conservative` preset is only a starting point), and return `Advanced.ConvertResult` output or
+bounded `JsonSerializer` output. Keep time, statement, cancellation, memory, stack, worker, and
+response-server byte limits around the whole operation. Independently configure every external
+serializer and log sink, and discard engine-owned values with the engine.
 
 ### TM-18: Retention and cache-based memory growth
 
@@ -1120,6 +1149,7 @@ var engine = new Engine(options =>
     options.AgentCanSuspend = false;
     options.AllowClrWrite(false);
     options.Interop.ArrayConversion = ArrayConversionMode.Copy;
+    options.ResultLimits = ResultLimits.Conservative;
 
     // Do not call AllowClr(). Leave modules and the debugger disabled.
 });
@@ -1127,7 +1157,8 @@ var engine = new Engine(options =>
 deadline.Begin(TimeSpan.FromSeconds(3), requestAborted);
 try
 {
-    return engine.Evaluate(boundedSource).ToObject();
+    var value = engine.Evaluate(boundedSource);
+    return engine.Advanced.ConvertResult(value);
 }
 finally
 {
@@ -1163,8 +1194,8 @@ This configuration is incomplete without host controls:
 3. Deny filesystem and outbound network access unless explicitly required.
 4. Expose only narrow, authorized, cancellation-aware host functions.
 5. Use a fresh engine for mutually distrusting requests.
-6. Cap module graphs, callback work, returned object shape, serialized bytes, logs, and
-   total request time.
+6. Tune `ResultLimits`, and separately cap module graphs, callback work, external serializers,
+   HTTP response bytes, logs, and total request time.
 7. Discard the worker if it misses the outer deadline; do not wait indefinitely for
    in-process cleanup.
 
@@ -1174,8 +1205,9 @@ Before deploying a host that executes untrusted scripts:
 
 - [ ] CLR namespace access, `AllowGetType`, reflection, debugger, and `Atomics.wait` are off.
 - [ ] Projected host objects are immutable or intentionally capability-scoped and read-only.
-- [ ] Initial source, callback, result, and log limits are enforced outside Jint; all four
-  Jint module graph limits are configured when modules are enabled.
+- [ ] Initial source, callback, external serializer, HTTP response, and log limits are enforced
+  outside Jint; `ResultLimits` is configured for Jint-owned conversion and JSON output, and all
+  four Jint module graph limits are configured when modules are enabled.
 - [ ] Time, statement, memory, recursion, stack, array, regex, promise, and operation limits
   are explicitly configured and tested with adversarial inputs.
 - [ ] Async API cancellation is paired with an engine cancellation constraint.

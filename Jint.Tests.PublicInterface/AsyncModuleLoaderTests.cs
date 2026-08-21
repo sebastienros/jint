@@ -124,6 +124,41 @@ public class AsyncModuleLoaderTests
         }
     }
 
+    private sealed class ResultFailureLoader(Exception failure, bool settle) : IAsyncModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException("The asynchronous path is required.");
+
+        public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
+        {
+            if (settle)
+            {
+                completion.SetError(failure);
+                return;
+            }
+
+            throw failure;
+        }
+    }
+
+    private sealed class FaultedResultFailureLoader(Exception failure) : AsyncModuleLoader
+    {
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        protected override async Task<string> LoadModuleContentsAsync(
+            Engine engine,
+            ResolvedSpecifier resolved,
+            CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+            throw failure;
+        }
+    }
+
     [Fact]
     public async Task CanImportAModuleWhoseSourceArrivesAsynchronously()
     {
@@ -139,6 +174,48 @@ public class AsyncModuleLoaderTests
 
         ns.Get("result").AsNumber().Should().Be(42);
         loader.Loads.Should().Be(2);
+    }
+
+    [Fact]
+    public void DirectResultLimitFromLoaderRemainsFatal()
+    {
+        var failure = CreateResultLimitFailure();
+        var engine = new Engine(options => options.EnableModules(new ResultFailureLoader(failure, settle: false)));
+
+        Invoking(() => engine.Modules.Import("module"))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public void SettledResultLimitFromLoaderRemainsFatal()
+    {
+        var failure = CreateResultLimitFailure();
+        var engine = new Engine(options => options.EnableModules(new ResultFailureLoader(failure, settle: true)));
+
+        Invoking(() => engine.Modules.Import("module"))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task FaultedResultLimitFromLoaderRemainsFatal()
+    {
+        var failure = CreateResultLimitFailure();
+        var engine = new Engine(options => options.EnableModules(new FaultedResultFailureLoader(failure)));
+
+        await Awaiting(() => engine.Modules.ImportAsync("module"))
+            .Should().ThrowExactlyAsync<ResultLimitExceededException>();
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    private static ResultLimitExceededException CreateResultLimitFailure()
+    {
+        using var engine = new Engine();
+        return Invoking(() => engine.Advanced.ConvertResult(
+                engine.Evaluate("[1, 2]"),
+                new ResultLimits(maxPropertyCount: 1)))
+            .Should().ThrowExactly<ResultLimitExceededException>().Which;
     }
 
     [Fact]

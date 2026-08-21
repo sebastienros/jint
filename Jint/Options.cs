@@ -185,6 +185,31 @@ public partial class Options
     public JsonOptions Json { get; set; } = new();
 
     /// <summary>
+    /// Limits applied by host-side result conversion and JSON serialization. Defaults to
+    /// <see cref="ResultLimits.Unlimited"/> for compatibility.
+    /// </summary>
+    /// <remarks>
+    /// Setting this also bounds script-visible <c>JSON.stringify</c>. Use per-call limits on
+    /// <see cref="Engine.AdvancedOperations.ConvertResult"/> or <see cref="Native.Json.JsonSerializer"/> when
+    /// different requests sharing one options object need different policies.
+    /// </remarks>
+    public ResultLimits ResultLimits
+    {
+        get => _resultLimits;
+        set
+        {
+            if (value is null)
+            {
+                Throw.ArgumentNullException(nameof(value));
+            }
+
+            _resultLimits = value;
+        }
+    }
+
+    private ResultLimits _resultLimits = ResultLimits.Unlimited;
+
+    /// <summary>
     /// What experimental features are allowed, functionality may lacking or even plain wrong. Defaults to having none.
     /// </summary>
     public ExperimentalFeature ExperimentalFeatures { get; set; }
@@ -549,7 +574,7 @@ public partial class Options
         /// with <see cref="JintException.TryGetClrException"/>, and a running script sees neither.
         /// </para>
         /// <para>
-        /// <see cref="JavaScriptException.GetJavaScriptErrorString"/> is exempt and renders the same string
+        /// <see cref="JavaScriptException.GetJavaScriptErrorString()"/> is exempt and renders the same string
         /// either way. It is the accessor a host uses to show a <em>script author</em> what went wrong, so the
         /// chain would put the host's .NET frames in front of the JavaScript ones there.
         /// </para>

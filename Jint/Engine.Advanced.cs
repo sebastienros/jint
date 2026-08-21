@@ -71,6 +71,34 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Converts a script result to a detached CLR graph while enforcing depth, size, and output limits.
+        /// </summary>
+        /// <remarks>
+        /// Arrays, typed arrays, array buffers, maps, sets, and enumerable own object properties are copied.
+        /// Cycles are rejected, as are functions and symbols that cannot form a detached data result. CLR
+        /// wrappers return their existing host-owned target without walking it. Property access may invoke
+        /// getters and proxy traps, so the conversion runs under the engine's execution constraints; those
+        /// constraints and an outer request deadline remain required for untrusted code.
+        /// </remarks>
+        public object? ConvertResult(JsValue value, ResultLimits? limits = null)
+        {
+            if (value is null)
+            {
+                Throw.ArgumentNullException(nameof(value));
+            }
+
+            if (value is ObjectInstance instance && !ReferenceEquals(instance.Engine, _engine))
+            {
+                Throw.ArgumentException("The value belongs to a different engine.", nameof(value));
+            }
+
+            var effectiveLimits = limits ?? _engine.Options.ResultLimits;
+            return _engine.ExecuteWithConstraints(
+                _engine.Options.Strict,
+                () => ResultConverter.Convert(_engine, value, effectiveLimits));
+        }
+
+        /// <summary>
         /// EXPERIMENTAL! Subject to change.
         ///
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).

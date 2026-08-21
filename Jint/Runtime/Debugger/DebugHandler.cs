@@ -145,7 +145,7 @@ public class DebugHandler
         {
             result = list.Execute(context);
         }
-        catch (Exception ex) when (ex is not ParsingLimitException)
+        catch (Exception ex) when (!Throw.MustPropagateHostException(ex))
         {
             // An error in the evaluation may return a Throw Completion, or it may throw an exception:
             throw new DebugEvaluationException("An error occurred during debugger evaluation", ex);

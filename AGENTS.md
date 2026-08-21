@@ -210,6 +210,7 @@ Jint is not only an engine to work on, it is an engine that gets **embedded**. I
 | `ReferencedGlobals` + `Prepared<T>.ReferencedGlobals` + `{Script,Module}PreparationOptions.CollectReferencedGlobals` | `Jint/ReferencedGlobals.cs`, `Jint/Prepared.cs`, `Jint/PreparationOptions.cs` |
 | `{Script,Module}PreparationOptions.StaticAnalysis` — the opt-out from the prepare-time analysis pass, plus the promise that the parse-only tree it returns is *still* safe to share across engines | `Jint/PreparationOptions.cs` |
 | `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` / `WithRestoredGlobals` | `Jint/Engine.GlobalSnapshot.cs` |
+| `ResultLimits` + `ResultLimit` + `ResultLimitExceededException` + `Engine.Advanced.ConvertResult` + bounded `JsonSerializer` / `JavaScriptException.GetJavaScriptErrorString` overloads | `Jint/ResultLimits.cs`, `Jint/Runtime/ResultLimitExceededException.cs`, `Jint/Engine.Advanced.cs`, `Jint/Native/Json/JsonSerializer.cs`, `Jint/Runtime/JavaScriptException.cs` |
 | `IModuleLoader` — and the promise that a loader which only implements *it* is still driven synchronously | `Jint/Runtime/Modules/IModuleLoader.cs` |
 | `Module.Location` — the name a module knows itself by, never null, and the `referencingModuleLocation` its own imports resolve against | `Jint/Runtime/Modules/Module.cs` |
 | `ModuleFactory.LocationOf` — public **static**, the rule deriving that name from a `ResolvedSpecifier`, which a host naming a module itself has to match exactly | `Jint/Runtime/Modules/ModuleFactory.cs` |
