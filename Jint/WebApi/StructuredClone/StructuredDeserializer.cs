@@ -49,12 +49,29 @@ internal sealed class StructuredDeserializer
 
     private readonly Stack<DeserializeFrame> _pending = new();
 
+    /// <summary>
+    /// Whether the record being read is delivered to more than one destination; see the constructor.
+    /// </summary>
+    private readonly bool _sharedRecord;
+
     private int _visited;
 
-    internal StructuredDeserializer(Engine engine, Realm realm)
+    /// <param name="engine">The engine that will own the result.</param>
+    /// <param name="realm">The realm the specification's "in targetRealm" names.</param>
+    /// <param name="sharedRecord">
+    /// Whether this record is deserialized more than once — which is <c>BroadcastChannel</c> and nothing else,
+    /// because its <c>postMessage</c> serializes once (step 2) and every destination deserializes that one
+    /// record (step 8.3). Set, the byte storage a record carries is <b>copied</b> rather than adopted, so two
+    /// receivers do not come away with two <c>ArrayBuffer</c>s over one <c>byte[]</c> and see each other's
+    /// writes. Left at its default the storage is adopted, which is the move a <i>transfer</i> promised and is
+    /// what <see cref="SerializationRecord"/>'s "a record is consumed once" describes; a broadcast has no
+    /// transfer list at all, so there is never storage that must be moved rather than copied.
+    /// </param>
+    internal StructuredDeserializer(Engine engine, Realm realm, bool sharedRecord = false)
     {
         _engine = engine;
         _realm = realm;
+        _sharedRecord = sharedRecord;
     }
 
     /// <summary>
@@ -244,11 +261,14 @@ internal sealed class StructuredDeserializer
     /// <summary>
     /// Step 13's deserialization counterpart. The record's storage is adopted rather than copied — for a
     /// transferred buffer that is the move the transfer promised, and for a copied one the copy already
-    /// happened during serialization.
+    /// happened during serialization. The one exception is a record with several destinations, where adopting
+    /// would hand every one of them the same mutable array; see the constructor's <c>sharedRecord</c>.
     /// </summary>
     private JsArrayBuffer DeserializeArrayBuffer(SerializedArrayBuffer record)
     {
-        return new JsArrayBuffer(_engine, record.Bytes, record.MaxByteLength)
+        var bytes = _sharedRecord ? record.Bytes.AsSpan().ToArray() : record.Bytes;
+
+        return new JsArrayBuffer(_engine, bytes, record.MaxByteLength)
         {
             _prototype = _realm.Intrinsics.ArrayBuffer.PrototypeObject,
             _isImmutable = record.Immutable,

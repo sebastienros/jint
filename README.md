@@ -231,7 +231,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
-| `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) | `Messaging` | ✔ shipped |
+| `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports) / `BroadcastChannel` | `Messaging` | ✔ shipped |
 | `reportError` (and the `DiagnosticsSink` behind it) | `Reporting` | ✔ shipped |
 | `addEventListener` / `removeEventListener` / `dispatchEvent` / `self` on the global scope, with `ErrorEvent` / `PromiseRejectionEvent` and the `error` / `unhandledrejection` / `rejectionhandled` events | `GlobalEvents` | ✔ shipped |
 | `localStorage` / `sessionStorage` / `Storage` | `Storage` *(not in `Default` — see below)* | ✔ shipped |
@@ -477,6 +477,37 @@ and the listeners all run on whichever thread pumps that engine, so nothing on t
 its own pump. The receiver must actually be pumped, exactly as for timers: an engine nobody pumps never
 delivers a message. And a `RestoreGlobalSnapshot` on either engine ends that channel permanently — a port's
 listeners are closures over the cycle it was created in — so a pooled engine wants a fresh pair per cycle.
+
+`BroadcastChannel` rides the same `Messaging` flag and is the same machinery addressed by *name* instead of by
+peer. `new BroadcastChannel('room')` joins a name; `postMessage(value)` reaches every **other** channel of that
+name — never the sender itself — as one event-loop task each, in the order the channels were created. There is
+no `start()` and no message queue, so `addEventListener('message', …)` alone is enough to receive; there is no
+transfer list either, since a message with several destinations has nowhere to move a buffer *to*. A
+`postMessage` on a closed channel is an `InvalidStateError` `DOMException`, which is where it differs from a
+closed port's, and `close()` is what takes the channel out of earshot.
+
+Which channels are in earshot of each other is one object — a browser scopes it by agent cluster and origin,
+and `BroadcastChannelBroker` is Jint's answer to both:
+
+```csharp
+var cluster = new BroadcastChannelBroker();
+
+var producer = new Engine(o => { o.UseWebApis(); o.WebApi.Messaging.Broker = cluster; });
+var consumer = new Engine(o => { o.UseWebApis(); o.WebApi.Messaging.Broker = cluster; });
+
+consumer.Execute("new BroadcastChannel('jobs').onmessage = e => log(e.data);");
+producer.Execute("new BroadcastChannel('jobs').postMessage({ id: 7 });");
+
+consumer.Advanced.ProcessTasks();   // the consumer's turn: it receives { id: 7 }
+```
+
+Say nothing and each engine gets a private broker, so channels on one engine hear each other and nothing
+crosses an engine boundary — including between two engines built from one shared `Options`, which has to be an
+explicit act. A broker is thread-safe, and as with ports **no `JsValue` ever crosses**: one serialization record
+is produced on the sender and each destination deserializes its own copy on its own pump. It holds its
+subscribers strongly, exactly as a browser keeps a channel alive until it is closed, so a broker shared between
+long-lived and short-lived engines wants the short-lived ones closed, restored or `Dispose()`d — a
+`RestoreGlobalSnapshot` and an `Engine.Dispose` each end every channel that engine created.
 
 ### Uncaught script errors go to a `DiagnosticsSink`
 
