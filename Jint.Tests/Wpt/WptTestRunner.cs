@@ -22,9 +22,10 @@ namespace Jint.Tests.Wpt;
 /// expected and found; the ones that are not a missing feature are parked under
 /// <see cref="WptDivergence.NeedsTriage"/> rather than fixed there, so that the change which first runs a
 /// suite is not also the change that moves the engine. The four the URL and Encoding suites found were fixed
-/// by https://github.com/sebastienros/jint/issues/3121; the two the WebCryptoAPI corpus found — the point at
-/// which <c>SubtleCrypto</c> copies its caller's bytes, and ECDH's mismatched-curve error — are open, and the
-/// category's own documentation says what they are.
+/// by https://github.com/sebastienros/jint/issues/3121; of the two the WebCryptoAPI corpus found, ECDH's
+/// mismatched-curve error was fixed by https://github.com/sebastienros/jint/issues/3180 and the point at
+/// which <c>SubtleCrypto</c> copies its caller's bytes is still open, with the category's own documentation
+/// saying what it is.
 /// </para>
 /// <para>
 /// <b>The WebCryptoAPI corpus is one suite per directory</b> rather than one for the lot, because
@@ -352,12 +353,6 @@ public class WptTestRunner
         new("WebCryptoAPI/sign_verify/hmac.https.any.js", "HMAC * verification with * during call", WptDivergence.NeedsTriage),
         new("WebCryptoAPI/sign_verify/rsa_pkcs.https.any.js", "RSASSA-PKCS1-v1_5 * with * during call", WptDivergence.NeedsTriage),
         new("WebCryptoAPI/sign_verify/rsa_pkcs.https.any.js", "RSASSA-PKCS1-v1_5 * verification with * during call", WptDivergence.NeedsTriage),
-
-        // ECDH's step 4 takes maximumLength from the *public* key and raises its OperationError before step 8
-        // compares the curves, which is what the prose says and not what a browser answers. The P-256 row
-        // passes only because the curve it is mismatched against is the wider one.
-        new("WebCryptoAPI/derive_bits_keys/ecdh_bits.https.any.js", "P-384 mismatched curves", WptDivergence.NeedsTriage),
-        new("WebCryptoAPI/derive_bits_keys/ecdh_bits.https.any.js", "P-521 mismatched curves", WptDivergence.NeedsTriage),
 
         // The X25519 rows of a file that is otherwise about the `length` parameter of deriveBits.
         new("WebCryptoAPI/derive_bits_keys/derived_bits_length.https.any.js", "X25519 derivation with *", WptDivergence.NeedsCurve25519),

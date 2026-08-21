@@ -627,11 +627,30 @@ internal static class EcAlgorithm
     /// arrived in .NET 8, which is this feature area's floor anyway.
     /// </para>
     /// <para>
-    /// <b>The nine steps run in the specification's order, and the order is observable.</b> A caller passing
-    /// a private key as <c>public</c>, an ECDSA key as <c>public</c>, a public key as <c>baseKey</c>, a
+    /// <b>Steps 4 and 5 deliberately do not run where the prose puts them.</b> The specification derives
+    /// <i>maximumLength</i> from the <b>public</b> key's domain parameters (step 4) and raises its
+    /// <c>OperationError</c> for an over-long <c>length</c> (step 5) <i>before</i> steps 7 and 8 have
+    /// established that the two keys are a pair at all — so read literally, a P-521 base key handed a P-256
+    /// public key and asked for 528 bits is refused for its length rather than for the mismatch. Chrome,
+    /// Firefox, Safari and Node all answer the <c>InvalidAccessError</c> of the later step instead, and the
+    /// web-platform-tests pin exactly that: the <c>P-384 mismatched curves</c> and <c>P-521 mismatched
+    /// curves</c> rows of <c>WebCryptoAPI/derive_bits_keys/ecdh_bits.https.any.js</c> ask for eight times the
+    /// <b>base</b> key's field width in bits — 384 and 528 against a P-256 public key — and assert
+    /// <c>InvalidAccessError</c>, which no implementation obeying step 5 where it is written can produce.
+    /// (Their <c>P-256</c> sibling passes either way only because the curve it is mismatched against is the
+    /// wider one.) Chrome, Firefox and Safari all report that file 40/40 on wpt.fyi, so the browser answer is
+    /// not one vendor's reading. This engine follows them: every key-agreement check runs first, and the
+    /// length ceiling is measured only once the pair is known to be one. The disagreement is
+    /// https://github.com/sebastienros/jint/issues/3180, to be raised with w3c/webcrypto; if the
+    /// specification reorders its steps, what goes is this comment and not the code.
+    /// </para>
+    /// <para>
+    /// <b>The order is observable, which is why the rest of it is spelled out below.</b> A caller passing a
+    /// private key as <c>public</c>, an ECDSA key as <c>public</c>, a public key as <c>baseKey</c>, a
     /// mismatched curve and an over-long <c>length</c> all earn different errors, and which one a request
-    /// carrying several of those mistakes gets is decided here: the checks on the <c>public</c> member come
-    /// first, then the length ceiling, then the checks on <c>baseKey</c>.
+    /// carrying several of those mistakes gets is decided here: the checks on the <c>public</c> member
+    /// (steps 2 and 3), then the checks on <c>baseKey</c> (steps 6, 7 and 8), then the length ceiling
+    /// (steps 4 and 5), then the agreement itself.
     /// </para>
     /// </remarks>
     internal static byte[] DeriveBits(
@@ -661,18 +680,6 @@ internal static class EcAlgorithm
                 what + ": the public member of the algorithm is an " + publicKey.Algorithm.Name + " key, not an " + normalized.Name + " one.");
         }
 
-        // Steps 4 and 5: "Let maximumLength be the length in bits of the output of the field element to octet
-        // string conversion … If length is not null and is greater than maximumLength, then throw an
-        // OperationError." The conversion pads to whole octets, so P-521's maximum is 528 rather than 521.
-        var maximumLength = 8 * FieldSizeInBytes(publicKey.Algorithm.NamedCurve!);
-
-        if (length is { } requested && requested > maximumLength)
-        {
-            context.ThrowOperationError(
-                what + ": a length of " + requested + " bits was asked for, and a shared secret on "
-                + publicKey.Algorithm.NamedCurve + " is " + maximumLength + " bits long.");
-        }
-
         // Step 6: "If the [[type]] internal slot of key is not 'private', then throw an InvalidAccessError."
         RequireKeyType(context, key, CryptoKeyTypes.Private, what);
 
@@ -696,6 +703,24 @@ internal static class EcAlgorithm
             context.ThrowInvalidAccessError(
                 what + ": the public key is on the curve " + publicKey.Algorithm.NamedCurve + " and the base key on "
                 + key.Algorithm.NamedCurve + "; an agreement needs one curve.");
+        }
+
+        // Steps 4 and 5, run here rather than where the prose writes them — see the remarks above: "Let
+        // maximumLength be the length in bits of the output of the field element to octet string conversion …
+        // for the EC domain parameters associated with publicKey … If length is not null and is greater than
+        // maximumLength, then throw an OperationError." Step 8 has
+        // just proved the two curves are one, so measuring the ceiling off the public key's domain parameters
+        // and off the base key's are now the same measurement, and the only request whose answer this move
+        // changes is one that was never going to derive anything: a mismatched pair, which browsers and the
+        // corpus's mismatched-curve rows say earns the InvalidAccessError above. The conversion pads to whole
+        // octets, so P-521's maximum is 528 rather than 521.
+        var maximumLength = 8 * FieldSizeInBytes(publicKey.Algorithm.NamedCurve!);
+
+        if (length is { } requested && requested > maximumLength)
+        {
+            context.ThrowOperationError(
+                what + ": a length of " + requested + " bits was asked for, and a shared secret on "
+                + publicKey.Algorithm.NamedCurve + " is " + maximumLength + " bits long.");
         }
 
         byte[] secret;
@@ -732,8 +757,8 @@ internal static class EcAlgorithm
 
         if (8L * secret.Length < bits)
         {
-            // Unreachable: step 5 measured the same curve's field width, and step 8 proved the two keys share
-            // a curve. It is the specification's step and it costs nothing.
+            // Unreachable: step 8 proved the two keys share a curve, and step 5 then measured that very
+            // curve's field width. It is the specification's step and it costs nothing.
             context.ThrowOperationError(
                 what + ": a length of " + bits + " bits was asked for, and the shared secret is " + (8 * secret.Length) + " bits long.");
         }

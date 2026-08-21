@@ -135,9 +135,12 @@ internal enum WptDivergence
     /// say, and mixing engine fixes into the change that first ran them would have hidden which of the two
     /// moved. The four the first phase recorded — WebIDL constant order, <c>TextDecoder.decode()</c> reading
     /// its input before the options dictionary was converted, and the shared UTF-16 decoder's end-of-queue
-    /// step for both endiannesses — were fixed by https://github.com/sebastienros/jint/issues/3121.
+    /// step for both endiannesses — were fixed by https://github.com/sebastienros/jint/issues/3121, and
+    /// ECDH's two mismatched-curve rows by https://github.com/sebastienros/jint/issues/3180: the corpus was
+    /// asserting the browsers' order rather than the prose's, so <c>EcAlgorithm.DeriveBits</c> now runs the
+    /// key-agreement checks before the <i>maximumLength</i> ceiling and documents the divergence on itself.
     /// <para>
-    /// The WebCryptoAPI corpus filed two more, and both are one-line summaries of a real disagreement:
+    /// What the WebCryptoAPI corpus filed and nobody has answered yet is one disagreement:
     /// </para>
     /// <list type="bullet">
     /// <item><description>
@@ -149,14 +152,6 @@ internal enum WptDivergence
     /// the order observable by putting a getter on the algorithm's <c>name</c> that rewrites or transfers the
     /// buffer. Note <c>SubtleCryptoKeyTests.TheDataArgumentIsCopiedBeforeAnyGetterCanRun</c> pins the order
     /// Jint has today, so fixing this moves that test too.
-    /// </description></item>
-    /// <item><description>
-    /// <b>ECDH's two mismatched-curve rows.</b> <c>EcAlgorithm</c> follows the specification exactly —
-    /// <i>maximumLength</i> comes from the <b>public</b> key's domain parameters and its <c>OperationError</c>
-    /// is raised before the curves are compared, so a P-521 base key handed a P-256 public key is refused for
-    /// its length rather than for the mismatch. The corpus expects the <c>InvalidAccessError</c> of the later
-    /// step, which is what browsers answer. The P-256 row passes only because its other curve is wider.
-    /// Somebody has to decide whether Jint follows the prose or the browsers, and probably raise it upstream.
     /// </description></item>
     /// </list>
     /// </summary>
