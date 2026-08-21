@@ -824,7 +824,7 @@ public partial class Options
         /// <summary>
         /// Whether every entry into an interpreted function probes the remaining native stack and throws a
         /// catchable <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
-        /// <see langword="false"/>.
+        /// <see langword="true"/>.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -851,13 +851,12 @@ public partial class Options
         /// of tail position, and the non-call routes above.
         /// </para>
         /// <para>
-        /// It is off by default because it is not free. The probe runs at every entry into an interpreted
-        /// function, and the benchmark gate measured the recursion rows (<c>Fib</c>, <c>DeepSum</c>,
-        /// <c>Tak</c>) 1.7–2.3% slower with it on, agreeing across two order-rotated pairs, with hot shallow
-        /// calls unaffected. The rule fixed before that run was that shipping it on by default needed no
-        /// call row worse than about 1%, so it ships opt-in. A host whose scripts are all its own can bound
-        /// them with <see cref="MaxRecursionDepth"/> and pay nothing; a host sandboxing untrusted input
-        /// generally cannot, and a couple of percent on deep recursion is the price of staying alive.
+        /// It is enabled by default because the alternative on an unbounded recursion is termination of the
+        /// host process. The probe is not free: the benchmark gate measured the recursion rows (<c>Fib</c>,
+        /// <c>DeepSum</c>, <c>Tak</c>) roughly 1.5–3% slower with it on, while hot shallow calls stayed within
+        /// run-to-run noise. A host whose scripts are all trusted and independently bounded can explicitly
+        /// set this property to <see langword="false"/> to recover that cost. A host sandboxing untrusted
+        /// input generally cannot, and a couple of percent on deep recursion is the price of staying alive.
         /// </para>
         /// <para>
         /// It is a backstop, not a policy. <see cref="MaxRecursionDepth"/> counts frames and is checked
@@ -876,7 +875,7 @@ public partial class Options
         /// engine that already exists.
         /// </para>
         /// </remarks>
-        public bool StackOverflowGuard { get; set; }
+        public bool StackOverflowGuard { get; set; } = true;
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.

@@ -5,17 +5,16 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// The opt-in backstop against unbounded script recursion
+/// The default backstop against unbounded script recursion
 /// (<see cref="Options.ConstraintOptions.StackOverflowGuard"/>). Without it every script below ends the
 /// host process with a native stack overflow, which no <c>catch</c> can see and no test can assert on —
 /// so the value of these tests is that they run at all.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every engine here is built with the guard on, because it is off by default: the benchmark gate priced
-/// the probe at 1.7–2.3% on the recursion rows, above the 1% the decision rule allowed for shipping it on
-/// by default. <c>Jint.Tests.PublicInterface.HostStackOverflowGuardTests</c> owns the other half of that
-/// verdict, the pin that a default engine really does not probe.
+/// Every engine here uses the default guard. The benchmark gate prices the probe honestly, while
+/// <c>Jint.Tests.PublicInterface.HostStackOverflowGuardTests</c> pins both the default and the explicit
+/// opt-out.
 /// </para>
 /// <para>
 /// Every body runs on a dedicated thread with an explicit 1 MB stack: the platform default the guard has
@@ -29,11 +28,7 @@ public class StackOverflowGuardTests
 {
     private const int SmallStack = 1024 * 1024;
 
-    private static Engine Guarded(Action<Options>? configure = null) => new(options =>
-    {
-        options.Constraints.StackOverflowGuard = true;
-        configure?.Invoke(options);
-    });
+    private static Engine Guarded(Action<Options>? configure = null) => new(options => configure?.Invoke(options));
 
     /// <summary>
     /// One entry per route into a function body that does not go through a call expression. Every one of

@@ -22,8 +22,8 @@ internal sealed class StackGuard
     private readonly int _maxExecutionStackCount;
     private readonly bool _enabled;
 
-    // Snapshot of Options.Constraints.StackOverflowGuard, which is opt-in and therefore false on a
-    // default engine. The two lanes are exclusive, and the reason is ordering rather than taste: the
+    // Snapshot of Options.Constraints.StackOverflowGuard, which is on for a default engine. The two
+    // lanes are exclusive, and the reason is ordering rather than taste: the
     // backstop sits inside ScriptFunction, i.e. a few native frames *below* TryEnterOnCurrentStack's
     // call site, so on a stack low enough for either to fire the backstop reaches the condition first
     // and would throw where the older lane wanted to hop. MaxExecutionStackCount is the older and more
@@ -39,7 +39,7 @@ internal sealed class StackGuard
     }
 
     /// <summary>
-    /// The opt-in backstop against unbounded script recursion
+    /// The default backstop against unbounded script recursion
     /// (<see cref="Options.ConstraintOptions.StackOverflowGuard"/>), run once per entry into an
     /// interpreted function that adds a native frame — every route into one, not only a call
     /// expression. Throws a catchable <c>RangeError</c> while there is still stack left to unwind on,
@@ -52,7 +52,7 @@ internal sealed class StackGuard
     /// — <c>Call</c>, <c>CallWithStackFrame</c>, <c>CallFromRegisters</c> and <c>Construct</c> — pay one
     /// predictable test of a <see langword="bool"/> field per call when the guard is off, which is what
     /// makes it affordable to have the sites there unconditionally: the placement is what covers the
-    /// routes a call expression never sees, and it is worth keeping whether or not this engine opted in.
+    /// routes a call expression never sees, and it is worth keeping whether or not this engine opted out.
     /// </para>
     /// <para>
     /// Those four are exactly the entries that grow the native stack, which is why the probe is not in

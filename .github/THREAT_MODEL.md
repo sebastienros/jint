@@ -89,7 +89,7 @@ Defaults are compatibility choices, not a hardened profile.
 | `fetch` | Disabled, and never part of `WebApiFeatures.Default` | Only `UseFetch()` grants script outbound HTTP |
 | Timeout, statement, memory, recursion limits | None | Untrusted execution is unbounded unless the host opts in |
 | Parser source-length and AST-node limits | None | Hostile source and parser output are unbounded unless the host opts in |
-| Stack overflow guard | Disabled | Native stack exhaustion can terminate the process |
+| Stack overflow guard | Enabled | Interpreted function entry checks remaining native stack and turns exhaustion into a catchable `RangeError` |
 | Maximum array size | `uint.MaxValue` | Effectively unbounded for hostile input |
 | Regex timeout | 10 seconds | Bounds an individual regular expression operation |
 | Promise wait timeout | 10 seconds | Bounds host APIs that wait for promise or module settlement |
@@ -342,17 +342,20 @@ quota.
 
 **Missing or residual mitigation.**
 
-- All stack protections are disabled by default.
+- A host can explicitly disable `StackOverflowGuard`; doing so restores the native stack-exhaustion
+  process-termination risk.
 - `LimitRecursion` counts repeated function definitions rather than every possible function
   entry shape.
 - `MaxExecutionStackCount` only covers call expressions and takes precedence over the more
   complete stack overflow guard.
+- The guard covers entry into interpreted functions, not arbitrary native stack consumption in
+  host callbacks or the CLR.
 - A timeout alone is not a reliable stack-overflow defense.
 
-**Required host action.** Enable `StackOverflowGuard` and configure a tested recursion
-limit. Do not select the older `MaxExecutionStackCount` lane for untrusted code unless its
-partial coverage is intentional. Keep process isolation so a runtime stack failure cannot
-kill unrelated server workloads.
+**Required host action.** Leave `StackOverflowGuard` enabled (or set it explicitly in a hardened
+profile) and configure a tested recursion limit. Do not select the older
+`MaxExecutionStackCount` lane for untrusted code unless its partial coverage is intentional.
+Keep process isolation so a runtime or host stack failure cannot kill unrelated server workloads.
 
 ### TM-08: Blocking host calls and `Atomics.wait` evade timely cancellation
 
@@ -1203,6 +1206,7 @@ var engine = new Engine(options =>
     options.Parsing.MaxSourceLength = 100_000;
     options.Parsing.MaxNodeCount = 25_000;
 
+    // Enabled by default; keep it explicit in the hardened profile.
     options.Constraints.StackOverflowGuard = true;
     options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(2);
 

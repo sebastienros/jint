@@ -19,9 +19,9 @@ public class EngineLimitTests
     [Fact]
     public void ShouldAllowReasonableCallStackDepth()
     {
-        // A default engine has no stack guard (MaxExecutionStackCount is disabled), so this nesting
-        // depth runs directly against the native stack. The test runner's worker thread has an
-        // unpredictable amount of stack left, which made this test crash the process intermittently
+        // A default engine guards the native stack while MaxExecutionStackCount remains disabled. The
+        // test runner's worker thread has an unpredictable amount of stack left, which made this test
+        // crash the process intermittently
         // (0xC00000FD) — run on a dedicated thread with an explicit stack instead. The explicit stack
         // also makes the test platform-independent (the old macOS skip is no longer needed). The size
         // is deliberately generous: StackOverflowException is uncatchable and would kill the whole test
