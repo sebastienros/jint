@@ -703,8 +703,9 @@ construction, so `Engine.Advanced.RestoreGlobalSnapshot` closes the socket and n
 erupts through a handler stays a constraint: it is never flattened into an `error` event a script could
 swallow.
 
-**Security.** Everything [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-21 says about destinations applies
-here, and TM-22's caveat applies doubly: a socket is long-lived by design and the peer can keep it alive
+**Security.** See [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-24 for the full analysis. The short version:
+everything TM-21 says about destinations applies, the channel is bidirectional — admit only destinations you
+would let the script *write* to — and a socket is long-lived by design with a peer that can keep it alive
 indefinitely, so bound the engine's lifetime for untrusted script rather than pooling an engine a script may
 leave connected.
 

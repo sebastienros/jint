@@ -741,6 +741,63 @@ pooled engine, swap or clear the provider per request the same way `HostDefined`
 If the default in-memory store is used at all, bound the engine's lifetime instead — the
 store dies with the engine, which is the only bound it has.
 
+### TM-24: `WebSocket` is a bidirectional, peer-driven hold on the network
+
+**Threat.** `WebApiFeatures.WebSocket` is the third separate egress grant, and the
+destination question is
+[TM-21](#tm-21-fetch-turns-script-into-a-client-of-the-hosts-network-position)'s unchanged.
+What it adds over [TM-22](#tm-22-eventsource-holds-that-network-position-open) is
+**direction**: the socket sends as well as receives, so an admitted destination is not just
+readable but a full duplex channel a script can exfiltrate through, at whatever rate the host
+pumps. Like an event stream it is **long-lived by design** — the peer can keep it open
+indefinitely and there is no deadline to end it — and its liveness is **peer-driven**: what
+arrives, and how often, is the other end's choice.
+
+**Existing mitigations.**
+
+- **Off by default, not in `WebApiFeatures.Default`**, and permission-independent from
+  `fetch` and `EventSource`: enabling any one of the three enables none of the others. They
+  share their *settings*, not their permission.
+- Destination policy is fetch's own `Options.WebApi.Fetch` group, with the scheme list read
+  in its WebSocket sense (`http` admits `ws`, `https` admits `wss`, or name `ws`/`wss`
+  outright). The `UrlFilter` is shown the `ws:` URL the script asked for, which fails safe: a
+  filter written for fetch that tests `uri.Scheme == "https"` refuses every socket rather
+  than admitting one it was never shown.
+- **No redirects exist to launder through**: the WHATWG handshake sets redirect mode to
+  `error`, so the one URL the filter admitted is the only one the socket can reach —
+  TM-21's redirect-laundering residual does not apply here.
+- `Options.WebApi.Fetch.Timeout` bounds the **opening handshake**, so a peer that never
+  completes it cannot pin a pending connection forever.
+- `Options.WebApi.Fetch.MaxResponseBytes` bounds **one message** in either direction; an
+  incoming message over the cap fails the connection with close code 1009 rather than
+  buffering without bound.
+- `Options.WebApi.Fetch.MaxConcurrentRequests` bounds the sockets one engine may have open,
+  counted separately from fetches and event streams; the constructor refuses the socket over
+  the limit.
+- Events dispatch only from the engine's job queue **while the host pumps**; the realm and
+  event-loop generation are captured at construction, so `RestoreGlobalSnapshot` closes the
+  socket and delivers nothing from the ended cycle. An engine cancellation erupting through a
+  handler stays a constraint rather than becoming an `error` event a script could swallow.
+
+**Missing or residual mitigation.**
+
+- **No deadline on an open socket** — `Timeout` covers the handshake only. `close()`, a
+  restore, or dropping the engine is what ends one.
+- **No throughput cap**: the per-message cap bounds memory, not bytes-over-lifetime, in
+  either direction — nothing bounds what a script sends to an admitted destination.
+- No automatic reconnection exists (unlike TM-22), so there is no retry loop to bound — but
+  script can trivially write its own in an `onclose` handler, bounded only by the concurrency
+  cap and the host's pumping.
+- The residuals of TM-21 that are about destinations — DNS rebinding, the shared
+  process-wide `HttpClient`'s connection reuse — apply unchanged.
+
+**Required host action.** As for `UseFetch`: allow-list destinations with `UrlFilter`
+(remember it sees `ws:`/`wss:` schemes), drop `http` from `AllowedSchemes`, and lower
+`MaxResponseBytes` and `MaxConcurrentRequests`. Because the channel is bidirectional, admit
+only destinations you would let the script *write* to, not merely read. And as with TM-22,
+bound the engine's own lifetime for untrusted script rather than pooling an engine a script
+may leave connected.
+
 ## Hardened deployment baseline
 
 The numbers below are examples only. Measure normal workloads and choose smaller limits that
