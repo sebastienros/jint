@@ -508,7 +508,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 var identifier = p.Key as Identifier;
                 if (identifier == null || p.Computed)
                 {
-                    var keyExpression = Build(p.Key);
+                    // Same per-node cache the object-literal and class-body key positions use: this
+                    // method is static and has no handler of its own to hang the key expression on, and a
+                    // freshly built one would lose the replay state a suspension inside the key parked
+                    // under it (`({ [f() + await g()]: v } = o)` called f twice).
+                    var keyExpression = context.Engine.GetOrBuildPropertyKeyExpression(p.Key);
                     var value = keyExpression.GetValue(context);
                     sourceKey = TypeConverter.ToPropertyKey(value);
                 }
