@@ -575,7 +575,10 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     [Fact]
     public Task UnwrapIfPromise_WithCancellationToken_ThrowsOperationCanceledException() => DedicatedThread.RunAsync(() =>
     {
-        var engine = new Engine();
+        // Same race as the async variant below: the promise never settles, so only the token or the
+        // engine's PromiseTimeout can end the unwrap, and a stalled runner has let the default 10-second
+        // budget beat a 50ms cancellation. Two minutes makes cancellation the only realistic exit.
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2));
         engine.SetValue("f", new Func<JsValue>(() =>
         {
             var (promise, _, _) = engine.RegisterPromise();
@@ -676,7 +679,12 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     [Fact]
     public async Task UnwrapIfPromiseAsync_WithCancellationToken_ThrowsOperationCanceledException()
     {
-        var engine = new Engine();
+        // The promise never settles, so the unwrap can end two ways: the token below, or the engine's
+        // PromiseTimeout. The default 10-second budget is meant to win that race by over four orders of
+        // magnitude — and a CI runner has been seen stalling past it anyway, turning this into a
+        // PromiseRejectedException. Two minutes makes cancellation the only realistic exit while still
+        // bounding the test if cancellation were genuinely lost.
+        var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2));
         engine.SetValue("f", new Func<JsValue>(() =>
         {
             var (promise, _, _) = engine.RegisterPromise();
