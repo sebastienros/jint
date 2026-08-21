@@ -8,6 +8,8 @@
 //
 // The contract with WptHarness.cs is one object, `__wpt`, carrying two live arrays:
 //   __wpt.results     — { name, status, message } per test, in registration order, updated as each finishes.
+//                       status is PASS, FAIL, NOTRUN, or PRECONDITION_FAILED — upstream's outcome for a test
+//                       that gave up through `assert_implements_optional`.
 //   __wpt.outstanding — the names of the tests that have started and not finished. Empty means the file is
 //                       over, and while it is not, it is the message a stalled run reports.
 // The driver supplies `__wptReadResource(path)` before this file runs; nothing else crosses the boundary.
@@ -48,6 +50,17 @@
     AssertionError.prototype.constructor = AssertionError;
     AssertionError.prototype.name = 'AssertionError';
     AssertionError.prototype.toString = function () { return 'AssertionError: ' + this.message; };
+
+    // Upstream's `assert_implements_optional` failure. It is an AssertionError, so everything that classifies
+    // one classifies this too; what it changes is the status the test is recorded with — PRECONDITION_FAILED,
+    // "the feature this test needs is optional and this implementation does not have it", which is neither a
+    // pass nor an ordinary failure. The driver has no third bucket, so such a test needs an exclusion like any
+    // other; the status is what tells a reader why.
+    function OptionalFeatureUnsupportedError(message) {
+        AssertionError.call(this, message);
+    }
+    OptionalFeatureUnsupportedError.prototype = Object.create(AssertionError.prototype);
+    OptionalFeatureUnsupportedError.prototype.constructor = OptionalFeatureUnsupportedError;
 
     // https://github.com/web-platform-tests/wpt/blob/master/resources/testharness.js — `format_value`'s
     // escape table, so a test name built out of one matches the name the same file produces in a browser.
@@ -299,6 +312,82 @@
         throw new AssertionError('did not throw' + describe(description));
     }
 
+    // https://webidl.spec.whatwg.org/#quotaexceedederror — since 2025 `QuotaExceededError` is an interface of
+    // its own deriving from DOMException and carrying `quota` and `requested`, and upstream gave it its own
+    // assertion because the plain DOMException one would silently accept the legacy shape. Both call forms are
+    // implemented for the same reason `promise_rejects_dom` implements both: the argument-shape sniffing is
+    // what keeps a suite that spelled the constructor form from quietly losing its description. `requested`
+    // and `quota` may each be null, a number, or a predicate over the value.
+    function assert_throws_quotaexceedederror(funcOrConstructor, requestedOrFunc, quotaOrRequested, descriptionOrQuota, maybeDescription) {
+        var constructor, func, requested, quota, description;
+        if (funcOrConstructor.name === 'QuotaExceededError') {
+            constructor = funcOrConstructor;
+            func = requestedOrFunc;
+            requested = quotaOrRequested;
+            quota = descriptionOrQuota;
+            description = maybeDescription;
+        } else {
+            constructor = global.QuotaExceededError;
+            func = funcOrConstructor;
+            requested = requestedOrFunc;
+            quota = quotaOrRequested;
+            description = descriptionOrQuota;
+            assert(maybeDescription === undefined,
+                'Too many args passed to no-constructor version of assert_throws_quotaexceedederror');
+        }
+
+        try {
+            func.call(this);
+        } catch (e) {
+            if (e instanceof AssertionError) {
+                throw e;
+            }
+            assert(typeof e === 'object' && e !== null,
+                'threw ' + format_value(e) + ', not an object' + describe(description));
+
+            var required = { code: 22, name: 'QuotaExceededError' };
+            if (typeof requested !== 'function') {
+                required.requested = requested;
+            }
+            if (typeof quota !== 'function') {
+                required.quota = quota;
+            }
+
+            for (var prop in required) {
+                // `==` rather than `===`, as upstream: a `requested` the caller gave as null is satisfied by a
+                // null property, and the properties are numbers either way.
+                assert(prop in e && e[prop] == required[prop],
+                    'threw ' + format_value(e) + ', which is not a correct QuotaExceededError: property "' + prop +
+                    '" is ' + format_value(e[prop]) + ', expected ' + format_value(required[prop]) + describe(description));
+            }
+
+            if (typeof requested === 'function') {
+                assert(requested(e.requested),
+                    'the QuotaExceededError\'s requested value ' + format_value(e.requested) +
+                    ' did not pass the predicate' + describe(description));
+            }
+            if (typeof quota === 'function') {
+                assert(quota(e.quota),
+                    'the QuotaExceededError\'s quota value ' + format_value(e.quota) +
+                    ' did not pass the predicate' + describe(description));
+            }
+
+            // Last, so that a wrong shape is reported by the more informative checks above first.
+            assert(e.constructor === constructor,
+                'expected a QuotaExceededError but got ' + format_value(e) + describe(description));
+            return;
+        }
+        throw new AssertionError('did not throw' + describe(description));
+    }
+
+    // An optional feature this implementation does not have. Not a failure: the test is recorded
+    // PRECONDITION_FAILED, which is upstream's third outcome and this shim's only use of one.
+    function assert_implements_optional(condition, description) {
+        if (!condition) {
+            throw new OptionalFeatureUnsupportedError(description);
+        }
+    }
+
     function assert_throws_exactly(expected, func, description) {
         try {
             func.call(this);
@@ -335,7 +424,7 @@
         if (this.phase === 'complete') {
             return;
         }
-        this.status = 'FAIL';
+        this.status = error instanceof OptionalFeatureUnsupportedError ? 'PRECONDITION_FAILED' : 'FAIL';
         if (error instanceof AssertionError) {
             this.message = error.message;
         } else if (error && typeof error === 'object' && 'message' in error) {
@@ -588,7 +677,14 @@
     global.assert_unreached = assert_unreached;
     global.assert_throws_js = assert_throws_js;
     global.assert_throws_dom = assert_throws_dom;
+    global.assert_throws_quotaexceedederror = assert_throws_quotaexceedederror;
     global.assert_throws_exactly = assert_throws_exactly;
+    global.assert_implements_optional = assert_implements_optional;
+    // Upstream exposes both of these, and the WebCryptoAPI suites use the first: `err instanceof
+    // AssertionError` is how a `catch` that classifies its own errors tells a failed assertion — which it must
+    // re-throw — from the operation's own rejection, which is what it is there to inspect.
+    global.AssertionError = AssertionError;
+    global.OptionalFeatureUnsupportedError = OptionalFeatureUnsupportedError;
     global.promise_rejects_js = promise_rejects_js;
     global.promise_rejects_dom = promise_rejects_dom;
     global.promise_rejects_exactly = promise_rejects_exactly;
