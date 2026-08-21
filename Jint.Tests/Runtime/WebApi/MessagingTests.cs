@@ -252,6 +252,65 @@ public class MessagingTests
         Log(engine).Should().Be("microtask,message");
     }
 
+    /// <summary>
+    /// The other half of the rule above, and the one a single message cannot show: a message is a task, so
+    /// everything one listener queues runs before the <i>next</i> message is even looked at — the same
+    /// checkpoint per message that each timer callback gets.
+    /// </summary>
+    /// <remarks>
+    /// The mechanism is the order of the two lines at the end of <c>JsMessagePort.DrainOne</c>: the next
+    /// delivery job is armed <i>after</i> the dispatch, in a finally, so a listener's reactions are queued
+    /// ahead of it. Arming it first — which is what the code used to do, for a throw-resilience reason the
+    /// finally keeps — put the second message ahead of the first message's microtasks and made this read
+    /// <c>m1,m2,p1,p2</c>.
+    /// </remarks>
+    [Fact]
+    public void EachMessageGetsItsOwnMicrotaskCheckpoint()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var ch = new MessageChannel();
+            ch.port1.onmessage = function (e) {
+                log.push('m' + e.data);
+                Promise.resolve().then(function () { log.push('p' + e.data); });
+            };
+            ch.port2.postMessage(1);
+            ch.port2.postMessage(2);
+            """);
+
+        Log(engine).Should().Be("m1,p1,m2,p2");
+    }
+
+    /// <summary>
+    /// The property the arm-before-dispatch order was written for, kept: a listener that throws erupts from
+    /// the pump, and the message behind it is still delivered on the next turn.
+    /// </summary>
+    [Fact]
+    public void AThrowingListenerDoesNotStrandTheMessagesBehindIt()
+    {
+        var engine = MessagingEngine();
+
+        engine.Execute("""
+            var ch = new MessageChannel();
+            ch.port1.onmessage = function (e) {
+                log.push('m' + e.data);
+                if (e.data === 1) { throw new Error('boom'); }
+            };
+            """);
+
+        // The throw erupts from whatever is draining the loop, which for a script-driven post is Execute.
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Execute("""
+            ch.port2.postMessage(1);
+            ch.port2.postMessage(2);
+            """));
+
+        Log(engine).Should().Be("m1");
+
+        engine.Advanced.ProcessTasks();
+        Log(engine).Should().Be("m1,m2");
+    }
+
     [Fact]
     public void FiresATrustedMessageEventWithTheSpecifiedDefaults()
     {

@@ -14,6 +14,7 @@ using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.WebSockets;
+using Jint.WebApi.Workers;
 
 namespace Jint;
 
@@ -268,6 +269,29 @@ internal sealed class WebApiEngineState
     internal TimerQueue? Timers { get; private set; }
 
     /// <summary>
+    /// This engine's worker provider, its two caps and its live connections, or <see langword="null"/> — which
+    /// is what every engine carries unless it enabled <see cref="WebApiFeatures.Workers"/> <i>and</i> named a
+    /// provider. That null is also what leaves the <c>Worker</c> global uninstalled, so
+    /// <c>typeof Worker === 'undefined'</c>: the family's absent-rather-than-throwing convention.
+    /// </summary>
+    /// <remarks>
+    /// The one member of this state whose contents are touched from more than one thread; see
+    /// <see cref="WorkerRegistry"/> for why, and for the lock that makes it safe.
+    /// </remarks>
+    internal WorkerRegistry? Workers { get; private set; }
+
+    /// <summary>
+    /// The connection this engine is the <i>worker</i> of, or <see langword="null"/> for an engine that is
+    /// nobody's worker. Written once, on the parent's thread, while this engine is owned and quiescent.
+    /// </summary>
+    /// <remarks>
+    /// It is what makes "not already connected" a construction-time refusal rather than a second connection
+    /// that would give one global two parents, and it is the seam a worker-side <c>RestoreGlobalSnapshot</c>
+    /// and <c>Dispose</c> will end the connection through — those hooks land in their own change (wave 3).
+    /// </remarks>
+    internal WorkerLink? OwningWorkerLink { get; set; }
+
+    /// <summary>
     /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once — when the
     /// engine is built, or when <c>Engine.Advanced.EnableWebApis</c> turned the feature on — so that no
     /// background thread ever reaches into <see cref="Options"/>.
@@ -488,6 +512,13 @@ internal sealed class WebApiEngineState
     {
         Debug.Assert(Timers is null, "the timer queue must never be replaced on a live engine");
         Timers = timers;
+    }
+
+    /// <inheritdoc cref="AttachTimers" />
+    internal void AttachWorkers(WorkerRegistry workers)
+    {
+        Debug.Assert(Workers is null, "the worker registry must never be replaced on a live engine");
+        Workers = workers;
     }
 
     /// <inheritdoc cref="AttachTimers" />

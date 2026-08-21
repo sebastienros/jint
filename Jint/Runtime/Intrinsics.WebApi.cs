@@ -26,6 +26,7 @@ using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
 using Jint.WebApi.Url.Pattern;
 using Jint.WebApi.WebSockets;
+using Jint.WebApi.Workers;
 
 namespace Jint.Runtime;
 
@@ -395,6 +396,12 @@ public sealed partial class Intrinsics
     /// </summary>
     internal GlobalEventFunctions GlobalEventFunctions =>
         _globalEventFunctions ??= Jint.WebApi.GlobalEvents.GlobalEventFunctions.Create(_engine, _realm);
+
+    private WorkerConstructor? _worker;
+
+    /// <summary><c>Worker</c> inherits from <c>EventTarget</c>.</summary>
+    internal WorkerConstructor Worker =>
+        _worker ??= new WorkerConstructor(_engine, _realm, EventTarget);
 
     private FetchEventConstructor? _fetchEvent;
 
