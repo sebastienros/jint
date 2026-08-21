@@ -120,9 +120,13 @@ public sealed class WorkerRequest
     public int LiveWorkerCount { get; }
 
     /// <summary>
-    /// Cancelled when the connection ends — by <c>terminate()</c>, by the teardown a worker's <c>close()</c>
-    /// runs, by a <c>RestoreGlobalSnapshot</c> or <c>Dispose</c> on either side, or by
-    /// <see cref="WorkerConnection.End"/>.
+    /// Cancelled when anything but the worker itself ends the connection — <c>terminate()</c>,
+    /// <see cref="WorkerConnection.End"/>, a <c>RestoreGlobalSnapshot</c> or <c>Dispose</c> on either side. A
+    /// worker's own <c>close()</c> ends the connection <i>without</i> cancelling it: its teardown runs as a
+    /// job on the worker's own loop — the very thread that pumps — so the pump loop observes
+    /// <see cref="WorkerConnection.IsEnded"/> on its next iteration anyway, and cancelling would make any
+    /// straggler job a host pumps afterwards erupt as <c>ExecutionCanceledException</c> from a close that
+    /// deserved a quiet end.
     /// </summary>
     /// <remarks>
     /// <para>
