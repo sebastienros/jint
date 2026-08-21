@@ -14,6 +14,15 @@ namespace Jint.Tests.Runtime;
 /// Without them <c>o[f()] = await g()</c> and <c>({ [f()]: await g() })</c> call <c>f</c> twice, and
 /// the assignment lands on whatever key the second call produced.
 /// </para>
+/// <para>
+/// The complementary case is a suspension <em>inside</em> the key, <c>({ [f() + await g()]: 1 })</c>,
+/// which nothing above can park because the key never finished producing a value. What the key's own
+/// sub-expressions park — a binary operator's left operand, an addition chain's accumulator, an
+/// argument buffer — is keyed on the handler instance that parked it, so the key expression has to be
+/// the same handler on the replay as it was on the way in. Every key position now takes its handler
+/// from the engine's per-node cache instead of building a throwaway one per evaluation
+/// (<c>Engine.GetOrBuildPropertyKeyExpression</c>).
+/// </para>
 /// </summary>
 public class SuspendedComputedKeyTests
 {
@@ -183,5 +192,202 @@ public class SuspendedComputedKeyTests
             it.next(8);
             calls + '|' + JSON.stringify(r);
             """).Should().Be("2|{\"k1\":1,\"k2\":8}");
+    }
+
+    // ------------------------------------------------- suspension INSIDE the key expression
+
+    [Fact]
+    public void AComputedObjectLiteralKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var r = { [f() + await Promise.resolve('!')]: 1 };
+              return calls + '|' + JSON.stringify(r);
+            })();
+            """).Should().Be("1|{\"k1!\":1}");
+    }
+
+    [Fact]
+    public void AComputedObjectLiteralKeyThatSuspendsMidwayOnAYieldRunsItsSideEffectsOnce()
+    {
+        Run($$"""
+            {{CountingKey}}
+            var r;
+            function* g() { r = { [f() + (yield 1)]: 5 }; }
+            var it = g();
+            it.next();
+            it.next('!');
+            calls + '|' + JSON.stringify(r);
+            """).Should().Be("1|{\"k1!\":5}");
+    }
+
+    [Fact]
+    public void AComputedKeyThatIsItselfTheAwaitRunsOnce()
+    {
+        // Already correct before the handler-identity fix — an await finds its settled value by AST node
+        // — but it is the degenerate case of the shape above, so pin it.
+        RunAsync("""
+            var calls = 0;
+            function g() { calls++; return Promise.resolve('k'); }
+            (async function () {
+              var r = { [await g()]: 1 };
+              return calls + '|' + JSON.stringify(r);
+            })();
+            """).Should().Be("1|{\"k\":1}");
+    }
+
+    [Fact]
+    public void AnEarlierComputedKeySuspendingMidwayDoesNotShiftTheLaterKeys()
+    {
+        // Re-running the first key would consume the counter the second key then reads, so the whole
+        // literal came out keyed one step along: { k2: 1, k3: 2 } instead of { k1: 1, k2: 2 }.
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var r = { [f() + await Promise.resolve('')]: 1, [f()]: 2 };
+              return calls + '|' + JSON.stringify(r);
+            })();
+            """).Should().Be("2|{\"k1\":1,\"k2\":2}");
+    }
+
+    [Fact]
+    public void AComputedMethodKeyThatSuspendsMidwayDefinesOnlyTheKeyItResolvesTo()
+    {
+        // A method is defined from inside MethodDefinitionEvaluation, before the object literal's own
+        // suspension check runs, so the placeholder undefined the suspended key produced used to be
+        // converted and defined as a property literally named "undefined" — on the very object the
+        // resume carries forward, which therefore could never take it back.
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var r = { [f() + await Promise.resolve('!')]() { return 7; } };
+              return calls + '|' + JSON.stringify(Object.keys(r)) + '|' + r['k1!']();
+            })();
+            """).Should().Be("1|[\"k1!\"]|7");
+    }
+
+    [Fact]
+    public void AComputedAccessorKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var r = { get [f() + await Promise.resolve('!')]() { return 7; } };
+              return calls + '|' + JSON.stringify(Object.keys(r)) + '|' + r['k1!'];
+            })();
+            """).Should().Be("1|[\"k1!\"]|7");
+    }
+
+    [Fact]
+    public void TheSameComputedKeySuspendingOnEveryIterationRunsItsSideEffectsOncePerIteration()
+    {
+        // The key handler is now shared by every evaluation of the node, so what one iteration parks
+        // must be consumed and cleared by that same iteration and never inherited by the next.
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var r = [];
+              for (var i = 0; i < 3; i++) {
+                r.push({ [f() + await Promise.resolve(i)]: i });
+              }
+              return calls + '|' + JSON.stringify(r);
+            })();
+            """).Should().Be("3|[{\"k10\":0},{\"k21\":1},{\"k32\":2}]");
+    }
+
+    [Fact]
+    public void TwoGeneratorsSuspendedInsideTheSameComputedKeyKeepTheirOwnParkedState()
+    {
+        // One handler, two suspendables: the parked state lives in each generator's own suspend-data
+        // dictionary, so sharing the handler must not let one instance read the other's.
+        Run($$"""
+            {{CountingKey}}
+            var r = [];
+            function* g(tag) { r.push({ [f() + tag + (yield 1)]: tag }); }
+            var a = g('a'), b = g('b');
+            a.next(); b.next();
+            a.next('1'); b.next('2');
+            calls + '|' + JSON.stringify(r);
+            """).Should().Be("2|[{\"k1a1\":\"a\"},{\"k2b2\":\"b\"}]");
+    }
+
+    // ------------------------------------------------------------------ class bodies
+
+    [Fact]
+    public void AComputedClassMethodKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var C = class { [f() + await Promise.resolve('!')]() { return 7; } };
+              return calls + '|' + JSON.stringify(Object.getOwnPropertyNames(C.prototype));
+            })();
+            """).Should().Be("1|[\"constructor\",\"k1!\"]");
+    }
+
+    [Fact]
+    public void AComputedStaticClassMethodKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var C = class { static [f() + await Promise.resolve('!')]() { return 7; } };
+              return calls + '|' + C['k1!']();
+            })();
+            """).Should().Be("1|7");
+    }
+
+    [Fact]
+    public void AComputedClassFieldKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var C = class { [f() + await Promise.resolve('!')] = 7; };
+              return calls + '|' + JSON.stringify(new C());
+            })();
+            """).Should().Be("1|{\"k1!\":7}");
+    }
+
+    [Fact]
+    public void AComputedClassMethodKeyThatSuspendsMidwayOnAYieldRunsItsSideEffectsOnce()
+    {
+        Run($$"""
+            {{CountingKey}}
+            var C;
+            function* g() { C = class { [f() + (yield 1)]() { return 7; } }; }
+            var it = g();
+            it.next();
+            it.next('!');
+            calls + '|' + JSON.stringify(Object.getOwnPropertyNames(C.prototype));
+            """).Should().Be("1|[\"constructor\",\"k1!\"]");
+    }
+
+    // ------------------------------------------------------------------ destructuring
+
+    [Fact]
+    public void AComputedDestructuringKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var v;
+              ({ [f() + await Promise.resolve('!')]: v } = { 'k1!': 11 });
+              return calls + '|' + v;
+            })();
+            """).Should().Be("1|11");
+    }
+
+    [Fact]
+    public void AComputedKeyInADestructuringDeclarationThatSuspendsMidwayRunsItsSideEffectsOnce()
+    {
+        RunAsync($$"""
+            {{CountingKey}}
+            (async function () {
+              var { [f() + await Promise.resolve('!')]: v } = { 'k1!': 11 };
+              return calls + '|' + v;
+            })();
+            """).Should().Be("1|11");
     }
 }
