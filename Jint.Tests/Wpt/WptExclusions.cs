@@ -214,40 +214,29 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
-    /// The test asks for the <c>brotli</c> <c>CompressionFormat</c>, which
-    /// https://compression.spec.whatwg.org/#compressionstream lists in the enumeration and which this engine
-    /// answers with the <c>TypeError</c> the constructor's own step 1 asks for — "if <i>format</i> is
-    /// unsupported in <c>CompressionStream</c>, then throw a <c>TypeError</c>". Refusing it is therefore
-    /// conforming; the corpus loops over the whole enumeration and assumes support, so every one of its
-    /// per-format families has a brotli row that fails on the constructor before reaching what the file is
-    /// actually about.
-    /// </para>
-    /// <para>
-    /// <b>This is the one category here that is neither a platform limit nor a deliberate reduction.</b>
-    /// .NET ships <c>BrotliStream</c> in <c>System.IO.Compression</c>, on exactly the pull-stream shape
-    /// <c>CompressionCodec</c>/<c>DecompressionCodec</c> already drive for the other three formats, so
-    /// closing it is a feature to add rather than something the BCL forbids. It stays out of this change
-    /// because a corpus that first runs a suite must not also be the change that moves the engine.
-    /// </para>
-    /// </summary>
-    NeedsBrotli,
-
-    /// <summary>
-    /// <para>
     /// The test asserts one of the two lenient-decompression divergences <c>DecompressionCodec</c> documents
     /// on itself: https://compression.spec.whatwg.org/#decompressionstream makes it an error for a stream to
     /// end before its member is complete, and an error for anything to follow the member. Detecting either
     /// needs to know how many of the bytes handed over the decompressor actually consumed, and .NET exposes
-    /// no incremental inflater — only <c>GZipStream</c>, <c>ZLibStream</c> and <c>DeflateStream</c>, which
-    /// pull from a source stream, buffer input internally and report neither figure. So a truncated stream
-    /// ends its readable side cleanly and trailing bytes are ignored.
+    /// no incremental inflater or decoder — only <c>GZipStream</c>, <c>ZLibStream</c>, <c>DeflateStream</c>
+    /// and <c>BrotliStream</c>, which pull from a source stream, buffer input internally and report neither
+    /// figure. So a truncated stream ends its readable side cleanly and trailing bytes are ignored.
     /// </para>
     /// <para>
-    /// Four rows of <c>decompression-corrupt-input.any.js</c> are the whole of it, and everything the
-    /// decompressor itself rejects — a bad header, a failed CRC32/ADLER32, a malformed DEFLATE block, a
-    /// dictionary-compressed stream, an empty input — is still an error and still passes, which is the case
-    /// that matters for telling corrupt input from good. The one file that asserts the same divergence by
-    /// <i>waiting</i> for the error rather than by comparing a result,
+    /// <b><c>brotli</c> shares the divergence rather than escaping it.</b> Its rows were parked under a
+    /// category of their own while the format was refused outright, on the reasoning that they never reached
+    /// the point where this divergence could decide them;
+    /// https://github.com/sebastienros/jint/issues/3210 implemented the format and they landed here, because
+    /// <c>BrotliStream</c> answers a dropped last byte and an appended junk byte exactly as the deflate
+    /// family does — it hands over the payload it decoded and then reports "no more input for now".
+    /// </para>
+    /// <para>
+    /// Six rows of <c>decompression-corrupt-input.any.js</c> are the whole of it — <c>truncating the input</c>
+    /// and <c>trailing junk</c>, for each of that file's three formats — and everything the decompressor
+    /// itself rejects — a bad header, a failed CRC32/ADLER32, a malformed DEFLATE block, a brotli stream the
+    /// decoder cannot parse, a dictionary-compressed stream, an empty input — is still an error and still
+    /// passes, which is the case that matters for telling corrupt input from good. The one file that asserts
+    /// the same divergence by <i>waiting</i> for the error rather than by comparing a result,
     /// <c>compression/decompression-extra-input.any.js</c>, is not vendored: it stalls rather than fails.
     /// </para>
     /// </summary>

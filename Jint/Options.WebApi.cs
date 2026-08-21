@@ -896,10 +896,9 @@ public enum WebApiFeatures
 
     /// <summary>
     /// <c>CompressionStream</c> and <c>DecompressionStream</c> — https://compression.spec.whatwg.org/ — for
-    /// the three formats the standard's <c>CompressionFormat</c> names and this implementation supports:
-    /// <c>gzip</c> (RFC 1952), <c>deflate</c> (the ZLIB wrapper of RFC 1950, as the standard defines that
-    /// name) and <c>deflate-raw</c> (RFC 1951). <c>brotli</c> is not implemented and, like any other
-    /// unsupported value, is a <c>TypeError</c>.
+    /// all four formats the standard's <c>CompressionFormat</c> names: <c>gzip</c> (RFC 1952),
+    /// <c>deflate</c> (the ZLIB wrapper of RFC 1950, as the standard defines that name), <c>deflate-raw</c>
+    /// (RFC 1951) and <c>brotli</c> (RFC 7932). A value outside the enumeration is a <c>TypeError</c>.
     /// </summary>
     /// <remarks>
     /// <b>Requires <see cref="Streams"/> as well</b>: both are transform streams, so naming this flag on

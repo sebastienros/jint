@@ -12,7 +12,8 @@ namespace Jint.Tests.Runtime.WebApi;
 /// The pin that matters most is <see cref="DeflateIsTheZlibWrapperNotRawDeflate"/>: the standard's
 /// <c>"deflate"</c> is RFC 1950's ZLIB container, and only <c>"deflate-raw"</c> is RFC 1951's bare bit
 /// stream. The vectors the tests decompress were produced by CPython's <c>zlib</c> module, so they are an
-/// independent implementation's idea of each format rather than a round trip against ourselves.
+/// independent implementation's idea of each format rather than a round trip against ourselves — with the
+/// exception of <see cref="BclBrotliVector"/>, whose provenance is stated on it.
 /// </remarks>
 public class CompressionStreamTests
 {
@@ -29,6 +30,25 @@ public class CompressionStreamTests
     /// <summary>The same payload as gzip — <c>gzip.GzipFile(mtime=0, compresslevel=6)</c>.</summary>
     private const string GzipVector =
         "31,139,8,0,0,0,0,0,0,255,243,72,205,201,201,215,81,240,202,204,43,81,4,0,123,253,209,10,12,0,0,0";
+
+    /// <summary>
+    /// The same payload as brotli, and <b>this one was produced by the BCL</b> —
+    /// <c>new BrotliStream(output, CompressionMode.Compress)</c> at its default level, which emitted these
+    /// same bytes on .NET 8 and on .NET 10. It is therefore not an interop vector; it is a fixed blob to
+    /// decode, so the tests that read it do not depend on this engine's encoder at all. Nothing asserts that
+    /// the encoder still produces it — that would pin a platform's framing choice, which no part of the
+    /// standard fixes. <see cref="ForeignBrotliVector"/> is the independent one.
+    /// </summary>
+    private const string BclBrotliVector = "139,5,128,72,101,108,108,111,44,32,74,105,110,116,33,3";
+
+    /// <summary>
+    /// <c>"expected output"</c> as brotli, taken from web-platform-tests'
+    /// <c>compression/resources/decompression-input.js</c> and therefore produced by a brotli encoder that is
+    /// not .NET's. It is a genuinely independent vector, and it exercises a shape .NET's own encoder never
+    /// emits for this input: the payload is stored literally (readable as ASCII in the bytes below) in an
+    /// uncompressed meta-block, where <see cref="BclBrotliVector"/> is Huffman-coded.
+    /// </summary>
+    private const string ForeignBrotliVector = "33,56,0,4,101,120,112,101,99,116,101,100,32,111,117,116,112,117,116,3";
 
     private const string Payload = "Hello, Jint!";
 
@@ -103,6 +123,7 @@ public class CompressionStreamTests
     [InlineData("gzip")]
     [InlineData("deflate")]
     [InlineData("deflate-raw")]
+    [InlineData("brotli")]
     public void RoundTripsThroughItsOwnCompressor(string format)
     {
         var engine = StreamEngine();
@@ -173,6 +194,7 @@ public class CompressionStreamTests
     [InlineData("gzip", GzipVector)]
     [InlineData("deflate", ZlibVector)]
     [InlineData("deflate-raw", RawDeflateVector)]
+    [InlineData("brotli", BclBrotliVector)]
     public void DecompressesInputSplitOneByteAtATime(string format, string bytes)
     {
         var engine = StreamEngine();
@@ -256,7 +278,8 @@ public class CompressionStreamTests
 
         // Compressing nothing is not an error — it is a valid, tiny member that decompresses to nothing.
         // The lengths are each format's empty member: a gzip header and trailer, a zlib header and
-        // ADLER32, and one final empty DEFLATE block.
+        // ADLER32, and one final empty DEFLATE block. They are exact because CompressionCodec emits them
+        // from constants of its own, the BCL's deflate-family encoders writing nothing at all for no input.
         var text = engine.Evaluate("""
             (async () => {
               const lengths = [];
@@ -271,6 +294,130 @@ public class CompressionStreamTests
 
         text.AsString().Should().Be("gzip:20:empty deflate:8:empty deflate-raw:2:empty");
         Log(engine).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ClosingABrotliCompressionStreamThatReceivedNothingProducesAnEmptyStream()
+    {
+        var engine = StreamEngine();
+
+        // Brotli is the one format with no constant behind it: BrotliStream writes the empty stream itself
+        // when it is closed, so these bytes are the encoder's. The assertion is therefore the property that
+        // matters — some bytes, and they decode to nothing — rather than a length, which would pin an
+        // encoder's framing choice the standard leaves free.
+        var text = engine.Evaluate("""
+            (async () => {
+              const compressed = await compress('brotli', '');
+              const back = await decompress('brotli', compressed);
+              return (compressed.length > 0) + ':' + (back === '' ? 'empty' : back);
+            })()
+            """).UnwrapIfPromise();
+
+        text.AsString().Should().Be("true:empty");
+        Log(engine).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void DecompressesBrotliBytesItDidNotProduce()
+    {
+        var engine = StreamEngine();
+
+        // The independent vector first — a stored meta-block this engine's encoder would never emit for that
+        // input — and then the fixed BCL blob, whole and split one byte at a time.
+        engine.Evaluate($"decompress('brotli', vector('{ForeignBrotliVector}'))")
+            .UnwrapIfPromise().AsString().Should().Be("expected output");
+        engine.Evaluate($"decompress('brotli', vector('{BclBrotliVector}'))")
+            .UnwrapIfPromise().AsString().Should().Be(Payload);
+
+        // https://compression.spec.whatwg.org/#decompressionstream: an empty payload is still a stream, and
+        // this is the two-byte one web-platform-tests uses. It decodes to no chunks at all, not an error.
+        engine.Evaluate("decompress('brotli', [0xa1, 0x01])").UnwrapIfPromise().AsString().Should().BeEmpty();
+
+        Log(engine).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RoundTripsBrotliOneByteAtATimeOnBothSides()
+    {
+        var engine = StreamEngine();
+
+        // A payload longer than one chunk of anything, written one byte at a time and read back one byte at
+        // a time: the compression context is per stream, not per chunk, on both sides.
+        var text = engine.Evaluate("""
+            (async () => {
+              const original = 'brotli '.repeat(500) + 'é€😀';
+              const compressed = await compress('brotli', original);
+              const back = await decompress('brotli', compressed, 1);
+              return (back === original) + ':' + (compressed.length < original.length);
+            })()
+            """).UnwrapIfPromise();
+
+        text.AsString().Should().Be("true:true");
+        Log(engine).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RefusesBytesTheBrotliDecoderCannotParse()
+    {
+        var engine = StreamEngine();
+
+        // BrotliStream reports data it cannot parse as InvalidOperationException where the deflate family
+        // raises InvalidDataException — a BCL naming inconsistency DecompressionCodec translates. What is
+        // pinned here is only what script sees: the standard's TypeError on both sides, exactly as for the
+        // other three formats. If the translation is dropped, the CLR exception escapes Evaluate instead.
+        engine.Execute($"var gzip = vector('{GzipVector}');");
+
+        engine.Evaluate("decompress('brotli', gzip)").UnwrapIfPromise().IsNull().Should().BeTrue();
+        Log(engine).Should().Contain("brotli:error:TypeError");
+
+        engine.Execute("log.length = 0;");
+        engine.Execute("""
+            var ds = new DecompressionStream('brotli');
+            drain(ds.readable, 'out');
+            var writer = ds.writable.getWriter();
+            writer.write(new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255])).catch(e => log.push('write:' + e.name));
+            writer.closed.catch(e => log.push('writable:' + e.name));
+            """);
+
+        Log(engine).Should().StartWith("out:error:TypeError:");
+        Log(engine).Should().Contain("write:TypeError").And.Contain("writable:TypeError");
+
+        // And the format names itself in the message, so a script's console says which one refused.
+        Log(engine).Should().Contain("not valid brotli data");
+    }
+
+    [Fact]
+    public void BrotliSharesTheLenientTruncationDivergence()
+    {
+        var engine = StreamEngine();
+
+        // The divergence DecompressionCodec documents on itself, asserted rather than assumed: .NET exposes
+        // no decoder that reports how many bytes it consumed, so a stream that ends mid-member closes
+        // cleanly and bytes after a complete stream are ignored. BrotliStream is no different from the
+        // deflate family here, which is what puts brotli's two rows of
+        // compression/decompression-corrupt-input.any.js under WptDivergence.NeedsIncrementalInflater
+        // alongside them. https://compression.spec.whatwg.org/#decompressionstream calls both an error.
+        engine.Execute($"var full = vector('{BclBrotliVector}');");
+
+        var text = engine.Evaluate("""
+            (async () => {
+              const truncated = await decompress('brotli', full.slice(0, -1));
+              const extended = await decompress('brotli', full.concat([0]));
+              return 'truncated:' + JSON.stringify(truncated) + ' trailing:' + JSON.stringify(extended);
+            })()
+            """).UnwrapIfPromise();
+
+        // Both are what the standard would have errored, and neither loses the payload that did decode.
+        text.AsString().Should().Be($"truncated:\"{Payload}\" trailing:\"{Payload}\"");
+        Log(engine).Should().BeEmpty();
+
+        // The one truncation that is caught stays caught for brotli too: no compressed bytes at all.
+        engine.Execute("""
+            var ds = new DecompressionStream('brotli');
+            drain(ds.readable, 'nothing');
+            ds.writable.getWriter().close().catch(e => log.push('close:' + e.name));
+            """);
+        Log(engine).Should().StartWith("nothing:error:TypeError:").And.Contain("close:TypeError");
     }
 
     [Fact]
@@ -310,22 +457,39 @@ public class CompressionStreamTests
     }
 
     [Theory]
-    [InlineData("brotli")]
     [InlineData("GZIP")]
     [InlineData("Deflate")]
+    [InlineData("Brotli")]
     [InlineData("deflate_raw")]
+    [InlineData("br")]
     [InlineData("")]
     public void RefusesAFormatItDoesNotSupport(string format)
     {
         var engine = StreamEngine();
         engine.SetValue("format", format);
 
-        // The WebIDL enumeration is matched exactly; "brotli" is in it but unsupported here, which the
-        // standard also spells as a TypeError.
+        // https://webidl.spec.whatwg.org/#es-enumeration matches the identifier exactly and
+        // case-sensitively, so none of these is the enumeration value it resembles. "br" in particular is
+        // the HTTP Content-Encoding token for brotli and is not what CompressionFormat calls it.
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CompressionStream(format)"))
             .Error.Get("name").AsString().Should().Be("TypeError");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new DecompressionStream(format)"))
             .Error.Get("name").AsString().Should().Be("TypeError");
+    }
+
+    [Fact]
+    public void AcceptsEveryFormatTheEnumerationNames()
+    {
+        var engine = StreamEngine();
+
+        // https://compression.spec.whatwg.org/#supported-formats declares four values, and the constructors'
+        // step 1 — "if format is unsupported in CompressionStream, then throw a TypeError" — now has nothing
+        // left to refuse. This is the test that fails when a format arm is removed from the validation.
+        engine.Evaluate("""
+            ['deflate', 'deflate-raw', 'gzip', 'brotli']
+              .map(f => f + ':' + (new CompressionStream(f) && new DecompressionStream(f) ? 'ok' : 'no'))
+              .join(' ')
+            """).AsString().Should().Be("deflate:ok deflate-raw:ok gzip:ok brotli:ok");
     }
 
     [Fact]

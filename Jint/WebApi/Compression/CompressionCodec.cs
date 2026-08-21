@@ -60,11 +60,13 @@ internal sealed class CompressionCodec : IDisposable
         _format = format;
 
         // See CompressionFormat: "deflate" is the ZLIB wrapper of RFC 1950, and only "deflate-raw" is the
-        // bare RFC 1951 bit stream.
+        // bare RFC 1951 bit stream. CompressionMode.Compress is CompressionLevel.Optimal for all four, which
+        // is the BCL's default and what the standard leaves free.
         _compressor = format switch
         {
             CompressionFormat.Gzip => new GZipStream(_output, CompressionMode.Compress, leaveOpen: true),
             CompressionFormat.Deflate => new ZLibStream(_output, CompressionMode.Compress, leaveOpen: true),
+            CompressionFormat.Brotli => new BrotliStream(_output, CompressionMode.Compress, leaveOpen: true),
             _ => new DeflateStream(_output, CompressionMode.Compress, leaveOpen: true),
         };
     }
@@ -93,13 +95,22 @@ internal sealed class CompressionCodec : IDisposable
     /// final DEFLATE block — and then everything left is taken out.
     /// </summary>
     /// <remarks>
-    /// The empty case is the constant above rather than the compressor's own output, because the BCL will
-    /// not produce one: a compressing <see cref="DeflateStream"/> that was never handed a byte writes
-    /// <i>nothing at all</i> when it is closed — deliberately, because <c>ZipArchiveEntry</c> depends on
-    /// zero output for zero input. On .NET 8 a zero-length write was enough to arm it and on .NET 10 it is
-    /// not, so relying on that would make the same source produce different bytes per target framework.
-    /// Zero bytes is not a valid stream in any of the three formats — our own <c>DecompressionStream</c>
-    /// rejects it, and so does every other implementation — so the empty member is emitted explicitly.
+    /// <para>
+    /// For the deflate family the empty case is one of the constants above rather than the compressor's own
+    /// output, because the BCL will not produce one: a compressing <see cref="DeflateStream"/> that was never
+    /// handed a byte writes <i>nothing at all</i> when it is closed — deliberately, because
+    /// <c>ZipArchiveEntry</c> depends on zero output for zero input. On .NET 8 a zero-length write was enough
+    /// to arm it and on .NET 10 it is not, so relying on that would make the same source produce different
+    /// bytes per target framework. Zero bytes is not a valid stream in any of those three formats — our own
+    /// <c>DecompressionStream</c> rejects it, and so does every other implementation — so the empty member is
+    /// emitted explicitly.
+    /// </para>
+    /// <para>
+    /// <b><see cref="BrotliStream"/> needs no such constant</b> and deliberately does not get one: closing an
+    /// encoder that was never written to emits the one-byte empty brotli stream on its own (verified on .NET 8
+    /// and .NET 10), so brotli takes the ordinary close path below and the bytes are the encoder's rather than
+    /// ours. Writing a fourth constant would pin an encoder's framing choice that nothing here needs pinned.
+    /// </para>
     /// </remarks>
     internal byte[]? Finish()
     {
@@ -108,15 +119,10 @@ internal sealed class CompressionCodec : IDisposable
             return null;
         }
 
-        if (!_wroteBytes)
+        if (!_wroteBytes && EmptyMember(_format) is { } empty)
         {
             Dispose();
-            return _format switch
-            {
-                CompressionFormat.Gzip => EmptyGzipMember.ToArray(),
-                CompressionFormat.Deflate => EmptyZlibStream.ToArray(),
-                _ => EmptyDeflateBlock.ToArray(),
-            };
+            return empty;
         }
 
         _compressor.Dispose();
@@ -124,6 +130,18 @@ internal sealed class CompressionCodec : IDisposable
         _disposed = true;
         return output;
     }
+
+    /// <summary>
+    /// The format's whole compressed stream for an empty payload, or <see langword="null"/> for a format
+    /// whose own encoder produces one when it is closed.
+    /// </summary>
+    private static byte[]? EmptyMember(CompressionFormat format) => format switch
+    {
+        CompressionFormat.Gzip => EmptyGzipMember.ToArray(),
+        CompressionFormat.Deflate => EmptyZlibStream.ToArray(),
+        CompressionFormat.DeflateRaw => EmptyDeflateBlock.ToArray(),
+        _ => null,
+    };
 
     private byte[]? TakeOutput()
     {

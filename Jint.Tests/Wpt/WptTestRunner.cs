@@ -152,7 +152,7 @@ public class WptTestRunner
         // — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing.
         // A stalled run is a harness error for the whole file, which no per-test exclusion can name, exactly
         // as streams/readable-byte-streams/construct-byob-request.any.js is. The divergence itself is still
-        // asserted, by decompression-corrupt-input.any.js's four excluded rows.
+        // asserted, by decompression-corrupt-input.any.js's six excluded rows.
         ("compression/decompression-extra-input.any.js",
             "hangs on the trailing-byte divergence rather than failing a test"),
 
@@ -770,51 +770,26 @@ public class WptTestRunner
             "enqueue() must not synchronously call write algorithm", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- compression
-        // Every "brotli" row of every file. The Compression Standard's CompressionFormat enumeration lists
-        // brotli, and its constructor step 1 — "if format is unsupported in CompressionStream, then throw a
-        // TypeError" — is what makes refusing it conforming rather than wrong; the corpus loops over the
-        // enumeration and assumes support. See WptDivergence.NeedsBrotli, which records that .NET does ship
-        // BrotliStream, so this is a gap to close rather than a platform limit.
-        new("compression/compression-bad-chunks.any.js", "chunk of type * should error the stream for brotli", WptDivergence.NeedsBrotli),
-        new("compression/compression-including-empty-chunk.any.js", "the result of compressing * with brotli should be 'HelloHello'", WptDivergence.NeedsBrotli),
-        new("compression/compression-large-flush-output.any.js", "brotli compression with large flush output", WptDivergence.NeedsBrotli),
-        new("compression/compression-multiple-chunks.any.js", "compressing * chunks with brotli should work", WptDivergence.NeedsBrotli),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type * should error the stream for brotli", WptDivergence.NeedsBrotli),
-        new("compression/decompression-buffersource.any.js", "chunk of type * should work for brotli", WptDivergence.NeedsBrotli),
-        new("compression/decompression-correct-input.any.js", "decompressing brotli input should work", WptDivergence.NeedsBrotli),
-        new("compression/decompression-empty-input.any.js", "decompressing brotli empty input should work", WptDivergence.NeedsBrotli),
-        new("compression/decompression-split-chunk.any.js", "decompressing splitted chunk into pieces of size * should work in brotli", WptDivergence.NeedsBrotli),
-        new("compression/decompression-uint8array-output.any.js", "decompressing brotli output should give Uint8Array chunks", WptDivergence.NeedsBrotli),
-
         // The SharedArrayBuffer rows of the two bad-chunk files, which take their SAB constructor from
-        // WebAssembly.Memory through their own inline helper rather than through common/sab.js. Named one
-        // format at a time, because the brotli row of each pair is above under a different reason and an
-        // exclusion has to say which one applies.
-        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate", WptDivergence.NeedsWebAssembly),
-        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
-        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for gzip", WptDivergence.NeedsWebAssembly),
-        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate", WptDivergence.NeedsWebAssembly),
-        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
-        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for gzip", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for gzip", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for deflate-raw", WptDivergence.NeedsWebAssembly),
-        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for gzip", WptDivergence.NeedsWebAssembly),
+        // WebAssembly.Memory through their own inline helper rather than through common/sab.js. One glob per
+        // chunk type covers all four formats, which it could not do while brotli's rows of the same families
+        // failed for a different reason — https://github.com/sebastienros/jint/issues/3210 removed that
+        // reason, so the entry can now say the one thing that is actually true of every row it names.
+        new("compression/compression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for *", WptDivergence.NeedsWebAssembly),
+        new("compression/compression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for *", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type SharedArrayBuffer should error the stream for *", WptDivergence.NeedsWebAssembly),
+        new("compression/decompression-bad-chunks.any.js", "chunk of type shared Uint8Array should error the stream for *", WptDivergence.NeedsWebAssembly),
 
-        // The two lenient-decompression divergences DecompressionCodec documents, and the only four rows in
+        // The two lenient-decompression divergences DecompressionCodec documents, and the only six rows in
         // the whole corpus that assert them: a member that ends early and a member with something after it.
-        // Spelled out per format rather than globbed over the quoted name, because the brotli rows of the
-        // same two families are above under NeedsBrotli — they never reach the point where this divergence
-        // could decide them — and deflate-raw is not one of this file's three formats at all.
-        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'deflate' should give an error", WptDivergence.NeedsIncrementalInflater),
-        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'gzip' should give an error", WptDivergence.NeedsIncrementalInflater),
-        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'deflate' should give an error", WptDivergence.NeedsIncrementalInflater),
-        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'gzip' should give an error", WptDivergence.NeedsIncrementalInflater),
-        new("compression/decompression-corrupt-input.any.js", "the unchanged input for 'brotli' should decompress successfully", WptDivergence.NeedsBrotli),
-        new("compression/decompression-corrupt-input.any.js", "truncating the input for 'brotli' should give an error", WptDivergence.NeedsBrotli),
-        new("compression/decompression-corrupt-input.any.js", "trailing junk for 'brotli' should give an error", WptDivergence.NeedsBrotli),
+        // Globbed over the format now, because all three of the formats this file carries — deflate, gzip and
+        // brotli, the fourth value deflate-raw not being one of them — diverge in exactly the same way and for
+        // exactly the same reason: BrotliStream reports how many bytes it consumed no more than the deflate
+        // family does, so the last byte of a brotli stream can be dropped, or a junk byte appended, and the
+        // decoder still hands over the payload rather than erroring. The unchanged-input row of all three
+        // passes, which is what the driver's no-passing-test rule holds these two globs to.
+        new("compression/decompression-corrupt-input.any.js", "truncating the input for * should give an error", WptDivergence.NeedsIncrementalInflater),
+        new("compression/decompression-corrupt-input.any.js", "trailing junk for * should give an error", WptDivergence.NeedsIncrementalInflater),
 
         // ---------------------------------------------------------------- FileAPI
         // Blob.textStream(), which https://w3c.github.io/FileAPI/#dom-blob-textstream added and this Blob

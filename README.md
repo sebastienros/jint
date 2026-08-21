@@ -228,7 +228,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `navigator.userAgent` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
-| `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`) | `Compression` **and** `Streams` | ✔ shipped |
+| `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`, `brotli`) | `Compression` **and** `Streams` | ✔ shipped |
 | `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports and port transfer) / `BroadcastChannel` | `Messaging` | ✔ shipped |
@@ -1792,15 +1792,18 @@ chunks is reassembled into the one scalar value it denotes rather than becoming 
 code unit or a byte order mark split across chunks all decode as if the bytes had arrived in one piece. A
 `fatal` decoder errors *both* sides with a `TypeError`, as the standard prescribes.
 
-For compression, note that the standard's `deflate` is **RFC 1950's ZLIB container**, named that way for
-consistency with HTTP `Content-Encoding`; raw RFC 1951 DEFLATE is the separate `deflate-raw`. Jint maps them
-onto `ZLibStream` and `DeflateStream` accordingly (and `gzip` onto `GZipStream`), so bytes produced here are
-the bytes every other implementation expects. `brotli`, which the standard's enumeration also names, is not
-implemented and — like any unsupported value — raises a `TypeError`. Input a format rejects (a bad header, a
-failed CRC32 or ADLER32, a malformed block) errors both sides with a `TypeError`; two truncation cases the
-standard also calls errors are the documented exception, because .NET exposes no incremental inflater that
-could report them: a stream that ends mid-member closes cleanly instead, and bytes following a complete
-member are ignored. A stream that ends with no compressed bytes at all *is* refused.
+All four formats the standard's `CompressionFormat` enumeration names are supported — `gzip`, `deflate`,
+`deflate-raw` and `brotli` — so the constructors' own "if *format* is unsupported, then throw a `TypeError`"
+step has nothing left to refuse and only a value outside the enumeration is rejected. Note that the standard's
+`deflate` is **RFC 1950's ZLIB container**, named that way for consistency with HTTP `Content-Encoding`; raw
+RFC 1951 DEFLATE is the separate `deflate-raw`. Jint maps the four onto `GZipStream`, `ZLibStream`,
+`DeflateStream` and `BrotliStream` respectively, so bytes produced here are the bytes every other
+implementation expects. Nothing in the standard fixes a compression *quality*, so each format runs at the
+BCL's own default. Input a format rejects (a bad header, a failed CRC32 or ADLER32, a malformed block, a
+brotli stream the decoder cannot parse) errors both sides with a `TypeError`; two truncation cases the
+standard also calls errors are the documented exception, because .NET exposes no incremental inflater or
+decoder that could report them: a stream that ends mid-member closes cleanly instead, and bytes following
+a complete member are ignored. A stream that ends with no compressed bytes at all *is* refused.
 
 ### Bridging a stream to `System.IO.Stream`
 

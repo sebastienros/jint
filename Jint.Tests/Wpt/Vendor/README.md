@@ -251,30 +251,40 @@ runs them without `--expose-gc`.
 
 ## What the compression corpus says about this engine
 
-297 assertions across 15 files, of which **84 do not pass** — and 68 of those are one word.
+297 assertions across 15 files, of which **22 do not pass**.
 
-**`brotli` is 68 of the 84** (`NeedsBrotli`). The Compression Standard's `CompressionFormat` enumeration
+**It was 84, and 68 of those were one word.** The Compression Standard's `CompressionFormat` enumeration
 lists `brotli` alongside `deflate`, `deflate-raw` and `gzip`, and the corpus's `resources/formats.js` loops
-over all four, so every per-format family in every file has a brotli row. Refusing it is *conforming* —
-`new CompressionStream(format)` step 1 is "if *format* is unsupported in `CompressionStream`, then throw a
-`TypeError`", which is exactly what this engine answers — but the corpus does not ask that question, it
-assumes support. This is nevertheless the one exclusion category in this directory that is neither a platform
-limit nor a deliberate reduction: **.NET ships `BrotliStream`**, on the same pull-stream shape
-`CompressionCodec`/`DecompressionCodec` already drive for the other three formats, so it is a feature to add.
+over all four, so every per-format family in every file has a brotli row. Refusing the format was
+*conforming* — `new CompressionStream(format)` step 1 is "if *format* is unsupported in `CompressionStream`,
+then throw a `TypeError`" — but the corpus does not ask that question, it assumes support, and this was the
+one exclusion category in this directory that was neither a platform limit nor a deliberate reduction: .NET
+ships `BrotliStream`, on the same pull-stream shape `CompressionCodec`/`DecompressionCodec` already drove for
+the other three formats. https://github.com/sebastienros/jint/issues/3210 wired it in, and **62 of the 68
+rows went green with it**. The other six did not vanish, they moved: four to `NeedsWebAssembly` and two to
+`NeedsIncrementalInflater`, joining their deflate and gzip siblings for reasons that have nothing to do with
+brotli.
 
-**12 are `NeedsWebAssembly`**: the `SharedArrayBuffer` and shared-`Uint8Array` rows of the two bad-chunk
-files, which build their SAB through `WebAssembly.Memory` inline rather than through `common/sab.js`.
+**16 are `NeedsWebAssembly`**: the `SharedArrayBuffer` and shared-`Uint8Array` rows of the two bad-chunk
+files, which build their SAB through `WebAssembly.Memory` inline rather than through `common/sab.js`. All
+four formats, both files, both chunk types — eight rows per file, and now one glob per chunk type rather than
+one entry per format, which is a shape the table could not have while brotli's row of each pair failed for a
+different reason.
 
-**The remaining 4 are the two lenient-decompression divergences, and they are the reason this corpus was
+**The remaining 6 are the two lenient-decompression divergences, and they are the reason this corpus was
 worth running.** `DecompressionCodec` documents both on itself: the standard makes it an error for a stream
 to end before its member is complete and an error for anything to follow the member, and detecting either
 needs to know how many of the bytes handed over the decompressor actually *consumed* — which .NET's pull
-streams do not report. `decompression-corrupt-input.any.js` is the only file in the corpus that asserts them,
-in four rows (`truncating the input` and `trailing junk`, for `deflate` and for `gzip`), and they are excluded
-under `NeedsIncrementalInflater` with that citation. Everything else that file checks passes: a bad CMF or
-gzip ID, a bad FCHECK, an FHCRC flag, a corrupted last data byte, a wrong ADLER32, CRC32 or ISIZE, a
-dictionary-compressed stream, and every field the formats say may hold anything. So the divergence is exactly
-"a corrupt member is still rejected; an *incomplete* or *over-long* one is not", which is what the class says.
+streams do not report, `BrotliStream` no more than the deflate family.
+`decompression-corrupt-input.any.js` is the only file in the corpus that asserts them, in six rows
+(`truncating the input` and `trailing junk`, for each of that file's three formats — `deflate`, `gzip` and
+`brotli`), and they are excluded under `NeedsIncrementalInflater` with that citation. Everything else that
+file checks passes: a bad CMF or gzip ID, a bad FCHECK, an FHCRC flag, a corrupted last data byte, a wrong
+ADLER32, CRC32 or ISIZE, a dictionary-compressed stream, every field the formats say may hold anything, and
+all three unchanged inputs. So the divergence is exactly "a corrupt member is still rejected; an *incomplete*
+or *over-long* one is not", which is what the class says — and adding a fourth format did not widen it,
+because a brotli stream that cannot be parsed is still an error and the two that pass through are still only
+these two.
 
 A fifth file, `decompression-extra-input.any.js`, asserts the trailing-byte half by *waiting* for the error
 rather than by comparing a result, and therefore stalls instead of failing — see the not-vendored table.

@@ -492,7 +492,7 @@ exclusion table. Two files are there for that today, and they are opposite ends 
 `streams/readable-byte-streams/construct-byob-request.any.js` throws before registering a case, and
 `compression/decompression-extra-input.any.js` registers four and then waits forever on a stream that a
 conforming implementation would have errored. Prefer a sibling file that asserts the same property by
-*comparing a result* — `decompression-corrupt-input.any.js` does, in four rows — and say in the not-vendored
+*comparing a result* — `decompression-corrupt-input.any.js` does, in six rows — and say in the not-vendored
 row which one it is, so the divergence is still pinned somewhere.
 
 ## Modules
