@@ -459,7 +459,9 @@ public class SubtleCryptoDeriveTests
         // "Let maximumLength be the length in bits of the output of the field element to octet string
         // conversion … If length is not null and is greater than maximumLength, then throw an
         // OperationError." The conversion pads to whole octets, so P-521's maximum is 528 and not 521 — the
-        // one row of this table that cannot be read off the curve's name.
+        // one row of this table that cannot be read off the curve's name. Both keys are the same pair here,
+        // so the ceiling is the only thing that can refuse the request; where the two curves differ it is not
+        // reached at all, which is AMismatchedCurveIsAnInvalidAccessErrorWhateverTheLengthAsksFor's subject.
         Run($$"""
             const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: '{{curve}}' }, false, ['deriveBits']);
             const params = { name: 'ECDH', public: pair.publicKey };
@@ -506,6 +508,49 @@ public class SubtleCryptoDeriveTests
                 await attempt({ name: 'ECDH', public: bobPub }, ecdsaPair.privateKey),
             ].join(',');
             """).AsString().Should().Be("InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError");
+    }
+
+    [Fact]
+    public void AMismatchedCurveIsAnInvalidAccessErrorWhateverTheLengthAsksFor()
+    {
+        // The one place this engine deliberately departs from the ECDH derive-bits prose, and the reason is
+        // in EcAlgorithm.DeriveBits's remarks: steps 4 and 5 measure *maximumLength* off the **public** key's
+        // domain parameters and refuse an over-long `length` with an OperationError before steps 7 and 8 have
+        // established that the two keys are a pair at all. Read literally, a P-384 or P-521 base key handed a
+        // P-256 public key and asked for its own field width is therefore refused for its length. Chrome,
+        // Firefox, Safari and Node all answer the InvalidAccessError of the later step, and the corpus pins
+        // that in `WebCryptoAPI/derive_bits_keys/ecdh_bits.https.any.js`'s `P-384 mismatched curves` and
+        // `P-521 mismatched curves` rows — which ask for exactly 8 x the base key's field width. Jint follows
+        // the browsers, so the first two rows below are the ones that move: put steps 4 and 5 back above the
+        // key-agreement checks and they read OperationError again.
+        Run("""
+            const p256 = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+            const p384 = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-384' }, false, ['deriveBits']);
+            const p521 = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-521' }, false, ['deriveBits']);
+
+            const attempt = async (pub, priv, length) => {
+                try { await crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, priv, length); return 'derived'; }
+                catch (e) { return e.name; }
+            };
+
+            return [
+                // The corpus's own two rows: 8 x the *base* key's field width, against a narrower public key.
+                await attempt(p256.publicKey, p384.privateKey, 384),
+                await attempt(p256.publicKey, p521.privateKey, 528),
+                // The same two mismatches at a length no ceiling could object to, and at no length at all.
+                await attempt(p256.publicKey, p384.privateKey, 128),
+                await attempt(p256.publicKey, p521.privateKey, null),
+                // The corpus's P-256 row, which was green under either order because the curve it is
+                // mismatched against is the wider one — so on its own it proves nothing about the ordering.
+                await attempt(p384.publicKey, p256.privateKey, 256),
+                // Matched curves and an over-long length is still step 5's OperationError: the move reorders
+                // the ceiling, it does not remove it.
+                await attempt(p256.publicKey, p256.privateKey, 264),
+                await attempt(p521.publicKey, p521.privateKey, 536),
+            ].join(',');
+            """).AsString().Should().Be(
+                "InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError"
+                + ",OperationError,OperationError");
     }
 
     [Fact]
