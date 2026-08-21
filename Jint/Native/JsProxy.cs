@@ -1096,7 +1096,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         {
             return clrHandler.Get(target, property, receiver);
         }
-        catch (Exception e) when (e is not JavaScriptException and not ParsingLimitException && !_bubbleExceptions)
+        catch (Exception e) when (e is not JavaScriptException && !_bubbleExceptions)
         {
             RethrowClrTrapException(e);
             return null;
@@ -1262,7 +1262,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     [DoesNotReturn]
     private void RethrowClrTrapException(Exception exception)
     {
-        if (exception is ParsingLimitException)
+        if (Throw.MustPropagateHostException(exception))
         {
             ExceptionDispatchInfo.Capture(exception).Throw();
         }

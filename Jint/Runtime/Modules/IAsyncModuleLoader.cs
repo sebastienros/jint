@@ -43,7 +43,8 @@ public interface IAsyncModuleLoader : IModuleLoader
     /// <para>
     /// One class of exception is exempt from that catch, and a host has to know which: the ones that exist to
     /// bound or abort execution — <see cref="ExecutionCanceledException"/>,
-    /// <see cref="MemoryLimitExceededException"/>, <see cref="StatementsCountOverflowException"/>,
+    /// <see cref="MemoryLimitExceededException"/>, <see cref="ResultLimitExceededException"/>,
+    /// <see cref="StatementsCountOverflowException"/>,
     /// <see cref="TimeoutException"/>, <see cref="OperationCanceledException"/> and
     /// <see cref="OutOfMemoryException"/> — keep propagating, because a constraint that becomes an ordinary
     /// failed import no longer bounds anything. Note what that means for a host cancelling its own fetch:

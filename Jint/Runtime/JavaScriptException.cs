@@ -112,6 +112,30 @@ public class JavaScriptException : JintException
     public string GetJavaScriptErrorString() => _jsErrorException.Render(includeChainedClrException: false);
 
     /// <summary>
+    /// Returns the JavaScript error and stack while enforcing host output limits.
+    /// </summary>
+    /// <remarks>
+    /// Reading a script-defined <c>stack</c> accessor can execute JavaScript, so this overload runs under the
+    /// originating engine's execution constraints when the thrown value is an object.
+    /// </remarks>
+    public string GetJavaScriptErrorString(ResultLimits limits)
+    {
+        if (limits is null)
+        {
+            Throw.ArgumentNullException(nameof(limits));
+        }
+
+        if (Error is ObjectInstance objectInstance)
+        {
+            return objectInstance.Engine.ExecuteWithConstraints(
+                objectInstance.Engine.Options.Strict,
+                () => _jsErrorException.Render(includeChainedClrException: false, limits));
+        }
+
+        return _jsErrorException.Render(includeChainedClrException: false, limits);
+    }
+
+    /// <summary>
     /// Returns this exception as the base exception.
     /// The inner exception is a private implementation detail and should not be exposed.
     /// </summary>
@@ -210,40 +234,79 @@ public class JavaScriptException : JintException
 
         /// <summary>
         /// <paramref name="includeChainedClrException"/> is false for
-        /// <see cref="JavaScriptException.GetJavaScriptErrorString"/>, which promises the JavaScript error and
+        /// <see cref="JavaScriptException.GetJavaScriptErrorString()"/>, which promises the JavaScript error and
         /// nothing else; the string form of the exception itself keeps the chain.
         /// </summary>
-        internal string Render(bool includeChainedClrException)
+        internal string Render(bool includeChainedClrException, ResultLimits? limits = null)
         {
             var sb = new ValueStringBuilder();
-
-            sb.Append("Error");
-            var message = Message;
-            if (!string.IsNullOrEmpty(message))
+            try
             {
-                sb.Append(": ");
-                sb.Append(message);
+                AppendBounded(ref sb, "Error", limits, checkIndividualString: false);
+                var message = Message;
+                if (!string.IsNullOrEmpty(message))
+                {
+                    AppendBounded(ref sb, ": ", limits, checkIndividualString: false);
+                    AppendBounded(ref sb, message, limits, checkIndividualString: true);
+                }
+
+                // Exception.ToString() renders an inner exception between the message and the frames. This override
+                // replaces that rendering wholesale, so a chained CLR exception has to be spelled out here or it
+                // would be reachable through InnerException and yet invisible in every log line.
+                if (includeChainedClrException && InnerException is { } innerException)
+                {
+                    AppendBounded(ref sb, " ---> ", limits, checkIndividualString: false);
+                    AppendBounded(ref sb, innerException.ToString(), limits, checkIndividualString: true);
+                    AppendBounded(ref sb, Environment.NewLine, limits, checkIndividualString: false);
+                    AppendBounded(
+                        ref sb,
+                        "   --- End of inner exception stack trace ---",
+                        limits,
+                        checkIndividualString: false);
+                }
+
+                var stackTrace = StackTrace;
+                if (stackTrace != null)
+                {
+                    AppendBounded(ref sb, Environment.NewLine, limits, checkIndividualString: false);
+                    AppendBounded(ref sb, stackTrace, limits, checkIndividualString: true);
+                }
+
+                return sb.ToString();
+            }
+            finally
+            {
+                sb.Dispose();
+            }
+        }
+
+        private static void AppendBounded(
+            ref ValueStringBuilder builder,
+            string value,
+            ResultLimits? limits,
+            bool checkIndividualString)
+        {
+            if (limits is not null)
+            {
+                if (checkIndividualString && value.Length > limits.MaxStringLength)
+                {
+                    throw new ResultLimitExceededException(
+                        ResultLimit.StringLength,
+                        limits.MaxStringLength,
+                        value.Length);
+                }
+
+                var observed = (long) builder.Length + value.Length;
+                if (observed > limits.MaxOutputCharacters)
+                {
+                    throw new ResultLimitExceededException(
+                        ResultLimit.OutputCharacters,
+                        limits.MaxOutputCharacters,
+                        observed);
+                }
             }
 
-            // Exception.ToString() renders an inner exception between the message and the frames. This override
-            // replaces that rendering wholesale, so a chained CLR exception has to be spelled out here or it
-            // would be reachable through InnerException and yet invisible in every log line.
-            if (includeChainedClrException && InnerException is { } innerException)
-            {
-                sb.Append(" ---> ");
-                sb.Append(innerException.ToString());
-                sb.Append(Environment.NewLine);
-                sb.Append("   --- End of inner exception stack trace ---");
-            }
-
-            var stackTrace = StackTrace;
-            if (stackTrace != null)
-            {
-                sb.Append(Environment.NewLine);
-                sb.Append(stackTrace);
-            }
-
-            return sb.ToString();
+            builder.Append(value);
         }
     }
 }

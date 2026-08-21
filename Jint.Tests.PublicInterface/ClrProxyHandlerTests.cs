@@ -700,6 +700,26 @@ public class ClrProxyHandlerTests
     }
 
     [Fact]
+    public void ResultLimitFromAnyTrapRemainsFatal()
+    {
+        var engine = new Engine(options => options.CatchClrExceptions());
+        var value = engine.Evaluate("[1, 2]");
+        var handler = new DelegatingProxyHandler
+        {
+            OnGet = (_, _, _) =>
+            {
+                engine.Advanced.ConvertResult(value, new ResultLimits(maxPropertyCount: 1));
+                return null;
+            }
+        };
+        engine.SetValue("p", engine.Advanced.CreateProxy(CreateTarget(engine), handler));
+
+        Invoking(() => engine.Evaluate("try { p.x; } catch { globalThis.caught = true; }"))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+        engine.GetValue("caught").Should().BeUndefined();
+    }
+
+    [Fact]
     public void FactoriesValidateArguments()
     {
         var engine = new Engine();
