@@ -1155,6 +1155,30 @@ public class SubtleCryptoKeyTests
     }
 
     [Fact]
+    public void ReadsTheAesGcmParamsMembersInWebIdlsOwnOrder()
+    {
+        // "Let members be the result of ... ordered by the unicode codepoint order of their keys" —
+        // https://webidl.spec.whatwg.org/#es-dictionary step 5. AesGcmParams is *declared* iv,
+        // additionalData, tagLength, and the conversion reads additionalData, iv, tagLength; a script's
+        // getters are what make the difference observable. The object below spells its own properties in a
+        // third order again, so neither declaration order nor property order can produce this answer.
+        Run("""
+            const key = await crypto.subtle.importKey('raw', bytes('7fddb57453c241d03efbed3ac44e371c'), 'AES-GCM', false, ['encrypt']);
+            const reads = [];
+
+            const params = {
+                get name() { reads.push('name'); return 'AES-GCM'; },
+                get tagLength() { reads.push('tagLength'); return 128; },
+                get iv() { reads.push('iv'); return bytes('ee283a3fc75575e33efd4887'); },
+                get additionalData() { reads.push('additionalData'); return new Uint8Array(0); },
+            };
+
+            await crypto.subtle.encrypt(params, key, new Uint8Array(0));
+            return reads.join(',');
+            """).AsString().Should().Be("name,additionalData,iv,tagLength");
+    }
+
+    [Fact]
     public void ABufferSourceMemberIsCopiedWhenItIsRead()
     {
         // "If member is of the type BufferSource and is present: set the dictionary member … to the result of

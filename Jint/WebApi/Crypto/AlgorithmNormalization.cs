@@ -585,11 +585,15 @@ internal static class AlgorithmNormalization
                 normalized.Iv = ReadRequiredBufferSource(context, algorithm, _ivKey, what);
                 break;
 
-            // AesGcmParams.
+            // AesGcmParams, in WebIDL's lexicographical order — `additionalData`, `iv`, `tagLength` — and
+            // deliberately not in the order the specification happens to declare them in. A dictionary's
+            // members are converted "in lexicographical order" (https://webidl.spec.whatwg.org/#es-dictionary
+            // step 5), which script observes through getters, so declaration order would be one arm of this
+            // switch disagreeing with every other.
             case (AesGcm, CryptoOperation.Encrypt):
             case (AesGcm, CryptoOperation.Decrypt):
-                normalized.Iv = ReadRequiredBufferSource(context, algorithm, _ivKey, what);
                 normalized.AdditionalData = ReadOptionalBufferSource(context, algorithm, _additionalDataKey, what);
+                normalized.Iv = ReadRequiredBufferSource(context, algorithm, _ivKey, what);
                 normalized.TagLength = ReadOptionalOctet(context, algorithm, _tagLengthKey, what);
                 break;
 
