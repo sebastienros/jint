@@ -197,6 +197,7 @@ internal sealed class Test262AgentManager : IDisposable
                 {
                     cfg.ExperimentalFeatures = ExperimentalFeature.All;
                     cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+                    cfg.AgentCanSuspend = true;
                 });
 
                 // Setup agent-side $262.agent

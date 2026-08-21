@@ -20,6 +20,75 @@ namespace Jint.Tests.Runtime;
 public class AtomicsWaiterRegistryTests
 {
     [Fact]
+    public void ADefaultAgentCannotSuspendAndDoesNotRegisterAnIndefiniteWaiter()
+    {
+        var options = new Options();
+        options.AgentCanSuspend.Should().BeFalse();
+
+        var engine = new Engine(options);
+        engine.Execute("var sab = new SharedArrayBuffer(8); var i32a = new Int32Array(sab);");
+        var block = BlockOf(engine, "sab");
+        Exception? error = null;
+
+        var thread = new Thread(() => error = Record.Exception(() => engine.Evaluate("Atomics.wait(i32a, 0, 0);")))
+        {
+            IsBackground = true
+        };
+        thread.Start();
+
+        var completedWithoutBlocking = thread.Join(TimeSpan.FromSeconds(2));
+        if (!completedWithoutBlocking)
+        {
+            var notifier = new Engine();
+            notifier.SetValue("i32a", SharedView(notifier, block));
+
+            // Wait until a regressed implementation has registered its waiter before notifying it. A single
+            // notification can race the worker and leave an indefinite background wait behind in the process.
+            var cleanupDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while (thread.IsAlive && DateTime.UtcNow < cleanupDeadline)
+            {
+                if (AtomicsInstance.WaiterListCount(block) != 0)
+                {
+                    notifier.Evaluate("Atomics.notify(i32a, 0)");
+                }
+
+                thread.Join(TimeSpan.FromMilliseconds(10));
+            }
+
+            thread.Join(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        }
+
+        completedWithoutBlocking.Should().BeTrue("the default agent must reject an indefinite wait instead of blocking");
+        var exception = error.Should().BeOfType<JavaScriptException>().Which;
+        exception.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
+        exception.Message.Should().Be("Atomics.wait cannot be used in this agent");
+        AtomicsInstance.WaiterListCount(block).Should().Be(0, "a rejected wait must not register a waiter");
+    }
+
+    [Fact]
+    public void AWorkerLikeAgentCanOptIntoSynchronousWait()
+    {
+        var engine = new Engine(static options => options.AgentCanSuspend = true);
+
+        engine.Evaluate("""
+            var i32a = new Int32Array(new SharedArrayBuffer(8));
+            Atomics.wait(i32a, 0, 0, 0);
+            """).AsString().Should().Be("timed-out");
+    }
+
+    [Fact]
+    public void WaitAsyncRemainsAvailableToTheDefaultAgent()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("""
+            var i32a = new Int32Array(new SharedArrayBuffer(8));
+            var result = Atomics.waitAsync(i32a, 0, 1);
+            result.async + ":" + result.value;
+            """).AsString().Should().Be("false:not-equal");
+    }
+
+    [Fact]
     public void AWaitAsyncNobodyNotifiesDoesNotKeepItsEngineAlive()
     {
         // The three lines #3025 reports. The wait asks for no timeout, so it never resolves and nothing ever
@@ -58,7 +127,7 @@ public class AtomicsWaiterRegistryTests
         [MethodImpl(MethodImplOptions.NoInlining)]
         static WeakReference WaitAndForgetTheBlock()
         {
-            var engine = new Engine();
+            var engine = new Engine(static options => options.AgentCanSuspend = true);
             engine.Execute("""
                 var sab = new SharedArrayBuffer(8);
                 var i32a = new Int32Array(sab);
@@ -105,7 +174,7 @@ public class AtomicsWaiterRegistryTests
     {
         // Removing the emptied list is only safe if the next wait on the same index builds a new one and the
         // notify that follows finds it. Nothing observable may depend on whether a previous wait pruned.
-        var engine = new Engine();
+        var engine = new Engine(static options => options.AgentCanSuspend = true);
         engine.Execute("""
             var i32a = new Int32Array(new SharedArrayBuffer(8));
             Atomics.wait(i32a, 0, 0, 0);
@@ -131,7 +200,7 @@ public class AtomicsWaiterRegistryTests
     {
         // Every index ever waited on used to leave its own list behind, for as long as the block lived. The
         // block below stays reachable throughout, so nothing but the pruning can bring the count back down.
-        var engine = new Engine();
+        var engine = new Engine(static options => options.AgentCanSuspend = true);
         engine.Execute("var sab = new SharedArrayBuffer(4096); var i32a = new Int32Array(sab);");
         var block = BlockOf(engine, "sab");
 
