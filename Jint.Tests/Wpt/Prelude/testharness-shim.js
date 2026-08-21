@@ -16,7 +16,13 @@
 //
 // Deliberate divergences from upstream testharness.js, all of them recorded in Jint.Tests/Wpt/Vendor/README.md:
 //   * `self.GLOBAL` reports neither window nor worker nor shadow realm, so the DOM-only branches of a
-//     `.any.js` file skip themselves the way they do in a global they were not written for.
+//     `.any.js` file skip themselves the way they do in a global they were not written for. Note that this
+//     stays true in the driver's *worker* lane, where the file really is running inside one: `isWorker()`
+//     answers false there as well, because the shim has no way to tell the lanes apart and nothing in the
+//     corpus asks — only `isWindow()` is ever called, by `url/historical.any.js` and by
+//     `workers/semantics/multiple-workers/exposure.any.js`, and false is the right answer for both. A file
+//     that guards a worker-specific branch on `isWorker()` would skip it silently, so vendoring one means
+//     giving the shim a way to know first.
 //   * `fetch` is a *resource loader* over the vendored tree, not the Fetch API. It is what
 //     `fetch("resources/urltestdata.json")` needs and nothing more.
 //   * Timers are the engine's own: this file installs no `setTimeout`, and its `step_timeout` is a thin
@@ -820,7 +826,13 @@
 
     // ---------------------------------------------------------------- environment
 
-    global.self = global;
+    // Only when the engine has not already got one. Every engine the driver builds enables GlobalEvents and so
+    // installs `self` itself, and in the worker lane HTML makes `WorkerGlobalScope.self` a *read-only*
+    // attribute — so an unconditional assignment here would both overwrite what is under test and, the day the
+    // engine makes it read-only, throw out of this strict-mode function and take every suite with it.
+    if (global.self !== global) {
+        global.self = global;
+    }
 
     // A `.any.js` file is served into a global that tells it what it is. Jint's is none of the three, and
     // saying so is what makes the DOM-only branches (`document.createElement`, `location.searchParams`)
