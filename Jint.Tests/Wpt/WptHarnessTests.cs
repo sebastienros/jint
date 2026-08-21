@@ -29,6 +29,9 @@ public class WptHarnessTests
         return outcome.Results[0].Status;
     }
 
+    /// <summary>The message recorded for a test whose whole body is <paramref name="body"/>.</summary>
+    private static string? MessageOf(string body) => Run($"test(() => {body}, 'row');").Results[0].Message;
+
     [Theory]
     // Each row is one assertion, a body that must be recorded PASS and a body that must be recorded FAIL.
     [InlineData("assert_true(true)", "assert_true(1)")]
@@ -50,6 +53,18 @@ public class WptHarnessTests
     [InlineData(
         "assert_throws_dom('NotFoundError', () => { throw new DOMException('x', 'NotFoundError'); })",
         "assert_throws_dom('NotFoundError', () => { var e = new Error(); e.name = 'NotFoundError'; e.code = 8; throw e; })")]
+    // A legacy code *name* is accepted and mapped to the name it stands for, so it expects `NotFoundError`
+    // rather than an exception literally called NOT_FOUND_ERR — upstream's `codename_name_map`.
+    [InlineData(
+        "assert_throws_dom('NOT_FOUND_ERR', () => { throw new DOMException('x', 'NotFoundError'); })",
+        "assert_throws_dom('NOT_FOUND_ERR', () => { throw new DOMException('x', 'DataCloneError'); })")]
+    [InlineData(
+        "assert_throws_dom('DATA_CLONE_ERR', () => { throw new DOMException('x', 'DataCloneError'); })",
+        "assert_throws_dom('DATA_CLONE_ERR', () => { throw new DOMException('x', 'NotFoundError'); })")]
+    // The numeric form names a code, and the name that code stands for is checked with it.
+    [InlineData(
+        "assert_throws_dom(8, () => { throw new DOMException('x', 'NotFoundError'); })",
+        "assert_throws_dom(8, () => { throw new DOMException('x', 'DataCloneError'); })")]
     [InlineData("assert_throws_exactly(1, () => { throw 1; })", "assert_throws_exactly(1, () => { throw 2; })")]
     [InlineData("if (false) assert_unreached('x')", "assert_unreached('x')")]
     [InlineData("assert_in_array(2, [1, 2, 3])", "assert_in_array(4, [1, 2, 3])")]
@@ -113,6 +128,11 @@ public class WptHarnessTests
     [InlineData(
         "promise_rejects_dom(t, 'AbortError', Promise.reject(new DOMException('x', 'AbortError')))",
         "promise_rejects_dom(t, 'NotFoundError', Promise.reject(Object.assign(new Error(), { name: 'NotFoundError', code: 8 })))")]
+    // The rejection form shares one implementation with the synchronous one, so the legacy code names it
+    // accepts and the names it refuses are the same set — this row is what would catch the two drifting.
+    [InlineData(
+        "promise_rejects_dom(t, 'ABORT_ERR', Promise.reject(new DOMException('x', 'AbortError')))",
+        "promise_rejects_dom(t, 'ABORT_ERR', Promise.reject(new DOMException('x', 'NotFoundError')))")]
     // The four-argument form names the global the exception must come from: this one satisfies it, and a
     // DOMException constructor that is not this global's does not, however right the name and code are.
     [InlineData(
@@ -196,8 +216,6 @@ public class WptHarnessTests
     {
         // Messages are what an exclusion is triaged from, and every one of these is a name the corresponding
         // upstream assertion produces once its ${p}/${actual} substitutions have gone through format_value.
-        static string? MessageOf(string body) => Run($"test(() => {body}, 'row');").Results[0].Message;
-
         MessageOf("assert_object_equals({ a: 1 }, { a: 2 }, 'why')").Should().Be("property \"a\" expected 2 got 1 (why)");
         MessageOf("assert_object_equals({ a: 1, b: 2 }, { a: 1 })").Should().Be("unexpected property \"b\"");
         MessageOf("assert_object_equals({ a: 1 }, { a: 1, b: 2 })").Should().Be("expected property \"b\" missing");
@@ -308,6 +326,79 @@ public class WptHarnessTests
             .Should().Be("PASS");
         StatusOf("test(() => assert_throws_dom('EncodingError', () => { throw new DOMException('x', 'EncodingError'); }), 'row');")
             .Should().Be("PASS");
+    }
+
+    [Fact]
+    public void ADomExceptionAssertionRefusesANameItsTableCannotHold()
+    {
+        // https://webidl.spec.whatwg.org/#dfn-error-names-table — upstream's `name_code_map` is a closed set,
+        // and a name it does not hold is a bug in the test rather than a name whose legacy code happens to be
+        // 0. Accepting one is the quiet wrong green this exists to stop: `assert_throws_dom('NotFundError',
+        // …)` would be satisfied by an implementation that threw exactly that typo, and both sides would
+        // agree while both were wrong. The refusal is upstream's message verbatim.
+        MessageOf("assert_throws_dom('NotFundError', () => { throw new DOMException('x', 'NotFundError'); })")
+            .Should().Be("Test bug: unrecognized DOMException code name or name \"NotFundError\" passed to assert_throws_dom()");
+        StatusOf("test(() => assert_throws_dom('NotFundError', () => { throw new DOMException('x', 'NotFundError'); }), 'row');")
+            .Should().Be("FAIL");
+
+        // `QUOTA_EXCEEDED_ERR` left `codename_name_map` when the interface moved out, so the legacy code name
+        // is refused as a name like any other rather than pointed anywhere.
+        MessageOf("assert_throws_dom('QUOTA_EXCEEDED_ERR', () => { throw new DOMException('x', 'QuotaExceededError'); })")
+            .Should().Be("Test bug: unrecognized DOMException code name or name \"QUOTA_EXCEEDED_ERR\" passed to assert_throws_dom()");
+
+        // The numeric form has two refusals of its own: 0 names no single error, and a code outside the table
+        // names none at all.
+        MessageOf("assert_throws_dom(0, () => { throw new DOMException('x', 'EncodingError'); })")
+            .Should().Be("Test bug: ambiguous DOMException code 0 passed to assert_throws_dom()");
+        MessageOf("assert_throws_dom(2, () => { throw new DOMException('x', 'NotFoundError'); })")
+            .Should().Be("Test bug: unrecognized DOMException code \"2\" passed to assert_throws_dom()");
+
+        // And an expectation that is neither has to be caught before the two branches, or it would reach
+        // neither of them and leave nothing at all to compare the exception against.
+        MessageOf("assert_throws_dom(undefined, () => { throw new DOMException('x', 'NotFoundError'); })")
+            .Should().Be("undefined is not a number or string");
+    }
+
+    [Fact]
+    public void QuotaExceededErrorIsSentToItsOwnAssertionRatherThanMatchedAsADomExceptionName()
+    {
+        // https://webidl.spec.whatwg.org/#quotaexceedederror — since it became an interface of its own it is
+        // in neither of upstream's tables, so the name and the legacy code 22 are both refused and named at
+        // assert_throws_quotaexceedederror. The exception the body throws is precisely the shape that would
+        // have satisfied the old table — a DOMException called QuotaExceededError, which is what Jint's
+        // getRandomValues throws today — so this pins the refusal and not merely a mismatch.
+        const string sendItThere = "Test bug: QuotaExceededError needs to be tested for using assert_throws_quotaexceedederror()";
+
+        MessageOf("assert_throws_dom('QuotaExceededError', () => { throw new DOMException('x', 'QuotaExceededError'); })")
+            .Should().Be(sendItThere);
+        MessageOf("assert_throws_dom(22, () => { throw new DOMException('x', 'QuotaExceededError'); })")
+            .Should().Be(sendItThere);
+        StatusOf("test(() => assert_throws_dom('QuotaExceededError', () => { throw new DOMException('x', 'QuotaExceededError'); }), 'row');")
+            .Should().Be("FAIL");
+    }
+
+    [Fact]
+    public void TheRejectionFormRefusesWhatTheSynchronousFormRefuses()
+    {
+        // Both forms share `assert_throws_dom_impl`, which is what keeps the accepted set and the refused set
+        // from drifting apart — and why upstream's message names `assert_throws_dom()` from either entrance.
+        var outcome = Run(
+            "promise_test(t => promise_rejects_dom(t, 'NotFundError', Promise.reject(new DOMException('x', 'NotFundError'))), 'row');");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message
+            .Should().Be("Test bug: unrecognized DOMException code name or name \"NotFundError\" passed to assert_throws_dom()");
+    }
+
+    [Fact]
+    public void ABodyThatThrewNothingIsReportedAsSuchEvenWhenTheNameWouldHaveBeenRefused()
+    {
+        // The refusals sit inside the catch, where upstream's are, so "it did not throw" outranks "the name
+        // is not one I hold". Hoisting them above the try would silently reclassify every did-not-throw
+        // failure in a suite that named something the table does not carry.
+        MessageOf("assert_throws_dom('NotFundError', () => {})").Should().Be("did not throw");
+        MessageOf("assert_throws_dom(22, () => {}, 'why')").Should().Be("did not throw (why)");
     }
 
     [Fact]
