@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Json;
@@ -9,6 +10,38 @@ namespace Jint.Tests.PublicInterface;
 public class HostResultLimitsTests
 {
     private const string ConcurrentUseMessage = "*already in use by another thread or has an asynchronous operation in progress*";
+
+    /// <summary>
+    /// The budget one host operation gets in <see cref="OperationDeadlineSpansEvaluationAndConversion"/>.
+    /// Nothing has to fit inside a <em>slice</em> of it: the only entry that must complete is a warm
+    /// four-hundred-statement evaluation, and the whole budget is its headroom.
+    /// </summary>
+    private static readonly TimeSpan OperationBudget = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// How far past <see cref="OperationBudget"/> the host sleeps, so that no timer granularity anywhere
+    /// can leave time on a budget the test needs gone.
+    /// </summary>
+    private static readonly TimeSpan BudgetOverspend = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// Absorbs the constraint's truncation of the budget into <see cref="Stopwatch"/> ticks when deciding
+    /// whether a throw out of the evaluation entry means the runner stalled or the budget was armed in
+    /// the past.
+    /// </summary>
+    private static readonly TimeSpan AttributionSlack = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>
+    /// A script whose evaluation <em>and</em> whose getter each run well past the interpreter's amortized
+    /// check interval (64 statements), so that both the evaluation entry and the conversion entry provably
+    /// reach a constraint check rather than merely probably. Without the leading loop the evaluation of a
+    /// bare object literal is short enough to slip between two checks, and the entry would then sit inside
+    /// the operation without ever consulting its budget.
+    /// </summary>
+    private const string CheckedEvaluationSource = """
+        for (var w = 0; w < 200; w++) {}
+        ({ get value() { for (var i = 0; i < 200; i++) {} return 42; } })
+        """;
 
     [Fact]
     public void DefaultConversionRemainsUnlimitedAndCompatible()
@@ -315,7 +348,10 @@ public class HostResultLimitsTests
             entered.Set();
             release.Wait();
         }));
-        var running = Task.Run(() => engine.Execute("block()"));
+        // A dedicated thread rather than Task.Run: the script blocks until this test releases it, and the
+        // test blocks until the script has entered, so putting either on the thread pool makes the pool's
+        // injection rate part of the outcome. See DedicatedThread.RunAsync.
+        var running = DedicatedThread.RunAsync(() => engine.Execute("block()"));
 
         entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
         try
@@ -361,24 +397,47 @@ public class HostResultLimitsTests
     [Fact]
     public void OperationDeadlineSpansEvaluationAndConversion()
     {
+        // Evaluating a script and converting its result are two separate top-level entries, and the
+        // engine rewinds every ordinary constraint at each of those boundaries. This one declines, so
+        // what the evaluation entry left of the operation's budget is what the conversion entry gets —
+        // here, nothing.
+        //
+        // The budget is spent on the host's own clock rather than by a pause inside the script, and that
+        // is the whole point of the shape. A script pause long enough to exhaust the budget would fail
+        // the entry that ran it, so exhausting it from inside the engine means splitting the budget into
+        // slices and requiring the evaluation to fit in one — which is a claim about the runner, and is
+        // exactly how this row failed a macOS leg of a workers-only change (#3221). The budget is wall
+        // clock from Begin, host time counts against it just as engine time does, and Thread.Sleep only
+        // ever overshoots: no machine is slow enough to leave time on it.
         var deadline = new OperationDeadlineConstraint();
         using var engine = new Engine(options => options.Constraint(deadline));
-        engine.SetValue("pause", new Action(() => Thread.Sleep(250)));
-        engine.SetValue("noop", new Action(() => { }));
 
-        // Warm parsing, the interop call path and ConvertResult before the clock starts. The budget
-        // leaves only 150ms of headroom over the first pause, and on .NET Framework a cold first
-        // evaluation costs more than that often enough to make the Evaluate below throw the
-        // TimeoutException this test means to observe from the conversion instead.
-        engine.Advanced.ConvertResult(engine.Evaluate("noop(); ({ get value() { noop(); return 42; } })"));
+        // Warm parsing, the getter's call path and ConvertResult before the clock starts.
+        engine.Advanced.ConvertResult(engine.Evaluate(CheckedEvaluationSource));
 
-        deadline.Begin(TimeSpan.FromMilliseconds(400));
+        var stopwatch = Stopwatch.StartNew();
+        deadline.Begin(OperationBudget);
         try
         {
-            var value = engine.Evaluate("pause(); ({ get value() { pause(); return 42; } })");
+            JsValue value = null;
+            var evaluationFailure = Record.Exception(() => value = engine.Evaluate(CheckedEvaluationSource));
+
+            // A stall long enough to fail this entry is the runner's doing, and failing it is what the
+            // engine promises, but it leaves the run with nothing to say about the conversion. A budget
+            // armed in the past fails the same entry with the stopwatch reading nearly zero, and that is
+            // a defect — hence the elapsed-time condition rather than a bare "did it throw", and hence
+            // the assertion that follows for every other failure.
+            Assert.SkipWhen(
+                evaluationFailure is TimeoutException && stopwatch.Elapsed >= OperationBudget - AttributionSlack,
+                "the runner stalled the evaluation entry past the whole operation budget");
+            evaluationFailure.Should().BeNull("the evaluation entry runs inside a budget it cannot have spent");
+
+            Thread.Sleep(OperationBudget + BudgetOverspend);
 
             Invoking(() => engine.Advanced.ConvertResult(value))
-                .Should().ThrowExactly<TimeoutException>();
+                .Should().ThrowExactly<TimeoutException>(
+                    "the conversion is a fresh top-level entry, and the engine's per-entry reset must not "
+                    + "refund it the operation's budget");
         }
         finally
         {

@@ -19,6 +19,22 @@ public class HostMemoryLimitTests
     private const int AllocationSize = 2_000_000;
     private const int SingleAllocationBudget = 3_500_000;
 
+    /// <summary>
+    /// How long <see cref="PromiseContinuationRetainsItsOriginatingBudgetWhenPumpedOnAnotherThread"/>
+    /// keeps pumping before giving up. A ceiling only a genuine hang can reach rather than a budget the
+    /// continuation has to beat: a healthy run exits on the first pump that observes the settled
+    /// continuation, so widening this costs nothing except on a failure.
+    /// </summary>
+    private static readonly TimeSpan PumpCeiling = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long the asynchronous loader keeps
+    /// <see cref="SynchronousImportDoesNotChargeAsyncLoaderWaitToExecutionTimeout"/> waiting. Deliberately
+    /// longer than that test's 200 ms execution timeout, since the whole claim is that the wait is not
+    /// charged to it.
+    /// </summary>
+    private static readonly TimeSpan LoaderWait = TimeSpan.FromMilliseconds(500);
+
     [Fact]
     public async Task EvaluateAsyncCarriesAllocationBudgetAcrossAThreadHop()
     {
@@ -177,7 +193,7 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
-    public void PromiseContinuationRetainsItsOriginatingBudgetWhenPumpedOnAnotherThread()
+    public async Task PromiseContinuationRetainsItsOriginatingBudgetWhenPumpedOnAnotherThread()
     {
         var allocations = new List<byte[]>();
         var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -193,12 +209,25 @@ public class HostMemoryLimitTests
 
         gate.SetResult(true);
 
-        var failure = RunOnNewThread(() =>
+        // The pump waits for the gate's continuation, which itself needs a thread-pool worker, so it must
+        // not hold one while it waits — a saturated pool would otherwise decide the outcome rather than
+        // the engine. See DedicatedThread.RunAsync.
+        Exception? failure = null;
+        await DedicatedThread.RunAsync(() =>
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            var deadline = DateTime.UtcNow + PumpCeiling;
             while (DateTime.UtcNow < deadline)
             {
-                engine.Advanced.ProcessTasks();
+                try
+                {
+                    engine.Advanced.ProcessTasks();
+                }
+                catch (Exception exception)
+                {
+                    failure = exception;
+                    return;
+                }
+
                 Thread.Sleep(1);
             }
         });
@@ -369,24 +398,33 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
-    public void SynchronousImportDoesNotChargeAsyncLoaderWaitToExecutionTimeout()
+    public async Task SynchronousImportDoesNotChargeAsyncLoaderWaitToExecutionTimeout()
     {
         var loader = new DelayedModuleLoader(() => { });
         var engine = new Engine(options =>
         {
             options.LimitMemory(SingleAllocationBudget);
             options.TimeoutInterval(TimeSpan.FromMilliseconds(200));
-            options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(5);
+
+            // A ceiling only a genuine hang can reach, rather than a budget racing the loader wait: the
+            // wait resumes on a thread-pool worker, and on a saturated runner the pool's injection rate
+            // would otherwise decide the outcome. Same treatment as #3123 and #3154.
+            options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
             options.EnableModules(loader);
         });
 
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(500);
-            loader.Complete("export const value = 42;");
-        });
+        // The blocking Import waits for a completion that arrives from another thread, so it must not
+        // hold a pool worker while it does. See DedicatedThread.RunAsync.
+        var import = DedicatedThread.RunAsync(
+            () => engine.Modules.Import("module").Get("value").AsNumber().Should().Be(42));
 
-        engine.Modules.Import("module").Get("value").AsNumber().Should().Be(42);
+        // The completion only exists once the engine has actually asked the loader for the module; the
+        // wait that follows is what has to stay off the execution timeout.
+        loader.WaitUntilStarted();
+        await Task.Delay(LoaderWait);
+        loader.Complete("export const value = 42;");
+
+        await import;
     }
 
     [Fact]
@@ -600,7 +638,10 @@ public class HostMemoryLimitTests
             release.Wait();
         }));
         var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
-        var running = Task.Run(() => engine.Execute("block()"));
+        // A dedicated thread rather than Task.Run: the script blocks until this test releases it, and
+        // the test blocks until the script has entered, so putting either on the thread pool makes the
+        // pool's injection rate part of the outcome. See DedicatedThread.RunAsync.
+        var running = DedicatedThread.RunAsync(() => engine.Execute("block()"));
 
         entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
         try
@@ -679,7 +720,10 @@ public class HostMemoryLimitTests
         }));
         var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;
         constraint.Begin();
-        var running = Task.Run(() => engine.Execute("block()"));
+        // A dedicated thread rather than Task.Run: the script blocks until this test releases it, and
+        // the test blocks until the script has entered, so putting either on the thread pool makes the
+        // pool's injection rate part of the outcome. See DedicatedThread.RunAsync.
+        var running = DedicatedThread.RunAsync(() => engine.Execute("block()"));
 
         entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
         try
@@ -900,6 +944,7 @@ public class HostMemoryLimitTests
     private sealed class DelayedModuleLoader : IAsyncModuleLoader
     {
         private readonly Action _onLoad;
+        private readonly ManualResetEventSlim _started = new();
         private ModuleLoadCompletion? _completion;
 
         public DelayedModuleLoader(Action onLoad) => _onLoad = onLoad;
@@ -917,7 +962,18 @@ public class HostMemoryLimitTests
             Started = true;
             _onLoad();
             _completion = completion;
+
+            // Set last, so that a thread woken by this has a completion to settle.
+            _started.Set();
         }
+
+        /// <summary>
+        /// Blocks until the engine has asked for the module, so that a host driving the load from another
+        /// thread cannot reach <see cref="Complete"/> before there is a completion to settle.
+        /// </summary>
+        public void WaitUntilStarted() => _started
+            .Wait(TimeSpan.FromSeconds(30))
+            .Should().BeTrue("the engine never asked the loader for the module");
 
         public void Complete(string source) => _completion!.SetSource(source);
     }
