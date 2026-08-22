@@ -27,15 +27,22 @@ engine supplies its own `setTimeout` — the shim's `step_timeout` is a forwarde
 suites' 45 timer sites are decided by the shipped `TimerQueue` — `// META: variant=` sharding is ignored
 because one unsharded run is the union of every variant, and why the object model is there at all
 (`url/urlencoded-parser.any.js` runs each of its 35 inputs through `URLSearchParams`, `Request.formData()`
-and `Response.formData()`, one algorithm reached three ways).
+and `Response.formData()`, one algorithm reached three ways; and the two `fetch/api/` suites are about those
+three interfaces and nothing else, which is what let half of that corpus be vendored while the half that
+talks to a server could not).
 
-Eight standards are vendored: `url/`, `encoding/`, `compression/` and `urlpattern/` as one suite each,
-`FileAPI/` as **three** (its root, `blob/` and `file/`), `workers/` as **three**, `WebCryptoAPI/` as **eight**
-and `streams/` as **seven** — their root files plus one suite per sub-directory, because
-`WptCorpus.TestFiles` lists a directory's own files and never descends. That is 195 theory cases: 48 of them
-the WebCryptoAPI corpus's 24,136 assertions, 65 the streams corpus's 1,154, 15 the compression corpus's 297,
-3 the URL Pattern corpus's 373, 14 the File API's 342 and 11 the workers corpus's 15; the whole driver runs
-in about a minute.
+Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/` and
+`user-timing/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`), `workers/` as
+**three**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
+(events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
+**seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
+directory's own files and never descends. That is 269 theory cases over 40,617 assertions, of which 3,021 do
+not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
+
+The corpora arrived a group at a time, most of them under
+[issue #3185](https://github.com/sebastienros/jint/issues/3185); this file records what each of them says
+about the engine, and the [inventory](#the-whole-corpus-standard-by-standard) at the end has the figures
+corpus by corpus and lists what remains deliberately unvendored.
 
 ## Two lanes: the top-level engine, and a real worker
 
@@ -97,7 +104,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | --- | --- |
 | `url/idlharness.any.js`, `encoding/idlharness.any.js` | Need `/resources/idlharness.js` and `/resources/WebIDLParser.js` — a WebIDL conformance framework an order of magnitude larger than the shim, testing a layer Jint's source-generated built-ins do not have. |
 | `url/IdnaTestV2.any.js`, `url/IdnaTestV2-removed.any.js` | A 314 kB UTS-46 conformance corpus. `Jint.WebApi.Url.Parsing.Idna` builds on `IdnMapping` and documents where that diverges (VerifyDnsLength, CheckHyphens, ICU version skew); running it is an IDNA triage of its own rather than part of standing the harness up. |
-| `encoding/legacy-mb-*`, `encoding/iso-2022-jp-decoder.any.js`, `encoding/single-byte-decoder.any.js`, `encoding/textdecoder-fatal-single-byte.any.js`, `encoding/replacement-encodings.any.js` | The Encoding Standard's legacy single-byte and multi-byte decoders, which [issue #3106](https://github.com/sebastienros/jint/issues/3106) implements. `single-byte-decoder` and `replacement-encodings` additionally need `XMLHttpRequest`. |
+| `encoding/legacy-mb-*`, `encoding/iso-2022-jp-decoder.any.js`, `encoding/replacement-encodings.any.js` | The Encoding Standard's legacy multi-byte decoders and the replacement encoding, which [issue #3106](https://github.com/sebastienros/jint/issues/3106) implements. `replacement-encodings` additionally needs `XMLHttpRequest`. The single-byte families that used to share this row are implemented, and their two files are vendored — see [Encoding, the single-byte half](#encoding-the-single-byte-half). |
 | `encoding/unsupported-encodings.any.js` | Decodes through `XMLHttpRequest` and `data:` URLs (`encoding/resources/decoding-helpers.js`). |
 | `WebCryptoAPI/*.tentative.https.any.js` (and the helpers only they use) | Upstream marks a file `.tentative` when it tests a proposal the specification has not adopted: ML-KEM, ML-DSA, KMAC, cSHAKE, SHA-3, TurboSHAKE, KangarooTwelve, AES-OCB, ChaCha20-Poly1305, Argon2, Ed448/X448, `getPublicKey`, `supports`. Jint registers what [the algorithm overview](https://w3c.github.io/webcrypto/#algorithm-overview) lists and nothing else. |
 | `WebCryptoAPI/**/*_Ed25519.https.any.js`, `*_X25519.https.any.js`, `*/eddsa*`, `*/cfrg_curves*`, `*/okp_importKey*` | Curve25519. The BCL ships no X25519 or Ed25519 primitive — there is no `ECCurve` for either — so the whole family is out of scope for a crypto layer written against it. The campaign that built `crypto.subtle` excluded them for the same reason. Rows that sit *inside* a file which is otherwise about something else (the X25519 rows of `derived_bits_length`) are excluded one by one under `NeedsCurve25519` instead. |
@@ -122,23 +129,44 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/examples/*` | Upstream's own tutorial for writing worker tests, and it teaches wpt rather than testing an engine: `general.any.js` is two tests, the second asserting `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the wpt server generates for a `.any.js` file. There is no server here to generate one. `onconnect.any.js` beside it is `global=sharedworker`. |
 | `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution: it rewrites `{{host}}` and `{{ports[…]}}` into a real origin before serving the file, so a vendored copy carries the placeholders verbatim. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
+| `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
+| `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
+| `html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js` | A defect, and one that cannot be an exclusion — see [What the timers and microtask corpora say](#what-the-timers-and-microtask-corpora-say-about-this-engine). |
+| `dom/events/Event-constructors.any.js` | Registers fourteen of its fifteen tests **without a name**, so every one of them is reported under the same name and no per-test exclusion can single out the two that fail. Those two are Event's legacy `srcElement` and `returnValue` members; both are recorded as defects below, and `returnValue` also has an exclusion of its own in `AddEventListenerOptions-passive.any.js`, where the test that finds it *is* named. |
+| `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
+| `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
+| `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
+| `fetch/api/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
+| `fetch/api/headers/header-values.any.js`, `header-values-normalize.any.js`, `headers-no-cors.any.js` | Needs a wpt server: each sends the values it built to `resources/inspect-headers.py` or loads a CORS corpus over HTTP. The pure-`Headers` half of the same directory is vendored. |
+| `fetch/api/response/json.any.js` | Fetches a `data:` url and `/xhr/resources/utf16-bom.json`. |
+| `fetch/api/response/response-cancel-stream.any.js`, `response-clone.any.js`, `response-headers-guard.any.js` | Needs a wpt server — `trickle.py`, `top.txt`, `data.json` over HTTP with real headers. |
+| `fetch/api/response/response-blob-realm.any.js` | Needs a document and a second realm: it builds an `iframe` to obtain one. |
 
-Nothing was left out for being slow. Every vendored file was timed at the pin; the slowest is
+Every vendored file was timed at the pin; the slowest is
 `derive_bits_keys/pbkdf2.https.any.js` at ~20 s for 8,632 cases (it is `// META: timeout=long` and sharded
 nine ways upstream), then `generateKey/successes_RSA-OAEP.https.any.js` at ~7 s, which really does generate
 156 RSA key pairs. Everything else is under 3 s. The whole streams corpus is 6.4 s for its 65 files, the
 slowest being `readable-byte-streams/templated.any.js` at ~2.1 s and `readable-streams/templated.any.js` at
 ~1.0 s — both are `rs-test-templates.js` run over every stream shape — so nothing there is near the bar
-either. `transferable/transform-stream-members.any.js`, the file this pin's newest change added, is four
+either. `transferable/transform-stream-members.any.js`, the file the transferable-streams change added, is four
 assertions and does not register.
 
-The three corpora added last measure 2.6 s (compression, 15 files), 3.1 s (urlpattern, 3 files) and 0.2 s
-(FileAPI, 14 files), run one after another on one thread. Two files carry almost all of that: `urlpattern.any.js`
+The compression, urlpattern and File API corpora measure 2.6 s (15 files), 3.1 s (3 files) and 0.2 s
+(14 files), run one after another on one thread. Two files carry almost all of that: `urlpattern.any.js`
 at ~2.9 s, which is 369 patterns each compiled and then matched, and `compression/compression-large-flush-output.any.js`
 at ~1.5 s, which compresses half a megabyte and inflates it again with pako. Both are `// META: timeout=long`
 upstream. Everything else in the three is under 120 ms. The workers corpus added after them measures 0.46 s
 for its 11 files — a whole engine is constructed, entangled and pumped per file, and that is still what it
 costs.
+
+Nothing was left out for being slow, but three of the files the timing and DOM corpora added *do* wait on a
+real clock, so their figures are worth recording: `hr-time/basic.any.js` **2.4 s** (a deliberate 2,000 ms
+sample, without which its `performance.now()`-against-`Date.now()` correlation would mean nothing),
+`dom/abort/AbortSignal.any.js` **2.0 s** (a 2,000 ms window in which an already-aborted signal must fire no
+event) and `html/webappapis/timers/clearinterval-from-callback.any.js` **1.3 s** (a 500 ms interval, then a
+750 ms timer proving it was cleared). Measured file by file at the pin, the 74 files those two groups added
+come to **7.6 s** of the driver's run; the two encoding files are the largest single contribution at 0.9 s for
+7,504 assertions.
 
 Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`,
 `.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what excludes
@@ -393,6 +421,201 @@ it is why `workers/modules/` is not vendored at all. The canonical "am I in a de
 wpt's module-worker fixtures decides where to install its `onmessage` handler, so in Jint none of them
 installs one and the whole flagship file hangs. The design named that wrinkle when it took the decision; this
 is what it costs, and it is a cost paid by real third-party worker code and not only by a conformance suite.
+
+## What the hr-time and user-timing corpora say about this engine
+
+85 assertions, of which **10 do not pass**, and the split is almost exactly the one
+`PerformanceInstance` predicts in its own documentation.
+
+Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
+"`PerformanceObserver` and everything that reports to one, `toJSON`, `setResourceTimingBufferSize` and the
+resource-timing surface, and the `EventTarget` this interface inherits from" as what it does not implement, and
+says why each is *absent* rather than present-and-throwing — so that a script's own feature detection sees the
+truth. What the corpus adds to that is a measurement of the cost: **only four files** of the user-timing suite
+depend on an observer at all, and one more (`supported-usertiming-types.any.js`, not vendored) reads it at file
+scope. The other fifteen read the timeline through `getEntries()` and pass, including the whole of
+`mark.any.js`, `measure-l3.any.js` and `measure_syntax_err.any.js`.
+
+**The remaining four are one genuine defect**, and a narrow one. `mark-errors.any.js` runs each of its five
+cases twice — once through `performance.mark(name, x)` and once through `new PerformanceMark(name, x)` — and
+only the constructor accepts a non-object where
+[WebIDL's dictionary conversion](https://webidl.spec.whatwg.org/#es-dictionary) refuses one: a `Number`, a
+`NaN`, an `Infinity` or a `String` in the options position should be a `TypeError`, and
+`performance.mark` makes it one. The constructor's own `{startTime: -1}` row passes, so what is missing is
+exactly the "not an object and not `null`/`undefined` is a `TypeError`" step in
+`PerformanceMarkConstructor`, not the option handling behind it.
+
+## What the timers and microtask corpora say about this engine
+
+16 assertions across nine files, and **every one of them passes** — which is the answer that matters, because
+these are the files that test the `TimerQueue` from the outside: `setTimeout` and `setInterval` sharing one id
+space so `clearInterval` cancels a timeout, an interval cleared from its own callback staying cleared,
+`setInterval(0)` and `setTimeout(0)` firing in registration order, `setInterval(fn)` with no interval at all
+behaving as `0`, a negative delay clamping to `0`, and `2**32` wrapping to `0` through WebIDL's `long`
+conversion. Four of them are `setup({single_test: true})` files, which the shim did not previously implement.
+
+One file is **not vendored, and it is a defect rather than a decline**.
+`queue-microtask-exceptions.any.js` throws from a `queueMicrotask` callback and expects to observe it as an
+`error` event at the global scope. [HTML's `queueMicrotask`](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask)
+says "queue a microtask to invoke *callback*, given null and **"report"**", and WebIDL's *report* exception
+behaviour is HTML's *report an exception* — fire `error` at the global scope, then tell the console. Jint
+instead lets the throw erupt from whatever is pumping the event loop: `TimerFunctions.QueueMicrotaskCallback`
+enqueues a bare `callback.Call(...)`, where `TimerEntry.Fire` and `JsEventTarget.InvokePass` both have the
+`catch (JavaScriptException) when (… is { } diagnostics)` filter that reaches
+`WebApiEngineState.FireGlobalErrorEvent`. So the exception leaves the engine before any listener can see it,
+the file is a harness error rather than a failing test, and there is no test left for an exclusion to name.
+
+## Encoding, the single-byte half
+
+The two files that used to sit in the not-vendored table for
+[issue #3106](https://github.com/sebastienros/jint/issues/3106) are vendored now that the single-byte decoders
+are implemented. `textdecoder-fatal-single-byte.any.js` is 7,168 assertions and **passes entirely** — every
+byte of every single-byte encoding, decoded with `fatal: true` and checked against the table.
+`single-byte-decoder.any.js` is 336, and its 168 `(TextDecoder)` rows pass while its 168 `(XMLHttpRequest)`
+rows are excluded under `NeedsWptServer`: that half asks `resources/single-byte-raw.py`, a wptserve handler,
+to generate the bytes `0x00..0xFE` labelled with the charset from its query string.
+
+The shim grew an `XMLHttpRequest` for it — GET only, read synchronously out of the vendored tree, `load`
+dispatched on the engine's own timer — whose real job is the refusal: a request the corpus cannot serve throws
+inside the test body naming what was asked for, so "there is no server here" arrives as a failing test rather
+than as a missing global or a dead file. `WptHarnessTests` exercises it from both sides, against a real
+vendored resource and against every shape it declines.
+
+## What the DOM events and abort corpora say about this engine
+
+62 assertions across twelve files, of which **two do not pass**, and both are `Event`'s legacy members:
+
+1. **`Event.isTrusted` is on the prototype, where WebIDL makes it an own property.**
+   `dom/events/Event-isTrusted.any.js` takes `Object.getOwnPropertyDescriptor(new Event("x"), "isTrusted")`
+   from two separate events and requires both to be an accessor and to be the *same* getter.
+   [The DOM Standard](https://dom.spec.whatwg.org/#dom-event-istrusted) declares it
+   `[LegacyUnforgeable]`, which [WebIDL](https://webidl.spec.whatwg.org/#LegacyUnforgeable) defines as an own,
+   non-configurable accessor installed on every instance rather than on the interface prototype object.
+   `EventPrototype` declares it beside `type` and `bubbles` as an ordinary configurable prototype accessor.
+2. **`Event` has no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
+   [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement) as a `[LegacyUnforgeable]` alias of
+   `target`, [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue) as a writable alias of
+   "not `defaultPrevented`" whose setter runs *set the canceled flag* — so they are missing members rather than
+   a legacy extension nobody requires. The test that finds `returnValue` is
+   `AddEventListenerOptions-passive.any.js`'s "returnValue should be ignored if-and-only-if the passive option
+   is true", which is also the only one of that file's five rows to fail;
+   `dom/events/Event-constructors.any.js` finds both, but registers every test without a name, which is what
+   keeps it out of the corpus.
+
+Everything else passes, including all sixteen rows of `dom/abort/event.any.js`, all fourteen of
+`AbortSignal.any()`'s composition and ordering rules, and `AbortSignal.timeout()` firing in registration order
+— the last of which is a `TimerQueue` result as much as an abort one.
+
+## What the structured-clone battery says about this engine
+
+137 assertions, of which **33 do not pass**. Three are the environment: a `WebAssembly.Memory`-backed growable
+`SharedArrayBuffer`, an `ImageBitmap` and an `OffscreenCanvas`. Two rows that this corpus arrived excluding
+are green on the branch it landed on, which is worth recording because it is the table working as designed —
+"a non-serializable platform object fails" needed a `Response` to be non-serializable *with*, and every
+engine the driver builds now carries the object model; and "a subclass instance will be received as its
+closest transferable superclass" needed `ReadableStream` transfer, which
+[issue #3199](https://github.com/sebastienros/jint/issues/3199) implemented.
+
+**The other 30 are three defects**, each of which reproduces outside the harness:
+
+1. **An `Error`'s `cause` is not carried.** Seven rows, one per error type.
+   [HTML's serialization steps for an Error](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal)
+   read `cause` when the object has it as an own property and serialize it into the record;
+   `StructuredSerializer` reads the name, the message and the stack and stops there, so
+   `structuredClone(new Error("x", { cause: "my cause" })).cause` is `undefined`.
+2. **`Blob` and `File` are not serializable at all** — 20 rows, every one a `DataCloneError`. Both are
+   `[Serializable]` in [the File API](https://w3c.github.io/FileAPI/#dfn-Blob), and Jint has both interfaces
+   (the `Files` feature is in `WebApiFeatures.Default`); what is missing is their serialization steps in
+   `StructuredSerializer`/`StructuredDeserializer`. Two further rows are the same defect seen from a different
+   angle — a `Blob` whose interface object has been deleted from the global must still deserialize, and a
+   `File` subclass must come back as a plain `File`.
+3. **`%Object.prototype%` is refused.** `structuredClone(Object.prototype)` raises `DataCloneError` where
+   HTML clones it as an ordinary object — it has no internal slot beyond `[[Prototype]]` and `[[Extensible]]`,
+   and being an immutable-prototype exotic object is exactly the property the test says the *clone* must lose.
+
+## What the fetch object model says about this engine
+
+388 assertions across 29 files, of which **88 do not pass**. 73 of them are one documented decline:
+`HeadersGuard` refuses to enforce the *forbidden header name* and *forbidden response header name* lists,
+because they are a browser's protection of headers the user agent alone controls and Jint runs server-side,
+where those headers are exactly what a script legitimately needs to set — the same choice Node and Deno make.
+That is the whole of `headers-forbidden-override.any.js`'s 72 forbidden rows (its 18 "is allowed to use" rows
+pass) and one row of `header-setcookie.any.js`. One more row is `NeedsApiBaseUrl`: `Response.redirect("/")`
+with no document to resolve against.
+
+**The remaining 14 are four defects:**
+
+1. **The `Headers` iterator prototype's `next` is not enumerable** — three rows of `headers-basic.any.js`
+   (`keys`, `values`, `entries`).
+   [WebIDL's iterator prototype object](https://webidl.spec.whatwg.org/#es-iterator-prototype-object) gives it
+   `{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }`. This is the same attribute on the
+   same kind of object as the streams corpus's async-iterator defect above, and the fix is the same one flag
+   on `HeadersIteratorPrototype`.
+2. **A `Response` whose body came from bytes is not disturbed by consuming it** — eight of the twelve rows of
+   `response-stream-disturbed-5.any.js`. After `response.blob()` (or `text`/`json`/`arrayBuffer`) has been
+   called, `response.body.getReader()` must throw a `TypeError` because
+   [the body is disturbed](https://fetch.spec.whatwg.org/#concept-body-disturbed) and its stream locked; here
+   it succeeds. The four rows whose body source is a `ReadableStream` the test built itself **pass**, which
+   locates the defect precisely: the stream `.body` exposes for a byte-source body is created lazily and is
+   not the one the consume path locked.
+3. **An empty `FormData` body does not serialize to an empty body** — one row of
+   `response-consume-empty.any.js`, which asks that `await new Response(new FormData()).text()` have length 0
+   and gets the 50-byte closing boundary `MultipartFormData` writes. Worth confirming against
+   [the multipart/form-data encoding algorithm](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm)
+   before changing anything, which is why it is triage rather than a fix.
+4. **A `record<ByteString, ByteString>` conversion performs one operation too many** — two rows of
+   `headers-record.any.js`, "Correct operation ordering with two properties one of which has an invalid name"
+   (6 where 5 are allowed) and "Basic operation with Symbol keys" (8 where 7 are). Both count the operations a
+   proxy records while [WebIDL's record conversion](https://webidl.spec.whatwg.org/#es-record) walks the
+   object, so what they pin is the order of `OwnPropertyKeys`, `GetOwnProperty` and `Get` rather than the
+   header list behind it.
+
+## The whole corpus, standard by standard
+
+Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
+the shim did not record `PASS`, which is exactly the set the table names.
+
+| Standard | Suites | Files | Assertions | Not passing |
+| --- | --- | --- | --- | --- |
+| URL | `url/` | 21 | 2,068 | 0 |
+| URL Pattern | `urlpattern/` | 3 | 373 | 0 |
+| Encoding | `encoding/` | 20 | 11,544 | 322 |
+| Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,448 |
+| Streams | `streams/` ×7 | 65 | 1,154 | 16 |
+| Compression | `compression/` | 15 | 297 | 84 |
+| File API | `FileAPI/` ×3 | 14 | 342 | 11 |
+| High Resolution Time | `hr-time/` | 2 | 7 | 1 |
+| User Timing | `user-timing/` | 19 | 78 | 9 |
+| HTML — workers | `workers/` ×3 | 11 | 15 | 7 |
+| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 33 |
+| DOM | `dom/` ×2 | 12 | 62 | 2 |
+| Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
+| **total** | **34** | **269** | **40,617** | **3,021** |
+
+Two of those rows are worth a caveat. The Encoding figure is dominated by
+`textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,
+168 are the `XMLHttpRequest` half of `single-byte-decoder.any.js` and the rest are the legacy multi-byte
+labels. And the Web Cryptography figure is the one that moves per platform — macOS has 216 more, for the
+reason the WebCryptoAPI section states — which is what the per-OS exclusion scoping exists for: the driver
+holds every entry to matching a real failure on the leg it is running on, so no figure here decides which
+rows are excluded.
+
+The corpora arrived a group at a time. `url/` and `encoding/` came with the harness itself
+([#3104](https://github.com/sebastienros/jint/issues/3104)) and `WebCryptoAPI/` shortly after; the four groups
+of [#3185](https://github.com/sebastienros/jint/issues/3185) added `streams/`, then
+`compression/` + `urlpattern/` + `FileAPI/`, then the timing and DOM half, and last the network-free half of
+`fetch/api/` together with the two single-byte encoding files that had been parked for the decoders;
+`workers/` came with the worker feature ([#3167](https://github.com/sebastienros/jint/issues/3167)) and is
+the one corpus that does not run in the driver's own engine. This file records what each of them says about
+the engine.
+
+What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
+above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
+`.sub.html` are all for a browsing context or a classic worker. Of the WHATWG standards Jint implements, the
+directories with no vendored file at all are `fetch/api/request/` (no API base URL), `fetch/api/` minus
+`headers/` and `response/` (needs a server), `workers/modules/` and the rest of the `workers/` tree listed
+above, the `WebCryptoAPI` directories listed above, and `xhr/` (there is no `XMLHttpRequest` in the engine —
+the shim's is a vendored-corpus reader for the suites that need one, never an implementation).
 
 ## Updating the pin
 

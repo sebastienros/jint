@@ -95,6 +95,19 @@ public class WptHarnessTests
     // true, so a string would pass a numeric assertion outright.
     [InlineData("assert_greater_than(10, 9)", "assert_greater_than('10', 9)")]
     [InlineData("assert_greater_than(1, 0)", "assert_greater_than(undefined, 0)")]
+    // Greater *or equal*, which is the whole difference from the row above, and the same type check.
+    [InlineData("assert_greater_than_equal(1, 1)", "assert_greater_than_equal(0, 1)")]
+    [InlineData("assert_greater_than_equal(2, 1)", "assert_greater_than_equal('2', 1)")]
+    // Within the tolerance, and the tolerance is inclusive.
+    [InlineData("assert_approx_equals(10, 12, 3)", "assert_approx_equals(10, 12, 1)")]
+    [InlineData("assert_approx_equals(10, 12, 2)", "assert_approx_equals(10, 12, 1.9)")]
+    // The non-finite branch: `Math.abs(Infinity - Infinity)` is NaN and no comparison against epsilon can be
+    // true, so a pair with no finite side falls through to same-value instead — which is why Infinity equals
+    // itself here and does not equal its negation however large the tolerance.
+    [InlineData("assert_approx_equals(Infinity, Infinity, 0)", "assert_approx_equals(Infinity, -Infinity, 1e308)")]
+    [InlineData("assert_approx_equals(NaN, NaN, 0)", "assert_approx_equals(NaN, 1, Infinity)")]
+    // ... and the type check, which is what stops a string that coerces from satisfying it.
+    [InlineData("assert_approx_equals(1, 1, 0)", "assert_approx_equals('1', 1, 1)")]
     public void AnAssertionRecordsBothOutcomes(string passing, string failing)
     {
         StatusOf($"test(() => {{ {passing} }}, 'row');").Should().Be("PASS");
@@ -775,28 +788,45 @@ public class WptHarnessTests
     }
 
     [Fact]
-    public void ACleanupRunsWhenTheTestFinishesRatherThanWhenItFails()
+    public void AFailedStepEndsTheTestAndRunsItsCleanups()
     {
-        // An async test goes on running steps after one of them has failed, so *when* the cleanup runs is a
-        // contract and not an implementation detail: undoing the patch at the first failure would change what
-        // every later step of that test is looking at. Hanging the call off `record()` — which `fail()` also
-        // calls — is the plausible mistake, and it is exactly what this rules out.
+        // Upstream's `step` catch sets the status and then calls `done()`, so a failed step is the end of the
+        // test: the cleanups run there and then, and every later step is a no-op. This shim used to leave the
+        // test running instead, which was survivable only because no vendored file threw out of an
+        // `async_test` body — and then the hr-time and user-timing corpora arrived, where reaching for an
+        // absent `PerformanceObserver` does exactly that. Such a test stayed in `outstanding` for ever and the
+        // driver reported the whole file as stalled, hiding one nameable failure behind a dead run.
         var outcome = Run("""
             globalThis.ran = false;
+            globalThis.later = false;
             var t = async_test('row');
             t.add_cleanup(() => { globalThis.ran = true; });
             t.step(() => assert_true(false, 'deliberate'));
-            var duringTest = globalThis.ran;
-            t.done();
+            var atFailure = globalThis.ran;
+            t.step(() => { globalThis.later = true; });
             test(() => {
-                assert_false(duringTest, 'the cleanup must not run at the moment of failure');
-                assert_true(globalThis.ran, 'and it must have run by the time the test is done');
+                assert_true(atFailure, 'the failing step must have run the cleanups');
+                assert_false(globalThis.later, 'a step after the failure must not run');
             }, 'ordering');
             """);
 
         outcome.HarnessError.Should().BeNull();
         outcome.Results[0].Status.Should().Be("FAIL");
         outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
+    }
+
+    [Fact]
+    public void AnAsyncTestWhoseBodyThrowsStopsBeingOutstanding()
+    {
+        // The half of the rule above that the driver depends on: nothing calls `done()` here, so if the throw
+        // did not end the test the file would never complete and this would come back a harness error naming a
+        // stalled run rather than a FAIL naming the reference error.
+        var outcome = Run("async_test(() => { noSuchGlobal(); }, 'row');");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Should().HaveCount(1);
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain("noSuchGlobal");
     }
 
     [Fact]
@@ -888,6 +918,118 @@ public class WptHarnessTests
         outcome.HarnessError.Should().NotBeNull();
         outcome.HarnessError.Should().Contain("missingGlobal");
         outcome.Results.Should().HaveCount(1, "what ran before the throw is still reported");
+    }
+
+    [Fact]
+    public void SingleTestMakesTheWholeFileOneTestThatDoneFinishes()
+    {
+        // `setup({single_test: true})` is what four of the html/webappapis/timers files declare, and a shim
+        // that ignored it would register nothing at all and report those files as empty runs.
+        var outcome = Run("""
+            setup({ single_test: true });
+            assert_equals(1, 1);
+            done();
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Should().HaveCount(1);
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+        outcome.Results[0].Name.Should().Be("inline.any.js", "the shim names the file's one test after the file");
+    }
+
+    [Fact]
+    public void ASingleTestFileThatNeverCallsDoneIsAStalledRunRatherThanAPass()
+    {
+        // The other half of the mode: the one test is asynchronous, so it is finished by `done()` and by
+        // nothing else. A shim that completed it at the end of the file would report a green run for a file
+        // whose timer never fired.
+        var outcome = Run("setup({ single_test: true });");
+
+        outcome.HarnessError.Should().NotBeNull();
+        outcome.HarnessError.Should().Contain("inline.any.js");
+    }
+
+    [Fact]
+    public void ASynchronousXmlHttpRequestReadsAVendoredResource()
+    {
+        var outcome = WptHarness.RunInline("""
+            test(() => {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'resources/urltestdata.json', false);
+                xhr.send(null);
+                assert_equals(xhr.status, 200);
+                assert_true(xhr.responseText.length > 1000);
+            }, 'row');
+            """,
+            directory: "url");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Fact]
+    public void AnAsynchronousXmlHttpRequestFiresLoadAfterTheScriptThatSentIt()
+    {
+        // `xhr.onload = …` is assigned *after* `send()` in every suite that uses one, so a load event
+        // dispatched inside `send()` would never reach a handler.
+        var outcome = WptHarness.RunInline("""
+            async_test(t => {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'resources/urltestdata.json');
+                xhr.send(null);
+                assert_equals(xhr.readyState, 4, 'the read itself is synchronous');
+                xhr.onload = t.step_func_done(() => {
+                    assert_true(xhr.responseText.length > 1000);
+                });
+            }, 'row');
+            """,
+            directory: "url");
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Theory]
+    // Everything the reader is not, each of which has to arrive as a failing test naming what was asked for —
+    // never as a pass, a hang, or a CLR exception that takes the whole file down.
+    [InlineData("xhr.open('POST', 'resources/urltestdata.json'); xhr.send(null);", "supports GET")]
+    [InlineData("xhr.open('GET', 'resources/single-byte-raw.py?label=x'); xhr.send(null);", "holds no")]
+    [InlineData("xhr.open('GET', '../../../etc/passwd'); xhr.send(null);", "holds no")]
+    [InlineData("xhr.open('GET', 'resources/urltestdata.json'); xhr.send('body');", "sends no request body")]
+    [InlineData("xhr.send(null);", "before open()")]
+    [InlineData("xhr.open('GET', 'resources/urltestdata.json'); xhr.setRequestHeader('X', 'y');", "cannot set the header")]
+    public void AnXmlHttpRequestRefusesWhatItCannotServe(string body, string expected)
+    {
+        var outcome = WptHarness.RunInline($"test(() => {{ var xhr = new XMLHttpRequest(); {body} }}, 'row');", directory: "url");
+
+        outcome.HarnessError.Should().BeNull("a refusal is a failing test, not a dead file");
+        outcome.Results[0].Status.Should().Be("FAIL");
+        outcome.Results[0].Message.Should().Contain(expected);
+    }
+
+    [Theory]
+    // One suite that reads its corpus with `fetch` and one that is about `Response` itself, because the
+    // answer has to be the same object in both: every engine the driver builds carries the object model.
+    [InlineData("url", "resources/urltestdata.json")]
+    [InlineData("fetch/api/resources", "data.json")]
+    public void TheResourceLoaderAnswersWithARealResponse(string directory, string reference)
+    {
+        // The `fetch/api/response/` suites read `response.body` and expect a ReadableStream. A duck-typed
+        // object has no `body` at all, and `assert_throws_js(TypeError, () => response.body.getReader())`
+        // passes against `undefined` — a green row that proves nothing, which is what this rules out.
+        var outcome = WptHarness.RunInline($$"""
+            promise_test(async () => {
+                const response = await fetch('{{reference}}');
+                assert_true(response instanceof Response, 'a real Response');
+                assert_not_equals(response.body, null, 'with a real body');
+                const json = await response.json();
+                assert_equals(typeof json, 'object');
+            }, 'row');
+            """,
+            directory);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
     [Fact]

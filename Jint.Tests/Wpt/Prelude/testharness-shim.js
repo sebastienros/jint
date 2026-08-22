@@ -25,8 +25,15 @@
 //     giving the shim a way to know first.
 //   * `fetch` is a *resource loader* over the vendored tree, not the Fetch API. It is what
 //     `fetch("resources/urltestdata.json")` needs and nothing more.
+//   * `XMLHttpRequest` is the same loader wearing an XHR shape: GET only, read synchronously out of the
+//     vendored tree, `load` dispatched on the engine's own timer. Anything else — another method, a path the
+//     corpus does not hold, a wptserve `.py` endpoint — is refused with a throw naming what was asked for, so
+//     a test that needs a server fails saying so instead of silently passing or hanging.
 //   * Timers are the engine's own: this file installs no `setTimeout`, and its `step_timeout` is a thin
 //     forwarder onto the engine's, so a scheduled callback rides the shipped TimerQueue. See WptHarness.cs.
+//   * `setup({single_test: true})` is upstream's file-is-one-test mode, and the one test it creates is named
+//     after the source file. Upstream leaves that name `undefined` and lets its reporter substitute the page's
+//     title; the driver reports by test name, so a name it can print is what this shim gives it.
 (function (global) {
     'use strict';
 
@@ -37,6 +44,8 @@
     var outstanding = [];
     var completionCallbacks = [];
     var promiseChain = null;
+    // The one test of a `setup({single_test: true})` file, or null. See `setup` below.
+    var fileTest = null;
 
     function stopWaitingFor(test) {
         var at = outstanding.indexOf(test.name);
@@ -182,6 +191,31 @@
         assert(actual > expected,
             'expected a number greater than ' + format_value(expected) +
             ' but got ' + format_value(actual) + describe(description));
+    }
+
+    function assert_greater_than_equal(actual, expected, description) {
+        assert(typeof actual === 'number',
+            'expected a number but got a ' + typeof actual + describe(description));
+        assert(actual >= expected,
+            'expected a number greater than or equal to ' + format_value(expected) +
+            ' but got ' + format_value(actual) + describe(description));
+    }
+
+    // Upstream's tolerance comparison, including the branch that keeps it usable at the edges of the number
+    // line: `Math.abs(Infinity - Infinity)` is NaN and `NaN <= epsilon` is false, so a pair where neither side
+    // is finite is compared by identity instead — which is how Infinity equals Infinity and NaN equals NaN
+    // here, exactly as `assert_equals` has them.
+    function assert_approx_equals(actual, expected, epsilon, description) {
+        assert(typeof actual === 'number',
+            'expected a number but got a ' + typeof actual + describe(description));
+
+        if (isFinite(actual) || isFinite(expected)) {
+            assert(Math.abs(actual - expected) <= epsilon,
+                'expected ' + format_value(expected) + ' +/- ' + format_value(epsilon) +
+                ' but got ' + format_value(actual) + describe(description));
+        } else {
+            assert_equals(actual, expected, description);
+        }
     }
 
     function assert_array_equals(actual, expected, description) {
@@ -638,6 +672,13 @@
 
     // The body of a step, shared by every entry point. A throw is the test's failure, except that an
     // AssertionError raised inside a nested assert_throws_* has already been classified.
+    //
+    // A failed step *ends* the test, which is upstream's `this.phase = HAS_RESULT; this.done()` and is
+    // load-bearing rather than tidy: an `async_test` whose body throws — reaching for a global this engine
+    // does not have, say — would otherwise stay in `outstanding` for ever and the driver would report the
+    // whole file as stalled, where what happened is one test failing for a nameable reason. Recording the
+    // failure first and completing afterwards keeps the status the step set: `complete` runs the cleanups
+    // and re-records, and nothing between the two can turn a FAIL back into a PASS.
     Test.prototype.step = function (func, thisObj) {
         if (this.phase === 'complete') {
             return undefined;
@@ -646,6 +687,7 @@
             return func.apply(thisObj === undefined ? this : thisObj, Array.prototype.slice.call(arguments, 2));
         } catch (e) {
             this.fail(e);
+            this.done();
             return undefined;
         }
     };
@@ -802,12 +844,22 @@
             });
     }
 
-    // `setup` exists here for the one shape the corpus uses — a function run for its side effects before the
-    // tests are registered. The properties form (`explicit_done`, `single_test`, timeouts) is a browser
-    // scheduling concern the driver has no analogue for, so it is accepted and ignored.
-    function setup(func) {
-        if (typeof func === 'function') {
-            func();
+    // `setup` takes either a function run for its side effects before the tests are registered, or a
+    // properties bag. Of the bag only `single_test` is honoured, because it is the only member that decides
+    // what the file *is* rather than how a browser schedules it: it turns the whole file into one test, and a
+    // file that declared it and got nothing back would register no test at all and be reported as an empty
+    // run. Everything else in the bag — `explicit_done`, `allow_uncaught_exception`, the timeouts — is browser
+    // scheduling or a top-level error channel this shim does not have, and is accepted and ignored.
+    function setup(funcOrProperties) {
+        if (typeof funcOrProperties === 'function') {
+            funcOrProperties();
+            return;
+        }
+        if (funcOrProperties && funcOrProperties.single_test && fileTest === null) {
+            // Upstream's `set_file_is_test`: one async test, created before anything else in the file runs, and
+            // finished by the file calling `done()`. The name is the source file, which is this shim's own
+            // choice — see the header.
+            fileTest = async_test(typeof __wptTestFile === 'string' ? __wptTestFile : 'single_test');
         }
     }
 
@@ -815,9 +867,15 @@
         completionCallbacks.push(callback);
     }
 
-    // Upstream's `done()` ends a run started with `explicit_done`. Here every file is run to completion by
-    // the driver, so this only fires the completion callbacks; the results are already recorded.
+    // Upstream's `done()` ends a run started with `explicit_done` or `single_test`. For a `single_test` file
+    // it is what finishes the file's one test, which is the whole of that mode; otherwise every file is run to
+    // completion by the driver and this only fires the completion callbacks, the results being recorded
+    // already.
     function done() {
+        if (fileTest !== null) {
+            fileTest.done();
+        }
+
         for (var i = 0; i < completionCallbacks.length; i++) {
             completionCallbacks[i](results);
         }
@@ -853,16 +911,100 @@
     // path here — a reference the corpus does not hold, or one that tries to leave the vendored tree, is a
     // vendoring bug rather than a test result, so the driver's reader raises a CLR exception that erupts past
     // this function and is reported as a harness error for the whole file. See WptHarness.BuildEngine.
+    //
+    // What it answers with is a real `Response` carrying that text, which every engine the driver builds can
+    // construct — the object model is installed on all of them, see WptHarness.BuildEngine. That is not
+    // decoration: the `fetch/api/response/` suites read `response.body` and expect a ReadableStream, and a
+    // duck-typed object whose `body` is undefined lets
+    // `assert_throws_js(TypeError, () => response.body.getReader())` pass for the wrong reason, which is
+    // exactly the kind of green this file exists to avoid.
     global.fetch = function (input) {
-        var text = __wptReadResource(String(input));
-        return Promise.resolve({
-            ok: true,
-            status: 200,
-            url: String(input),
-            text: function () { return Promise.resolve(text); },
-            json: function () { return Promise.resolve(JSON.parse(text)); }
-        });
+        return Promise.resolve(new global.Response(__wptReadResource(String(input))));
     };
+
+    // Not the XMLHttpRequest of https://xhr.spec.whatwg.org/: the resource loader above wearing the shape the
+    // encoding suites reach for, and nothing more. GET only, read synchronously out of the vendored tree, and
+    // `load` dispatched on the engine's own timer so that the `xhr.onload = …` a suite writes *after* `send()`
+    // is still in place when it fires.
+    //
+    // Everything else is refused with a throw that names what was asked for. That is the point of having it at
+    // all: `encoding/single-byte-decoder.any.js` fetches `resources/single-byte-raw.py?label=…`, a wptserve
+    // handler that generates its bytes and their charset per request, so its XMLHttpRequest half genuinely
+    // needs a server. A refusal inside the test body records that as a failing test saying so, where a missing
+    // global would say only "XMLHttpRequest is not defined" and an obliging stub would quietly pass or hang.
+    //
+    // `responseText` is the file decoded as UTF-8, which is what the corpus is stored as; XHR's own
+    // charset negotiation is not modelled, and the only suite that would notice is the one being refused.
+    function XMLHttpRequest() {
+        this.readyState = 0;
+        this.status = 0;
+        this.statusText = '';
+        this.responseText = '';
+        this.response = '';
+        this.responseType = '';
+        this.onload = null;
+        this._url = null;
+        this._async = true;
+    }
+
+    function refuseXhr(what) {
+        throw new Error('XMLHttpRequest here is the web-platform-tests driver\'s vendored-corpus reader, which ' + what + '.');
+    }
+
+    XMLHttpRequest.prototype.open = function (method, url, async) {
+        if (String(method).toUpperCase() !== 'GET') {
+            refuseXhr('supports GET and not "' + method + '"');
+        }
+        this._url = String(url);
+        this._async = async === undefined ? true : !!async;
+        this.readyState = 1;
+    };
+
+    XMLHttpRequest.prototype.setRequestHeader = function (name) {
+        refuseXhr('sends no request and so cannot set the header "' + name + '"');
+    };
+
+    XMLHttpRequest.prototype.abort = function () {
+        refuseXhr('reads synchronously and has nothing to abort');
+    };
+
+    XMLHttpRequest.prototype.getResponseHeader = function () { return null; };
+
+    XMLHttpRequest.prototype.getAllResponseHeaders = function () { return ''; };
+
+    XMLHttpRequest.prototype.send = function (body) {
+        if (this._url === null) {
+            refuseXhr('was sent before open() named a url');
+        }
+        if (body !== undefined && body !== null) {
+            refuseXhr('sends no request body');
+        }
+        if (!__wptResourceExists(this._url)) {
+            refuseXhr('holds no "' + this._url + '": a wptserve endpoint, or a file that was not vendored, needs a server this driver does not have');
+        }
+
+        var text = __wptReadResource(this._url);
+        this.readyState = 4;
+        this.status = 200;
+        this.statusText = 'OK';
+        this.responseText = text;
+        this.response = text;
+
+        var request = this;
+        var deliver = function () {
+            if (typeof request.onload === 'function') {
+                request.onload.call(request, { type: 'load', target: request });
+            }
+        };
+
+        if (this._async) {
+            global.setTimeout(deliver, 0);
+        } else {
+            deliver();
+        }
+    };
+
+    global.XMLHttpRequest = XMLHttpRequest;
 
     global.test = test;
     global.async_test = async_test;
@@ -877,6 +1019,8 @@
     global.assert_equals = assert_equals;
     global.assert_not_equals = assert_not_equals;
     global.assert_greater_than = assert_greater_than;
+    global.assert_greater_than_equal = assert_greater_than_equal;
+    global.assert_approx_equals = assert_approx_equals;
     global.assert_array_equals = assert_array_equals;
     global.assert_in_array = assert_in_array;
     global.assert_object_equals = assert_object_equals;
