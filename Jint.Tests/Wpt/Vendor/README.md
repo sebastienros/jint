@@ -33,11 +33,16 @@ talks to a server could not).
 
 Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/` and
 `user-timing/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`), `workers/` as
-**three**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
+**four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
 (events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
 **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 269 theory cases over 40,617 assertions, of which 2,980 do
+directory's own files and never descends. That is 272 theory cases over 40,656 assertions, of which 2,902 do
 not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
+
+Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
+change moves them; the counts before
+[#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure were 270 / 40,631 /
+2,907, and the paragraph they replaced had been left at 269 / 40,617 / 2,980 by an earlier change.
 
 The corpora arrived a group at a time, most of them under
 [issue #3185](https://github.com/sebastienros/jint/issues/3185); this file records what each of them says
@@ -46,8 +51,8 @@ corpus by corpus and lists what remains deliberately unvendored.
 
 ## Two lanes: the top-level engine, and a real worker
 
-Every suite but one runs its file in the driver's own engine. The `workers/` corpus does not, and cannot:
-every `.any.js` file in it that is reachable at all carries `// META: global=worker` or
+Every suite but one runs its file in the driver's own engine. The `workers/` corpus mostly does not, and
+cannot: nearly every `.any.js` file in it that is reachable at all carries `// META: global=worker` or
 `global=dedicatedworker`, because the file's whole subject *is* the worker global. Run in the driver's
 top-level engine, `workers/Worker-custom-event.any.js` would test that engine's own `addEventListener`, pass,
 and prove nothing — the same emptiness that keeps `urlpattern.https.any.js` out of the tree.
@@ -79,6 +84,16 @@ Three consequences worth knowing:
 * **The worker gets the same environment the top-level engine gets**: `WebApiFeatures.Default` minus the
   grants a worker never inherits, plus the fetch object model, plus the shim's resource reader. A file's
   outcome therefore does not depend on which lane ran it.
+
+There is one file the rule sends the other way, and it is the rule's second half rather than an exemption
+from it. `workers/modules/dedicated-worker-import.any.js` carries no `// META: global=` key at all, because
+its subject is a *page* creating workers — nine of them, each running a vendored corpus module whose subject
+is `import`. So it runs in the top-level lane, and `WptHarness` gives a `workers/` directory a
+`WptWorkerProvider` there too: the workers it creates are real ones, and the provider's second shape serves
+them modules out of this tree, resolving a specifier exactly as the shim's `fetch` does. A specifier the
+corpus does not hold is a startup failure the parent hears as an `error` event rather than a harness error,
+which is what lets the two cases needing a wpt server be per-test exclusions. `_topLevelWorkersFiles` names
+which files are meant to take this route, so a corpus bump that adds another has to say so.
 
 The shim changed in one place for this. It used to install `self` unconditionally; it now does so only when
 the engine has not, because `WorkerGlobalScope.self` is read-only in HTML and an unconditional assignment
@@ -116,7 +131,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `streams/transferable/*.window.js`, `streams/transferable/resources/*` | The directory itself **is** vendored now that transferring a stream works ([issue #3199](https://github.com/sebastienros/jint/issues/3199)) — but it holds exactly one `.any.js` file. The two `.window.js` tests drive an iframe and a `MessagePort` helper page, and `resources/` is the iframe, worker, shared-worker and service-worker plumbing those and the directory's `.html` files load. The blanket "`.any.js` only" rule below already excludes all of it; these rows say so by name, because a half-vendored directory should not look like an oversight. |
 | `streams/readable-streams/owning-type*.tentative.any.js` | Upstream's `.tentative` marker again: owning-type readable streams are a proposal the Streams Standard has not adopted. |
 | `streams/*/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
-| `streams/readable-byte-streams/construct-byob-request.any.js` | Reads `ReadableByteStreamController.prototype` and calls `new ReadableStreamBYOBRequest(…)` at *file scope*. Neither is a global here — see "Streams, including byte streams" in the repository README for the reduction — so the file throws before registering a test, and a harness error is for the whole file rather than something a per-test exclusion can name. The seven rows of `default-reader.any.js` that fail for the same reason fail *inside* test bodies, so those are in the exclusion table under `NeedsStreamInterfaceGlobals`. |
 | `compression/compression-output-length.any.js`, `compression/compression-stream.any.js` | Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM, and for the second a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The shim's `fetch` is a *text* reader over the vendored tree, so neither the transport nor the accessor exists here, and vendoring a third of a megabyte of video in order to compress it would be a strange thing for this corpus to carry. `compression-stream.any.js` additionally calls `fetch` at file scope, so its failure could not even be a per-test one. |
 | `compression/decompression-extra-input.any.js` | Writes a member plus one trailing byte and never closes the writer, so its second `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the second of `DecompressionCodec`'s two documented divergences — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing, which is a harness error no per-test exclusion can name. The divergence is still asserted, by the four excluded rows of `decompression-corrupt-input.any.js`. |
 | `urlpattern/urlpattern.https.any.js` | Byte-identical to `urlpattern.any.js` (both are two `// META:` lines). Upstream ships both so a browser runs the corpus over http and over https; Jint has no scheme to be served over, so the second copy would run the same 370 cases again and assert nothing the first did not. |
@@ -124,7 +138,9 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `FileAPI/file/send-file-formdata*.any.js` | All four POST a `FormData` to wptserve's `/fetch/api/resources/echo-content.py` and assert on the multipart body that comes back, so they need the fetch object model, an outbound request and the server's own Python handler. Serializing a `FormData` as `multipart/form-data` is a fetch body's job and arrives with that feature, which `WebApiFeatures.Default` never includes. |
 | `FileAPI/fileReader.any.js` | Jint has no `FileReader` — a `Blob` is read here through `text()`, `arrayBuffer()`, `bytes()` and `stream()` — and this file is about that reader's state machine (`readyState`, `abort()`, the progress events) rather than about a `Blob`. It is the only `.any.js` in the File API's root that is not vendored; its sibling `unicode.any.js` needs no reader and is. |
 | `workers/*.worker.js` | Twenty-one files that look like the most runnable thing in the directory and are the least: **every one opens with `importScripts("/resources/testharness.js")` at file scope.** A `.worker.js` is a *classic* worker's top-level script, and Jint runs module workers only — `importScripts` is present and throws a `TypeError`, which is the module-worker step [the standard itself prescribes](https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-importscripts). So the file throws before registering a test, and a harness error is for the whole file rather than anything a per-test exclusion can name. What they assert about the worker global is asserted instead by the `.any.js` files beside them and by `Jint.Tests/Runtime/WebApi/WorkerMechanismTests.cs`. |
-| `workers/modules/*` | **The one row here that is a finding rather than a decision.** `dedicated-worker-import.any.js` is the flagship of the directory — nine `promise_test`s over static, nested and dynamic `import` in a module worker, exactly the feature Jint has. It cannot run, and the reason is in the *fixture*: every one of the nine worker scripts `import-test-cases.js` drives opens with `if ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope)` and installs its `onmessage` handler **inside** that branch. Jint ships no `DedicatedWorkerGlobalScope` interface object — the design's divergence #5, ruled together with [#3195](https://github.com/sebastienros/jint/issues/3195), because an interface object without the prototype chain would make `instanceof` lie — so no branch is taken, no handler is installed, the worker never answers, and all nine tests hang. A stall is a harness error for the whole file and no per-test exclusion can express a sniff that never reached an assertion. The `blob-url` and `data-url` siblings need `URL.createObjectURL` and a `data:` module loader on top of that. The module loading itself is covered by `WorkerMechanismTests`. |
+| `workers/modules/*.sub.js`, `workers/modules/resources/*.py`, `workers/modules/resources/static-import-redirect-worker.js` | What a wpt server would have produced: a `.sub.js` worker importing from a second origin wptserve substitutes a host into, and the `redirect.py` / credentials / referrer handlers. Two of the nine cases of `dedicated-worker-import.any.js` name one of these; they are excluded per test under `NeedsWptServer` rather than being a reason not to vendor the file, because the worker's module loader refuses the specifier and the parent hears the startup failure as an `error` event — the test's own reject path. |
+| `workers/modules/*.window.js`, `workers/modules/shared-worker-*` | A browsing context, and a `SharedWorker`. |
+| `workers/modules/dedicated-worker-import-blob-url.any.js`, `workers/modules/dedicated-worker-import-data-url.any.js`, `workers/modules/resources/*data-url*`, `workers/modules/resources/*block-cross-origin*` | Need `URL.createObjectURL`, a `data:` module loader, and a second origin. |
 | `workers/SharedWorker-*.any.js`, `workers/semantics/interface-objects/*` | `SharedWorker` and `SharedWorkerGlobalScope`, which Jint does not have — the design records it as still open, needing a cross-engine name registry of the shape `BroadcastChannelBroker` has. A `global=sharedworker` file cannot even be run in the worker lane: there is no shared worker to be the global of. |
 | `workers/examples/*` | Upstream's own tutorial for writing worker tests, and it teaches wpt rather than testing an engine: `general.any.js` is two tests, the second asserting `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the wpt server generates for a `.any.js` file. There is no server here to generate one. `onconnect.any.js` beside it is `global=sharedworker`. |
 | `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution: it rewrites `{{host}}` and `{{ports[…]}}` into a real origin before serving the file, so a vendored copy carries the placeholders verbatim. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
@@ -186,14 +202,19 @@ settled; it is a change to `UrlCorpusTests` as well as to this directory, and it
 
 ## What the WebCryptoAPI corpus says about this engine
 
-2,450 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of six
+2,449 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of six
 categories, whose own documentation in `WptExclusions.cs` carries the citation. Three are the platform:
 `NeedsPlatformCryptoParameters` (AES-GCM's 96-bit-only iv and 96-to-128-bit tag, RSA-OAEP's empty-only label,
 RSA-PSS's hash-length-only salt — all four are limits of the BCL primitives, documented on the classes that
 hit them), `NeedsCompressedEcPointImport` and `NeedsCurve25519`. One is the corpus running ahead of the
 specification: `NeedsKeyEncapsulation` (ML-KEM's `encapsulateKey`/`decapsulateKey` `KeyUsage` values, which
 the current `KeyUsage` enumeration does not declare). One is the corpus meeting an environment it was not
-written for: `NeedsSecureContextModel`.
+written for: `NeedsSecureContextModel`, which is all three tests of `historical.any.js` — the file asserts what
+a **non-secure** context sees, and Jint has no scheme, no origin and therefore no secure-context bit. Its
+`SubtleCrypto` row used to pass for a reason that was not a merit: there was no `SubtleCrypto` interface object
+at all. [#3195](https://github.com/sebastienros/jint/issues/3195) installed it, because WinterTC's Minimum
+Common API §5.1 lists it, and the row joined its two siblings — the one assertion in this corpus that this
+change moved.
 
 The seventh category was `NeedsQuotaExceededErrorInterface`, the nine `Large length: *` rows of
 `getRandomValues.any.js`. They pass since
@@ -214,8 +235,8 @@ prose where a browser answers `InvalidAccessError`.
 
 ## What the streams corpus says about this engine
 
-1,154 assertions across 65 files, of which **11 do not pass** — 99.0%, which is what one expects of an
-implementation written operation by operation against the standard, and also why the eleven are worth naming
+1,170 assertions across 66 files, of which **4 do not pass** — 99.7%, which is what one expects of an
+implementation written operation by operation against the standard, and also why the four are worth naming
 individually. (Only the URL Pattern corpus below beats it, at 100%.)
 
 `transferable/transform-stream-members.any.js` is the newest of the 65 and all four of its assertions pass.
@@ -226,12 +247,20 @@ the list's other entry is reached that side is both locked and `[[Detached]]` �
 refusal fall out of the steps rather than needing a rule of its own. The file took 0.4 s at the pin,
 including the runner's start-up.
 
-All eleven are a decision already taken. Seven rows of `readable-streams/default-reader.any.js` reach for the
-`ReadableStreamDefaultReader` **global** (`NeedsStreamInterfaceGlobals`): only the five interfaces a script
-constructs by name are installed here, and the other 22 rows of that file obtain the same interface as
-`stream.getReader().constructor` and pass. Four are `readable-byte-streams/non-transferable-buffers.any.js`
+All four are a decision already taken: `readable-byte-streams/non-transferable-buffers.any.js`
 (`NeedsWebAssembly`), which needs a `WebAssembly.Memory` buffer because that is the only `ArrayBuffer` a
 script can obtain that cannot be transferred.
+
+**Seven more used to be a decision and are not any more.** They were the rows of
+`readable-streams/default-reader.any.js` that reach for the `ReadableStreamDefaultReader` **global**, under a
+category — `NeedsStreamInterfaceGlobals` — that no longer exists:
+[#3195](https://github.com/sebastienros/jint/issues/3195) installs all thirteen of the Streams Standard's
+interface objects, as a browser does. The same ruling made `readable-byte-streams/construct-byob-request.any.js`
+vendorable, which is the 66th file and the extra 16 assertions: it reads `ReadableByteStreamController.prototype`
+and calls `new ReadableStreamBYOBRequest(…)` at *file scope*, so it used to throw a `ReferenceError` before
+registering a single test — a harness error for the whole file that no per-test exclusion could name. All 16
+of its rows pass, which is worth stating on its own: every one of them asserts that the constructor
+whatwg/streams#870 took away is still gone, and it took a widening of the exposure to be able to ask.
 
 **Five more used to be `NeedsTriage`, and [#3195](https://github.com/sebastienros/jint/issues/3195) fixed all
 three defects behind them.** They are recorded here because two of the three turned out to be something other
@@ -406,8 +435,8 @@ working *across* a point where a collection may have happened — the same terms
 
 ## What the workers corpus says about this engine
 
-**15 assertions across 11 files, of which 8 pass and 7 do not** — and the interesting figure is not the ratio
-but that **six of the seven were decided in writing before a line of this corpus was run**, in the divergence
+**24 assertions across 12 files, of which 16 pass and 8 do not** — and the interesting figure is not the ratio
+but that **six of the eight were decided in writing before a line of this corpus was run**, in the divergence
 ledger of [issue #3167](https://github.com/sebastienros/jint/issues/3167). This is the smallest corpus here
 and the one that most nearly assays a *design* rather than an implementation.
 
@@ -418,23 +447,47 @@ event on `self` and dispatches one, so the worker global really is an event targ
 and `btoa`. `Worker-formdata.any.js` is the best of them: it builds a `FormData`, appends a `Blob` to it, and
 then asserts that `postMessage(formData)` is a `DataCloneError` — so the worker global's `postMessage` is the
 port's, running the real serializer, refusing the right value. The second row of
-`semantics/multiple-workers/exposure.any.js` asserts `SharedWorker` is absent outside a window, and two of the
-four rows of `interfaces/WorkerGlobalScope/self.any.js` pass on `self === self` and `'self' in self`.
+`semantics/multiple-workers/exposure.any.js` asserts `SharedWorker` is absent outside a window, and three of
+the four rows of `interfaces/WorkerGlobalScope/self.any.js` pass on `self === self`, `'self' in self` and
+`self instanceof WorkerGlobalScope`.
 
-**Five of the seven failures are one decision family** (`NeedsDeclinedWorkerGlobals`): the worker global is
-the global the engine already builds plus the worker names, and there are three names it deliberately does not
-add. `WorkerGlobalScope`/`DedicatedWorkerGlobalScope` (divergence #5) — an interface object with no such
-prototype chain would make `self instanceof WorkerGlobalScope` answer false while the constructor was
-nevertheless reachable, an `instanceof` that lies, and absence is the coherent half of that pair.
-`WorkerLocation` (#6) — a worker's script name is its `Module.Location`, and there is no URL for the other
-eight members to be parts of. `WorkerNavigator`, and `hardwareConcurrency` in particular (#7) — in Jint the
-*host* owns every thread, so an engine answering a number would be guessing at a resource it does not
-allocate. **The sixth** is `exposure.any.js`'s "Worker exposure" (`NeedsWorkerNesting`): nesting is off by
+**Three of the eight failures are one decision family** (`NeedsDeclinedWorkerGlobals`): the worker global is
+the global the engine already builds plus the worker names, and there are two names it deliberately does not
+add. `WorkerLocation` (divergence #6) — a worker's script name is its `Module.Location`, and there is no URL
+for the other eight members to be parts of. `WorkerNavigator`, and `hardwareConcurrency` in particular (#7) —
+in Jint the *host* owns every thread, so an engine answering a number would be guessing at a resource it does
+not allocate. **The fourth** is `exposure.any.js`'s "Worker exposure" (`NeedsWorkerNesting`): nesting is off by
 default, so `Worker` is `undefined` inside a worker until a provider grants it — a grant withheld rather than
 a name declined, which is why it is a category of its own.
 
-**The seventh is `NeedsTriage`, and the defect is not in the worker code.**
-`interfaces/WorkerGlobalScope/self.any.js`, "self = 1", assigns to `self` and asserts it did not change.
+**Divergence #5 used to head that list and is closed.**
+[#3195](https://github.com/sebastienros/jint/issues/3195) gave the worker global a real prototype chain —
+`DedicatedWorkerGlobalScope.prototype`, then `WorkerGlobalScope.prototype` — and installed both interface
+objects on the worker's global and on no other, so `self instanceof WorkerGlobalScope` is answered by walking
+the chain rather than by a brand shim, and passes. The ledger's original reasoning was not wrong about the
+danger, only about the remedy: what would have lied is an interface object with *no* chain behind it. The one
+link the chain still declines is `EventTarget`, for that very reason — the worker global genuinely is not one,
+so `WorkerGlobalScope.prototype` inherits from `%Object.prototype%` and `self instanceof EventTarget` stays
+false.
+
+**That ruling is also what made this the corpus's most expensive divergence stop being one.**
+`workers/modules/dedicated-worker-import.any.js` — nine `promise_test`s over static, nested and dynamic
+`import` in a module worker, exactly the feature Jint has — could not be vendored at all, because the
+canonical "am I in a dedicated worker" sniff,
+`'DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope`, is how every one of its
+fixtures decides where to install its `onmessage` handler. With no interface object none of them installed
+one, the worker never answered, and the file *hung* rather than failing — a harness error for the whole file
+that no per-test exclusion could name. It is vendored now, with twelve fixture files beside it, and **seven of
+the nine cases pass**: static, nested static, dynamic, nested dynamic, both orders of the mixed pair, and
+`eval(import())`. The remaining two need a wpt server — a `.sub.js` fixture importing from a second origin,
+and one importing through `redirect.py` — and they fail as *tests* rather than stalling, because the worker's
+module loader refuses a specifier the vendored corpus does not hold and the parent hears the startup failure
+as an `error` event, which is the file's own reject path. They are `NeedsWptServer`.
+
+**The last two are `NeedsTriage`, and they are one defect, not in the worker code.**
+`interfaces/WorkerGlobalScope/self.any.js`'s "self = 1" assigns to `self` and asserts it did not change;
+`Worker-replace-self.any.js` does the same and then asserts `self instanceof WorkerGlobalScope`, so the second
+half of that one passes now and the assignment is all that is left.
 `WebApiRegistration` installs `self` once, for every global, as an ordinary writable data property, and its
 own comment says which definition that was written against: "HTML exposes `self` through a `[Replaceable]`
 accessor pair on **Window**" — which was the only global there was at the time.
@@ -442,15 +495,9 @@ accessor pair on **Window**" — which was the only global there was at the time
 plain `readonly attribute` with no `[Replaceable]`, so the worker inherited the window's semantics along with
 the property. The install predates `Worker` and is shared with the top-level lane, so it is recorded rather
 than fixed here, on the standing rule that the change which first runs a suite is not the change that moves
-the engine. Fixing it means installing `self` per global rather than once; `DedicatedWorkerGlobalScope.name`
-is the same shape and the same question.
-
-**And the divergence the corpus made expensive rather than merely visible** is #5 again, from the other side:
-it is why `workers/modules/` is not vendored at all. The canonical "am I in a dedicated worker" sniff —
-`'DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope` — is how every one of
-wpt's module-worker fixtures decides where to install its `onmessage` handler, so in Jint none of them
-installs one and the whole flagship file hangs. The design named that wrinkle when it took the decision; this
-is what it costs, and it is a cost paid by real third-party worker code and not only by a conformance suite.
+the engine; it is filed as [#3224](https://github.com/sebastienros/jint/issues/3224). Fixing it means
+installing `self` per global rather than once; `DedicatedWorkerGlobalScope.name` is the same shape and the
+same question.
 
 ## What the hr-time and user-timing corpora say about this engine
 
@@ -709,17 +756,24 @@ the shim did not record `PASS`, which is exactly the set the table names.
 | URL | `url/` | 21 | 2,068 | 0 |
 | URL Pattern | `urlpattern/` | 3 | 373 | 0 |
 | Encoding | `encoding/` | 20 | 11,544 | 322 |
-| Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,448 |
-| Streams | `streams/` ×7 | 65 | 1,154 | 16 |
-| Compression | `compression/` | 15 | 297 | 84 |
+| Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
+| Streams | `streams/` ×7 | 66 | 1,170 | 4 |
+| Compression | `compression/` | 15 | 297 | 22 |
 | File API | `FileAPI/` ×3 | 14 | 342 | 0 |
 | High Resolution Time | `hr-time/` | 2 | 7 | 1 |
-| User Timing | `user-timing/` | 19 | 78 | 9 |
-| HTML — workers | `workers/` ×3 | 11 | 15 | 7 |
+| User Timing | `user-timing/` | 19 | 78 | 5 |
+| HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 3 |
-| DOM | `dom/` ×2 | 12 | 62 | 2 |
+| DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
-| **total** | **34** | **269** | **40,617** | **2,980** |
+| **total** | **35** | **272** | **40,656** | **2,902** |
+
+Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
+that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
+270 files / 40,631 assertions / 2,907 not passing, where this table read 269 / 40,617 / 2,980 — and Streams
+(16 against a real 11), Compression (84 against 22), User Timing (9 against 5) and DOM (2 against 0) were each
+carrying a number a later fix had already improved. Take the census again when a change moves any of them; it
+is one run of the driver with the results tallied per directory.
 
 Two of those rows are worth a caveat. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,
@@ -735,14 +789,17 @@ of [#3185](https://github.com/sebastienros/jint/issues/3185) added `streams/`, t
 `compression/` + `urlpattern/` + `FileAPI/`, then the timing and DOM half, and last the network-free half of
 `fetch/api/` together with the two single-byte encoding files that had been parked for the decoders;
 `workers/` came with the worker feature ([#3167](https://github.com/sebastienros/jint/issues/3167)) and is
-the one corpus that does not run in the driver's own engine. This file records what each of them says about
+the one corpus that mostly does not run in the driver's own engine —
+`workers/modules/dedicated-worker-import.any.js`, which arrived with
+[#3195](https://github.com/sebastienros/jint/issues/3195), is the exception, because its subject is a page
+creating workers rather than the worker global itself. This file records what each of them says about
 the engine.
 
 What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
 above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
 `.sub.html` are all for a browsing context or a classic worker. Of the WHATWG standards Jint implements, the
 directories with no vendored file at all are `fetch/api/request/` (no API base URL), `fetch/api/` minus
-`headers/` and `response/` (needs a server), `workers/modules/` and the rest of the `workers/` tree listed
+`headers/` and `response/` (needs a server), the parts of the `workers/` tree listed
 above, the `WebCryptoAPI` directories listed above, and `xhr/` (there is no `XMLHttpRequest` in the engine —
 the shim's is a vendored-corpus reader for the suites that need one, never an implementation).
 
