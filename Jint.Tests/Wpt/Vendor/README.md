@@ -40,7 +40,7 @@ Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/
 **four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
 (events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
 **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 272 theory cases over 40,656 assertions, of which 2,902 do
+directory's own files and never descends. That is 273 theory cases over 40,657 assertions, of which 2,889 do
 not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
@@ -848,10 +848,10 @@ removed their exclusions without revisiting this table. Every per-standard secti
 | High Resolution Time | `hr-time/` | 2 | 7 | 1 |
 | User Timing | `user-timing/` | 19 | 78 | 5 |
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
-| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 3 |
+| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
-| **total** | **35** | **272** | **40,656** | **2,902** |
+| Fetch | `fetch/api/` ×2 | 29 | 388 | 75 |
+| **total** | **35** | **273** | **40,657** | **2,889** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

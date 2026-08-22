@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.WebApi.DomException;
 
 namespace Jint.WebApi.Performance;
 
