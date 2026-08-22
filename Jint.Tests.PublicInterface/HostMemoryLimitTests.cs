@@ -116,17 +116,25 @@ public class HostMemoryLimitTests
         var engine = CreateEngine(allocations);
         engine.SetValue("schedule", new Func<Func<int>, Task<int>>(callback => Task.Run(callback)));
 
-        var pending = engine.EvaluateAsync("""
-            (async () => {
-                allocate();
-                return await schedule(() => {
+        // The call itself is asserted not to throw, not merely left unwrapped: whether the pool thread's
+        // charge lands before or after the engine thread's post-script check decides where the failure is
+        // raised, and only the task is an acceptable answer. See HostAsyncFailureChannelTests.
+        Task<JsValue>? pending = null;
+        Invoking(() =>
+        {
+            pending = engine.EvaluateAsync("""
+                (async () => {
                     allocate();
-                    return 42;
-                });
-            })()
-            """);
+                    return await schedule(() => {
+                        allocate();
+                        return 42;
+                    });
+                })()
+                """);
+        })
+            .Should().NotThrow("a budget failure belongs on the returned task, whichever thread trips it");
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Record.ExceptionAsync(() => pending!);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 

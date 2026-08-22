@@ -9,6 +9,24 @@ namespace Jint;
 
 public partial class Engine
 {
+    // INVARIANT for every entry in this file: the public method validates its arguments and takes the
+    // reservation, and then hands off to a `private async` body that owns the release in a finally. The
+    // split is the failure channel, and both halves of it are load-bearing.
+    //
+    // A usage error - a null argument, an unprepared script, and ReserveAsyncHostOperation refusing because
+    // the engine is already in use - says the operation never started, so it belongs on the caller's stack;
+    // there is no evaluation for a task to describe, and Advanced.WaitForScheduledWorkAsync reserves
+    // synchronously for the same reason. Everything else says the operation started and failed, and belongs
+    // on the returned task: an async body captures its own synchronous phase, which is exactly what makes
+    // that true for the parse and for the whole synchronous run of the script.
+    //
+    // So do NOT move a reservation into a body, and do NOT hoist work out of one. Before the split, the
+    // family was divided by nothing more than which methods happened to be declared `async`: ExecuteAsync
+    // was, so a tripped constraint reached its task, while EvaluateAsync was not, so the identical failure
+    // on the identical script erupted from the call - and erupted only sometimes, because a host callback
+    // charged to the operation from another thread could trip the post-script check before the engine thread
+    // reached it. See https://github.com/sebastienros/jint/issues/3241.
+
     /// <summary>
     /// Evaluates JavaScript code asynchronously, properly awaiting any promises.
     /// This is the non-blocking alternative to Evaluate() + UnwrapIfPromise().
@@ -16,6 +34,16 @@ public partial class Engine
     /// thread is released and zero threads are consumed until work is available.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Where failures arrive.</b> Everything the evaluation itself does — parsing, running the script,
+    /// an execution constraint tripping, a rejected promise — is reported through the returned
+    /// <see cref="Task{TResult}"/> and never thrown out of this call, so a <c>catch</c> around the
+    /// <c>await</c> sees all of it however far the evaluation got before failing. Only a usage error
+    /// arrives synchronously: a <see langword="null"/> argument, and the
+    /// <see cref="InvalidOperationException"/> refusing the call because the engine is already in use.
+    /// Both mean the operation never started, so there is no evaluation for a task to describe.
+    /// </para>
+    /// <para>
     /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
     /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
     /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
@@ -24,36 +52,58 @@ public partial class Engine
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
     /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// </para>
     /// </remarks>
     /// <param name="code">The JavaScript code to evaluate.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
     public Task<JsValue> EvaluateAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
-        var owner = ReserveAsyncHostOperation();
-        Task<JsValue> task;
-        try
+        if (code is null)
         {
-            using (EnterHostCall(owner))
-            {
-                var result = Evaluate(code, source);
-                task = UnwrapResultAsync(result, owner, cancellationToken);
-            }
-        }
-        catch
-        {
-            ReleaseAsyncHostOperation(owner);
-            throw;
+            Throw.ArgumentNullException(nameof(code));
         }
 
-        return CompleteAsyncHostOperation(task, owner);
+        var owner = ReserveAsyncHostOperation();
+        return EvaluateOnReservationAsync(code, source, owner, cancellationToken);
+    }
+
+    private async Task<JsValue> EvaluateOnReservationAsync(string code, string? source, object owner, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                task = UnwrapResultAsync(Evaluate(code, source), owner, cancellationToken);
+            }
+
+            return await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
     }
 
     /// <summary>
     /// Evaluates a prepared script asynchronously, properly awaiting any promises.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Where failures arrive.</b> Everything the evaluation itself does — running the script, an
+    /// execution constraint tripping, a rejected promise — is reported through the returned
+    /// <see cref="Task{TResult}"/> and never thrown out of this call, so a <c>catch</c> around the
+    /// <c>await</c> sees all of it however far the evaluation got before failing. Only a usage error
+    /// arrives synchronously: a <paramref name="preparedScript"/> that did not come from
+    /// <c>PrepareScript</c>, and the
+    /// <see cref="InvalidOperationException"/> refusing the call because the engine is already in use.
+    /// Both mean the operation never started, so there is no evaluation for a task to describe.
+    /// </para>
+    /// <para>
     /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
     /// script is evaluated to completion first and the token is only observed afterwards, while awaiting
     /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
@@ -62,29 +112,41 @@ public partial class Engine
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
     /// amortizable, so neither disarms the interpreter's tight-loop lane.
+    /// </para>
     /// </remarks>
     /// <param name="preparedScript">The pre-parsed script to evaluate.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The resolved value if the result is a promise, otherwise the direct result.</returns>
+    /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
     public Task<JsValue> EvaluateAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
     {
-        var owner = ReserveAsyncHostOperation();
-        Task<JsValue> task;
-        try
+        if (!preparedScript.IsValid)
         {
-            using (EnterHostCall(owner))
-            {
-                var result = Evaluate(in preparedScript);
-                task = UnwrapResultAsync(result, owner, cancellationToken);
-            }
-        }
-        catch
-        {
-            ReleaseAsyncHostOperation(owner);
-            throw;
+            Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
         }
 
-        return CompleteAsyncHostOperation(task, owner);
+        var prepared = preparedScript;
+        var owner = ReserveAsyncHostOperation();
+        return EvaluateOnReservationAsync(prepared, owner, cancellationToken);
+    }
+
+    private async Task<JsValue> EvaluateOnReservationAsync(Prepared<Script> preparedScript, object owner, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                task = UnwrapResultAsync(Evaluate(in preparedScript), owner, cancellationToken);
+            }
+
+            return await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
     }
 
     /// <summary>
@@ -92,44 +154,67 @@ public partial class Engine
     /// This is the non-blocking alternative to Execute() when the code may contain async operations.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Where failures arrive.</b> Everything the execution itself does — parsing, running the code, an
+    /// execution constraint tripping, a rejected promise — is reported through the returned
+    /// <see cref="Task{TResult}"/> and never thrown out of this call. Only a usage error arrives
+    /// synchronously: a <see langword="null"/> argument, and the <see cref="InvalidOperationException"/>
+    /// refusing the call because the engine is already in use.
+    /// </para>
+    /// <para>
     /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous evaluation loop. The
     /// code runs to completion first and the token is only observed afterwards, while awaiting promise
     /// settlement — that is, at event-loop continuation boundaries. To bound the interpreter itself,
     /// register an execution constraint on the engine's <see cref="Options"/>:
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// </para>
     /// </remarks>
     /// <param name="code">The JavaScript code to execute.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <returns>The engine instance for chaining, after all async work completes.</returns>
-    public async Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
+    /// <exception cref="ArgumentNullException"><paramref name="code"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    public Task<Engine> ExecuteAsync(string code, string? source = null, CancellationToken cancellationToken = default)
     {
-        var owner = ReserveAsyncHostOperation();
-        Task<JsValue> task;
-        try
+        if (code is null)
         {
-            using (EnterHostCall(owner))
-            {
-                var result = Evaluate(code, source);
-                task = UnwrapResultAsync(result, owner, cancellationToken);
-            }
-        }
-        catch
-        {
-            ReleaseAsyncHostOperation(owner);
-            throw;
+            Throw.ArgumentNullException(nameof(code));
         }
 
-        return await CompleteExecuteAsync(task, owner).ConfigureAwait(false);
+        var owner = ReserveAsyncHostOperation();
+        return ExecuteOnReservationAsync(code, source, owner, cancellationToken);
+    }
+
+    private async Task<Engine> ExecuteOnReservationAsync(string code, string? source, object owner, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                task = UnwrapResultAsync(Evaluate(code, source), owner, cancellationToken);
+            }
+
+            await task.ConfigureAwait(false);
+            return this;
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
     }
 
     /// <summary>
     /// Invokes a JavaScript function asynchronously, properly awaiting any returned promise.
     /// </summary>
+    /// <inheritdoc cref="InvokeAsync(string, CancellationToken, object[])" path="/remarks"/>
     /// <param name="propertyName">The name of the function to invoke.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
     public Task<JsValue> InvokeAsync(string propertyName, params object?[] arguments)
     {
         return InvokeAsync(propertyName, CancellationToken.None, arguments);
@@ -139,56 +224,55 @@ public partial class Engine
     /// Invokes a JavaScript function asynchronously, properly awaiting any returned promise.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Where failures arrive.</b> Everything the call itself does — resolving the name, running the
+    /// function, an execution constraint tripping, a rejected promise — is reported through the returned
+    /// <see cref="Task{TResult}"/> and never thrown out of this call. Only a usage error arrives
+    /// synchronously: a <see langword="null"/> argument, and the <see cref="InvalidOperationException"/>
+    /// refusing the call because the engine is already in use.
+    /// </para>
+    /// <para>
     /// <paramref name="cancellationToken"/> does <b>not</b> preempt the synchronous call. The function runs
     /// to completion first and the token is only observed afterwards, while awaiting promise settlement —
     /// that is, at event-loop continuation boundaries. To bound the interpreter itself, register an
     /// execution constraint on the engine's <see cref="Options"/>:
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// </para>
     /// </remarks>
     /// <param name="propertyName">The name of the function to invoke.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
     public Task<JsValue> InvokeAsync(string propertyName, CancellationToken cancellationToken, params object?[] arguments)
     {
+        if (propertyName is null)
+        {
+            Throw.ArgumentNullException(nameof(propertyName));
+        }
+
+        if (arguments is null)
+        {
+            Throw.ArgumentNullException(nameof(arguments));
+        }
+
         var owner = ReserveAsyncHostOperation();
-        Task<JsValue> task;
+        return InvokeOnReservationAsync(propertyName, arguments, owner, cancellationToken);
+    }
+
+    private async Task<JsValue> InvokeOnReservationAsync(string propertyName, object?[] arguments, object owner, CancellationToken cancellationToken)
+    {
         try
         {
+            Task<JsValue> task;
             using (EnterHostCall(owner))
             {
-                var result = Invoke(propertyName, arguments);
-                task = UnwrapResultAsync(result, owner, cancellationToken);
+                task = UnwrapResultAsync(Invoke(propertyName, arguments), owner, cancellationToken);
             }
-        }
-        catch
-        {
-            ReleaseAsyncHostOperation(owner);
-            throw;
-        }
 
-        return CompleteAsyncHostOperation(task, owner);
-    }
-
-    private async Task<JsValue> CompleteAsyncHostOperation(Task<JsValue> task, object owner)
-    {
-        try
-        {
             return await task.ConfigureAwait(false);
-        }
-        finally
-        {
-            ReleaseAsyncHostOperation(owner);
-        }
-    }
-
-    private async Task<Engine> CompleteExecuteAsync(Task<JsValue> task, object owner)
-    {
-        try
-        {
-            await task.ConfigureAwait(false);
-            return this;
         }
         finally
         {
@@ -203,6 +287,11 @@ public partial class Engine
     internal Task<JsValue> UnwrapResultAsync(JsValue result, CancellationToken cancellationToken)
     {
         var owner = ReserveAsyncHostOperation();
+        return UnwrapOnReservationAsync(result, owner, cancellationToken);
+    }
+
+    private async Task<JsValue> UnwrapOnReservationAsync(JsValue result, object owner, CancellationToken cancellationToken)
+    {
         try
         {
             Task<JsValue> task;
@@ -211,12 +300,11 @@ public partial class Engine
                 task = UnwrapResultAsync(result, owner, cancellationToken);
             }
 
-            return CompleteAsyncHostOperation(task, owner);
+            return await task.ConfigureAwait(false);
         }
-        catch
+        finally
         {
             ReleaseAsyncHostOperation(owner);
-            throw;
         }
     }
 
