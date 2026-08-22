@@ -20,7 +20,11 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one xUnit theory case per `.any.js` file, on a fresh engine built with
 `UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and
-pointedly not `fetch`, so no suite gets outbound network access. `Jint.Tests/Wpt/Prelude/testharness-shim.js`
+pointedly not `fetch`, so no suite gets outbound network access — and a `DiagnosticsSink`, which is what makes
+an exception escaping a timer callback, an event listener or a `queueMicrotask` callback report-and-continue
+rather than erupt from the pump. `WptDiagnosticsSink` says why the driver needs one and why it records the
+reports instead of discarding them; the timers-and-microtask section below has the same account in prose.
+`Jint.Tests/Wpt/Prelude/testharness-shim.js`
 — *not* vendored — stands in for upstream's `testharness.js`; its header says what it implements and where it
 deliberately differs. `WptHarness.cs` documents the three decisions a reader is most likely to want: the
 engine supplies its own `setTimeout` — the shim's `step_timeout` is a forwarder onto it, so the streams
@@ -36,7 +40,7 @@ Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/
 **three**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
 (events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
 **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 269 theory cases over 40,617 assertions, of which 2,980 do
+directory's own files and never descends. That is 271 theory cases over 40,632 assertions, of which 2,907 do
 not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
 
 The corpora arrived a group at a time, most of them under
@@ -131,7 +135,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
-| `html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js` | A defect, and one that cannot be an exclusion — see [What the timers and microtask corpora say](#what-the-timers-and-microtask-corpora-say-about-this-engine). |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
 | `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
@@ -482,23 +485,44 @@ cannot make.
 
 ## What the timers and microtask corpora say about this engine
 
-16 assertions across nine files, and **every one of them passes** — which is the answer that matters, because
+17 assertions across ten files, and **every one of them passes** — which is the answer that matters, because
 these are the files that test the `TimerQueue` from the outside: `setTimeout` and `setInterval` sharing one id
 space so `clearInterval` cancels a timeout, an interval cleared from its own callback staying cleared,
 `setInterval(0)` and `setTimeout(0)` firing in registration order, `setInterval(fn)` with no interval at all
 behaving as `0`, a negative delay clamping to `0`, and `2**32` wrapping to `0` through WebIDL's `long`
 conversion. Four of them are `setup({single_test: true})` files, which the shim did not previously implement.
 
-One file is **not vendored, and it is a defect rather than a decline**.
+**The tenth file was a defect rather than a decline, and it is fixed.**
 `queue-microtask-exceptions.any.js` throws from a `queueMicrotask` callback and expects to observe it as an
 `error` event at the global scope. [HTML's `queueMicrotask`](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask)
-says "queue a microtask to invoke *callback*, given null and **"report"**", and WebIDL's *report* exception
-behaviour is HTML's *report an exception* — fire `error` at the global scope, then tell the console. Jint
-instead lets the throw erupt from whatever is pumping the event loop: `TimerFunctions.QueueMicrotaskCallback`
-enqueues a bare `callback.Call(...)`, where `TimerEntry.Fire` and `JsEventTarget.InvokePass` both have the
+says "queue a microtask to invoke *callback*, given null and **"report"**", and WebIDL's
+[*report the exception*](https://webidl.spec.whatwg.org/#report-the-exception) is HTML's *report an
+exception* — fire `error` at the global scope, then tell the console. Jint instead let the throw erupt from
+whatever was pumping the event loop: `TimerFunctions.QueueMicrotaskCallback` enqueued a bare
+`callback.Call(...)`, where `TimerEntry.Fire` and `JsEventTarget.InvokePass` both carry the
 `catch (JavaScriptException) when (… is { } diagnostics)` filter that reaches
-`WebApiEngineState.FireGlobalErrorEvent`. So the exception leaves the engine before any listener can see it,
-the file is a harness error rather than a failing test, and there is no test left for an exclusion to name.
+`WebApiEngineState.FireGlobalErrorEvent`. So the exception left the engine before any listener could see it,
+the file was a harness error rather than a failing test, and there was no test left for an exclusion to name —
+which is why it lived here rather than in the table. Item 11 of
+[issue #3212](https://github.com/sebastienros/jint/issues/3212) gave the callback the third instance of that
+same filter, and the file is vendored and green. Its copy is byte-identical to upstream's at the pin —
+`git hash-object` gives `01f32ac9ba14962fa99d4b263a8ca0f5a0daa161`, which is the blob id GitHub reports for
+that path at commit `6c7127bdd9`.
+
+Vendoring it needed one thing of the **driver**, and it is worth stating plainly because it is a decision
+about the environment rather than about the engine. Jint reports an exception escaping an engine-invoked
+callback — and carries on — only where the host installed a `DiagnosticsSink`; with none, the throw erupts,
+which is the documented contract an embedder who configured nothing keeps. A conformance corpus is written
+against the other half of it, so the driver's engines now carry a sink, exactly as the shipped
+`WorkerRequest.CreateDefaultOptions` already installs `DiagnosticsSink.Null` on every worker engine and for
+the same stated reason. The sink is a **recorder** rather than `Null`, because the report must not simply
+disappear: before it existed, such an exception erupted and the driver reported a harness error for the whole
+file, and upstream's own `testharness.js` does the same thing through a global `onerror` unless the file
+declared `setup({allow_uncaught_exception: true})`. So the shim now honours that one flag — it is the second
+member of the properties bag it acts on, beside `single_test` — and `WptHarness` turns any recorded uncaught
+callback error the file did not declare itself ready for into the same harness error the eruption used to be.
+Nothing else in the corpus moved: the sink changed no assertion's outcome anywhere, which the exclusion table
+proves for itself, since a row that stopped matching a failing test would fail its suite.
 
 ## Encoding, the single-byte half
 
@@ -710,16 +734,16 @@ the shim did not record `PASS`, which is exactly the set the table names.
 | URL Pattern | `urlpattern/` | 3 | 373 | 0 |
 | Encoding | `encoding/` | 20 | 11,544 | 322 |
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,448 |
-| Streams | `streams/` ×7 | 65 | 1,154 | 16 |
-| Compression | `compression/` | 15 | 297 | 84 |
+| Streams | `streams/` ×7 | 65 | 1,154 | 11 |
+| Compression | `compression/` | 15 | 297 | 22 |
 | File API | `FileAPI/` ×3 | 14 | 342 | 0 |
 | High Resolution Time | `hr-time/` | 2 | 7 | 1 |
-| User Timing | `user-timing/` | 19 | 78 | 9 |
+| User Timing | `user-timing/` | 19 | 78 | 5 |
 | HTML — workers | `workers/` ×3 | 11 | 15 | 7 |
-| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 3 |
-| DOM | `dom/` ×2 | 12 | 62 | 2 |
+| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
+| DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
-| **total** | **34** | **269** | **40,617** | **2,980** |
+| **total** | **34** | **271** | **40,632** | **2,907** |
 
 Two of those rows are worth a caveat. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,

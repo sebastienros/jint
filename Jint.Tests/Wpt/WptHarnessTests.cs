@@ -911,6 +911,45 @@ public class WptHarnessTests
     }
 
     [Fact]
+    public void AnExceptionEscapingACallbackIsAHarnessErrorForTheWholeFile()
+    {
+        // The driver's engines carry a DiagnosticsSink, so such an exception no longer erupts from the pump —
+        // and this is the rule that keeps it from disappearing instead. It is upstream's own: testharness.js
+        // fails a run whose global `onerror` fired unless the file declared allow_uncaught_exception.
+        var outcome = Run("""
+            test(() => {}, 'row');
+            queueMicrotask(() => { throw new Error('escaped'); });
+            """);
+
+        outcome.HarnessError.Should().NotBeNull();
+        outcome.HarnessError.Should().Contain("allow_uncaught_exception");
+        outcome.HarnessError.Should().Contain("escaped");
+
+        // The tests that did run are still reported, exactly as they are for a top-level throw.
+        outcome.Results.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void AFileThatDeclaresAllowUncaughtExceptionIsNotFailedByOne()
+    {
+        // The other half, and the reason html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js
+        // can be vendored: its whole subject is a callback that throws, and it says so.
+        var outcome = Run("""
+            setup({ allow_uncaught_exception: true });
+            async_test(t => {
+                self.addEventListener('error', t.step_func_done(ev => {
+                    assert_equals(ev.error.message, 'expected');
+                }));
+                queueMicrotask(() => { throw new Error('expected'); });
+            }, 'row');
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Should().HaveCount(1);
+        outcome.Results[0].Status.Should().Be("PASS");
+    }
+
+    [Fact]
     public void AThrowOutOfTheTopLevelIsAHarnessErrorForTheWholeFile()
     {
         var outcome = Run("test(() => {}, 'row'); missingGlobal();");

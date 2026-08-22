@@ -464,7 +464,7 @@ Feature flags live in `WebApiFeatures`, whose bit layout is fixed ahead of the i
 
 **`DiagnosticsSink` (`Jint/WebApi/DiagnosticsSink.cs`) is the one channel for the script errors a host cannot catch**, and the only web-API surface no feature flag governs: `Options.WebApi.Diagnostics.Sink` arms it on its own, so an engine that named no feature at all still gets it (`Options.Apply`'s condition, and the early return at the top of `WebApiRegistration.Apply` that gives such an engine the channel and *no* globals — not even `DOMException`). `WebApiFeatures.Reporting` (`1 << 15`) governs only the `reportError` global, whose whole implementation is HTML's *report an exception* reduced to its last step: this engine's global object is not an `EventTarget`, so nothing is fired, *notHandled* stays true, and "the user agent may report exception to a developer console" is the sink. Without a sink `reportError` is a no-op that never throws; its one failure is WebIDL's arity error for a bare `reportError()`.
 
-Three things to hold on to when touching it. **The sink decides erupt-versus-report, so it is snapshotted at engine build time** into `Engine._webApi.Diagnostics` (and into `TimerQueue.Diagnostics`, so `TimerEntry.Fire` costs a field read and an entry costs no extra reference) — deliberately unlike `ConsoleOptions.Sink`, which is read afresh per emit: a contract that flips mid-script would be unreasonable, and reading `Options.WebApi` from `Engine.OnPromiseRejectionTracker` would force the lazy options group on a *default* engine and mutate shared `Options` from an engine thread. **Only a `JavaScriptException` is ever reported.** Both catch sites (`TimerEntry.Fire`, `JsEventTarget.InvokePass`) key on that type alone with a `when (… is { } diagnostics)` filter, which is precisely the MustPropagate rule stated positively: `ExecutionCanceledException`, `TimeoutException`, `MemoryLimitExceededException`, `StatementsCountOverflowException`, `RecursionDepthOverflowException` and `OperationCanceledException` are all `JintException` but none is a `JavaScriptException`, so a budget still bounds. With no sink there is no `catch` clause at all, which is what keeps the sinkless engine byte-identical. **The promise half is additive and ordered:** `Engine.OnPromiseRejectionTracker` raises `Advanced.PromiseRejectionTracker` first and *then* calls `_webApi?.ReportPromiseRejection`, so the pre-existing public event cannot be perturbed by a sink. It reports at the tracker's cadence, not HTML's — `Promise.reject(e).catch(f)` produces a `RejectionHandled: false` report followed by a `true` one where a browser's deferred checkpoint would raise nothing, which is documented on the property rather than papered over.
+Three things to hold on to when touching it. **The sink decides erupt-versus-report, so it is snapshotted at engine build time** into `Engine._webApi.Diagnostics` (and into `TimerQueue.Diagnostics`, so `TimerEntry.Fire` costs a field read and an entry costs no extra reference) — deliberately unlike `ConsoleOptions.Sink`, which is read afresh per emit: a contract that flips mid-script would be unreasonable, and reading `Options.WebApi` from `Engine.OnPromiseRejectionTracker` would force the lazy options group on a *default* engine and mutate shared `Options` from an engine thread. **Only a `JavaScriptException` is ever reported.** All three catch sites (`TimerEntry.Fire`, `JsEventTarget.InvokePass`, `TimerFunctions.InvokeMicrotask` for a `queueMicrotask` callback, which HTML invokes with the same WebIDL `"report"` exception behaviour a timer handler gets) key on that type alone with a `when (… is { } diagnostics)` filter, which is precisely the MustPropagate rule stated positively: `ExecutionCanceledException`, `TimeoutException`, `MemoryLimitExceededException`, `StatementsCountOverflowException`, `RecursionDepthOverflowException` and `OperationCanceledException` are all `JintException` but none is a `JavaScriptException`, so a budget still bounds. With no sink there is no `catch` clause at all, which is what keeps the sinkless engine byte-identical. **The promise half is additive and ordered:** `Engine.OnPromiseRejectionTracker` raises `Advanced.PromiseRejectionTracker` first and *then* calls `_webApi?.ReportPromiseRejection`, so the pre-existing public event cannot be perturbed by a sink. It reports at the tracker's cadence, not HTML's — `Promise.reject(e).catch(f)` produces a `RejectionHandled: false` report followed by a `true` one where a browser's deferred checkpoint would raise nothing, which is documented on the property rather than papered over.
 
 ### Web platform tests
 
@@ -476,7 +476,7 @@ that table. `Prelude/testharness-shim.js` is Jint's own file, not a vendored one
 upstream's `testharness.js` these suites use, and `WptHarnessTests` exercises every assertion in it from both
 sides, because a shim that quietly passed everything would make five thousand cases green and mean nothing.
 
-Five things to know before touching it. **The exclusion table is the artefact**: a test that does not pass is
+Six things to know before touching it. **The exclusion table is the artefact**: a test that does not pass is
 named in `WptTestRunner._exclusions` with a `WptDivergence` category, and an entry must match at least one
 failing test and no passing one — so a fix, a rename, or a corpus bump makes the run fail until the table is
 brought back in line, and a `*` glob can never widen into a blanket. **`NeedsTriage` is the debt**: those are
@@ -492,9 +492,16 @@ run of a file is the union of all of its variants. And **every engine carries th
 groups need it: `url/urlencoded-parser.any.js` reaches the urlencoded parser through `Request.formData()` and
 `Response.formData()` as well as `URLSearchParams`, and the two vendored `fetch/api/` suites are about those
 three interfaces and nothing else, which is what let half of that corpus be vendored while the half that
-talks to a server could not.
+talks to a server could not. Last, **every engine carries a `DiagnosticsSink`**, because that is what makes an
+exception escaping a timer callback, a `queueMicrotask` callback or an event listener report-and-continue
+rather than erupt from the pump — the environment the corpus was written for, and the same choice
+`WorkerRequest.CreateDefaultOptions` already makes for a worker engine. It is a *recorder* rather than
+`DiagnosticsSink.Null` on purpose: before it existed such an exception erupted and the driver reported a
+harness error for the whole file, so `WptHarness` turns any recorded uncaught callback error into that same
+harness error unless the file declared `setup({allow_uncaught_exception: true})` — which is upstream's own
+rule, and the second and last member of the properties bag the shim acts on.
 
-A sixth thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
+A seventh thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
 report is a test, so a file that cannot produce one — a throw at file scope, a run that **stalls**, or a file
 whose tests are all registered *without a name* — is a harness error covering the whole file and has to go in
 `_notVendored` with its reason rather than in the exclusion table. The clearest three are opposite ends of

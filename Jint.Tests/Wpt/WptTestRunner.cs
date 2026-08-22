@@ -246,14 +246,6 @@ public class WptTestRunner
         ("html/webappapis/timers/evil-spec-example.any.js",
             "setTimeout's string handler, which TimerFunctions declines"),
 
-        // The file's one test throws from a queueMicrotask callback and expects an `error` event at the global
-        // scope. HTML gives queueMicrotask WebIDL's "report" exception behaviour, and Jint lets the throw
-        // erupt from whatever is pumping instead, so the exception leaves the engine before the listener can
-        // see it and the file is a harness error rather than a failing test. Recorded as a defect in
-        // Vendor/README.md; it cannot be an exclusion, because there is no test left to name.
-        ("html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
-            "an exception from a queueMicrotask callback erupts instead of being reported; see Vendor/README.md"),
-
         // ---------------------------------------------------------------- fetch
         // Every file in request/ builds its Request from a *relative* url — "", "./", "../resources/…" — and
         // RequestConstructor documents why that cannot work: the specification resolves such a string against
@@ -548,6 +540,7 @@ public class WptTestRunner
         ["html/webappapis/timers/type-long-setinterval.any.js"] = 1,
         ["html/webappapis/timers/type-long-settimeout.any.js"] = 1,
 
+        ["html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js"] = 1,
         ["html/webappapis/microtask-queuing/queue-microtask.any.js"] = 5,
 
         ["html/webappapis/structured-clone/structured-clone.any.js"] = 130,

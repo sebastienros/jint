@@ -346,7 +346,8 @@ public static class WebApiOptionsExtensions
     /// <c>reportError</c> function script uses to add to them.
     /// </summary>
     /// <remarks>
-    /// The sink is what turns an exception escaping a timer callback or an event listener from something that
+    /// The sink is what turns an exception escaping a timer callback, a <c>queueMicrotask</c> callback or an
+    /// event listener from something that
     /// erupts into something that is reported — read <see cref="DiagnosticsSink"/> before installing one. Only
     /// <c>reportError</c> needs the feature flag; a host that wants the reports without giving script a way to
     /// add to them can assign <c>options.WebApi.Diagnostics.Sink</c> on its own.

@@ -29,10 +29,12 @@ namespace Jint.WebApi;
 /// </para>
 /// <para>
 /// <b>Setting a sink changes what happens to an exception that escapes an engine-invoked callback.</b> With
-/// no sink — the default, <see langword="null"/> — a <c>JavaScriptException</c> thrown by a timer callback or
-/// by an event listener erupts out of whatever was running it, because swallowing it would lose it entirely.
+/// no sink — the default, <see langword="null"/> — a <c>JavaScriptException</c> thrown by a timer callback, a
+/// <c>queueMicrotask</c> callback or an event listener erupts out of whatever was running it, because
+/// swallowing it would lose it entirely.
 /// With a sink it is reported here and the engine carries on, which is what the specifications say to do:
-/// HTML invokes a timer handler with exception behavior <c>"report"</c>, and DOM's <i>inner invoke</i>
+/// HTML invokes a timer handler and a <c>queueMicrotask</c> callback with exception behavior <c>"report"</c>,
+/// and DOM's <i>inner invoke</i>
 /// reports a throwing listener and moves to the next one. Errors that exist to <i>bound</i> execution are
 /// never reported and always erupt — a timeout, a cancellation, the statement, memory and recursion budgets —
 /// because a budget that turns into a diagnostic no longer bounds anything.
@@ -235,7 +237,8 @@ public enum DiagnosticEventKind
     ReportedError,
 
     /// <summary>
-    /// An exception escaped a callback the engine invoked — a timer handler, an event listener — and a sink
+    /// An exception escaped a callback the engine invoked — a timer handler, a <c>queueMicrotask</c> callback,
+    /// an event listener — and a sink
     /// being set is why it was reported instead of erupting.
     /// <see cref="DiagnosticEvent.Exception"/> and <see cref="DiagnosticEvent.CallbackSource"/> say what and
     /// where.
@@ -292,5 +295,13 @@ public enum DiagnosticCallbackSource
     /// the next one — https://dom.spec.whatwg.org/#concept-event-listener-inner-invoke.
     /// </summary>
     EventListener,
+
+    /// <summary>
+    /// A <c>queueMicrotask</c> callback. HTML queues a microtask to invoke it "given null and <c>"report"</c>"
+    /// — https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask — which is the
+    /// same WebIDL exception behavior a timer handler is invoked with, and the same one WebIDL's <i>report the
+    /// exception</i> defines: https://webidl.spec.whatwg.org/#report-the-exception.
+    /// </summary>
+    Microtask,
 }
 #endif

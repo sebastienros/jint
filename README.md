@@ -1005,7 +1005,8 @@ Four rules are worth knowing before you rely on it:
   recursion budgets keep erupting past both the event and the sink, exactly as they always have. An `error`
   listener is not a way to swallow a constraint.
 - **A sink is still what turns a callback failure into a *report*.** Firing the event is a step of reporting,
-  so with no sink a throwing timer callback or event listener erupts as before and no listener sees it.
+  so with no sink a throwing timer callback, `queueMicrotask` callback or event listener erupts as before and
+  no listener sees it.
   `reportError` is the exception, being itself a request to report: it fires the event with or without a sink.
 - **Rejection events arrive at the tracker's cadence, not HTML's microtask checkpoint** — the same documented
   divergence `DiagnosticEvent.RejectionHandled` carries, so `Promise.reject(e).catch(f)` raises

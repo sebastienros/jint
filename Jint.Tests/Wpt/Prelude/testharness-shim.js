@@ -12,6 +12,9 @@
 //                       that gave up through `assert_implements_optional`.
 //   __wpt.outstanding — the names of the tests that have started and not finished. Empty means the file is
 //                       over, and while it is not, it is the message a stalled run reports.
+//   __wpt.allowUncaughtException — whether the file declared `setup({allow_uncaught_exception: true})`, which
+//                       is what tells the driver that a failure escaping an engine-invoked callback is the
+//                       point of the file rather than a defect. See `setup` below.
 // The driver supplies `__wptReadResource(path)` before this file runs; nothing else crosses the boundary.
 //
 // Deliberate divergences from upstream testharness.js, all of them recorded in Jint.Tests/Wpt/Vendor/README.md:
@@ -845,11 +848,16 @@
     }
 
     // `setup` takes either a function run for its side effects before the tests are registered, or a
-    // properties bag. Of the bag only `single_test` is honoured, because it is the only member that decides
-    // what the file *is* rather than how a browser schedules it: it turns the whole file into one test, and a
-    // file that declared it and got nothing back would register no test at all and be reported as an empty
-    // run. Everything else in the bag — `explicit_done`, `allow_uncaught_exception`, the timeouts — is browser
-    // scheduling or a top-level error channel this shim does not have, and is accepted and ignored.
+    // properties bag. Two of the bag's members are honoured, because they decide what the file *is* rather
+    // than how a browser schedules it; the rest — `explicit_done`, the timeouts — is browser scheduling and is
+    // accepted and ignored.
+    //
+    //   * `single_test` turns the whole file into one test, and a file that declared it and got nothing back
+    //     would register no test at all and be reported as an empty run.
+    //   * `allow_uncaught_exception` is upstream's declaration that a failure is *expected* to escape a
+    //     callback the engine invoked. Upstream fails such a run through its own global `onerror` unless the
+    //     flag is set; the driver does the same through the DiagnosticsSink every engine it builds carries,
+    //     and this is where it reads the flag. See WptHarness.WptDiagnosticsSink.
     function setup(funcOrProperties) {
         if (typeof funcOrProperties === 'function') {
             funcOrProperties();
@@ -860,6 +868,9 @@
             // finished by the file calling `done()`. The name is the source file, which is this shim's own
             // choice — see the header.
             fileTest = async_test(typeof __wptTestFile === 'string' ? __wptTestFile : 'single_test');
+        }
+        if (funcOrProperties && funcOrProperties.allow_uncaught_exception) {
+            global.__wpt.allowUncaughtException = true;
         }
     }
 
@@ -1049,6 +1060,7 @@
     // that had in fact just finished.
     global.__wpt = {
         results: results,
-        outstanding: outstanding
+        outstanding: outstanding,
+        allowUncaughtException: false
     };
 })(globalThis);

@@ -406,9 +406,13 @@ internal enum WptDivergence
     /// currently says.
     /// </para>
     /// <para>
-    /// One further defect is recorded in <c>Vendor/README.md</c> with no entry here, because the test that
-    /// finds it cannot be named: a throw from a <c>queueMicrotask</c> callback erupts from the pump instead of
-    /// being reported, which takes its whole file down and leaves no test for an exclusion to cover.
+    /// <b>One further defect never had an entry here at all, and it is gone too.</b> A throw from a
+    /// <c>queueMicrotask</c> callback erupted from the pump instead of being reported, which took its whole
+    /// file down and left no test for an exclusion to cover, so
+    /// <c>html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js</c> sat in <c>_notVendored</c>
+    /// with its analysis in <c>Vendor/README.md</c>. <c>TimerFunctions</c> now invokes the callback with
+    /// WebIDL's <c>"report"</c> exception behaviour — the third instance of the catch shape
+    /// <c>TimerEntry.Fire</c> and <c>JsEventTarget.InvokePass</c> carry — and the file is vendored and green.
     /// </para>
     /// </summary>
     NeedsTriage,

@@ -47,14 +47,17 @@ internal sealed class WptWorkerProvider : WorkerProvider
 {
     private readonly string _moduleSource;
     private readonly string _directory;
+    private readonly WptDiagnosticsSink _sink;
     private readonly List<WorkerConnection> _live = [];
 
     /// <param name="moduleSource">The shim, the META helpers and the test file, already concatenated.</param>
     /// <param name="directory">The directory a worker-side <c>fetch()</c> resolves a corpus file against.</param>
-    internal WptWorkerProvider(string moduleSource, string directory)
+    /// <param name="sink">The run's diagnostics recorder, shared with the parent engine.</param>
+    internal WptWorkerProvider(string moduleSource, string directory, WptDiagnosticsSink sink)
     {
         _moduleSource = moduleSource;
         _directory = directory;
+        _sink = sink;
     }
 
     /// <summary>
@@ -77,6 +80,11 @@ internal sealed class WptWorkerProvider : WorkerProvider
     {
         var options = request.CreateDefaultOptions();
         options.Modules.ModuleLoader = new WptWorkerModuleLoader(request.Specifier, _moduleSource);
+
+        // CreateDefaultOptions already installs DiagnosticsSink.Null, which is what makes a worker's callback
+        // errors report-and-continue; this replaces it with the run's recorder so that the driver can hold a
+        // worker-lane file to the same rule a top-level one is held to — see WptDiagnosticsSink.
+        options.WebApi.Diagnostics.Sink = _sink;
 
         var engine = new Engine(options);
 

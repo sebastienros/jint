@@ -14,7 +14,8 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <remarks>
 /// <para>
 /// Half of what is asserted here is what happens <i>without</i> a sink, because setting one is what changes
-/// the contract: with no sink a timer callback or an event listener that throws erupts, which is the
+/// the contract: with no sink a timer callback, a <c>queueMicrotask</c> callback or an event listener that
+/// throws erupts, which is the
 /// behaviour every other test in this folder was written against and which must stay exactly as it was.
 /// Every report-and-continue test therefore has an erupts-without-a-sink twin.
 /// </para>
@@ -282,6 +283,100 @@ public class DiagnosticsTests
         clock.Advance(5);
 
         Assert.Throws<RecursionDepthOverflowException>(() => engine.Advanced.ProcessTasks());
+        sink.Reports.Should().BeEmpty();
+    }
+
+    // queueMicrotask — https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask
+
+    [Fact]
+    public void AThrowingMicrotaskCallbackIsReportedAndTheQueueCarriesOn()
+    {
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("""
+            queueMicrotask(() => { log.push('first'); throw new Error('boom'); });
+            queueMicrotask(() => log.push('second'));
+            """);
+
+        // "Queue a microtask to invoke callback ... and "report"": Execute drains the queue on its way out,
+        // so both callbacks have run by the time it returns and the exception never reaches the host.
+        Log(engine).Should().Be("first,second");
+
+        var report = Assert.Single(sink.Reports);
+        report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
+        report.CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
+        report.Exception.Should().NotBeNull();
+        report.Exception!.Message.Should().Be("boom");
+        report.Value.Should().BeSameAs(report.Exception.Error);
+        report.Promise.Should().BeNull();
+    }
+
+    [Fact]
+    public void AThrowingMicrotaskCallbackEruptsWithoutASink()
+    {
+        // The twin of the test above, and the behaviour every engine without a sink keeps. It erupts from
+        // whatever is running the queue — here Execute's own drain, exactly as a timer's does.
+        var (engine, _) = Silent();
+
+        Assert.Throws<JavaScriptException>(
+                () => engine.Execute("queueMicrotask(() => { log.push('first'); throw new Error('boom'); });"))
+            .Message.Should().Be("boom");
+
+        Log(engine).Should().Be("first");
+    }
+
+    [Fact]
+    public void AReportedMicrotaskCallbackDoesNotStopTheJobsBehindIt()
+    {
+        // The engine's single job queue *is* the microtask queue, so a reported failure must leave everything
+        // already queued — a promise reaction, a later microtask, a due timer — exactly where it was.
+        var (engine, sink, clock) = Reporting();
+
+        engine.Execute("""
+            setTimeout(() => log.push('timeout'), 0);
+            queueMicrotask(() => { log.push('micro1'); throw new Error('boom'); });
+            Promise.resolve().then(() => log.push('promise'));
+            queueMicrotask(() => log.push('micro2'));
+            log.push('script');
+            """);
+
+        clock.Advance(1);
+        engine.Advanced.ProcessTasks();
+
+        Log(engine).Should().Be("script,micro1,promise,micro2,timeout");
+        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
+    }
+
+    [Fact]
+    public void AConstraintFailureInAMicrotaskCallbackStillErupts()
+    {
+        // The same MustPropagate rule the timer and listener sites keep: RecursionDepthOverflowException is a
+        // JintException but not a JavaScriptException, so the catch never sees it and the budget still bounds.
+        var (engine, sink, _) = Reporting(options => options.LimitRecursion(8));
+
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute("""
+            function recurse() { return recurse(); }
+            queueMicrotask(() => { log.push('entered'); recurse(); });
+            """));
+
+        // The overflow happened inside the queued callback rather than before it, which is what makes this a
+        // statement about the report site and not about the enqueue.
+        Log(engine).Should().Be("entered");
+        sink.Reports.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AStatementBudgetTrippedInsideAMicrotaskCallbackStillErupts()
+    {
+        // The other half of the same rule, over the budget a runaway callback actually trips: a microtask
+        // that never returns must not be able to spend the engine's statement budget and then have the
+        // overflow filed as a diagnostic.
+        var (engine, sink, _) = Reporting(options => options.MaxStatements(1000));
+
+        Assert.Throws<StatementsCountOverflowException>(
+            () => engine.Execute("queueMicrotask(() => { log.push('entered'); for (var i = 0; ; i++) { } });"));
+
+        Log(engine).Should().Be("entered");
         sink.Reports.Should().BeEmpty();
     }
 

@@ -31,6 +31,62 @@ internal readonly record struct WptTestResult(string Name, string Status, string
 internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, string? HarnessError);
 
 /// <summary>
+/// The driver's <see cref="DiagnosticsSink"/>, and the reason every engine it builds has one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Installing a sink is what gives an engine-invoked callback the browser's behaviour.</b> Jint reports an
+/// exception escaping a timer handler, an event listener or a <c>queueMicrotask</c> callback — and carries on
+/// — only where the host gave it somewhere to report to; with no sink the throw erupts from whatever is
+/// pumping, which is the documented contract and the one an embedder that configured nothing keeps. A
+/// conformance corpus is written against the other half of that contract: HTML invokes those callbacks with
+/// WebIDL's <c>"report"</c> exception behaviour, so <c>html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js</c>
+/// registers an <c>error</c> listener and expects the failure to arrive there rather than to take the file
+/// down. The shipped code already makes this exact choice one level in: <c>WorkerRequest.CreateDefaultOptions</c>
+/// installs <see cref="DiagnosticsSink.Null"/> on every worker engine, for the same reason and in the same
+/// words. So the driver's engines get a sink too — and the worker lane's engine gets <i>this</i> one rather
+/// than the default null, so a file's environment does not depend on which lane ran it.
+/// </para>
+/// <para>
+/// <b>What it must not do is make the report disappear.</b> Before there was a sink, an exception escaping a
+/// callback erupted and the driver reported a harness error for the whole file — loudly, which is what
+/// upstream's own harness does too: <c>testharness.js</c> installs a global <c>onerror</c> and fails the run
+/// unless the file declared <c>setup({allow_uncaught_exception: true})</c>. Swallowing it instead would let a
+/// file go green while a real defect hid inside a callback nobody was watching, which is the one thing a
+/// corpus this size must not be able to do. So the reports are recorded, and
+/// <see cref="WptHarness"/> turns any that the file did not declare itself ready for into the same harness
+/// error the eruption used to be.
+/// </para>
+/// <para>
+/// Only <see cref="DiagnosticEventKind.UncaughtCallbackError"/> is kept. The other kinds are not failures a
+/// file has to declare: a promise rejection reaches the sink at <c>HostPromiseRejectionTracker</c>'s cadence
+/// and every <c>promise_rejects_*</c> assertion in the corpus produces a pair of them, <c>reportError</c> is a
+/// suite calling an API, and <c>WorkerError</c> is the worker lane's copy of an
+/// <see cref="DiagnosticEventKind.UncaughtCallbackError"/> this sink has already been told about directly.
+/// </para>
+/// <para>
+/// It needs no synchronization even though the worker lane shares one instance between two engines:
+/// <see cref="WptWorkerProvider"/> is the cooperative provider, so the parent and every worker are pumped in
+/// turn on the test's own thread and nothing here is ever reached from a second one.
+/// </para>
+/// </remarks>
+internal sealed class WptDiagnosticsSink : DiagnosticsSink
+{
+    private readonly List<string> _uncaught = [];
+
+    /// <summary>What escaped a callback the engine invoked, as text, in report order.</summary>
+    internal IReadOnlyList<string> UncaughtCallbackErrors => _uncaught;
+
+    public override void Report(DiagnosticEvent report)
+    {
+        if (report.Kind == DiagnosticEventKind.UncaughtCallbackError)
+        {
+            _uncaught.Add($"{report.CallbackSource}: {report.Exception?.Message}");
+        }
+    }
+}
+
+/// <summary>
 /// Runs one vendored <c>.any.js</c> file on a fresh engine and hands back what the shim recorded.
 /// </summary>
 /// <remarks>
@@ -213,8 +269,12 @@ internal static class WptHarness
 
         body.Append(WptCorpus.Read(testFilePath));
 
-        var provider = new WptWorkerProvider(body.ToString(), directory);
-        var parent = BuildEngine(directory, provider);
+        // One sink for both engines of the run: the worker's own callback errors are reported on the worker
+        // engine and the relay to the parent is a WorkerError this ignores, so a single recorder sees each
+        // failure exactly once whichever side it happened on.
+        var sink = new WptDiagnosticsSink();
+        var provider = new WptWorkerProvider(body.ToString(), directory, sink);
+        var parent = BuildEngine(directory, sink, provider);
 
         Engine? worker = null;
         try
@@ -223,7 +283,12 @@ internal static class WptHarness
             parent.Execute("globalThis.__wptWorker = new Worker(__wptWorkerSpecifier, { type: 'module' });");
 
             var stalled = PumpWorker(parent, provider, out worker);
-            return new WptRunOutcome(worker is null ? [] : ReadResults(worker), stalled);
+
+            // The shim — and therefore the flag that says whether the file declared itself ready for an
+            // uncaught exception — lives on the worker engine, which is also where the results are read.
+            return new WptRunOutcome(
+                worker is null ? [] : ReadResults(worker),
+                stalled ?? (worker is null ? null : UndeclaredCallbackErrors(worker, sink)));
         }
         catch (Exception ex)
         {
@@ -336,7 +401,8 @@ internal static class WptHarness
 
     private static WptRunOutcome Execute(string directory, List<string> metaScripts, string source, string sourceName)
     {
-        var engine = BuildEngine(directory);
+        var sink = new WptDiagnosticsSink();
+        var engine = BuildEngine(directory, sink);
 
         try
         {
@@ -356,7 +422,7 @@ internal static class WptHarness
             var stalled = Outstanding(engine) is { } outstanding
                 ? Pump(engine, outstanding)
                 : "the harness shim did not install __wpt";
-            return new WptRunOutcome(ReadResults(engine), stalled);
+            return new WptRunOutcome(ReadResults(engine), stalled ?? UndeclaredCallbackErrors(engine, sink));
         }
         catch (Exception ex)
         {
@@ -397,12 +463,47 @@ internal static class WptHarness
         return scripts;
     }
 
-    private static Engine BuildEngine(string directory, WptWorkerProvider? workers = null)
+    /// <summary>
+    /// Whether the run recorded an exception escaping an engine-invoked callback that the file never said it
+    /// was expecting, described as a harness error for the whole file. <see langword="null"/> when there is
+    /// nothing to report.
+    /// </summary>
+    /// <remarks>
+    /// This is upstream's rule rather than an invention: <c>testharness.js</c> installs a global
+    /// <c>onerror</c> and turns an uncaught exception into an error for the whole run unless the file declared
+    /// <c>setup({allow_uncaught_exception: true})</c>. It is also exactly what the driver did before its
+    /// engines had a sink, when such an exception erupted from the pump — see <see cref="WptDiagnosticsSink"/>
+    /// for why that had to be kept.
+    /// </remarks>
+    private static string? UndeclaredCallbackErrors(Engine engine, WptDiagnosticsSink sink)
+    {
+        if (sink.UncaughtCallbackErrors.Count == 0 || AllowsUncaughtException(engine))
+        {
+            return null;
+        }
+
+        return "an exception escaped a callback the engine invoked and the file did not declare "
+            + "setup({allow_uncaught_exception: true}): "
+            + string.Join("; ", sink.UncaughtCallbackErrors);
+    }
+
+    /// <summary>The shim's record of <c>setup({allow_uncaught_exception: true})</c>.</summary>
+    private static bool AllowsUncaughtException(Engine engine)
+        => engine.GetValue("__wpt") is ObjectInstance wpt
+            && TypeConverter.ToBoolean(wpt.Get("allowUncaughtException"));
+
+    private static Engine BuildEngine(string directory, WptDiagnosticsSink sink, WptWorkerProvider? workers = null)
     {
         var engine = new Engine(options =>
         {
             // Everything except outbound network access, which is what a suite under test is allowed to see.
             options.UseWebApis(WebApiFeatures.Default);
+
+            // What makes an exception escaping a timer callback, an event listener or a queueMicrotask
+            // callback report-and-continue rather than erupt from the pump, which is the environment the
+            // corpus was written for. See WptDiagnosticsSink for the whole rationale, including why the
+            // reports are recorded rather than discarded.
+            options.WebApi.Diagnostics.Sink = sink;
 
             // Only for the worker lane, and only then: an engine that no vendored file asks to create a worker
             // from is byte-for-byte the engine every other suite has always run on. `Worker` is absent without
