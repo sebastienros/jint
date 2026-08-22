@@ -4,6 +4,7 @@ using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.WebApi.Fetch;
 
@@ -99,27 +100,67 @@ internal sealed class JsHeaders : ObjectInstance
     }
 
     /// <summary>
-    /// "Otherwise, init is a record: for each key → value of init, append (key, value)." A record's members
-    /// are its own enumerable string-keyed properties, in own-property order —
-    /// https://webidl.spec.whatwg.org/#es-record.
+    /// "Otherwise, init is a record: for each key → value of init, append (key, value)."
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The record is converted <i>in full</i> before the fill appends anything, because the conversion is
+    /// what turns the argument into a <c>record&lt;ByteString, ByteString&gt;</c> in the first place —
+    /// https://webidl.spec.whatwg.org/#es-record. Its step 3 is <c>? O.[[OwnPropertyKeys]]()</c>, with no
+    /// filter, so a Symbol key is a member of the walk like any other; and its step 4 is, per key,
+    /// </para>
+    /// <list type="number">
+    /// <item><description><c>[[GetOwnProperty]]</c>, and</description></item>
+    /// <item><description>
+    /// when the descriptor exists and is enumerable: "let <i>typedKey</i> be <i>key</i> converted to an IDL
+    /// value of type <i>K</i>", then "let <i>value</i> be <c>? Get(O, key)</c>", then the value's own
+    /// conversion.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// The <b>key</b> is converted before the <c>Get</c>, which is the whole of what
+    /// <c>fetch/api/headers/headers-record.any.js</c> counts through a proxy: <i>K</i> is <c>ByteString</c>,
+    /// so a Symbol key — or a string carrying a code unit above 255 — ends the conversion there, and the
+    /// <c>Get</c> that would have followed never happens.
+    /// </para>
+    /// </remarks>
     private void FillFromRecord(Realm realm, ObjectInstance init)
     {
-        foreach (var key in init.GetOwnPropertyKeys(Types.String))
+        var keys = init.GetOwnPropertyKeys();
+        var record = new List<(string Name, string Value)>(keys.Count);
+
+        foreach (var key in keys)
         {
             var descriptor = init.GetOwnProperty(key);
-            if (!descriptor.Enumerable)
+            if (descriptor == PropertyDescriptor.Undefined || !descriptor.Enumerable)
             {
                 continue;
             }
 
-            AppendChecked(realm, key, init.Get(key));
+            var name = FetchValues.ToByteString(realm, key);
+            record.Add((name, FetchValues.ToByteString(realm, init.Get(key))));
+        }
+
+        foreach (var (name, value) in record)
+        {
+            AppendConverted(realm, name, value);
         }
     }
 
     /// <summary>
-    /// The <c>append</c> operation, https://fetch.spec.whatwg.org/#dom-headers-append, shared by the fill
-    /// above and by <c>Headers.prototype.append</c>.
+    /// The <c>append</c> operation, https://fetch.spec.whatwg.org/#dom-headers-append, for the fill above,
+    /// whose two <c>ByteString</c> conversions belong to the record conversion that precedes it.
+    /// </summary>
+    private void AppendConverted(Realm realm, string name, string value)
+    {
+        var (headerName, headerValue) = ValidateConverted(realm, "append", name, value);
+        RequireMutable(realm, "append");
+        List.Append(headerName, headerValue);
+    }
+
+    /// <summary>
+    /// The same operation for <c>Headers.prototype.append</c>, where the <c>ByteString</c> conversions are
+    /// WebIDL's argument conversions and so happen here.
     /// </summary>
     internal void AppendChecked(Realm realm, JsValue name, JsValue value)
     {
@@ -129,15 +170,20 @@ internal sealed class JsHeaders : ObjectInstance
     }
 
     /// <summary>
+    /// The <c>ByteString</c> argument conversions, in declaration order, and then <see cref="ValidateConverted"/>.
+    /// </summary>
+    internal static (string Name, string Value) Validate(Realm realm, string operation, JsValue name, JsValue value)
+        => ValidateConverted(realm, operation, FetchValues.ToByteString(realm, name), FetchValues.ToByteString(realm, value));
+
+    /// <summary>
     /// Steps 1 and 2 of every mutating operation: normalize the value, then refuse a name that is not a token
     /// or a value carrying NUL, CR or LF.
     /// </summary>
-    internal static (string Name, string Value) Validate(Realm realm, string operation, JsValue name, JsValue value)
+    private static (string Name, string Value) ValidateConverted(Realm realm, string operation, string name, string value)
     {
-        var headerName = FetchValues.ToByteString(realm, name);
-        var headerValue = HeaderList.Normalize(FetchValues.ToByteString(realm, value));
+        var headerValue = HeaderList.Normalize(value);
 
-        if (!HeaderList.IsName(headerName))
+        if (!HeaderList.IsName(name))
         {
             Throw.TypeError(realm, $"Failed to execute '{operation}' on 'Headers': Invalid name");
         }
@@ -147,7 +193,7 @@ internal sealed class JsHeaders : ObjectInstance
             Throw.TypeError(realm, $"Failed to execute '{operation}' on 'Headers': Invalid value");
         }
 
-        return (headerName, headerValue);
+        return (name, headerValue);
     }
 
     /// <summary>

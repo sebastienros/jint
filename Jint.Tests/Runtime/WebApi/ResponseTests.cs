@@ -291,5 +291,75 @@ public class ResponseTests
         Eval("(() => { class R extends Response {}; const r = new R('hi'); return r.status + ':' + (r instanceof R); })()")
             .AsString().Should().Be("200:true");
     }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [InlineData("arrayBuffer")]
+    [InlineData("blob")]
+    [InlineData("bytes")]
+    [InlineData("formData")]
+    public void ConsumingABufferedBodyLeavesItsStreamDisturbedAndLocked(string consume)
+    {
+        // https://fetch.spec.whatwg.org/#concept-body-consume-body ends in *fully read*, whose step 3 is
+        // "let reader be the result of getting a reader for body's stream" —
+        // https://streams.spec.whatwg.org/#readablestream-get-a-reader, which locks the stream — and whose
+        // read-all-bytes never releases it. So a consumed body's stream is disturbed
+        // (https://fetch.spec.whatwg.org/#concept-body-disturbed) *and* locked for good, and a second
+        // getReader() is the TypeError https://streams.spec.whatwg.org/#set-up-readable-stream-default-reader
+        // raises. web-platform-tests' response-stream-disturbed-5.any.js asserts exactly that.
+        var engine = WebEngine();
+        engine.Execute("var r = new Response('a=1', { headers: { 'content-type': 'application/x-www-form-urlencoded' } });");
+
+        // The rejection json() produces is caught here only so it is not an unhandled one; the point of the
+        // call is what it does to the body, which is the same either way.
+        engine.Execute($"r.{consume}().then(() => {{}}, () => {{}});");
+
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue("consuming disturbs the body");
+        engine.Evaluate("r.body === null").AsBoolean().Should().BeFalse("the body concept is still non-null");
+        engine.Evaluate("r.body.locked").AsBoolean().Should().BeTrue("fully read never releases its reader");
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.body.getReader()"))
+            .Message.Should().Contain("locked");
+
+        // The same object every time, and asking again does not un-disturb it.
+        engine.Evaluate("r.body === r.body").AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void AskingForTheBodyBeforeConsumingItDoesNotDisturbIt()
+    {
+        // The other side of the same coin, and what response-stream-disturbed-1.any.js pins: materializing
+        // the stream is not reading it, and a reader that released its lock leaves the body usable.
+        var engine = WebEngine();
+        engine.Execute("var r = new Response('hi'); var s = r.body; s.getReader().releaseLock();");
+
+        engine.Evaluate("s.locked").AsBoolean().Should().BeFalse();
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("hi");
+
+        // Consuming it through the stream it already had locks that same stream, not a new one.
+        engine.Evaluate("r.body === s").AsBoolean().Should().BeTrue();
+        engine.Evaluate("s.locked").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void CloneAfterConsumingStillThrows()
+    {
+        // https://fetch.spec.whatwg.org/#dom-response-clone step 1 refuses a body that is *unusable*, which
+        // https://fetch.spec.whatwg.org/#body-unusable defines as disturbed **or locked**. Locking the
+        // buffered body's stream must not change that answer, in either direction.
+        var engine = WebEngine();
+        engine.Execute("var r = new Response('hi'); r.text();");
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.clone()"))
+            .Message.Should().Contain("already used");
+
+        // And reading `body` first — which is what materializes the stream — does not change it either.
+        engine.Execute("var q = new Response('hi'); q.text(); var b = q.body;");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("q.clone()"))
+            .Message.Should().Contain("already used");
+    }
 }
 #endif

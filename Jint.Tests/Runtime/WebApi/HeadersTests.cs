@@ -241,5 +241,141 @@ public class HeadersTests
         Assert.Throws<JavaScriptException>(() => Eval("Headers()"))
             .Message.Should().Contain("requires 'new'");
     }
+
+    [Fact]
+    public void TheIteratorPrototypesNextCarriesWebIdlsAttributes()
+    {
+        // "An iterator prototype object must have a next data property with attributes
+        // { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true } and whose value is the
+        // built-in function object CreateBuiltinFunction(nextSteps, 0, "next", <<>>)" —
+        // https://webidl.spec.whatwg.org/#es-iterator-prototype-object. Enumerable is the surprise: a
+        // built-in function property is non-enumerable everywhere in ECMA-262
+        // (https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects), and WebIDL is the one binding
+        // that says otherwise.
+        var engine = WebEngine();
+        engine.Execute("var proto = Object.getPrototypeOf(new Headers().entries());");
+
+        engine.Evaluate("Object.getOwnPropertyNames(proto).join(',')").AsString().Should().Be("next");
+        engine.Execute("var d = Object.getOwnPropertyDescriptor(proto, 'next');");
+        engine.Evaluate("d.writable").AsBoolean().Should().BeTrue("next must be writable");
+        engine.Evaluate("d.enumerable").AsBoolean().Should().BeTrue("next must be enumerable");
+        engine.Evaluate("d.configurable").AsBoolean().Should().BeTrue("next must be configurable");
+        engine.Evaluate("d.value.length").AsNumber().Should().Be(0);
+        engine.Evaluate("d.value.name").AsString().Should().Be("next");
+
+        // The three kinds share one prototype, so the attributes above are the attributes of all of them.
+        engine.Evaluate("Object.getPrototypeOf(new Headers().keys()) === proto").AsBoolean().Should().BeTrue("the three kinds share one prototype");
+        engine.Evaluate("Object.getPrototypeOf(new Headers().values()) === proto").AsBoolean().Should().BeTrue("the three kinds share one prototype");
+
+        // The class string is the object's only other own property, and it keeps the attributes a class
+        // string carries — { [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true } — rather
+        // than WebIDL's operation attributes.
+        engine.Evaluate("Object.getOwnPropertySymbols(proto).length").AsNumber().Should().Be(1);
+        engine.Execute("var t = Object.getOwnPropertyDescriptor(proto, Symbol.toStringTag);");
+        engine.Evaluate("t.value").AsString().Should().Be("Headers Iterator");
+        engine.Evaluate("t.writable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.configurable").AsBoolean().Should().BeTrue("the class string is configurable");
+    }
+
+    /// <summary>
+    /// The proxy-and-log harness web-platform-tests' <c>headers-record.any.js</c> uses: every
+    /// <c>Reflect</c> operation the conversion performs is appended to <c>log</c> as
+    /// <c>trap:key</c>.
+    /// </summary>
+    private const string RecordProbe = """
+        var log = [];
+        var handler = {};
+        for (const prop of Object.getOwnPropertyNames(Reflect)) {
+          handler[prop] = function (...args) {
+            const key = args.length > 1 ? String(args[1]) : '';
+            log.push(key === '' ? prop : prop + ':' + key);
+            return Reflect[prop](...args);
+          };
+        }
+        function probe(record) {
+          log = [];
+          try { new Headers(new Proxy(record, handler)); return log.join(' | '); }
+          catch (e) { return e.constructor.name + ' >> ' + log.join(' | '); }
+        }
+        """;
+
+    [Fact]
+    public void ConvertsARecordInWebIdlsOwnOrder()
+    {
+        // https://webidl.spec.whatwg.org/#es-record, whose step 4 walks [[OwnPropertyKeys]]() and, for each
+        // key: 4.1 [[GetOwnProperty]], and then, only when the descriptor exists and is enumerable,
+        // 4.2.1 "let typedKey be key converted to an IDL value of type K", 4.2.2 "let value be ? Get(O, key)"
+        // and 4.2.3 the value's own conversion. The key is converted BEFORE the Get, and K here is
+        // ByteString — https://webidl.spec.whatwg.org/#es-ByteString — so a key that is a Symbol, or a
+        // string with a code unit above 255, ends the whole conversion at 4.2.1 with a TypeError and the
+        // Get never happens.
+        var engine = WebEngine();
+        engine.Execute(RecordProbe);
+
+        // One property, and a second: the shape everything else is measured against.
+        engine.Evaluate("probe({ a: 'b' })").AsString()
+            .Should().Be("get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a | get:a");
+        engine.Evaluate("probe({ a: 'b', c: 'd' })").AsString()
+            .Should().Be("get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a | get:a "
+                + "| getOwnPropertyDescriptor:c | get:c");
+
+        // An invalid *name*: the conversion stops at step 4.2.1, so there is no second Get.
+        engine.Evaluate("probe({ a: 'b', '￿': 'd' })").AsString()
+            .Should().Be("TypeError >> get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a "
+                + "| get:a | getOwnPropertyDescriptor:￿");
+
+        // An invalid *value* stops one step later, at 4.2.3, so the next key is never even looked at.
+        engine.Evaluate("probe({ a: '￿', c: 'd' })").AsString()
+            .Should().Be("TypeError >> get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a "
+                + "| get:a");
+
+        // A Symbol key is an own property key like any other: its descriptor is fetched, and because it is
+        // enumerable the ByteString conversion of the key itself throws — before its Get, and after the
+        // string keys that preceded it have been read in full.
+        engine.Evaluate("probe({ a: 'b', [Symbol.toStringTag]: 'x', c: 'd' })").AsString()
+            .Should().Be("TypeError >> get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a "
+                + "| get:a | getOwnPropertyDescriptor:c | get:c "
+                + "| getOwnPropertyDescriptor:Symbol(Symbol.toStringTag)");
+
+        // A non-enumerable one is skipped at step 4.2 instead, so it costs a descriptor and nothing else —
+        // no key conversion, therefore no TypeError, therefore a Headers that was built.
+        engine.Execute("""
+            var withSymbol = { a: 'b', [Symbol.toStringTag]: 'x', c: 'd' };
+            Object.defineProperty(withSymbol, Symbol.toStringTag, { enumerable: false });
+            """);
+        engine.Evaluate("probe(withSymbol)").AsString()
+            .Should().Be("get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a | get:a "
+                + "| getOwnPropertyDescriptor:c | get:c | getOwnPropertyDescriptor:Symbol(Symbol.toStringTag)");
+
+        // A non-enumerable string key and a descriptor a proxy lies about are the same step 4.2: a
+        // descriptor apiece, no Get.
+        engine.Evaluate("probe(Object.defineProperties({}, { a: { value: 'b' }, c: { value: 'd', enumerable: true } }))")
+            .AsString()
+            .Should().Be("get:Symbol(Symbol.iterator) | ownKeys | getOwnPropertyDescriptor:a "
+                + "| getOwnPropertyDescriptor:c | get:c");
+    }
+
+    [Fact]
+    public void ARecordKeyThatIsNotAByteStringIsATypeError()
+    {
+        // The consequence of the order above that a script can see without a proxy. A Symbol fails at the
+        // ToString https://webidl.spec.whatwg.org/#es-ByteString starts with, rather than at its own
+        // above-0x00FF check, so the message is the language's rather than the binding's.
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ [Symbol.toStringTag]: 'x' })"))
+            .Message.Should().Contain("Symbol");
+
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ '￿': 'x' })"))
+            .Message.Should().Contain("ByteString");
+
+        // ... and the one it must not raise: a non-enumerable Symbol key is not a record member at all.
+        Eval("""
+            (() => {
+              const o = { a: 'b' };
+              Object.defineProperty(o, Symbol.toStringTag, { value: 'x', enumerable: false });
+              return new Headers(o).get('a');
+            })()
+            """).AsString().Should().Be("b");
+    }
 }
 #endif

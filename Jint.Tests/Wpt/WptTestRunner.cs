@@ -970,27 +970,12 @@ public class WptTestRunner
         new("fetch/api/headers/headers-forbidden-override.any.js", "header * is forbidden to use value *", WptDivergence.NeedsForbiddenHeaderNames),
         new("fetch/api/headers/header-setcookie.any.js", "Set-Cookie is a forbidden response header", WptDivergence.NeedsForbiddenHeaderNames),
 
-        // WebIDL gives an iterator prototype object's `next` { writable, enumerable, configurable }; Jint's is
-        // non-enumerable. The same defect the streams corpus filed against the async iterator prototype.
-        new("fetch/api/headers/headers-basic.any.js", "Check keys method", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-basic.any.js", "Check values method", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-basic.any.js", "Check entries method", WptDivergence.NeedsTriage),
-
-        // Two rows counting the operations a record<> conversion performs; Jint does one more than the
-        // specification's order allows. See Vendor/README.md.
-        new("fetch/api/headers/headers-record.any.js",
-            "Correct operation ordering with two properties one of which has an invalid name", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-record.any.js", "Basic operation with Symbol keys", WptDivergence.NeedsTriage),
-
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
-        // Eight of the twelve rows of a file whose other four pass: after a Response whose body came from
-        // *bytes* — a string, or the loader's answer — has been consumed, `response.body.getReader()` must
-        // throw because the body is disturbed, and here it does not. The four rows whose body source is a
-        // ReadableStream the test built itself pass, which is what locates the defect. See Vendor/README.md.
-        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: string)", WptDivergence.NeedsTriage),
-        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: fetch)", WptDivergence.NeedsTriage),
-
+        // The one row this corpus still names, and it is not a defect: an empty FormData body is asked to
+        // serialize to nothing, where HTML's encoding algorithm delegates the framing to RFC 7578 and RFC
+        // 2046, whose grammar makes the close-delimiter mandatory — and where no browser passes the row
+        // either. Left here because moving it wants a category of its own. See WptDivergence.NeedsTriage.
         new("fetch/api/response/response-consume-empty.any.js",
             "Consume empty FormData response body as text", WptDivergence.NeedsTriage),
 

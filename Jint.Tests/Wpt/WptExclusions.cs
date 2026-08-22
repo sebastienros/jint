@@ -325,26 +325,16 @@ internal enum WptDivergence
     /// documenting the divergence on itself and raising it upstream as
     /// https://github.com/w3c/webcrypto/issues/560.
     /// <para>
-    /// <b>The streams corpus filed five, and the workers corpus one more.</b> Each is analysed in
-    /// <c>Vendor/README.md</c>; in one line apiece:
+    /// <b>The streams corpus filed five rows, and they are gone.</b> The three defects behind them — the
+    /// async iterator prototype's non-enumerable <c>next</c> and <c>return</c>, a <c>TransformStream</c>
+    /// whose <c>readable.cancel()</c> rejected where
+    /// https://streams.spec.whatwg.org/#transform-stream-default-source-cancel fulfils it, and a
+    /// <c>pipeTo()</c> that reached the sink's <c>write</c> synchronously with an <c>enqueue()</c> on the
+    /// source — were fixed under sebastienros/jint#3195, so the five entries that used to be here now
+    /// enforce them. <c>Vendor/README.md</c> keeps the analysis, because two of the three turned out to be
+    /// something other than the triage note predicted. <b>What the workers corpus filed is still open:</b>
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// The async iterator prototype's <c>next</c> and <c>return</c> are not enumerable, where
-    /// https://webidl.spec.whatwg.org/#js-asynchronous-iterator-prototype-object gives both
-    /// <c>{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }</c>.
-    /// </description></item>
-    /// <item><description>
-    /// Three rows across <c>transform-streams/errors.any.js</c> and <c>general.any.js</c> in which the promise
-    /// <c>readable.cancel()</c> returned <i>rejects</i> with the writable side's error where
-    /// https://streams.spec.whatwg.org/#transform-stream-default-source-cancel fulfils it — one defect seen
-    /// from three angles (<c>writer.abort()</c>, <c>controller.error()</c>, <c>controller.terminate()</c>).
-    /// </description></item>
-    /// <item><description>
-    /// <c>piping/general-addition.any.js</c>: an <c>enqueue()</c> on the source of a running <c>pipeTo()</c>
-    /// reaches the sink's <c>write</c> synchronously, where https://streams.spec.whatwg.org/#rs-pipe-to reads
-    /// the chunk in a reaction to the reader's promise and can never be synchronous with the enqueue.
-    /// </description></item>
     /// <item><description>
     /// <b><c>self</c> is writable in a worker, where <c>WorkerGlobalScope.self</c> is read-only.</b>
     /// <c>workers/interfaces/WorkerGlobalScope/self.any.js</c>, "self = 1": the file assigns to <c>self</c> and
@@ -369,31 +359,30 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM and fetch corpora filed seven more, and three of them are gone</b> — the
+    /// <b>The hr-time, DOM and fetch corpora filed seven, and six of them are gone</b> — the
     /// <c>PerformanceMarkOptions</c> dictionary conversion, <c>Event.isTrusted</c>'s
-    /// <c>[LegacyUnforgeable]</c> shape, and <c>Event</c>'s missing <c>srcElement</c>/<c>returnValue</c>,
-    /// all fixed under sebastienros/jint#3212, so the six entries that used to be here now enforce them and
+    /// <c>[LegacyUnforgeable]</c> shape, <c>Event</c>'s missing <c>srcElement</c>/<c>returnValue</c>, the
+    /// <c>Headers</c> iterator prototype's non-enumerable <c>next</c>, the stream a consumed bytes-source
+    /// body handed back unlocked, and a <c>record&lt;ByteString, ByteString&gt;</c> conversion that read a
+    /// property WebIDL's order never reaches — all fixed under sebastienros/jint#3212, so the thirteen
+    /// entries that used to be here now enforce them and
     /// <c>dom/events/Event-constructors.any.js</c> left <c>_notVendored</c> with them. <c>Vendor/README.md</c>
-    /// analyses each with its citation. In one line apiece:
+    /// analyses each with its citation. <b>The seventh is the one entry left:</b>
     /// </para>
     /// <list type="bullet">
     /// <item><description>
-    /// The <c>Headers</c> iterator prototype's <c>next</c> is not enumerable — the same attribute on the same
-    /// kind of object as the streams corpus's async-iterator entry above.
-    /// </description></item>
-    /// <item><description>
-    /// A <c>Response</c> whose body came from bytes is not disturbed by consuming it, so
-    /// <c>response.body.getReader()</c> succeeds where https://fetch.spec.whatwg.org/#concept-body-disturbed
-    /// requires a <c>TypeError</c>; the rows whose body source is a <c>ReadableStream</c> pass.
-    /// </description></item>
-    /// <item><description>
-    /// A <c>record&lt;ByteString, ByteString&gt;</c> conversion performs one operation more than WebIDL's own
-    /// order allows — two rows of <c>headers-record.any.js</c>, which count them through a proxy.
-    /// </description></item>
-    /// <item><description>
-    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing. This
-    /// one wants https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
-    /// read before anything is changed, which is exactly why it is triage rather than a fix.
+    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing —
+    /// <c>response-consume-empty.any.js</c>, "Consume empty FormData response body as text", which asks that
+    /// <c>await new Response(new FormData()).text()</c> have length 0. <b>It is not a defect.</b> This one
+    /// wanted https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
+    /// read before anything was changed, and reading it settles the question the other way: the algorithm
+    /// defines the escaping and delegates the framing to RFC 7578 and, through it, to RFC 2046 section 5.1.1,
+    /// whose grammar ends every <c>multipart-body</c> with a <c>close-delimiter</c> that is not optional. Nor
+    /// does any implementation produce the empty body the row asks for — Chrome, Edge, Firefox and Safari all
+    /// report it 0/1 on wpt.fyi, where the file's thirteen other rows are 1/1 in all four. So the entry
+    /// stays, but this category — "a bug or a specification detail to chase" — is the wrong one for it, and
+    /// giving it one of its own is filed rather than done here. <c>Vendor/README.md</c> has the citations and
+    /// the measurement.
     /// </description></item>
     /// </list>
     /// <para>
