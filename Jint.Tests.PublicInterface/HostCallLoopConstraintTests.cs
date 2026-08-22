@@ -93,18 +93,22 @@ public class HostCallLoopConstraintTests
 
     /// <summary>
     /// What each host call spends of that budget. Deliberately a small fraction of
-    /// <see cref="HostCallTimeout"/>: the remainder is the headroom an entry has for a scheduling stall
-    /// before the engine is entitled to fail it, and the smaller the fraction the more calls it takes for
-    /// a deadline that failed to re-arm to accumulate past the timeout — four, with these numbers, which
-    /// is well inside the loop.
+    /// <see cref="HostCallTimeout"/>: the remainder — 500 ms here — is the headroom an entry has for a
+    /// scheduling stall before the engine is entitled to fail it, and the smaller the fraction the more
+    /// calls it takes for a deadline that failed to re-arm to accumulate past the timeout — six, with
+    /// these numbers, which is half of the loop.
     /// </summary>
-    private static readonly TimeSpan PausePerCall = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan PausePerCall = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
     /// Enough calls that the loop's engine-resident time (<see cref="TimedLoopCalls"/> ×
-    /// <see cref="PausePerCall"/> = 900 ms) comfortably outlives <see cref="HostCallTimeout"/>.
+    /// <see cref="PausePerCall"/> = 1200 ms) is twice <see cref="HostCallTimeout"/>, so that half of the
+    /// iterations begin only once the interval has already passed. Those six are the sample the two
+    /// accumulation tests observe the engine on, and every one of them has to be stalled past the whole
+    /// interval before a run has nothing left to report. The previous six-call, 150 ms shape offered a
+    /// sample of two.
     /// </summary>
-    private const int TimedLoopCalls = 6;
+    private const int TimedLoopCalls = 12;
 
     /// <summary>
     /// Absorbs the constraint's conversion of the configured interval into <see cref="Stopwatch"/> ticks,
@@ -158,26 +162,21 @@ public class HostCallLoopConstraintTests
         var engine = CreatePausingEngine(PausePerCall);
         var work = engine.GetValue("pausingWork");
 
-        var engineTime = TimeSpan.Zero;
-        var completed = 0;
-
-        for (var i = 0; i < TimedLoopCalls; i++)
-        {
-            var iteration = RunOneHostLoopIteration(() => work.Call(i));
-            engineTime += iteration.Elapsed;
-            if (iteration.Completed)
-            {
-                completed++;
-            }
-        }
+        var outcome = RunHostLoop(i => work.Call(i));
 
         // premise: the engine really was resident for longer than one entry's budget, over several
         // separate entries — deterministically so, because each call sleeps for at least PausePerCall
-        engineTime.Should().BeGreaterThan(HostCallTimeout);
-        completed.Should().BeGreaterThan(
-            1,
-            "a deadline that carried over would leave only the calls before it expired, and every "
-            + "iteration here spends a quarter of the interval");
+        outcome.EngineTime.Should().BeGreaterThan(HostCallTimeout);
+
+        // A deadline that carried over would have expired before any of these iterations began, so every
+        // one of them would have failed rather than completed — but it would have failed them after an
+        // iteration of PausePerCall, which RunOneHostLoopIteration has already refused above. Seeing none
+        // of them therefore means the runner stalled every late iteration past the whole interval, which
+        // is a machine this run cannot learn anything from. See RunHostLoop.
+        Assert.SkipWhen(
+            outcome.CompletionsAfterTheIntervalHadPassed == 0,
+            "the runner stalled every iteration past the whole interval, so this run observed no entry "
+            + "completing after the loop had outlived it");
     }
 
     [Fact]
@@ -356,38 +355,21 @@ public class HostCallLoopConstraintTests
         var engine = CreatePausingEngine(PausePerCall);
         var work = engine.GetValue("pausingWork");
 
-        var engineTime = TimeSpan.Zero;
-        var completed = 0;
-
-        for (var i = 0; i < TimedLoopCalls; i++)
+        var outcome = RunHostLoop(i =>
         {
-            var iteration = RunOneHostLoopIteration(() =>
-            {
-                work.Call(i);
-                engine.Constraints.Check();
-            });
+            work.Call(i);
+            engine.Constraints.Check();
+        });
 
-            engineTime += iteration.Elapsed;
-            if (iteration.Completed)
-            {
-                completed++;
-            }
-        }
+        outcome.EngineTime.Should().BeGreaterThan(HostCallTimeout);
 
-        engineTime.Should().BeGreaterThan(HostCallTimeout);
-
-        // A loaded CI runner can stall one call past the whole timeout, which makes a single completion
-        // indistinguishable from the accumulation bug this test exists to refute. The stall is detectable —
-        // the loop then spent far longer than its healthy total — and a detected stall is a skip, not a
-        // verdict either way.
+        // The host-loop check measures the time since the last entry returned and re-armed the deadline,
+        // not the age of the loop, so entries keep completing however long the loop has been running.
+        // Observing none of them is a stalled runner rather than a verdict; see the sibling above.
         Assert.SkipWhen(
-            completed <= 1 && engineTime > HostCallTimeout + HostCallTimeout,
-            "the runner stalled a single call past the whole timeout, so this run cannot distinguish the behaviours");
-
-        completed.Should().BeGreaterThan(
-            1,
-            "the host-loop check measures the time since the last entry returned and re-armed the "
-            + "deadline, not the age of the loop");
+            outcome.CompletionsAfterTheIntervalHadPassed == 0,
+            "the runner stalled every iteration past the whole interval, so this run observed no entry "
+            + "completing after the loop had outlived it");
     }
 
     [Fact]
@@ -506,22 +488,54 @@ public class HostCallLoopConstraintTests
             OperationBudget - AttributionSlack,
             "the deadline may only fire once the budget has actually elapsed");
 
-        // A loaded CI runner can stall the very first call past the whole budget, which makes one call
-        // exhausting it correct behaviour rather than mis-arming. The stall is detectable — the elapsed
-        // wall time then dwarfs the budget one healthy call would have spent — and a detected stall is a
-        // skip, not a verdict either way.
-        Assert.SkipWhen(
-            calls <= 1 && stopwatch.Elapsed > OperationBudget + OperationBudget,
-            "the runner stalled the first call past the whole budget, so this run cannot distinguish the behaviours");
-
-        calls.Should().BeGreaterThan(
-            1,
-            "each call spends a tenth of the budget, so exhausting it takes several of them — a throw "
-            + "inside the first call would mean the budget was mis-armed rather than accumulated");
+        // Deliberately NOT asserted here: that more than one call fitted inside the budget. Given the
+        // assertion above, `calls == 1` says only that the runner stalled the first call past the whole
+        // budget — a statement about the machine, not about the engine — and asserting it failed CI legs
+        // on changes that touched nothing here (#3221, #3139 before it). Every way of mis-arming the
+        // budget is caught without it: one refunded per entry could never fire for calls this short, so
+        // the loop would run to completion and the Throw above would fail; one armed in the past fires
+        // inside the first call, and the stopwatch above would fail. That the budget survives an entry
+        // boundary at all is pinned without any clock at all by the test below.
 
         // A generous upper bound only: Thread.Sleep never returns early, so the budget is gone within a
         // dozen calls, and a loaded machine only makes that number smaller.
         calls.Should().BeLessThanOrEqualTo(60, "the deadline must be noticed promptly, not eventually");
+    }
+
+    [Fact]
+    public void AnEntryEnteredAfterTheOperationsBudgetHasElapsedInheritsItRatherThanAFreshOne()
+    {
+        // The spanning claim of the test above, pinned without a race. Every top-level entry invites its
+        // registered constraints to rewind — before the callback and again after it — and this one
+        // declines, so an entry beginning after the operation's budget is gone must fail on its first
+        // check instead of being handed the window again.
+        //
+        // Spending the budget on the host's own clock is what makes the run deterministic. The budget is
+        // wall clock from Begin, so host time is part of the operation exactly as engine time is, and
+        // Thread.Sleep only ever overshoots: there is no machine slow enough to leave time on the budget,
+        // and none fast enough for the entry to beat it. Nothing here divides a budget into slices that a
+        // contended runner could overspend.
+        var deadline = new OperationDeadlineConstraint();
+        var engine = CreateDeadlineEngine(deadline);
+        var work = engine.GetValue("work");
+
+        deadline.Begin(OperationBudget);
+        try
+        {
+            Thread.Sleep(OperationBudget + OperationBudget);
+
+            Invoking(() => work.Call(1)).Should().Throw<TimeoutException>(
+                "the entry inherits what is left of the operation's budget, which is nothing — a Reset() "
+                + "that re-armed it would hand this entry the whole window again");
+        }
+        finally
+        {
+            deadline.End();
+        }
+
+        // ...and closing the operation really does release the engine, so the throw above was an elapsed
+        // budget rather than a constraint left permanently tripped.
+        Invoking(() => work.Call(1)).Should().NotThrow("End() disarmed the constraint");
     }
 
     [Fact]
@@ -765,6 +779,47 @@ public class HostCallLoopConstraintTests
     }
 
     /// <summary>
+    /// Runs <see cref="TimedLoopCalls"/> iterations of a host loop and reports the two aggregates the
+    /// accumulation tests read.
+    /// <para>
+    /// The load-bearing assertion is not here but in <see cref="RunOneHostLoopIteration"/>: a throw may
+    /// only come from an iteration that itself outlived the interval. No amount of runner contention can
+    /// falsify that, and a deadline carried over from an earlier host call falsifies it on the first
+    /// iteration that begins past the interval — before either aggregate below is so much as computed.
+    /// </para>
+    /// <para>
+    /// The aggregates therefore assert nothing about the engine; they establish that the run <em>saw</em>
+    /// the scenario. A count of zero means the runner stalled every late iteration past the whole
+    /// interval, which is correct behaviour the engine is entitled to and a run with nothing to report,
+    /// so the callers skip on it rather than fail. Widening the loop is not an alternative: the stall
+    /// that produces a zero is systemic — every wake-up delayed — so it takes the extra iterations with
+    /// it. What the extra iterations do buy is a bigger sample, and so a rarer skip.
+    /// </para>
+    /// </summary>
+    private static HostLoopOutcome RunHostLoop(Action<int> iteration)
+    {
+        var engineTime = TimeSpan.Zero;
+        var completionsAfterTheIntervalHadPassed = 0;
+
+        for (var i = 0; i < TimedLoopCalls; i++)
+        {
+            // Engine-resident time only, which under-counts the wall clock a carried-over deadline would
+            // have been measuring. The comparison can therefore only err towards ignoring an iteration,
+            // never towards counting one that in fact began before the interval had passed.
+            var engineTimeBeforeThisIteration = engineTime;
+            var result = RunOneHostLoopIteration(() => iteration(i));
+            engineTime += result.Elapsed;
+
+            if (result.Completed && engineTimeBeforeThisIteration >= HostCallTimeout)
+            {
+                completionsAfterTheIntervalHadPassed++;
+            }
+        }
+
+        return new HostLoopOutcome(engineTime, completionsAfterTheIntervalHadPassed);
+    }
+
+    /// <summary>
     /// Runs one iteration of a host loop under <see cref="HostCallTimeout"/> and reports whether it
     /// completed, converting the one <see cref="TimeoutException"/> the engine is entitled to throw into
     /// an observation instead of a failure.
@@ -780,7 +835,7 @@ public class HostCallLoopConstraintTests
     /// What the engine does promise is the implication: a throw can only come from an entry that itself
     /// ran past the interval. That is what is asserted here, and it cannot be falsified by a stall, only
     /// by the regression the tests exist for — a deadline carried over from an earlier host call fires
-    /// after an iteration costing <see cref="PausePerCall"/>, a quarter of the interval. The stopwatch
+    /// after an iteration costing <see cref="PausePerCall"/>, a sixth of the interval. The stopwatch
     /// starts before the entry arms its deadline and stops after it throws, so the window it measures is
     /// always a superset of the one the constraint measured; the comparison can only err towards
     /// tolerating a throw, never towards inventing one.
@@ -807,6 +862,15 @@ public class HostCallLoopConstraintTests
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct HostLoopIteration(bool Completed, TimeSpan Elapsed);
+
+    /// <param name="EngineTime">How long the engine was resident across the whole loop.</param>
+    /// <param name="CompletionsAfterTheIntervalHadPassed">
+    /// How many iterations completed although the loop had already spent more than
+    /// <see cref="HostCallTimeout"/> inside the engine before they began. A deadline that spanned host
+    /// calls would have expired before every one of them.
+    /// </param>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct HostLoopOutcome(TimeSpan EngineTime, int CompletionsAfterTheIntervalHadPassed);
 
     /// <summary>
     /// Pays the JIT cost of the whole call path — the interpreter, the constraint plumbing and the
