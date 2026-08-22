@@ -210,7 +210,7 @@ settled; it is a change to `UrlCorpusTests` as well as to this directory, and it
 
 ## What the WebCryptoAPI corpus says about this engine
 
-2,449 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of six
+2,449 of its 24,136 assertions do not pass, and every one is named in the driver's table under one of five
 categories, whose own documentation in `WptExclusions.cs` carries the citation. Three are the platform:
 `NeedsPlatformCryptoParameters` (AES-GCM's 96-bit-only iv and 96-to-128-bit tag, RSA-OAEP's empty-only label,
 RSA-PSS's hash-length-only salt — all four are limits of the BCL primitives, documented on the classes that
@@ -224,7 +224,7 @@ at all. [#3195](https://github.com/sebastienros/jint/issues/3195) installed it, 
 Common API §5.1 lists it, and the row joined its two siblings — the one assertion in this corpus that this
 change moved.
 
-The seventh category was `NeedsQuotaExceededErrorInterface`, the nine `Large length: *` rows of
+A sixth category was `NeedsQuotaExceededErrorInterface`, the nine `Large length: *` rows of
 `getRandomValues.any.js`. They pass since
 [#3189](https://github.com/sebastienros/jint/issues/3189) implemented WebIDL's
 [`QuotaExceededError`](https://webidl.spec.whatwg.org/#quotaexceedederror) interface, and the entry and the
@@ -234,12 +234,17 @@ That figure is Windows and Linux, whose AES-GCM takes a 96- to 128-bit tag. **ma
 `aes_gcm.https.any.js`: Apple's implementation takes a 128-bit tag and nothing else, so the four tag lengths
 between 96 and 120 bits are refused there and their rows are scoped to that platform in the table.
 
-The seventh is `NeedsTriage`, and it is **debt**. It held two genuine defects the corpus found, recorded
-rather than fixed so that the change which first ran these suites was not also the change that moved the
-engine. One is fixed: `SubtleCrypto` copied its caller's bytes before normalizing the algorithm where the
-specification copies them after, which was every "… during call" row, and issue #3179 moved each copy to its
-numbered step. The one still open is ECDH's mismatched-curve rows, which get the `OperationError` of the
-prose where a browser answers `InvalidAccessError`.
+A seventh was `NeedsTriage`, this corpus's **debt**, and it is paid. It held two genuine defects the corpus
+found, recorded rather than fixed so that the change which first ran these suites was not also the change
+that moved the engine. `SubtleCrypto` copied its caller's bytes before normalizing the algorithm where the
+specification copies them after, which was every "… during call" row, and
+[#3179](https://github.com/sebastienros/jint/issues/3179) moved each copy to its numbered step. ECDH's two
+mismatched-curve rows answered the `OperationError` of the prose where every browser answers
+`InvalidAccessError`, and [#3180](https://github.com/sebastienros/jint/issues/3180) made
+`EcAlgorithm.DeriveBits` run the key-agreement checks before the *maximumLength* ceiling — the divergence
+from the prose documented on `DeriveBits` itself and raised upstream as
+[w3c/webcrypto#560](https://github.com/w3c/webcrypto/issues/560). Both entries left the table when they
+started passing, which is the driver's own rule enforcing itself, so this corpus names no debt at all now.
 
 ## What the streams corpus says about this engine
 
@@ -803,9 +808,14 @@ of writing (chrome 152, edge 151, firefox 154, safari 26.6), that row is **0/1 i
 file's thirteen other rows are 1/1 in all four. No browser produces an empty body for an empty `FormData`
 either, which is what one would expect of a serializer that writes its close delimiter after the loop.
 
-So this row is not debt. It keeps its exclusion, but `NeedsTriage` is the wrong category for it — that
-category means "a bug or a specification detail to chase", and this is neither. Reclassifying it wants a
-category of its own, which is filed rather than done here.
+So this row is not debt. It keeps its exclusion, but `NeedsTriage` — "a bug or a specification detail to
+chase" — was the wrong category for it, and it no longer carries it.
+[#3261](https://github.com/sebastienros/jint/issues/3261) gave it one of its own,
+`AssertsWhatNothingRequires`: the corpus's analogue of test262's `=== PERMANENT EXCLUSIONS ===` banner, for a
+test that asserts what nothing requires of anybody. It is the only entry there, and moving it left
+`NeedsTriage` **empty**, which is the state that makes a future non-zero count in it mean something. The
+category's own documentation in `WptExclusions.cs` carries the rule for what may join it — a normative
+citation and an argued decision, never a to-do — and the rule that age alone never promotes an entry into it.
 
 ### The three that are fixed
 
