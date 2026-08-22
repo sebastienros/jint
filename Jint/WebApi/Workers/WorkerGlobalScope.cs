@@ -38,7 +38,9 @@ namespace Jint.WebApi.Workers;
 /// <c>self instanceof EventTarget</c> stays false, because it would otherwise be an <c>instanceof</c> that
 /// lied about a relationship the object does not have. §5.3 names what such a global must expose —
 /// <c>onerror</c>, <c>onunhandledrejection</c>, <c>onrejectionhandled</c> and <c>self</c> — and all four are
-/// here.
+/// here. <c>self</c> arrives with <see cref="WebApiFeatures.GlobalEvents"/>, which every worker enables; what
+/// this file does to it is swap Window's <c>[Replaceable]</c> definition for
+/// <c>WorkerGlobalScope</c>'s read-only one, on this global and no other.
 /// </para>
 /// <para>
 /// <b>The members stay own properties of the global object</b>, where the two interface prototypes carry only
@@ -114,6 +116,11 @@ internal sealed class WorkerGlobalScope
         InstallDescriptor(global, "WorkerGlobalScope", new PropertyDescriptor(realm.Intrinsics.WorkerGlobalScope, PropertyFlag.NonEnumerable));
         InstallDescriptor(global, "DedicatedWorkerGlobalScope", new PropertyDescriptor(dedicated, PropertyFlag.NonEnumerable));
 
+        // `self` is already on this global — WebApiFeatures.GlobalEvents installed it, and every worker has
+        // that feature — but with Window's [Replaceable] definition rather than WorkerGlobalScope's read-only
+        // one. This is where the one global HTML defines differently gets the difference.
+        ReplaceSelfWithTheWorkerAttribute(global, engine);
+
         // WebIDL operations on the global are writable, enumerable and configurable —
         // https://webidl.spec.whatwg.org/#es-operations.
         InstallValue(global, "postMessage", scope.CreateFunction("postMessage", 1, scope.PostMessage));
@@ -126,8 +133,10 @@ internal sealed class WorkerGlobalScope
         // disagree, and the standard wins because it is prescribing the throw itself.
         InstallValue(global, "importScripts", scope.CreateFunction("importScripts", 0, scope.ImportScripts));
 
-        // https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name. A plain
-        // writable data property is the [Replaceable] simplification `self` is already installed with.
+        // https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name — a
+        // `[Replaceable] readonly attribute DOMString name`, which is exactly what `self` above it is NOT, so
+        // the plain writable data property that simplification installs is right for this one and wrong for
+        // that one. HTML decides the two attributes separately, and so does this file.
         InstallValue(global, "name", JsString.Create(name));
 
         scope.InstallEventHandler(global, "onmessage", JsMessagePort.MessageEventType);
@@ -227,6 +236,56 @@ internal sealed class WorkerGlobalScope
     /// what keeps that a dead end rather than a stale reference to the previous cycle's list.
     /// </remarks>
     private GlobalEventTarget Target => _engine._webApi!.GlobalEventTarget;
+
+    /// <summary>
+    /// Swaps the <c>[Replaceable]</c> <c>self</c> <c>WebApiRegistration</c> installed for
+    /// <c>WorkerGlobalScope</c>'s, which is a plain
+    /// <see href="https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self">
+    /// <c>readonly attribute WorkerGlobalScope self</c></see>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two globals genuinely have different IDL — Window's is
+    /// <see href="https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self">
+    /// <c>[Replaceable] readonly attribute WindowProxy self</c></see>, where assignment shadowing the
+    /// attribute is the correct simplification — and <c>WebApiRegistration</c> cannot tell them apart: an
+    /// engine being built does not know yet whether it will be a worker, so it installs Window's shape and
+    /// this is where the one global that has the other definition gets it. What <i>read-only</i> then means
+    /// is decided by the assigning code's own mode rather than by the descriptor: silently ignored in sloppy
+    /// mode, a <c>TypeError</c> in strict.
+    /// </para>
+    /// <para>
+    /// <b>A replacement can only be non-clobbering by identity</b>, so that is the test: the descriptor
+    /// <c>WebApiRegistration</c> recorded is the one thing that may be replaced. A <c>self</c> the host
+    /// installed — through a configuration callback, which runs before the registration, or on the built
+    /// engine before the provider handed it back — is never that descriptor and is left exactly as the host
+    /// left it. Nothing is read either, so a host's own lazy global is not materialized by our looking.
+    /// </para>
+    /// <para>
+    /// An engine that never installed one is left without <c>self</c> altogether, exactly as it was before:
+    /// whether a global carries the name at all is <see cref="WebApiFeatures.GlobalEvents"/>'s business —
+    /// <c>WorkerRequest.CreateDefaultOptions</c> turns it on for every worker — and this is only about which
+    /// of the two definitions the name carries.
+    /// </para>
+    /// </remarks>
+    private static void ReplaceSelfWithTheWorkerAttribute(ObjectInstance global, Engine engine)
+    {
+        var state = engine._webApi!;
+        if (state.InstalledSelf is not { } installed
+            || !ReferenceEquals(global.GetOwnProperty(JsString.Create("self")), installed))
+        {
+            return;
+        }
+
+        // SetProperty rather than a write into the descriptor's own fields, for the reason every install here
+        // goes through it: it bumps the own-property version each global-identifier and member-read inline
+        // cache revalidates against. Nothing has run on this engine yet, so the bump repairs nothing — it is
+        // the discipline rather than a fix.
+        global.SetProperty("self", new PropertyDescriptor(global, PropertyFlag.NonWritable));
+
+        // The recorded descriptor is not on the global object any more, so nothing may replace it again.
+        state.InstalledSelf = null;
+    }
 
     private static void InstallValue(ObjectInstance global, string name, JsValue value)
         => InstallDescriptor(global, name, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));

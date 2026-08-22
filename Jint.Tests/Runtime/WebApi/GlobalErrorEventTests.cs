@@ -100,6 +100,32 @@ public class GlobalErrorEventTests
         descriptor.Configurable.Should().BeTrue();
     }
 
+    /// <summary>
+    /// <c>[Replaceable]</c> means an assignment <i>replaces</i> the attribute rather than being refused —
+    /// https://webidl.spec.whatwg.org/#Replaceable — and the writable data property above is that behaviour
+    /// simplified. It holds in both modes, because a writable property gives strict mode nothing to refuse.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart of <c>WorkerMechanismTests.TheWorkerGlobalsSelfIsAReadOnlyAttribute</c>, and the
+    /// reason that one is installed on the worker's global scope rather than here: HTML gives the two globals
+    /// different IDL — <c>[Replaceable] readonly attribute WindowProxy self</c> on Window
+    /// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self) against a plain
+    /// <c>readonly attribute</c> on <c>WorkerGlobalScope</c>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self) — so making this one
+    /// read-only too would be wrong, and would break shadowing a script may rely on.
+    /// </remarks>
+    [Fact]
+    public void TheTopLevelSelfIsReplaceable()
+    {
+        var (sloppy, _) = Silent();
+        sloppy.Execute("self = 'shadowed';");
+        sloppy.Evaluate("self").AsString().Should().Be("shadowed");
+
+        var (strict, _) = Silent();
+        strict.Execute("'use strict'; self = 'shadowed';");
+        strict.Evaluate("self").AsString().Should().Be("shadowed");
+    }
+
     [Fact]
     public void TheThreeOperationsAreWebIdlOperations()
     {

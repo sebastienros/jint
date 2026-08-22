@@ -119,6 +119,39 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
+    /// The test asserts what a <b>sloppy-mode</b> assignment does, and the worker lane has no sloppy mode to
+    /// offer it. Jint runs module workers only (divergence 2 of
+    /// https://github.com/sebastienros/jint/issues/3167, and <c>WorkerType</c> says why), so a worker-scoped
+    /// <c>.any.js</c> file is the body of a <i>module</i> where a browser runs it as a classic
+    /// <c>.any.worker.js</c> script — and module code is strict. That is the one behavioural difference
+    /// between the two lanes, recorded in <c>Vendor/README.md</c> since the lane was built.
+    /// </para>
+    /// <para>
+    /// Both entries are the same assignment seen from two files: <c>self = …</c> against
+    /// <c>WorkerGlobalScope</c>'s
+    /// <see href="https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self">
+    /// <c>readonly attribute WorkerGlobalScope self</c></see>. A read-only attribute refuses an assignment
+    /// two different ways — silently in sloppy mode, with a <c>TypeError</c> in strict — and the corpus was
+    /// written for the first, so <c>self.any.js</c> asserts the value did not change and
+    /// <c>Worker-replace-self.any.js</c> asserts nothing was thrown. The engine implements the attribute
+    /// (https://github.com/sebastienros/jint/issues/3224): before that fix both rows failed because the
+    /// assignment <i>succeeded</i> — <c>self.any.js</c> reporting "expected object
+    /// &quot;DedicatedWorkerGlobalScope&quot; but got 1", and <c>Worker-replace-self.any.js</c> that
+    /// <c>self instanceof WorkerGlobalScope</c> had become false — and they now fail with the
+    /// <c>TypeError</c> strict mode owes, which is the same refusal in the other of its two voices.
+    /// </para>
+    /// <para>
+    /// So this is deliberately <b>not</b> <see cref="NeedsTriage"/>: there is no defect left to chase, and
+    /// nothing short of a classic-script worker would move either row. What keeps them honest is that the
+    /// engine's half is pinned from both sides in
+    /// <c>Jint.Tests/Runtime/WebApi/WorkerMechanismTests.cs</c>, in both modes — the module body for strict,
+    /// an indirect <c>eval</c> for the sloppy one this lane cannot otherwise reach.
+    /// </para>
+    /// </summary>
+    NeedsClassicWorkerScript,
+
+    /// <summary>
+    /// <para>
     /// The test asks an algorithm for a parameter .NET's own primitives refuse, and the refusal is what
     /// <c>Jint/WebApi/Crypto/</c> documents on the class that makes it rather than something the engine could
     /// choose differently. Four of them, each named in the message the operation rejects with:
@@ -323,26 +356,29 @@ internal enum WptDivergence
     /// <c>pipeTo()</c> that reached the sink's <c>write</c> synchronously with an <c>enqueue()</c> on the
     /// source — were fixed under sebastienros/jint#3195, so the five entries that used to be here now
     /// enforce them. <c>Vendor/README.md</c> keeps the analysis, because two of the three turned out to be
-    /// something other than the triage note predicted. <b>What the workers corpus filed is still open:</b>
+    /// something other than the triage note predicted.
     /// </para>
-    /// <list type="bullet">
-    /// <item><description>
-    /// <b><c>self</c> is writable in a worker, where <c>WorkerGlobalScope.self</c> is read-only.</b>
-    /// <c>workers/interfaces/WorkerGlobalScope/self.any.js</c>, "self = 1": the file assigns to <c>self</c> and
-    /// asserts it did not change. <c>WebApiRegistration</c> installs <c>self</c> once, for every global, as an
-    /// ordinary writable data property, and its own comment says which definition that was written against —
+    /// <para>
+    /// <b>The workers corpus filed one, and it is fixed.</b> <c>self</c> was installed once, for every
+    /// global, as an ordinary writable data property — against
     /// "HTML exposes <c>self</c> through a <c>[Replaceable]</c> accessor pair on <b>Window</b>"
-    /// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self), which was the only global there
-    /// was at the time. <c>WorkerGlobalScope</c>'s is a plain
+    /// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self), which was the only global
+    /// there was at the time — where <c>WorkerGlobalScope</c>'s is a plain
     /// <c>readonly attribute WorkerGlobalScope self</c>
     /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self) with no
-    /// <c>[Replaceable]</c>, so the worker inherited the window's semantics along with the property. It is
-    /// <i>not</i> new worker code — the install predates <c>Worker</c> and is shared with the top-level lane —
-    /// which is why it is triaged here rather than fixed alongside the corpus that found it. Fixing it means
-    /// installing <c>self</c> per-global rather than once, and the sibling
-    /// <c>DedicatedWorkerGlobalScope.name</c> is the same shape and the same question.
-    /// </description></item>
-    /// </list>
+    /// <c>[Replaceable]</c>, so the worker inherited the window's semantics along with the property.
+    /// https://github.com/sebastienros/jint/issues/3224 gave the worker global its own definition, in
+    /// <c>WorkerGlobalScope.Install</c> and on that global alone, because the two globals genuinely differ
+    /// and the top-level one is right as it is. The two rows it held did <b>not</b> come back green, and that
+    /// is the interesting part: they assert what a <i>sloppy-mode</i> assignment does, and the worker lane
+    /// runs its file as a module, so a refused assignment is a <c>TypeError</c> there rather than a silent
+    /// no-op. They moved to <see cref="NeedsClassicWorkerScript"/>, which is the lane and not a defect. The
+    /// sibling <c>DedicatedWorkerGlobalScope.name</c>, which the old note here called "the same shape and the
+    /// same question", turned out to be neither: it is
+    /// <c>[Replaceable] readonly attribute DOMString name</c>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name), so writable
+    /// is what its own IDL asks for.
+    /// </para>
     /// <para>
     /// The File API corpus filed one too, and it is gone: three rows of
     /// <c>FileAPI/blob/Blob-constructor.any.js</c> were one <em>engine</em> defect rather than three
@@ -358,7 +394,8 @@ internal enum WptDivergence
     /// property WebIDL's order never reaches — all fixed under sebastienros/jint#3212, so the thirteen
     /// entries that used to be here now enforce them and
     /// <c>dom/events/Event-constructors.any.js</c> left <c>_notVendored</c> with them. <c>Vendor/README.md</c>
-    /// analyses each with its citation. <b>The seventh is the one entry left:</b>
+    /// analyses each with its citation. <b>The seventh is the last entry in this category, and it is not a
+    /// defect:</b>
     /// </para>
     /// <list type="bullet">
     /// <item><description>
@@ -372,8 +409,8 @@ internal enum WptDivergence
     /// does any implementation produce the empty body the row asks for — Chrome, Edge, Firefox and Safari all
     /// report it 0/1 on wpt.fyi, where the file's thirteen other rows are 1/1 in all four. So the entry
     /// stays, but this category — "a bug or a specification detail to chase" — is the wrong one for it, and
-    /// giving it one of its own is filed rather than done here. <c>Vendor/README.md</c> has the citations and
-    /// the measurement.
+    /// giving it one of its own is deliberately left undone rather than folded into the change that read the
+    /// algorithm. <c>Vendor/README.md</c> has the citations and the measurement.
     /// </description></item>
     /// </list>
     /// <para>
@@ -393,6 +430,12 @@ internal enum WptDivergence
     /// with its analysis in <c>Vendor/README.md</c>. <c>TimerFunctions</c> now invokes the callback with
     /// WebIDL's <c>"report"</c> exception behaviour — the third instance of the catch shape
     /// <c>TimerEntry.Fire</c> and <c>JsEventTarget.InvokePass</c> carry — and the file is vendored and green.
+    /// </para>
+    /// <para>
+    /// <b>So the category currently holds no debt at all</b> — one entry, and its own paragraph says why that
+    /// entry is misfiled. That is the state to keep it in: a row belongs here only while somebody still owes
+    /// the engine a fix, and every corpus that filed one has had it paid. An entry that turns out not to be a
+    /// defect earns a category of its own rather than a longer explanation under this one.
     /// </para>
     /// </summary>
     NeedsTriage,

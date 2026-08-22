@@ -82,9 +82,12 @@ Three consequences worth knowing:
   the loader serves one module whose source is the shim, then the file's `// META: script=` helpers, then the
   file — the same three-step composition the top-level lane performs with three `Execute` calls, and sound
   because the shim assigns everything it exports onto `globalThis` explicitly. The one behavioural difference
-  is that module code is strict. No vendored file depends on sloppy mode; the nearest thing,
-  `interfaces/WorkerGlobalScope/self.any.js`'s `self = 1`, assigns to a property that is writable either way —
-  which is itself the one triage entry below.
+  is that module code is strict, and **two vendored rows now depend on sloppy mode**:
+  `interfaces/WorkerGlobalScope/self.any.js`'s `self = 1` and `Worker-replace-self.any.js` both assign to
+  `self` and assert the assignment was refused *silently*, which is what a read-only attribute does in sloppy
+  mode and not what it does here. They were writable-either-way when the lane was built, and became the lane's
+  own divergence the day [#3224](https://github.com/sebastienros/jint/issues/3224) made
+  `WorkerGlobalScope.self` read-only; they are `NeedsClassicWorkerScript` below.
 * **The worker gets the same environment the top-level engine gets**: `WebApiFeatures.Default` minus the
   grants a worker never inherits, plus the fetch object model, plus the shim's resource reader. A file's
   outcome therefore does not depend on which lane ran it.
@@ -102,7 +105,9 @@ which files are meant to take this route, so a corpus bump that adds another has
 The shim changed in one place for this. It used to install `self` unconditionally; it now does so only when
 the engine has not, because `WorkerGlobalScope.self` is read-only in HTML and an unconditional assignment
 would both overwrite what is under test and — the day the engine makes it read-only — throw out of a
-strict-mode function and take every suite with it.
+strict-mode function and take every suite with it. That day has come:
+[#3224](https://github.com/sebastienros/jint/issues/3224) landed, so `global.self !== global` is false on
+every worker engine and the guard is the only thing keeping the shim off a read-only attribute.
 
 One thing deliberately did **not** change: `GLOBAL.isWorker()` still answers `false` in the worker lane. The
 shim cannot tell the lanes apart and nothing in the corpus asks — `isWindow()` is the only one of the three
@@ -440,8 +445,11 @@ working *across* a point where a collection may have happened — the same terms
 
 **24 assertions across 12 files, of which 16 pass and 8 do not** — and the interesting figure is not the ratio
 but that **six of the eight were decided in writing before a line of this corpus was run**, in the divergence
-ledger of [issue #3167](https://github.com/sebastienros/jint/issues/3167). This is the smallest corpus here
-and the one that most nearly assays a *design* rather than an implementation.
+ledger of [issue #3167](https://github.com/sebastienros/jint/issues/3167): the two names the worker global
+declines (three rows, #6 and #7), the nesting grant it withholds (one row), and module-workers-only (#2 — the
+two `self` rows, which joined this count when the defect under them was fixed). The other two need a wpt
+server. This is the smallest corpus here and the one that most nearly assays a *design* rather than an
+implementation.
 
 What passes is the worker global doing its job. `Worker-custom-event.any.js` adds a listener for a custom
 event on `self` and dispatches one, so the worker global really is an event target.
@@ -487,20 +495,40 @@ and one importing through `redirect.py` — and they fail as *tests* rather than
 module loader refuses a specifier the vendored corpus does not hold and the parent hears the startup failure
 as an `error` event, which is the file's own reject path. They are `NeedsWptServer`.
 
-**The last two are `NeedsTriage`, and they are one defect, not in the worker code.**
-`interfaces/WorkerGlobalScope/self.any.js`'s "self = 1" assigns to `self` and asserts it did not change;
-`Worker-replace-self.any.js` does the same and then asserts `self instanceof WorkerGlobalScope`, so the second
-half of that one passes now and the assignment is all that is left.
-`WebApiRegistration` installs `self` once, for every global, as an ordinary writable data property, and its
-own comment says which definition that was written against: "HTML exposes `self` through a `[Replaceable]`
+**The last two were the corpus's one `NeedsTriage` defect, it is fixed, and the rows still do not pass —
+which is the more interesting half.** `interfaces/WorkerGlobalScope/self.any.js`'s "self = 1" assigns to
+`self` and asserts it did not change; `Worker-replace-self.any.js` does the same and then asserts
+`self instanceof WorkerGlobalScope`.
+
+`WebApiRegistration` installed `self` once, for every global, as an ordinary writable data property, and its
+own comment said which definition that was written against: "HTML exposes `self` through a `[Replaceable]`
 accessor pair on **Window**" — which was the only global there was at the time.
 [`WorkerGlobalScope`'s](https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self) is a
 plain `readonly attribute` with no `[Replaceable]`, so the worker inherited the window's semantics along with
-the property. The install predates `Worker` and is shared with the top-level lane, so it is recorded rather
-than fixed here, on the standing rule that the change which first runs a suite is not the change that moves
-the engine; it is filed as [#3224](https://github.com/sebastienros/jint/issues/3224). Fixing it means
-installing `self` per global rather than once; `DedicatedWorkerGlobalScope.name` is the same shape and the
-same question.
+the property. [#3224](https://github.com/sebastienros/jint/issues/3224) fixed it the way two different IDL
+definitions ask to be fixed, rather than by picking one: `WorkerGlobalScope.Install` replaces that one
+descriptor with a non-writable one on the worker's global and on no other, so the top-level `[Replaceable]`
+shape — where assignment *shadows*, and a script may rely on it — is untouched. The replacement is
+non-clobbering by descriptor identity, so a `self` the host installed is left exactly as the host left it,
+unread and therefore unmaterialized.
+
+What the two rows report now is the **lane**, not the engine. A read-only attribute refuses an assignment two
+different ways — silently in sloppy mode, with a `TypeError` in strict — and the corpus was written for the
+first. This lane's file is the body of a module, so before the fix both failed because the assignment
+*succeeded* — `self.any.js` with `expected object "DedicatedWorkerGlobalScope" but got 1`, and
+`Worker-replace-self.any.js` because `self instanceof WorkerGlobalScope` had become false — and they now fail
+with the `TypeError` strict mode owes (`FAIL: unexpected exception (TypeError) received while replacing
+self.`). Nothing short of a classic-script worker would move either, so they are
+`NeedsClassicWorkerScript` rather than debt, and the
+engine's half is pinned in both modes by `Jint.Tests/Runtime/WebApi/WorkerMechanismTests.cs` — the module body
+for strict, an indirect `eval` for the sloppy code this lane cannot otherwise reach.
+
+The sibling the triage note called "the same shape and the same question",
+`DedicatedWorkerGlobalScope.name`, turned out to be neither: it is
+[`[Replaceable] readonly attribute DOMString name`](https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name),
+so the writable data property it already had is what its own IDL asks for. It has a pin of its own beside
+`self`'s, because the contrast is the whole point: HTML decided the two attributes separately, and so does
+this engine.
 
 ## What the hr-time and user-timing corpora say about this engine
 

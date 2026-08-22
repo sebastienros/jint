@@ -217,7 +217,22 @@ internal static class WebApiRegistration
             // PRINCIPAL realm's global object, deliberately: the property lives on that object, so answering
             // with whichever realm happens to be current when it is first read could make `self === globalThis`
             // false. https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self
-            Install(global, engine, "self", static e => e._mainRealm.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable);
+            //
+            // Window's shape is the only one that can be decided here, because an engine being built does not
+            // know yet whether it is going to be a worker — and WorkerGlobalScope.self is a plain
+            // `readonly attribute` with no [Replaceable]
+            // (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self). So the
+            // descriptor is recorded, and WorkerGlobalScope.Install replaces exactly it and nothing else. That
+            // identity is what keeps the replacement non-clobbering: a `self` the host owns is never the one
+            // recorded here, because this call left it alone and recorded null.
+            //
+            // Recorded only when the install actually happened, never unconditionally: ApplyLive re-runs this
+            // whole method for an engine that already has `self`, and writing back the null that second call
+            // returns would erase a record a worker still needs.
+            if (Install(global, engine, "self", static e => e._mainRealm.GlobalObject, PropertyFlag.ConfigurableEnumerableWritable) is { } installedSelf)
+            {
+                engine._webApi!.InstalledSelf = installedSelf;
+            }
 
             // The two event interfaces the engine fires at that target. Ordinary WebIDL interface objects:
             // writable and configurable but not enumerable — https://webidl.spec.whatwg.org/#es-interfaces.
@@ -742,7 +757,12 @@ internal static class WebApiRegistration
     /// and enumerability without materializing a descriptor's value, so a host's own lazy global is not
     /// forced into existence merely by our looking.
     /// </remarks>
-    private static void Install(
+    /// <returns>
+    /// The descriptor installed, or <see langword="null"/> when the global object already owned the name.
+    /// Every caller but one ignores it; <c>self</c> needs it, because that descriptor is the only thing
+    /// <see cref="WorkerGlobalScope.Install"/> is allowed to replace.
+    /// </returns>
+    private static LazyPropertyDescriptor<Engine>? Install(
         ObjectInstance global,
         Engine engine,
         string name,
@@ -751,10 +771,12 @@ internal static class WebApiRegistration
     {
         if (global.HasOwnProperty(NameOf(name)))
         {
-            return;
+            return null;
         }
 
-        global.SetProperty(name, new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags));
+        var descriptor = new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags);
+        global.SetProperty(name, descriptor);
+        return descriptor;
     }
 
     /// <summary>
