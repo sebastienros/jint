@@ -1070,7 +1070,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
         }
         else
         {
-            SetTypedArrayFromArrayLike(target, (int) targetOffset, source);
+            SetTypedArrayFromArrayLike(target, targetOffset, source);
         }
 
         return Undefined;
@@ -1172,7 +1172,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-settypedarrayfromarraylike
     /// </summary>
-    private void SetTypedArrayFromArrayLike(JsTypedArray target, int targetOffset, JsValue source)
+    private void SetTypedArrayFromArrayLike(JsTypedArray target, double targetOffset, JsValue source)
     {
         var targetBuffer = target._viewedArrayBuffer;
         targetBuffer.AssertNotDetached();
@@ -1185,20 +1185,30 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
 
         var targetLength = targetRecord.TypedArrayLength;
         var src = ArrayOperations.For(_realm, source, forWrite: false);
-        var srcLength = src.GetLength();
+        var srcLength = src.GetLongLength();
 
-        if (double.IsNegativeInfinity(targetOffset))
+        // Step 6. The offset stays a Number all the way here, as the specification writes it: it used to be
+        // narrowed with an unguarded (int) cast at the call site, which saturates on .NET and is unspecified
+        // on .NET Framework -- ta.set([1], 1e20) reached step 7 with int.MinValue there and wrote at a
+        // negative index instead of raising the RangeError.
+        if (double.IsPositiveInfinity(targetOffset))
         {
             Throw.RangeError(_realm, "offset is out of bounds");
         }
 
+        // Step 7. Both operands are exact as doubles (srcLength is at most 2^53-1 and targetOffset is a
+        // non-negative integral Number), so this is the specified comparison and it cannot wrap.
         if (srcLength + targetOffset > targetLength)
         {
             Throw.RangeError(_realm, "offset is out of bounds");
         }
 
+        // Past step 7 both quantities are bounded by targetLength, which is a typed array length.
+        var offset = (int) targetOffset;
+        var count = (int) srcLength;
+
         var k = 0;
-        while (k < srcLength)
+        while (k < count)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
             {
@@ -1206,7 +1216,7 @@ internal sealed partial class IntrinsicTypedArrayPrototype : Prototype
             }
 
             var jsValue = src.Get((ulong) k);
-            target.IntegerIndexedElementSet(targetOffset + k, jsValue);
+            target.IntegerIndexedElementSet(offset + k, jsValue);
             k++;
         }
     }

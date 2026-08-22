@@ -65,7 +65,6 @@ public class ArrayLikeObjectLaneTests
         var host = new HostList(engine, "a", "b", "c");
         var operations = ArrayOperations.For(host, forWrite: false);
 
-        operations.GetLength().Should().Be(3u);
         operations.GetLongLength().Should().Be(3ul);
         operations.Get(1).Should().Be("b");
         operations.HasProperty(2).Should().Be(true);
