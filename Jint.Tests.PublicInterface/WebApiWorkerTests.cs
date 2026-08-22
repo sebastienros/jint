@@ -198,6 +198,54 @@ public class WebApiWorkerTests
     }
 
     /// <summary>
+    /// The worker's global object is a <c>DedicatedWorkerGlobalScope</c>, and the prototype chain is what
+    /// says so — which is what the canonical worker feature-detect asks and what every worker library in the
+    /// wild is written against.
+    /// </summary>
+    /// <remarks>
+    /// The chain stops one link short of HTML's, at <c>%Object.prototype%</c> where the standard has
+    /// <c>EventTarget.prototype</c>: Jint's global object is not an <c>EventTarget</c>, so claiming the
+    /// inheritance would make <c>self instanceof EventTarget</c> true while <c>addEventListener</c> failed its
+    /// brand check. That is asserted here rather than merely documented, because a host reading the chain is
+    /// entitled to know where it ends.
+    /// </remarks>
+    [Fact]
+    public void TheWorkerGlobalIsADedicatedWorkerGlobalScope()
+    {
+        var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
+        {
+            ["./worker.js"] = """
+                report('sniff:' + ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope));
+                report('base:' + (self instanceof WorkerGlobalScope));
+                report('proto:' + (Object.getPrototypeOf(self) === DedicatedWorkerGlobalScope.prototype));
+                report('chain:' + (Object.getPrototypeOf(DedicatedWorkerGlobalScope.prototype) === WorkerGlobalScope.prototype));
+                report('root:' + (Object.getPrototypeOf(WorkerGlobalScope.prototype) === Object.prototype));
+                report('inherit:' + (Object.getPrototypeOf(DedicatedWorkerGlobalScope) === WorkerGlobalScope));
+                report('shim:' + [DedicatedWorkerGlobalScope, WorkerGlobalScope].some(
+                    c => Object.prototype.hasOwnProperty.call(c, Symbol.hasInstance)));
+                report('tag:' + Object.prototype.toString.call(self));
+                report('new:' + (function () {
+                    try { new DedicatedWorkerGlobalScope(); return 'no throw'; } catch (e) { return e.constructor.name; }
+                })());
+                """,
+        });
+
+        var parent = new Engine(options => options.UseWebApis().UseWorkers(host));
+
+        // [Exposed=Worker] and [Exposed=DedicatedWorker]: the engine that creates workers is not one.
+        parent.Evaluate("typeof WorkerGlobalScope").AsString().Should().Be("undefined");
+        parent.Evaluate("typeof DedicatedWorkerGlobalScope").AsString().Should().Be("undefined");
+        parent.Evaluate("Object.getPrototypeOf(globalThis) === Object.prototype").AsBoolean().Should().BeTrue();
+
+        parent.Execute("var w = new Worker('./worker.js', { type: 'module' });");
+        host.Drain(parent);
+
+        host.Log.Should().Be(
+            "sniff:true,base:true,proto:true,chain:true,root:true,inherit:true,shim:false,"
+            + "tag:[object DedicatedWorkerGlobalScope],new:TypeError");
+    }
+
+    /// <summary>
     /// One provider serving a pool of engines reaches per-request policy through
     /// <c>request.Parent.Advanced.HostDefined</c>, which is per engine and which the engine never reads.
     /// </summary>

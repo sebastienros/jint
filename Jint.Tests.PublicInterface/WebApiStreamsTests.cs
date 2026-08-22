@@ -18,6 +18,9 @@ public class WebApiStreamsTests
     private static readonly string[] _globals =
     [
         "ReadableStream", "WritableStream", "TransformStream", "ByteLengthQueuingStrategy", "CountQueuingStrategy",
+        "ReadableStreamDefaultReader", "ReadableStreamBYOBReader", "WritableStreamDefaultWriter",
+        "ReadableStreamDefaultController", "ReadableByteStreamController", "ReadableStreamBYOBRequest",
+        "WritableStreamDefaultController", "TransformStreamDefaultController",
     ];
 
     [Fact]
@@ -41,7 +44,7 @@ public class WebApiStreamsTests
     }
 
     [Fact]
-    public void TheStreamsFlagInstallsTheFiveInterfacesAScriptConstructs()
+    public void TheStreamsFlagInstallsEveryInterfaceTheStandardDeclares()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
 
@@ -55,27 +58,33 @@ public class WebApiStreamsTests
     }
 
     [Fact]
-    public void TheHelperInterfacesAreReachableButAreNotGlobals()
+    public void EachHelperInterfaceGlobalIsWhatItsInstancesInheritFrom()
     {
-        // A documented narrowing of the browser surface: a browser exposes every stream interface as a
-        // global, and Jint exposes only the five a script constructs by name. The rest are ordinary
-        // interface objects reached through their instances.
+        // The eight a script never constructs by name are globals too, as they are in a browser, and each is
+        // the object its instances actually inherit from — so an `instanceof` written against the global name
+        // and an `Object.getPrototypeOf` comparison answer the same thing.
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
 
+        engine.Evaluate("new ReadableStream().getReader() instanceof ReadableStreamDefaultReader")
+            .AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(new ReadableStream().getReader()) === ReadableStreamDefaultReader.prototype")
+            .AsBoolean().Should().BeTrue();
+        engine.Evaluate("new WritableStream().getWriter() instanceof WritableStreamDefaultWriter")
+            .AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(new WritableStream().getWriter()) === WritableStreamDefaultWriter.prototype")
+            .AsBoolean().Should().BeTrue();
+
+        // The three the standard gives a constructor operation are constructible; the five it does not refuse
+        // `new` — https://webidl.spec.whatwg.org/#es-interface-call.
         foreach (var name in new[]
                  {
-                     "ReadableStreamDefaultReader", "ReadableStreamDefaultController", "WritableStreamDefaultWriter",
+                     "ReadableStreamDefaultController", "ReadableByteStreamController", "ReadableStreamBYOBRequest",
                      "WritableStreamDefaultController", "TransformStreamDefaultController",
-                     "ReadableStreamBYOBReader", "ReadableByteStreamController", "ReadableStreamBYOBRequest",
                  })
         {
-            engine.Evaluate($"typeof {name}").AsString().Should().Be("undefined", name);
+            engine.Evaluate($"(function () {{ try {{ new {name}(); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
+                .AsString().Should().Be("TypeError", name);
         }
-
-        engine.Evaluate("Object.getPrototypeOf(new ReadableStream().getReader()).constructor.name")
-            .AsString().Should().Be("ReadableStreamDefaultReader");
-        engine.Evaluate("Object.getPrototypeOf(new WritableStream().getWriter()).constructor.name")
-            .AsString().Should().Be("WritableStreamDefaultWriter");
     }
 
     [Fact]
