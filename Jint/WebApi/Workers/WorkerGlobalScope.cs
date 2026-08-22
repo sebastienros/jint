@@ -95,8 +95,17 @@ internal sealed class WorkerGlobalScope
         // resolved binding and no script has observed the old chain. Both interface objects are built by
         // reaching the derived one, whose [[Prototype]] is the base one — WebIDL's rule for an inherited
         // interface — so the two are wired to each other before either is named.
+        //
+        // Non-clobbering, like every install below it: the chain is inserted only where the object still has
+        // the [[Prototype]] every ordinary global starts with. A provider that built its worker engine on a
+        // Host.CreateGlobalObject of its own, and gave that object a chain, keeps the chain it chose — and
+        // `self instanceof DedicatedWorkerGlobalScope` then answers false, which is the truth about that
+        // object rather than a claim we planted on it.
         var dedicated = realm.Intrinsics.DedicatedWorkerGlobalScope;
-        global._prototype = dedicated.PrototypeObject;
+        if (ReferenceEquals(global._prototype, realm.Intrinsics.Object.PrototypeObject))
+        {
+            global._prototype = dedicated.PrototypeObject;
+        }
 
         // [Exposed=Worker] and [Exposed=DedicatedWorker]: these two names exist on a worker's global and on no
         // other, which is why they are installed here rather than in WebApiRegistration. Non-clobbering and
