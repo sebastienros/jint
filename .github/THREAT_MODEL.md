@@ -616,9 +616,11 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
   engine call is rejected before work starts; top-level async APIs reserve ownership for the
   lifetime of their returned `Task` and transfer the active thread when a continuation resumes.
 - JavaScript callbacks converted to CLR delegates carry operation-scoped authorization. A host
-  may dispatch one to another thread while its CLR call or async operation is outstanding; Jint
-  yields and transfers the reserved engine one callback turn at a time without admitting unrelated
-  public callers.
+  may dispatch one to another thread while the engine holds an admission window — the engine
+  operation that made the call which received the callback has not returned, an async engine API is
+  outstanding, or the engine is draining its event loop for a blocking unwrap or import; Jint yields
+  and transfers the reserved engine one callback turn at a time without admitting unrelated public
+  callers.
 - Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**
@@ -630,6 +632,10 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 - Authorized callback transfers may wait for the preceding callback turn to release ownership.
   The fail-fast guarantee applies to unrelated public host entries, not this explicitly serialized
   continuation of the operation that already owns the engine.
+- An authorized callback arriving when no admission window is open is refused with the same
+  `InvalidOperationException` an unrelated caller receives. Waiting there would mean blocking on a
+  thread that may itself be blocked on that callback, so the refusal is deliberate rather than a
+  gap; a host must keep the engine inside a window for as long as its callbacks may arrive.
 - A host can still share projected CLR objects across otherwise separate engines.
 
 **Required host action.** Give an engine exclusive ownership for each complete operation and
