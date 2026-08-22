@@ -89,6 +89,7 @@ internal sealed class JsDecompressionStream : JsGenericTransformStream, IDisposa
     {
         CompressionFormat.Gzip => "gzip",
         CompressionFormat.Deflate => "deflate",
+        CompressionFormat.Brotli => "brotli",
         _ => "deflate-raw",
     };
 }

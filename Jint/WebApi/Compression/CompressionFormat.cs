@@ -17,10 +17,11 @@ namespace Jint.WebApi.Compression;
 /// here, and it produces bytes no other implementation can read.
 /// </para>
 /// <para>
-/// The standard's fourth value, <c>"brotli"</c> ([RFC7932]), is not implemented. A value the standard
-/// names but an implementation does not support is a <c>TypeError</c> ("If format is unsupported in
-/// CompressionStream, then throw a TypeError"), which is the same failure a value outside the enumeration
-/// gets from the WebIDL conversion — so a script sees one answer either way.
+/// <b>The standard fixes no compression quality.</b> Its compress step is "compress <i>chunk</i> with
+/// <i>format</i> and <i>context</i>" and nothing anywhere names a level, so every value the enumeration
+/// carries is driven at the BCL's own default — <see cref="System.IO.Compression.CompressionMode.Compress"/>,
+/// which is <see cref="System.IO.Compression.CompressionLevel.Optimal"/>. Implementations differ here and
+/// are entitled to: only the bytes' decodability is normative, not their density.
 /// </para>
 /// </remarks>
 internal enum CompressionFormat
@@ -33,6 +34,13 @@ internal enum CompressionFormat
 
     /// <summary>"The DEFLATE algorithm" [RFC1951] — <see cref="System.IO.Compression.DeflateStream"/>.</summary>
     DeflateRaw,
+
+    /// <summary>
+    /// "Brotli Compressed Data Format" [RFC7932] — <see cref="System.IO.Compression.BrotliStream"/>. It is
+    /// the enumeration's fourth value and the one that needs no wrapper argument at all: the format is a
+    /// single self-delimiting stream, so unlike the deflate family there is no container to choose.
+    /// </summary>
+    Brotli,
 }
 
 /// <summary>
@@ -41,9 +49,10 @@ internal enum CompressionFormat
 internal static class CompressionFormats
 {
     /// <summary>
-    /// The <c>format</c> argument both constructors take: a required <c>CompressionFormat</c>, so a
-    /// missing argument and an unrecognized one are both a <c>TypeError</c> — and so is
-    /// <c>"brotli"</c>, which the enumeration names but this implementation does not support.
+    /// The <c>format</c> argument both constructors take: a required <c>CompressionFormat</c>, so a missing
+    /// argument and an unrecognized one are both a <c>TypeError</c>. All four values the enumeration names
+    /// are supported, which leaves the constructors' own step 1 — "if <i>format</i> is unsupported in
+    /// <c>CompressionStream</c>, then throw a <c>TypeError</c>" — with nothing left to refuse.
     /// </summary>
     internal static CompressionFormat ReadFormat(Realm realm, JsCallArguments arguments, string interfaceName)
     {
@@ -58,14 +67,14 @@ internal static class CompressionFormats
             Throw.TypeError(
                 realm,
                 "Failed to construct '" + interfaceName + "': the provided value '" + value +
-                "' is not a supported CompressionFormat; use 'gzip', 'deflate' or 'deflate-raw'");
+                "' is not a supported CompressionFormat; use 'gzip', 'deflate', 'deflate-raw' or 'brotli'");
         }
 
         return format;
     }
 
     /// <summary>
-    /// Matches one of the three identifiers the standard defines, exactly and case-sensitively, as
+    /// Matches one of the four identifiers the standard defines, exactly and case-sensitively, as
     /// https://webidl.spec.whatwg.org/#es-enumeration requires.
     /// </summary>
     private static bool TryParse(string value, out CompressionFormat format)
@@ -80,6 +89,9 @@ internal static class CompressionFormats
                 return true;
             case "deflate-raw":
                 format = CompressionFormat.DeflateRaw;
+                return true;
+            case "brotli":
+                format = CompressionFormat.Brotli;
                 return true;
             default:
                 format = default;
