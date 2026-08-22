@@ -668,6 +668,19 @@ public partial class Engine
         /// section of the README warns hosts about.
         /// </para>
         /// <para>
+        /// What the bracket does is narrower than that framing suggests, and the difference matters to anyone
+        /// editing either side. A listener is invoked through <c>ICallable.Call</c> and never reaches
+        /// <see cref="Engine.ExecuteWithConstraints{T}"/> itself, so nothing here is suppressing a per-listener
+        /// re-arm: this call is what <em>arms</em> the constraints for the dispatch at all, and
+        /// <c>Engine.ResetConstraints</c> consequently runs exactly twice — on the way in and on the way out —
+        /// with every listener in between. Take it away and the dispatch runs against whatever the previous
+        /// entry left behind, with one exception: allocation would still be bounded, because
+        /// <c>Engine.BeginImplicitMemoryOperation</c> opens an operation on the first execution context a
+        /// listener pushes — but per listener rather than per dispatch. The listener-counting pins live in
+        /// <c>Jint.Tests.PublicInterface/WebApiFetchHandlerTests.cs</c>; a single-listener test cannot see any
+        /// of this, which is why they are written with two and three.
+        /// </para>
+        /// <para>
         /// What a throwing listener does is the <c>EventTarget</c> contract unchanged: with a
         /// <see cref="DiagnosticsSink"/> it is reported and the dispatch carries on to the next listener, so a
         /// later one may still answer; with no sink the <c>JavaScriptException</c> propagates out of here and

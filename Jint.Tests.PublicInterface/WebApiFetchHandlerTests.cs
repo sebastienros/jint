@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Jint;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi;
@@ -631,7 +632,11 @@ public class WebApiFetchHandlerTests
     /// Builds an engine with the fetch-events feature and evaluates <paramref name="source"/>, which is
     /// expected to register its own listener. Nothing is registered with <see cref="Engine.AdvancedOperations.SetFetchHandler"/>.
     /// </summary>
-    private static Engine Listener(string source, Action<Options>? configure = null)
+    /// <param name="prepare">
+    /// Runs against the built engine <em>before</em> <paramref name="source"/> does, which is where a global
+    /// the listeners call has to be installed.
+    /// </param>
+    private static Engine Listener(string source, Action<Options>? configure = null, Action<Engine>? prepare = null)
     {
         var engine = new Engine(options =>
         {
@@ -639,6 +644,7 @@ public class WebApiFetchHandlerTests
             configure?.Invoke(options);
         });
 
+        prepare?.Invoke(engine);
         engine.Execute(source);
         return engine;
     }
@@ -788,6 +794,263 @@ public class WebApiFetchHandlerTests
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
         Assert.IsType<StatementsCountOverflowException>(operation.Error);
+    }
+
+    // ---- the dispatch is one constraint run, however many listeners it invokes ----
+    //
+    // The test above proves only that *a* constraint fires and that the failure reaches the host; it would
+    // pass just as well if every listener were bracketed separately, because a single listener cannot tell
+    // the difference. What follows is the part that can: two and three listeners, and the question of whose
+    // allowance the second one spends.
+
+    /// <summary>
+    /// A host-written constraint that records when the engine arms and disarms it, so a test can see the
+    /// dispatch the way <c>Engine.ResetConstraints</c> sees it.
+    /// </summary>
+    /// <remarks>
+    /// It is a pin for every constraint kind and not only for itself. The engine resets constraints in one
+    /// loop over all of them, and each built-in's per-run state is established by nothing but its own
+    /// <see cref="Constraint.Reset"/> — <c>MaxStatementsConstraint</c> zeroes its counter there and
+    /// <c>TimeConstraint</c> captures its deadline there. So the cadence this observes is exactly the cadence
+    /// at which a statement allowance is refilled and a wall-clock deadline re-armed.
+    /// <para>
+    /// That indirection is what the <i>timeout</i> half of the property has to be pinned through.
+    /// <c>TimeConstraint</c> reads <c>Stopwatch.GetTimestamp()</c> directly and has no <c>TimeProvider</c>
+    /// seam (sebastienros/jint#3232), so a test that watched a deadline span two listeners could only do it
+    /// by sleeping through a fraction of a real interval — a wall-clock race, and the flake family #3221 is
+    /// about. Counting resets says the same thing exactly.
+    /// </para>
+    /// </remarks>
+    private sealed class BudgetProbeConstraint : Constraint
+    {
+        private readonly List<string> _log;
+        private int _statements;
+
+        internal BudgetProbeConstraint(List<string> log)
+        {
+            _log = log;
+        }
+
+        /// <summary>Statements charged between the two most recent resets, i.e. during the last run.</summary>
+        internal int StatementsInLastRun { get; private set; }
+
+        public override void Check() => _statements++;
+
+        public override void Reset()
+        {
+            StatementsInLastRun = _statements;
+            _statements = 0;
+            _log.Add("reset");
+        }
+    }
+
+    /// <summary>A listener that costs a measurable number of statements and answers nothing.</summary>
+    private const string CountingListener =
+        "addEventListener('fetch', () => { var n = 0; for (var i = 0; i < 200; i++) { n += i; } });";
+
+    /// <summary>The same workload, plus the <c>respondWith</c> that ends the dispatch successfully.</summary>
+    private const string CountingResponder =
+        "addEventListener('fetch', event => { var n = 0; for (var i = 0; i < 200; i++) { n += i; } event.respondWith(new Response('ok')); });";
+
+    /// <summary>
+    /// What one dispatch of <paramref name="source"/> costs in statements, measured rather than assumed:
+    /// what a listener costs is an engine detail, and pinning the property is not a reason to pin the number.
+    /// </summary>
+    private static int StatementsOneDispatchCosts(string source, string expected = "ok")
+    {
+        var probe = new BudgetProbeConstraint([]);
+        var engine = Listener(source, options => options.Constraint(probe));
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be(expected);
+
+        // The reset on the way out of the dispatch is what published the count, and nothing the host does
+        // afterwards — pumping included — resets a constraint again.
+        return probe.StatementsInLastRun;
+    }
+
+    [Fact]
+    public void TheWholeDispatchIsOneConstraintRunWhateverTheListenerCount()
+    {
+        var log = new List<string>();
+
+        var engine = Listener(
+            """
+            addEventListener('fetch', () => { mark('first'); });
+            addEventListener('fetch', () => { mark('second'); });
+            addEventListener('fetch', event => { mark('third'); event.respondWith(new Response('ok')); });
+            """,
+            options => options.Constraint(new BudgetProbeConstraint(log)),
+            prepare: e => e.SetValue("mark", new Action<string>(log.Add)));
+
+        // Evaluating the source above was a host entry of its own and armed the constraints twice; the
+        // dispatch is what this is about.
+        log.Clear();
+
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be("ok");
+
+        // One arming before the dispatch and one after it, with all three listeners in between: the engine is
+        // entered once for the dispatch, not once per listener. A per-listener bracket would show up here as
+        // a "reset" pair around every mark.
+        log.Should().Equal("reset", "first", "second", "third", "reset");
+    }
+
+    [Fact]
+    public void EveryListenerInTheDispatchDrawsOnOneStatementAllowance()
+    {
+        // Half again as much as one listener's whole dispatch costs. The two listeners here carry the same
+        // workload, so that is comfortably more than either of them needs on its own and comfortably less than
+        // the two of them need together — and both margins scale with the workload rather than with whatever
+        // the engine's fixed per-dispatch overhead happens to be today.
+        var alone = StatementsOneDispatchCosts(CountingResponder);
+        var allowance = alone + alone / 2;
+
+        var single = Listener(CountingResponder, options => options.MaxStatements(allowance));
+        using var served = Pump(single, single.Advanced.InvokeFetchHandler(Get()));
+        Text(served).Should().Be("ok");
+
+        // The same allowance, one more listener: the second listener runs out of what the first one spent.
+        // Bracketing each listener separately would hand the second a fresh `allowance` — more than enough —
+        // and this request would be served too.
+        var pair = Listener(CountingListener + "\n" + CountingResponder, options => options.MaxStatements(allowance));
+        var operation = pair.Advanced.InvokeFetchHandler(Get());
+
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<StatementsCountOverflowException>(operation.Error);
+
+        // Said the other way round, and without a limit involved at all: one dispatch is charged for every
+        // listener it invokes, so adding one costs statements rather than starting a fresh count.
+        StatementsOneDispatchCosts(CountingListener + "\n" + CountingResponder).Should().BeGreaterThan(alone);
+    }
+
+    public static bool MemoryAccountingAvailable => MemoryLimitConstraint.Accuracy != MemoryLimitAccuracy.Unavailable;
+
+    /// <summary>A listener that allocates enough for the difference between one budget and two to be plain.</summary>
+    private const string AllocatingListener =
+        "addEventListener('fetch', () => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); });";
+
+    private const string AllocatingResponder =
+        "addEventListener('fetch', event => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); event.respondWith(new Response('ok')); });";
+
+    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    public void EveryListenerInTheDispatchDrawsOnOneAllocationBudget()
+    {
+        var observed = new List<long>();
+
+        var metered = Listener(
+            AllocatingListener + "\n" + AllocatingResponder,
+            options => options.LimitMemory(1L << 40),
+            prepare: e =>
+            {
+                var meter = e.Constraints.Find<MemoryLimitConstraint>()!;
+                e.SetValue("note", new Action(() => observed.Add(meter.AllocatedBytes)));
+            });
+
+        using var response = Pump(metered, metered.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be("ok");
+
+        // The second listener's meter reads its own allocations on top of the first listener's, because the
+        // accounting segment the dispatch opened is still the one it is allocating in. With a bracket per
+        // listener the second reading would be a fresh count of roughly the first's size.
+        observed.Should().HaveCount(2);
+        observed[0].Should().BeGreaterThan(0);
+        observed[1].Should().BeGreaterThan(observed[0] + observed[0] / 2);
+
+        // And the same shape as the statement allowance above: a limit half way between what one listener
+        // allocates and what two allocate serves one request and fails the other.
+        var limit = (observed[0] + observed[1]) / 2;
+
+        var single = Listener(AllocatingResponder, options => options.LimitMemory(limit), prepare: NoNote);
+        using var served = Pump(single, single.Advanced.InvokeFetchHandler(Get()));
+        Text(served).Should().Be("ok");
+
+        var pair = Listener(AllocatingListener + "\n" + AllocatingResponder, options => options.LimitMemory(limit), prepare: NoNote);
+        var operation = pair.Advanced.InvokeFetchHandler(Get());
+
+        operation.IsCompleted.Should().BeTrue();
+        operation.IsFaulted.Should().BeTrue();
+        Assert.IsType<MemoryLimitExceededException>(operation.Error);
+    }
+
+    /// <summary>Satisfies the <c>note()</c> call in the allocating listeners for a run that is not metering.</summary>
+    private static void NoNote(Engine engine) => engine.SetValue("note", new Action(() => { }));
+
+    // ---- and what the bracket does not cover ----
+
+    /// <summary>A listener whose synchronous half and deferred half cost the same, so the two are comparable.</summary>
+    private const string CountingDeferredResponder =
+        "addEventListener('fetch', event => { var n = 0; for (var i = 0; i < 200; i++) { n += i; } "
+        + "event.respondWith(Promise.resolve().then(() => { var m = 0; for (var j = 0; j < 200; j++) { m += j; } return new Response('late'); })); });";
+
+    [Fact]
+    public void TheTurnsPumpedAfterTheDispatchGetAFreshStatementAllowance()
+    {
+        // The dispatch is synchronous and so is the bracket around it. A listener that answers with a promise
+        // has already returned by the time the promise's reaction runs, so the reaction belongs to whatever
+        // entry runs it — here Advanced.ProcessTasks, which arms nothing and is not a bracket.
+        var synchronousHalf = StatementsOneDispatchCosts(CountingDeferredResponder, "late");
+
+        // Half again as much as the dispatch spent. What is left of it after the dispatch is far less than the
+        // reaction needs, so the request can only be served if the reaction is charged against a refilled
+        // allowance rather than against the dispatch's remainder — which is exactly what the reset on the way
+        // out of the bracket leaves behind.
+        var allowance = synchronousHalf + synchronousHalf / 2;
+
+        var engine = Listener(CountingDeferredResponder, options => options.MaxStatements(allowance));
+        using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
+
+        Text(response).Should().Be("late");
+    }
+
+    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    public void TheTurnsPumpedAfterTheDispatchStayInsideTheDispatchsAllocationBudget()
+    {
+        // Allocation is the one budget that does follow the answer out of the dispatch: a promise reaction
+        // captures the operation's accounting state when it is registered and resumes it when it runs, so the
+        // bytes the reaction allocates are charged to the request that is still outstanding. The statement
+        // allowance above and the wall-clock deadline do not work that way, which is why this is its own test
+        // rather than another assertion in that one.
+        var deferred =
+            "addEventListener('fetch', event => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); "
+            + "event.respondWith(Promise.resolve().then(() => { var b = []; for (var j = 0; j < 20000; j++) { b.push({ y: j }); } return new Response('late'); })); });";
+
+        var synchronousHalf = 0L;
+        var metered = Listener(
+            deferred,
+            options => options.LimitMemory(1L << 40),
+            prepare: e =>
+            {
+                var meter = e.Constraints.Find<MemoryLimitConstraint>()!;
+                e.SetValue("note", new Action(() => synchronousHalf = meter.AllocatedBytes));
+            });
+
+        using var response = Pump(metered, metered.Advanced.InvokeFetchHandler(Get()));
+        Text(response).Should().Be("late");
+        synchronousHalf.Should().BeGreaterThan(0);
+
+        // Half again as much as the synchronous half allocated: enough for it, and — only because the
+        // reaction continues the same accounting — not enough for both halves together. A reaction given a
+        // budget of its own would allocate the same bytes again from zero and this request would be served.
+        var limit = synchronousHalf + synchronousHalf / 2;
+
+        var engine = Listener(deferred, options => options.LimitMemory(limit), prepare: NoNote);
+        var operation = engine.Advanced.InvokeFetchHandler(Get());
+
+        // The dispatch itself fits.
+        operation.IsFaulted.Should().BeFalse();
+
+        // The reaction does not, and where it fails is where the host is standing: Advanced.ProcessTasks is
+        // not a constraint bracket, so the failure erupts from the pump. A host that answers requests out of a
+        // script's promises has to guard its own pump, not only the invocation.
+        Assert.Throws<MemoryLimitExceededException>(() =>
+        {
+            for (var i = 0; i < 100 && !operation.IsCompleted; i++)
+            {
+                engine.Advanced.ProcessTasks();
+            }
+        });
     }
 
     [Fact]
