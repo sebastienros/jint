@@ -388,6 +388,149 @@ public class EventTests
         engine.Evaluate("run({ passive: 1 })").AsString().Should().Be("false/true");
     }
 
+    /// <summary>
+    /// <c>initEvent(type, bubbles, cancelable)</c> — "If this's dispatch flag is set, then return. Initialize
+    /// this with type, bubbles, and cancelable" (https://dom.spec.whatwg.org/#dom-event-initevent), where
+    /// <i>initialize an event</i> (https://dom.spec.whatwg.org/#concept-event-initialize) also unsets the
+    /// three propagation/cancel flags, clears <c>isTrusted</c> and clears <c>target</c>.
+    /// </summary>
+    [Fact]
+    public void InitEventReinitializesTheEvent()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("Event.prototype.initEvent.length").AsNumber().Should().Be(1);
+        engine.Evaluate("typeof new Event('x').initEvent").AsString().Should().Be("function");
+
+        // The two optional arguments default to false.
+        engine.Execute("var e = new Event('a', { bubbles: true, cancelable: true }); e.initEvent('b');");
+        engine.Evaluate("e.type").AsString().Should().Be("b");
+        engine.Evaluate("e.bubbles").AsBoolean().Should().BeFalse();
+        engine.Evaluate("e.cancelable").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var f = new Event('a'); f.initEvent('b', true, true);");
+        engine.Evaluate("f.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("f.cancelable").AsBoolean().Should().BeTrue();
+
+        // The arguments are a DOMString and two booleans, so everything is coerced rather than refused.
+        engine.Execute("var g = new Event('a'); g.initEvent(7, 1, '');");
+        engine.Evaluate("g.type").AsString().Should().Be("7");
+        engine.Evaluate("g.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("g.cancelable").AsBoolean().Should().BeFalse();
+
+        // "Unset event's stop propagation flag, stop immediate propagation flag, and canceled flag."
+        engine.Execute("""
+            var h = new Event('a', { cancelable: true });
+            h.preventDefault();
+            h.stopPropagation();
+            h.initEvent('b', false, true);
+            """);
+        engine.Evaluate("h.defaultPrevented").AsBoolean().Should().BeFalse();
+        engine.Evaluate("h.returnValue").AsBoolean().Should().BeTrue();
+
+        // The stop-propagation flag really is gone: a re-dispatched event still reaches its listener.
+        engine.Execute("""
+            var target = new EventTarget();
+            var hits = 0;
+            target.addEventListener('b', function () { hits++; });
+            target.dispatchEvent(h);
+            """);
+        engine.Evaluate("hits").AsNumber().Should().Be(1);
+
+        // It is not `composed` that initialize touches — the composed flag survives, which is exactly the
+        // limitation the specification notes ("incapable of setting composed").
+        engine.Execute("var i = new Event('a', { composed: true }); i.initEvent('b');");
+        engine.Evaluate("i.composed").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("new Event('a').initEvent('b')").IsUndefined().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// "Initialize event's target to null" and "Set event's isTrusted attribute to false" — the two steps of
+    /// <i>initialize an event</i> that are not about the type or the flags.
+    /// </summary>
+    [Fact]
+    public void InitEventClearsTargetAndTrust()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var e = new Event('a');
+            target.dispatchEvent(e);
+            """);
+        engine.Evaluate("e.target === target").AsBoolean().Should().BeTrue();
+
+        engine.Execute("e.initEvent('b');");
+        engine.Evaluate("e.target").IsNull().Should().BeTrue();
+        engine.Evaluate("e.srcElement").IsNull().Should().BeTrue();
+
+        // A trusted event that a script re-initializes is no longer trusted.
+        engine.Execute("""
+            var controller = new AbortController();
+            var trusted = null;
+            controller.signal.addEventListener('abort', function (ev) { trusted = ev; });
+            controller.abort();
+            """);
+        engine.Evaluate("trusted.isTrusted").AsBoolean().Should().BeTrue();
+        engine.Execute("trusted.initEvent('x');");
+        engine.Evaluate("trusted.isTrusted").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Step 1 of both init methods: "If this's dispatch flag is set, then return." An event being dispatched
+    /// cannot be re-initialized out from under the dispatch.
+    /// </summary>
+    [Fact]
+    public void InitEventIsIgnoredDuringADispatch()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var seen = [];
+            target.addEventListener('a', function (ev) {
+                ev.initEvent('b', true, true);
+                seen.push(ev.type, ev.bubbles, ev.cancelable);
+            });
+            var e = new Event('a');
+            target.dispatchEvent(e);
+            """);
+
+        engine.Evaluate("seen.join(',')").AsString().Should().Be("a,false,false");
+        engine.Evaluate("e.type").AsString().Should().Be("a");
+    }
+
+    /// <summary>
+    /// <c>initCustomEvent(type, bubbles, cancelable, detail)</c> — the same two steps plus "Set this's detail
+    /// attribute to detail" (https://dom.spec.whatwg.org/#dom-customevent-initcustomevent).
+    /// </summary>
+    [Fact]
+    public void InitCustomEventAlsoSetsTheDetail()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("CustomEvent.prototype.initCustomEvent.length").AsNumber().Should().Be(1);
+        engine.Evaluate("'initCustomEvent' in Event.prototype").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var e = new CustomEvent('a', { detail: 1 }); e.initCustomEvent('b', true, true, 42);");
+        engine.Evaluate("e.type").AsString().Should().Be("b");
+        engine.Evaluate("e.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("e.cancelable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("e.detail").AsNumber().Should().Be(42);
+
+        // The IDL default for detail is null, so an omitted argument clears it rather than leaving it.
+        engine.Execute("var f = new CustomEvent('a', { detail: 1 }); f.initCustomEvent('b');");
+        engine.Evaluate("f.detail").IsNull().Should().BeTrue();
+
+        // A CustomEvent still inherits initEvent, which leaves detail alone.
+        engine.Execute("var g = new CustomEvent('a', { detail: 3 }); g.initEvent('b');");
+        engine.Evaluate("g.detail").AsNumber().Should().Be(3);
+
+        // It brand-checks the receiver like every other CustomEvent member.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CustomEvent.prototype.initCustomEvent.call(new Event('x'), 'y')"));
+    }
+
     [Fact]
     public void RefusesAReceiverThatIsNotAnEvent()
     {

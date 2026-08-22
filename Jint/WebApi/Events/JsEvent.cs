@@ -26,10 +26,11 @@ namespace Jint.WebApi.Events;
 /// <c>CustomEvent</c>'s brand check can be "is a <c>JsEvent</c> that also carries a detail".
 /// </para>
 /// <para>
-/// Deliberately absent, both marked legacy by the specification: <c>cancelBubble</c> and
-/// <c>initEvent()</c>/<c>initCustomEvent()</c>. <c>relatedTarget</c> and the touch target list belong to
-/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here. The other two legacy members,
-/// <c>srcElement</c> and <c>returnValue</c>, <i>are</i> implemented — see <see cref="EventPrototype"/>.
+/// Deliberately absent: <c>cancelBubble</c>, which the specification marks legacy and which no script
+/// written for a non-browser runtime reaches for. <c>relatedTarget</c> and the touch target list belong to
+/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here. The interface's other legacy
+/// members — <c>srcElement</c>, <c>returnValue</c>, <c>initEvent()</c> and <c>initCustomEvent()</c> —
+/// <i>are</i> implemented; see <see cref="EventPrototype"/> and <see cref="CustomEventPrototype"/>.
 /// </para>
 /// </remarks>
 internal class JsEvent : ObjectInstance
@@ -68,19 +69,23 @@ internal class JsEvent : ObjectInstance
     /// https://dom.spec.whatwg.org/#dom-event-type. Spelled <c>EventType</c> rather than <c>Type</c> because
     /// <see cref="JsValue.Type"/> already means the JavaScript type of the value itself.
     /// </summary>
-    internal JsString EventType { get; }
+    /// <remarks>
+    /// Settable only through <see cref="InitializeEvent"/>, which is the whole of what <c>initEvent()</c>
+    /// does; nothing else on the interface can change an event's type once it exists.
+    /// </remarks>
+    internal JsString EventType { get; private set; }
 
     /// <summary>
     /// The same string as <see cref="EventType"/>, materialized once. Dispatch compares it against every
     /// listener's type, and a <see cref="JsString"/> can be a rope whose <c>ToString</c> is not free.
     /// </summary>
-    internal string TypeName { get; }
+    internal string TypeName { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-bubbles.</summary>
-    internal bool Bubbles { get; }
+    internal bool Bubbles { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-cancelable.</summary>
-    internal bool Cancelable { get; }
+    internal bool Cancelable { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-composed — the composed flag.</summary>
     internal bool Composed { get; }
@@ -123,6 +128,40 @@ internal class JsEvent : ObjectInstance
     /// <c>composedPath()</c> answers from.
     /// </summary>
     internal bool DispatchFlag { get; set; }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-event-initialize — <i>initialize an event</i>, which is the whole
+    /// body of <c>initEvent()</c> and the first two steps of <c>initCustomEvent()</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Step 1, "set event's initialized flag", has nothing to set. The flag is unset by exactly one algorithm
+    /// in the standard, <c>document.createEvent()</c>, and read by exactly one, <c>dispatchEvent</c>'s
+    /// <c>InvalidStateError</c> guard. There is no <c>document</c> here, so every event Jint can build has the
+    /// flag set from birth and no observation can tell a stored flag from an assumed one.
+    /// </para>
+    /// <para>
+    /// What it deliberately does <b>not</b> touch is the composed flag, which is why the specification notes
+    /// that <c>initEvent()</c> "is redundant with event constructors and incapable of setting composed".
+    /// </para>
+    /// </remarks>
+    internal void InitializeEvent(JsString type, bool bubbles, bool cancelable)
+    {
+        // Step 2.
+        StopPropagationFlag = false;
+        StopImmediatePropagationFlag = false;
+        CanceledFlag = false;
+
+        // Steps 3 and 4.
+        IsTrusted = false;
+        Target = Null;
+
+        // Steps 5 to 7.
+        EventType = type;
+        TypeName = type.ToString();
+        Bubbles = bubbles;
+        Cancelable = cancelable;
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-initialize step "set the canceled flag": a non-cancelable
@@ -224,7 +263,11 @@ internal sealed class JsCustomEvent : JsEvent
     /// https://dom.spec.whatwg.org/#dom-customevent-detail. The IDL default is <c>null</c>, not
     /// <c>undefined</c>.
     /// </summary>
-    internal JsValue Detail { get; }
+    /// <remarks>
+    /// Settable only through <c>initCustomEvent()</c>, whose step 3 is "set this's detail attribute to
+    /// detail" — https://dom.spec.whatwg.org/#dom-customevent-initcustomevent.
+    /// </remarks>
+    internal JsValue Detail { get; set; }
 }
 
 /// <summary>

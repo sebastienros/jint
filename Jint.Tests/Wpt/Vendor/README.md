@@ -132,7 +132,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js` | A defect, and one that cannot be an exclusion — see [What the timers and microtask corpora say](#what-the-timers-and-microtask-corpora-say-about-this-engine). |
-| `dom/events/Event-constructors.any.js` | Registers fourteen of its fifteen tests **without a name**, so every one of them is reported under the same name and no per-test exclusion can single out the two that fail. Those two assert the whole initial state of a new event, and what they now fail on is `assert_true("initEvent" in ev)` — [`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent), the one legacy member of the interface still absent. The `srcElement` and `returnValue` they also assert are implemented; see below. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
 | `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
@@ -166,7 +165,8 @@ sample, without which its `performance.now()`-against-`Date.now()` correlation w
 event) and `html/webappapis/timers/clearinterval-from-callback.any.js` **1.3 s** (a 500 ms interval, then a
 750 ms timer proving it was cleared). Measured file by file at the pin, the 74 files those two groups added
 come to **7.6 s** of the driver's run; the two encoding files are the largest single contribution at 0.9 s for
-7,504 assertions.
+7,504 assertions. `dom/events/Event-constructors.any.js`, added afterwards, is fourteen synchronous
+constructor assertions and does not register.
 
 Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`,
 `.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what excludes
@@ -518,8 +518,10 @@ vendored resource and against every shape it declines.
 
 ## What the DOM events and abort corpora say about this engine
 
-62 assertions across twelve files, and **every one of them passes**. The two that used to fail were both
-`Event`'s legacy members, and both are fixed:
+76 assertions across thirteen files, and **every one of them passes**. Four of them did not, and all four
+were `Event`'s legacy members: two named tests, below, and the two unnamed ones that kept
+`Event-constructors.any.js` out of the corpus altogether, which is the thirteenth file and the end of this
+section.
 
 1. **`Event.isTrusted` was on the prototype, where WebIDL makes it an own property.**
    `dom/events/Event-isTrusted.any.js` takes `Object.getOwnPropertyDescriptor(new Event("x"), "isTrusted")`
@@ -554,11 +556,23 @@ vendored resource and against every shape it declines.
    `AddEventListenerOptions-passive.any.js`'s "returnValue should be ignored if-and-only-if the passive option
    is true", which was the only one of that file's five rows to fail.
 
-The reading that `dom/events/Event-constructors.any.js` stays out of the corpus for these two members alone
-was **incomplete**, and the not-vendored table above now says so: each of its two unnamed failures also
-asserts `assert_true("initEvent" in ev)`, and
-[`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent) is a third legacy member of the same
-interface, still absent.
+**`dom/events/Event-constructors.any.js` is vendored now, and getting it there needed a third member.** The
+file used to sit in the not-vendored table because all fourteen of its tests are registered **without a
+name**, so the driver reports every one of them under the same one and no per-test exclusion can single out
+the two that fail. The reason recorded for those two was `srcElement` and `returnValue` — and that reading was
+incomplete. Each of them asserts the whole initial state of a new event, `assert_true("initEvent" in ev)`
+included, so implementing the two members above left the file exactly as red as it was, failing one assertion
+later. [`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent) is the third legacy member of the
+same interface, and `initCustomEvent()` its `CustomEvent` counterpart; both are implemented, both are
+*initialize an event* ([step by step](https://dom.spec.whatwg.org/#concept-event-initialize)) behind a
+dispatch-flag guard, and the file now runs with all fourteen of its tests passing. Its copy is byte-identical
+to upstream's at the pin — `git hash-object` gives `faa623ea92991b72742477a18471449f5382f1a8`, which is the
+blob id GitHub reports for that path at commit `6c7127bdd9`.
+
+One step of *initialize an event* has nothing to do here. "Set event's initialized flag" is read by exactly
+one algorithm in the standard — `dispatchEvent`'s `InvalidStateError` guard — and unset by exactly one,
+`document.createEvent()`. There is no `document` here, so every event Jint can build has the flag set from
+birth and no observation can tell a stored flag from an assumed one.
 
 Everything else passes, including all sixteen rows of `dom/abort/event.any.js`, all fourteen of
 `AbortSignal.any()`'s composition and ordering rules, and `AbortSignal.timeout()` firing in registration order

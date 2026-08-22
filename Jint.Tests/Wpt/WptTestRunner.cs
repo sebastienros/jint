@@ -239,17 +239,6 @@ public class WptTestRunner
         ("user-timing/supported-usertiming-types.any.js",
             "reads PerformanceObserver at file scope; PerformanceInstance documents declining the observer"),
 
-        // ---------------------------------------------------------------- dom
-        // Fourteen of its fifteen tests are registered without a name, so every one of them is reported under
-        // the same name and no per-test exclusion can single out the two that fail — which is what puts this
-        // row here rather than in the exclusion table. Those two assert the whole initial state of a new
-        // event, and the corpus's reading that they fail for `srcElement` and `returnValue` was incomplete:
-        // each also asserts `"initEvent" in ev`, and initEvent() — https://dom.spec.whatwg.org/#dom-event-initevent
-        // — is a third legacy member of the same interface. The other two are implemented now, so it is the
-        // only thing left keeping the file out. See Vendor/README.md.
-        ("dom/events/Event-constructors.any.js",
-            "registers every test without a name, so its two initEvent failures cannot be named; see Vendor/README.md"),
-
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
         // by another name and reachable even where a host disabled string compilation, so it is a TypeError
@@ -566,6 +555,9 @@ public class WptTestRunner
         ["dom/events/AddEventListenerOptions-once.any.js"] = 4,
         ["dom/events/AddEventListenerOptions-passive.any.js"] = 5,
         ["dom/events/AddEventListenerOptions-signal.any.js"] = 11,
+        // Every one of its fourteen tests is registered without a name, so the driver reports them all under
+        // the same one. The floor is still fourteen results: the count is per registration, not per name.
+        ["dom/events/Event-constructors.any.js"] = 14,
         ["dom/events/Event-isTrusted.any.js"] = 1,
         ["dom/events/EventTarget-add-remove-listener.any.js"] = 1,
         ["dom/events/EventTarget-addEventListener.any.js"] = 1,

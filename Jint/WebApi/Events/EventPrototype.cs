@@ -266,6 +266,39 @@ internal sealed partial class EventPrototype : Prototype
     }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-event-initevent — "If this's dispatch flag is set, then return.
+    /// Initialize this with <i>type</i>, <i>bubbles</i>, and <i>cancelable</i>."
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>length</c> is 1 because WebIDL counts required arguments and the two booleans are optional with an
+    /// IDL default of <c>false</c>. They are <c>boolean</c>s rather than anything stricter, so an omitted or
+    /// odd argument is coerced by <i>ToBoolean</i> rather than refused, and <c>type</c> is a
+    /// <c>DOMString</c>, so anything at all is stringified.
+    /// </para>
+    /// <para>
+    /// Step 1 is what stops a listener re-initializing the very event it is being handed: the dispatch flag is
+    /// set for the whole of <c>dispatchEvent</c>, so the call is a silent no-op there rather than an error.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "initEvent", Length = 1)]
+    private JsValue InitEvent(JsValue thisObject, JsValue type, JsValue bubbles, JsValue cancelable)
+    {
+        var ev = Brand(thisObject);
+        if (ev.DispatchFlag)
+        {
+            return Undefined;
+        }
+
+        ev.InitializeEvent(
+            TypeConverter.ToJsString(type),
+            TypeConverter.ToBoolean(bubbles),
+            TypeConverter.ToBoolean(cancelable));
+
+        return Undefined;
+    }
+
+    /// <summary>
     /// The WebIDL brand check every member performs: a receiver that is not a platform object implementing the
     /// interface raises a <c>TypeError</c>.
     /// </summary>
