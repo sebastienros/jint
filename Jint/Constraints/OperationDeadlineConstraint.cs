@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Runtime;
 
@@ -57,10 +58,19 @@ namespace Jint.Constraints;
 /// </para>
 /// </summary>
 /// <remarks>
+/// <para>
 /// The deadline is compared inline against <see cref="Stopwatch.GetTimestamp"/> rather than observed
 /// through a timer, for the same reason <c>TimeConstraint</c> is: a timer only makes elapsed time visible
 /// once its callback has been scheduled, so detection would be bounded by the thread pool rather than by
 /// the budget.
+/// </para>
+/// <para>
+/// On <c>net8.0</c> and later the host may hand the instance a <c>TimeProvider</c> instead, which then
+/// answers every timestamp the budget is measured against. The constructor that takes one is the whole
+/// seam: the instance is the host's to create, so the clock is the host's to supply, and nothing about the
+/// engine-registered <c>TimeoutInterval</c> constraint is involved. See <c>ConstraintClock</c> for why
+/// <c>TimeProvider.System</c> costs nothing.
+/// </para>
 /// </remarks>
 public sealed class OperationDeadlineConstraint : Constraint
 {
@@ -70,11 +80,56 @@ public sealed class OperationDeadlineConstraint : Constraint
     // not-started sentinel, and is also what a non-positive budget arms.
     private const long Disarmed = 0;
 
-    // Stopwatch timestamp the current operation must not pass, or Disarmed.
+#if NET8_0_OR_GREATER
+    // Null unless the host named a clock, which is what keeps Check() and Begin() on the direct
+    // Stopwatch read they have always used.
+    private readonly TimeProvider? _timeProvider;
+
+    // Stopwatch.Frequency unless _timeProvider is non-null; resolved once so arming a budget stays
+    // arithmetic on a field.
+    private readonly long _frequency;
+#endif
+
+    // Timestamp the current operation must not pass, on whichever clock this constraint reads, or Disarmed.
     private long _deadline;
 
     private CancellationToken _cancellationToken;
     private object? _scopeOwner;
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Creates a constraint measuring its budget against the system's monotonic clock
+    /// (<see cref="Stopwatch.GetTimestamp"/>).
+    /// </summary>
+    public OperationDeadlineConstraint() : this(timeProvider: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a constraint measuring its budget against <paramref name="timeProvider"/>.
+    /// </summary>
+    /// <param name="timeProvider">
+    /// The clock the budget is measured against. <see langword="null"/> and
+    /// <see cref="TimeProvider.System"/> both mean the system's monotonic clock, and cost exactly what
+    /// they did before this overload existed. Only <see cref="TimeProvider.GetTimestamp"/> and
+    /// <see cref="TimeProvider.TimestampFrequency"/> are ever called — never
+    /// <see cref="TimeProvider.CreateTimer"/>, because this constraint schedules nothing and only ever
+    /// reads the clock from the thread driving the engine.
+    /// </param>
+    /// <remarks>
+    /// The point of the overload is that a host can test what its own budget does without waiting for it:
+    /// a fake clock makes "the operation ran out of time between these two entries" an exact statement
+    /// rather than a race against a loaded machine.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="timeProvider"/> reports a non-positive <see cref="TimeProvider.TimestampFrequency"/>.
+    /// </exception>
+    public OperationDeadlineConstraint(TimeProvider? timeProvider)
+    {
+        _timeProvider = ConstraintClock.Resolve(timeProvider);
+        _frequency = ConstraintClock.FrequencyOf(_timeProvider);
+    }
+#endif
 
     /// <summary>
     /// A deadline and a cancellation token are both external state that <see cref="Check"/> only reads and
@@ -120,7 +175,7 @@ public sealed class OperationDeadlineConstraint : Constraint
             return;
         }
 
-        var deadline = Stopwatch.GetTimestamp() + ToStopwatchTicks(budget);
+        var deadline = GetTimestamp() + ToTimestampTicks(budget);
 
         // Disarmed is the not-armed sentinel, so never store it as a real deadline
         _deadline = deadline == Disarmed ? Disarmed + 1 : deadline;
@@ -186,7 +241,7 @@ public sealed class OperationDeadlineConstraint : Constraint
         }
 
         var deadline = _deadline;
-        if (deadline != 0 && Stopwatch.GetTimestamp() >= deadline)
+        if (deadline != 0 && GetTimestamp() >= deadline)
         {
             Throw.TimeoutException("The operation's time budget elapsed.");
         }
@@ -206,14 +261,24 @@ public sealed class OperationDeadlineConstraint : Constraint
     {
     }
 
-    /// <summary>
-    /// Converts a budget to <see cref="Stopwatch"/> ticks, clamped so that adding it to a timestamp cannot
-    /// overflow. Without the clamp a large budget wraps <see cref="long"/> and lands the deadline in the
-    /// <em>past</em>, failing the operation immediately — the opposite of what was asked for.
-    /// </summary>
-    private static long ToStopwatchTicks(TimeSpan budget)
+#if NET8_0_OR_GREATER
+    // Converts a budget to ticks on this constraint's own clock, clamped so that adding it to a timestamp
+    // cannot overflow. See ConstraintClock.ToTimestampTicks.
+    private long ToTimestampTicks(TimeSpan budget) => ConstraintClock.ToTimestampTicks(budget, _frequency);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long GetTimestamp()
     {
-        var ticks = budget.Ticks * ((double) Stopwatch.Frequency / TimeSpan.TicksPerSecond);
-        return ticks >= long.MaxValue / 2.0 ? long.MaxValue / 2 : (long) ticks;
+        var provider = _timeProvider;
+        return provider is null ? Stopwatch.GetTimestamp() : provider.GetTimestamp();
     }
+#else
+    // Converts a budget to ticks on this constraint's own clock, clamped so that adding it to a timestamp
+    // cannot overflow. See ConstraintClock.ToTimestampTicks.
+    private static long ToTimestampTicks(TimeSpan budget)
+        => ConstraintClock.ToTimestampTicks(budget, Stopwatch.Frequency);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static long GetTimestamp() => Stopwatch.GetTimestamp();
+#endif
 }

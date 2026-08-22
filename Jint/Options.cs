@@ -1160,6 +1160,34 @@ public partial class Options
         /// </summary>
         public int MaxAtomicsPauseIterations { get; set; } = 10_000;
 
+#if NET8_0_OR_GREATER
+        /// <summary>
+        /// The clock <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>'s constraint measures against.
+        /// Defaults to <see cref="TimeProvider.System"/>; a fake one makes a timeout test exact instead of a
+        /// race against the machine it runs on.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Only <see cref="TimeProvider.GetTimestamp"/> and <see cref="TimeProvider.TimestampFrequency"/> are
+        /// ever called. <see cref="TimeProvider.CreateTimer"/> deliberately is not: the constraint schedules
+        /// nothing, it compares an inline deadline on the thread already running the script, which is what
+        /// bounds detection by the timeout rather than by the thread pool.
+        /// </para>
+        /// <para>
+        /// Read when the engine builds its constraints, so it may be set in any order relative to
+        /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>; assigning it afterwards only reaches
+        /// engines built later. Leaving it at <see cref="TimeProvider.System"/> costs exactly what it cost
+        /// before this property existed — see <c>ConstraintClock</c> for the fold that makes that true.
+        /// </para>
+        /// <para>
+        /// It governs the constraint the engine registers. <see cref="Constraints.OperationDeadlineConstraint"/>
+        /// is created by the host rather than by the engine, so it takes its clock through its own
+        /// constructor instead.
+        /// </para>
+        /// </remarks>
+        public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+#endif
+
         internal ConstraintOptions Clone()
         {
             var clone = (ConstraintOptions) MemberwiseClone();
