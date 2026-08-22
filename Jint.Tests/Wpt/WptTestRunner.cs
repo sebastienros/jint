@@ -970,12 +970,6 @@ public class WptTestRunner
         new("fetch/api/headers/headers-forbidden-override.any.js", "header * is forbidden to use value *", WptDivergence.NeedsForbiddenHeaderNames),
         new("fetch/api/headers/header-setcookie.any.js", "Set-Cookie is a forbidden response header", WptDivergence.NeedsForbiddenHeaderNames),
 
-        // Two rows counting the operations a record<> conversion performs; Jint does one more than the
-        // specification's order allows. See Vendor/README.md.
-        new("fetch/api/headers/headers-record.any.js",
-            "Correct operation ordering with two properties one of which has an invalid name", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-record.any.js", "Basic operation with Symbol keys", WptDivergence.NeedsTriage),
-
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
         new("fetch/api/response/response-consume-empty.any.js",
