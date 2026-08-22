@@ -293,7 +293,23 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                         // is whatever its CLR Count/Length property returns, and nothing constrains that
                         // property's type.
                         var length = (uint) System.Math.Min(arrayOperations.GetLongLength(), ArrayOperations.MaxArrayLength);
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(length - i);
+
+                        // A pattern with more leading elements than the source has already drove the
+                        // notional iterator to done, so the "Repeat, while iteratorRecord.[[Done]] is
+                        // false" of BindingRestElement
+                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization)
+                        // and AssignmentRestElement
+                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation)
+                        // adds nothing, and the rest array is empty.
+                        // The subtraction is unsigned, so that case has to be clamped rather than left
+                        // to wrap: with i past length, an unclamped length - i produced a rest array
+                        // claiming close to 2^32 elements, which .length reported and which
+                        // JSON.stringify, a spread and concat all went on to consume. The clamp costs
+                        // the comparison the loop below already makes on its first iteration; the
+                        // subtraction inside that loop needs none, since j starts at i.
+                        var restLength = i < length ? length - i : 0;
+
+                        array = engine.Realm.Intrinsics.Array.ArrayCreate(restLength);
                         for (uint j = i; j < length; ++j)
                         {
                             arrayOperations.TryGetValue(j, out var indexValue);
