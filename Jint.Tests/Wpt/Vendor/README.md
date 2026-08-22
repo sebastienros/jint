@@ -132,7 +132,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js` | A defect, and one that cannot be an exclusion — see [What the timers and microtask corpora say](#what-the-timers-and-microtask-corpora-say-about-this-engine). |
-| `dom/events/Event-constructors.any.js` | Registers fourteen of its fifteen tests **without a name**, so every one of them is reported under the same name and no per-test exclusion can single out the two that fail. Those two are Event's legacy `srcElement` and `returnValue` members; both are recorded as defects below, and `returnValue` also has an exclusion of its own in `AddEventListenerOptions-passive.any.js`, where the test that finds it *is* named. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
 | `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
@@ -166,7 +165,8 @@ sample, without which its `performance.now()`-against-`Date.now()` correlation w
 event) and `html/webappapis/timers/clearinterval-from-callback.any.js` **1.3 s** (a 500 ms interval, then a
 750 ms timer proving it was cleared). Measured file by file at the pin, the 74 files those two groups added
 come to **7.6 s** of the driver's run; the two encoding files are the largest single contribution at 0.9 s for
-7,504 assertions.
+7,504 assertions. `dom/events/Event-constructors.any.js`, added afterwards, is fourteen synchronous
+constructor assertions and does not register.
 
 Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`,
 `.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what excludes
@@ -454,7 +454,7 @@ is what it costs, and it is a cost paid by real third-party worker code and not 
 
 ## What the hr-time and user-timing corpora say about this engine
 
-85 assertions, of which **10 do not pass**, and the split is almost exactly the one
+85 assertions, of which **6 do not pass**, and the split is almost exactly the one
 `PerformanceInstance` predicts in its own documentation.
 
 Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
@@ -466,14 +466,19 @@ depend on an observer at all, and one more (`supported-usertiming-types.any.js`,
 scope. The other fifteen read the timeline through `getEntries()` and pass, including the whole of
 `mark.any.js`, `measure-l3.any.js` and `measure_syntax_err.any.js`.
 
-**The remaining four are one genuine defect**, and a narrow one. `mark-errors.any.js` runs each of its five
-cases twice — once through `performance.mark(name, x)` and once through `new PerformanceMark(name, x)` — and
-only the constructor accepts a non-object where
-[WebIDL's dictionary conversion](https://webidl.spec.whatwg.org/#es-dictionary) refuses one: a `Number`, a
-`NaN`, an `Infinity` or a `String` in the options position should be a `TypeError`, and
-`performance.mark` makes it one. The constructor's own `{startTime: -1}` row passes, so what is missing is
-exactly the "not an object and not `null`/`undefined` is a `TypeError`" step in
-`PerformanceMarkConstructor`, not the option handling behind it.
+**The four that used to sit beside them were one genuine defect, and it is fixed.**
+`mark-errors.any.js` runs each of its five cases twice — once through `performance.mark(name, x)` and once
+through `new PerformanceMark(name, x)` — and the constructor's half of four of them failed. The reading that
+`performance.mark` "refused correctly" was the trap: the file calls it **unbound**, as
+`testInfo.testFunction(self.performance.mark)`, so its `TypeError` came from the brand check on a `this` of
+`undefined` and not from any conversion at all. `performance.mark('m', 123)` called properly returned a mark.
+Both halves share one conversion — `UserTiming.ReadMarkOptions`, reached through
+`PerformanceMarkConstructor.ReadArguments`, which `performance.mark` runs as its own step 1 — and it treated
+every non-object as the empty dictionary where step 1 of
+[WebIDL's dictionary conversion](https://webidl.spec.whatwg.org/#es-dictionary) says "if *jsDict* is not an
+Object and *jsDict* is neither undefined nor null, then throw a TypeError". Fixing the shared conversion fixed
+both halves at once, and `Jint.Tests/Runtime/WebApi/PerformanceTimelineTests.cs` pins the bound call the corpus
+cannot make.
 
 ## What the timers and microtask corpora say about this engine
 
@@ -513,24 +518,61 @@ vendored resource and against every shape it declines.
 
 ## What the DOM events and abort corpora say about this engine
 
-62 assertions across twelve files, of which **two do not pass**, and both are `Event`'s legacy members:
+76 assertions across thirteen files, and **every one of them passes**. Four of them did not, and all four
+were `Event`'s legacy members: two named tests, below, and the two unnamed ones that kept
+`Event-constructors.any.js` out of the corpus altogether, which is the thirteenth file and the end of this
+section.
 
-1. **`Event.isTrusted` is on the prototype, where WebIDL makes it an own property.**
+1. **`Event.isTrusted` was on the prototype, where WebIDL makes it an own property.**
    `dom/events/Event-isTrusted.any.js` takes `Object.getOwnPropertyDescriptor(new Event("x"), "isTrusted")`
    from two separate events and requires both to be an accessor and to be the *same* getter.
    [The DOM Standard](https://dom.spec.whatwg.org/#dom-event-istrusted) declares it
-   `[LegacyUnforgeable]`, which [WebIDL](https://webidl.spec.whatwg.org/#LegacyUnforgeable) defines as an own,
-   non-configurable accessor installed on every instance rather than on the interface prototype object.
-   `EventPrototype` declares it beside `type` and `bubbles` as an ordinary configurable prototype accessor.
-2. **`Event` has no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
-   [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement) as a `[LegacyUnforgeable]` alias of
-   `target`, [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue) as a writable alias of
-   "not `defaultPrevented`" whose setter runs *set the canceled flag* — so they are missing members rather than
-   a legacy extension nobody requires. The test that finds `returnValue` is
+   `[LegacyUnforgeable]`, which [WebIDL](https://webidl.spec.whatwg.org/#LegacyUnforgeable) defines as
+   "non-configurable and … exist[ing] as an own property on the object itself rather than on its prototype",
+   with the attributes [§3.7.6](https://webidl.spec.whatwg.org/#es-attributes) gives it —
+   `{ [[Set]]: undefined, [[Enumerable]]: true, [[Configurable]]: false }` — and which the same section
+   *removes* from the interface prototype object's attribute set. `EventPrototype` declared it beside `type`
+   and `bubbles` as an ordinary configurable prototype accessor.
+
+   It is an own property of every event now, and it is **free**. `JsEvent.GetOwnProperty` answers it from the
+   realm's one shared descriptor and `GetInitialOwnStringPropertyKeys` lists the name ahead of anything script
+   adds — the shape `Function` uses for `length`/`name`/`prototype` and `JsError` for `message`. Measured on
+   `net10.0` with `GC.GetAllocatedBytesForCurrentThread`, over 20,000 iterations, before and after the change:
+   `new Event('x')` is **112 bytes** either way, and `new Event('x').isTrusted` is **112 bytes** either way.
+   That is worth stating precisely because the obvious implementation is not free: giving an event one stored
+   own property costs a `PropertyDictionary`, a list node and a descriptor, which the same probe measures at
+   **+184 bytes**, more than doubling an event — and the engine creates one per `dispatchEvent` and more
+   throughout the abort, message, worker and fetch paths. Two things did change for every event, both of them
+   the point: `Object.keys(new Event('x'))` is `["isTrusted"]` and `JSON.stringify(new Event('x'))` is
+   `{"isTrusted":false}`, which is what a browser answers.
+2. **`Event` had no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
+   [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement), a plain `readonly attribute` whose
+   "getter steps are to return this's target", and
+   [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue), whose getter is "false if this's
+   canceled flag is set; otherwise true" and whose setter runs *set the canceled flag* — so they were missing
+   members rather than a legacy extension nobody requires. `returnValue` in particular is not a property over
+   a field: its setter is `preventDefault()` under another name, so a non-cancelable event and a passive
+   listener both ignore it and assigning `true` can never clear a flag already set. The test that finds it is
    `AddEventListenerOptions-passive.any.js`'s "returnValue should be ignored if-and-only-if the passive option
-   is true", which is also the only one of that file's five rows to fail;
-   `dom/events/Event-constructors.any.js` finds both, but registers every test without a name, which is what
-   keeps it out of the corpus.
+   is true", which was the only one of that file's five rows to fail.
+
+**`dom/events/Event-constructors.any.js` is vendored now, and getting it there needed a third member.** The
+file used to sit in the not-vendored table because all fourteen of its tests are registered **without a
+name**, so the driver reports every one of them under the same one and no per-test exclusion can single out
+the two that fail. The reason recorded for those two was `srcElement` and `returnValue` — and that reading was
+incomplete. Each of them asserts the whole initial state of a new event, `assert_true("initEvent" in ev)`
+included, so implementing the two members above left the file exactly as red as it was, failing one assertion
+later. [`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent) is the third legacy member of the
+same interface, and `initCustomEvent()` its `CustomEvent` counterpart; both are implemented, both are
+*initialize an event* ([step by step](https://dom.spec.whatwg.org/#concept-event-initialize)) behind a
+dispatch-flag guard, and the file now runs with all fourteen of its tests passing. Its copy is byte-identical
+to upstream's at the pin — `git hash-object` gives `faa623ea92991b72742477a18471449f5382f1a8`, which is the
+blob id GitHub reports for that path at commit `6c7127bdd9`.
+
+One step of *initialize an event* has nothing to do here. "Set event's initialized flag" is read by exactly
+one algorithm in the standard — `dispatchEvent`'s `InvalidStateError` guard — and unset by exactly one,
+`document.createEvent()`. There is no `document` here, so every event Jint can build has the flag set from
+birth and no observation can tell a stored flag from an assumed one.
 
 Everything else passes, including all sixteen rows of `dom/abort/event.any.js`, all fourteen of
 `AbortSignal.any()`'s composition and ordering rules, and `AbortSignal.timeout()` firing in registration order

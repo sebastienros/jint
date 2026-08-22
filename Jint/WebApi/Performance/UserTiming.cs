@@ -106,14 +106,28 @@ internal static class UserTiming
     /// The <c>PerformanceMarkOptions</c> dictionary conversion.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Step 1 of https://webidl.spec.whatwg.org/#es-dictionary is the whole of the type test: "If
+    /// <i>jsDict</i> is not an Object and <i>jsDict</i> is neither <c>undefined</c> nor <c>null</c>, then
+    /// throw a <c>TypeError</c>." So the two nullish values are the empty dictionary and everything else that
+    /// is not an object — a number, a string, a boolean, a BigInt, a symbol — is refused at the boundary
+    /// rather than silently treated as one.
+    /// </para>
+    /// <para>
     /// The IDL default of <c>detail</c> is <c>null</c>, which is why an absent dictionary, an absent member
     /// and an explicit <see langword="undefined"/> all give the same answer — and why
     /// <c>performance.mark('x').detail</c> is <c>null</c> rather than <c>undefined</c>.
+    /// </para>
     /// </remarks>
     internal static MarkOptions ReadMarkOptions(Realm realm, JsValue options, string context)
     {
         if (options is not ObjectInstance dictionary)
         {
+            if (!options.IsUndefined() && !options.IsNull())
+            {
+                Throw.TypeError(realm, context + ": the provided value is not of type 'PerformanceMarkOptions'.");
+            }
+
             return new MarkOptions(JsValue.Null, HasStartTime: false, StartTime: 0);
         }
 

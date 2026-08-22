@@ -87,6 +87,41 @@ public class PerformanceTimelineTests
             .Message.Should().Contain("finite");
     }
 
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-dictionary step 1 — "If <i>jsDict</i> is not an Object and
+    /// <i>jsDict</i> is neither <c>undefined</c> nor <c>null</c>, then throw a <c>TypeError</c>" — for
+    /// <c>PerformanceMarkOptions</c>, which both <c>performance.mark()</c> and the <c>PerformanceMark</c>
+    /// constructor take in their second argument.
+    /// </summary>
+    [Fact]
+    public void MarkOptionsThatIsNeitherNullishNorAnObjectIsATypeError()
+    {
+        var engine = Timeline();
+
+        foreach (var value in new[] { "123", "NaN", "Infinity", "'string'", "true", "10n", "Symbol()" })
+        {
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"performance.mark('m', {value})"))
+                .Message.Should().Contain("PerformanceMarkOptions");
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new PerformanceMark('m', {value})"))
+                .Message.Should().Contain("PerformanceMarkOptions");
+        }
+
+        // undefined and null are the empty dictionary rather than an error, so `detail` takes its IDL default.
+        engine.Evaluate("performance.mark('m', undefined).detail").IsNull().Should().BeTrue();
+        engine.Evaluate("performance.mark('m', null).detail").IsNull().Should().BeTrue();
+        engine.Evaluate("new PerformanceMark('m', undefined).detail").IsNull().Should().BeTrue();
+        engine.Evaluate("new PerformanceMark('m', null).detail").IsNull().Should().BeTrue();
+
+        // A boxed Number is an Object, so it is a dictionary whose members are simply absent.
+        engine.Evaluate("new PerformanceMark('m', new Number(5)).detail").IsNull().Should().BeTrue();
+
+        // The refusal is the conversion's, so it happens for both halves at the same point: after the mark
+        // name has been stringified and before any of the algorithm's own steps.
+        engine.Execute("var stringified = 0; var name = { toString() { stringified++; return 'm'; } };");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new PerformanceMark(name, 1)"));
+        engine.Evaluate("stringified").AsNumber().Should().Be(1);
+    }
+
     [Fact]
     public void MarkStructuredClonesItsDetail()
     {

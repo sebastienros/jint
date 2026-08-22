@@ -160,10 +160,11 @@ public class EventTests
     {
         var engine = WebEngine();
 
-        // WebIDL attributes live on the interface prototype object, so the instance owns none of them.
-        engine.Evaluate("Object.getOwnPropertyNames(new Event('x')).length").AsNumber().Should().Be(0);
+        // A WebIDL attribute lives on the interface prototype object unless it is unforgeable, so the one own
+        // property an instance carries is `isTrusted`.
+        engine.Evaluate("Object.getOwnPropertyNames(new Event('x')).join(',')").AsString().Should().Be("isTrusted");
 
-        foreach (var name in new[] { "type", "target", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "isTrusted", "timeStamp" })
+        foreach (var name in new[] { "type", "target", "srcElement", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "timeStamp" })
         {
             var descriptor = $"Object.getOwnPropertyDescriptor(Event.prototype, '{name}')";
             engine.Evaluate($"typeof {descriptor}.get").AsString().Should().Be("function");
@@ -171,6 +172,363 @@ public class EventTests
             engine.Evaluate($"{descriptor}.enumerable").AsBoolean().Should().BeTrue();
             engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeTrue();
         }
+
+        // `returnValue` is the one writable attribute of the interface, so it is an accessor pair.
+        var returnValue = "Object.getOwnPropertyDescriptor(Event.prototype, 'returnValue')";
+        engine.Evaluate($"typeof {returnValue}.get").AsString().Should().Be("function");
+        engine.Evaluate($"typeof {returnValue}.set").AsString().Should().Be("function");
+        engine.Evaluate($"{returnValue}.enumerable").AsBoolean().Should().BeTrue();
+        engine.Evaluate($"{returnValue}.configurable").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// <c>[LegacyUnforgeable] readonly attribute boolean isTrusted</c>
+    /// (https://dom.spec.whatwg.org/#dom-event-istrusted). WebIDL
+    /// (https://webidl.spec.whatwg.org/#LegacyUnforgeable) makes such a member "non-configurable and …
+    /// exist as an own property on the object itself rather than on its prototype", and
+    /// https://webidl.spec.whatwg.org/#es-attributes gives it
+    /// <c>{ [[Enumerable]]: true, [[Configurable]]: false }</c>.
+    /// </summary>
+    [Fact]
+    public void IsTrustedIsAnUnforgeableOwnAccessorOfEveryInstance()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("Event.prototype.hasOwnProperty('isTrusted')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new Event('x').hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+
+        engine.Execute("var d = Object.getOwnPropertyDescriptor(new Event('x'), 'isTrusted');");
+        engine.Evaluate("typeof d.get").AsString().Should().Be("function");
+        engine.Evaluate("d.set").IsUndefined().Should().BeTrue();
+        engine.Evaluate("d.enumerable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("d.configurable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("d.get.name").AsString().Should().Be("get isTrusted");
+        engine.Evaluate("d.get.length").AsNumber().Should().Be(0);
+
+        // One getter for the whole interface, not one per instance — which is what
+        // dom/events/Event-isTrusted.any.js asserts.
+        engine.Evaluate("""
+            Object.getOwnPropertyDescriptor(new Event('a'), 'isTrusted').get ===
+            Object.getOwnPropertyDescriptor(new Event('b'), 'isTrusted').get
+            """).AsBoolean().Should().BeTrue();
+
+        // Unforgeable: it cannot be redefined, shadowed or deleted.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { value: true })"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { get: function () { return true; } })"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { enumerable: false })"));
+        engine.Evaluate("delete new Event('x').isTrusted").AsBoolean().Should().BeFalse();
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; delete new Event('x').isTrusted"));
+
+        // A read-only accessor: an assignment is a no-op in sloppy mode and a TypeError in strict mode.
+        engine.Execute("var e = new Event('x'); e.isTrusted = true;");
+        engine.Evaluate("e.isTrusted").AsBoolean().Should().BeFalse();
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; new Event('x').isTrusted = true;"));
+
+        // The own property is enumerable, so it shows up in every script-visible enumeration.
+        engine.Evaluate("Object.keys(new Event('x')).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("JSON.stringify(new Event('x'))").AsString().Should().Be("""{"isTrusted":false}""");
+        engine.Evaluate("Object.keys({ ...new Event('x') }).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("'isTrusted' in new Event('x')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new Event('x').propertyIsEnumerable('isTrusted')").AsBoolean().Should().BeTrue();
+
+        // …on every event, whichever interface it came from, and however it was created.
+        engine.Evaluate("new CustomEvent('x').hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.keys(new CustomEvent('x')).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("""
+            class MyEvent extends Event {}
+            Object.getOwnPropertyDescriptor(new MyEvent('x'), 'isTrusted').get ===
+            Object.getOwnPropertyDescriptor(new Event('x'), 'isTrusted').get
+            """).AsBoolean().Should().BeTrue();
+
+        // The getter still brand-checks its receiver.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("d.get.call({})"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("d.get.call(Event.prototype)"));
+    }
+
+    /// <summary>
+    /// An event's own <c>isTrusted</c> is the earliest of its own string keys, so a subclass field declared
+    /// in a JavaScript constructor comes after it — the ordering the interface's own creation implies.
+    /// </summary>
+    [Fact]
+    public void TheUnforgeableOwnPropertyComesBeforeAnythingScriptAdds()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            class MyEvent extends Event {
+                constructor(type) { super(type); this.extra = 1; }
+            }
+            var e = new MyEvent('x');
+            """);
+
+        engine.Evaluate("Object.getOwnPropertyNames(e).join(',')").AsString().Should().Be("isTrusted,extra");
+        engine.Evaluate("Object.keys(e).join(',')").AsString().Should().Be("isTrusted,extra");
+        engine.Evaluate("JSON.stringify(e)").AsString().Should().Be("""{"isTrusted":false,"extra":1}""");
+
+        // The added property is ordinary; the unforgeable one still refuses to move.
+        engine.Evaluate("delete e.extra").AsBoolean().Should().BeTrue();
+        engine.Evaluate("delete e.isTrusted").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.getOwnPropertyNames(e).join(',')").AsString().Should().Be("isTrusted");
+    }
+
+    /// <summary>
+    /// The engine's own events are trusted, which is the whole point of the attribute —
+    /// https://dom.spec.whatwg.org/#concept-event-fire.
+    /// </summary>
+    [Fact]
+    public void AnEngineFiredEventIsTrusted()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var controller = new AbortController();
+            var seen = null;
+            controller.signal.addEventListener('abort', function (e) { seen = e; });
+            controller.abort();
+            """);
+
+        engine.Evaluate("seen.isTrusted").AsBoolean().Should().BeTrue();
+        engine.Evaluate("seen.hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(seen, 'isTrusted').configurable").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// <c>readonly attribute EventTarget? srcElement</c>, whose "getter steps are to return this's target" —
+    /// https://dom.spec.whatwg.org/#dom-event-srcelement.
+    /// </summary>
+    [Fact]
+    public void SrcElementIsAnAliasOfTarget()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("new Event('x').srcElement").IsNull().Should().BeTrue();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var during = null;
+            var after = null;
+            target.addEventListener('x', function (e) { during = e.srcElement; });
+            var e = new Event('x');
+            target.dispatchEvent(e);
+            after = e.srcElement;
+            """);
+
+        engine.Evaluate("during === target").AsBoolean().Should().BeTrue();
+
+        // "target" is not unset when the dispatch ends, and srcElement follows it wherever it goes.
+        engine.Evaluate("after === e.target").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// <c>attribute boolean returnValue</c> — "The returnValue getter steps are to return false if this's
+    /// canceled flag is set; otherwise true. The returnValue setter steps are to set the canceled flag with
+    /// this if the given value is false; otherwise do nothing" —
+    /// https://dom.spec.whatwg.org/#dom-event-returnvalue.
+    /// </summary>
+    [Fact]
+    public void ReturnValueIsTheCanceledFlagInverted()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("new Event('x').returnValue").AsBoolean().Should().BeTrue();
+
+        // The setter runs "set the canceled flag", which a non-cancelable event ignores — exactly as
+        // preventDefault() does.
+        engine.Execute("var plain = new Event('x'); plain.returnValue = false;");
+        engine.Evaluate("plain.returnValue").AsBoolean().Should().BeTrue();
+        engine.Evaluate("plain.defaultPrevented").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var cancelable = new Event('x', { cancelable: true }); cancelable.returnValue = false;");
+        engine.Evaluate("cancelable.returnValue").AsBoolean().Should().BeFalse();
+        engine.Evaluate("cancelable.defaultPrevented").AsBoolean().Should().BeTrue();
+
+        // "otherwise do nothing" — assigning true never clears a flag that is already set.
+        engine.Execute("cancelable.returnValue = true;");
+        engine.Evaluate("cancelable.returnValue").AsBoolean().Should().BeFalse();
+
+        // The IDL type is `boolean`, so the assigned value goes through ToBoolean rather than being rejected.
+        engine.Execute("var zero = new Event('x', { cancelable: true }); zero.returnValue = 0;");
+        engine.Evaluate("zero.defaultPrevented").AsBoolean().Should().BeTrue();
+        engine.Execute("var one = new Event('x', { cancelable: true }); one.returnValue = 1;");
+        engine.Evaluate("one.defaultPrevented").AsBoolean().Should().BeFalse();
+
+        // preventDefault() and the setter are the same algorithm seen from two sides.
+        engine.Execute("var prevented = new Event('x', { cancelable: true }); prevented.preventDefault();");
+        engine.Evaluate("prevented.returnValue").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// "Set the canceled flag" is gated on the in-passive-listener flag as well as on <c>cancelable</c>
+    /// (https://dom.spec.whatwg.org/#set-the-canceled-flag), so a passive listener's <c>returnValue = false</c>
+    /// is ignored just as its <c>preventDefault()</c> is — which is what
+    /// <c>dom/events/AddEventListenerOptions-passive.any.js</c> asserts.
+    /// </summary>
+    [Fact]
+    public void ReturnValueIsIgnoredInsideAPassiveListener()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            function run(options) {
+                var target = new EventTarget();
+                var prevented;
+                var handler = function (e) { e.returnValue = false; prevented = e.defaultPrevented; };
+                target.addEventListener('x', handler, options);
+                var uncanceled = target.dispatchEvent(new Event('x', { bubbles: true, cancelable: true }));
+                target.removeEventListener('x', handler, options);
+                return prevented + '/' + uncanceled;
+            }
+            """);
+
+        engine.Evaluate("run(undefined)").AsString().Should().Be("true/false");
+        engine.Evaluate("run({})").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: false })").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: true })").AsString().Should().Be("false/true");
+        engine.Evaluate("run({ passive: 0 })").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: 1 })").AsString().Should().Be("false/true");
+    }
+
+    /// <summary>
+    /// <c>initEvent(type, bubbles, cancelable)</c> — "If this's dispatch flag is set, then return. Initialize
+    /// this with type, bubbles, and cancelable" (https://dom.spec.whatwg.org/#dom-event-initevent), where
+    /// <i>initialize an event</i> (https://dom.spec.whatwg.org/#concept-event-initialize) also unsets the
+    /// three propagation/cancel flags, clears <c>isTrusted</c> and clears <c>target</c>.
+    /// </summary>
+    [Fact]
+    public void InitEventReinitializesTheEvent()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("Event.prototype.initEvent.length").AsNumber().Should().Be(1);
+        engine.Evaluate("typeof new Event('x').initEvent").AsString().Should().Be("function");
+
+        // The two optional arguments default to false.
+        engine.Execute("var e = new Event('a', { bubbles: true, cancelable: true }); e.initEvent('b');");
+        engine.Evaluate("e.type").AsString().Should().Be("b");
+        engine.Evaluate("e.bubbles").AsBoolean().Should().BeFalse();
+        engine.Evaluate("e.cancelable").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var f = new Event('a'); f.initEvent('b', true, true);");
+        engine.Evaluate("f.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("f.cancelable").AsBoolean().Should().BeTrue();
+
+        // The arguments are a DOMString and two booleans, so everything is coerced rather than refused.
+        engine.Execute("var g = new Event('a'); g.initEvent(7, 1, '');");
+        engine.Evaluate("g.type").AsString().Should().Be("7");
+        engine.Evaluate("g.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("g.cancelable").AsBoolean().Should().BeFalse();
+
+        // "Unset event's stop propagation flag, stop immediate propagation flag, and canceled flag."
+        engine.Execute("""
+            var h = new Event('a', { cancelable: true });
+            h.preventDefault();
+            h.stopPropagation();
+            h.initEvent('b', false, true);
+            """);
+        engine.Evaluate("h.defaultPrevented").AsBoolean().Should().BeFalse();
+        engine.Evaluate("h.returnValue").AsBoolean().Should().BeTrue();
+
+        // The stop-propagation flag really is gone: a re-dispatched event still reaches its listener.
+        engine.Execute("""
+            var target = new EventTarget();
+            var hits = 0;
+            target.addEventListener('b', function () { hits++; });
+            target.dispatchEvent(h);
+            """);
+        engine.Evaluate("hits").AsNumber().Should().Be(1);
+
+        // It is not `composed` that initialize touches — the composed flag survives, which is exactly the
+        // limitation the specification notes ("incapable of setting composed").
+        engine.Execute("var i = new Event('a', { composed: true }); i.initEvent('b');");
+        engine.Evaluate("i.composed").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("new Event('a').initEvent('b')").IsUndefined().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// "Initialize event's target to null" and "Set event's isTrusted attribute to false" — the two steps of
+    /// <i>initialize an event</i> that are not about the type or the flags.
+    /// </summary>
+    [Fact]
+    public void InitEventClearsTargetAndTrust()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var e = new Event('a');
+            target.dispatchEvent(e);
+            """);
+        engine.Evaluate("e.target === target").AsBoolean().Should().BeTrue();
+
+        engine.Execute("e.initEvent('b');");
+        engine.Evaluate("e.target").IsNull().Should().BeTrue();
+        engine.Evaluate("e.srcElement").IsNull().Should().BeTrue();
+
+        // A trusted event that a script re-initializes is no longer trusted.
+        engine.Execute("""
+            var controller = new AbortController();
+            var trusted = null;
+            controller.signal.addEventListener('abort', function (ev) { trusted = ev; });
+            controller.abort();
+            """);
+        engine.Evaluate("trusted.isTrusted").AsBoolean().Should().BeTrue();
+        engine.Execute("trusted.initEvent('x');");
+        engine.Evaluate("trusted.isTrusted").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Step 1 of both init methods: "If this's dispatch flag is set, then return." An event being dispatched
+    /// cannot be re-initialized out from under the dispatch.
+    /// </summary>
+    [Fact]
+    public void InitEventIsIgnoredDuringADispatch()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var seen = [];
+            target.addEventListener('a', function (ev) {
+                ev.initEvent('b', true, true);
+                seen.push(ev.type, ev.bubbles, ev.cancelable);
+            });
+            var e = new Event('a');
+            target.dispatchEvent(e);
+            """);
+
+        engine.Evaluate("seen.join(',')").AsString().Should().Be("a,false,false");
+        engine.Evaluate("e.type").AsString().Should().Be("a");
+    }
+
+    /// <summary>
+    /// <c>initCustomEvent(type, bubbles, cancelable, detail)</c> — the same two steps plus "Set this's detail
+    /// attribute to detail" (https://dom.spec.whatwg.org/#dom-customevent-initcustomevent).
+    /// </summary>
+    [Fact]
+    public void InitCustomEventAlsoSetsTheDetail()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("CustomEvent.prototype.initCustomEvent.length").AsNumber().Should().Be(1);
+        engine.Evaluate("'initCustomEvent' in Event.prototype").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var e = new CustomEvent('a', { detail: 1 }); e.initCustomEvent('b', true, true, 42);");
+        engine.Evaluate("e.type").AsString().Should().Be("b");
+        engine.Evaluate("e.bubbles").AsBoolean().Should().BeTrue();
+        engine.Evaluate("e.cancelable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("e.detail").AsNumber().Should().Be(42);
+
+        // The IDL default for detail is null, so an omitted argument clears it rather than leaving it.
+        engine.Execute("var f = new CustomEvent('a', { detail: 1 }); f.initCustomEvent('b');");
+        engine.Evaluate("f.detail").IsNull().Should().BeTrue();
+
+        // A CustomEvent still inherits initEvent, which leaves detail alone.
+        engine.Execute("var g = new CustomEvent('a', { detail: 3 }); g.initEvent('b');");
+        engine.Evaluate("g.detail").AsNumber().Should().Be(3);
+
+        // It brand-checks the receiver like every other CustomEvent member.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CustomEvent.prototype.initCustomEvent.call(new Event('x'), 'y')"));
     }
 
     [Fact]

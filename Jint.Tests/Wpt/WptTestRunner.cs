@@ -239,16 +239,6 @@ public class WptTestRunner
         ("user-timing/supported-usertiming-types.any.js",
             "reads PerformanceObserver at file scope; PerformanceInstance documents declining the observer"),
 
-        // ---------------------------------------------------------------- dom
-        // Fourteen of its fifteen tests are registered without a name, so every one of them is reported under
-        // the same name and no per-test exclusion can single out the two that fail — which is what puts this
-        // row here rather than in the exclusion table. The two are Event's legacy `srcElement` and
-        // `returnValue` members, which this engine does not have; both are recorded as defects in
-        // Vendor/README.md, and `returnValue` also has an exclusion of its own in
-        // AddEventListenerOptions-passive.any.js, where the test that finds it *is* named.
-        ("dom/events/Event-constructors.any.js",
-            "registers every test without a name, so its two failures cannot be named; see Vendor/README.md"),
-
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
         // by another name and reachable even where a host disabled string compilation, so it is a TypeError
@@ -565,6 +555,9 @@ public class WptTestRunner
         ["dom/events/AddEventListenerOptions-once.any.js"] = 4,
         ["dom/events/AddEventListenerOptions-passive.any.js"] = 5,
         ["dom/events/AddEventListenerOptions-signal.any.js"] = 11,
+        // Every one of its fourteen tests is registered without a name, so the driver reports them all under
+        // the same one. The floor is still fourteen results: the count is per registration, not per name.
+        ["dom/events/Event-constructors.any.js"] = 14,
         ["dom/events/Event-isTrusted.any.js"] = 1,
         ["dom/events/EventTarget-add-remove-listener.any.js"] = 1,
         ["dom/events/EventTarget-addEventListener.any.js"] = 1,
@@ -977,26 +970,6 @@ public class WptTestRunner
         new("user-timing/case-sensitivity.any.js", "getEntriesByType values are case sensitive", WptDivergence.NeedsPerformanceObserver),
         new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
         new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
-
-        // A defect, and a narrow one: the file runs each case twice, once through `performance.mark(name, x)`
-        // and once through `new PerformanceMark(name, x)`, and only the constructor accepts a non-object where
-        // WebIDL's dictionary conversion refuses one. The `[performance.mark]` half of all five rows passes,
-        // and so does the constructor's own `{startTime: -1}` row, so what is missing is exactly the
-        // "not an object and not null/undefined is a TypeError" step. See Vendor/README.md.
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Number should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: NaN should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Infinity should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: String should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- dom
-        // Event's two legacy members. `returnValue` is https://dom.spec.whatwg.org/#dom-event-returnvalue and
-        // `isTrusted` is [LegacyUnforgeable], so it must be an *own* property of every event rather than an
-        // accessor on the prototype. Both are defects rather than declines; Vendor/README.md analyses them,
-        // and Event-constructors.any.js is not vendored because its own two failures are the same pair and it
-        // registers every one of its tests without a name.
-        new("dom/events/AddEventListenerOptions-passive.any.js",
-            "returnValue should be ignored if-and-only-if the passive option is true", WptDivergence.NeedsTriage),
-        new("dom/events/Event-isTrusted.any.js", "undefined", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- fetch
         // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"

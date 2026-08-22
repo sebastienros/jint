@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.WebApi.Events;
 
@@ -13,24 +15,33 @@ namespace Jint.WebApi.Events;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every IDL attribute of <c>Event</c> is read-only, so the whole state lives in CLR fields here and
-/// <see cref="EventPrototype"/> reads it through a brand check, exactly as <c>DOMException</c> does. An
-/// instance therefore has no own property at all, which is what a browser reports for
-/// <c>Object.getOwnPropertyNames(new Event('x'))</c>.
+/// The whole state lives in CLR fields here and <see cref="EventPrototype"/> reads it through a brand check,
+/// exactly as <c>DOMException</c> does. One member is not on the prototype: <c>isTrusted</c> is
+/// <c>[LegacyUnforgeable]</c>, so it is an own accessor of every instance — see
+/// <see cref="GetOwnProperty"/>, which synthesizes it rather than storing it. It is the one name
+/// <c>Object.getOwnPropertyNames(new Event('x'))</c> reports, in a browser and here.
 /// </para>
 /// <para>
 /// The class is not sealed because <see cref="JsCustomEvent"/> derives from it, which is how
 /// <c>CustomEvent</c>'s brand check can be "is a <c>JsEvent</c> that also carries a detail".
 /// </para>
 /// <para>
-/// Deliberately absent, all of them marked legacy by the specification and none of them reachable by a
-/// script written for a non-browser runtime: <c>srcElement</c>, <c>cancelBubble</c>, <c>returnValue</c>,
-/// <c>initEvent()</c> and <c>initCustomEvent()</c>. <c>relatedTarget</c> and the touch target list belong to
-/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here.
+/// Deliberately absent: <c>cancelBubble</c>, which the specification marks legacy and which no script
+/// written for a non-browser runtime reaches for. <c>relatedTarget</c> and the touch target list belong to
+/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here. The interface's other legacy
+/// members — <c>srcElement</c>, <c>returnValue</c>, <c>initEvent()</c> and <c>initCustomEvent()</c> —
+/// <i>are</i> implemented; see <see cref="EventPrototype"/> and <see cref="CustomEventPrototype"/>.
 /// </para>
 /// </remarks>
 internal class JsEvent : ObjectInstance
 {
+    /// <summary>
+    /// The one own property every event carries — https://dom.spec.whatwg.org/#dom-event-istrusted.
+    /// </summary>
+    private static readonly JsString _isTrusted = new("isTrusted");
+
+    private static readonly Key _isTrustedKey = "isTrusted";
+
     /// <summary>Not currently dispatched — https://dom.spec.whatwg.org/#dom-event-none.</summary>
     internal const int PhaseNone = 0;
 
@@ -58,19 +69,23 @@ internal class JsEvent : ObjectInstance
     /// https://dom.spec.whatwg.org/#dom-event-type. Spelled <c>EventType</c> rather than <c>Type</c> because
     /// <see cref="JsValue.Type"/> already means the JavaScript type of the value itself.
     /// </summary>
-    internal JsString EventType { get; }
+    /// <remarks>
+    /// Settable only through <see cref="InitializeEvent"/>, which is the whole of what <c>initEvent()</c>
+    /// does; nothing else on the interface can change an event's type once it exists.
+    /// </remarks>
+    internal JsString EventType { get; private set; }
 
     /// <summary>
     /// The same string as <see cref="EventType"/>, materialized once. Dispatch compares it against every
     /// listener's type, and a <see cref="JsString"/> can be a rope whose <c>ToString</c> is not free.
     /// </summary>
-    internal string TypeName { get; }
+    internal string TypeName { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-bubbles.</summary>
-    internal bool Bubbles { get; }
+    internal bool Bubbles { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-cancelable.</summary>
-    internal bool Cancelable { get; }
+    internal bool Cancelable { get; private set; }
 
     /// <summary>https://dom.spec.whatwg.org/#dom-event-composed — the composed flag.</summary>
     internal bool Composed { get; }
@@ -115,6 +130,40 @@ internal class JsEvent : ObjectInstance
     internal bool DispatchFlag { get; set; }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-event-initialize — <i>initialize an event</i>, which is the whole
+    /// body of <c>initEvent()</c> and the first two steps of <c>initCustomEvent()</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Step 1, "set event's initialized flag", has nothing to set. The flag is unset by exactly one algorithm
+    /// in the standard, <c>document.createEvent()</c>, and read by exactly one, <c>dispatchEvent</c>'s
+    /// <c>InvalidStateError</c> guard. There is no <c>document</c> here, so every event Jint can build has the
+    /// flag set from birth and no observation can tell a stored flag from an assumed one.
+    /// </para>
+    /// <para>
+    /// What it deliberately does <b>not</b> touch is the composed flag, which is why the specification notes
+    /// that <c>initEvent()</c> "is redundant with event constructors and incapable of setting composed".
+    /// </para>
+    /// </remarks>
+    internal void InitializeEvent(JsString type, bool bubbles, bool cancelable)
+    {
+        // Step 2.
+        StopPropagationFlag = false;
+        StopImmediatePropagationFlag = false;
+        CanceledFlag = false;
+
+        // Steps 3 and 4.
+        IsTrusted = false;
+        Target = Null;
+
+        // Steps 5 to 7.
+        EventType = type;
+        TypeName = type.ToString();
+        Bubbles = bubbles;
+        Cancelable = cancelable;
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-initialize step "set the canceled flag": a non-cancelable
     /// event, and a listener that registered itself as passive, cannot cancel anything.
     /// </summary>
@@ -125,6 +174,75 @@ internal class JsEvent : ObjectInstance
             CanceledFlag = true;
         }
     }
+
+    /// <summary>
+    /// The unforgeable <c>isTrusted</c>, synthesized on demand rather than stored.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>[LegacyUnforgeable]</c> (https://webidl.spec.whatwg.org/#LegacyUnforgeable) means the property is
+    /// "non-configurable and … exist[s] as an own property on the object itself rather than on its
+    /// prototype", and https://webidl.spec.whatwg.org/#es-attributes gives it
+    /// <c>{ [[Get]]: getter, [[Set]]: undefined, [[Enumerable]]: true, [[Configurable]]: false }</c>. The
+    /// getter is the interface's, one per realm, so two events answer the identical function object.
+    /// </para>
+    /// <para>
+    /// Nothing is written into the property dictionary for it, and nothing is allocated to answer it: the
+    /// descriptor is the realm's single <see cref="EventPrototype.IsTrustedDescriptor"/>. That matters
+    /// because events are not rare — one per <c>dispatchEvent</c>, and more throughout the abort, message,
+    /// worker and fetch paths — and a stored descriptor would cost a <c>PropertyDictionary</c>, a list node
+    /// and the descriptor, measured at <b>+184 bytes on a 112-byte event</b>. As it is, an event allocates
+    /// exactly what it did before this member existed, and so does a read of it. The shape is
+    /// <c>Function</c>'s for <c>length</c>/<c>name</c>/<c>prototype</c> and <c>JsError</c>'s for
+    /// <c>message</c>: an own property the type always has, answered from
+    /// <see cref="ObjectInstance.GetOwnProperty"/> and listed by
+    /// <see cref="ObjectInstance.GetInitialOwnStringPropertyKeys"/>.
+    /// </para>
+    /// <para>
+    /// Because the property is non-configurable and has no setter, it can be neither deleted nor redefined
+    /// into anything else, so it is a constant of the type: always present, never removable. That is what
+    /// keeps the interpreter's version-gated prototype cache sound for an event receiver — no own property
+    /// of an event ever joins or leaves its own-property set without <c>_propertiesVersion</c> moving. The
+    /// one redefinition the specification does permit is an identical one
+    /// (<c>{ get: theSameGetter, set: undefined }</c>), which the ordinary machinery stores in the dictionary;
+    /// the two lookups below prefer that copy so the key is never reported twice.
+    /// </para>
+    /// </remarks>
+    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    {
+        if (_isTrusted.Equals(property))
+        {
+            var stored = base.GetOwnProperty(property);
+            return ReferenceEquals(stored, PropertyDescriptor.Undefined) ? IsTrustedDescriptor : stored;
+        }
+
+        return base.GetOwnProperty(property);
+    }
+
+    internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+    {
+        if (!HasStoredIsTrusted)
+        {
+            yield return _isTrusted;
+        }
+    }
+
+    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    {
+        if (!HasStoredIsTrusted)
+        {
+            yield return new KeyValuePair<JsValue, PropertyDescriptor>(_isTrusted, IsTrustedDescriptor);
+        }
+
+        foreach (var entry in base.GetOwnProperties())
+        {
+            yield return entry;
+        }
+    }
+
+    private bool HasStoredIsTrusted => _properties?.ContainsKey(_isTrustedKey) == true;
+
+    private PropertyDescriptor IsTrustedDescriptor => _engine.Realm.Intrinsics.Event.PrototypeObject.IsTrustedDescriptor;
 }
 
 /// <summary>
@@ -145,7 +263,11 @@ internal sealed class JsCustomEvent : JsEvent
     /// https://dom.spec.whatwg.org/#dom-customevent-detail. The IDL default is <c>null</c>, not
     /// <c>undefined</c>.
     /// </summary>
-    internal JsValue Detail { get; }
+    /// <remarks>
+    /// Settable only through <c>initCustomEvent()</c>, whose step 3 is "set this's detail attribute to
+    /// detail" — https://dom.spec.whatwg.org/#dom-customevent-initcustomevent.
+    /// </remarks>
+    internal JsValue Detail { get; set; }
 }
 
 /// <summary>

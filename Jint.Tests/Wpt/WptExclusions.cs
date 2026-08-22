@@ -369,23 +369,14 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM and fetch corpora filed seven more</b>, and <c>Vendor/README.md</c>
+    /// <b>The hr-time, DOM and fetch corpora filed seven more, and three of them are gone</b> — the
+    /// <c>PerformanceMarkOptions</c> dictionary conversion, <c>Event.isTrusted</c>'s
+    /// <c>[LegacyUnforgeable]</c> shape, and <c>Event</c>'s missing <c>srcElement</c>/<c>returnValue</c>,
+    /// all fixed under sebastienros/jint#3212, so the six entries that used to be here now enforce them and
+    /// <c>dom/events/Event-constructors.any.js</c> left <c>_notVendored</c> with them. <c>Vendor/README.md</c>
     /// analyses each with its citation. In one line apiece:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// <c>new PerformanceMark(name, 123)</c> accepts a non-object where WebIDL's dictionary conversion refuses
-    /// one; <c>performance.mark(name, 123)</c> refuses it correctly, so the two halves of
-    /// <c>user-timing/mark-errors.any.js</c> disagree.
-    /// </description></item>
-    /// <item><description>
-    /// <c>Event.isTrusted</c> is a prototype accessor where https://dom.spec.whatwg.org/#dom-event-istrusted
-    /// declares it <c>[LegacyUnforgeable]</c> — an own, non-configurable accessor on every instance.
-    /// </description></item>
-    /// <item><description>
-    /// <c>Event</c> has neither <c>srcElement</c> nor <c>returnValue</c>, both of which the DOM Standard's own
-    /// interface declares.
-    /// </description></item>
     /// <item><description>
     /// The <c>Headers</c> iterator prototype's <c>next</c> is not enumerable — the same attribute on the same
     /// kind of object as the streams corpus's async-iterator entry above.
