@@ -1039,46 +1039,56 @@ public partial class Engine
         /// <see cref="IAsyncModuleLoader"/>.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// The engine is single-threaded and this method does not change that: continuations run one at a time,
         /// on whichever thread resumes the await. A host with a thread affinity — a game loop, a UI thread —
         /// wants <see cref="StartImport(string)"/> and its own pump instead, so that every turn runs where the
         /// host needs it to.
+        /// </para>
+        /// <para>
+        /// <b>Where failures arrive.</b> Everything the import itself does — resolving and loading the graph,
+        /// linking it, evaluating it, an execution constraint tripping — is reported through the returned
+        /// <see cref="Task{TResult}"/> and never thrown out of this call, so a <c>catch</c> around the
+        /// <c>await</c> sees all of it. Only the <see cref="InvalidOperationException"/> refusing the call
+        /// because the engine is already in use arrives synchronously; it means the import never started, so
+        /// there is nothing for a task to describe.
+        /// </para>
         /// </remarks>
         /// <exception cref="PromiseRejectedException">The module failed to load or its evaluation threw.</exception>
+        /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
         public Task<ObjectInstance> ImportAsync(string specifier, CancellationToken cancellationToken = default)
             => ImportAsync(specifier, referencingModuleLocation: null, cancellationToken);
 
         /// <inheritdoc cref="ImportAsync(string,CancellationToken)" />
-        public async Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
+        public Task<ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, CancellationToken cancellationToken = default)
         {
+            // Taken here rather than inside the async body so that the admission failure is reported to the
+            // caller synchronously, exactly as EvaluateAsync and its siblings report it; the body owns the
+            // release, and every other way the import can fail belongs to the returned task.
             var owner = _engine.ReserveAsyncHostOperation();
-            Task<JsValue> task;
+            return ImportOnReservationAsync(specifier, referencingModuleLocation, owner, cancellationToken);
+        }
+
+        private async Task<ObjectInstance> ImportOnReservationAsync(
+            string specifier,
+            string? referencingModuleLocation,
+            object owner,
+            CancellationToken cancellationToken)
+        {
             try
             {
+                Task<JsValue> task;
                 using (_engine.EnterHostCall(owner))
                 {
                     var promise = StartImport(specifier, referencingModuleLocation).Promise;
                     task = _engine.UnwrapResultAsync(promise, owner, cancellationToken);
                 }
-            }
-            catch
-            {
-                _engine.ReleaseAsyncHostOperation(owner);
-                throw;
-            }
 
-            return await CompleteImportAsync(task, _engine, owner).ConfigureAwait(false);
-        }
-
-        private static async Task<ObjectInstance> CompleteImportAsync(Task<JsValue> task, Engine engine, object owner)
-        {
-            try
-            {
                 return (ObjectInstance) await task.ConfigureAwait(false);
             }
             finally
             {
-                engine.ReleaseAsyncHostOperation(owner);
+                _engine.ReleaseAsyncHostOperation(owner);
             }
         }
 

@@ -3281,6 +3281,36 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 var result = await engine.EvaluateAsync("(async () => await fetchData(url))()", cancellationToken: cts.Token);
 ```
 
+#### Where failures arrive
+
+Everything the operation itself does — parsing, running the script, an execution constraint tripping, a
+Promise rejecting — is reported through the returned `Task`. So the `catch` goes around the `await`, and it
+does not matter whether you await the call directly or hold the `Task` and await it later:
+
+```c#
+var pending = engine.EvaluateAsync(untrustedScript);   // never throws the script's failure
+try
+{
+    var result = await pending;                        // every failure of the evaluation lands here
+}
+catch (MemoryLimitExceededException)                   // ... including a budget you configured
+{
+}
+```
+
+Only a *usage error* is thrown out of the call itself, because it means the operation never started and
+there is no evaluation for a `Task` to describe:
+
+* a `null` argument (`ArgumentNullException`), or a `Prepared<Script>` that did not come from
+  `PrepareScript` (`ArgumentException`);
+* `InvalidOperationException` refusing the call because this engine is already in use by another operation
+  — an `Engine` serves one host operation at a time.
+
+This holds for `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, `Modules.ImportAsync`,
+`Advanced.WaitForScheduledWorkAsync` and `UnwrapIfPromiseAsync` alike. Constraints are unaffected by it:
+the same exception type and message still fire, and still abort the run — only which channel delivers them
+is now fixed rather than decided by which thread got there first.
+
 ### UnwrapIfPromiseAsync
 
 When you already hold a `JsValue` that may be a Promise — for example returned from `engine.Invoke(...)`, `value.Call(...)`, or a property access — use `UnwrapIfPromiseAsync` to await it without blocking:
