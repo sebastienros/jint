@@ -287,7 +287,12 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     JsArray array;
                     if (arrayOperations != null)
                     {
-                        var length = arrayOperations.GetLength();
+                        // This lane is gated on HasOriginalIterator, so the receiver is a JsArray, an
+                        // ArrayLikeObject or an array-like ObjectWrapper, and all three count elements in
+                        // the array index range. Clamp rather than cast all the same: a wrapper's "length"
+                        // is whatever its CLR Count/Length property returns, and nothing constrains that
+                        // property's type.
+                        var length = (uint) System.Math.Min(arrayOperations.GetLongLength(), ArrayOperations.MaxArrayLength);
                         array = engine.Realm.Intrinsics.Array.ArrayCreate(length - i);
                         for (uint j = i; j < length; ++j)
                         {

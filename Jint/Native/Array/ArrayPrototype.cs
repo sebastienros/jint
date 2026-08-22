@@ -498,7 +498,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var initialValue = arguments.At(1);
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
-        var len = o.GetLength();
+        var len = o.GetLongLength();
 
         var callable = GetCallable(callbackfn);
 
@@ -507,7 +507,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             Throw.TypeError(_realm, "Reduce of empty array with no initial value");
         }
 
-        var k = 0;
+        ulong k = 0;
         JsValue accumulator = Undefined;
         if (arguments.Length > 1)
         {
@@ -523,7 +523,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     _engine.Constraints.Check();
                 }
 
-                if (kPresent = o.TryGetValue((uint) k, out var temp))
+                if (kPresent = o.TryGetValue(k, out var temp))
                 {
                     accumulator = temp;
                 }
@@ -545,7 +545,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 _engine.Constraints.Check();
             }
 
-            var i = (uint) k;
+            var i = k;
             if (o.TryGetValue(i, out var kvalue))
             {
                 accumulator = invoker.Call(Undefined, accumulator, kvalue, i);
@@ -573,16 +573,16 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var thisArg = arguments.At(1);
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var len = o.GetLength();
+        var len = o.GetLongLength();
 
         var callable = GetCallable(callbackfn);
 
         var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), 0);
         var operations = ArrayOperations.For(a, forWrite: true);
 
-        uint to = 0;
+        ulong to = 0;
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
-        for (uint k = 0; k < len; k++)
+        for (ulong k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
             {
@@ -666,7 +666,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue Flat(JsValue thisObject, JsValue arg0)
     {
         var operations = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var sourceLen = operations.GetLength();
+        var sourceLen = operations.GetLongLength();
         double depthNum = 1;
         var depth = arg0;
         if (!depth.IsUndefined())
@@ -711,7 +711,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var mapperFunction = arg0;
         var thisArg = arg1;
 
-        var sourceLen = O.GetLength();
+        var sourceLen = O.GetLongLength();
 
         if (!mapperFunction.IsCallable)
         {
@@ -744,7 +744,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private ulong FlattenIntoArray(
         ObjectInstance target,
         ArrayOperations source,
-        uint sourceLen,
+        ulong sourceLen,
         ulong start,
         double depth,
         ICallable? mapperFunction = null,
@@ -819,7 +819,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private void FlattenIntoArrayDense(
         ref JsValueListBuilder builder,
         ArrayOperations source,
-        uint sourceLen,
+        ulong sourceLen,
         double depth,
         ICallable? mapperFunction = null,
         JsValue? thisArg = null)
@@ -886,12 +886,12 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var thisArg = arg1;
 
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var len = o.GetLength();
+        var len = o.GetLongLength();
 
         var callable = GetCallable(callbackfn);
 
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
-        for (uint k = 0; k < len; k++)
+        for (ulong k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
             {
@@ -1490,14 +1490,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var obj = ArrayOperations.For(_realm, thisObject, forWrite: true);
         var compareFn = GetCompareFunction(arg0);
 
-        var len = obj.GetLength();
+        var len = obj.GetLongLength();
         if (len <= 1)
         {
             return obj.Target;
         }
 
         // capacity capped to a sane upper bound so a 1e9-length sparse array doesn't preallocate everything
-        var items = new List<JsValue>((int) System.Math.Min(1024, len));
+        var items = new List<JsValue>((int) System.Math.Min(1024UL, len));
         for (ulong k = 0; k < len; ++k)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
@@ -1713,7 +1713,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     private JsValue Shift(JsValue thisObject)
     {
         var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
-        var len = o.GetLength();
+        var len = o.GetLongLength();
         if (len == 0)
         {
             o.SetLength(0);
@@ -1724,15 +1724,18 @@ public sealed partial class ArrayPrototype : ArrayInstance
         // replaces O(n) per-element Set/HasProperty calls.
         if (o.Target is JsArray jsArr && jsArr._dense is { } dense && jsArr.CanUseFastAccess)
         {
-            var first = (len <= (uint) dense.Length ? dense[0] : null) ?? Undefined;
-            jsArr.TryMoveDenseRange(sourceIndex: 1, destIndex: 0, count: len - 1);
-            jsArr.ClearDenseRange(len - 1, 1);
-            jsArr.SetLength((ulong) (len - 1));
+            // An array exotic object caps its own "length" at 2^32-1, so LengthOfArrayLike of one is
+            // always an index. The narrowing is safe inside this guard and nowhere outside it.
+            var indexLen = (uint) len;
+            var first = (indexLen <= (uint) dense.Length ? dense[0] : null) ?? Undefined;
+            jsArr.TryMoveDenseRange(sourceIndex: 1, destIndex: 0, count: indexLen - 1);
+            jsArr.ClearDenseRange(indexLen - 1, 1);
+            jsArr.SetLength((ulong) (indexLen - 1));
             return first;
         }
 
         var firstSlow = o.Get(0);
-        for (uint k = 1; k < len; k++)
+        for (ulong k = 1; k < len; k++)
         {
             if (k % ConstraintCheckInterval == 0)
             {
@@ -1835,7 +1838,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
     {
         var separator = arg0;
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var len = o.GetLength();
+        var len = o.GetLongLength();
 
         var sep = TypeConverter.ToString(separator.IsUndefined() ? JsString.CommaString : separator);
 
@@ -1877,7 +1880,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
             var separatorLength = sep.Length;
             var singleCharSeparator = separatorLength == 1 ? sep[0] : '\0';
 
-            for (uint k = 1; k < len; k++)
+            for (ulong k = 1; k < len; k++)
             {
                 if (k % ConstraintCheckInterval == 0)
                 {
@@ -1919,7 +1922,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         const string Separator = ",";
 
         var array = ArrayOperations.For(_realm, thisObject, forWrite: false);
-        var len = array.GetLength();
+        var len = array.GetLongLength();
         if (len == 0)
         {
             return JsString.Empty;
@@ -1940,7 +1943,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
         try
         {
             using var r = new ValueStringBuilder();
-            for (uint k = 0; k < len; k++)
+            for (ulong k = 0; k < len; k++)
             {
                 if (k > 0)
                 {
