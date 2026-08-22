@@ -694,7 +694,8 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// HTML's <i>report an exception</i> for a <see cref="JavaScriptException"/> that escaped a callback the
-    /// engine invoked — a timer handler, an event listener. Step 5 only: the callers own step 6, because the
+    /// engine invoked — a timer handler, a <c>queueMicrotask</c> callback, an event listener. Step 5 only: the
+    /// callers own step 6, because the
     /// sink report they make carries the exception itself and not merely its value.
     /// </summary>
     /// <remarks>

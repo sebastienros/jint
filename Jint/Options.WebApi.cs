@@ -580,14 +580,16 @@ public partial class Options
     {
         /// <summary>
         /// Where an unhandled promise rejection, a value handed to <c>reportError</c>, and an exception that
-        /// escaped a timer callback or an event listener are reported. Defaults to <see langword="null"/>,
+        /// escaped a timer callback, a <c>queueMicrotask</c> callback or an event listener are reported.
+        /// Defaults to <see langword="null"/>,
         /// which is not a sink that discards but the absence of a channel: nothing is reported, and an
         /// exception escaping a callback the engine invoked erupts as it always did.
         /// </summary>
         /// <remarks>
         /// <para>
         /// <b>Setting this changes behaviour, which is why it has no default.</b> With a sink, a
-        /// <c>JavaScriptException</c> from a timer handler or an event listener is reported and the engine
+        /// <c>JavaScriptException</c> from a timer handler, a <c>queueMicrotask</c> callback or an event
+        /// listener is reported and the engine
         /// carries on — the exception behaviour HTML and DOM specify for those callbacks. Errors that bound
         /// execution (a timeout, a cancellation, the statement, memory and recursion budgets) are never
         /// reported and always erupt. <see cref="DiagnosticsSink.Null"/> is the way to say "report and

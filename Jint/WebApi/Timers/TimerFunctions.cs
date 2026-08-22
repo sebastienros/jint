@@ -185,8 +185,42 @@ internal sealed class TimerFunctions
 
         // The current generation, unlike a timer's: this job is registered and queued in one act, so there is
         // no window in which the cycle could have ended in between.
-        _engine.AddToEventLoop(() => callback.Call(JsValue.Undefined));
+        _engine.AddToEventLoop(() => InvokeMicrotask(callback));
         return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// The microtask <c>queueMicrotask</c> queued: "invoke <i>callback</i> given null and <c>"report"</c>",
+    /// step 2 of https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask.
+    /// </summary>
+    /// <remarks>
+    /// WebIDL's <c>"report"</c> exception behavior is <i>report the exception</i>
+    /// (https://webidl.spec.whatwg.org/#report-the-exception) and returning undefined, which is what the catch
+    /// does whenever the host gave the engine somewhere to report to — the same shape
+    /// <c>TimerEntry.Fire</c> and <c>JsEventTarget.InvokePass</c> have, for the same reasons.
+    /// </remarks>
+    private void InvokeMicrotask(ICallable callback)
+    {
+        try
+        {
+            callback.Call(JsValue.Undefined);
+        }
+        catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
+        {
+            // Report the exception is HTML's report an exception, whose step 5 fires an `error` event at the
+            // global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on and
+            // a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
+            _engine._webApi?.FireGlobalErrorEvent(exception);
+
+            // Only a JavaScriptException, which is exactly the class of failure a script could have caught
+            // itself. Everything that exists to bound execution — ExecutionCanceledException,
+            // TimeoutException, the statement, memory and recursion budgets — is a JintException but not a
+            // JavaScriptException, so none of it is caught here and a constraint still stops the engine. With
+            // no sink there is no catch at all and the throw erupts out of whatever is running the queue,
+            // exactly as one from a promise reaction handler without a capability does; everything still
+            // queued runs either way.
+            diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.Microtask));
+        }
     }
 }
 #endif

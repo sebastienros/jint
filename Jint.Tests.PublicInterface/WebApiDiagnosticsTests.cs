@@ -144,6 +144,40 @@ public class WebApiDiagnosticsTests
     }
 
     [Fact]
+    public void AThrowingMicrotaskCallbackIsReportedWhenASinkIsSet()
+    {
+        // queueMicrotask is invoked with the same WebIDL "report" exception behavior a timer handler is —
+        // https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask.
+        var sink = new RecordingSink();
+        var engine = new Engine(options => options.UseWebApis(webApi => webApi.Diagnostics.Sink = sink));
+
+        engine.Execute("""
+            var second = false;
+            queueMicrotask(() => { throw new Error('boom'); });
+            queueMicrotask(() => { second = true; });
+            """);
+
+        // Execute drains the queue on its way out, so nothing erupts at the host and the microtask behind the
+        // failed one still ran.
+        engine.Evaluate("second").AsBoolean().Should().BeTrue();
+
+        var report = Assert.Single(sink.Reports);
+        report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
+        report.CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
+        report.Exception!.Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void AThrowingMicrotaskCallbackStillEruptsWithoutASink()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        Assert.Throws<JavaScriptException>(
+                () => engine.Execute("queueMicrotask(() => { throw new Error('boom'); });"))
+            .Message.Should().Be("boom");
+    }
+
+    [Fact]
     public void AThrowingListenerIsReportedWhenASinkIsSet()
     {
         var sink = new RecordingSink();
