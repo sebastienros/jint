@@ -369,15 +369,12 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM and fetch corpora filed seven more</b>, and <c>Vendor/README.md</c>
-    /// analyses each with its citation. In one line apiece:
+    /// <b>The hr-time, DOM, structured-clone and fetch corpora filed seven more</b>, of which the
+    /// <c>PerformanceMarkOptions</c> dictionary conversion is fixed under sebastienros/jint#3212 — the four
+    /// entries that used to be here now enforce it. <c>Vendor/README.md</c> analyses what is left, each with
+    /// its citation. In one line apiece:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// <c>new PerformanceMark(name, 123)</c> accepts a non-object where WebIDL's dictionary conversion refuses
-    /// one; <c>performance.mark(name, 123)</c> refuses it correctly, so the two halves of
-    /// <c>user-timing/mark-errors.any.js</c> disagree.
-    /// </description></item>
     /// <item><description>
     /// <c>Event.isTrusted</c> is a prototype accessor where https://dom.spec.whatwg.org/#dom-event-istrusted
     /// declares it <c>[LegacyUnforgeable]</c> — an own, non-configurable accessor on every instance.

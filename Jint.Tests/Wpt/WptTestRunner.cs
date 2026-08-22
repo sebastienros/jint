@@ -978,16 +978,6 @@ public class WptTestRunner
         new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
         new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
 
-        // A defect, and a narrow one: the file runs each case twice, once through `performance.mark(name, x)`
-        // and once through `new PerformanceMark(name, x)`, and only the constructor accepts a non-object where
-        // WebIDL's dictionary conversion refuses one. The `[performance.mark]` half of all five rows passes,
-        // and so does the constructor's own `{startTime: -1}` row, so what is missing is exactly the
-        // "not an object and not null/undefined is a TypeError" step. See Vendor/README.md.
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Number should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: NaN should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: Infinity should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-        new("user-timing/mark-errors.any.js", "[new PerformanceMark]: String should be rejected as the mark-options.", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- dom
         // Event's two legacy members. `returnValue` is https://dom.spec.whatwg.org/#dom-event-returnvalue and
         // `isTrusted` is [LegacyUnforgeable], so it must be an *own* property of every event rather than an

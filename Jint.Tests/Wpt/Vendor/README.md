@@ -454,7 +454,7 @@ is what it costs, and it is a cost paid by real third-party worker code and not 
 
 ## What the hr-time and user-timing corpora say about this engine
 
-85 assertions, of which **10 do not pass**, and the split is almost exactly the one
+85 assertions, of which **6 do not pass**, and the split is almost exactly the one
 `PerformanceInstance` predicts in its own documentation.
 
 Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
@@ -466,14 +466,19 @@ depend on an observer at all, and one more (`supported-usertiming-types.any.js`,
 scope. The other fifteen read the timeline through `getEntries()` and pass, including the whole of
 `mark.any.js`, `measure-l3.any.js` and `measure_syntax_err.any.js`.
 
-**The remaining four are one genuine defect**, and a narrow one. `mark-errors.any.js` runs each of its five
-cases twice — once through `performance.mark(name, x)` and once through `new PerformanceMark(name, x)` — and
-only the constructor accepts a non-object where
-[WebIDL's dictionary conversion](https://webidl.spec.whatwg.org/#es-dictionary) refuses one: a `Number`, a
-`NaN`, an `Infinity` or a `String` in the options position should be a `TypeError`, and
-`performance.mark` makes it one. The constructor's own `{startTime: -1}` row passes, so what is missing is
-exactly the "not an object and not `null`/`undefined` is a `TypeError`" step in
-`PerformanceMarkConstructor`, not the option handling behind it.
+**The four that used to sit beside them were one genuine defect, and it is fixed.**
+`mark-errors.any.js` runs each of its five cases twice — once through `performance.mark(name, x)` and once
+through `new PerformanceMark(name, x)` — and the constructor's half of four of them failed. The reading that
+`performance.mark` "refused correctly" was the trap: the file calls it **unbound**, as
+`testInfo.testFunction(self.performance.mark)`, so its `TypeError` came from the brand check on a `this` of
+`undefined` and not from any conversion at all. `performance.mark('m', 123)` called properly returned a mark.
+Both halves share one conversion — `UserTiming.ReadMarkOptions`, reached through
+`PerformanceMarkConstructor.ReadArguments`, which `performance.mark` runs as its own step 1 — and it treated
+every non-object as the empty dictionary where step 1 of
+[WebIDL's dictionary conversion](https://webidl.spec.whatwg.org/#es-dictionary) says "if *jsDict* is not an
+Object and *jsDict* is neither undefined nor null, then throw a TypeError". Fixing the shared conversion fixed
+both halves at once, and `Jint.Tests/Runtime/WebApi/PerformanceTimelineTests.cs` pins the bound call the corpus
+cannot make.
 
 ## What the timers and microtask corpora say about this engine
 
