@@ -125,9 +125,20 @@ public partial class Engine
         public void Check()
         {
             using var ownership = _engine.EnterHostCall();
-            foreach (var constraint in _engine._constraints)
+            try
             {
-                constraint.Check();
+                foreach (var constraint in _engine._constraints)
+                {
+                    constraint.Check();
+                }
+            }
+            catch (Exception exception) when (
+                _engine._implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
+            {
+                // Same reason as the interpreter's own constraint loops: the implicit memory operation's
+                // exit check must not replace the constraint that actually fired.
+                _engine.AbandonImplicitMemoryOperation();
+                throw;
             }
         }
 

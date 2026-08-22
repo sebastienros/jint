@@ -212,7 +212,13 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
                 $"Failed to execute 'postTask' on 'Scheduler': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
         }
 
-        var entry = new TimerEntry(_timers, new DelayedEnqueue(_tasks, task), [], delay, repeat: false, _engine.EventLoopGeneration);
+        var entry = new TimerEntry(
+            _timers,
+            new DelayedEnqueue(_tasks, task),
+            [],
+            delay,
+            repeat: false,
+            _engine.CaptureEventLoopRegistration());
         task.SetDelayTimer(_timers, _timers.Schedule(entry));
     }
 

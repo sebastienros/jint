@@ -449,6 +449,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    internal static void MemoryLimitExceededException(string message, Exception? innerException)
+    {
+        throw new MemoryLimitExceededException(message, innerException);
+    }
+
+    [DoesNotReturn]
     public static void ExecutionCanceledException()
     {
         throw new ExecutionCanceledException();

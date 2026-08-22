@@ -75,7 +75,7 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
             return promise;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Only reachable for a bridge a restore has abandoned — the standard's own machinery stops a
             // write to a closed, closing or errored stream long before it reaches the sink.
@@ -138,7 +138,15 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
                 // permanently lost.
                 ArrayPool<byte>.Shared.Return(buffer);
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => SettleWrite(failure, capability));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => SettleWrite(failure, capability, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -151,9 +159,12 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
     /// On the engine thread: end the in-flight write and settle its promise. A rejection is what errors the
     /// writable stream, which is the standard's own reaction to a sink whose <c>write()</c> failed.
     /// </summary>
-    private void SettleWrite(Exception? failure, PromiseCapability capability)
+    private void SettleWrite(
+        Exception? failure,
+        PromiseCapability capability,
+        bool operationEnded = false)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (failure is not null && FinishBridge())
         {
@@ -184,7 +195,7 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
         var capability = StreamPromises.NewPromise(Engine, Realm);
         var promise = StreamPromises.PromiseOf(capability);
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Abandoned by a restore. Nothing is left to close, and nothing will observe this promise.
             capability.Resolve(JsValue.Undefined);
@@ -213,7 +224,15 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
             completed =>
             {
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => SettleClose(failure, capability));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => SettleClose(failure, capability, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -259,9 +278,12 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
     /// On the engine thread: the close is over, one way or the other, and the bridge is done with the host's
     /// stream whichever way it went.
     /// </summary>
-    private void SettleClose(Exception? failure, PromiseCapability capability)
+    private void SettleClose(
+        Exception? failure,
+        PromiseCapability capability,
+        bool operationEnded = false)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (FinishBridge())
         {

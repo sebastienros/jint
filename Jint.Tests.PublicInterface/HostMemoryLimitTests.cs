@@ -5,6 +5,9 @@ using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
+#if NET8_0_OR_GREATER
+using Jint.WebApi;
+#endif
 
 using Module = Jint.Runtime.Modules.Module;
 
@@ -91,6 +94,89 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
+    public async Task TransferredHostCallbackCountsAllocationsOnItsThread()
+    {
+        var allocations = new List<byte[]>();
+        var engine = CreateEngine(allocations);
+        engine.SetValue("schedule", new Func<Func<int>, Task<int>>(callback => Task.Run(callback)));
+
+        var pending = engine.EvaluateAsync("""
+            (async () => {
+                allocate();
+                return await schedule(() => {
+                    allocate();
+                    return 42;
+                });
+            })()
+            """);
+
+        var exception = await Record.ExceptionAsync(() => pending);
+        exception.Should().BeOfType<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public void NestedTransferredCallbacksKeepTheOuterMemoryOperation()
+    {
+        var allocations = new List<byte[]>();
+        var engine = CreateEngine(allocations);
+        engine.SetValue("outer", new Action<Action>(callback => callback()));
+        engine.SetValue("inner", new Action<Action>(callback =>
+            Task.Run(callback).GetAwaiter().GetResult()));
+
+        Invoking(() => engine.Evaluate("""
+            allocate();
+            outer(() => inner(() => allocate()));
+            """)).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public async Task HostTaskTimeoutRemainsACatchablePromiseRejection()
+    {
+        var engine = new Engine(options => options.LimitMemory(SingleAllocationBudget));
+        engine.SetValue("fail", new Func<Task>(() =>
+            Task.FromException(new TimeoutException("host timeout"))));
+
+        var result = await engine.EvaluateAsync("""
+            (async () => {
+                try {
+                    await fail();
+                    return 'unexpected';
+                } catch (e) {
+                    return 'caught';
+                }
+            })()
+            """);
+
+        result.AsString().Should().Be("caught");
+    }
+
+    [Fact]
+    public async Task AggregateTaskFaultPropagatesContainedMemoryFailure()
+    {
+        var allocations = new List<byte[]>();
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = CreateEngine(allocations);
+        engine.SetValue("schedule", new Func<Action, Task>(callback => Task.WhenAll(
+            Task.Run(async () =>
+            {
+                await gate.Task;
+                callback();
+            }),
+            Task.FromException(new InvalidOperationException("ordinary")))));
+
+        var pending = engine.EvaluateAsync("""
+            (async () => {
+                allocate();
+                await schedule(() => allocate());
+            })()
+            """);
+
+        gate.SetResult(true);
+        var exception = await Record.ExceptionAsync(() => pending);
+        exception.Should().BeOfType<MemoryLimitExceededException>();
+    }
+
+    [Fact]
     public void PromiseContinuationRetainsItsOriginatingBudgetWhenPumpedOnAnotherThread()
     {
         var allocations = new List<byte[]>();
@@ -138,6 +224,127 @@ public class HostMemoryLimitTests
         Invoking(() => engine.Execute("resolve()"))
             .Should().ThrowExactly<MemoryLimitExceededException>();
     }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public void TimerCallbackRetainsItsRegistrationBudget()
+    {
+        var allocations = new List<byte[]>();
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+
+        engine.Execute("allocate(); setTimeout(() => allocate(), 5);");
+        clock.Advance(5);
+
+        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public void AnIntervalStartsAFreshBudgetOnEveryTick()
+    {
+        var allocations = new List<byte[]>();
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+
+        engine.Execute("setInterval(() => allocate(), 5);");
+
+        // Each tick allocates well inside the budget. An interval is not one finite continuation of the
+        // operation that registered it, so ten of them must not add up to one.
+        for (var i = 0; i < 10; i++)
+        {
+            clock.Advance(5);
+            Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        }
+
+        allocations.Should().HaveCount(10);
+    }
+
+    [Fact]
+    public void TimerAllocationLimitOutranksItsJavaScriptError()
+    {
+        var allocations = new List<byte[]>();
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(1_000_000);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        engine.Execute("setTimeout(() => { allocate(); throw new Error('ordinary'); }, 5);");
+        clock.Advance(5);
+
+        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public void PersistentEventDeliveryStartsAFreshOrdinaryBudget()
+    {
+        var broker = new BroadcastChannelBroker();
+        var allocations = new List<byte[]>();
+        var listener = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Messaging.Broker = broker);
+        });
+        listener.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        listener.Execute("""
+            allocate();
+            const listener = new BroadcastChannel('memory-room');
+            listener.onmessage = () => allocate();
+            """);
+
+        var sender = new Engine(options => options.UseWebApis(
+            webApi => webApi.Messaging.Broker = broker));
+        sender.Execute("new BroadcastChannel('memory-room').postMessage('deliver');");
+
+        Invoking(listener.Advanced.ProcessTasks).Should().NotThrow();
+    }
+
+    [Fact]
+    public void NestedIdleCallbackRetainsItsRegistrationBudgetAcrossPumps()
+    {
+        var allocations = new List<byte[]>();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(WebApiFeatures.IdleCallback);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        engine.Execute("""
+            allocate();
+            requestIdleCallback(() => requestIdleCallback(() => allocate()));
+            """);
+
+        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public void SchedulerTasksKeepTheirIndividualRegistrationBudgets()
+    {
+        var allocations = new List<byte[]>();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(WebApiFeatures.Scheduler);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+
+        engine.Execute("scheduler.postTask(() => 0);");
+
+        Invoking(() => engine.Execute("allocate(); scheduler.postTask(() => allocate());"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+#endif
 
     [Fact]
     public void AsyncModuleBuildAndEvaluationRetainTheLoadBudgetAcrossAThreadHop()
@@ -212,6 +419,15 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
+    public void AllocationLimitOutranksAnOrdinaryExceptionalExit()
+    {
+        var engine = new Engine(options => options.LimitMemory(1_000_000));
+
+        Invoking(() => engine.Evaluate("throw 'x'.repeat(2000000)"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
     public void ShadowRealmEvaluationStartsAnAccountedOperation()
     {
         var allocations = new List<byte[]>();
@@ -232,6 +448,52 @@ public class HostMemoryLimitTests
         var target = engine.Evaluate("({ get value() { allocate(); return 1; } })").AsObject();
 
         Invoking(() => target.Get("value")).Should().ThrowExactly<MemoryLimitExceededException>();
+    }
+
+    [Fact]
+    public void DirectAccessorMemoryTeardownDoesNotMaskAStatementFailure()
+    {
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(1_000_000);
+            options.MaxStatements(100_000);
+        });
+        var target = engine.Evaluate("""
+            ({
+                get value() {
+                    const large = 'x'.repeat(2000000);
+                    return large.length;
+                }
+            })
+            """).AsObject();
+        var statements = engine.Constraints.Find<MaxStatementsConstraint>()!;
+        statements.MaxStatements = 1;
+        engine.Constraints.Reset();
+
+        Invoking(() => target.Get("value")).Should().ThrowExactly<StatementsCountOverflowException>();
+    }
+
+    [Fact]
+    public void DirectAccessorMemoryTeardownDoesNotMaskACustomConstraintFailure()
+    {
+        var custom = new ThrowOnSecondCheckConstraint();
+        var options = new Options()
+            .Constraint(custom)
+            .Constraint(new MemoryLimitConstraint(1_000_000));
+        var engine = new Engine(options);
+        var target = engine.Evaluate("""
+            ({
+                get value() {
+                    const large = 'x'.repeat(2000000);
+                    return large.length;
+                }
+            })
+            """).AsObject();
+        custom.Arm();
+
+        Invoking(() => target.Get("value"))
+            .Should().ThrowExactly<InvalidOperationException>()
+            .WithMessage("custom constraint");
     }
 
     [Fact]
@@ -490,6 +752,63 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
+    public void ExceededOperationCannotRunItsNextQueuedCallback()
+    {
+        var allocations = new List<byte[]>();
+        var callbackRan = false;
+        var engine = new Engine(options => options.LimitMemory(1_000_000));
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        engine.SetValue("mark", new Action(() => callbackRan = true));
+
+        Invoking(() => engine.Execute("""
+            Promise.resolve().then(() => allocate());
+            Promise.resolve().then(() => mark());
+            """)).Should().ThrowExactly<MemoryLimitExceededException>();
+
+        Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        callbackRan.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnEngineIsUsableAgainAfterAnAllocationFailureToreDownTheCycle()
+    {
+        var allocations = new List<byte[]>();
+        var engine = CreateEngine(allocations);
+
+        Invoking(() => engine.Execute("allocate(); allocate();"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+
+        // The teardown ends the cycle, it does not end the engine: the next top-level entry is a new
+        // operation with a budget of its own, and the globals the failed script defined are still there.
+        engine.Execute("globalThis.survived = 1; allocate();");
+        engine.Evaluate("survived").AsNumber().Should().Be(1);
+    }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public void AnAllocationFailureDiscardsTheTimersTheFailedOperationScheduled()
+    {
+        var allocations = new List<byte[]>();
+        var fired = false;
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        engine.SetValue("mark", new Action(() => fired = true));
+
+        Invoking(() => engine.Execute("setTimeout(() => mark(), 5); allocate(); allocate();"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+
+        clock.Advance(5);
+        Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        fired.Should().BeFalse();
+    }
+#endif
+
+    [Fact]
     public async Task SharedOptionsCreateIsolatedMemoryAccountingPerEngine()
     {
         var options = new Options().LimitMemory(SingleAllocationBudget);
@@ -602,4 +921,46 @@ public class HostMemoryLimitTests
 
         public void Complete(string source) => _completion!.SetSource(source);
     }
+
+    private sealed class ThrowOnSecondCheckConstraint : Constraint
+    {
+        private int _count;
+        private bool _armed;
+
+        internal void Arm()
+        {
+            _count = 0;
+            _armed = true;
+        }
+
+        public override void Check()
+        {
+            if (_armed && ++_count == 2)
+            {
+                throw new InvalidOperationException("custom constraint");
+            }
+        }
+
+        public override void Reset()
+        {
+            if (!_armed)
+            {
+                _count = 0;
+            }
+        }
+    }
+
+#if NET8_0_OR_GREATER
+    private sealed class ManualClock : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _timestamp;
+
+        internal void Advance(int milliseconds)
+            => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
+    }
+#endif
 }

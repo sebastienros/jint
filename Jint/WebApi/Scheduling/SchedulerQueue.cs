@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using System.Runtime.InteropServices;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -87,6 +88,8 @@ internal sealed class SchedulerQueue
     {
         _engine = engine;
     }
+
+    internal Engine Engine => _engine;
 
     /// <summary>
     /// The scheduling state of the task currently running, or <see langword="null"/> outside one —
@@ -199,9 +202,13 @@ internal sealed class SchedulerQueue
 
         _pumpScheduled = true;
 
-        // The current generation: the job is registered and queued in one act, so there is no window in which
-        // the cycle could have ended in between.
-        _engine.AddToEventLoop(_pumpJob ??= RunNextTask);
+        // The current generation: the job is registered and queued in one act, so there is no window in
+        // which the cycle could have ended in between. No memory state, though: one pump turn runs whichever
+        // task is next, and those come from different operations — RunNextTask switches to the task's own
+        // captured state around Run() instead.
+        _engine.AddToEventLoop(
+            _pumpJob ??= RunNextTask,
+            _engine.EventLoopGeneration);
     }
 
     /// <summary>
@@ -231,7 +238,7 @@ internal sealed class SchedulerQueue
 
         try
         {
-            task.Run();
+            _engine.RunWithMemoryAccounting(task.MemoryState, task.Run);
         }
         finally
         {
@@ -399,6 +406,7 @@ internal sealed class SchedulerTask
     private readonly PromiseCapability _capability;
     private readonly ICallable? _callback;
     private readonly JsAbortSignal? _abortSource;
+    private readonly MemoryLimitConstraint.OperationState? _memoryState;
 
     private Action? _abortAlgorithm;
     private TimerQueue? _timers;
@@ -415,6 +423,7 @@ internal sealed class SchedulerTask
         _capability = capability;
         _callback = callback;
         _abortSource = state.AbortSource;
+        _memoryState = scheduler.Engine.CaptureMemoryLimitState();
         State = state;
         IsContinuation = isContinuation;
     }
@@ -430,6 +439,8 @@ internal sealed class SchedulerTask
 
     /// <summary>https://wicg.github.io/scheduling-apis/#scheduler-task-enqueue-order.</summary>
     internal long EnqueueOrder { get; set; }
+
+    internal MemoryLimitConstraint.OperationState? MemoryState => _memoryState;
 
     /// <summary>
     /// Whether the task has been aborted or dropped. A queue discards a marked task rather than running it,

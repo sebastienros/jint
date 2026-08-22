@@ -42,6 +42,7 @@ internal sealed class HostStreamCopy : HostStreamBridge
     private readonly HostStreamCopyOperation _operation;
     private readonly PromiseCapability _capability;
     private readonly bool _preventCancel;
+    private readonly EventLoopRegistration _registration;
 
     private JsReadableStreamDefaultReader? _reader;
     private CancellationTokenRegistration _cancellationRegistration;
@@ -60,6 +61,7 @@ internal sealed class HostStreamCopy : HostStreamBridge
         _preventCancel = options.PreventCancel;
         _capability = capability;
         _operation = operation;
+        _registration = engine.CaptureEventLoopRegistration();
     }
 
     /// <summary>
@@ -111,7 +113,7 @@ internal sealed class HostStreamCopy : HostStreamBridge
         copy._cancellationRegistration = cancellationToken.Register(static state =>
         {
             var pending = (HostStreamCopy) state!;
-            pending.Enqueue(pending.CancelFromToken);
+            pending.Enqueue(pending.CancelFromToken, pending._registration);
         }, copy);
 
         copy.ReadNext();
@@ -152,11 +154,11 @@ internal sealed class HostStreamCopy : HostStreamBridge
         {
             // Nothing to write, and the loop still has to go round through the event loop: a stream of empty
             // chunks must not become recursion.
-            Enqueue(ReadNext);
+            Enqueue(ReadNext, Engine.CaptureEventLoopRegistration());
             return;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Abandoned by a restore between the read and here.
             return;
@@ -201,7 +203,15 @@ internal sealed class HostStreamCopy : HostStreamBridge
             {
                 ArrayPool<byte>.Shared.Return(buffer);
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => OnWriteSettled(failure, count));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => OnWriteSettled(failure, count, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -211,9 +221,12 @@ internal sealed class HostStreamCopy : HostStreamBridge
     /// <summary>
     /// One write finished. Engine thread.
     /// </summary>
-    private void OnWriteSettled(Exception? failure, int count)
+    private void OnWriteSettled(
+        Exception? failure,
+        int count,
+        bool operationEnded = false)
     {
-        if (EndOperation())
+        if (!operationEnded && EndOperation())
         {
             // Abandoned while the write ran.
             ReleaseHostStream();
@@ -229,7 +242,7 @@ internal sealed class HostStreamCopy : HostStreamBridge
         _operation.Advance(count);
 
         // Always a fresh job rather than a direct call: see the class remarks on recursion.
-        Enqueue(ReadNext);
+        Enqueue(ReadNext, Engine.CaptureEventLoopRegistration());
     }
 
     /// <summary>
@@ -242,7 +255,7 @@ internal sealed class HostStreamCopy : HostStreamBridge
             return;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             return;
         }
@@ -269,7 +282,15 @@ internal sealed class HostStreamCopy : HostStreamBridge
             completed =>
             {
                 var failure = ClassifyFailure(completed);
-                Enqueue(() => OnFlushSettled(failure));
+                if (EndOperation())
+                {
+                    ReleaseHostStream();
+                    return;
+                }
+
+                Enqueue(
+                    () => OnFlushSettled(failure, operationEnded: true),
+                    registration);
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -286,9 +307,9 @@ internal sealed class HostStreamCopy : HostStreamBridge
         }
     }
 
-    private void OnFlushSettled(Exception? failure)
+    private void OnFlushSettled(Exception? failure, bool operationEnded = false)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (FinishBridge())
         {

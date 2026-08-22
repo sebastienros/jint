@@ -52,7 +52,7 @@ internal sealed class FetchOperation
     /// discarded at dequeue, so a response that arrives after <c>RestoreGlobalSnapshot</c> never reaches the
     /// restored engine — the fence every other cross-thread completion in Jint sits behind.
     /// </summary>
-    private readonly int _generation;
+    private readonly EventLoopRegistration _registration;
 
     /// <summary>
     /// The request's signal. Read only on the engine thread — the off-thread classification asks
@@ -99,7 +99,7 @@ internal sealed class FetchOperation
         _engine = engine;
         _realm = realm;
         _capability = capability;
-        _generation = engine.EventLoopGeneration;
+        _registration = engine.CaptureEventLoopRegistration();
         _timeout = timeout;
         _signal = signal;
 
@@ -379,7 +379,7 @@ internal sealed class FetchOperation
     /// </summary>
     private void Enqueue(Action? settle)
     {
-        _engine.AddToEventLoop(() => RunSettle(settle), _generation);
+        _engine.AddToEventLoop(() => RunSettle(settle), _registration);
     }
 
     /// <summary>

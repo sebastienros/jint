@@ -104,7 +104,7 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
         var capability = StreamPromises.NewPromise(Engine, Realm);
         var promise = StreamPromises.PromiseOf(capability);
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Only reachable for a bridge a restore has abandoned: a cancelled or closed stream is no longer
             // readable, and the controller does not pull one. The cycle this promise belongs to has ended,
@@ -122,7 +122,7 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
         {
             // A stream that refuses synchronously — disposed, opened write-only, a host implementation that
             // validates before returning a task.
-            Deliver(count: 0, exception, capability);
+            Deliver(count: 0, exception, capability, operationEnded: false);
             return promise;
         }
 
@@ -135,17 +135,17 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
             }
             catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
             {
-                Deliver(count: 0, exception, capability);
+                Deliver(count: 0, exception, capability, operationEnded: false);
                 return promise;
             }
 
-            Deliver(count, failure: null, capability);
+            Deliver(count, failure: null, capability, operationEnded: false);
             return promise;
         }
 
         var task = read.AsTask();
         _ = task.ContinueWith(
-            completed => Complete(completed, capability),
+            completed => Complete(completed, capability, registration),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
@@ -156,12 +156,23 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
     /// <summary>
     /// Off the engine thread: classify the read into plain CLR data and queue the engine-thread half.
     /// </summary>
-    private void Complete(Task<int> task, PromiseCapability capability)
+    private void Complete(
+        Task<int> task,
+        PromiseCapability capability,
+        EventLoopRegistration registration)
     {
         var failure = ClassifyFailure(task);
         var count = failure is null ? task.Result : 0;
 
-        Enqueue(() => Deliver(count, failure, capability));
+        if (EndOperation())
+        {
+            ReleaseHostStream();
+            return;
+        }
+
+        Enqueue(
+            () => Deliver(count, failure, capability, operationEnded: true),
+            registration);
     }
 
     /// <summary>
@@ -173,9 +184,13 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
     /// rather than left to an operation that has already finished. The pull promise is resolved last, because
     /// resolving it is what lets the controller ask for the next chunk.
     /// </remarks>
-    private void Deliver(int count, Exception? failure, PromiseCapability capability)
+    private void Deliver(
+        int count,
+        Exception? failure,
+        PromiseCapability capability,
+        bool operationEnded)
     {
-        var owesRelease = EndOperation();
+        var owesRelease = !operationEnded && EndOperation();
 
         if (failure is not null)
         {

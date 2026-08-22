@@ -598,7 +598,7 @@ internal sealed class WebApiEngineState
             // Enqueued with the timer's own registration generation rather than the current one: a timer
             // registered before a RestoreGlobalSnapshot is already gone from the queue that restore cleared,
             // and this is the belt to that braces.
-            _engine.AddToEventLoop(entry.Job, entry.Generation);
+            _engine.AddToEventLoop(entry.Job, entry.Registration);
             return true;
         }
 

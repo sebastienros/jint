@@ -1,10 +1,24 @@
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Promise;
 
 namespace Jint.Runtime;
+
+/// <summary>
+/// What a piece of deferred work captured on the engine thread when it was registered, and has to carry
+/// back with it however much later it completes: the evaluation cycle it belongs to (see
+/// <see cref="EventLoop.Generation"/>) and the operation whose allocation budget its engine-thread turn is
+/// charged to (see <see cref="MemoryLimitConstraint"/>). A <see langword="null"/>
+/// <see cref="MemoryState"/> means the turn begins an ordinary budget of its own, which is what every
+/// persistent external event source and every repeating timer wants.
+/// </summary>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct EventLoopRegistration(
+    int Generation,
+    MemoryLimitConstraint.OperationState? MemoryState);
 
 /// <summary>
 /// A single queued event-loop entry: either an opaque <see cref="Action"/> continuation or a

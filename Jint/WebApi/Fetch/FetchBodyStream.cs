@@ -78,7 +78,7 @@ internal sealed class FetchBodyStream : IDisposable
 
     private Engine _engine = null!;
     private Realm _realm = null!;
-    private int _generation;
+    private EventLoopRegistration _registration;
     private JsReadableStream _stream = null!;
     private CancellationTokenSource _cancellation = null!;
     private PromiseCapability? _pull;
@@ -126,7 +126,7 @@ internal sealed class FetchBodyStream : IDisposable
     {
         _engine = engine;
         _realm = realm;
-        _generation = engine.EventLoopGeneration;
+        _registration = engine.CaptureEventLoopRegistration();
         _cancellation = cancellation;
 
         if (remainingTimeout is { } remaining)
@@ -284,7 +284,7 @@ internal sealed class FetchBodyStream : IDisposable
 
     private void Post(byte[]? chunk, FetchFailureException? failure)
     {
-        _engine.AddToEventLoop(() => Deliver(chunk, failure), _generation);
+        _engine.AddToEventLoop(() => Deliver(chunk, failure), _registration);
     }
 
     /// <summary>

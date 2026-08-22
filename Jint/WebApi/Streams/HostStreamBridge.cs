@@ -25,11 +25,14 @@ namespace Jint.WebApi.Streams;
 /// otherwise corrupt it.
 /// </para>
 /// <para>
-/// <b>The generation is captured when the bridge is created, never read at completion time.</b> A chunk
-/// whose read finished after <c>Engine.Advanced.RestoreGlobalSnapshot</c> ended the cycle is discarded at
-/// dequeue rather than delivered into the restored engine — the fence every other cross-thread completion in
-/// Jint sits behind. The restore additionally calls <see cref="Abandon"/>, so the host's stream is closed at
-/// once instead of being held until a garbage collection notices.
+/// <b>What a completion carries is captured when its operation <i>starts</i>, never read at completion
+/// time.</b> <see cref="TryBeginOperation"/> hands back an <see cref="EventLoopRegistration"/> — the cycle
+/// the read or write belongs to, and the operation whose allocation budget its engine-thread half is charged
+/// to — read on the engine thread and carried by the job. A chunk whose read finished after
+/// <c>Engine.Advanced.RestoreGlobalSnapshot</c> ended the cycle is therefore discarded at dequeue rather
+/// than delivered into the restored engine — the fence every other cross-thread completion in Jint sits
+/// behind. The restore additionally calls <see cref="Abandon"/>, so the host's stream is closed at once
+/// instead of being held until a garbage collection notices.
 /// </para>
 /// <para>
 /// <b>The host's stream is released exactly once.</b> A release must never happen while an asynchronous read
@@ -60,7 +63,6 @@ internal abstract class HostStreamBridge
         Realm = realm;
         HostStream = stream;
         LeaveOpen = leaveOpen;
-        Generation = engine.EventLoopGeneration;
         Cancellation = CancellationTokenSource.CreateLinkedTokenSource(hostCancellation);
     }
 
@@ -79,9 +81,6 @@ internal abstract class HostStreamBridge
     /// <summary>Whether the host keeps ownership of <see cref="HostStream"/> — see the options types.</summary>
     protected bool LeaveOpen { get; }
 
-    /// <summary>The evaluation cycle this bridge belongs to. See the remarks on the class.</summary>
-    protected int Generation { get; }
-
     /// <summary>
     /// The token every read and write runs under. Cancelled by <see cref="FinishBridge"/>, so a stream that
     /// is blocked in a read stops being blocked when the script cancels or the engine is restored.
@@ -95,10 +94,26 @@ internal abstract class HostStreamBridge
     internal bool IsReleased => Volatile.Read(ref _state) == Released;
 
     /// <summary>
-    /// Claims the right to start one read or write. <see langword="false"/> means the bridge has been
-    /// finished — cancelled, closed, or abandoned by a restore — and no further I/O may be started.
+    /// Claims the right to start one read or write, and hands back what its completion has to carry back to
+    /// the engine thread. <see langword="false"/> means the bridge has been finished — cancelled, closed, or
+    /// abandoned by a restore — and no further I/O may be started.
     /// </summary>
-    protected bool TryBeginOperation() => Interlocked.CompareExchange(ref _state, Busy, Idle) == Idle;
+    /// <param name="registration">
+    /// The cycle and the memory operation this read or write belongs to, read here because here is the last
+    /// point on the engine thread: the completion runs wherever the BCL's I/O finished, where neither is
+    /// knowable. Pass it to <see cref="Enqueue"/> from the completion.
+    /// </param>
+    protected bool TryBeginOperation(out EventLoopRegistration registration)
+    {
+        if (Interlocked.CompareExchange(ref _state, Busy, Idle) != Idle)
+        {
+            registration = default;
+            return false;
+        }
+
+        registration = Engine.CaptureEventLoopRegistration();
+        return true;
+    }
 
     /// <summary>
     /// Ends the in-flight read or write. Called on whichever thread the I/O completed on, <b>before</b> its
@@ -201,9 +216,11 @@ internal abstract class HostStreamBridge
     }
 
     /// <summary>
-    /// Queues the engine-thread half of an I/O completion, carrying the cycle the bridge was created in.
+    /// Queues the engine-thread half of an I/O completion, carrying what its operation captured when it
+    /// began — see <see cref="TryBeginOperation"/>.
     /// </summary>
-    protected void Enqueue(Action job) => Engine.AddToEventLoop(job, Generation);
+    protected void Enqueue(Action job, EventLoopRegistration registration)
+        => Engine.AddToEventLoop(job, registration);
 
     /// <summary>
     /// The chunk a host stream's bytes are delivered to script as: a fresh <c>Uint8Array</c> over a copy,

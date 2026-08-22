@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.Timers;
@@ -113,7 +114,10 @@ internal sealed class IdleCallbackQueue
         var handle = _nextHandle;
         _nextHandle = handle == int.MaxValue ? 1 : handle + 1;
 
-        var entry = new IdleCallbackEntry(handle, callback);
+        var entry = new IdleCallbackEntry(
+            handle,
+            callback,
+            _engine.CaptureMemoryLimitState());
         _byHandle[handle] = entry;
         _pending.Enqueue(entry);
 
@@ -129,7 +133,7 @@ internal sealed class IdleCallbackQueue
                 [],
                 timeout,
                 repeat: false,
-                _engine.EventLoopGeneration);
+                _engine.CaptureEventLoopRegistration());
 
             entry.TimeoutTimerId = _timers.Schedule(timerEntry);
         }
@@ -293,7 +297,9 @@ internal sealed class IdleCallbackQueue
             deadlineTimestamp,
             didTimeout);
 
-        entry.Callback.Call(JsValue.Undefined, [deadline]);
+        _engine.RunWithMemoryAccounting(
+            entry.MemoryState,
+            () => entry.Callback.Call(JsValue.Undefined, [deadline]));
     }
 
     private void Retire(IdleCallbackEntry entry)
@@ -341,16 +347,22 @@ internal sealed class IdleCallbackQueue
 /// </summary>
 internal sealed class IdleCallbackEntry
 {
-    internal IdleCallbackEntry(int handle, ICallable callback)
+    internal IdleCallbackEntry(
+        int handle,
+        ICallable callback,
+        MemoryLimitConstraint.OperationState? memoryState)
     {
         Handle = handle;
         Callback = callback;
+        MemoryState = memoryState;
     }
 
     /// <summary>The value <c>requestIdleCallback</c> returned, and what <c>cancelIdleCallback</c> names.</summary>
     internal int Handle { get; }
 
     internal ICallable Callback { get; }
+
+    internal MemoryLimitConstraint.OperationState? MemoryState { get; }
 
     /// <summary>
     /// Set once the entry has left the live set, whether because it was cancelled, because it ran, or because
