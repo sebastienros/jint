@@ -903,11 +903,9 @@ public class WptTestRunner
         // enqueue-with-detached-buffer.any.js, which both pass.
         new("streams/readable-byte-streams/non-transferable-buffers.any.js", "*", WptDivergence.NeedsWebAssembly),
 
-        // Four genuine defects the corpus found, recorded rather than fixed — see WptDivergence.NeedsTriage
-        // for why the change that first runs a suite is not the change that moves the engine, and
-        // Vendor/README.md for the analysis of each.
-        new("streams/readable-streams/async-iterator.any.js",
-            "Async iterator instances should have the correct list of properties", WptDivergence.NeedsTriage),
+        // The genuine defects the corpus found that are still open, recorded rather than fixed — see
+        // WptDivergence.NeedsTriage for why the change that first runs a suite is not the change that moves
+        // the engine, and Vendor/README.md for the analysis of each.
         new("streams/transform-streams/errors.any.js",
             "abort should set the close reason for the writable when it happens before cancel during start, and cancel should reject", WptDivergence.NeedsTriage),
         new("streams/transform-streams/errors.any.js",

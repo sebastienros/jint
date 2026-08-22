@@ -31,6 +31,64 @@ public class ObjectGeneratorTests
     }
 
     [Test]
+    public Task FunctionFlags()
+    {
+        // [JsFunction] defaults to ECMA-262's attributes for a built-in function property
+        // (NonEnumerable). WebIDL's operations, and the next/return of an iterator prototype object, are
+        // enumerable instead — https://webidl.spec.whatwg.org/#es-operations — so the declaration has to
+        // be able to say so. Both paths are covered: the dictionary one here, the shape one below.
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime.Descriptors;
+
+            namespace Sample;
+
+            [JsObject(UseShape = false)]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+                private static JsValue Next(JsValue thisObject) => thisObject;
+
+                [JsFunction(Name = "plain")]
+                private static JsValue Plain(JsValue thisObject) => thisObject;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
+    public Task ShapedFunctionFlags()
+    {
+        return VerifyGenerator("""
+            using Jint;
+            using Jint.Native;
+            using Jint.Native.Object;
+            using Jint.Runtime.Descriptors;
+
+            namespace Sample;
+
+            [JsObject(UseShape = true)]
+            internal sealed partial class Foo : ObjectInstance
+            {
+                internal Foo(Engine engine) : base(engine) { }
+
+                [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
+                private static JsValue Next(JsValue thisObject) => thisObject;
+
+                [JsFunction(Name = "plain")]
+                private static JsValue Plain(JsValue thisObject) => thisObject;
+
+                protected override void Initialize() => CreateProperties_Generated();
+            }
+            """);
+    }
+
+    [Test]
     public Task PropertyConstants()
     {
         return VerifyGenerator("""

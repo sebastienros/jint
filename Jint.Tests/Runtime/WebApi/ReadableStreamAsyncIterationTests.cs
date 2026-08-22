@@ -84,6 +84,49 @@ public class ReadableStreamAsyncIterationTests
     }
 
     [Fact]
+    public void TheIteratorPrototypesMethodsCarryWebIdlsAttributes()
+    {
+        // "An asynchronous iterator prototype object must have a next data property with attributes
+        // { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }", and the same for return —
+        // https://webidl.spec.whatwg.org/#es-asynchronous-iterator-prototype-object. Enumerable is the
+        // surprise: a built-in function property is non-enumerable everywhere in ECMA-262, and WebIDL is
+        // the one binding that says otherwise.
+        var engine = StreamEngine();
+        engine.Execute("var proto = Object.getPrototypeOf(new ReadableStream().values());");
+
+        engine.Evaluate("Object.getOwnPropertyNames(proto).sort().join(',')").AsString().Should().Be("next,return");
+
+        foreach (var method in new[] { "next", "return" })
+        {
+            engine.Execute($"var d = Object.getOwnPropertyDescriptor(proto, '{method}');");
+            engine.Evaluate("d.writable").AsBoolean().Should().BeTrue(method);
+            engine.Evaluate("d.enumerable").AsBoolean().Should().BeTrue(method);
+            engine.Evaluate("d.configurable").AsBoolean().Should().BeTrue(method);
+        }
+
+        // The lengths and the absence of throw are the rest of the same paragraph.
+        engine.Evaluate("proto.next.length").AsNumber().Should().Be(0);
+        engine.Evaluate("proto.return.length").AsNumber().Should().Be(1);
+        engine.Evaluate("typeof proto.throw").AsString().Should().Be("undefined");
+
+        // The class string is a symbol, so it stays out of the name list above — and it keeps the attributes
+        // a class string carries, not WebIDL's operation attributes.
+        engine.Evaluate("Object.getOwnPropertySymbols(proto).length").AsNumber().Should().Be(1);
+        engine.Execute("var t = Object.getOwnPropertyDescriptor(proto, Symbol.toStringTag);");
+        engine.Evaluate("t.value").AsString().Should().Be("ReadableStream AsyncIterator");
+        engine.Evaluate("t.writable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.configurable").AsBoolean().Should().BeTrue();
+
+        // The @@asyncIterator that reaches the iterator is inherited from %AsyncIteratorPrototype%; the one
+        // on ReadableStream.prototype is an interface member, and those stay non-enumerable.
+        engine.Execute("var a = Object.getOwnPropertyDescriptor(ReadableStream.prototype, Symbol.asyncIterator);");
+        engine.Evaluate("a.writable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("a.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("a.configurable").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public void BreakingOutOfTheLoopCancelsTheStream()
     {
         // "By default, calling the async iterator's return() method will also cancel the stream."

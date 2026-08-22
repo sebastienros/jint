@@ -31,6 +31,11 @@ internal sealed partial class ReadableStreamAsyncIteratorPrototype : Prototype
     /// </summary>
     private static readonly JsSymbol _endOfIteration = new("[[end of iteration]]");
 
+    /// <summary>
+    /// WebIDL's class string for an asynchronous iterator prototype object: "the identifier of the interface
+    /// and the string <c>" AsyncIterator"</c>". A default asynchronous iterator object has no class string of
+    /// its own, so this is what <c>Object.prototype.toString</c> answers for the iterator itself.
+    /// </summary>
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString AsyncIteratorToStringTag = new("ReadableStream AsyncIterator");
 
@@ -71,7 +76,14 @@ internal sealed partial class ReadableStreamAsyncIteratorPrototype : Prototype
     /// https://webidl.spec.whatwg.org/#js-asynchronous-iterator-prototype-object, the <c>next</c> data
     /// property's steps.
     /// </summary>
-    [JsFunction(Name = "next", Length = 0)]
+    /// <remarks>
+    /// The attributes are WebIDL's, not ECMA-262's: "an asynchronous iterator prototype object must have a
+    /// <c>next</c> data property with attributes <c>{ [[Writable]]: true, [[Enumerable]]: true,
+    /// [[Configurable]]: true }</c>". A built-in function property is non-enumerable everywhere in the
+    /// language (https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects), which is why the
+    /// declaration has to say so explicitly.
+    /// </remarks>
+    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Next(JsValue thisObject)
     {
         if (thisObject is not ReadableStreamAsyncIterator iterator)
@@ -149,7 +161,11 @@ internal sealed partial class ReadableStreamAsyncIteratorPrototype : Prototype
     /// https://webidl.spec.whatwg.org/#js-asynchronous-iterator-prototype-object, the <c>return</c> data
     /// property's steps.
     /// </summary>
-    [JsFunction(Name = "return", Length = 1)]
+    /// <remarks>
+    /// Enumerable for the same reason <c>next</c> is: WebIDL gives the <c>return</c> data property
+    /// <c>{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }</c> too.
+    /// </remarks>
+    [JsFunction(Name = "return", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Return(JsValue thisObject, JsValue value)
     {
         if (thisObject is not ReadableStreamAsyncIterator iterator)
