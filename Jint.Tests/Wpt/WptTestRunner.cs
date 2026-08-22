@@ -30,10 +30,13 @@ namespace Jint.Tests.Wpt;
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
 /// https://github.com/sebastienros/jint/issues/3180, the one the File API corpus filed by
 /// https://github.com/sebastienros/jint/issues/3209 — an <c>Array.prototype.values</c>/<c>keys</c>/
-/// <c>entries</c> defect with no web API in it at all — and all five the streams corpus filed by
-/// https://github.com/sebastienros/jint/issues/3195. The category holds the one the workers corpus
-/// found, which is a <c>self</c> installed against <c>Window</c>'s definition for every global including
-/// a worker's, and the ten that groups 3 and 4 of https://github.com/sebastienros/jint/issues/3185 did.
+/// <c>entries</c> defect with no web API in it at all — all five the streams corpus filed by
+/// https://github.com/sebastienros/jint/issues/3195, the ones groups 3 and 4 of
+/// https://github.com/sebastienros/jint/issues/3185 recorded by
+/// https://github.com/sebastienros/jint/issues/3212, and the one the workers corpus found — a <c>self</c>
+/// installed against <c>Window</c>'s definition for every global including a worker's — by
+/// https://github.com/sebastienros/jint/issues/3224. <b>The category is down to one entry, and that one is
+/// not a defect</b>: an empty <c>FormData</c> body, which no browser serializes to nothing either.
 /// <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
@@ -932,18 +935,24 @@ public class WptTestRunner
         new("workers/modules/dedicated-worker-import.any.js", "Static import (cross-origin).", WptDivergence.NeedsWptServer),
         new("workers/modules/dedicated-worker-import.any.js", "Static import (redirect).", WptDivergence.NeedsWptServer),
 
-        // The one genuine defect this corpus found, and it is not in the worker code: `self` is installed once
-        // for every global as a writable data property, against Window's [Replaceable] definition, and
-        // WorkerGlobalScope's is read-only. Recorded rather than fixed — the install predates Worker and is
-        // shared with the top-level lane, so moving it is not a change this corpus gets to make. Filed as
-        // https://github.com/sebastienros/jint/issues/3224; see WptDivergence.NeedsTriage.
+        // The one genuine defect this corpus found was not in the worker code — `self` was installed once for
+        // every global as a writable data property, against Window's [Replaceable] definition, where
+        // WorkerGlobalScope's is a plain readonly attribute — and it is fixed:
+        // https://github.com/sebastienros/jint/issues/3224 gave the worker global its own definition, on that
+        // global alone, because Window's is right as it is.
         //
-        // Worker-replace-self.any.js's one row is the same defect seen from the other side: it assigns to
-        // `self` and then asserts `self instanceof WorkerGlobalScope`. The interface object exists now
-        // (sebastienros/jint#3195), so what is left failing is only the writable assignment — once #3224 makes
-        // `self` read-only on a worker global, both rows go.
-        new("workers/interfaces/WorkerGlobalScope/self.any.js", "self = 1", WptDivergence.NeedsTriage),
-        new("workers/Worker-replace-self.any.js", "Test that self is not replaceable.", WptDivergence.NeedsTriage),
+        // These two rows stayed red across that fix, and the reason is the lane rather than the engine. Both
+        // assert what a SLOPPY-MODE assignment does — self.any.js that the value did not change,
+        // Worker-replace-self.any.js that nothing was thrown — and a read-only attribute refuses an assignment
+        // silently only in sloppy mode. This lane's file is the body of a module, so the refusal arrives as
+        // the TypeError strict mode owes: self.any.js used to fail with `expected object
+        // "DedicatedWorkerGlobalScope" but got 1` and now fails with `TypeError`, and Worker-replace-self
+        // reports the exception its own catch turns into an assert_unreached. Nothing short of a
+        // classic-script worker moves either, which is a divergence Jint declines by design — see
+        // WptDivergence.NeedsClassicWorkerScript, and WorkerMechanismTests for the engine's half pinned in
+        // both modes.
+        new("workers/interfaces/WorkerGlobalScope/self.any.js", "self = 1", WptDivergence.NeedsClassicWorkerScript),
+        new("workers/Worker-replace-self.any.js", "Test that self is not replaceable.", WptDivergence.NeedsClassicWorkerScript),
 
         // ---------------------------------------------------------------- encoding, the XMLHttpRequest half
         // The file runs each single-byte decoder twice: once through TextDecoder over a locally built

@@ -1045,6 +1045,118 @@ public class WorkerMechanismTests
             "WorkerGlobalScope:function,DedicatedWorkerGlobalScope:function,self:true,postMessage:function,close:function,name:crunch,onmessage:null");
     }
 
+    /// <summary>
+    /// <c>self</c> is a plain <c>readonly attribute WorkerGlobalScope self</c> here —
+    /// https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self — where Window's is
+    /// <c>[Replaceable] readonly attribute WindowProxy self</c>
+    /// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self), so the writable data
+    /// property <c>WebApiRegistration</c> installs for a top-level global is the wrong one for this one.
+    /// </summary>
+    /// <remarks>
+    /// <b>What "read-only" means is decided by the assigning code's own mode</b>, not by the descriptor:
+    /// ignored in sloppy mode, a <c>TypeError</c> in strict. Both are pinned, because a fix that satisfied
+    /// only one would be half a fix — the module body is strict, and an indirect <c>eval</c> is global code
+    /// with no directive prologue, which is the only sloppy code a module worker can reach at all.
+    /// </remarks>
+    [Fact]
+    public void TheWorkerGlobalsSelfIsAReadOnlyAttribute()
+    {
+        var host = new TestWorkerHost(Module("""
+            const d = Object.getOwnPropertyDescriptor(globalThis, 'self');
+            record('writable:' + d.writable);
+            record('enumerable:' + d.enumerable);
+            record('configurable:' + d.configurable);
+            record('value:' + (d.value === globalThis));
+
+            // Sloppy first, so that what it reports does not stand on the strict case's outcome. An
+            // indirect eval is global code with no directive prologue, which is the only sloppy code a
+            // module worker can reach at all.
+            try { (0, eval)("self = 'SLOPPY'"); record('sloppy:' + (self === globalThis)); }
+            catch (e) { record('sloppy:' + e.constructor.name); }
+
+            // And the module body itself is strict, where the same assignment is a TypeError.
+            try { self = 'STRICT'; record('strict:assigned'); }
+            catch (e) { record('strict:' + e.constructor.name); }
+
+            record('same:' + (self === globalThis));
+            record('brand:' + (self instanceof DedicatedWorkerGlobalScope));
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be(
+            "writable:false,enumerable:true,configurable:true,value:true," +
+            "sloppy:true,strict:TypeError,same:true,brand:true");
+    }
+
+    /// <summary>
+    /// The sibling attribute, and the contrast that makes the one above a per-interface decision rather than
+    /// a blanket one: <c>DedicatedWorkerGlobalScope.name</c> is
+    /// <c>[Replaceable] readonly attribute DOMString name</c> —
+    /// https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name — so the
+    /// writable data property that simplification installs is right for it and wrong for <c>self</c>.
+    /// </summary>
+    [Fact]
+    public void TheWorkerGlobalsNameIsReplaceable()
+    {
+        var host = new TestWorkerHost(Module("""
+            record('writable:' + Object.getOwnPropertyDescriptor(globalThis, 'name').writable);
+            name = 'renamed';
+            record('name:' + name);
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module', name: 'crunch' })");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("writable:true,name:renamed");
+    }
+
+    /// <summary>
+    /// The read-only <c>self</c> is a <i>replacement</i> of the descriptor <c>WebApiRegistration</c>
+    /// installed, so it can only be non-clobbering by identity — and that is the test. A <c>self</c> the host
+    /// owns is never that descriptor and is left exactly as the host left it, with the host's own
+    /// <c>[Replaceable]</c>-style writability intact.
+    /// </summary>
+    /// <remarks>
+    /// The materialization count is the second half: the replacement compares references and reads nothing,
+    /// so a host's own <i>lazy</i> global is not forced into existence merely by our looking at it — the rule
+    /// every install in <c>WebApiRegistration</c> and beside it follows.
+    /// </remarks>
+    [Fact]
+    public void AHostThatInstalledItsOwnSelfKeepsIt()
+    {
+        var factoryCalls = 0;
+
+        var host = new TestWorkerHost(Module("""
+            record('writable:' + Object.getOwnPropertyDescriptor(globalThis, 'self').writable);
+            record('host:' + (self.marker === 'host'));
+            self = 'replaced';
+            record('assigned:' + self);
+            """))
+        {
+            Tune = options => options.AddLazyGlobal("self", engine =>
+            {
+                factoryCalls++;
+                var value = new JsObject(engine);
+                value.FastSetDataProperty("marker", new JsString("host"));
+                return value;
+            }),
+        };
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+
+        factoryCalls.Should().Be(0, "nothing about installing the worker scope may materialize a host's lazy global");
+
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("writable:true,host:true,assigned:replaced");
+        factoryCalls.Should().Be(1, "the worker's own first read is what materializes it");
+    }
+
     [Fact]
     public void TheWorkerObjectCarriesTheEventHandlerAttributes()
     {

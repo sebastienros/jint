@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Jint.Native.Promise;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
@@ -298,6 +299,22 @@ internal sealed class WebApiEngineState
     /// </para>
     /// </remarks>
     internal WorkerLink? OwningWorkerLink { get; set; }
+
+    /// <summary>
+    /// The <c>self</c> descriptor <c>WebApiRegistration</c> installed on this engine's principal global
+    /// object, or <see langword="null"/> — which is what an engine carries when
+    /// <see cref="WebApiFeatures.GlobalEvents"/> is off, when the host already owned the name, and once a
+    /// worker has replaced it.
+    /// </summary>
+    /// <remarks>
+    /// It exists because the two globals HTML defines genuinely differ — <c>Window.self</c> is
+    /// <c>[Replaceable]</c> and <c>WorkerGlobalScope.self</c> is a plain <c>readonly attribute</c> — and an
+    /// engine being built does not know yet which one it will be. <c>WorkerGlobalScope.Install</c> is the one
+    /// reader, and it replaces the recorded descriptor by <i>identity</i>: that is the only way a replacement
+    /// can be non-clobbering, and it is what leaves a <c>self</c> the host installed exactly as the host left
+    /// it, unread and so unmaterialized.
+    /// </remarks>
+    internal PropertyDescriptor? InstalledSelf { get; set; }
 
     /// <summary>
     /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once — when the
