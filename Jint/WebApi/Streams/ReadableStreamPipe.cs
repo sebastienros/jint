@@ -318,7 +318,7 @@ internal sealed class ReadableStreamPipe
     {
         if (_shuttingDown)
         {
-            return StreamPromises.ResolvedWith(_realm, JsBoolean.True);
+            return StreamPromises.ResolvedWith(_engine, _realm, JsBoolean.True);
         }
 
         // The read waits for the destination to want more: this is where backpressure is enforced.
@@ -466,19 +466,60 @@ internal sealed class ReadableStreamPipe
             _readCapability = readCapability;
         }
 
+        /// <remarks>
+        /// <para>
+        /// <b>Deferred by one microtask, and this is the pipe's only deferral point.</b> A read request's
+        /// chunk steps run synchronously inside <c>ReadableStreamFulfillReadRequest</c>, which is reached
+        /// from the producer's own <c>enqueue()</c> — so starting the write from here would run the
+        /// destination's <c>write</c> algorithm on the producer's stack. What licenses the pipe to schedule
+        /// reads and writes as it likes is precisely that "the exact manner in which this happens is not
+        /// observable to author code", and a synchronous re-entry into author code is the one thing that
+        /// makes it observable.
+        /// </para>
+        /// <para>
+        /// The <i>whole</i> body waits, not just the write, so the write still starts before the loop is let
+        /// round again — deferring only the write would let the next step consult the writer's <c>ready</c>
+        /// promise before this chunk had been charged to the destination's queue, which is the backpressure
+        /// signal the standard says must throttle the reads. And it waits exactly one microtask, because
+        /// "reads or writes should not be delayed for reasons other than these backpressure signals".
+        /// </para>
+        /// <para>
+        /// <c>_currentWrite</c> is therefore assigned a microtask later than the chunk arrived, which the
+        /// shutdown path already tolerates: <see cref="WaitForWritesToFinish"/> exists to notice a write that
+        /// started while it was waiting, and any shutdown reaching it is itself a promise reaction queued
+        /// after this microtask. What cannot be tolerated is writing through a writer the pipe has already
+        /// released, hence the guard.
+        /// </para>
+        /// </remarks>
         internal override void ChunkSteps(JsValue chunk)
         {
-            // The write is started and remembered, but deliberately not waited on: the destination's queue
-            // is what absorbs the difference in speed between the two sides. A failed write is reported
-            // through the destination's closed promise, so the rejection is swallowed here.
-            _pipe._currentWrite = StreamPromises.TransformPromiseWith(
-                _pipe._engine,
-                _pipe._realm,
-                WritableStreamOperations.DefaultWriterWrite(_pipe._writer, chunk),
-                onFulfilled: null,
-                onRejected: static _ => JsValue.Undefined);
+            var pipe = _pipe;
 
-            _readCapability.Resolve(JsBoolean.False);
+            pipe._engine.AddToEventLoop(() =>
+            {
+                if (pipe._writer.Stream is null)
+                {
+                    // The pipe finalized while this microtask was queued — an already-errored destination
+                    // shuts it down and releases both locks — and a released writer has no stream to write
+                    // to. Nothing is owed to the chunk: the destination it was read for is gone, and the
+                    // loop is told it is done (which is what the shutting-down check at the top of PipeStep
+                    // would have answered anyway).
+                    _readCapability.Resolve(JsBoolean.True);
+                    return;
+                }
+
+                // The write is started and remembered, but deliberately not waited on: the destination's
+                // queue is what absorbs the difference in speed between the two sides. A failed write is
+                // reported through the destination's closed promise, so the rejection is swallowed here.
+                pipe._currentWrite = StreamPromises.TransformPromiseWith(
+                    pipe._engine,
+                    pipe._realm,
+                    WritableStreamOperations.DefaultWriterWrite(pipe._writer, chunk),
+                    onFulfilled: null,
+                    onRejected: static _ => JsValue.Undefined);
+
+                _readCapability.Resolve(JsBoolean.False);
+            });
         }
 
         internal override void CloseSteps() => _readCapability.Resolve(JsBoolean.True);

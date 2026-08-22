@@ -245,7 +245,11 @@ public class TransformStreamTests
             ts.readable.cancel('no more').then(() => log.push('cancelled'));
             """);
 
-        Log(engine).Should().Be("cancel:no more,writable:no more,cancelled");
+        // The cancel settles before the writable's closed promise rejects, not after: the writable is only
+        // *erroring* when the reaction on the transformer's cancel() runs, and it finishes erroring when the
+        // start promise's own reaction lands — two microtasks later, because "a promise resolved with" a
+        // promise adopts it. That is what makes the cancel fulfil rather than reject.
+        Log(engine).Should().Be("cancel:no more,cancelled,writable:no more");
     }
 
     [Fact]
@@ -278,9 +282,11 @@ public class TransformStreamTests
             """);
 
         // cancel() runs once, for the first shutdown, and flush() never — the second shutdown attaches to
-        // the finish promise the first one created. Both callers then report the writable side's own error,
-        // because aborting it is what settled that promise.
-        Log(engine).Should().Be("cancel:one,readable:two,writable:two");
+        // the finish promise the first one created. Both callers see that promise fulfil: the writable side
+        // is still "erroring" when TransformStreamDefaultSourceCancelAlgorithm's reaction looks at it, which
+        // is the branch that resolves, and the abort request's own promise resolves with undefined because
+        // the abort steps hand back the very finish promise the cancel had already created.
+        Log(engine).Should().Be("cancel:one,readable:ok,writable:ok");
     }
 
     [Fact]
@@ -406,6 +412,96 @@ public class TransformStreamTests
             """);
 
         Log(engine).Should().Be("out:A!,out:B!,out:done");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // readable.cancel() must fulfil while the writable side is still *erroring*.
+    //
+    // TransformStreamDefaultSourceCancelAlgorithm (https://streams.spec.whatwg.org/#transform-stream-
+    // default-source-cancel) rejects its finish promise only "if writable.[[state]] is 'errored'", and
+    // the three shapes below all fail the writable in the same turn as the cancel — early enough that
+    // the writable controller has not started yet, so WritableStreamStartErroring leaves it "erroring"
+    // and WritableStreamFinishErroring waits for the start promise's reaction. That reaction has to
+    // land *after* the cancel's, which is only true when "a promise resolved with" builds a new promise
+    // rather than handing back the transform's own start promise; see StreamPromises.ResolvedWith.
+
+    [Fact]
+    public void CancellingTheReadableSideFulfilsWhenTheControllerErrorsInTheSameTurn()
+    {
+        var engine = StreamEngine();
+        engine.Execute("""
+            var controller;
+            var ts = new TransformStream({ start(c) { controller = c; } });
+            var cancelPromise = ts.readable.cancel(new Error('ignored'));
+            controller.error(new Error('thrown'));
+            cancelPromise.then(() => log.push('cancel:fulfilled'), e => log.push('cancel:rejected:' + e.message));
+            ts.writable.getWriter().closed.then(
+              () => log.push('closed:fulfilled'),
+              e => log.push('closed:rejected:' + e.message));
+            """);
+
+        Log(engine).Should().Be("cancel:fulfilled,closed:rejected:thrown");
+    }
+
+    [Fact]
+    public void CancellingTheReadableSideFulfilsWhenTheControllerTerminatesInTheSameTurn()
+    {
+        var engine = StreamEngine();
+        engine.Execute("""
+            var controller;
+            var ts = new TransformStream({ start(c) { controller = c; } });
+            var cancelPromise = ts.readable.cancel({ name: 'cancelReason' });
+            controller.terminate();
+            cancelPromise.then(() => log.push('cancel:fulfilled'), e => log.push('cancel:rejected'));
+            ts.writable.getWriter().closed.then(
+              () => log.push('closed:fulfilled'),
+              e => log.push('closed:rejected:' + e.name));
+            """);
+
+        Log(engine).Should().Be("cancel:fulfilled,closed:rejected:TypeError");
+    }
+
+    [Fact]
+    public void AnAbortBeforeTheCancelSetsTheCloseReasonAndBothPromisesFulfil()
+    {
+        // The abort is queued while the transformer's start() microtask is still outstanding, so the
+        // TransformStream has not been told about it yet when the cancel arrives.
+        var engine = StreamEngine();
+        engine.Execute("""
+            var ts = new TransformStream();
+            var writer = ts.writable.getWriter();
+            var abortPromise = writer.abort(new Error('thrown'));
+            var cancelPromise = ts.readable.cancel(new Error('cancel reason'));
+            abortPromise.then(() => log.push('abort:fulfilled'), e => log.push('abort:rejected:' + e.message));
+            cancelPromise.then(() => log.push('cancel:fulfilled'), e => log.push('cancel:rejected:' + e.message));
+            writer.closed.then(() => log.push('closed:fulfilled'), e => log.push('closed:rejected:' + e.message));
+            """);
+
+        Log(engine).Should().Be("cancel:fulfilled,abort:fulfilled,closed:rejected:thrown");
+    }
+
+    [Fact]
+    public void TheTransformsStartPromiseIsAdoptedRatherThanReusedByBothControllers()
+    {
+        // A transformer whose start() returns a promise gates both sides on it — and the writable side's
+        // first write still waits for it, which is what the adoption above must not disturb.
+        var engine = StreamEngine();
+        engine.Execute("""
+            var release;
+            var ts = new TransformStream({
+              start(c) { log.push('start'); return new Promise(r => { release = r; }); },
+              transform(chunk, c) { log.push('transform:' + chunk); c.enqueue(chunk); }
+            });
+            drain(ts.readable, 'out');
+            var writer = ts.writable.getWriter();
+            writer.write('a').then(() => log.push('written'));
+            log.push('sync-end');
+            """);
+
+        Log(engine).Should().Be("start,sync-end");
+
+        engine.Execute("release();");
+        Log(engine).Should().Be("start,sync-end,transform:a,out:a,written");
     }
 }
 #endif

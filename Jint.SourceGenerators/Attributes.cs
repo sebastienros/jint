@@ -51,6 +51,22 @@ internal static class Attributes
             public string? Name { get; set; }
             public int Length { get; set; } = -1;
 
+            /// <summary>
+            /// The property attributes the method is registered with. The default is ECMA-262's rule for
+            /// a built-in function property — <c>{ [[Writable]]: true, [[Enumerable]]: false,
+            /// [[Configurable]]: true }</c>, https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects
+            /// — and every ECMAScript built-in wants it.
+            /// <para>
+            /// WebIDL is the exception: a regular operation, and the <c>next</c>/<c>return</c> of an
+            /// iterator prototype object, are <c>{ [[Writable]]: true, [[Enumerable]]: <b>true</b>,
+            /// [[Configurable]]: true }</c> — https://webidl.spec.whatwg.org/#es-operations — so a host
+            /// under <c>Jint/WebApi/</c> declaring one spells
+            /// <c>Flags = PropertyFlag.ConfigurableEnumerableWritable</c>.
+            /// </para>
+            /// </summary>
+            public global::Jint.Runtime.Descriptors.PropertyFlag Flags { get; set; }
+                = global::Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable;
+
             // CaptureField optionally names a host field (or settable property) assigned the
             // materialized function — the SAME instance the object hands out for the key, forced
             // into existence via GetOwnProperty at the end of CreateProperties_Generated — for

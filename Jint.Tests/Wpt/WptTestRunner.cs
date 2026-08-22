@@ -28,12 +28,13 @@ namespace Jint.Tests.Wpt;
 /// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
 /// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
-/// https://github.com/sebastienros/jint/issues/3180. The one the File API corpus filed is fixed too — an
-/// <c>Array.prototype.values</c>/<c>keys</c>/<c>entries</c> defect with no web API in it at all, by
-/// https://github.com/sebastienros/jint/issues/3209 — so the category holds the five the streams corpus
-/// filed, the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s
-/// definition for every global including a worker's, and the ten that groups 3 and 4 of
-    /// https://github.com/sebastienros/jint/issues/3185 did. <c>Vendor/README.md</c> analyses each.
+/// https://github.com/sebastienros/jint/issues/3180, the one the File API corpus filed by
+/// https://github.com/sebastienros/jint/issues/3209 — an <c>Array.prototype.values</c>/<c>keys</c>/
+/// <c>entries</c> defect with no web API in it at all — and all five the streams corpus filed by
+/// https://github.com/sebastienros/jint/issues/3195. The category holds the one the workers corpus
+/// found, which is a <c>self</c> installed against <c>Window</c>'s definition for every global including
+/// a worker's, and the ten that groups 3 and 4 of https://github.com/sebastienros/jint/issues/3185 did.
+/// <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
 /// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
@@ -902,20 +903,6 @@ public class WptTestRunner
         // own refusal of a detached or non-transferable buffer is covered by bad-buffers-and-views.any.js and
         // enqueue-with-detached-buffer.any.js, which both pass.
         new("streams/readable-byte-streams/non-transferable-buffers.any.js", "*", WptDivergence.NeedsWebAssembly),
-
-        // Four genuine defects the corpus found, recorded rather than fixed — see WptDivergence.NeedsTriage
-        // for why the change that first runs a suite is not the change that moves the engine, and
-        // Vendor/README.md for the analysis of each.
-        new("streams/readable-streams/async-iterator.any.js",
-            "Async iterator instances should have the correct list of properties", WptDivergence.NeedsTriage),
-        new("streams/transform-streams/errors.any.js",
-            "abort should set the close reason for the writable when it happens before cancel during start, and cancel should reject", WptDivergence.NeedsTriage),
-        new("streams/transform-streams/errors.any.js",
-            "controller.error() should close writable immediately after readable.cancel()", WptDivergence.NeedsTriage),
-        new("streams/transform-streams/general.any.js",
-            "terminate() should abort writable immediately after readable.cancel()", WptDivergence.NeedsTriage),
-        new("streams/piping/general-addition.any.js",
-            "enqueue() must not synchronously call write algorithm", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- compression
         // The SharedArrayBuffer rows of the two bad-chunk files, which take their SAB constructor from

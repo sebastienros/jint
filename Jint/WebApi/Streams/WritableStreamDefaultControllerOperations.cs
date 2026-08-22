@@ -58,7 +58,7 @@ internal static class WritableStreamDefaultControllerOperations
         // The sink's start() has return type `any`, so an exception it raises propagates out of the
         // WritableStream constructor rather than becoming a rejection.
         var startResult = startAlgorithm();
-        var startPromise = StreamPromises.ResolvedWith(realm, startResult);
+        var startPromise = StreamPromises.ResolvedWith(engine, realm, startResult);
 
         StreamPromises.UponPromise(
             engine,

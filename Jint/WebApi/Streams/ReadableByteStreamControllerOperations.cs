@@ -778,7 +778,7 @@ internal static class ReadableByteStreamControllerOperations
         // As for a default controller: start()'s return type is `any`, so an exception it raises propagates
         // out of the ReadableStream constructor rather than becoming a rejection.
         var startResult = startAlgorithm();
-        var startPromise = StreamPromises.ResolvedWith(realm, startResult);
+        var startPromise = StreamPromises.ResolvedWith(engine, realm, startResult);
 
         StreamPromises.UponPromise(
             engine,

@@ -361,5 +361,138 @@ public class StreamPipeTests
         engine.Execute("release();");
         Log(engine).Should().Be("write:a,abort:boom,piped:boom");
     }
+
+    [Fact]
+    public void EnqueueingIntoAPipedSourceDoesNotReachTheSinkSynchronously()
+    {
+        // A read request's chunk steps run inside ReadableStreamFulfillReadRequest, i.e. on the stack of
+        // the producer's own enqueue(). Starting the write there would run the destination's write
+        // algorithm from that stack — and what licenses the pipe to schedule reads and writes however it
+        // likes is precisely that "the exact manner in which this happens is not observable to author
+        // code" (https://streams.spec.whatwg.org/#readable-stream-pipe-to).
+        var engine = StreamEngine();
+        engine.Execute("""
+            var controller;
+            new ReadableStream({ start(c) { controller = c; } }, { highWaterMark: 0 })
+              .pipeTo(new WritableStream({ write(chunk) { log.push('write:' + chunk); } }));
+            var synchronous;
+            Promise.resolve().then(() => {
+              controller.enqueue('a');
+              synchronous = log.length > 0;
+            });
+            """);
+
+        engine.Evaluate("synchronous").AsBoolean().Should().BeFalse();
+
+        // Deferred, not dropped: the very next turn writes it.
+        Log(engine).Should().Be("write:a");
+    }
+
+    [Fact]
+    public void TheDeferredWriteStillCountsAgainstBackpressureBeforeTheNextRead()
+    {
+        // The deferral moves the whole of the chunk steps, so the write is charged to the destination's
+        // queue before the loop is let round again — otherwise the next step would consult the writer's
+        // ready promise while the chunk it just read was still unaccounted for, and "backpressure must be
+        // enforced" would be a lie. One chunk of head room means exactly one chunk in flight.
+        var engine = StreamEngine();
+        engine.Execute("""
+            var controller;
+            var release = [];
+            var to = new WritableStream({
+              write(chunk) { log.push('write:' + chunk); return new Promise(r => release.push(r)); }
+            }, { highWaterMark: 1 });
+            new ReadableStream({ start(c) { controller = c; } }).pipeTo(to);
+            """);
+
+        engine.Execute("controller.enqueue('a'); controller.enqueue('b'); controller.enqueue('c');");
+
+        // 'a' is in flight and 'b' has been taken into the queue; 'c' waits on the source.
+        Log(engine).Should().Be("write:a");
+
+        engine.Execute("release.shift()();");
+        Log(engine).Should().Be("write:a,write:b");
+
+        engine.Execute("release.shift()();");
+        Log(engine).Should().Be("write:a,write:b,write:c");
+    }
+
+    [Fact]
+    public void ADeferredWriteIsStillWaitedForByAShutdownThatStartsInTheSameTurn()
+    {
+        // "Shutdown must stop activity … and must only perform writes of already-read chunks": a chunk
+        // whose write has been deferred by the microtask above is already-read, so the shutdown action has
+        // to wait for it. WaitForWritesToFinish notices the write that started while it was waiting.
+        var engine = StreamEngine();
+        engine.Execute("""
+            var controller;
+            var release;
+            var to = new WritableStream({
+              write(chunk) { log.push('write:' + chunk); return new Promise(r => { release = r; }); },
+              abort(reason) { log.push('abort:' + reason.message); }
+            }, { highWaterMark: 5 });
+            new ReadableStream({ start(c) { controller = c; } }).pipeTo(to).catch(e => log.push('piped:' + e.message));
+            """);
+
+        engine.Execute("controller.enqueue('a'); controller.error(new Error('boom'));");
+
+        // The write started (one microtask later) and the abort is parked behind it.
+        Log(engine).Should().Be("write:a");
+
+        engine.Execute("release();");
+        Log(engine).Should().Be("write:a,abort:boom,piped:boom");
+    }
+
+    [Fact]
+    public void AChunkThatArrivesAsThePipeFinalizesIsDroppedRatherThanWrittenThroughAReleasedWriter()
+    {
+        // The deferral opens a window the synchronous chunk steps did not have: the pipe can finalize —
+        // releasing both locks — between the chunk arriving and the microtask that writes it. It takes a
+        // shutdown that reaches Finalize *synchronously*, which is the no-action shutdown a preventCancel
+        // pipe takes when the destination is already errored. Without the guard this dereferences a writer
+        // with no stream; with it the chunk is dropped, which is right, because the destination it was read
+        // for is gone.
+        var engine = StreamEngine();
+        engine.Execute("""
+            var rsController, wsController;
+            var rs = new ReadableStream({ start(c) { rsController = c; } });
+            var ws = new WritableStream({
+              start(c) { wsController = c; },
+              write(chunk) { log.push('write:' + chunk); }
+            });
+            rs.pipeTo(ws, { preventCancel: true }).catch(e => log.push('piped:' + e.message));
+            """);
+
+        // Both in one turn: the destination's error queues the pipe's shutdown, and the enqueue then hands
+        // the outstanding read request a chunk whose write is now a microtask behind that shutdown.
+        engine.Execute("""
+            wsController.error(new Error('boom'));
+            rsController.enqueue('a');
+            """);
+
+        Log(engine).Should().Be("piped:boom");
+        engine.Evaluate("rs.locked").AsBoolean().Should().BeFalse();
+        engine.Evaluate("ws.locked").AsBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public void PipingKeepsWorkingThroughAChainOfTransforms()
+    {
+        // pipeThrough is pipeTo, so the deferral applies once per hop; the chain must still deliver every
+        // chunk in order and close.
+        var engine = StreamEngine();
+        engine.Execute("""
+            function mapper(fn) {
+              return new TransformStream({ transform(chunk, c) { c.enqueue(fn(chunk)); } });
+            }
+            source(['a', 'b', 'c'])
+              .pipeThrough(mapper(x => x.toUpperCase()))
+              .pipeThrough(mapper(x => x + '!'))
+              .pipeTo(sink('dest'))
+              .then(() => log.push('piped'));
+            """);
+
+        Log(engine).Should().Be("dest:A!,dest:B!,dest:C!,dest:close,piped");
+    }
 }
 #endif

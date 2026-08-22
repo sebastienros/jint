@@ -44,20 +44,39 @@ internal static class StreamPromises
     internal static JsPromise PromiseOf(PromiseCapability capability) => (JsPromise) capability.PromiseInstance;
 
     /// <summary>
-    /// "a promise resolved with <paramref name="value"/>" — <c>PromiseResolve(%Promise%, value)</c>. A
-    /// thenable is adopted, which is how a user callback's return value becomes the promise the algorithms
-    /// wait on.
+    /// "a promise resolved with <paramref name="value"/>" —
+    /// https://webidl.spec.whatwg.org/#a-promise-resolved-with, which the Streams Standard's every use of
+    /// the phrase links to: a <b>new</b> promise capability whose resolve function is then called with the
+    /// value. A thenable is adopted, which is how a user callback's return value becomes the promise the
+    /// algorithms wait on.
     /// </summary>
-    internal static JsPromise ResolvedWith(Realm realm, JsValue value)
-        => (JsPromise) realm.Intrinsics.Promise.PromiseResolve(value);
+    /// <remarks>
+    /// Deliberately <b>not</b> <c>PromiseResolve(%Promise%, value)</c>. That operation hands back
+    /// <i>value itself</i> when it is already an ordinary promise, so the algorithm's reaction is registered
+    /// on the caller's promise directly and the two microtasks the adoption costs
+    /// (<c>NewPromiseResolveThenableJob</c>, then the reaction it registers) never happen. The Streams
+    /// Standard's microtask ordering is written against the WebIDL operation, and the reference
+    /// implementation carries the same warning in <c>lib/helpers/webidl.js</c>: "Cannot use original
+    /// Promise.resolve since that will return value itself sometimes, unlike Web IDL."
+    /// <para>
+    /// It is observable. A <c>TransformStream</c> hands both of its controllers the <i>same</i> start
+    /// promise, so the short-circuit made both sides' <c>[[started]]</c> flags flip two microtasks early —
+    /// early enough for <c>WritableStreamFinishErroring</c> to overtake the reaction
+    /// <c>TransformStreamDefaultSourceCancelAlgorithm</c> registers, which then read <c>"errored"</c> where
+    /// the standard leaves the writable <c>"erroring"</c> and rejected a <c>readable.cancel()</c> that must
+    /// fulfil.
+    /// </para>
+    /// </remarks>
+    internal static JsPromise ResolvedWith(Engine engine, Realm realm, JsValue value)
+    {
+        var capability = NewPromise(engine, realm);
+        capability.Resolve(value);
+        return PromiseOf(capability);
+    }
 
     /// <summary>"a promise resolved with undefined".</summary>
     internal static JsPromise ResolvedWithUndefined(Engine engine, Realm realm)
-    {
-        var capability = NewPromise(engine, realm);
-        capability.Resolve(JsValue.Undefined);
-        return PromiseOf(capability);
-    }
+        => ResolvedWith(engine, realm, JsValue.Undefined);
 
     /// <summary>
     /// "a promise rejected with <paramref name="reason"/>".
@@ -148,7 +167,7 @@ internal static class StreamPromises
         try
         {
             var result = callback.Call(thisArgument, arguments);
-            return ResolvedWith(realm, result);
+            return ResolvedWith(engine, realm, result);
         }
         catch (JavaScriptException e)
         {
