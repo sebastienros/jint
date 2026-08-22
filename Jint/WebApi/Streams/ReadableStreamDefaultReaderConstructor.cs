@@ -18,11 +18,10 @@ namespace Jint.WebApi.Streams;
 /// <c>new ReadableStreamDefaultReader(stream)</c> is equivalent to <c>stream.getReader()</c> — including
 /// raising a <c>TypeError</c> for a stream that is already locked.
 /// <para>
-/// It is deliberately not installed as a global: the enabled globals are the five interfaces a script
-/// constructs directly. This one stays reachable, as
-/// <c>Object.getPrototypeOf(stream.getReader()).constructor</c>, which is where <c>reader instanceof</c>
-/// checks and prototype patching go. That is a documented divergence from a browser, where every one of
-/// these interfaces is a global.
+/// It is installed as a global by <c>WebApiRegistration</c> alongside every other interface the Streams
+/// Standard declares, so <c>reader instanceof ReadableStreamDefaultReader</c> is written the way a browser
+/// script writes it — and answered from the prototype chain, because this object's <c>prototype</c> is
+/// exactly what <c>stream.getReader()</c> returns an instance of.
 /// </para>
 /// </remarks>
 internal sealed class ReadableStreamDefaultReaderConstructor : Constructor

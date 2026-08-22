@@ -696,7 +696,7 @@ public enum WebApiFeatures
     /// <c>PerformanceMark</c> and <c>PerformanceMeasure</c> interface objects behind it. Every reading comes
     /// from the clock in <see cref="Options.TimerOptions.TimeProvider"/>, so a fake one drives them and the
     /// timers together. There is no <c>PerformanceObserver</c>, and the entry buffer is bounded rather than
-    /// unbounded — see <c>PerformanceInstance</c>.
+    /// unbounded — see <c>JsPerformance</c>.
     /// </summary>
     Performance = 1 << 6,
 

@@ -958,10 +958,11 @@ public class SubtleCryptoAesWrapTests
                 + "deriveBits:function:2:deriveBits,deriveKey:function:5:deriveKey,"
                 + "wrapKey:function:4:wrapKey,unwrapKey:function:7:unwrapKey");
 
-        // Own properties with an ECMAScript built-in method's attributes, as every other operation is.
+        // Properties of SubtleCrypto.prototype with an ECMAScript built-in method's attributes, as every other
+        // operation is.
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
 
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(crypto.subtle, 'wrapKey')").AsObject();
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(SubtleCrypto.prototype, 'wrapKey')").AsObject();
         descriptor.Get("writable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeFalse();

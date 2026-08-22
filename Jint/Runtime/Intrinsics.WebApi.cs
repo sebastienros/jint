@@ -54,10 +54,13 @@ public sealed partial class Intrinsics
     private UrlConstructor? _webApiUrl;
     private UrlSearchParamsConstructor? _webApiUrlSearchParams;
     private UrlPatternConstructor? _webApiUrlPattern;
-    private CryptoInstance? _crypto;
-    private SubtleCryptoInstance? _subtleCrypto;
+    private CryptoConstructor? _crypto;
+    private JsCrypto? _cryptoObject;
+    private SubtleCryptoConstructor? _subtleCrypto;
+    private JsSubtleCrypto? _subtleCryptoObject;
     private CryptoKeyConstructor? _cryptoKey;
-    private PerformanceInstance? _performance;
+    private PerformanceConstructor? _performance;
+    private JsPerformance? _performanceObject;
     private PerformanceEntryConstructor? _performanceEntry;
     private PerformanceMarkConstructor? _performanceMark;
     private PerformanceMeasureConstructor? _performanceMeasure;
@@ -225,16 +228,31 @@ public sealed partial class Intrinsics
     internal JsCacheStorage Caches =>
         _caches ??= JsCacheStorage.Create(_engine, _realm);
 
-    internal CryptoInstance Crypto =>
-        _crypto ??= new CryptoInstance(_engine, _realm, Object.PrototypeObject);
+    /// <summary>
+    /// The <c>Crypto</c> interface object. Reaching it builds <c>Crypto.prototype</c>, which is what the
+    /// <c>crypto</c> object inherits from — so <c>crypto instanceof Crypto</c> holds however the two were
+    /// first touched.
+    /// </summary>
+    internal CryptoConstructor Crypto =>
+        _crypto ??= new CryptoConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>The <c>crypto</c> global — one per realm, and the brand every member of the interface checks.</summary>
+    internal JsCrypto CryptoObject => _cryptoObject ??= JsCrypto.Create(_engine, _realm);
+
+    /// <summary>
+    /// The <c>SubtleCrypto</c> interface object. A browser exposes it only in a secure context, which an
+    /// embedded engine has no way to be; see <c>SubtleCryptoConstructor</c>.
+    /// </summary>
+    internal SubtleCryptoConstructor SubtleCrypto =>
+        _subtleCrypto ??= new SubtleCryptoConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
     /// The object <c>crypto.subtle</c> answers with. It has no global of its own — the only way to reach it
     /// is through the <c>crypto</c> object, whose accessor returns this one every time, which is what makes
     /// <c>crypto.subtle === crypto.subtle</c> hold.
     /// </summary>
-    internal SubtleCryptoInstance SubtleCrypto =>
-        _subtleCrypto ??= new SubtleCryptoInstance(_engine, _realm, Object.PrototypeObject);
+    internal JsSubtleCrypto SubtleCryptoObject =>
+        _subtleCryptoObject ??= JsSubtleCrypto.Create(_engine, _realm);
 
     /// <summary>
     /// The <c>CryptoKey</c> interface object. It is reached both from the global of an engine with the crypto
@@ -245,11 +263,18 @@ public sealed partial class Intrinsics
         _cryptoKey ??= new CryptoKeyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
+    /// The <c>Performance</c> interface object. Reaching it builds <c>Performance.prototype</c>, which is what
+    /// the <c>performance</c> object inherits from.
+    /// </summary>
+    internal PerformanceConstructor Performance =>
+        _performance ??= new PerformanceConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
     /// The <c>performance</c> object, which reads the engine's time origin and therefore needs the web-API
     /// state <c>WebApiRegistration</c> created alongside the global.
     /// </summary>
-    internal PerformanceInstance Performance =>
-        _performance ??= PerformanceInstance.Create(_engine, _realm, Object.PrototypeObject);
+    internal JsPerformance PerformanceObject =>
+        _performanceObject ??= JsPerformance.Create(_engine, _realm);
 
     internal PerformanceEntryConstructor PerformanceEntry =>
         _performanceEntry ??= new PerformanceEntryConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -290,10 +315,11 @@ public sealed partial class Intrinsics
 
     /// <summary>
     /// <c>ReadableStreamDefaultReader</c>, <c>ReadableStreamDefaultController</c> and the writable and
-    /// transform interfaces beside them are deliberately <b>not</b> installed as globals — a browser exposes
-    /// every one of them, and Jint exposes only the five a script constructs directly. They are still
-    /// ordinary interface objects reachable as <c>Object.getPrototypeOf(reader).constructor</c>, which is
-    /// where an <c>instanceof</c> check or a prototype patch goes.
+    /// transform interfaces beside them are globals like the five a script constructs by name: every
+    /// interface the Streams Standard declares is <c>[Exposed=*]</c>, and <c>WebApiRegistration</c> installs
+    /// all thirteen. Each is also the object its instances inherit from, so
+    /// <c>Object.getPrototypeOf(reader) === ReadableStreamDefaultReader.prototype</c> holds and an
+    /// <c>instanceof</c> is answered by the prototype chain rather than by a brand shim.
     /// </summary>
     internal ReadableStreamDefaultReaderConstructor ReadableStreamDefaultReader =>
         _readableStreamDefaultReader ??= new ReadableStreamDefaultReaderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -302,10 +328,11 @@ public sealed partial class Intrinsics
         _readableStreamDefaultController ??= new ReadableStreamDefaultControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
-    /// The three byte-stream interfaces, which follow the same rule: not globals, reachable through their
-    /// instances' prototypes. A byte stream is asked for with <c>new ReadableStream({ type: "bytes" })</c>
-    /// and a BYOB reader with <c>stream.getReader({ mode: "byob" })</c>, so nothing but feature detection
-    /// ever names them.
+    /// The three byte-stream interfaces, which follow the same rule: globals, and the objects their instances
+    /// inherit from. A byte stream is still asked for with <c>new ReadableStream({ type: "bytes" })</c> and a
+    /// BYOB reader with <c>stream.getReader({ mode: "byob" })</c> — what naming the interface is for is an
+    /// <c>instanceof</c>, a prototype patch, and the feature detection a library performing stream work opens
+    /// with.
     /// </summary>
     internal ReadableStreamBYOBReaderConstructor ReadableStreamBYOBReader =>
         _readableStreamBYOBReader ??= new ReadableStreamBYOBReaderConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

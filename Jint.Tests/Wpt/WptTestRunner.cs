@@ -130,16 +130,6 @@ public class WptTestRunner
         // Crash reproductions rather than assertions, the same reason WebCryptoAPI's crashtests are out.
         ("streams/*/crashtests/*", "a crashtest rather than an assertion"),
 
-        // The file reads ReadableByteStreamController.prototype and calls `new ReadableStreamBYOBRequest(…)`
-        // at file scope. Neither interface object is a global in Jint — the documented reduction is that only
-        // the five interfaces a script constructs by name are installed (README.md, "Streams, including byte
-        // streams") — so the file throws a ReferenceError before registering a single test. A harness error is
-        // for the whole file and no per-test exclusion can name it, which is what puts this row here rather
-        // than in the exclusion table beside default-reader.any.js's seven rows, which fail for the same
-        // reason but inside test bodies.
-        ("streams/readable-byte-streams/construct-byob-request.any.js",
-            "reads the interface objects as globals at file scope; Jint installs only the five constructible ones"),
-
         // ---------------------------------------------------------------- compression
         // Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM and, for the second,
         // a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The
@@ -154,9 +144,8 @@ public class WptTestRunner
         // `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the
         // second of the two divergences DecompressionCodec documents (see WptDivergence.NeedsIncrementalInflater)
         // — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing.
-        // A stalled run is a harness error for the whole file, which no per-test exclusion can name, exactly
-        // as streams/readable-byte-streams/construct-byob-request.any.js is. The divergence itself is still
-        // asserted, by decompression-corrupt-input.any.js's six excluded rows.
+        // A stalled run is a harness error for the whole file, which no per-test exclusion can name. The
+        // divergence itself is still asserted, by decompression-corrupt-input.any.js's six excluded rows.
         ("compression/decompression-extra-input.any.js",
             "hangs on the trailing-byte divergence rather than failing a test"),
 
@@ -237,7 +226,7 @@ public class WptTestRunner
         // exclusion can name. The rows that reach for an observer from inside a test body are excluded one by
         // one instead, under WptDivergence.NeedsPerformanceObserver.
         ("user-timing/supported-usertiming-types.any.js",
-            "reads PerformanceObserver at file scope; PerformanceInstance documents declining the observer"),
+            "reads PerformanceObserver at file scope; PerformancePrototype documents declining the observer"),
 
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
@@ -406,6 +395,7 @@ public class WptTestRunner
         ["streams/readable-streams/templated.any.js"] = 81,
 
         ["streams/readable-byte-streams/bad-buffers-and-views.any.js"] = 21,
+        ["streams/readable-byte-streams/construct-byob-request.any.js"] = 16,
         ["streams/readable-byte-streams/enqueue-with-detached-buffer.any.js"] = 1,
         ["streams/readable-byte-streams/general.any.js"] = 90,
         ["streams/readable-byte-streams/non-transferable-buffers.any.js"] = 4,
@@ -725,6 +715,7 @@ public class WptTestRunner
         // ---------------------------------------------------------------- WebCryptoAPI
         // Jint has no scheme and therefore no secure-context bit; the file's third test passes anyway.
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to crypto.subtle", WptDivergence.NeedsSecureContextModel),
+        new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to SubtleCrypto", WptDivergence.NeedsSecureContextModel),
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to CryptoKey", WptDivergence.NeedsSecureContextModel),
 
         // The nine typed-array rows of "Large length" used to sit here: each asks for the QuotaExceededError
@@ -871,26 +862,10 @@ public class WptTestRunner
         new("WebCryptoAPI/import_export/ec_importKey_failures_ECDSA.https.any.js", "Bad usages: *apsulate*", WptDivergence.NeedsKeyEncapsulation),
 
         // ---------------------------------------------------------------- streams
-        // Seven rows of one file, each reaching for the `ReadableStreamDefaultReader` global. Named one at a
-        // time rather than globbed: the file's other 22 rows obtain the same interface as
-        // `stream.getReader().constructor` and pass, and two of these seven do reach an assertion — they fail
-        // it with "expected TypeError but got object ReferenceError" rather than with a bare ReferenceError,
-        // which is what a glob over the name would have hidden.
-        new("streams/readable-streams/default-reader.any.js",
-            "ReadableStreamDefaultReader constructor should get a ReadableStream object as argument", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "ReadableStreamDefaultReader closed should always return the same promise object", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Getting a ReadableStreamDefaultReader via getReader should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via getReader)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is closed", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is errored", WptDivergence.NeedsStreamInterfaceGlobals),
-
+        // Nothing about interface-object exposure any more: sebastienros/jint#3195 installs all thirteen of the
+        // Streams Standard's interfaces as globals, which turned default-reader.any.js's seven
+        // NeedsStreamInterfaceGlobals rows green and made construct-byob-request.any.js vendorable.
+        //
         // The whole file: it obtains a non-transferable ArrayBuffer from WebAssembly.Memory, which is the only
         // way to get one, so every row fails in the fixture rather than in the code under test. The engine's
         // own refusal of a detached or non-transferable buffer is covered by bad-buffers-and-views.any.js and
