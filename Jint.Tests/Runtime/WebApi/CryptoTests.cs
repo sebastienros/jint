@@ -317,15 +317,14 @@ public class CryptoTests
     {
         var engine = WebEngine();
 
-        // There is no Crypto.prototype here, so the operations are own properties of the object with the
-        // attributes an ECMAScript built-in method carries. What a script can observe of that difference is
-        // nothing: a browser answers the empty array for Object.keys(crypto) too, because there the
-        // operations live on the prototype.
+        // The operations live on Crypto.prototype, as a browser's do, so the object itself carries nothing
+        // and Object.keys(crypto) is empty for the same reason it is in a browser.
+        engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(crypto))").AsString().Should().Be("[]");
         engine.Evaluate("JSON.stringify(Object.keys(crypto))").AsString().Should().Be("[]");
 
         foreach (var member in new[] { "getRandomValues", "randomUUID" })
         {
-            var descriptor = engine.Evaluate($"Object.getOwnPropertyDescriptor(crypto, '{member}')").AsObject();
+            var descriptor = engine.Evaluate($"Object.getOwnPropertyDescriptor(Crypto.prototype, '{member}')").AsObject();
             descriptor.Get("writable").AsBoolean().Should().BeTrue();
             descriptor.Get("configurable").AsBoolean().Should().BeTrue();
             descriptor.Get("enumerable").AsBoolean().Should().BeFalse();

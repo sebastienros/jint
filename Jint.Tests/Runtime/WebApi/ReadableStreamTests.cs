@@ -545,30 +545,30 @@ public class ReadableStreamTests
     }
 
     [Fact]
-    public void InterfaceObjectsAreNonEnumerableGlobalsAndTheHelpersAreNotGlobalsAtAll()
+    public void EveryInterfaceObjectIsANonEnumerableGlobal()
     {
         var engine = StreamEngine();
 
-        foreach (var name in new[] { "ReadableStream", "WritableStream", "TransformStream", "ByteLengthQueuingStrategy", "CountQueuingStrategy" })
-        {
-            var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
-            descriptor.Writable.Should().BeTrue();
-            descriptor.Configurable.Should().BeTrue();
-            descriptor.Enumerable.Should().BeFalse();
-        }
-
-        // A documented narrowing of the browser surface: the interfaces a script never constructs by name
-        // are reachable through their instances rather than as globals.
+        // All thirteen: the five a script constructs by name, and the eight it only ever names for an
+        // instanceof, a prototype patch or a feature detect.
         foreach (var name in new[]
                  {
-                     "ReadableStreamDefaultReader", "ReadableStreamDefaultController", "WritableStreamDefaultWriter",
-                     "WritableStreamDefaultController", "TransformStreamDefaultController", "ReadableByteStreamController",
-                     "ReadableStreamBYOBReader",
+                     "ReadableStream", "WritableStream", "TransformStream", "ByteLengthQueuingStrategy",
+                     "CountQueuingStrategy", "ReadableStreamDefaultReader", "ReadableStreamDefaultController",
+                     "WritableStreamDefaultWriter", "WritableStreamDefaultController",
+                     "TransformStreamDefaultController", "ReadableByteStreamController", "ReadableStreamBYOBReader",
+                     "ReadableStreamBYOBRequest",
                  })
         {
-            engine.Evaluate($"typeof {name}").AsString().Should().Be("undefined", name);
+            var descriptor = engine.Realm.GlobalObject.GetOwnProperty(name);
+            descriptor.Writable.Should().BeTrue(name);
+            descriptor.Configurable.Should().BeTrue(name);
+            descriptor.Enumerable.Should().BeFalse(name);
         }
 
+        // And the global names the very object an instance inherits from.
+        engine.Evaluate("new ReadableStream().getReader() instanceof ReadableStreamDefaultReader")
+            .AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.getPrototypeOf(new ReadableStream().getReader()).constructor.name")
             .AsString().Should().Be("ReadableStreamDefaultReader");
     }

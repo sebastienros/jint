@@ -697,14 +697,14 @@ public class ReadableByteStreamTests
     }
 
     [Fact]
-    public void KeepsTheInterfaceObjectsOffTheGlobal()
+    public void NamesTheThreeByteStreamInterfaceObjectsOnTheGlobal()
     {
         var engine = StreamEngine();
 
-        // The same documented narrowing the other stream interfaces get: reachable, but not named globally.
-        engine.Evaluate("typeof ReadableByteStreamController").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof ReadableStreamBYOBReader").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof ReadableStreamBYOBRequest").AsString().Should().Be("undefined");
+        // Globals like every other Streams interface, and each is what its instances inherit from.
+        engine.Evaluate("typeof ReadableByteStreamController").AsString().Should().Be("function");
+        engine.Evaluate("typeof ReadableStreamBYOBReader").AsString().Should().Be("function");
+        engine.Evaluate("typeof ReadableStreamBYOBRequest").AsString().Should().Be("function");
 
         engine.Execute("""
             var request;
@@ -712,7 +712,8 @@ public class ReadableByteStreamTests
             stream.getReader({ mode: 'byob' }).read(new Uint8Array(1));
             """);
 
-        engine.Evaluate("Object.getPrototypeOf(request).constructor.name").AsString().Should().Be("ReadableStreamBYOBRequest");
+        engine.Evaluate("request instanceof ReadableStreamBYOBRequest").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(request) === ReadableStreamBYOBRequest.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate("request[Symbol.toStringTag]").AsString().Should().Be("ReadableStreamBYOBRequest");
     }
 

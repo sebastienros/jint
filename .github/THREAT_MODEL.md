@@ -1107,7 +1107,7 @@ factors.
   accepted; the platform's own `LegalKeySizes` is then consulted as well
   (`RsaAlgorithm.RequireGeneratableModulusLength`).
 - `crypto.getRandomValues` carries the standard's 65,536-byte quota
-  (`CryptoInstance.MaxRandomBytes`), so the generator cannot be asked for an unbounded draw in
+  (`CryptoPrototype.MaxRandomBytes`), so the generator cannot be asked for an unbounded draw in
   one call.
 - A key's `[[handle]]` is DER rather than a live `RSA`, so no operating-system key handle is
   tied to a garbage-collection schedule and a script cannot accumulate native key material.

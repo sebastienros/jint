@@ -250,6 +250,12 @@ is a decision you make rather than inherit; and `FetchEvents` is the third, beca
 a `fetch` listener can take over every request you route into the engine. `Workers` is outside `Default` for a
 different reason again: it needs a thread, and Jint never starts one — see its own section below.
 
+`Crypto` and `SubtleCrypto` are real interface objects, so `crypto instanceof Crypto` and
+`crypto.subtle instanceof SubtleCrypto` hold and the members live on the interface prototypes where a
+browser's do; neither is constructible, which is what their IDL says. `SubtleCrypto` is `[SecureContext]` in a
+browser and is exposed unconditionally here, because an embedded engine has no origin and no transport for
+that bit to describe.
+
 `crypto.subtle` carries **all twelve operations** — `digest`, `sign`, `verify`, `encrypt`, `decrypt`,
 `generateKey`, `importKey`, `exportKey`, `deriveBits`, `deriveKey`, `wrapKey` and `unwrapKey` — over
 SHA-1/256/384/512 (for `digest` and as every keyed algorithm's inner hash), **HMAC**, the AES family
@@ -378,24 +384,13 @@ properties* of the 2025 snapshot — one row per member, against the `WebApiFeat
 **Every flag named is part of `WebApiFeatures.Default` unless the row says otherwise**, so a bare
 `UseWebApis()` gets you the whole list bar the rows that say it does not.
 
-Five entries need more than a flag name, stated here rather than left to be discovered:
+Three entries need more than a flag name, stated here rather than left to be discovered:
 
 * **`WebAssembly.*`** — 16 of the members below, and a recorded decline rather than a to-do. Implementing it
   means shipping a *second* virtual machine beside the first: a decoder, a validator and an execution engine
   for a bytecode a tree-walking AST interpreter shares nothing with, since Jint deliberately has no bytecode
   and no code generation of its own. It would be larger than the ECMAScript implementation it stood next to
   and would reuse none of it, so it is absent and will stay absent.
-* **`Crypto`, `SubtleCrypto` and `Performance`** — the *interface objects*. `crypto`, `crypto.subtle` and
-  `performance` are all there and carry every member the standards give them, but as objects whose members
-  are their own rather than an interface prototype's, so there is no constructor to name and
-  `x instanceof Crypto` cannot be written. That is a documented simplification (the same one `console`
-  carries), and what a script can otherwise observe is unchanged — `Object.keys(crypto)` answers the empty
-  array in a browser too, because there the members live one level up.
-* **Eight of the Streams interfaces** — the two readers, the writer, the four controllers and
-  `ReadableStreamBYOBRequest`.
-  These are implemented and their interface objects are real: a reader's `constructor` is the genuine thing
-  and `new` on it behaves as the standard says. They are simply not installed on `globalThis`, which is the
-  deliberate reduction described under [Streams](#streams-including-byte-streams).
 * **`onerror`, `onunhandledrejection` and `onrejectionhandled`** — absent, and §6 *The global scope* is why:
   a runtime whose global object is not an `EventTarget` "shall not support" those three properties, and must
   instead fire the events through a suitable alternative mechanism. Jint's global is not an `EventTarget`
@@ -441,14 +436,14 @@ carries all four, with `onerror` in HTML's legacy five-argument shape.
 | `ReadableStream` | Streams | `Streams` |
 | `TransformStream` | Streams | `Streams` |
 | `WritableStream` | Streams | `Streams` |
-| `ReadableByteStreamController` | Streams | `Streams` — implemented, **not a global** |
-| `ReadableStreamBYOBReader` | Streams | `Streams` — implemented, **not a global** |
-| `ReadableStreamBYOBRequest` | Streams | `Streams` — implemented, **not a global** |
-| `ReadableStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
-| `ReadableStreamDefaultReader` | Streams | `Streams` — implemented, **not a global** |
-| `TransformStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
-| `WritableStreamDefaultController` | Streams | `Streams` — implemented, **not a global** |
-| `WritableStreamDefaultWriter` | Streams | `Streams` — implemented, **not a global** |
+| `ReadableByteStreamController` | Streams | `Streams` |
+| `ReadableStreamBYOBReader` | Streams | `Streams` |
+| `ReadableStreamBYOBRequest` | Streams | `Streams` |
+| `ReadableStreamDefaultController` | Streams | `Streams` |
+| `ReadableStreamDefaultReader` | Streams | `Streams` |
+| `TransformStreamDefaultController` | Streams | `Streams` |
+| `WritableStreamDefaultController` | Streams | `Streams` |
+| `WritableStreamDefaultWriter` | Streams | `Streams` |
 | `TextDecoder` | Encoding | `Encoding` |
 | `TextEncoder` | Encoding | `Encoding` |
 | `TextDecoderStream` | Encoding | `Encoding` **and** `Streams` |
@@ -456,10 +451,10 @@ carries all four, with `onerror` in HTML's legacy five-argument shape.
 | `URL` | URL | `Url` |
 | `URLSearchParams` | URL | `Url` |
 | `URLPattern` | URL Pattern | `Url` |
-| `Crypto` | Web Crypto | **absent** — `crypto` has no interface object |
+| `Crypto` | Web Crypto | `Crypto` |
 | `CryptoKey` | Web Crypto | `Crypto` |
-| `SubtleCrypto` | Web Crypto | **absent** — `crypto.subtle` has no interface object |
-| `Performance` | HR-Time | **absent** — `performance` has no interface object |
+| `SubtleCrypto` | Web Crypto | `Crypto` |
+| `Performance` | HR-Time | `Performance` |
 | `WebAssembly.Global` | Wasm JS API | **absent** — declined |
 | `WebAssembly.Instance` | Wasm JS API | **absent** — declined |
 | `WebAssembly.Memory` | Wasm JS API | **absent** — declined |
@@ -644,7 +639,11 @@ retained by its sources until one of them aborts, at which point every link is d
 `performance.mark` and `performance.measure` behave as [User Timing](https://w3c.github.io/user-timing/)
 describes them — the whole overload matrix, mark names or raw timestamps, `detail` deep-copied through the
 same structured-clone algorithm `structuredClone` uses, and `PerformanceEntry` / `PerformanceMark` /
-`PerformanceMeasure` as real interface objects so `entry instanceof PerformanceMark` works. Entries come back
+`PerformanceMeasure` as real interface objects so `entry instanceof PerformanceMark` works. So is
+`Performance` itself: `performance instanceof Performance` holds, and the members live on
+`Performance.prototype` where a browser's do. The one link not claimed is the `EventTarget` the interface
+inherits from in the standard — nothing here fires an event at the object, so asserting the inheritance would
+make `performance instanceof EventTarget` true while `addEventListener` failed its brand check. Entries come back
 from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by `startTime`, and
 `clearMarks(name?)` / `clearMeasures(name?)` remove them.
 
@@ -881,6 +880,26 @@ is exactly what the standard's *abort a running script* prescribes. `close()` fr
 opposite in every respect the standard makes it so: the turn that called it **runs to completion**, and the
 parent-side queue **drains** rather than being discarded — so `postMessage(result); close();`, the commonest
 idiom there is, still delivers whether or not the parent had pumped in between.
+
+**The worker's global is a `DedicatedWorkerGlobalScope`, and the prototype chain says so.** Both interface
+objects are installed on the worker's global object — and on no other, because they are `[Exposed=Worker]`
+and `[Exposed=DedicatedWorker]`, so the engine that *created* the worker carries neither. The global's
+`[[Prototype]]` is `DedicatedWorkerGlobalScope.prototype`, whose own is `WorkerGlobalScope.prototype`, so the
+feature-detect every worker library opens with —
+`'DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope` — takes the branch it
+takes in a browser, and takes it because the chain says so rather than because a `Symbol.hasInstance` was
+planted. `Object.prototype.toString.call(self)` answers `[object DedicatedWorkerGlobalScope]`; neither
+interface object is constructible.
+
+The chain stops one link short of HTML's, deliberately: `WorkerGlobalScope.prototype` inherits from
+`Object.prototype` where the standard has `EventTarget.prototype`, because Jint's global object genuinely is
+not an `EventTarget` — `addEventListener` is an ordinary function on the global bound to a synthetic listener
+list, which is the "suitable alternative mechanism available at the global scope" WinterTC's §6 blesses. So
+`self instanceof EventTarget` stays `false` rather than becoming an `instanceof` that lies about a
+relationship the object does not have. The worker's own names — `postMessage`, `close`, `importScripts`,
+`name`, `self` and the five event-handler attributes — remain own properties of the global rather than the
+prototypes': they are per *connection*, closing over the link this worker was made with, while an interface
+prototype object is a realm intrinsic built once and shared.
 
 **Errors reach you by three routes.** A load or parse failure fires a plain `Event` named `error` at the
 `Worker` object — no `message`, no `ErrorEvent`, which is what the standard's own step says and what libraries
@@ -1268,11 +1287,14 @@ blob's byte stream piped through a UTF-8 `TextDecoderStream`, so what comes back
 whose chunks are strings. It always decodes as UTF-8 — the blob's `type` is never consulted, whatever
 `charset` it names, which is the specification's own difference from `FileReader.readAsText()`.
 
-One deliberate reduction: **only the five interfaces a script constructs by name are globals.**
-`ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four
-controllers and `ReadableStreamBYOBRequest` exist as ordinary interface objects — a reader's `constructor` is
-the real thing, and `new` on it behaves as the standard says — but they are not installed on `globalThis`,
-where a browser would expose them.
+**All thirteen interface objects are globals**, as they are in a browser: the five a script constructs by
+name, plus `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four
+controllers and `ReadableStreamBYOBRequest`. Each one is what its instances actually inherit from, so
+`reader instanceof ReadableStreamDefaultReader` and
+`Object.getPrototypeOf(reader) === ReadableStreamDefaultReader.prototype` are both true and agree with each
+other. The three the standard gives a constructor operation are constructible — `new
+ReadableStreamDefaultReader(stream)` is `stream.getReader()`, lock and all — and the rest refuse `new` with a
+`TypeError`, which is what WebIDL says an interface object without a constructor operation does.
 
 #### All three streams are transferable
 

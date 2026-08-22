@@ -20,7 +20,7 @@ namespace Jint.Benchmark;
 /// <c>crypto.subtle</c> call whose completion value is the promise it returns, and the benchmark method
 /// unwraps that promise host-side with <c>UnwrapIfPromise</c>. Nothing is waited for: every operation here
 /// is synchronous CPU work over bytes already in memory, so the promise is already fulfilled when the call
-/// hands it back (see <c>SubtleCryptoInstance</c>'s remarks — "Return promise and perform the remaining
+/// hands it back (see <c>SubtleCryptoPrototype</c>'s remarks — "Return promise and perform the remaining
 /// steps in parallel" exists so a browser's main thread is not blocked, and an engine that runs script on
 /// one thread cannot observe the difference). The unwrap therefore adds the host-side settle ceremony —
 /// the drain's host-call bracket and its cancellation-constraint lookup, no event-loop turn — and that

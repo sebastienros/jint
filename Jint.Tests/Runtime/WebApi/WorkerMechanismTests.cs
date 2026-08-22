@@ -3,6 +3,8 @@
 
 using System.Collections.Concurrent;
 using System.Threading;
+using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 using Jint.WebApi;
@@ -1023,7 +1025,7 @@ public class WorkerMechanismTests
     }
 
     [Fact]
-    public void TheWorkerGlobalHasNoWorkerGlobalScopeInterfaceObject()
+    public void TheWorkerGlobalCarriesTheNamesHtmlGivesIt()
     {
         var host = new TestWorkerHost(Module("""
             record('WorkerGlobalScope:' + typeof WorkerGlobalScope);
@@ -1040,7 +1042,7 @@ public class WorkerMechanismTests
         Drain(parent, host.Connection);
 
         host.Log.Should().Be(
-            "WorkerGlobalScope:undefined,DedicatedWorkerGlobalScope:undefined,self:true,postMessage:function,close:function,name:crunch,onmessage:null");
+            "WorkerGlobalScope:function,DedicatedWorkerGlobalScope:function,self:true,postMessage:function,close:function,name:crunch,onmessage:null");
     }
 
     [Fact]
@@ -1401,6 +1403,165 @@ public class WorkerMechanismTests
         parent.Evaluate("failed").IsNull().Should().BeTrue();
         parent.Evaluate("chunks.join(',')").AsString().Should().Be("a,b");
         parent.Evaluate("done").AsBoolean().Should().BeTrue("the stream ends rather than hanging");
+    }
+
+    // -------------------------------------------------------------------------------------------------------
+    // The worker global scope's interface objects
+    // -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The canonical worker feature-detect,
+    /// <c>'DedicatedWorkerGlobalScope' in self &amp;&amp; self instanceof DedicatedWorkerGlobalScope</c>, which
+    /// every fixture of wpt's <c>workers/modules/</c> corpus opens with.
+    /// </summary>
+    [Fact]
+    public void TheCanonicalWorkerSniffTakesTheDedicatedBranch()
+    {
+        var host = new TestWorkerHost(Module("""
+            if ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope) {
+              record('dedicated');
+            } else if ('SharedWorkerGlobalScope' in self && self instanceof SharedWorkerGlobalScope) {
+              record('shared');
+            } else {
+              record('neither');
+            }
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("dedicated");
+    }
+
+    /// <summary>
+    /// <c>instanceof</c> answers from a real prototype chain rather than from a <c>Symbol.hasInstance</c> shim:
+    /// the worker's global object genuinely inherits from
+    /// <c>DedicatedWorkerGlobalScope.prototype</c>, which inherits from <c>WorkerGlobalScope.prototype</c>.
+    /// </summary>
+    [Fact]
+    public void TheWorkerGlobalHasARealPrototypeChain()
+    {
+        var host = new TestWorkerHost(Module("""
+            record('self:' + (self instanceof DedicatedWorkerGlobalScope));
+            record('base:' + (self instanceof WorkerGlobalScope));
+            record('proto:' + (Object.getPrototypeOf(self) === DedicatedWorkerGlobalScope.prototype));
+            record('chain:' + (Object.getPrototypeOf(DedicatedWorkerGlobalScope.prototype) === WorkerGlobalScope.prototype));
+            record('root:' + (Object.getPrototypeOf(WorkerGlobalScope.prototype) === Object.prototype));
+            record('inherit:' + (Object.getPrototypeOf(DedicatedWorkerGlobalScope) === WorkerGlobalScope));
+            record('ctor:' + (DedicatedWorkerGlobalScope.prototype.constructor === DedicatedWorkerGlobalScope));
+            record('tag:' + Object.prototype.toString.call(self));
+            record('hasSymbol:' + [DedicatedWorkerGlobalScope, WorkerGlobalScope].some(
+                c => Object.prototype.hasOwnProperty.call(c, Symbol.hasInstance)));
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        // `hasSymbol:false` is the load-bearing one: neither interface object owns a Symbol.hasInstance, so
+        // every `instanceof` above was answered by walking the prototype chain and by nothing else.
+        host.Log.Should().Be(
+            "self:true,base:true,proto:true,chain:true,root:true,inherit:true,ctor:true," +
+            "tag:[object DedicatedWorkerGlobalScope],hasSymbol:false");
+    }
+
+    /// <summary>
+    /// Neither interface declares a constructor operation, so both refuse <c>new</c> —
+    /// https://webidl.spec.whatwg.org/#es-interface-call.
+    /// </summary>
+    [Fact]
+    public void NeitherWorkerScopeInterfaceIsConstructible()
+    {
+        var host = new TestWorkerHost(Module("""
+            for (const name of ['WorkerGlobalScope', 'DedicatedWorkerGlobalScope']) {
+              record(name + ':' + typeof globalThis[name]);
+              try { new globalThis[name](); record(name + ':no throw'); }
+              catch (e) { record(name + ':' + e.constructor.name); }
+            }
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be(
+            "WorkerGlobalScope:function,WorkerGlobalScope:TypeError," +
+            "DedicatedWorkerGlobalScope:function,DedicatedWorkerGlobalScope:TypeError");
+    }
+
+    /// <summary>
+    /// Both interfaces are <c>[Exposed=Worker]</c> / <c>[Exposed=DedicatedWorker]</c>, so the engine that
+    /// <i>created</i> the worker carries neither — a parent is not a worker global however many it makes.
+    /// </summary>
+    [Fact]
+    public void TheParentCarriesNeitherWorkerScopeInterface()
+    {
+        var parent = Parent(new TestWorkerHost());
+
+        parent.Evaluate("typeof WorkerGlobalScope").AsString().Should().Be("undefined");
+        parent.Evaluate("typeof DedicatedWorkerGlobalScope").AsString().Should().Be("undefined");
+        parent.Evaluate("Object.getPrototypeOf(globalThis) === Object.prototype").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The chain is inserted <b>non-clobbering</b>, exactly as every name beside it is: a provider whose
+    /// worker engine has a global object with a <c>[[Prototype]]</c> of its own keeps it, and
+    /// <c>self instanceof DedicatedWorkerGlobalScope</c> then answers <see langword="false"/> — the truth
+    /// about that object rather than a claim planted on it.
+    /// </summary>
+    [Fact]
+    public void AHostThatGaveItsGlobalAPrototypeKeepsIt()
+    {
+        var host = new TestWorkerHost(Module("""
+            record('self:' + (self instanceof DedicatedWorkerGlobalScope));
+            record('named:' + ('DedicatedWorkerGlobalScope' in self));
+            record('proto:' + (Object.getPrototypeOf(self).marker === 'host'));
+            """))
+        {
+            Tune = options => options.UseHostFactory(_ => new PrototypeSettingHost()),
+        };
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        // The names are still installed — they are non-clobbering against the *global's own properties*, and
+        // the host took no such name — but the brand they describe is not claimed of an object that is not one.
+        host.Log.Should().Be("self:false,named:true,proto:true");
+    }
+
+    /// <summary>A host whose global object carries a prototype of its own.</summary>
+    private sealed class PrototypeSettingHost : Jint.Runtime.Host
+    {
+        protected override ObjectInstance CreateGlobalObject(Realm realm)
+        {
+            var global = base.CreateGlobalObject(realm);
+            var marker = new JsObject(Engine);
+            marker.FastSetDataProperty("marker", new JsString("host"));
+            global.Prototype = marker;
+            return global;
+        }
+    }
+
+    /// <summary>
+    /// The worker global's own names are unaffected: they stay own properties of the global object, which is
+    /// what makes them per-connection state rather than a realm intrinsic's.
+    /// </summary>
+    [Fact]
+    public void TheWorkerNamesRemainOwnPropertiesOfTheGlobal()
+    {
+        var host = new TestWorkerHost(Module("""
+            for (const name of ['postMessage', 'close', 'importScripts', 'name', 'onmessage']) {
+              record(name + ':' + Object.prototype.hasOwnProperty.call(globalThis, name));
+            }
+            """));
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        host.Log.Should().Be("postMessage:true,close:true,importScripts:true,name:true,onmessage:true");
     }
 
     // -------------------------------------------------------------------------------------------------------

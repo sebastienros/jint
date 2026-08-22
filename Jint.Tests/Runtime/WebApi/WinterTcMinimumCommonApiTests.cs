@@ -93,15 +93,6 @@ public class WinterTcMinimumCommonApiTests
         // (the three interfaces also arrive with CacheApi and FetchEvents).
         "Headers", "Request", "Response", "fetch",
 
-        // Implemented, and their interface objects are real; only the five interfaces a script constructs by
-        // name are installed on the global object.
-        "ReadableByteStreamController", "ReadableStreamBYOBReader", "ReadableStreamBYOBRequest",
-        "ReadableStreamDefaultController", "ReadableStreamDefaultReader", "TransformStreamDefaultController",
-        "WritableStreamDefaultController", "WritableStreamDefaultWriter",
-
-        // The instances exist and carry every member; the interface objects do not exist at all.
-        "Crypto", "SubtleCrypto", "Performance",
-
         // §6 The global scope: a runtime whose global is not an EventTarget "shall not support" these three.
         "onerror", "onunhandledrejection", "onrejectionhandled",
 
@@ -144,6 +135,12 @@ public class WinterTcMinimumCommonApiTests
         MissingFrom(engine, AllMembers).Should().BeEquivalentTo(everythingElse);
     }
 
+    /// <summary>
+    /// Every §5.1 interface a <see cref="WebApiFeatures.Default"/> engine carries is a real interface object:
+    /// a function whose <c>prototype</c> is what its instances inherit from. <c>Object.getPrototypeOf</c> and
+    /// <c>instanceof</c> therefore agree, which is what makes each row of the README's table a claim about the
+    /// prototype chain rather than about a name being defined.
+    /// </summary>
     [Theory]
     [InlineData("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
     [InlineData("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
@@ -152,14 +149,18 @@ public class WinterTcMinimumCommonApiTests
     [InlineData("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
     [InlineData("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
     [InlineData("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
-    public void AStreamInterfaceObjectWithoutAGlobalIsStillTheRealThing(string name, string instance)
+    [InlineData("Crypto", "crypto")]
+    [InlineData("SubtleCrypto", "crypto.subtle")]
+    [InlineData("Performance", "performance")]
+    public void AnInterfaceObjectIsWhatItsInstancesInheritFrom(string name, string instance)
     {
         var engine = new Engine(options => options.UseWebApis());
 
-        // The point of the reduction: not a global, but reachable and genuine through its instances.
-        engine.Evaluate($"'{name}' in globalThis").AsBoolean().Should().BeFalse();
+        engine.Evaluate($"'{name}' in globalThis").AsBoolean().Should().BeTrue();
 
         engine.Execute("function captured(build) { var seen; build(c => { seen = c; }); return seen; }");
+        engine.Evaluate($"{instance} instanceof {name}").AsBoolean().Should().BeTrue();
+        engine.Evaluate($"Object.getPrototypeOf({instance}) === {name}.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate($"Object.getPrototypeOf({instance}).constructor.name").AsString().Should().Be(name);
     }
 
@@ -168,17 +169,18 @@ public class WinterTcMinimumCommonApiTests
     {
         var engine = new Engine(options => options.UseWebApis());
 
-        engine.Evaluate("'ReadableStreamBYOBRequest' in globalThis").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'ReadableStreamBYOBRequest' in globalThis").AsBoolean().Should().BeTrue();
 
         engine.Execute("""
-            var seen = '';
+            var seen = false;
             var stream = new ReadableStream({
                 type: 'bytes',
                 autoAllocateChunkSize: 16,
                 pull(controller) {
                     var request = controller.byobRequest;
                     if (request) {
-                        seen = Object.getPrototypeOf(request).constructor.name;
+                        seen = request instanceof ReadableStreamBYOBRequest
+                            && Object.getPrototypeOf(request) === ReadableStreamBYOBRequest.prototype;
                         request.view[0] = 1;
                         request.respond(1);
                     }
@@ -187,24 +189,22 @@ public class WinterTcMinimumCommonApiTests
             stream.getReader().read();
             """);
 
-        engine.Evaluate("seen").AsString().Should().Be("ReadableStreamBYOBRequest");
+        engine.Evaluate("seen").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
-    public void CryptoSubtleCryptoAndPerformanceHaveNoInterfaceObjectAtAll()
+    public void CryptoSubtleCryptoAndPerformanceKeepTheirMembersOnTheInterfacePrototype()
     {
         var engine = new Engine(options => options.UseWebApis());
 
-        // Not merely unnameable: there is no interface prototype either, so the members are own properties
-        // and the object inherits straight from Object.prototype.
+        // The members are the prototype's, so the instance carries nothing of its own — which is exactly what
+        // a browser shows, and why Object.keys() answered the empty array there all along.
         foreach (var instance in new[] { "crypto", "crypto.subtle", "performance" })
         {
-            engine.Evaluate($"Object.getPrototypeOf({instance}) === Object.prototype")
-                .AsBoolean().Should().BeTrue(instance);
+            engine.Evaluate($"Object.getOwnPropertyNames({instance}).length")
+                .AsNumber().Should().Be(0, instance);
         }
 
-        // What a script can observe of that is still what a browser shows, because there the members live one
-        // level up on the prototype.
         engine.Evaluate("Object.keys(crypto).length + Object.keys(performance).length").AsNumber().Should().Be(0);
 
         // And the members themselves are all there.

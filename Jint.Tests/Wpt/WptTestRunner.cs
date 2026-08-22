@@ -130,16 +130,6 @@ public class WptTestRunner
         // Crash reproductions rather than assertions, the same reason WebCryptoAPI's crashtests are out.
         ("streams/*/crashtests/*", "a crashtest rather than an assertion"),
 
-        // The file reads ReadableByteStreamController.prototype and calls `new ReadableStreamBYOBRequest(…)`
-        // at file scope. Neither interface object is a global in Jint — the documented reduction is that only
-        // the five interfaces a script constructs by name are installed (README.md, "Streams, including byte
-        // streams") — so the file throws a ReferenceError before registering a single test. A harness error is
-        // for the whole file and no per-test exclusion can name it, which is what puts this row here rather
-        // than in the exclusion table beside default-reader.any.js's seven rows, which fail for the same
-        // reason but inside test bodies.
-        ("streams/readable-byte-streams/construct-byob-request.any.js",
-            "reads the interface objects as globals at file scope; Jint installs only the five constructible ones"),
-
         // ---------------------------------------------------------------- compression
         // Both fetch a binary fixture out of wpt's `/media/` directory — a 384 kB WebM and, for the second,
         // a WebVTT file as well — and read it back with `response.arrayBuffer()` / `response.bytes()`. The
@@ -154,9 +144,8 @@ public class WptTestRunner
         // `reader.read()` settles only if the trailing byte errors the stream. It does not here — that is the
         // second of the two divergences DecompressionCodec documents (see WptDivergence.NeedsIncrementalInflater)
         // — so the read waits for input that cannot arrive and the *file* stalls rather than any test failing.
-        // A stalled run is a harness error for the whole file, which no per-test exclusion can name, exactly
-        // as streams/readable-byte-streams/construct-byob-request.any.js is. The divergence itself is still
-        // asserted, by decompression-corrupt-input.any.js's six excluded rows.
+        // A stalled run is a harness error for the whole file, which no per-test exclusion can name. The
+        // divergence itself is still asserted, by decompression-corrupt-input.any.js's six excluded rows.
         ("compression/decompression-extra-input.any.js",
             "hangs on the trailing-byte divergence rather than failing a test"),
 
@@ -217,18 +206,27 @@ public class WptTestRunner
         // worse than no test, which is why this is a not-vendored row and not an exclusion.
         ("workers/interfaces/WorkerGlobalScope/location/*", "would assert the shim's own stub location"),
 
-        // The module-worker corpus, and the one row here that is a finding rather than a decision. Every one of
-        // the nine worker scripts import-test-cases.js drives opens with
-        // `if ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope)` and installs
-        // its onmessage handler *inside* that branch. Jint ships no DedicatedWorkerGlobalScope interface object
-        // (the design's divergence #5, ruled together with #3195 — an interface object without the prototype
-        // chain would make `instanceof` lie), so no branch is taken, no handler is installed, the worker never
-        // answers, and all nine promise_tests hang: a harness error for the whole file with no test to name.
-        // The sniff is in the fixture rather than in an assertion, which is exactly why no per-test exclusion
-        // can express it. What the file would have proved about module loading in a worker — static, nested,
-        // dynamic, and the two orders of the pair — is proved instead by WorkerMechanismTests' module pins.
-        // The blob-url and data-url siblings need URL.createObjectURL and a data: module loader on top of that.
-        ("workers/modules/*", "the fixtures sniff DedicatedWorkerGlobalScope, which Jint deliberately does not expose"),
+        // The module-worker corpus is vendored now: sebastienros/jint#3195 gave the worker global a real
+        // DedicatedWorkerGlobalScope prototype chain, so the sniff every one of the nine fixtures opens with —
+        // `if ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope)` — takes the
+        // branch that installs its onmessage handler, and the file answers instead of hanging. What stays out
+        // is only what needs a wpt server. Two of the nine cases name one of these, and reach the test's own
+        // onerror path rather than stalling, so they are named individually in the exclusion table.
+        ("workers/modules/*.sub.js", "needs wptserve substitution for a cross-origin import"),
+        ("workers/modules/resources/*.py", "a wptserve handler: a redirect, a credentials echo, a referrer echo"),
+        ("workers/modules/resources/static-import-redirect-worker.js", "imports through redirect.py, a wptserve handler"),
+
+        // The rest of the directory. `.window.js` and `.html` are a browsing context, the shared-worker files
+        // need a SharedWorker, and the blob-url and data-url siblings need URL.createObjectURL and a data:
+        // module loader on top of that.
+        ("workers/modules/*.window.js", "drives a window; there is no browsing context here"),
+        ("workers/modules/shared-worker-*", "SharedWorker is not implemented"),
+        ("workers/modules/dedicated-worker-import-blob-url.any.js", "needs URL.createObjectURL"),
+        ("workers/modules/dedicated-worker-import-data-url.any.js", "needs a data: module loader"),
+        ("workers/modules/resources/*data-url*", "needs a data: module loader"),
+        ("workers/modules/resources/*block-cross-origin*", "needs a second origin"),
+        ("workers/modules/resources/*credentials-checker*", "needs a wptserve credentials handler"),
+        ("workers/modules/resources/*referrer-checker*", "needs a wptserve referrer handler"),
 
         // ---------------------------------------------------------------- hr-time and user-timing
         // The file reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide whether to
@@ -237,7 +235,7 @@ public class WptTestRunner
         // exclusion can name. The rows that reach for an observer from inside a test body are excluded one by
         // one instead, under WptDivergence.NeedsPerformanceObserver.
         ("user-timing/supported-usertiming-types.any.js",
-            "reads PerformanceObserver at file scope; PerformanceInstance documents declining the observer"),
+            "reads PerformanceObserver at file scope; PerformancePrototype documents declining the observer"),
 
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
@@ -398,6 +396,7 @@ public class WptTestRunner
         ["streams/readable-streams/templated.any.js"] = 81,
 
         ["streams/readable-byte-streams/bad-buffers-and-views.any.js"] = 21,
+        ["streams/readable-byte-streams/construct-byob-request.any.js"] = 16,
         ["streams/readable-byte-streams/enqueue-with-detached-buffer.any.js"] = 1,
         ["streams/readable-byte-streams/general.any.js"] = 90,
         ["streams/readable-byte-streams/non-transferable-buffers.any.js"] = 4,
@@ -503,6 +502,7 @@ public class WptTestRunner
         ["workers/WorkerNavigator-hardware-concurrency.any.js"] = 1,
         ["workers/WorkerNavigator.any.js"] = 1,
         ["workers/interfaces/WorkerGlobalScope/self.any.js"] = 4,
+        ["workers/modules/dedicated-worker-import.any.js"] = 9,
         ["workers/semantics/multiple-workers/exposure.any.js"] = 2,
 
         ["encoding/single-byte-decoder.any.js"] = 330,
@@ -718,6 +718,7 @@ public class WptTestRunner
         // ---------------------------------------------------------------- WebCryptoAPI
         // Jint has no scheme and therefore no secure-context bit; the file's third test passes anyway.
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to crypto.subtle", WptDivergence.NeedsSecureContextModel),
+        new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to SubtleCrypto", WptDivergence.NeedsSecureContextModel),
         new("WebCryptoAPI/historical.any.js", "Non-secure context window does not have access to CryptoKey", WptDivergence.NeedsSecureContextModel),
 
         // The nine typed-array rows of "Large length" used to sit here: each asks for the QuotaExceededError
@@ -864,26 +865,10 @@ public class WptTestRunner
         new("WebCryptoAPI/import_export/ec_importKey_failures_ECDSA.https.any.js", "Bad usages: *apsulate*", WptDivergence.NeedsKeyEncapsulation),
 
         // ---------------------------------------------------------------- streams
-        // Seven rows of one file, each reaching for the `ReadableStreamDefaultReader` global. Named one at a
-        // time rather than globbed: the file's other 22 rows obtain the same interface as
-        // `stream.getReader().constructor` and pass, and two of these seven do reach an assertion — they fail
-        // it with "expected TypeError but got object ReferenceError" rather than with a bare ReferenceError,
-        // which is what a glob over the name would have hidden.
-        new("streams/readable-streams/default-reader.any.js",
-            "ReadableStreamDefaultReader constructor should get a ReadableStream object as argument", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "ReadableStreamDefaultReader closed should always return the same promise object", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Getting a ReadableStreamDefaultReader via getReader should fail if the stream is already locked (via direct construction)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should fail if the stream is already locked (via getReader)", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is closed", WptDivergence.NeedsStreamInterfaceGlobals),
-        new("streams/readable-streams/default-reader.any.js",
-            "Constructing a ReadableStreamDefaultReader directly should be OK if the stream is errored", WptDivergence.NeedsStreamInterfaceGlobals),
-
+        // Nothing about interface-object exposure any more: sebastienros/jint#3195 installs all thirteen of the
+        // Streams Standard's interfaces as globals, which turned default-reader.any.js's seven
+        // NeedsStreamInterfaceGlobals rows green and made construct-byob-request.any.js vendorable.
+        //
         // The whole file: it obtains a non-transferable ArrayBuffer from WebAssembly.Memory, which is the only
         // way to get one, so every row fails in the fixture rather than in the code under test. The engine's
         // own refusal of a detached or non-transferable buffer is covered by bad-buffers-and-views.any.js and
@@ -920,15 +905,12 @@ public class WptTestRunner
         // (sebastienros/jint#3209). Vendor/README.md keeps both accounts.
 
         // ---------------------------------------------------------------- workers
-        // Six rows, five of them one decision family and none of them a surprise: the worker global is the
-        // global the engine already builds plus the worker names, and these are the names it deliberately does
-        // not add. Each is a numbered divergence in the design — see WptDivergence.NeedsDeclinedWorkerGlobals
-        // for the three citations. That is the whole of what this corpus found to be missing, which is the
-        // useful figure: everything else it asks of a worker global passes.
-        new("workers/Worker-replace-self.any.js",
-            "Test that self is not replaceable.", WptDivergence.NeedsDeclinedWorkerGlobals),
-        new("workers/interfaces/WorkerGlobalScope/self.any.js",
-            "self instanceof WorkerGlobalScope", WptDivergence.NeedsDeclinedWorkerGlobals),
+        // Three rows of one decision family and none of them a surprise: the worker global is the global the
+        // engine already builds plus the worker names, and these are the names it deliberately does not add.
+        // Each is a numbered divergence in the design — see WptDivergence.NeedsDeclinedWorkerGlobals for the
+        // citations. The interface objects that used to head this list are gone from it:
+        // sebastienros/jint#3195 gave the worker global a real DedicatedWorkerGlobalScope.prototype chain, so
+        // `self instanceof WorkerGlobalScope` passes on its own merits.
         new("workers/Worker-constructor-proto.any.js",
             "Tests that setting the proto of a built in constructor is not reset.", WptDivergence.NeedsDeclinedWorkerGlobals),
         new("workers/WorkerNavigator.any.js",
@@ -941,12 +923,27 @@ public class WptTestRunner
         // absent outside a window and passes.
         new("workers/semantics/multiple-workers/exposure.any.js", "Worker exposure", WptDivergence.NeedsWorkerNesting),
 
+        // Two of the nine module-worker cases, and the only two: one imports from a second origin through a
+        // `.sub.js` fixture wptserve would have substituted a host into, the other imports through
+        // `redirect.py`. Neither fixture is vendored, so the worker's module loader refuses the specifier and
+        // the parent hears the startup failure as an `error` event — which is the file's own reject path, so
+        // these fail as tests rather than hanging the file. The other seven — static, nested static, dynamic,
+        // nested dynamic, both orders of the mixed pair, and eval(import()) — pass.
+        new("workers/modules/dedicated-worker-import.any.js", "Static import (cross-origin).", WptDivergence.NeedsWptServer),
+        new("workers/modules/dedicated-worker-import.any.js", "Static import (redirect).", WptDivergence.NeedsWptServer),
+
         // The one genuine defect this corpus found, and it is not in the worker code: `self` is installed once
         // for every global as a writable data property, against Window's [Replaceable] definition, and
         // WorkerGlobalScope's is read-only. Recorded rather than fixed — the install predates Worker and is
-        // shared with the top-level lane, so moving it is not a change this corpus gets to make. See
-        // WptDivergence.NeedsTriage.
+        // shared with the top-level lane, so moving it is not a change this corpus gets to make. Filed as
+        // https://github.com/sebastienros/jint/issues/3224; see WptDivergence.NeedsTriage.
+        //
+        // Worker-replace-self.any.js's one row is the same defect seen from the other side: it assigns to
+        // `self` and then asserts `self instanceof WorkerGlobalScope`. The interface object exists now
+        // (sebastienros/jint#3195), so what is left failing is only the writable assignment — once #3224 makes
+        // `self` read-only on a worker global, both rows go.
         new("workers/interfaces/WorkerGlobalScope/self.any.js", "self = 1", WptDivergence.NeedsTriage),
+        new("workers/Worker-replace-self.any.js", "Test that self is not replaceable.", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- encoding, the XMLHttpRequest half
         // The file runs each single-byte decoder twice: once through TextDecoder over a locally built
@@ -1089,16 +1086,31 @@ public class WptTestRunner
     /// worker</b> — see <see cref="WptHarness.RunsInAWorker"/> for the rule and <c>Vendor/README.md</c> for the
     /// twenty upstream files that cannot be reached at all.
     /// </summary>
+    /// <summary>
+    /// The <c>workers/</c> files that deliberately run in the <b>top-level</b> lane, because their subject is a
+    /// page creating workers rather than the worker global itself. They carry no <c>// META: global=</c> key,
+    /// which is what <see cref="WptHarness.RunsInAWorker"/> reads, and they get a
+    /// <see cref="WptWorkerProvider"/> in the parent engine so the workers they create are real ones running
+    /// vendored corpus modules.
+    /// </summary>
+    private static readonly string[] _topLevelWorkersFiles =
+    [
+        "workers/modules/dedicated-worker-import.any.js",
+    ];
+
     private static readonly string[] _workersSuites =
     [
         "workers",
         "workers/interfaces/WorkerGlobalScope",
+        "workers/modules",
         "workers/semantics/multiple-workers",
     ];
 
     public static IEnumerable<object[]> WorkersSuiteFiles() => Cases("workers");
 
     public static IEnumerable<object[]> WorkerGlobalScopeSuiteFiles() => Cases("workers/interfaces/WorkerGlobalScope");
+
+    public static IEnumerable<object[]> WorkerModulesSuiteFiles() => Cases("workers/modules");
 
     public static IEnumerable<object[]> MultipleWorkersSuiteFiles() => Cases("workers/semantics/multiple-workers");
 
@@ -1244,6 +1256,10 @@ public class WptTestRunner
     [Theory]
     [MemberData(nameof(WorkerGlobalScopeSuiteFiles))]
     public void RunsTheWorkerGlobalScopeSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(WorkerModulesSuiteFiles))]
+    public void RunsTheWorkerModulesSuite(string file) => RunSuiteFile(file);
 
     [Theory]
     [MemberData(nameof(MultipleWorkersSuiteFiles))]
@@ -1472,6 +1488,14 @@ public class WptTestRunner
     /// covered by the same walk, which is what says the lane cannot widen: the directory clause is the reason
     /// no previously vendored suite can move, and this is the check that it stays the reason.
     /// </para>
+    /// <para>
+    /// <see cref="_topLevelWorkersFiles"/> is the one carve-out, and it is the second half of the rule rather
+    /// than an exemption from it: a <c>workers/</c> file with no <c>// META: global=</c> key at all is a file
+    /// about a <i>page</i> creating workers, which is exactly what the second problem above describes. Such a
+    /// file runs in the top-level lane and creates real workers from there — <c>WptHarness.Execute</c> gives a
+    /// <c>workers/</c> directory a <see cref="WptWorkerProvider"/> for it — so naming it here says which files
+    /// are meant to, and a corpus bump that adds another has to say so too.
+    /// </para>
     /// </remarks>
     [Fact]
     public void EveryWorkerLaneFileIsAWorkersFile()
@@ -1498,7 +1522,7 @@ public class WptTestRunner
             {
                 problems.Add($"{path} would run inside a worker, but only the workers/ corpus is meant to");
             }
-            else if (inWorkersDirectory && !runsInAWorker)
+            else if (inWorkersDirectory && !runsInAWorker && !Array.Exists(_topLevelWorkersFiles, f => string.Equals(f, path, StringComparison.Ordinal)))
             {
                 problems.Add($"{path} is a workers/ file that would run in the top-level engine, where it "
                     + "would assert nothing about a worker");

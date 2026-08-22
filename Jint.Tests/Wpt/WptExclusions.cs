@@ -62,21 +62,12 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
-    /// The test names one of the three globals HTML gives a worker and Jint's worker global scope
+    /// The test names one of the two globals HTML gives a worker and Jint's worker global scope
     /// <b>deliberately does not add</b>. They are one decision, taken together and for one reason — the worker
     /// global is the global the engine already builds plus the worker names, and a name it cannot back with the
     /// object HTML says is behind it is not faked:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// <b><c>WorkerGlobalScope</c> and <c>DedicatedWorkerGlobalScope</c></b>
-    /// (https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface). The worker
-    /// global is not an <c>EventTarget</c> and has no such prototype chain, so an interface object would make
-    /// <c>self instanceof WorkerGlobalScope</c> answer <see langword="false"/> while the constructor was
-    /// nevertheless reachable — an <c>instanceof</c> that lies. Absence is the coherent half of that pair, and
-    /// it is the same ruling as https://github.com/sebastienros/jint/issues/3195 took for <c>Crypto</c>,
-    /// <c>SubtleCrypto</c> and <c>Performance</c>.
-    /// </description></item>
     /// <item><description>
     /// <b><c>location</c> and <c>WorkerLocation</c></b>
     /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-location). A worker's script
@@ -93,9 +84,15 @@ internal enum WptDivergence
     /// </description></item>
     /// </list>
     /// <para>
-    /// All three are numbered divergences (5, 6 and 7) in the ledger of
+    /// Both are numbered divergences (6 and 7) in the ledger of
     /// https://github.com/sebastienros/jint/issues/3167, so these entries are that ledger asserted rather than
-    /// merely written down.
+    /// merely written down. Divergence 5 — no <c>WorkerGlobalScope</c> or <c>DedicatedWorkerGlobalScope</c>
+    /// interface object — used to head this list and is <b>closed</b>:
+    /// https://github.com/sebastienros/jint/issues/3195 gave the worker global a real
+    /// <c>DedicatedWorkerGlobalScope.prototype</c> chain, so <c>self instanceof WorkerGlobalScope</c> is
+    /// answered by walking it. The one link the chain still declines is <c>EventTarget</c>, and it is declined
+    /// for this list's own reason: the worker global is not one, so claiming it would be an <c>instanceof</c>
+    /// that lies.
     /// </para>
     /// </summary>
     NeedsDeclinedWorkerGlobals,
@@ -189,28 +186,14 @@ internal enum WptDivergence
 
     /// <summary>
     /// The test asserts what a <b>non-secure</b> context sees, which Jint has no way to be: it has no scheme,
-    /// no origin and therefore no secure-context bit, and <c>crypto.subtle</c> is simply there once the
-    /// feature is enabled. Upstream runs <c>historical.any.js</c> over plain http for exactly the property it
-    /// asserts, so this is the corpus meeting an environment it was not written for rather than a gap to
-    /// close. Note the file's third test passes on its own merits: Jint exposes no <c>SubtleCrypto</c>
-    /// constructor either way.
+    /// no origin and therefore no secure-context bit, so <c>crypto.subtle</c>, the <c>SubtleCrypto</c>
+    /// interface object and <c>CryptoKey</c> are all simply there once the feature is enabled. Upstream runs
+    /// <c>historical.any.js</c> over plain http for exactly the property it asserts, so this is the corpus
+    /// meeting an environment it was not written for rather than a gap to close. All three of the file's tests
+    /// are here now: the <c>SubtleCrypto</c> row used to pass because there was no such interface object at
+    /// all, and sebastienros/jint#3195 installed it because WinterTC's Minimum Common API §5.1 lists it.
     /// </summary>
     NeedsSecureContextModel,
-
-    /// <summary>
-    /// The test names one of the Streams Standard's interface objects as a <b>global</b>. Jint installs only
-    /// the five a script constructs by name — <c>ReadableStream</c>, <c>WritableStream</c>,
-    /// <c>TransformStream</c>, <c>ByteLengthQueuingStrategy</c>, <c>CountQueuingStrategy</c> — and leaves the
-    /// readers, the writer, the four controllers and <c>ReadableStreamBYOBRequest</c> reachable only as
-    /// <c>Object.getPrototypeOf(stream.getReader()).constructor</c> and its siblings, which is where an
-    /// <c>instanceof</c> check and a prototype patch go. That reduction is documented on
-    /// <c>ReadableStreamDefaultReaderConstructor</c> and in <c>README.md</c>; a browser exposes all of them,
-    /// so this is a deliberate difference rather than a gap the corpus discovered. The whole of
-    /// <c>construct-byob-request.any.js</c> is out for it (it reads two of them at file scope, so there is no
-    /// test left to exclude) and seven rows of <c>default-reader.any.js</c> are named individually — the other
-    /// 22 rows of that file obtain the interface through the prototype chain and pass.
-    /// </summary>
-    NeedsStreamInterfaceGlobals,
 
     /// <summary>
     /// <para>
@@ -243,7 +226,7 @@ internal enum WptDivergence
     NeedsIncrementalInflater,
 
     /// <summary>
-    /// The test needs <c>PerformanceObserver</c>. <c>PerformanceInstance</c> names it first in the list of
+    /// The test needs <c>PerformanceObserver</c>. <c>PerformancePrototype</c> names it first in the list of
     /// what it does not implement — "<c>PerformanceObserver</c> and everything that reports to one,
     /// <c>toJSON</c>, <c>setResourceTimingBufferSize</c> and the resource-timing surface" — and says why it is
     /// <i>absent</i> rather than present-and-throwing: so that a script's own feature detection sees the truth.
@@ -256,11 +239,14 @@ internal enum WptDivergence
 
     /// <summary>
     /// The test dispatches an event at the <c>performance</c> object. <c>Performance</c> inherits from
-    /// <c>EventTarget</c> in https://w3c.github.io/hr-time/#sec-performance, and
-    /// <c>PerformanceInstance</c> lists that inheritance in the same paragraph as the observer above: there is
-    /// no <c>Performance</c> interface object and no prototype here, the members are own properties of one
-    /// object, and nothing in the specification's event surface (<c>resourcetimingbufferfull</c>) has anything
-    /// to fire. One row of <c>hr-time/basic.any.js</c>; its other four pass.
+    /// <c>EventTarget</c> in https://w3c.github.io/hr-time/#sec-performance, and Jint's does not: the
+    /// interface object and its prototype are real (sebastienros/jint#3195), but
+    /// <c>Performance.prototype</c>'s own <c>[[Prototype]]</c> is <c>%Object.prototype%</c> rather than
+    /// <c>EventTarget.prototype</c>. <c>PerformanceConstructor</c> records why — nothing here fires an event
+    /// at the object, the specification's whole event surface for it is
+    /// <c>resourcetimingbufferfull</c>, and claiming the inheritance would make
+    /// <c>performance instanceof EventTarget</c> true while <c>addEventListener</c> failed its brand check.
+    /// One row of <c>hr-time/basic.any.js</c>; its other four pass.
     /// </summary>
     NeedsPerformanceEventTarget,
 
@@ -271,7 +257,12 @@ internal enum WptDivergence
     /// fails saying so. Whole files whose every test does this are not vendored; these entries are the rows
     /// that sit inside a file which is otherwise about something else — the <c>(XMLHttpRequest)</c> half of
     /// <c>encoding/single-byte-decoder.any.js</c>, whose <c>(TextDecoder)</c> half tests the same decoders and
-    /// passes.
+    /// passes, and two of the nine cases of <c>workers/modules/dedicated-worker-import.any.js</c>, whose
+    /// fixtures are a <c>.sub.js</c> worker importing from a second origin and a worker importing through
+    /// <c>redirect.py</c>. Those two reach the file's own <c>onerror</c> reject path — the worker's module
+    /// loader refuses a specifier the vendored corpus does not hold, which the parent hears as an
+    /// <c>error</c> event — so they fail as tests rather than stalling the file, which is what lets the other
+    /// seven run.
     /// </summary>
     NeedsWptServer,
 

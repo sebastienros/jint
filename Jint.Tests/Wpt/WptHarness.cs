@@ -369,13 +369,30 @@ internal static class WptHarness
     /// <summary>
     /// The soonest any of the engines has work, or <see langword="null"/> when none of them has any.
     /// </summary>
-    private static TimeSpan? NextDue(Engine parent, WptWorkerProvider provider)
+    /// <remarks>
+    /// <c>Advanced.TimeUntilNextScheduledWork</c> rather than the internal
+    /// <c>TimeUntilNextPumpScheduledWork()</c>, and the difference is what makes a two-engine loop terminate
+    /// for the right reason: the internal one answers about <i>clocks</i> alone — timers and
+    /// <c>Atomics.waitAsync</c> deadlines — and deliberately says nothing about a queue, because the engine's
+    /// own wait loops clamp on it from inside a job where the queue is unrunnable. Here the queue is exactly
+    /// the thing that matters: a message crossing from a worker to its parent enqueues on the parent with no
+    /// due time at all, so a round that pumped the worker last would report "nothing is left to pump" while
+    /// the answer sat in the parent's queue. The public property reports <c>TimeSpan.Zero</c> for anything
+    /// already queued, which is the loop's cue to go round again. For a suite with no workers the two agree:
+    /// <c>ProcessTasks</c> has just drained the one engine there is.
+    /// </remarks>
+    private static TimeSpan? NextDue(Engine parent, WptWorkerProvider? provider)
     {
-        var soonest = parent.TimeUntilNextPumpScheduledWork();
+        var soonest = parent.Advanced.TimeUntilNextScheduledWork;
+
+        if (provider is null)
+        {
+            return soonest;
+        }
 
         foreach (var connection in provider.Live.ToArray())
         {
-            if (connection.Worker.TimeUntilNextPumpScheduledWork() is not { } due)
+            if (connection.Worker.Advanced.TimeUntilNextScheduledWork is not { } due)
             {
                 continue;
             }
@@ -402,7 +419,16 @@ internal static class WptHarness
     private static WptRunOutcome Execute(string directory, List<string> metaScripts, string source, string sourceName)
     {
         var sink = new WptDiagnosticsSink();
-        var engine = BuildEngine(directory, sink);
+
+        // A workers/ file that is not run *in* a worker is a file about creating one — which in the vendored
+        // corpus is workers/modules/dedicated-worker-import.any.js and nothing else. It gets a provider whose
+        // workers run vendored corpus modules; every other suite gets the engine it has always run on, with no
+        // Worker global at all. The two halves of that rule are the two arguments to RunsInAWorker.
+        var workers = directory.StartsWith("workers/", StringComparison.Ordinal) || directory == "workers"
+            ? new WptWorkerProvider(moduleSource: null, directory, sink)
+            : null;
+
+        var engine = BuildEngine(directory, sink, workers);
 
         try
         {
@@ -420,7 +446,7 @@ internal static class WptHarness
             // Pump to completion first and read afterwards: the shim records a test's outcome when it
             // finishes, so reading before the drive loop has run would report every async test as NOTRUN.
             var stalled = Outstanding(engine) is { } outstanding
-                ? Pump(engine, outstanding)
+                ? Pump(engine, outstanding, workers)
                 : "the harness shim did not install __wpt";
             return new WptRunOutcome(ReadResults(engine), stalled ?? UndeclaredCallbackErrors(engine, sink));
         }
@@ -505,9 +531,10 @@ internal static class WptHarness
             // reports are recorded rather than discarded.
             options.WebApi.Diagnostics.Sink = sink;
 
-            // Only for the worker lane, and only then: an engine that no vendored file asks to create a worker
-            // from is byte-for-byte the engine every other suite has always run on. `Worker` is absent without
-            // both the flag and a provider, which UseWorkers sets together.
+            // Only for a file in the workers/ corpus — the worker lane's parent, and the one top-level file
+            // that creates workers of its own. An engine that no vendored file asks to create a worker from is
+            // byte-for-byte the engine every other suite has always run on: `Worker` is absent without both
+            // the flag and a provider, which UseWorkers sets together.
             if (workers is not null)
             {
                 options.UseWorkers(workers);
@@ -577,13 +604,26 @@ internal static class WptHarness
     /// timer settles, and it made the loop declare a run stalled whose last test had just finished, on a
     /// machine loaded enough for the timer to come due inside the check.
     /// </remarks>
-    private static string? Pump(Engine engine, ObjectInstance outstanding)
+    private static string? Pump(Engine engine, ObjectInstance outstanding, WptWorkerProvider? workers = null)
     {
         var started = Stopwatch.GetTimestamp();
 
         while (!IsComplete(outstanding))
         {
             engine.Advanced.ProcessTasks();
+
+            // The same cooperative rule the worker lane's loop uses, and for the same reason: a message
+            // crossing between two engines only *enqueues* on the receiver, so a round that changed anything
+            // is followed by another round that sees it. A copy, because a worker that ends while being
+            // pumped removes itself from the live list.
+            if (workers is not null)
+            {
+                foreach (var connection in workers.Live.ToArray())
+                {
+                    connection.Worker.Advanced.ProcessTasks();
+                }
+            }
+
             if (IsComplete(outstanding))
             {
                 return null;
@@ -592,7 +632,7 @@ internal static class WptHarness
             // Nothing is queued and the engine has scheduled nothing for itself, so no amount of pumping can
             // change the answer: a test is waiting on something that will never arrive. Reporting that at
             // once beats waiting out the deadline to say the same thing.
-            if (engine.TimeUntilNextPumpScheduledWork() is not { } untilDue)
+            if (NextDue(engine, workers) is not { } untilDue)
             {
                 return Stalled(outstanding, "nothing is left to pump");
             }

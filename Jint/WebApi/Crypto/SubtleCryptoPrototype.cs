@@ -11,7 +11,8 @@ using Jint.WebApi.Encoding;
 namespace Jint.WebApi.Crypto;
 
 /// <summary>
-/// The object <c>crypto.subtle</c> answers with — an instance of the <c>SubtleCrypto</c> interface.
+/// <c>SubtleCrypto.prototype</c> — the interface prototype object, and where all twelve operations
+/// <c>crypto.subtle</c> answers with live.
 /// <para>
 /// https://w3c.github.io/webcrypto/#subtlecrypto-interface
 /// </para>
@@ -85,19 +86,20 @@ namespace Jint.WebApi.Crypto;
 /// works, and the value arrives on the microtask turn a <c>then</c> would give it.
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL, both of which <c>console</c>, <c>crypto</c> and
-/// <c>performance</c> carry too. There is no <c>SubtleCrypto</c> interface object and no
-/// <c>SubtleCrypto.prototype</c>, so the operations and the <c>@@toStringTag</c> are own properties of this
-/// object with the attributes an ECMAScript built-in method has rather than those of a WebIDL interface
-/// prototype's operations; <c>Object.keys(crypto.subtle)</c> answers the empty array here exactly as it does
-/// in a browser, where the operations live one level up. And <c>[SecureContext]</c> has no meaning for an
-/// embedded engine — there is no origin, no transport and no browsing context — so the operations are
-/// exposed unconditionally, which is the same reading Node and workerd take.
+/// One documented simplification against WebIDL, which every prototype in this assembly carries: the
+/// operations are non-enumerable where an interface prototype object's are enumerable.
+/// <c>Object.keys(crypto.subtle)</c> answers the empty array here exactly as it does in a browser, because
+/// there too the operations live one level up. And <c>[SecureContext]</c> has no meaning for an embedded
+/// engine — there is no origin, no transport and no browsing context — so the operations are exposed
+/// unconditionally, which is the same reading Node and workerd take.
 /// </para>
 /// </remarks>
-[JsObject]
-internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
+[JsObject(UseShape = true)]
+internal sealed partial class SubtleCryptoPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
+    private readonly SubtleCryptoConstructor _constructor;
+
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString SubtleCryptoToStringTag = new("SubtleCrypto");
 
@@ -114,12 +116,14 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
         .Add("publicKey")
         .Build();
 
-    private readonly Realm _realm;
-
-    internal SubtleCryptoInstance(Engine engine, Realm realm, ObjectPrototype objectPrototype) : base(engine)
+    internal SubtleCryptoPrototype(
+        Engine engine,
+        Realm realm,
+        SubtleCryptoConstructor constructor,
+        ObjectPrototype objectPrototype) : base(engine, realm)
     {
-        _realm = realm;
         _prototype = objectPrototype;
+        _constructor = constructor;
     }
 
     protected override void Initialize()
@@ -1196,7 +1200,7 @@ internal sealed partial class SubtleCryptoInstance : BuiltinShapeObject
 
         try
         {
-            if (thisObject is not SubtleCryptoInstance)
+            if (thisObject is not JsSubtleCrypto)
             {
                 Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a SubtleCrypto object.");
             }
