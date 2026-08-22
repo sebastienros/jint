@@ -73,7 +73,7 @@ public class SerializationRecordTests
     [Fact]
     public void HoldsNothingEngineAffineForARichGraph()
     {
-        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging));
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging | WebApiFeatures.Files));
 
         // One value of every shape the serializer recognizes, plus a cycle and a shared reference.
         var value = engine.Evaluate("""
@@ -92,7 +92,10 @@ public class SerializationRecordTests
                     map: new Map([['k', shared]]),
                     set: new Set([shared, 1]),
                     error: new TypeError('bad'),
+                    causedError: new RangeError('caused', { cause: shared }),
                     domException: new DOMException('nope', 'AbortError'),
+                    blob: new Blob(['bytes'], { type: 'text/plain' }),
+                    file: new File(['bytes'], 'name.txt', { type: 'text/plain', lastModified: 1 }),
                     array: [1, shared],
                     shared: shared
                 };

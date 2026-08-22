@@ -21,6 +21,16 @@ public class StructuredCloneTests
 
     private static string Err(Engine engine, string body) => engine.Evaluate("err(function() { " + body + " })").AsString();
 
+    /// <summary>
+    /// The same engine plus the File API, for the <c>Blob</c> and <c>File</c> serialization steps.
+    /// </summary>
+    private static Engine FileEngine()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone | WebApiFeatures.Files));
+        engine.Execute("function err(f) { try { f(); return 'no error'; } catch (e) { return e.name; } }");
+        return engine;
+    }
+
     // ---------------------------------------------------------------- the function itself
 
     [Fact]
@@ -488,13 +498,13 @@ public class StructuredCloneTests
     }
 
     [Fact]
-    public void CarriesOnlyTheErrorsNameMessageAndStack()
+    public void CarriesOnlyTheErrorsNameMessageCauseAndStack()
     {
         var engine = WebEngine();
 
         engine.Execute("var source = new TypeError('boom'); source.extra = 'dropped'; var clone = structuredClone(source);");
 
-        // An Error's serialization does not set `deep`, so nothing but the three recorded fields survives.
+        // An Error's serialization walks no property list, so nothing but the four recorded fields survives.
         engine.Evaluate("clone.extra === undefined").AsBoolean().Should().BeTrue();
 
         // `message` comes back as a writable, non-enumerable, configurable own property.
@@ -526,6 +536,123 @@ public class StructuredCloneTests
             var accessorClone = structuredClone(source);");
         engine.Evaluate("invoked").AsBoolean().Should().BeFalse();
         engine.Evaluate("Object.getOwnPropertyDescriptor(accessorClone, 'message') === undefined").AsBoolean().Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Error")]
+    [InlineData("EvalError")]
+    [InlineData("RangeError")]
+    [InlineData("ReferenceError")]
+    [InlineData("SyntaxError")]
+    [InlineData("TypeError")]
+    [InlineData("URIError")]
+    public void CarriesTheErrorsCause(string name)
+    {
+        var engine = WebEngine();
+
+        engine.Execute($"var source = new {name}('Error message here', {{ cause: 'my cause' }}); source.foo = 'testing'; var clone = structuredClone(source);");
+
+        engine.Evaluate("clone.cause").AsString().Should().Be("my cause");
+        engine.Evaluate("clone.name").AsString().Should().Be(name);
+        engine.Evaluate("clone.message").AsString().Should().Be("Error message here");
+
+        // A property the script put there itself is still not carried: `cause` rides the error's own
+        // serialization, not a property walk.
+        engine.Evaluate("clone.foo === undefined").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void GivesTheCloneNoCauseWhenTheSourceHasNone()
+    {
+        var engine = WebEngine();
+
+        // `new Error(message)` installs no `cause` at all, and neither does Error.prototype, so the clone
+        // must not invent one — `'cause' in clone` stays false rather than becoming a property holding
+        // undefined.
+        engine.Execute("var clone = structuredClone(new Error('boom'));");
+        engine.Evaluate("'cause' in clone").AsBoolean().Should().BeFalse();
+        engine.Evaluate("clone.cause === undefined").AsBoolean().Should().BeTrue();
+
+        // An explicit `undefined` cause is a property, and survives as one.
+        engine.Execute("var explicitClone = structuredClone(new Error('boom', { cause: undefined }));");
+        engine.Evaluate("'cause' in explicitClone").AsBoolean().Should().BeTrue();
+        engine.Evaluate("explicitClone.cause === undefined").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void GivesTheCauseTheAttributesTheLanguageWouldHave()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("var clone = structuredClone(new Error('boom', { cause: 'why' }));");
+
+        // InstallErrorCause uses CreateNonEnumerableDataPropertyOrThrow, so an error the engine built has a
+        // writable, non-enumerable, configurable own `cause`; the clone has to look the same.
+        engine.Evaluate("Object.keys(clone).length").AsNumber().Should().Be(0);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(clone, 'cause').enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(clone, 'cause').writable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(clone, 'cause').configurable").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void SubSerializesTheCauseThroughTheOneMemoryMap()
+    {
+        var engine = WebEngine();
+
+        engine.Execute(@"
+            var payload = { a: 1 };
+            var source = new Error('boom', { cause: payload });
+            var clone = structuredClone({ e: source, p: payload });");
+
+        // The cause is cloned rather than shared ...
+        engine.Evaluate("clone.e.cause !== payload").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.e.cause.a").AsNumber().Should().Be(1);
+
+        // ... and it went through the same memory map as everything else, so one source object is still one
+        // clone however many places reach it.
+        engine.Evaluate("clone.e.cause === clone.p").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void TerminatesOnAnErrorThatIsItsOwnCause()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("var source = new Error('boom'); source.cause = source; var clone = structuredClone(source);");
+
+        engine.Evaluate("clone !== source").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.cause === clone").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void RefusesAnUncloneableCause()
+    {
+        var engine = WebEngine();
+
+        Err(engine, "structuredClone(new Error('boom', { cause: function() {} }))").Should().Be("DataCloneError");
+        Err(engine, "structuredClone(new Error('boom', { cause: Symbol() }))").Should().Be("DataCloneError");
+    }
+
+    [Fact]
+    public void ReadsCauseAsAnOwnDataPropertyOnly()
+    {
+        var engine = WebEngine();
+
+        // Exactly what `message` does: an accessor is not invoked, and an inherited `cause` is not an own
+        // one, so neither reaches the clone.
+        engine.Execute(@"
+            var invoked = false;
+            var source = new Error('boom');
+            Object.defineProperty(source, 'cause', { get: function() { invoked = true; return 'from getter'; }, configurable: true });
+            var accessorClone = structuredClone(source);");
+        engine.Evaluate("invoked").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'cause' in accessorClone").AsBoolean().Should().BeFalse();
+
+        engine.Execute(@"
+            var inherited = new Error('boom');
+            Object.setPrototypeOf(inherited, Object.create(Error.prototype, { cause: { value: 'inherited' } }));
+            var inheritedClone = structuredClone(inherited);");
+        engine.Evaluate("'cause' in inheritedClone").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -845,6 +972,54 @@ public class StructuredCloneTests
         engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
     }
 
+    // ---------------------------------------------------------------- %Object.prototype%
+
+    [Fact]
+    public void ClonesObjectPrototypeAsAnOrdinaryObject()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("var clone = structuredClone(Object.prototype);");
+
+        engine.Evaluate("clone !== Object.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof Object").AsBoolean().Should().BeTrue();
+
+        // Everything Object.prototype carries is non-enumerable, so the clone is empty.
+        engine.Evaluate("Object.getOwnPropertyNames(clone).length").AsNumber().Should().Be(0);
+    }
+
+    [Fact]
+    public void ObjectPrototypesCloneLosesItsImmutablePrototypeExoticness()
+    {
+        var engine = WebEngine();
+
+        engine.Execute(@"
+            var clone = structuredClone(Object.prototype);
+            var newProto = { some: 'proto' };
+            Object.setPrototypeOf(clone, newProto);");
+
+        // %Object.prototype% is an immutable prototype exotic object and this would have thrown on it; the
+        // clone is an ordinary object, which is exactly what step 24's note says the result must be.
+        engine.Evaluate("Object.getPrototypeOf(clone) === newProto").AsBoolean().Should().BeTrue();
+
+        // The source is untouched and still refuses.
+        Err(engine, "Object.setPrototypeOf(Object.prototype, { })").Should().Be("TypeError");
+    }
+
+    [Fact]
+    public void ReachesObjectPrototypeInsideAGraph()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("var clone = structuredClone({ p: Object.prototype, q: Object.prototype });");
+
+        engine.Evaluate("typeof clone.p").AsString().Should().Be("object");
+        engine.Evaluate("clone.p !== Object.prototype").AsBoolean().Should().BeTrue();
+
+        // One source object is one clone, through the same memory map as everything else.
+        engine.Evaluate("clone.p === clone.q").AsBoolean().Should().BeTrue();
+    }
+
     // ---------------------------------------------------------------- refusals
 
     [Theory]
@@ -892,6 +1067,209 @@ public class StructuredCloneTests
         engine.Execute("var caught; try { structuredClone(Symbol()); } catch (e) { caught = e; }");
         engine.Evaluate("caught instanceof real").AsBoolean().Should().BeTrue();
         engine.Evaluate("caught.name").AsString().Should().Be("DataCloneError");
+    }
+
+    // ---------------------------------------------------------------- Blob and File
+
+    [Fact]
+    public void ClonesABlobsByteSequenceAndType()
+    {
+        var engine = FileEngine();
+
+        engine.Execute("var source = new Blob(['foo'], { type: 'text/x-bar' }); var clone = structuredClone(source);");
+
+        engine.Evaluate("clone !== source").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof Blob").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof File").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.getPrototypeOf(clone) === Blob.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.size").AsNumber().Should().Be(3);
+        engine.Evaluate("clone.type").AsString().Should().Be("text/x-bar");
+        engine.Evaluate("clone.text()").UnwrapIfPromise().AsString().Should().Be("foo");
+    }
+
+    [Fact]
+    public void ClonesAnEmptyBlobAndOneWhoseBytesAreNotUtf8()
+    {
+        var engine = FileEngine();
+
+        engine.Execute("var empty = structuredClone(new Blob(['']));");
+        engine.Evaluate("empty.size").AsNumber().Should().Be(0);
+        engine.Evaluate("empty.type").AsString().Should().Be("");
+
+        // The battery's unpaired-surrogate rows: what is carried is a byte sequence, not text, so bytes that
+        // are not valid UTF-8 survive unchanged.
+        engine.Execute("var clone = structuredClone(new Blob([new Uint8Array([0xED, 0xA0, 0x80, 0x00])]));");
+        engine.Evaluate("clone.size").AsNumber().Should().Be(4);
+
+        engine.SetValue("cloneBytes", engine.Evaluate("clone.bytes()").UnwrapIfPromise());
+        engine.Evaluate("Array.from(cloneBytes).join(',')").AsString().Should().Be("237,160,128,0");
+    }
+
+    [Fact]
+    public void ClonesAFilesNameAndLastModifiedAsWell()
+    {
+        var engine = FileEngine();
+
+        engine.Execute("var source = new File(['foo'], 'bar', { type: 'text/x-bar', lastModified: 42 }); var clone = structuredClone(source);");
+
+        engine.Evaluate("clone !== source").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof File").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof Blob").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(clone) === File.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.name").AsString().Should().Be("bar");
+        engine.Evaluate("clone.lastModified").AsNumber().Should().Be(42);
+        engine.Evaluate("clone.type").AsString().Should().Be("text/x-bar");
+        engine.Evaluate("clone.size").AsNumber().Should().Be(3);
+        engine.Evaluate("clone.text()").UnwrapIfPromise().AsString().Should().Be("foo");
+    }
+
+    [Fact]
+    public void DeserializesAFileSubclassAsAPlainFile()
+    {
+        var engine = FileEngine();
+
+        // Only the primary interface takes part in serialization, so a subclass loses its own prototype.
+        engine.Execute("class FileSubclass extends File {} var source = new FileSubclass([], 'n'); var clone = structuredClone(source);");
+
+        engine.Evaluate("Object.getPrototypeOf(clone) === File.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone instanceof FileSubclass").AsBoolean().Should().BeFalse();
+        engine.Evaluate("clone.name").AsString().Should().Be("n");
+    }
+
+    [Fact]
+    public void DeserializesABlobWhoseInterfaceObjectWasDeletedFromTheGlobal()
+    {
+        var engine = FileEngine();
+
+        // The deserializer reaches the prototype through the realm's intrinsics, so a script that deleted the
+        // global cannot make a record undeliverable.
+        engine.Execute(@"
+            var blobInterface = globalThis.Blob;
+            var source = new blobInterface(['x']);
+            delete globalThis.Blob;
+            var clone = structuredClone(source);");
+
+        engine.Evaluate("typeof globalThis.Blob").AsString().Should().Be("undefined");
+        engine.Evaluate("clone instanceof blobInterface").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.size").AsNumber().Should().Be(1);
+    }
+
+    [Fact]
+    public void ReachesABlobThroughEveryContainerAndKeepsItsIdentity()
+    {
+        var engine = FileEngine();
+
+        engine.Execute(@"
+            var blob = new Blob(['x'], { type: 'text/plain' });
+            var graph = { a: blob, list: [blob], map: new Map([['k', blob]]), set: new Set([blob]) };
+            graph.self = graph;
+            var clone = structuredClone(graph);");
+
+        engine.Evaluate("clone.a instanceof Blob").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.a !== blob").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.a.type").AsString().Should().Be("text/plain");
+
+        // One source blob is one clone, wherever it is reached from.
+        engine.Evaluate("clone.list[0] === clone.a").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.map.get('k') === clone.a").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Array.from(clone.set)[0] === clone.a").AsBoolean().Should().BeTrue();
+        engine.Evaluate("clone.self === clone").AsBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public void RefusesABlobOrAFileInTheTransferList()
+    {
+        var engine = FileEngine();
+
+        // Neither has an [[ArrayBufferData]] internal slot nor a [[Detached]] one, so
+        // StructuredSerializeWithTransfer step 2.1 refuses it — [Serializable] is not [Transferable].
+        Err(engine, "structuredClone(0, { transfer: [new Blob(['x'])] })").Should().Be("DataCloneError");
+        Err(engine, "structuredClone(0, { transfer: [new File(['x'], 'n')] })").Should().Be("DataCloneError");
+    }
+
+    [Fact]
+    public void ClonesABlobWhoseSourceBufferHasSinceBeenDetached()
+    {
+        var engine = FileEngine();
+
+        engine.Execute(@"
+            var buffer = new ArrayBuffer(3);
+            new Uint8Array(buffer).set([1, 2, 3]);
+            var blob = new Blob([buffer]);
+            structuredClone(0, { transfer: [buffer] });
+            var clone = structuredClone(blob);");
+
+        // The blob took a copy at construction, so the buffer's detachment cannot reach it.
+        engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
+        engine.Evaluate("clone.size").AsNumber().Should().Be(3);
+
+        engine.SetValue("cloneBytes", engine.Evaluate("clone.bytes()").UnwrapIfPromise());
+        engine.Evaluate("Array.from(cloneBytes).join(',')").AsString().Should().Be("1,2,3");
+    }
+
+    [Fact]
+    public void SharesTheBlobsByteSequenceWithItsCloneRatherThanCopyingIt()
+    {
+        var engine = FileEngine();
+
+        engine.Execute("var source = new Blob(['abcdef']); var clone = structuredClone(source);");
+
+        var source = (Jint.WebApi.Files.JsBlob) engine.Evaluate("source").AsObject();
+        var clone = (Jint.WebApi.Files.JsBlob) engine.Evaluate("clone").AsObject();
+
+        // A Blob is immutable by specification and never hands its array out, so the record carries the byte
+        // sequence itself rather than a copy of it — unlike an ArrayBuffer, whose storage script can write to.
+        System.Runtime.InteropServices.MemoryMarshal.TryGetArray(source.Data, out var sourceSegment).Should().BeTrue();
+        System.Runtime.InteropServices.MemoryMarshal.TryGetArray(clone.Data, out var cloneSegment).Should().BeTrue();
+        ReferenceEquals(sourceSegment.Array, cloneSegment.Array).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HandsEveryBroadcastDestinationItsOwnBlobOverOneRecord()
+    {
+        var sender = FileEngine();
+        var blob = sender.Evaluate("new Blob(['xyz'], { type: 'text/plain' })");
+        var record = new Jint.WebApi.StructuredClone.StructuredSerializer(sender, sender.Realm).Serialize(blob, transferList: null);
+
+        // A BroadcastChannel serializes once and every destination deserializes that one record, which is the
+        // case a transferred ArrayBuffer's storage has to be copied for. A Blob's byte sequence does not: it
+        // is immutable and never handed out, so the shared record stays readable however many receivers take
+        // it, and each gets a Blob of its own realm.
+        foreach (var _ in new[] { 1, 2 })
+        {
+            var receiver = FileEngine();
+            var revived = new Jint.WebApi.StructuredClone.StructuredDeserializer(receiver, receiver.Realm, sharedRecord: true)
+                .Deserialize(in record);
+
+            receiver.SetValue("revived", revived);
+            receiver.Evaluate("revived instanceof Blob").AsBoolean().Should().BeTrue();
+            receiver.Evaluate("Object.getPrototypeOf(revived) === Blob.prototype").AsBoolean().Should().BeTrue();
+            receiver.Evaluate("revived.type").AsString().Should().Be("text/plain");
+            receiver.Evaluate("revived.text()").UnwrapIfPromise().AsString().Should().Be("xyz");
+        }
+    }
+
+    [Fact]
+    public void RefusesToDeserializeABlobOnAnEngineThatDoesNotExposeTheInterface()
+    {
+        var sender = FileEngine();
+        var blob = sender.Evaluate("new Blob(['x'])");
+        var record = new Jint.WebApi.StructuredClone.StructuredSerializer(sender, sender.Realm).Serialize(blob, transferList: null);
+
+        // "If the interface identified by interfaceName is not exposed in targetRealm, then throw a
+        // DataCloneError" — an engine that never enabled the File API has no Blob to build.
+        var receiver = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
+        var deserializer = new Jint.WebApi.StructuredClone.StructuredDeserializer(receiver, receiver.Realm);
+
+        var thrown = Assert.Throws<Jint.Runtime.JavaScriptException>(() => deserializer.Deserialize(in record));
+        thrown.Error.Get("name").AsString().Should().Be("DataCloneError");
+
+        // ... while an engine that did enable it receives the blob whole.
+        var fileReceiver = FileEngine();
+        var revived = new Jint.WebApi.StructuredClone.StructuredDeserializer(fileReceiver, fileReceiver.Realm).Deserialize(in record);
+        fileReceiver.SetValue("revived", revived);
+        fileReceiver.Evaluate("revived instanceof Blob").AsBoolean().Should().BeTrue();
+        fileReceiver.Evaluate("revived.size").AsNumber().Should().Be(1);
     }
 }
 #endif

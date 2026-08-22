@@ -1033,26 +1033,11 @@ public class WptTestRunner
         new("html/webappapis/structured-clone/structured-clone.any.js", "ImageBitmap", WptDivergence.NeedsOffscreenCanvas),
         new("html/webappapis/structured-clone/structured-clone.any.js", "OffscreenCanvas", WptDivergence.NeedsOffscreenCanvas),
 
-        // Three defects, analysed in Vendor/README.md: an Error's `cause` is not carried, Blob and File are
-        // not serializable at all, and %Object.prototype% is refused where HTML clones it as an ordinary
-        // object. The Blob rows are named as three globs because that is how the battery names them.
-        new("html/webappapis/structured-clone/structured-clone.any.js", "Error object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "EvalError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "RangeError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "ReferenceError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "SyntaxError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "TypeError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "URIError object", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "Blob *", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "Array Blob object, *", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "Object Blob object, *", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js", "File basic", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js",
-            "An object whose interface is deleted from the global must still deserialize", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js",
-            "A subclass instance will deserialize as its closest serializable superclass", WptDivergence.NeedsTriage),
-        new("html/webappapis/structured-clone/structured-clone.any.js",
-            "ObjectPrototype must lose its exotic-ness when cloned", WptDivergence.NeedsTriage),
+        // The three defects this corpus filed — an Error's `cause` was not carried, Blob and File were not
+        // serializable at all, and %Object.prototype% was refused — were fixed by
+        // https://github.com/sebastienros/jint/issues/3212, and their thirty rows left with them. What
+        // remains above is the environment: a WebAssembly-backed growable SharedArrayBuffer, and the two
+        // canvas interfaces.
     ];
 
     public static IEnumerable<object[]> UrlSuiteFiles() => Cases("url");

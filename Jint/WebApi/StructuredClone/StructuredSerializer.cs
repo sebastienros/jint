@@ -8,6 +8,7 @@ using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Streams;
 
@@ -201,6 +202,28 @@ internal sealed class StructuredSerializer
                 };
                 break;
 
+            // Step 19, "value is a platform object that is a serializable object", for the two the File API
+            // declares [Serializable]. https://w3c.github.io/FileAPI/#file-section runs the Blob steps and
+            // then adds the name and the last-modified time, so — as with QuotaExceededError above — the
+            // derived interface is matched first, or a File would flatten into a Blob.
+            case JsFile file:
+                record = new SerializedFile
+                {
+                    Bytes = file.Data,
+                    MediaType = file.MediaType,
+                    Name = file.Name,
+                    LastModified = file.LastModified,
+                };
+                break;
+
+            case JsBlob blob:
+                record = new SerializedBlob
+                {
+                    Bytes = blob.Data,
+                    MediaType = blob.MediaType,
+                };
+                break;
+
             // Steps 7-10: the boxed primitives, each identified by its data slot.
             case Native.Boolean.BooleanInstance boolean:
                 record = new SerializedBoxedPrimitive(SerializedValue.FromBoolean(boolean.BooleanData._value));
@@ -267,15 +290,31 @@ internal sealed class StructuredSerializer
                     return SerializedValue.FromObject(target);
                 }
 
-            // Step 17.
+            // Step 17. The one deep arm that is not a container: `cause` is sub-serialized, so the record is
+            // registered in the memory map first (step 25 before step 26) and an error that is its own cause
+            // terminates.
             case ErrorInstance error:
-                record = new SerializedError
                 {
-                    Name = ErrorNameFor(error.Get(CommonProperties.Name)),
-                    Message = ReadOwnDataMessage(error),
-                    Stack = ReadStack(error),
-                };
-                break;
+                    var errorName = ErrorNameFor(error.Get(CommonProperties.Name));
+                    var errorMessage = ReadOwnDataMessage(error);
+                    var hasCause = TryReadOwnDataCause(error, out var cause);
+
+                    var target = new SerializedError
+                    {
+                        Name = errorName,
+                        Message = errorMessage,
+                        HasCause = hasCause,
+                        Stack = ReadStack(error),
+                    };
+
+                    _memory[source] = target;
+                    if (hasCause)
+                    {
+                        _pending.Push(new ErrorCauseFrame(cause, target));
+                    }
+
+                    return SerializedValue.FromObject(target);
+                }
 
             // Step 18: an Array exotic object. A Proxy whose target is an array is not one — it is a Proxy
             // exotic object, and falls through to the refusal below, as the specification intends.
@@ -291,11 +330,19 @@ internal sealed class StructuredSerializer
             // it has "any internal slot other than [[Prototype]]": JsObject is the type every ordinary object
             // reaches — object literals, `new Foo()`, Object.create, JSON.parse output, and the host-facing
             // JsObject.Create / CreateFromEntries factories. See ThrowUncloneable for what that costs.
-            case JsObject plain:
+            //
+            // ObjectPrototype is step 23's one carve-out, not a special case of Jint's: %Object.prototype% is
+            // an immutable prototype exotic object, and step 23 refuses "an exotic object [that] is not the
+            // %Object.prototype% intrinsic object associated with ANY realm" — so it reaches step 24 like any
+            // ordinary object, and step 24's own note says the result "will be an empty object (not an
+            // immutable prototype exotic object)". The type test IS that predicate rather than an identity
+            // check standing in for it: ObjectPrototype is sealed and Intrinsics builds exactly one per realm,
+            // so `is ObjectPrototype` is true of every realm's %Object.prototype% and of nothing else.
+            case JsObject or ObjectPrototype:
                 {
                     var target = new SerializedPlainObject();
                     _memory[source] = target;
-                    _pending.Push(new PropertyFrame(plain, target.Properties, EnumerableOwnStringKeys(plain)));
+                    _pending.Push(new PropertyFrame(source, target.Properties, EnumerableOwnStringKeys(source)));
                     return SerializedValue.FromObject(target);
                 }
 
@@ -462,6 +509,30 @@ internal sealed class StructuredSerializer
         }
 
         return TypeConverter.ToString(messageDescriptor.Value);
+    }
+
+    /// <summary>
+    /// The same read <see cref="ReadOwnDataMessage"/> performs, for <c>cause</c>: an own <i>data</i> property
+    /// only, so an accessor is not invoked and an inherited <c>cause</c> is not one. See
+    /// <see cref="SerializedError"/> for why <c>cause</c> is carried at all and why it is read this way
+    /// rather than the way https://github.com/whatwg/html/pull/5749 proposes.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <c>message</c>, the value is not coerced: it is whatever the source held, and it is
+    /// sub-serialized, so a <c>cause</c> that is itself an object is cloned and one that is uncloneable makes
+    /// the whole clone fail with a <c>DataCloneError</c>.
+    /// </remarks>
+    private static bool TryReadOwnDataCause(ErrorInstance source, out JsValue cause)
+    {
+        var descriptor = source.GetOwnProperty(CommonProperties.Cause);
+        if (descriptor == Runtime.Descriptors.PropertyDescriptor.Undefined || descriptor.IsAccessorDescriptor())
+        {
+            cause = JsValue.Undefined;
+            return false;
+        }
+
+        cause = descriptor.Value;
+        return true;
     }
 
     /// <summary>
@@ -706,11 +777,13 @@ internal sealed class StructuredSerializer
         // Steps 20, 22 and 23. Jint cannot enumerate an object's internal slots, so the refusal is decided
         // the other way round: everything the steps above recognize is serialized, and anything else is
         // refused. That is the conservative direction — it never produces a clone that has silently lost the
-        // state its source carried — but it is stricter than a browser for three shapes with no internal slot
-        // of their own that Jint nevertheless does not build as an ordinary object: a namespace object (Math,
-        // JSON, console), an intrinsic prototype (%Object.prototype%, which step 23 explicitly permits), and
-        // an arguments object. Cloning any of those is refused where a browser would answer with a plain
-        // object.
+        // state its source carried, and it is what keeps a host's own ObjectInstance subclass and every
+        // platform object Jint has yet to declare [Serializable] refused rather than silently flattened —
+        // but it is stricter than a browser for two shapes with no internal slot of their own that Jint
+        // nevertheless does not build as an ordinary object: a namespace object (Math, JSON, console) and an
+        // unmapped arguments object. Cloning either is refused where a browser would answer with a plain
+        // object. (%Object.prototype% used to be a third; the ordinary arm above now recognizes it, which is
+        // what step 23's carve-out asks for.)
         var description = value switch
         {
             JsProxy => "A Proxy",
@@ -812,6 +885,25 @@ internal sealed class StructuredSerializer
         {
             _properties.Add(new SerializedProperty(_currentKey, serialized));
         }
+    }
+
+    /// <summary>
+    /// One error's <c>cause</c>: a frame with exactly one source, so that the sub-serialization happens after
+    /// the error is in the memory map rather than during its own arm.
+    /// </summary>
+    private sealed class ErrorCauseFrame(JsValue cause, SerializedError target) : SerializeFrame
+    {
+        private bool _done;
+
+        internal override bool TryGetNextSource(out JsValue source)
+        {
+            source = _done ? JsValue.Undefined : cause;
+            var pending = !_done;
+            _done = true;
+            return pending;
+        }
+
+        internal override void Accept(SerializedValue serialized) => target.Cause = serialized;
     }
 
     /// <summary>
