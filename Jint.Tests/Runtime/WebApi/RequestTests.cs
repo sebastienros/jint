@@ -428,5 +428,28 @@ public class RequestTests
                 .Message.Should().Contain("Request");
         }
     }
+
+    [Fact]
+    public void ConsumingABufferedRequestBodyLeavesItsStreamDisturbedAndLocked()
+    {
+        // The Body mixin is one mixin — https://fetch.spec.whatwg.org/#body-mixin — so what
+        // https://fetch.spec.whatwg.org/#concept-body-fully-read does to a Response's stream it does to a
+        // Request's: step 3 acquires a reader, which locks the stream, and read-all-bytes never releases it.
+        var engine = WebEngine();
+        engine.Execute("var a = new Request('https://example.org', { method: 'POST', body: 'hi' }); a.text();");
+
+        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
+        engine.Evaluate("a.body === null").AsBoolean().Should().BeFalse();
+        engine.Evaluate("a.body.locked").AsBoolean().Should().BeTrue();
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("a.body.getReader()"))
+            .Message.Should().Contain("locked");
+
+        // And the neighbour: reading `body` first, then consuming, locks that same stream rather than a new
+        // one, which is what keeps a copy of an unread request legal.
+        engine.Execute("var b = new Request('https://example.org', { method: 'POST', body: 'hi' }); var s = b.body;");
+        engine.Evaluate("b.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new Request(b).method").AsString().Should().Be("POST");
+    }
 }
 #endif

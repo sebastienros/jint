@@ -359,20 +359,16 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM and fetch corpora filed seven more, and four of them are gone</b> — the
+    /// <b>The hr-time, DOM and fetch corpora filed seven more, and five of them are gone</b> — the
     /// <c>PerformanceMarkOptions</c> dictionary conversion, <c>Event.isTrusted</c>'s
-    /// <c>[LegacyUnforgeable]</c> shape, <c>Event</c>'s missing <c>srcElement</c>/<c>returnValue</c>, and the
-    /// <c>Headers</c> iterator prototype's non-enumerable <c>next</c> — all fixed under
-    /// sebastienros/jint#3212, so the nine entries that used to be here now enforce them and
+    /// <c>[LegacyUnforgeable]</c> shape, <c>Event</c>'s missing <c>srcElement</c>/<c>returnValue</c>, the
+    /// <c>Headers</c> iterator prototype's non-enumerable <c>next</c>, and the stream a consumed
+    /// bytes-source body handed back unlocked — all fixed under sebastienros/jint#3212, so the eleven
+    /// entries that used to be here now enforce them and
     /// <c>dom/events/Event-constructors.any.js</c> left <c>_notVendored</c> with them. <c>Vendor/README.md</c>
     /// analyses each with its citation. In one line apiece:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// A <c>Response</c> whose body came from bytes is not disturbed by consuming it, so
-    /// <c>response.body.getReader()</c> succeeds where https://fetch.spec.whatwg.org/#concept-body-disturbed
-    /// requires a <c>TypeError</c>; the rows whose body source is a <c>ReadableStream</c> pass.
-    /// </description></item>
     /// <item><description>
     /// A <c>record&lt;ByteString, ByteString&gt;</c> conversion performs one operation more than WebIDL's own
     /// order allows — two rows of <c>headers-record.any.js</c>, which count them through a proxy.

@@ -978,13 +978,6 @@ public class WptTestRunner
 
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
-        // Eight of the twelve rows of a file whose other four pass: after a Response whose body came from
-        // *bytes* — a string, or the loader's answer — has been consumed, `response.body.getReader()` must
-        // throw because the body is disturbed, and here it does not. The four rows whose body source is a
-        // ReadableStream the test built itself pass, which is what locates the defect. See Vendor/README.md.
-        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: string)", WptDivergence.NeedsTriage),
-        new("fetch/api/response/response-stream-disturbed-5.any.js", "* (body source: fetch)", WptDivergence.NeedsTriage),
-
         new("fetch/api/response/response-consume-empty.any.js",
             "Consume empty FormData response body as text", WptDivergence.NeedsTriage),
 

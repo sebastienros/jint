@@ -136,10 +136,24 @@ internal abstract class FetchBodyObject : ObjectInstance
     /// on first ask. <see langword="null"/> for a null body.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A body extracted from bytes has a stream from the moment it is extracted, per the standard; deferring
     /// its creation to the first read of <c>body</c> is invisible, because asking is the only way to observe
     /// it. What the deferral buys is the buffered fast path in <see cref="FetchBody.Consume"/>: a script that
     /// only ever calls <c>text()</c> never builds a stream, a controller or a reader.
+    /// </para>
+    /// <para>
+    /// Invisible, though, only if the stream handed over <i>after</i> a consume is the one the standard would
+    /// be holding by then — and that is not merely a disturbed stream. Consuming runs <i>fully read</i>
+    /// (https://fetch.spec.whatwg.org/#concept-body-fully-read), whose step 3 is "let reader be the result of
+    /// getting a reader for body's stream" — https://streams.spec.whatwg.org/#readablestream-get-a-reader,
+    /// which <b>locks</b> it — and whose read-all-bytes step never releases that reader. So the stream a
+    /// consumed body exposes is disturbed, closed <i>and locked for good</i>, which is what makes
+    /// <c>response.body.getReader()</c> after <c>response.text()</c> the <c>TypeError</c>
+    /// https://streams.spec.whatwg.org/#set-up-readable-stream-default-reader raises. Nothing can read such a
+    /// stream, so it is built empty: filling it from the source would copy a body that has already been
+    /// handed over, only to throw the copy away.
+    /// </para>
     /// </remarks>
     internal JsReadableStream? GetOrCreateStream(Realm realm)
     {
@@ -153,14 +167,15 @@ internal abstract class FetchBodyObject : ObjectInstance
             return Stream;
         }
 
-        var bytes = Source!.Value;
-        var stream = ByteStreams.CreateFromBytes(Engine, realm, bytes);
+        // Cancel is what sets `disturbed` — https://streams.spec.whatwg.org/#readable-stream-cancel step 1 —
+        // and closes the stream, and the reader acquired after it is the one fully read never gave back.
+        var consumed = SourceDisturbed;
+        var stream = ByteStreams.CreateFromBytes(Engine, realm, consumed ? default : Source!.Value);
 
-        // A source that has already been consumed hands back a stream that is disturbed to match, so
-        // `r.text(); r.body.locked` and `r.bodyUsed` keep telling the same story.
-        if (SourceDisturbed)
+        if (consumed)
         {
             ReadableStreamOperations.Cancel(stream, Undefined);
+            ReadableStreamOperations.AcquireDefaultReader(stream);
         }
 
         Stream = stream;
