@@ -30,11 +30,11 @@ namespace Jint.WebApi;
 /// <para>
 /// <b>Setting a sink changes what happens to an exception that escapes an engine-invoked callback.</b> With
 /// no sink — the default, <see langword="null"/> — a <c>JavaScriptException</c> thrown by a timer callback, a
-/// <c>queueMicrotask</c> callback or an event listener erupts out of whatever was running it, because
-/// swallowing it would lose it entirely.
+/// <c>queueMicrotask</c> callback, a <c>requestIdleCallback</c> callback or an event listener erupts out of
+/// whatever was running it, because swallowing it would lose it entirely.
 /// With a sink it is reported here and the engine carries on, which is what the specifications say to do:
 /// HTML invokes a timer handler and a <c>queueMicrotask</c> callback with exception behavior <c>"report"</c>,
-/// and DOM's <i>inner invoke</i>
+/// so do both of the algorithms that run an idle callback, and DOM's <i>inner invoke</i>
 /// reports a throwing listener and moves to the next one. Errors that exist to <i>bound</i> execution are
 /// never reported and always erupt — a timeout, a cancellation, the statement, memory and recursion budgets —
 /// because a budget that turns into a diagnostic no longer bounds anything.
@@ -238,7 +238,7 @@ public enum DiagnosticEventKind
 
     /// <summary>
     /// An exception escaped a callback the engine invoked — a timer handler, a <c>queueMicrotask</c> callback,
-    /// an event listener — and a sink
+    /// a <c>requestIdleCallback</c> callback, an event listener — and a sink
     /// being set is why it was reported instead of erupting.
     /// <see cref="DiagnosticEvent.Exception"/> and <see cref="DiagnosticEvent.CallbackSource"/> say what and
     /// where.
@@ -303,5 +303,20 @@ public enum DiagnosticCallbackSource
     /// exception</i> defines: https://webidl.spec.whatwg.org/#report-the-exception.
     /// </summary>
     Microtask,
+
+    /// <summary>
+    /// A <c>requestIdleCallback</c> callback. Both algorithms that reach one invoke it with the same
+    /// <c>"report"</c> exception behavior — <i>invoke idle callbacks</i>
+    /// (https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm) and <i>invoke idle
+    /// callback timeout</i>
+    /// (https://w3c.github.io/requestidlecallback/#invoke-idle-callback-timeout-algorithm), whose steps both
+    /// read "Invoke callback with « deadlineArg » and <c>"report"</c>".
+    /// </summary>
+    /// <remarks>
+    /// A callback the <c>timeout</c> option reached is reported under this source and not under
+    /// <see cref="Timer"/>, although the engine does run it from a timer: the timer is how the timeout is
+    /// measured, and the callback is still the one <c>requestIdleCallback</c> was given.
+    /// </remarks>
+    IdleCallback,
 }
 #endif

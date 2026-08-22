@@ -213,6 +213,60 @@ public class WebApiDiagnosticsTests
     }
 
     [Fact]
+    public void AThrowingIdleCallbackIsReportedWhenASinkIsSet()
+    {
+        // requestIdleCallback invokes its callback with the same WebIDL "report" exception behavior a timer
+        // handler and a queueMicrotask callback are invoked with —
+        // https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm.
+        var sink = new RecordingSink();
+        var engine = new Engine(options => options.UseWebApis(webApi => webApi.Diagnostics.Sink = sink));
+
+        engine.Execute("""
+            var second = false;
+            requestIdleCallback(() => { throw new Error('boom'); });
+            requestIdleCallback(() => { second = true; });
+            """);
+
+        // Execute drains on its way out, so nothing erupts at the host and the callback behind the failed one
+        // still ran in the same idle period.
+        engine.Evaluate("second").AsBoolean().Should().BeTrue();
+
+        var report = Assert.Single(sink.Reports);
+        report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
+        report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+        report.Exception!.Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void AThrowingIdleCallbackStillEruptsWithoutASink()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        Assert.Throws<JavaScriptException>(
+                () => engine.Execute("requestIdleCallback(() => { throw new Error('boom'); });"))
+            .Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void AThrowingSchedulerTaskIsNotReportedAsACallbackError()
+    {
+        // scheduler.postTask is governed by https://wicg.github.io/scheduling-apis/, not by a WHATWG living
+        // standard, and it invokes its callback with "rethrow": "If that threw an exception, then reject
+        // result with that." So the throw belongs in the promise the host was handed, and reporting it as an
+        // uncaught callback error would be telling the host about a failure it already has a channel for.
+        var sink = new RecordingSink();
+        var engine = new Engine(options => options.UseWebApis(webApi => webApi.Diagnostics.Sink = sink));
+
+        engine.Execute("""
+            var reason = null;
+            scheduler.postTask(() => { throw new RangeError('boom'); }).catch(e => { reason = e.message; });
+            """);
+
+        engine.Evaluate("reason").AsString().Should().Be("boom");
+        sink.Reports.Should().BeEmpty();
+    }
+
+    [Fact]
     public void AConstraintFailureIsNeverReportedAndAlwaysErupts()
     {
         // A budget that turned into a diagnostic would no longer bound anything, so only the class of failure
