@@ -4,6 +4,7 @@
 using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.WebApi;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -188,6 +189,25 @@ public class WebApiRegistrationTests
             .UseWebApis());
 
         engine.Evaluate("console").Should().BeSameAs(marker);
+    }
+
+    /// <summary>
+    /// The non-clobbering probe needs a <see cref="JsString"/> for each name it asks about, and
+    /// <c>JsString.Create</c> allocates a fresh one for anything longer than a character — so an engine that
+    /// enabled the web APIs used to build one throwaway object per installed global. They are interned
+    /// process-wide instead, which measured at 2,208 bytes off the construction allocation of a
+    /// <see cref="WebApiFeatures.Default"/> engine.
+    /// </summary>
+    [Fact]
+    public void InternsTheGlobalNamesItProbesWith()
+    {
+        WebApiRegistration.NameOf("console").Should().BeSameAs(WebApiRegistration.NameOf("console"));
+
+        // A JsString is immutable and realm-independent, which is what makes one table safe for every engine
+        // in the process — unlike the objects the descriptors produce, which stay per engine.
+        var first = new Engine(options => options.UseWebApis());
+        var second = new Engine(options => options.UseWebApis());
+        first.Evaluate("console").Should().NotBeSameAs(second.Evaluate("console"));
     }
 
     [Fact]
