@@ -142,7 +142,15 @@ internal enum WptDivergence
     /// </para>
     /// <para>
     /// So this is deliberately <b>not</b> <see cref="NeedsTriage"/>: there is no defect left to chase, and
-    /// nothing short of a classic-script worker would move either row. What keeps them honest is that the
+    /// nothing short of a classic-script worker would move either row. It is just as deliberately not
+    /// <see cref="AssertsWhatNothingRequires"/>, which it superficially resembles by also being permanent and
+    /// also not debt. The line is what the standard asks. There, nothing asks for what the test asserts and
+    /// no implementation delivers it; here HTML asks for exactly what these two rows assert — a sloppy-mode
+    /// assignment to a read-only attribute <i>is</i> a silent no-op — and an implementation that runs the
+    /// file as the classic <c>.any.worker.js</c> script wpt generates for it satisfies them, which is what
+    /// upstream's <c>global=worker</c> key means the file to be. What makes them permanent is a lane Jint
+    /// chose, which is the family <see cref="NeedsDeclinedWorkerGlobals"/> and
+    /// <see cref="NeedsForbiddenHeaderNames"/> are in and not that one. What keeps them honest is that the
     /// engine's half is pinned from both sides in
     /// <c>Jint.Tests/Runtime/WebApi/WorkerMechanismTests.cs</c>, in both modes — the module body for strict,
     /// an indirect <c>eval</c> for the sloppy one this lane cannot otherwise reach.
@@ -328,7 +336,9 @@ internal enum WptDivergence
     NeedsOffscreenCanvas,
 
     /// <summary>
-    /// A genuine failure that is not attributable to a feature Jint has decided not to have. Every entry
+    /// A genuine failure that is not attributable to a feature Jint has decided not to have, over behaviour
+    /// something really does require — which is the line between this and
+    /// <see cref="AssertsWhatNothingRequires"/>. Every entry
     /// here is a bug or a specification detail to chase, and the phase of the harness work that stood the
     /// suites up deliberately recorded them rather than fixing them: the point was to find out what they
     /// say, and mixing engine fixes into the change that first ran them would have hidden which of the two
@@ -394,25 +404,12 @@ internal enum WptDivergence
     /// property WebIDL's order never reaches — all fixed under sebastienros/jint#3212, so the thirteen
     /// entries that used to be here now enforce them and
     /// <c>dom/events/Event-constructors.any.js</c> left <c>_notVendored</c> with them. <c>Vendor/README.md</c>
-    /// analyses each with its citation. <b>The seventh is the last entry in this category, and it is not a
-    /// defect:</b>
+    /// analyses each with its citation. <b>The seventh was the last entry in this category and it was never a
+    /// defect</b> — an empty <c>FormData</c> body serializing to its closing boundary rather than to nothing
+    /// — so it is not here any more: it is the whole of <see cref="AssertsWhatNothingRequires"/>, moved
+    /// there by https://github.com/sebastienros/jint/issues/3261, which is where that reading and its
+    /// citation now live.
     /// </para>
-    /// <list type="bullet">
-    /// <item><description>
-    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing —
-    /// <c>response-consume-empty.any.js</c>, "Consume empty FormData response body as text", which asks that
-    /// <c>await new Response(new FormData()).text()</c> have length 0. <b>It is not a defect.</b> This one
-    /// wanted https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
-    /// read before anything was changed, and reading it settles the question the other way: the algorithm
-    /// defines the escaping and delegates the framing to RFC 7578 and, through it, to RFC 2046 section 5.1.1,
-    /// whose grammar ends every <c>multipart-body</c> with a <c>close-delimiter</c> that is not optional. Nor
-    /// does any implementation produce the empty body the row asks for — Chrome, Edge, Firefox and Safari all
-    /// report it 0/1 on wpt.fyi, where the file's thirteen other rows are 1/1 in all four. So the entry
-    /// stays, but this category — "a bug or a specification detail to chase" — is the wrong one for it, and
-    /// giving it one of its own is deliberately left undone rather than folded into the change that read the
-    /// algorithm. <c>Vendor/README.md</c> has the citations and the measurement.
-    /// </description></item>
-    /// </list>
     /// <para>
     /// <b>The structured-clone corpus filed three more, and they are gone</b> — an <c>Error</c>'s
     /// <c>cause</c> was not carried, <c>Blob</c> and <c>File</c> were not serializable at all, and
@@ -432,13 +429,56 @@ internal enum WptDivergence
     /// <c>TimerEntry.Fire</c> and <c>JsEventTarget.InvokePass</c> carry — and the file is vendored and green.
     /// </para>
     /// <para>
-    /// <b>So the category currently holds no debt at all</b> — one entry, and its own paragraph says why that
-    /// entry is misfiled. That is the state to keep it in: a row belongs here only while somebody still owes
-    /// the engine a fix, and every corpus that filed one has had it paid. An entry that turns out not to be a
-    /// defect earns a category of its own rather than a longer explanation under this one.
+    /// <b>So the category is empty, and its emptiness is the signal.</b> That is the state to keep it in: a
+    /// row belongs here only while somebody still owes the engine a fix, and every corpus that filed one has
+    /// had it paid. Kept named rather than deleted for exactly that reason — a non-zero count here is a real
+    /// finding rather than a number a reader has to go and re-read to discover it is one permanent entry —
+    /// and it is legal to keep because nothing enumerates this type: the driver reads
+    /// <see cref="WptExclusion.Divergence"/> only to name the category in a staleness message, so a member
+    /// with no entries costs nothing and fails nothing. <see cref="NeedsMessageChannel"/> is the older
+    /// precedent for a named-but-empty category. An entry that turns out not to be a defect leaves for
+    /// <see cref="AssertsWhatNothingRequires"/> rather than earning a longer explanation under this one.
     /// </para>
     /// </summary>
     NeedsTriage,
+
+    /// <summary>
+    /// <para>
+    /// The test asserts behaviour <b>nothing requires of anybody</b> — not of Jint, and not of any
+    /// implementation. This is the corpus's analogue of test262's <c>=== PERMANENT EXCLUSIONS ===</c> banner
+    /// and it is earned the same way: only when the standard the test claims to be about does not ask for
+    /// what the test asks for, and only with a comment that records the decision and the normative citation
+    /// making it defensible, never a to-do nobody intends to do. It is the one member not spelled
+    /// <c>Needs…</c>, deliberately: every other names something absent that would turn its rows green if it
+    /// arrived, whereas here the divergence is in the test and no change to this engine would move it.
+    /// </para>
+    /// <para>
+    /// One entry today, moved out of <see cref="NeedsTriage"/> by
+    /// https://github.com/sebastienros/jint/issues/3261 — <c>fetch/api/response/response-consume-empty.any.js</c>,
+    /// "Consume empty FormData response body as text", which asks that
+    /// <c>await new Response(new FormData()).text()</c> have length 0 and gets the 50-byte closing boundary
+    /// <c>MultipartFormData</c> writes. HTML's
+    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
+    /// defines the escaping and delegates the framing to RFC 7578, which defers in turn to RFC 2046, whose
+    /// section 5.1.1 grammar ends every <c>multipart-body</c> with a <c>close-delimiter</c> that is not
+    /// optional — so an empty entry list has no shorter conforming encoding than the one Jint writes. The
+    /// empirical half agrees: on wpt.fyi's four aligned stable runs that row is 0/1 in Chrome, Edge, Firefox
+    /// and Safari, where the file's thirteen other rows are 1/1 in all four. <c>Vendor/README.md</c> keeps
+    /// the grammar and the measurement.
+    /// </para>
+    /// <para>
+    /// Age never promotes an entry into this category: a row nobody has got round to stays
+    /// <see cref="NeedsTriage"/> however long it has sat there, because what this member records is intent
+    /// and not age. Reversing an entry is a perfectly ordinary change — a standard can move, and a reading
+    /// can turn out to be wrong — but it has to argue the decision and rewrite the reasoning rather than
+    /// merely delete the line. It is also not the place for a divergence Jint <i>chose</i>: a lane taken
+    /// (<see cref="NeedsClassicWorkerScript"/>), a name declined (<see cref="NeedsDeclinedWorkerGlobals"/>)
+    /// or a browser protection refused (<see cref="NeedsForbiddenHeaderNames"/>) are all cases where the
+    /// test asserts something the standard really does require and Jint answers otherwise on purpose, which
+    /// is a different fact about a row and keeps its own category.
+    /// </para>
+    /// </summary>
+    AssertsWhatNothingRequires,
 }
 
 /// <summary>

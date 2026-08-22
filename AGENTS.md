@@ -481,10 +481,14 @@ sides, because a shim that quietly passed everything would make five thousand ca
 Six things to know before touching it. **The exclusion table is the artefact**: a test that does not pass is
 named in `WptTestRunner._exclusions` with a `WptDivergence` category, and an entry must match at least one
 failing test and no passing one — so a fix, a rename, or a corpus bump makes the run fail until the table is
-brought back in line, and a `*` glob can never widen into a blanket. **`NeedsTriage` is the debt**: those are
-genuine defects the harness found, recorded rather than fixed so that the change which first ran a suite is
-not also the change that moved the engine. **The engine supplies its own `setTimeout`** — unlike the test262
-harness, which has no web APIs to enable and shims one onto the event loop, this driver enables
+brought back in line, and a `*` glob can never widen into a blanket. **`NeedsTriage` is the debt, and it is
+empty**: those are genuine defects the harness found, recorded rather than fixed so that the change which
+first ran a suite is not also the change that moved the engine — every one filed so far has been paid, and the
+emptiness is the signal, so a non-zero count there means the corpus has found something. A row that turns out
+not to be a defect at all leaves for `AssertsWhatNothingRequires`, the analogue of test262's
+`PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued decision, never a
+to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
+enable and shims one onto the event loop, this driver enables
 `WebApiFeatures.Timers` and pumps with `Advanced.ProcessTasks()` bounded by `TimeUntilNextPumpScheduledWork()`,
 so a suite that schedules a timer exercises the shipped `TimerQueue`. **`// META: variant=` sharding is
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one

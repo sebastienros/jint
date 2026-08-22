@@ -35,14 +35,16 @@ namespace Jint.Tests.Wpt;
 /// https://github.com/sebastienros/jint/issues/3185 recorded by
 /// https://github.com/sebastienros/jint/issues/3212, and the one the workers corpus found — a <c>self</c>
 /// installed against <c>Window</c>'s definition for every global including a worker's — by
-/// https://github.com/sebastienros/jint/issues/3224. <b>The category is down to one entry, and that one is
-/// not a defect</b>: an empty <c>FormData</c> body, which no browser serializes to nothing either.
-/// <c>Vendor/README.md</c> analyses each.
+/// https://github.com/sebastienros/jint/issues/3224. <b>The category is empty, and its emptiness is the
+/// signal</b>: its last entry — an empty <c>FormData</c> body, which no browser serializes to nothing either
+/// — was never a defect, and https://github.com/sebastienros/jint/issues/3261 moved it to
+/// <see cref="WptDivergence.AssertsWhatNothingRequires"/>, the category for a test that asserts what nothing
+/// requires of anybody. <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
 /// <b>A corpus with sub-directories is one suite per directory</b> rather than one for the lot, because
 /// <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is deliberate: a
-/// suite is a theory, a theory is a line in a test report, and thirty-four of them tell a reader which
+/// suite is a theory, a theory is a line in a test report, and thirty-five of them tell a reader which
 /// operation went red where a dozen would not. <c>compression/</c>, <c>urlpattern/</c>, <c>hr-time/</c> and
 /// <c>user-timing/</c> have a single directory apiece and are therefore one suite apiece.
 /// </para>
@@ -981,9 +983,10 @@ public class WptTestRunner
         // The one row this corpus still names, and it is not a defect: an empty FormData body is asked to
         // serialize to nothing, where HTML's encoding algorithm delegates the framing to RFC 7578 and RFC
         // 2046, whose grammar makes the close-delimiter mandatory — and where no browser passes the row
-        // either. Left here because moving it wants a category of its own. See WptDivergence.NeedsTriage.
+        // either. So it is the corpus's one permanent entry; see WptDivergence.AssertsWhatNothingRequires
+        // for the reading, and Vendor/README.md for the grammar and the wpt.fyi measurement.
         new("fetch/api/response/response-consume-empty.any.js",
-            "Consume empty FormData response body as text", WptDivergence.NeedsTriage),
+            "Consume empty FormData response body as text", WptDivergence.AssertsWhatNothingRequires),
 
         // ---------------------------------------------------------------- structured clone
         new("html/webappapis/structured-clone/structured-clone.any.js", "Growable SharedArrayBuffer", WptDivergence.NeedsWebAssembly),
