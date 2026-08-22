@@ -331,8 +331,7 @@ internal static class WritableStreamOperations
 
         if (stream.Writer is { } writer)
         {
-            writer.ClosedCapability.Reject(stream.StoredError);
-            StreamPromises.MarkHandled(writer.ClosedPromise);
+            StreamPromises.RejectHandled(writer.ClosedCapability, stream.StoredError);
         }
     }
 
@@ -407,8 +406,7 @@ internal static class WritableStreamOperations
                 break;
 
             case WritableStreamState.Erroring:
-                StreamPromises.MarkHandled(StreamPromises.PromiseOf(ready));
-                ready.Reject(stream.StoredError);
+                StreamPromises.RejectHandled(ready, stream.StoredError);
                 break;
 
             case WritableStreamState.Closed:
@@ -417,10 +415,8 @@ internal static class WritableStreamOperations
                 break;
 
             default:
-                StreamPromises.MarkHandled(StreamPromises.PromiseOf(ready));
-                ready.Reject(stream.StoredError);
-                StreamPromises.MarkHandled(StreamPromises.PromiseOf(closed));
-                closed.Reject(stream.StoredError);
+                StreamPromises.RejectHandled(ready, stream.StoredError);
+                StreamPromises.RejectHandled(closed, stream.StoredError);
                 break;
         }
     }
@@ -469,8 +465,7 @@ internal static class WritableStreamOperations
             writer.ClosedCapability = StreamPromises.NewPromise(writer.Engine, writer.Realm);
         }
 
-        writer.ClosedCapability.Reject(error);
-        StreamPromises.MarkHandled(writer.ClosedPromise);
+        StreamPromises.RejectHandled(writer.ClosedCapability, error);
     }
 
     /// <summary>
@@ -483,8 +478,7 @@ internal static class WritableStreamOperations
             writer.ReadyCapability = StreamPromises.NewPromise(writer.Engine, writer.Realm);
         }
 
-        writer.ReadyCapability.Reject(error);
-        StreamPromises.MarkHandled(writer.ReadyPromise);
+        StreamPromises.RejectHandled(writer.ReadyCapability, error);
     }
 
     /// <summary>

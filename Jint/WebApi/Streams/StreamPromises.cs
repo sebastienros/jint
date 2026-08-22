@@ -104,7 +104,53 @@ internal static class StreamPromises
     /// Marks a promise as handled: "set <c>promise.[[PromiseIsHandled]]</c> to true". Used for the promises
     /// the algorithms create and settle for their own bookkeeping, which no script ever attaches to.
     /// </summary>
+    /// <remarks>
+    /// Only for a promise that is still <b>pending</b>. Marking one that has already been rejected is too
+    /// late to stop the rejection tracker having seen it — use <see cref="RejectHandled"/> for the
+    /// reject-and-account-for-it pair.
+    /// </remarks>
     internal static void MarkHandled(JsPromise promise) => promise.PromiseIsHandled = true;
+
+    /// <summary>
+    /// The pair five of the Streams Standard's operations end with: "reject <i>p</i> with
+    /// <paramref name="reason"/>", immediately followed by "set <i>p</i>.<c>[[PromiseIsHandled]]</c> to
+    /// true" — <c>ReadableStreamError</c>, <c>ReadableStreamReaderGenericRelease</c>,
+    /// <c>WritableStreamRejectCloseAndClosedPromiseIfNeeded</c> and the writer's
+    /// <c>EnsureReadyPromiseRejected</c> / <c>EnsureClosedPromiseRejected</c>. The rejection is real and
+    /// observable — a script holding the promise still sees it — and the flag says the algorithm has
+    /// accounted for it, so nobody owes it a handler.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The flag is set before the rejection, and that ordering is the whole point of this helper.</b>
+    /// Written the specification's way round, <c>RejectPromise</c> step 7 calls
+    /// <c>HostPromiseRejectionTracker(promise, "reject")</c> while <c>[[PromiseIsHandled]]</c> is still
+    /// false, and a host watching <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> or a
+    /// <see cref="DiagnosticsSink"/> is told about a rejection that the very next step accounts for. A
+    /// browser is not, because HTML's <i>notify about rejected promises</i> re-reads the flag in a queued
+    /// task — "If <i>p</i>.[[PromiseIsHandled]] is true, then continue" — by which time the algorithm has
+    /// set it. Jint's tracker fires at <c>HostPromiseRejectionTracker</c>'s own cadence and has nothing to
+    /// re-read, so the flag has to be true before the rejection instead.
+    /// </para>
+    /// <para>
+    /// Nothing else can tell the two orders apart: <c>[[PromiseIsHandled]]</c> gates the tracker and only
+    /// the tracker. The reactions still run, <c>await</c> still resumes, and a <c>catch</c> attached before
+    /// or after the release still sees the reason. Nor does it suppress a genuine failure the specification
+    /// would report: these five operations set the flag <i>unconditionally</i>, so a promise reaching one of
+    /// them is one no conforming implementation reports as unhandled either. The promises a script is meant
+    /// to observe — <c>writer.write()</c>, <c>writer.close()</c>, <c>stream.abort()</c>, <c>pipeTo()</c>'s
+    /// own — are deliberately not marked, and are reported exactly as before.
+    /// </para>
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections ·
+    /// https://tc39.es/ecma262/#sec-rejectpromise
+    /// </para>
+    /// </remarks>
+    internal static void RejectHandled(PromiseCapability capability, JsValue reason)
+    {
+        PromiseOf(capability).PromiseIsHandled = true;
+        capability.Reject(reason);
+    }
 
     /// <summary>
     /// "Upon fulfillment of <paramref name="promise"/>" / "upon rejection of <paramref name="promise"/>" —
