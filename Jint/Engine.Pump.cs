@@ -315,9 +315,29 @@ public partial class Engine
     /// The body of <see cref="AdvancedOperations.WaitForScheduledWork"/>, which owns the engine for the whole
     /// of it — see that method's remarks for why.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <em>top-level</em> park is a callback-admission window, and needs the pair
+    /// <see cref="DrainEventLoopUntil"/> already has: the reservation an authorized cross-thread callback is
+    /// matched against, held for the whole park, plus a per-iteration release of the thread that callback has
+    /// to acquire in order to take its turn. Neither alone is enough here — the reservation without the yield
+    /// admits a callback that then blocks in <c>AcquireHostCall</c> until the park ends, and the yield without
+    /// the reservation is an unreserved engine, which is what an unrelated caller is refused by.
+    /// </para>
+    /// <para>
+    /// Both are keyed on the scope that <em>claimed</em> the engine, deliberately not on
+    /// <see cref="_ownerDepth"/> (see <see cref="ReleaseEntryReservationIfHeld"/> for what that mistake costs).
+    /// A pump reached from inside a running evaluation — host code the script itself invoked — has undertaken
+    /// nothing: the thread is in the middle of somebody else's script, and admitting a callback there would
+    /// interleave its turn into the middle of that evaluation. Such a park keeps refusing, exactly as it did.
+    /// </para>
+    /// </remarks>
     internal bool WaitForScheduledWork(TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var ownership = EnterHostCall();
+
+        var isTopLevelPark = ownership.IsEntryRoot;
+        using var admission = isTopLevelPark ? OpenHostCallbackAdmissionWindow() : default;
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -347,7 +367,14 @@ public partial class Engine
 
                 try
                 {
-                    _eventLoop.WaitForWork(completedEvent: null, interval, waitToken);
+                    // Yields the thread for the idle wait alone, finding the window's reservation rather than
+                    // taking one of its own — the shape DrainEventLoopUntil's per-iteration suspension has. A
+                    // callback admitted here holds the engine until it finishes, and the resume below waits
+                    // for it, which is why the ceiling bounds this wait and not the call around it.
+                    using (SuspendHostCallForCallbacks(hasTransferredCallback: isTopLevelPark))
+                    {
+                        _eventLoop.WaitForWork(completedEvent: null, interval, waitToken);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -373,6 +400,7 @@ public partial class Engine
     /// released here, because everything after the first <c>await</c> belongs to this method.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The discipline is the one every async host entry uses: <see cref="ReserveAsyncHostOperation"/> holds the
     /// engine across every await, since no thread stays claimed over one, and each moment that actually reads
     /// engine state re-claims the resuming thread with <see cref="EnterTransferredHostCall"/> — which is what
@@ -382,6 +410,15 @@ public partial class Engine
     /// exists to keep a converted host callback admissible while script is suspended, and this wait runs no
     /// script at all. It also leaves <c>_pendingAsyncOperations</c> alone for the same reason — that counter
     /// answers "is an evaluation suspended", and the reservation alone is what a restore has to refuse.
+    /// </para>
+    /// <para>
+    /// What it does share with the synchronous form is the reservation's <em>identity</em>: the anonymous
+    /// wildcard rather than a token of its own. Running no script is exactly why — a fresh token can only ever
+    /// be carried by a callback converted under the frame that minted it, and this frame converts none, so
+    /// such a token matches nothing at all rather than matching narrowly. There is no claiming-scope guard
+    /// here because there is nothing for one to do: the reservation is taken synchronously and refuses an
+    /// engine any thread already owns, so this form can never be reached from inside a running evaluation.
+    /// </para>
     /// </remarks>
     private async Task<bool> WaitForScheduledWorkCoreAsync(object owner, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -622,10 +659,20 @@ public partial class Engine
         /// an asynchronous operation in progress."</i> That is the engine's ordinary admission rule rather than
         /// anything this method adds, and it is what makes one-thread-per-engine self-enforcing. Enqueueing
         /// into a waiting engine from another thread is unaffected — that path is deliberately unguarded, and
-        /// is what wakes the wait. One consequence worth knowing: an authorized host callback arriving from
-        /// another thread while this wait is parked is refused for as long as it is parked, where a
-        /// <c>Thread.Sleep</c> would have admitted it. A host that needs such callbacks admitted while idle
-        /// should not park the engine's own thread here.
+        /// is what wakes the wait.
+        /// </para>
+        /// <para>
+        /// <b>Authorized callbacks are admitted, and one of them can outlast the ceiling.</b> A park is one of
+        /// the engine's callback-admission windows (README's Thread-safety section lists them all): a
+        /// JavaScript callback the host was handed and converted to a CLR delegate may be dispatched here from
+        /// another thread and will wait for its turn rather than being refused, which is the point of parking
+        /// the engine's own thread rather than sleeping it. Unrelated public callers are refused throughout,
+        /// exactly as they were. The consequence to plan for is that <paramref name="timeout"/> bounds the
+        /// <b>idle wait, not the call</b>: an admitted callback holds the engine, and this cannot return until
+        /// it finishes, so a host budgeting a frame can be handed control back well after its ceiling by a
+        /// callback of its own making. Only a <em>top-level</em> park is a window — one reached from inside a
+        /// running evaluation, from host code the script itself invoked, has undertaken nothing and goes on
+        /// refusing.
         /// </para>
         /// <para>
         /// <b>Do not call it from inside a job</b> — from host code reached by a promise reaction, a timer
@@ -677,17 +724,20 @@ public partial class Engine
         /// <remarks>
         /// <para>
         /// Everything <see cref="WaitForScheduledWork"/> documents applies — it does not pump, a
-        /// <see langword="true"/> is a hint, the wait is bounded by the engine's own next due time, and a
+        /// <see langword="true"/> is a hint, the wait is bounded by the engine's own next due time, a
         /// registered <see cref="Constraints.CancellationConstraint"/> ends it as
-        /// <see cref="ExecutionCanceledException"/>. Only the ownership differs.
+        /// <see cref="ExecutionCanceledException"/>, and it is a callback-admission window on the same terms,
+        /// including that an admitted callback can carry the returned task past <paramref name="timeout"/>.
+        /// Only the ownership differs.
         /// </para>
         /// <para>
         /// <b>Ownership spans the whole await.</b> No thread stays claimed across an <c>await</c>, so this
         /// reserves the engine the way every other asynchronous host entry does: the reservation is taken
         /// <em>synchronously</em>, so an engine already in use is refused with the admission
         /// <see cref="InvalidOperationException"/> before a <see cref="Task"/> exists, and it is held until the
-        /// returned task completes. While it is held the engine refuses every guarded entry from every thread,
-        /// this one included — so <see cref="ProcessTasks"/> belongs after the <c>await</c>, never beside it.
+        /// returned task completes. While it is held the engine refuses every unrelated guarded entry from
+        /// every thread, this one included — so <see cref="ProcessTasks"/> belongs after the <c>await</c>,
+        /// never beside it.
         /// The continuation resumes on whichever thread the runtime hands it, which is why the engine is
         /// re-claimed for each look at its schedule.
         /// </para>
@@ -709,7 +759,13 @@ public partial class Engine
             // Taken here rather than inside the async body so that the admission failure is reported to the
             // caller synchronously, exactly as EvaluateAsync and its siblings report it; the body owns the
             // release, because everything after its first await belongs to it.
-            var owner = _engine.ReserveAsyncHostOperation();
+            //
+            // Under the engine's anonymous wildcard rather than a token of this operation's own: a park runs
+            // no script, so nothing can ever be converted under it and carry that token, and reserving under
+            // one refuses every authorized callback instead of admitting the ones this frame issued. Nothing
+            // is in force to keep here either — the reservation requires an unowned engine, and an unowned
+            // engine has no operation token.
+            var owner = _engine.ReserveAsyncHostOperation(_engine.OwnershipReleasedEvent);
             return _engine.WaitForScheduledWorkCoreAsync(owner, timeout, cancellationToken);
         }
     }

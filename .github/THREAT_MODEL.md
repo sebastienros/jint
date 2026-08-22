@@ -615,12 +615,19 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 - Same-thread synchronous callback re-entry is allowed. Async entry from inside an active
   engine call is rejected before work starts; top-level async APIs reserve ownership for the
   lifetime of their returned `Task` and transfer the active thread when a continuation resumes.
-- JavaScript callbacks converted to CLR delegates carry operation-scoped authorization. A host
-  may dispatch one to another thread while the engine holds an admission window — the engine
-  operation that made the call which received the callback has not returned, an async engine API is
-  outstanding, or the engine is draining its event loop for a blocking unwrap or import; Jint yields
-  and transfers the reserved engine one callback turn at a time without admitting unrelated public
-  callers.
+- JavaScript callbacks converted to CLR delegates carry an authorization recorded when the engine
+  handed the callback out. A host may dispatch one to another thread while the engine holds an
+  admission window — the engine operation that made the call which received the callback has not
+  returned, an async engine API is outstanding, the engine is draining its event loop for a blocking
+  unwrap or import, or a host thread is parked on `Engine.Advanced.WaitForScheduledWork` or its
+  asynchronous form; Jint yields and transfers the reserved engine one callback turn at a time
+  without admitting unrelated public callers.
+- How narrowly a window admits depends on whether an operation token is in force under it. A window
+  opened under one — a host call inside a running evaluation, an outstanding async engine API —
+  admits only callbacks issued under that same operation. A window opened where none is in force is
+  anonymous, and admits any callback this engine ever authorized, including one whose operation has
+  long since ended: that is the case at a top-level blocking drain and at a top-level park. A pump
+  reached from inside a running evaluation opens no window at all and refuses.
 - Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**
@@ -636,6 +643,13 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
   `InvalidOperationException` an unrelated caller receives. Waiting there would mean blocking on a
   thread that may itself be blocked on that callback, so the refusal is deliberate rather than a
   gap; a host must keep the engine inside a window for as long as its callbacks may arrive.
+- A host that blocks its own engine turn on a *second* authorized callback — one it was not itself
+  handed — can wedge the engine, because that callback can only run after the turn that is waiting
+  for it. The shape already exists at the blocking drain; the park extends its reach by one frame.
+  It is outside the supported contract, and a raw `JsCallDelegate` still cannot reach it at all.
+- `WaitForScheduledWork`'s timeout bounds the idle wait, not the call. An admitted callback holds
+  the engine and the park cannot return until it finishes, so a host budgeting a frame can be handed
+  control back arbitrarily later by a callback of its own making.
 - A host can still share projected CLR objects across otherwise separate engines.
 
 **Required host action.** Give an engine exclusive ownership for each complete operation and
