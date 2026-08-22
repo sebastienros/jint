@@ -2,6 +2,7 @@
 #nullable enable
 
 using System.Diagnostics;
+using System.Text;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -81,7 +82,239 @@ internal static class WptHarness
     internal static WptRunOutcome Run(string testFilePath)
     {
         var directory = WptCorpus.DirectoryOf(testFilePath);
-        return Execute(directory, MetaScripts(testFilePath, directory), WptCorpus.Read(testFilePath), testFilePath);
+        return RunsInAWorker(testFilePath)
+            ? RunInWorker(testFilePath, directory)
+            : Execute(directory, MetaScripts(testFilePath, directory), WptCorpus.Read(testFilePath), testFilePath);
+    }
+
+    /// <summary>
+    /// Whether a file is run <b>inside a worker</b>: it is in the <c>workers/</c> corpus, and its own
+    /// <c>// META: global=</c> line says it can be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The directory decides the scope and the META key decides the suitability</b>, and neither half does
+    /// the job alone. The directory alone would force a lane on a <c>workers/</c> file that is really about a
+    /// <i>window</i> creating a worker — which is what most of upstream's <c>workers/</c> tree is, and what the
+    /// not-vendored table is mostly full of. The META key alone would let a corpus bump move a settled suite
+    /// into a worker by editing one comment, and would move exactly the wrong files: it is a list of the
+    /// globals a file <i>supports</i>, so <c>global=window,worker</c> is true of both lanes and says nothing
+    /// about which one is worth running.
+    /// </para>
+    /// <para>
+    /// What the key genuinely rules out is a file that names no worker global at all: running such a file in a
+    /// worker would be asserting window semantics against a global that is not one. And what the directory
+    /// rules out is the opposite mistake — running <c>workers/Worker-custom-event.any.js</c> in the driver's
+    /// top-level engine, where it would test that engine's own <c>addEventListener</c>, pass, and prove nothing
+    /// about a worker. <c>WptTestRunner.EveryWorkerLaneFileIsAWorkersFile</c> pins both directions.
+    /// </para>
+    /// <para>
+    /// Negated entries — upstream's <c>global=worker,!serviceworker</c> form — are subtractions from a group
+    /// and can never add a global, so they are skipped rather than parsed.
+    /// </para>
+    /// </remarks>
+    internal static bool RunsInAWorker(string testFilePath)
+    {
+        if (!testFilePath.StartsWith("workers/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var value in MetaValues(WptCorpus.Read(testFilePath), "global="))
+        {
+            foreach (var entry in value.Split(','))
+            {
+                var name = entry.Trim();
+                if (name.Length == 0 || name[0] == '!')
+                {
+                    continue;
+                }
+
+                if (name is "worker" or "dedicatedworker")
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The values of one <c>// META:</c> key, in declaration order.
+    /// </summary>
+    /// <remarks>
+    /// The META block is a run of leading comment lines; the first line of code ends it. Both spellings
+    /// upstream uses are accepted — <c>// META: global=worker</c> and the space-less <c>//META: global=worker</c>,
+    /// which <c>workers/Worker-constructor-proto.any.js</c> is written with. Reading only the first spelling
+    /// would drop a <c>script=</c> line silently, which presents as a suite failing on a missing helper rather
+    /// than as a parsing bug.
+    /// </remarks>
+    private static IEnumerable<string> MetaValues(string source, string key)
+    {
+        foreach (var rawLine in source.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+
+            var payload =
+                line.StartsWith("// META:", StringComparison.Ordinal) ? line.Substring("// META:".Length)
+                : line.StartsWith("//META:", StringComparison.Ordinal) ? line.Substring("//META:".Length)
+                : null;
+
+            if (payload is null)
+            {
+                if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                yield break;
+            }
+
+            payload = payload.TrimStart();
+            if (payload.StartsWith(key, StringComparison.Ordinal))
+            {
+                yield return payload.Substring(key.Length).Trim();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs one worker-scoped file by making it the body of a real module worker, then pumping the parent and
+    /// the worker cooperatively on this thread until the shim reports every test settled.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The results are read straight off the <b>worker</b> engine rather than posted back to the parent. That
+    /// is not a shortcut past the message path: the driver holds <c>connection.Worker</c>, pumps it on its own
+    /// thread and reads it between turns, so the values are as settled as the parent's would be — and routing
+    /// them through <c>postMessage</c> would make every file's outcome depend on the serializer, so a defect in
+    /// it would present as every worker suite reporting nothing rather than as a failing assertion.
+    /// </para>
+    /// <para>
+    /// A worker whose module never evaluated ends as <c>StartupFailed</c> carrying the CLR reason, and that is
+    /// reported as a harness error for the whole file — which is what it is: no test was registered, so there
+    /// is nothing a per-test exclusion could name.
+    /// </para>
+    /// </remarks>
+    private static WptRunOutcome RunInWorker(string testFilePath, string directory)
+    {
+        // The same three-step composition a top-level suite gets from three Execute calls: the shim, then the
+        // file's META helpers, then the file. It is one module because a module worker has one entry script.
+        var body = new StringBuilder(WptCorpus.Prelude).Append('\n');
+        foreach (var script in MetaScripts(testFilePath, directory))
+        {
+            body.Append(WptCorpus.Read(script)).Append('\n');
+        }
+
+        body.Append(WptCorpus.Read(testFilePath));
+
+        var provider = new WptWorkerProvider(body.ToString(), directory);
+        var parent = BuildEngine(directory, provider);
+
+        Engine? worker = null;
+        try
+        {
+            parent.SetValue("__wptWorkerSpecifier", testFilePath);
+            parent.Execute("globalThis.__wptWorker = new Worker(__wptWorkerSpecifier, { type: 'module' });");
+
+            var stalled = PumpWorker(parent, provider, out worker);
+            return new WptRunOutcome(worker is null ? [] : ReadResults(worker), stalled);
+        }
+        catch (Exception ex)
+        {
+            List<WptTestResult> partial;
+            try
+            {
+                partial = worker is null ? [] : ReadResults(worker);
+            }
+            catch
+            {
+                partial = [];
+            }
+
+            return new WptRunOutcome(partial, Describe(ex));
+        }
+    }
+
+    /// <summary>
+    /// Drives the parent and every live worker in turn until the worker's shim reports itself complete.
+    /// </summary>
+    /// <remarks>
+    /// One thread, no waiting on another: <c>ProcessTasks</c> drains an engine's queue, and a message crossing
+    /// between the two only <i>enqueues</i> on the receiver, so a round of the loop that changed anything is
+    /// followed by another round that sees it. The idle rule is the top-level loop's, widened over both
+    /// engines: when no engine has queued work and none has scheduled any, no amount of pumping can change the
+    /// answer.
+    /// </remarks>
+    private static string? PumpWorker(Engine parent, WptWorkerProvider provider, out Engine? worker)
+    {
+        var started = Stopwatch.GetTimestamp();
+        worker = provider.Started.Count > 0 ? provider.Started[0].Worker : null;
+
+        while (true)
+        {
+            parent.Advanced.ProcessTasks();
+
+            // A copy, because a worker that ends while being pumped removes itself from the live list.
+            foreach (var connection in provider.Live.ToArray())
+            {
+                connection.Worker.Advanced.ProcessTasks();
+            }
+
+            worker ??= provider.Started.Count > 0 ? provider.Started[0].Worker : null;
+
+            if (provider.Started.Count > 0 && provider.Started[0] is { IsFaulted: true } faulted)
+            {
+                return $"the worker did not start ({faulted.EndReason}): {Describe(faulted.Error!)}";
+            }
+
+            // Null until the worker's module has evaluated, which is what the first rounds are waiting for.
+            var outstanding = worker is null ? null : Outstanding(worker);
+            if (outstanding is not null && IsComplete(outstanding))
+            {
+                return null;
+            }
+
+            if (NextDue(parent, provider) is not { } untilDue)
+            {
+                return outstanding is null
+                    ? "nothing is left to pump and the worker never installed the harness shim"
+                    : Stalled(outstanding, "nothing is left to pump");
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= _harnessDeadline)
+            {
+                return outstanding is null
+                    ? $"the worker did not install the harness shim within {_harnessDeadline}"
+                    : Stalled(outstanding, $"the harness did not complete within {_harnessDeadline}");
+            }
+
+            if (untilDue > TimeSpan.Zero)
+            {
+                Thread.Sleep(untilDue < TimeSpan.FromMilliseconds(10) ? untilDue : TimeSpan.FromMilliseconds(10));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The soonest any of the engines has work, or <see langword="null"/> when none of them has any.
+    /// </summary>
+    private static TimeSpan? NextDue(Engine parent, WptWorkerProvider provider)
+    {
+        var soonest = parent.TimeUntilNextPumpScheduledWork();
+
+        foreach (var connection in provider.Live.ToArray())
+        {
+            if (connection.Worker.TimeUntilNextPumpScheduledWork() is not { } due)
+            {
+                continue;
+            }
+
+            soonest = soonest is { } best && best <= due ? best : due;
+        }
+
+        return soonest;
     }
 
     /// <summary>
@@ -141,44 +374,37 @@ internal static class WptHarness
     /// The <c>// META: script=</c> lines, in the order they are declared, resolved against the tree.
     /// </summary>
     /// <remarks>
-    /// The other keys are read and deliberately ignored: <c>global=</c> names the browser globals the file
-    /// supports (this one is none of them — see the shim's <c>GLOBAL</c>), <c>title=</c> and <c>timeout=</c>
-    /// are for the browser reporter, and <c>variant=</c> is sharding.
+    /// <c>global=</c> is the one other key that is acted on — see <see cref="RunsInAWorker"/>, which is what
+    /// keeps a file about the worker global out of the driver's top-level engine. The rest are read and
+    /// deliberately ignored: <c>title=</c> and <c>timeout=</c> are for the browser reporter, and
+    /// <c>variant=</c> is sharding.
     /// </remarks>
     private static List<string> MetaScripts(string testFilePath, string directory)
     {
-        const string ScriptKey = "// META: script=";
         var scripts = new List<string>();
 
-        foreach (var rawLine in WptCorpus.Read(testFilePath).Split('\n'))
+        foreach (var reference in MetaValues(WptCorpus.Read(testFilePath), "script="))
         {
-            var line = rawLine.TrimEnd('\r');
-            if (!line.StartsWith("// META:", StringComparison.Ordinal))
-            {
-                // The META block is a run of leading comment lines; the first line of code ends it.
-                if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                break;
-            }
-
-            if (line.StartsWith(ScriptKey, StringComparison.Ordinal))
-            {
-                scripts.Add(WptCorpus.ResolveReference(directory, line.Substring(ScriptKey.Length).Trim()));
-            }
+            scripts.Add(WptCorpus.ResolveReference(directory, reference));
         }
 
         return scripts;
     }
 
-    private static Engine BuildEngine(string directory)
+    private static Engine BuildEngine(string directory, WptWorkerProvider? workers = null)
     {
         var engine = new Engine(options =>
         {
             // Everything except outbound network access, which is what a suite under test is allowed to see.
             options.UseWebApis(WebApiFeatures.Default);
+
+            // Only for the worker lane, and only then: an engine that no vendored file asks to create a worker
+            // from is byte-for-byte the engine every other suite has always run on. `Worker` is absent without
+            // both the flag and a provider, which UseWorkers sets together.
+            if (workers is not null)
+            {
+                options.UseWorkers(workers);
+            }
 
             // A guard on a hung script rather than a budget anything is measured against; see the field.
             options.TimeoutInterval(_harnessDeadline);
@@ -186,19 +412,27 @@ internal static class WptHarness
 
         // Headers, Request and Response, which no feature flag names on their own — see the class remarks.
         WebApiRegistration.InstallFetchModel(engine);
+        InstallResourceReader(engine, directory);
 
-        // The shim's `fetch` is this and nothing else: a reader over the vendored tree, so that a suite's
-        // `fetch("resources/urltestdata.json")` finds its corpus. A path the corpus does not hold is a
-        // vendoring bug rather than a test failure, so it erupts as a CLR exception and is reported as a
-        // harness error for the whole file instead of becoming a rejected promise a test could mask.
-        engine.SetValue("__wptReadResource", new ClrFunction(engine, "__wptReadResource", (_, args) =>
+        return engine;
+    }
+
+    /// <summary>
+    /// Installs the shim's <c>fetch</c> back-end: a reader over the vendored tree, so that a suite's
+    /// <c>fetch("resources/urltestdata.json")</c> finds its corpus.
+    /// </summary>
+    /// <remarks>
+    /// A path the corpus does not hold is a vendoring bug rather than a test failure, so it erupts as a CLR
+    /// exception and is reported as a harness error for the whole file instead of becoming a rejected promise a
+    /// test could mask. The worker lane installs the same reader on the worker engine, so a file's environment
+    /// does not depend on which lane ran it.
+    /// </remarks>
+    internal static void InstallResourceReader(Engine engine, string directory)
+        => engine.SetValue("__wptReadResource", new ClrFunction(engine, "__wptReadResource", (_, args) =>
         {
             var reference = TypeConverter.ToString(args.At(0));
             return WptCorpus.Read(WptCorpus.ResolveReference(directory, reference));
         }));
-
-        return engine;
-    }
 
     /// <summary>
     /// Drives the engine until the shim reports every async test and promise test settled. Returns

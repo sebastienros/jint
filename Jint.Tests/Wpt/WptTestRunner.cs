@@ -8,8 +8,8 @@ namespace Jint.Tests.Wpt;
 
 /// <summary>
 /// Runs the vendored web-platform-tests suites for the URL, URL Pattern, Encoding, Web Cryptography,
-/// Streams, Compression and File API standards, one theory case per <c>.any.js</c> file, under the harness
-/// shim in <c>Prelude/testharness-shim.js</c>.
+/// Streams, Compression, File API and Workers standards, one theory case per <c>.any.js</c> file, under the
+/// harness shim in <c>Prelude/testharness-shim.js</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,16 +27,25 @@ namespace Jint.Tests.Wpt;
 /// by https://github.com/sebastienros/jint/issues/3121, and both the WebCryptoAPI corpus found are fixed too:
 /// the point at which <c>SubtleCrypto</c> copies its caller's bytes by
 /// https://github.com/sebastienros/jint/issues/3179, and ECDH's mismatched-curve error by
-/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed
-/// and the one the File API corpus did — an <c>Array.prototype.values</c> defect with no web API in it at
-/// all; <c>Vendor/README.md</c> analyses each.
+/// https://github.com/sebastienros/jint/issues/3180. The category holds the five the streams corpus filed,
+/// the one the File API corpus did — an <c>Array.prototype.values</c> defect with no web API in it at all —
+/// and the one the workers corpus did, which is a <c>self</c> installed against <c>Window</c>'s definition
+/// for every global including a worker's. <c>Vendor/README.md</c> analyses each.
 /// </para>
 /// <para>
-/// <b>The WebCryptoAPI, streams and FileAPI corpora are one suite per directory</b> rather than one for the
-/// lot, because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends. That is
-/// deliberate: a suite is a theory, a theory is a line in a test report, and seventeen of them tell a reader
-/// which operation went red where three would not. <c>compression/</c> and <c>urlpattern/</c> have a single
-/// directory apiece and are therefore one suite apiece.
+/// <b>The WebCryptoAPI, streams, FileAPI and workers corpora are one suite per directory</b> rather than one
+/// for the lot, because <see cref="WptCorpus.TestFiles"/> lists a directory's own files and never descends.
+/// That is deliberate: a suite is a theory, a theory is a line in a test report, and twenty of them tell a
+/// reader which operation went red where four would not. <c>compression/</c> and <c>urlpattern/</c> have a
+/// single directory apiece and are therefore one suite apiece.
+/// </para>
+/// <para>
+/// <b>The <c>workers/</c> corpus runs in a lane of its own</b>: its files are the body of a real module
+/// worker rather than a script in the driver's engine, because every one of them carries
+/// <c>// META: global=worker</c> and would otherwise assert nothing about a worker. See
+/// <see cref="WptHarness.RunsInAWorker"/> for how the lane is chosen, <see cref="WptWorkerProvider"/> for the
+/// provider and the cooperative pump, and <c>Vendor/README.md</c> for the twenty upstream files the lane
+/// still cannot reach.
 /// </para>
 /// </remarks>
 public class WptTestRunner
@@ -165,6 +174,57 @@ public class WptTestRunner
         // about the reader's state machine (readyState, abort, the progress events) rather than about a Blob.
         // Its sibling unicode.any.js needs no reader at all and *is* vendored.
         ("FileAPI/fileReader.any.js", "FileReader is not implemented"),
+
+        // ---------------------------------------------------------------- workers
+        // Twenty-one files that look like the most runnable thing in the directory and are the least: every
+        // single one opens with `importScripts("/resources/testharness.js")` at file scope. A .worker.js is a
+        // *classic* worker's top-level script, and Jint runs module workers only — importScripts is present and
+        // throws a TypeError, which is the module-worker step the specification itself prescribes. So the file
+        // throws before registering a test, and a harness error is for the whole file rather than something a
+        // per-test exclusion can name. What they assert about the worker global is asserted instead by the
+        // vendored `.any.js` files beside them and by Jint.Tests/Runtime/WebApi/WorkerMechanismTests.cs.
+        ("workers/*.worker.js", "a classic worker's top-level script: importScripts at file scope"),
+
+        // SharedWorker and its global, which Jint does not have — the design records it as still open, needing
+        // a cross-engine name registry. `global=sharedworker` files cannot even be run in the worker lane:
+        // there is no shared worker to be the global of.
+        ("workers/SharedWorker-*.any.js", "SharedWorker is not implemented"),
+        ("workers/semantics/interface-objects/*", "global=sharedworker, and the .worker.js pair above"),
+
+        // Upstream's own tutorial directory, and it teaches wpt rather than testing an engine: general.any.js
+        // is two tests, the second of which asserts
+        // `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the
+        // wpt server generates for a `.any.js` file. There is no server here to generate one. onconnect.any.js
+        // beside it is global=sharedworker.
+        ("workers/examples/*", "upstream's tutorial: asserts the wpt server's own generated glue, and a SharedWorker"),
+
+        // `.sub.` is server-side substitution: wptserve rewrites {{host}}/{{ports[…]}} into a real origin
+        // before serving the file. Nothing here serves anything, so a vendored copy would carry the
+        // placeholders verbatim. Worker-location.sub.any.js additionally asserts every member of a
+        // WorkerLocation, which is the declined feature below.
+        ("workers/Worker-location.sub.any.js", "needs wptserve substitution and a WorkerLocation"),
+        ("workers/interfaces/WorkerUtils/importScripts/*", "classic-worker importScripts, most of it .sub. as well"),
+        ("workers/importscripts_mime*.any.js", "classic-worker importScripts, over server-chosen MIME types"),
+
+        // The only file in the directory whose whole assertion is `location === location`. The harness shim
+        // installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a
+        // shard — so a vendored copy would pass against the shim while Jint deliberately has no WorkerLocation
+        // at all (the worker's script name is its Module.Location). A test that can only assert the harness is
+        // worse than no test, which is why this is a not-vendored row and not an exclusion.
+        ("workers/interfaces/WorkerGlobalScope/location/*", "would assert the shim's own stub location"),
+
+        // The module-worker corpus, and the one row here that is a finding rather than a decision. Every one of
+        // the nine worker scripts import-test-cases.js drives opens with
+        // `if ('DedicatedWorkerGlobalScope' in self && self instanceof DedicatedWorkerGlobalScope)` and installs
+        // its onmessage handler *inside* that branch. Jint ships no DedicatedWorkerGlobalScope interface object
+        // (the design's divergence #5, ruled together with #3195 — an interface object without the prototype
+        // chain would make `instanceof` lie), so no branch is taken, no handler is installed, the worker never
+        // answers, and all nine promise_tests hang: a harness error for the whole file with no test to name.
+        // The sniff is in the fixture rather than in an assertion, which is exactly why no per-test exclusion
+        // can express it. What the file would have proved about module loading in a worker — static, nested,
+        // dynamic, and the two orders of the pair — is proved instead by WorkerMechanismTests' module pins.
+        // The blob-url and data-url siblings need URL.createObjectURL and a data: module loader on top of that.
+        ("workers/modules/*", "the fixtures sniff DedicatedWorkerGlobalScope, which Jint deliberately does not expose"),
     ];
 
     /// <summary>
@@ -382,6 +442,21 @@ public class WptTestRunner
         ["FileAPI/file/File-constructor.any.js"] = 49,
 
         ["FileAPI/unicode.any.js"] = 4,
+
+        // Small numbers, because these files are small: the worker corpus asks one question per file about the
+        // global it is running in, and the floor is what proves the file reached a worker at all rather than
+        // failing to start one.
+        ["workers/Worker-base64.any.js"] = 1,
+        ["workers/Worker-constructor-proto.any.js"] = 1,
+        ["workers/Worker-custom-event.any.js"] = 1,
+        ["workers/Worker-formdata.any.js"] = 1,
+        ["workers/Worker-replace-event-handler.any.js"] = 1,
+        ["workers/Worker-replace-global-constructor.any.js"] = 1,
+        ["workers/Worker-replace-self.any.js"] = 1,
+        ["workers/WorkerNavigator-hardware-concurrency.any.js"] = 1,
+        ["workers/WorkerNavigator.any.js"] = 1,
+        ["workers/interfaces/WorkerGlobalScope/self.any.js"] = 4,
+        ["workers/semantics/multiple-workers/exposure.any.js"] = 2,
     };
 
     /// <summary>
@@ -758,6 +833,35 @@ public class WptTestRunner
             "ToUint32 should be applied to the length and any exceptions should be propagated.", WptDivergence.NeedsTriage),
         new("FileAPI/blob/Blob-constructor.any.js",
             "Getters and value conversions should happen in order until an exception is thrown.", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- workers
+        // Six rows, five of them one decision family and none of them a surprise: the worker global is the
+        // global the engine already builds plus the worker names, and these are the names it deliberately does
+        // not add. Each is a numbered divergence in the design — see WptDivergence.NeedsDeclinedWorkerGlobals
+        // for the three citations. That is the whole of what this corpus found to be missing, which is the
+        // useful figure: everything else it asks of a worker global passes.
+        new("workers/Worker-replace-self.any.js",
+            "Test that self is not replaceable.", WptDivergence.NeedsDeclinedWorkerGlobals),
+        new("workers/interfaces/WorkerGlobalScope/self.any.js",
+            "self instanceof WorkerGlobalScope", WptDivergence.NeedsDeclinedWorkerGlobals),
+        new("workers/Worker-constructor-proto.any.js",
+            "Tests that setting the proto of a built in constructor is not reset.", WptDivergence.NeedsDeclinedWorkerGlobals),
+        new("workers/WorkerNavigator.any.js",
+            "Testing Navigator properties on workers.", WptDivergence.NeedsDeclinedWorkerGlobals),
+        new("workers/WorkerNavigator-hardware-concurrency.any.js",
+            "Test worker navigator hardware concurrency.", WptDivergence.NeedsDeclinedWorkerGlobals),
+
+        // Nesting is off by default, so `Worker` is undefined inside a worker — a grant withheld rather than a
+        // name declined, which is why it is its own category. The file's other row asserts that SharedWorker is
+        // absent outside a window and passes.
+        new("workers/semantics/multiple-workers/exposure.any.js", "Worker exposure", WptDivergence.NeedsWorkerNesting),
+
+        // The one genuine defect this corpus found, and it is not in the worker code: `self` is installed once
+        // for every global as a writable data property, against Window's [Replaceable] definition, and
+        // WorkerGlobalScope's is read-only. Recorded rather than fixed — the install predates Worker and is
+        // shared with the top-level lane, so moving it is not a change this corpus gets to make. See
+        // WptDivergence.NeedsTriage.
+        new("workers/interfaces/WorkerGlobalScope/self.any.js", "self = 1", WptDivergence.NeedsTriage),
     ];
 
     public static IEnumerable<object[]> UrlSuiteFiles() => Cases("url");
@@ -853,6 +957,24 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> FileApiFileSuiteFiles() => Cases("FileAPI/file");
 
+    /// <summary>
+    /// The three vendored <c>workers/</c> directories. Every file in them runs <b>inside a real module
+    /// worker</b> — see <see cref="WptHarness.RunsInAWorker"/> for the rule and <c>Vendor/README.md</c> for the
+    /// twenty upstream files that cannot be reached at all.
+    /// </summary>
+    private static readonly string[] _workersSuites =
+    [
+        "workers",
+        "workers/interfaces/WorkerGlobalScope",
+        "workers/semantics/multiple-workers",
+    ];
+
+    public static IEnumerable<object[]> WorkersSuiteFiles() => Cases("workers");
+
+    public static IEnumerable<object[]> WorkerGlobalScopeSuiteFiles() => Cases("workers/interfaces/WorkerGlobalScope");
+
+    public static IEnumerable<object[]> MultipleWorkersSuiteFiles() => Cases("workers/semantics/multiple-workers");
+
     [Theory]
     [MemberData(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
@@ -941,6 +1063,18 @@ public class WptTestRunner
     [MemberData(nameof(FileApiFileSuiteFiles))]
     public void RunsTheFileApiFileSuite(string file) => RunSuiteFile(file);
 
+    [Theory]
+    [MemberData(nameof(WorkersSuiteFiles))]
+    public void RunsTheWorkersSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(WorkerGlobalScopeSuiteFiles))]
+    public void RunsTheWorkerGlobalScopeSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(MultipleWorkersSuiteFiles))]
+    public void RunsTheMultipleWorkersSuite(string file) => RunSuiteFile(file);
+
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.
     /// </summary>
@@ -1002,6 +1136,7 @@ public class WptTestRunner
         CheckSuiteGroup("WebCryptoAPI/", _webCryptoSuites);
         CheckSuiteGroup("streams/", _streamsSuites);
         CheckSuiteGroup("FileAPI/", _fileApiSuites);
+        CheckSuiteGroup("workers/", _workersSuites);
 
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
 
@@ -1103,6 +1238,62 @@ public class WptTestRunner
 
         reachedBy.Keys.Should().BeEquivalentTo(vendored,
             "every vendored .any.js must be reached by a theory, and a theory must reach nothing else");
+    }
+
+    /// <summary>
+    /// The worker lane holds exactly the <c>workers/</c> corpus, and holds all of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="WptHarness.RunsInAWorker"/> asks two questions, and a corpus bump can break either. A
+    /// <c>workers/</c> file whose <c>// META: global=</c> line stopped naming a worker global would quietly
+    /// fall back to the top-level engine, where it would assert nothing about a worker and stay green — the
+    /// most expensive kind of silence a conformance driver can have. And a file vendored into
+    /// <c>workers/</c> that is really about a <i>window</i> creating a worker would be run as a worker's own
+    /// body, which is not what it is for.
+    /// </para>
+    /// <para>
+    /// So both directions are pinned here rather than left to the rule. Everything outside <c>workers/</c> is
+    /// covered by the same walk, which is what says the lane cannot widen: the directory clause is the reason
+    /// no previously vendored suite can move, and this is the check that it stays the reason.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryWorkerLaneFileIsAWorkersFile()
+    {
+        var problems = new List<string>();
+        var inTheWorkerLane = 0;
+
+        foreach (var path in WptCorpus.Paths)
+        {
+            if (!path.EndsWith(".any.js", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var inWorkersDirectory = path.StartsWith("workers/", StringComparison.Ordinal);
+            var runsInAWorker = WptHarness.RunsInAWorker(path);
+
+            if (runsInAWorker)
+            {
+                inTheWorkerLane++;
+            }
+
+            if (runsInAWorker && !inWorkersDirectory)
+            {
+                problems.Add($"{path} would run inside a worker, but only the workers/ corpus is meant to");
+            }
+            else if (inWorkersDirectory && !runsInAWorker)
+            {
+                problems.Add($"{path} is a workers/ file that would run in the top-level engine, where it "
+                    + "would assert nothing about a worker");
+            }
+        }
+
+        string.Join(Environment.NewLine, problems).Should().BeEmpty();
+
+        // And the lane is not empty, which the two rules above would both be satisfied by.
+        inTheWorkerLane.Should().BeGreaterThanOrEqualTo(10, "the workers/ corpus runs inside real workers");
     }
 
     [Fact]

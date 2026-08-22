@@ -40,11 +40,85 @@ internal enum WptDivergence
     NeedsWebAssembly,
 
     /// <summary>
-    /// The test detaches a buffer by posting it through a <c>MessageChannel</c>. Message ports are a worker
-    /// primitive and Jint has no worker story, so this is the corpus meeting an environment it was not
-    /// written for rather than a gap to close.
+    /// The test needs a <c>MessageChannel</c> — historically to detach a buffer by posting it through one.
+    /// <para>
+    /// <b>No entry uses this today, and the reason it once gave is no longer true.</b> It used to read "message
+    /// ports are a worker primitive and Jint has no worker story", which stopped being the case in stages:
+    /// <c>MessageChannel</c> and <c>MessagePort</c> arrived with <see cref="Jint.WebApi.WebApiFeatures"/>'s
+    /// messaging feature, transferring a port between engines arrived with
+    /// https://github.com/sebastienros/jint/issues/3197, and <c>Worker</c> itself with
+    /// https://github.com/sebastienros/jint/issues/3167. The corpus reports the change rather than the prose
+    /// doing it: <c>FileAPI/blob/Blob-constructor-detached-buffer.any.js</c> detaches its buffer with
+    /// <c>new MessageChannel().port1.postMessage(buffer, [buffer])</c> and passes on exactly that mechanism,
+    /// which is why its rows are not here.
+    /// </para>
+    /// <para>
+    /// The category is kept because the driver's engine enables
+    /// <see cref="Jint.WebApi.WebApiFeatures.Default"/> and not everything, so a future suite may still meet a
+    /// channel it was not granted. What it must never again mean is "workers do not exist here".
+    /// </para>
     /// </summary>
     NeedsMessageChannel,
+
+    /// <summary>
+    /// <para>
+    /// The test names one of the three globals HTML gives a worker and Jint's worker global scope
+    /// <b>deliberately does not add</b>. They are one decision, taken together and for one reason — the worker
+    /// global is the global the engine already builds plus the worker names, and a name it cannot back with the
+    /// object HTML says is behind it is not faked:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b><c>WorkerGlobalScope</c> and <c>DedicatedWorkerGlobalScope</c></b>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface). The worker
+    /// global is not an <c>EventTarget</c> and has no such prototype chain, so an interface object would make
+    /// <c>self instanceof WorkerGlobalScope</c> answer <see langword="false"/> while the constructor was
+    /// nevertheless reachable — an <c>instanceof</c> that lies. Absence is the coherent half of that pair, and
+    /// it is the same ruling as https://github.com/sebastienros/jint/issues/3195 took for <c>Crypto</c>,
+    /// <c>SubtleCrypto</c> and <c>Performance</c>.
+    /// </description></item>
+    /// <item><description>
+    /// <b><c>location</c> and <c>WorkerLocation</c></b>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-location). A worker's script
+    /// name is its <c>Module.Location</c>, which a host exposes through <c>import.meta</c>; there is no URL for
+    /// the other eight members of a <c>WorkerLocation</c> to be parts of. Declined for v1 and cheap to add if
+    /// porting pressure appears.
+    /// </description></item>
+    /// <item><description>
+    /// <b><c>WorkerNavigator</c>, and <c>hardwareConcurrency</c> in particular</b>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#the-workernavigator-object). A worker gets whatever
+    /// <c>navigator</c> its parent's <c>Navigator</c> flag gave it and no separate worker interface;
+    /// <c>hardwareConcurrency</c> is absent on purpose, because in Jint the <i>host</i> owns every thread and an
+    /// engine that answered a number would be guessing at a resource it does not allocate.
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// All three are numbered divergences (5, 6 and 7) in the ledger of
+    /// https://github.com/sebastienros/jint/issues/3167, so these entries are that ledger asserted rather than
+    /// merely written down.
+    /// </para>
+    /// </summary>
+    NeedsDeclinedWorkerGlobals,
+
+    /// <summary>
+    /// <para>
+    /// The test expects a worker to be able to create a worker. Jint's default is the opposite:
+    /// <c>WorkerRequest.CreateDefaultOptions()</c> subtracts <c>WebApiFeatures.Workers</c> and does not copy the
+    /// provider, so <c>Worker</c> is <c>undefined</c> inside a worker until a provider sets both — one visible
+    /// line, by which the host accepts the accounting.
+    /// </para>
+    /// <para>
+    /// This is the opposite kind of decision from <see cref="NeedsDeclinedWorkerGlobals"/>: not a name declined
+    /// but a <i>grant</i> withheld, on the feature's rule that grants never travel by implication. A per-engine
+    /// worker cap bounds the branching factor of a tree, never its depth, so inheriting the capability that
+    /// manufactures engines would make a three-line self-spawning module an unbounded fork bomb on the shipped
+    /// defaults. QuickJS refuses nesting outright, browsers bound the tree only with a global cap, and Deno
+    /// answers with monotone capability; off-by-default is the shape all three agree on for a library.
+    /// <c>WorkerRequest.Depth</c> and <c>LiveWorkerCount</c> exist to let a provider that opts in bound the
+    /// tree itself.
+    /// </para>
+    /// </summary>
+    NeedsWorkerNesting,
 
     /// <summary>
     /// <para>
@@ -241,6 +315,22 @@ internal enum WptDivergence
     /// <c>[...Array.prototype.values.call({})]</c> is a <c>TypeError</c> where the specification says
     /// <c>[]</c>. Reproduces with no web API involved at all; see <c>Vendor/README.md</c> for the six shapes
     /// and what each one should answer.
+    /// </description></item>
+    /// <item><description>
+    /// <b><c>self</c> is writable in a worker, where <c>WorkerGlobalScope.self</c> is read-only.</b>
+    /// <c>workers/interfaces/WorkerGlobalScope/self.any.js</c>, "self = 1": the file assigns to <c>self</c> and
+    /// asserts it did not change. <c>WebApiRegistration</c> installs <c>self</c> once, for every global, as an
+    /// ordinary writable data property, and its own comment says which definition that was written against —
+    /// "HTML exposes <c>self</c> through a <c>[Replaceable]</c> accessor pair on <b>Window</b>"
+    /// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-self), which was the only global there
+    /// was at the time. <c>WorkerGlobalScope</c>'s is a plain
+    /// <c>readonly attribute WorkerGlobalScope self</c>
+    /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self) with no
+    /// <c>[Replaceable]</c>, so the worker inherited the window's semantics along with the property. It is
+    /// <i>not</i> new worker code — the install predates <c>Worker</c> and is shared with the top-level lane —
+    /// which is why it is triaged here rather than fixed alongside the corpus that found it. Fixing it means
+    /// installing <c>self</c> per-global rather than once, and the sibling
+    /// <c>DedicatedWorkerGlobalScope.name</c> is the same shape and the same question.
     /// </description></item>
     /// </list>
     /// </summary>
