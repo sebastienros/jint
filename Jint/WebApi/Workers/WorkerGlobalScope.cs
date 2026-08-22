@@ -20,13 +20,34 @@ namespace Jint.WebApi.Workers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is no <c>WorkerGlobalScope</c> or <c>DedicatedWorkerGlobalScope</c> interface object</b>, and that
-/// is the coherent half rather than a missing one: Jint's global object is not an <c>EventTarget</c> and has
-/// no such prototype chain, so an interface object would make <c>self instanceof WorkerGlobalScope</c> lie
-/// about a relationship that does not exist. WinterTC's Minimum Common API §6 blesses the mechanism used
-/// instead — firing the events "through a suitable alternative mechanism available at the global scope" —
-/// and §5.3 names exactly what such a global must expose: <c>onerror</c>, <c>onunhandledrejection</c>,
-/// <c>onrejectionhandled</c> and <c>self</c>.
+/// <b>The two interface objects are real, and so is the prototype chain behind them.</b> The worker engine's
+/// global object has <c>DedicatedWorkerGlobalScope.prototype</c> as its <c>[[Prototype]]</c>, which has
+/// <c>WorkerGlobalScope.prototype</c> as its own, so
+/// <c>'DedicatedWorkerGlobalScope' in self &amp;&amp; self instanceof DedicatedWorkerGlobalScope</c> — the
+/// canonical worker feature-detect, and the guard every fixture of web-platform-tests' <c>workers/modules/</c>
+/// corpus registers its <c>onmessage</c> inside — takes the branch it takes in a browser. Nothing is shimmed:
+/// there is no <c>Symbol.hasInstance</c> anywhere near this, and <c>Object.getPrototypeOf(self)</c> answers
+/// the very object <c>instanceof</c> walks to.
+/// </para>
+/// <para>
+/// The chain stops one link early. HTML has <c>WorkerGlobalScope : EventTarget</c>, and Jint's global object
+/// is not an <c>EventTarget</c> — <c>addEventListener</c> is an ordinary function on the global bound to the
+/// synthetic listener list <see cref="GlobalEventTarget"/> keeps, which is the "suitable alternative mechanism
+/// available at the global scope" WinterTC's Minimum Common API §6 blesses. So
+/// <c>WorkerGlobalScope.prototype</c> inherits from <c>%Object.prototype%</c>, and
+/// <c>self instanceof EventTarget</c> stays false, because it would otherwise be an <c>instanceof</c> that
+/// lied about a relationship the object does not have. §5.3 names what such a global must expose —
+/// <c>onerror</c>, <c>onunhandledrejection</c>, <c>onrejectionhandled</c> and <c>self</c> — and all four are
+/// here.
+/// </para>
+/// <para>
+/// <b>The members stay own properties of the global object</b>, where the two interface prototypes carry only
+/// <c>constructor</c> and an <c>@@toStringTag</c>. That is not an oversight: <c>postMessage</c>, <c>close</c>,
+/// <c>importScripts</c>, <c>name</c> and the five event-handler attributes are per <i>connection</i> — they
+/// close over the <see cref="WorkerLink"/> this worker was made with — while an interface prototype object is
+/// a realm intrinsic built once and shared. Moving them would mean giving the prototype a way to find the
+/// connection from its receiver, which buys nothing a script can use: what a script asks of the interface is
+/// the brand, and the brand is what the pair provides.
 /// </para>
 /// <para>
 /// <b>Every event-handler attribute here is one entry of the engine's synthetic global listener list</b>
@@ -68,6 +89,21 @@ internal sealed class WorkerGlobalScope
         var global = realm.GlobalObject;
 
         var scope = new WorkerGlobalScope(link, engine, realm);
+
+        // The brand, before any name is installed. Assigning the global object's [[Prototype]] is safe here and
+        // only here: the engine has just been built and has evaluated nothing, so no inline cache holds a
+        // resolved binding and no script has observed the old chain. Both interface objects are built by
+        // reaching the derived one, whose [[Prototype]] is the base one — WebIDL's rule for an inherited
+        // interface — so the two are wired to each other before either is named.
+        var dedicated = realm.Intrinsics.DedicatedWorkerGlobalScope;
+        global._prototype = dedicated.PrototypeObject;
+
+        // [Exposed=Worker] and [Exposed=DedicatedWorker]: these two names exist on a worker's global and on no
+        // other, which is why they are installed here rather than in WebApiRegistration. Non-clobbering and
+        // non-enumerable, exactly as an interface object is installed there —
+        // https://webidl.spec.whatwg.org/#es-interfaces.
+        InstallDescriptor(global, "WorkerGlobalScope", new PropertyDescriptor(realm.Intrinsics.WorkerGlobalScope, PropertyFlag.NonEnumerable));
+        InstallDescriptor(global, "DedicatedWorkerGlobalScope", new PropertyDescriptor(dedicated, PropertyFlag.NonEnumerable));
 
         // WebIDL operations on the global are writable, enumerable and configurable —
         // https://webidl.spec.whatwg.org/#es-operations.
