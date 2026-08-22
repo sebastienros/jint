@@ -144,19 +144,26 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    private sealed class FaultedResultFailureLoader(Exception failure) : AsyncModuleLoader
+    /// <summary>
+    /// Fails a load with a task that is already faulted when it is handed back: the warm-cache shape of an
+    /// <see cref="AsyncModuleLoader"/> answer, applied to an answer that is a failure. Because the task is
+    /// already completed, <see cref="AsyncModuleLoader"/> settles it there and then rather than through a
+    /// continuation, so the settle lands inside the inline window and on the engine's own thread.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not an <c>async</c> method: <see cref="Task.FromException{TResult}"/> is what makes
+    /// "already completed" a property of the code rather than of how quickly a continuation happens to run.
+    /// </remarks>
+    private sealed class WarmFaultedLoader(Exception failure) : AsyncModuleLoader
     {
         public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        protected override async Task<string> LoadModuleContentsAsync(
+        protected override Task<string> LoadModuleContentsAsync(
             Engine engine,
             ResolvedSpecifier resolved,
             CancellationToken cancellationToken)
-        {
-            await Task.Yield();
-            throw failure;
-        }
+            => Task.FromException<string>(failure);
     }
 
     [Fact]
@@ -198,14 +205,69 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
+    // The two tests below are a deliberate pair: they pin the two sides of ModuleLoadCompletion's inline
+    // settle window, and neither is redundant.
+    //
+    // A settle that happens while the engine is still inside IAsyncModuleLoader.LoadModuleAsync, on the very
+    // thread the engine called it from, finishes the load on the importing stack; every other settle is
+    // queued and only runs when the host gives the engine a turn. See AGENTS.md, "Asynchronous module
+    // loading", and ModuleLoadCompletion.Settle. For a failure the engine must propagate rather than flatten
+    // into a rejection - a limit that became a rejection would no longer bound anything - that difference
+    // decides *where* the exception erupts: out of the call that started the import, or out of the pump, with
+    // the importing promise left unsettled. A host cannot predict which side a given load lands on, so both
+    // are behaviour, and both are pinned here.
+    //
+    // Their predecessor, FaultedResultLimitFromLoaderRemainsFatal, asserted the exception type alone and let
+    // an `await Task.Yield(); throw;` loader pick the window for it. That is a coin flip - instrumenting the
+    // engine showed it taking the inline branch on about one run in forty on net472 - and on a loaded runner
+    // it fails in a third way entirely, because ImportAsync's PromiseTimeout answers first with a
+    // PromiseRejectedException (issue #3218). Each test here therefore selects its branch structurally and
+    // then asserts the branch, not only the outcome: only an inline settle can throw out of StartImport,
+    // which takes no event-loop turn, and only a queued one can let StartImport return normally and erupt
+    // from ProcessTasks instead. Nothing in either test waits on wall-clock time or on the thread pool.
+    //
+    // If a change ever makes the two paths agree, both tests must be updated to say so. Deleting one as a
+    // duplicate throws away the asymmetry the pair exists to record.
+
     [Fact]
-    public async Task FaultedResultLimitFromLoaderRemainsFatal()
+    public void AResultLimitSettledInsideTheLoadCallStaysFatalOnTheImportingStack()
     {
         var failure = CreateResultLimitFailure();
-        var engine = new Engine(options => options.EnableModules(new FaultedResultFailureLoader(failure)));
+        var engine = CreateEngine(new WarmFaultedLoader(failure));
 
-        await Awaiting(() => engine.Modules.ImportAsync("module"))
-            .Should().ThrowExactlyAsync<ResultLimitExceededException>();
+        // StartImport never pumps the event loop, so an exception coming out of it can only have been thrown
+        // on this stack - which is the inline branch itself, not merely its outcome.
+        Invoking(() => engine.Modules.StartImport("module"))
+            .Should().ThrowExactly<ResultLimitExceededException>();
+
+        Invoking(() => engine.Advanced.ProcessTasks())
+            .Should().NotThrow("the load was finished inline and left nothing queued behind it");
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    [Fact]
+    public void AResultLimitSettledAfterTheLoadCallReturnedStaysFatalOnThePumpInstead()
+    {
+        var failure = CreateResultLimitFailure();
+        var loader = new DeferredModuleLoader();
+        var engine = CreateEngine(loader);
+
+        // The loader kept the completion and settled nothing, so LoadModuleAsync has returned and the window
+        // is shut by the time the test settles it. Everything happens on this one thread, in this order:
+        // what selects the branch is the window, not which thread or which moment won a race.
+        var import = engine.Modules.StartImport("module");
+        loader.Pending.Should().ContainSingle();
+
+        Invoking(() => loader.Fail("module", failure))
+            .Should().NotThrow("a settle after the load call returned is queued, never run on the settling stack");
+        import.IsCompleted.Should().BeFalse("nothing has run the queued completion yet");
+
+        Invoking(() => engine.Advanced.ProcessTasks())
+            .Should().ThrowExactly<ResultLimitExceededException>("a limit that became a rejection would no longer bound anything");
+
+        // Propagating drops the waiters, so on this side of the window the erupting exception is the whole
+        // outcome: the import stays pending, and a host that only polled IsCompleted would poll forever.
+        import.IsCompleted.Should().BeFalse();
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
