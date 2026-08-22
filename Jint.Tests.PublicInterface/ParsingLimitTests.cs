@@ -450,6 +450,12 @@ public class ParsingLimitTests
             options.LimitMemory(16_000_000);
             options.Parsing.MaxSourceLength = 20;
             options.EnableModules(loader);
+
+            // The source is delivered from a thread-pool worker, twice. What is asserted is the
+            // ParsingLimitException, the released ownership and the removed pending-load entry - never a
+            // duration - so the promise budget is a ceiling on a wedge and must not be one the pool's
+            // injection rate can beat.
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
         });
         var memory = engine.Constraints.Find<MemoryLimitConstraint>()!;
 
