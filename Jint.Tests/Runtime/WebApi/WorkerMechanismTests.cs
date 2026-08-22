@@ -3,6 +3,8 @@
 
 using System.Collections.Concurrent;
 using System.Threading;
+using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 using Jint.WebApi;
@@ -1500,6 +1502,46 @@ public class WorkerMechanismTests
         parent.Evaluate("typeof WorkerGlobalScope").AsString().Should().Be("undefined");
         parent.Evaluate("typeof DedicatedWorkerGlobalScope").AsString().Should().Be("undefined");
         parent.Evaluate("Object.getPrototypeOf(globalThis) === Object.prototype").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The chain is inserted <b>non-clobbering</b>, exactly as every name beside it is: a provider whose
+    /// worker engine has a global object with a <c>[[Prototype]]</c> of its own keeps it, and
+    /// <c>self instanceof DedicatedWorkerGlobalScope</c> then answers <see langword="false"/> — the truth
+    /// about that object rather than a claim planted on it.
+    /// </summary>
+    [Fact]
+    public void AHostThatGaveItsGlobalAPrototypeKeepsIt()
+    {
+        var host = new TestWorkerHost(Module("""
+            record('self:' + (self instanceof DedicatedWorkerGlobalScope));
+            record('named:' + ('DedicatedWorkerGlobalScope' in self));
+            record('proto:' + (Object.getPrototypeOf(self).marker === 'host'));
+            """))
+        {
+            Tune = options => options.UseHostFactory(_ => new PrototypeSettingHost()),
+        };
+
+        var parent = Parent(host);
+        parent.Execute("new Worker('./worker.js', { type: 'module' })");
+        Drain(parent, host.Connection);
+
+        // The names are still installed — they are non-clobbering against the *global's own properties*, and
+        // the host took no such name — but the brand they describe is not claimed of an object that is not one.
+        host.Log.Should().Be("self:false,named:true,proto:true");
+    }
+
+    /// <summary>A host whose global object carries a prototype of its own.</summary>
+    private sealed class PrototypeSettingHost : Jint.Runtime.Host
+    {
+        protected override ObjectInstance CreateGlobalObject(Realm realm)
+        {
+            var global = base.CreateGlobalObject(realm);
+            var marker = new JsObject(Engine);
+            marker.FastSetDataProperty("marker", new JsString("host"));
+            global.Prototype = marker;
+            return global;
+        }
     }
 
     /// <summary>
