@@ -69,6 +69,19 @@ internal sealed class TextDecoderCommon
     internal bool IgnoreBom { get; }
 
     /// <summary>
+    /// The decoder "set up a text decoder stream"
+    /// (https://encoding.spec.whatwg.org/#set-up-a-text-decoder-stream) builds when every one of its
+    /// optional arguments is left at its default: UTF-8, the "replacement" error mode, and
+    /// <c>ignoreBOM</c> false. That is the state <c>new TextDecoderStream()</c> produces, and it is what
+    /// https://w3c.github.io/FileAPI/#dom-blob-textstream step 3 — "set up decoder with UTF-8" — asks for.
+    /// </summary>
+    /// <remarks>
+    /// No label is resolved: the caller names the encoding, so there is nothing here that could fail and no
+    /// <c>RangeError</c> to raise.
+    /// </remarks>
+    internal static TextDecoderCommon Utf8() => new(in EncodingLabels.Utf8Encoding, fatal: false, ignoreBom: false);
+
+    /// <summary>
     /// The <c>(label, options)</c> pair both constructors take:
     /// <c>constructor(optional DOMString label = "utf-8", optional TextDecoderOptions options = {})</c>.
     /// </summary>

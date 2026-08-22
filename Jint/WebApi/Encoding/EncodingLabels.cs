@@ -30,6 +30,14 @@ internal static class EncodingLabels
     /// <summary>The name https://encoding.spec.whatwg.org/#utf-8 gives the encoding, already ASCII-lowercase.</summary>
     internal const string Utf8 = "utf-8";
 
+    /// <summary>
+    /// https://encoding.spec.whatwg.org/#utf-8 itself, for an algorithm that names the encoding rather than
+    /// resolving a label — "set up decoder with UTF-8", https://w3c.github.io/FileAPI/#dom-blob-textstream
+    /// step 3, is the one that does. Written out rather than looked up because UTF-8 is the generated
+    /// table's one fixed point: it is not a single-byte encoding, so it carries no index.
+    /// </summary>
+    internal static readonly EncodingEntry Utf8Encoding = new(Utf8, EncodingKind.Utf8, SingleByteIndex.None);
+
     /// <summary>The name https://encoding.spec.whatwg.org/#utf-16le gives the encoding.</summary>
     internal const string Utf16Le = "utf-16le";
 

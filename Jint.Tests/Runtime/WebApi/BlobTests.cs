@@ -430,6 +430,271 @@ public class BlobTests
             .UnwrapIfPromise().AsString().Should().Be("ab");
     }
 
+    /// <summary>
+    /// An engine that can read a stream to the end and record what came out of it, so a test can pin both
+    /// the decoded text and the number of chunks it arrived in.
+    /// </summary>
+    private static Engine TextStreamEngine()
+    {
+        var engine = WebEngine();
+        engine.Execute("""
+            var log = [];
+            async function collect(stream, label) {
+              const reader = stream.getReader();
+              for (;;) {
+                let result;
+                try { result = await reader.read(); }
+                catch (e) { log.push(label + ':error:' + e.name); return; }
+                if (result.done) { log.push(label + ':done'); return; }
+                log.push(label + ':' + typeof result.value + ':' + result.value);
+              }
+            }
+            function bytes() { return new Uint8Array(Array.prototype.slice.call(arguments)); }
+            """);
+        return engine;
+    }
+
+    private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
+
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#dom-blob-textstream: the blob's stream piped through a UTF-8
+    /// <c>TextDecoderStream</c>, so the chunks are strings rather than bytes.
+    /// </summary>
+    [Fact]
+    public void TextStreamDecodesTheBytesAsUtf8Strings()
+    {
+        var engine = TextStreamEngine();
+        engine.Execute("collect(new Blob(['hello world']).textStream(), 'out');");
+
+        // One chunk, because the source is Blob.stream() and that hands over its bytes in one — the decoder
+        // adds no boundaries of its own. WPT only asserts that there is at least one; this is the reduction
+        // Blob.stream() documents, pinned where it is observable as text.
+        Log(engine).Should().Be("out:string:hello world,out:done");
+    }
+
+    [Fact]
+    public void TextStreamOfAnEmptyBlobClosesWithNoChunks()
+    {
+        // The flush produces the empty string, and "if outputChunk is not the empty string" means nothing is
+        // enqueued for it — https://encoding.spec.whatwg.org/#flush-and-enqueue.
+        var engine = TextStreamEngine();
+        engine.Execute("collect(new Blob().textStream(), 'out');");
+
+        Log(engine).Should().Be("out:done");
+    }
+
+    /// <summary>
+    /// A code point split across two blob parts still decodes to that code point: the parts are concatenated
+    /// into one byte sequence before anything reads it.
+    /// </summary>
+    /// <remarks>
+    /// It is worth being honest about what this does and does not exercise. Jint's blob stream hands its
+    /// bytes over as a single chunk, so the split here is a split between blob <i>parts</i> and not a chunk
+    /// boundary the decoder ever sees — the streaming-decode path that carries an incomplete sequence from
+    /// one chunk to the next is pinned by <c>TextDecoderStreamTests.JoinsASequenceSplitAcrossChunks</c>
+    /// instead. What this pins is that the composition cannot decode part-wise, which is exactly what would
+    /// break if <c>textStream()</c> ever decoded each part on its own or if the source were later chunked.
+    /// </remarks>
+    [Fact]
+    public void TextStreamJoinsAMultiByteSequenceSplitAcrossParts()
+    {
+        var engine = TextStreamEngine();
+
+        // U+20AC EURO SIGN is E2 82 AC, split after the second byte; U+1D306 is F0 9D 8C 86, split after the
+        // first, so the second part opens mid sequence *and* mid surrogate pair.
+        engine.Execute("""
+            var b = new Blob([bytes(0xE2, 0x82), bytes(0xAC), bytes(0xF0), bytes(0x9D, 0x8C, 0x86)]);
+            collect(b.textStream(), 'out');
+            """);
+
+        Log(engine).Should().Be("out:string:€𝌆,out:done");
+    }
+
+    /// <summary>
+    /// The decoder is an ordinary UTF-8 <c>TextDecoderStream</c>, so "serialize I/O queue" step 2.3 drops a
+    /// single leading U+FEFF — https://encoding.spec.whatwg.org/#concept-td-serialize.
+    /// </summary>
+    /// <remarks>
+    /// The vendored corpus asserts nothing about a BOM, so this is Jint's own pin rather than a WPT row. It
+    /// deliberately asserts the same three answers <c>text()</c> gives, since both are "UTF-8 decode" and the
+    /// two must not drift.
+    /// </remarks>
+    [Fact]
+    public void TextStreamStripsOneLeadingByteOrderMark()
+    {
+        // One drain per Execute, so the log is this stream's chunks rather than three pipes interleaved.
+        var engine = TextStreamEngine();
+        engine.Execute("collect(new Blob([bytes(0xEF, 0xBB, 0xBF, 0x41)]).textStream(), 'one');");
+        engine.Execute("collect(new Blob([bytes(0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF)]).textStream(), 'two');");
+        engine.Execute("collect(new Blob([bytes(0x41, 0xEF, 0xBB, 0xBF)]).textStream(), 'mid');");
+
+        // Exactly one BOM goes, and only when it leads: the second of two survives as U+FEFF, and one after
+        // a character was never the start of the stream at all.
+        Log(engine).Should().Be("one:string:A,one:done,two:string:﻿,two:done,mid:string:A﻿,mid:done");
+
+        // The same bytes through text(), which is the other spelling of UTF-8 decode.
+        Eval("new Blob([new Uint8Array([0xEF, 0xBB, 0xBF, 0x41])]).text()").UnwrapIfPromise().AsString().Should().Be("A");
+    }
+
+    [Fact]
+    public void TextStreamSubstitutesU00FFFDRatherThanFailing()
+    {
+        // The error mode is "replacement", not "fatal" — "set up a text decoder stream" defaults it that
+        // way and textStream() overrides nothing. So an ill-formed sequence is a chunk, never an error.
+        var engine = TextStreamEngine();
+        engine.Execute("collect(new Blob([bytes(0x41, 0xFF, 0x42)]).textStream(), 'out');");
+
+        Log(engine).Should().Be("out:string:A�B,out:done");
+    }
+
+    /// <summary>
+    /// "This differs from <c>readAsText()</c> in that it always uses the UTF-8 encoding" — the blob's
+    /// <c>type</c> is never consulted, whatever charset it names.
+    /// </summary>
+    [Fact]
+    public void TextStreamIgnoresTheCharsetOfTheBlobType()
+    {
+        var engine = TextStreamEngine();
+        engine.Execute("""
+            var utf16 = new Blob([bytes(0x68, 0x00, 0x69, 0x00)], { type: 'text/plain; charset=utf-16le' });
+            var latin1 = new Blob([bytes(0xC3, 0xA9)], { type: 'text/plain; charset=iso-8859-1' });
+            var nonsense = new Blob(['hi'], { type: 'text/plain; charset=invalid-charset' });
+            """);
+
+        // One drain per Execute, so the log is not three pipes interleaved.
+        engine.Execute("collect(utf16.textStream(), 'utf16');");
+        engine.Execute("collect(latin1.textStream(), 'latin1');");
+        engine.Execute("collect(nonsense.textStream(), 'nonsense');");
+
+        // An invalid charset is not a RangeError either: no label is ever resolved, so there is nothing to
+        // reject. All three decode as UTF-8.
+        Log(engine).Should().Be(
+            "utf16:string:h\0i\0,utf16:done,latin1:string:é,latin1:done,nonsense:string:hi,nonsense:done");
+    }
+
+    /// <summary>
+    /// <c>[NewObject]</c>: every call builds a fresh source, a fresh decoder and a fresh result, so reading
+    /// one cannot disturb another.
+    /// </summary>
+    [Fact]
+    public void TextStreamHandsEachCallItsOwnStream()
+    {
+        var engine = TextStreamEngine();
+        engine.Execute("var b = new Blob(['hello']); var s1 = b.textStream(); var s2 = b.textStream();");
+
+        engine.Evaluate("s1 === s2").AsBoolean().Should().BeFalse();
+        engine.Evaluate("s1.locked || s2.locked").AsBoolean().Should().BeFalse();
+
+        // Draining one leaves the other untouched — including its lock, which is what a shared source or a
+        // shared decoder would have taken.
+        engine.Execute("collect(s1, 'first');");
+        engine.Evaluate("s2.locked").AsBoolean().Should().BeFalse();
+        engine.Execute("collect(s2, 'second');");
+
+        Log(engine).Should().Be("first:string:hello,first:done,second:string:hello,second:done");
+    }
+
+    /// <summary>
+    /// A <c>stream()</c> and a <c>textStream()</c> taken from one blob are two streams over two sources,
+    /// not one source read twice — so either can be drained without the other noticing, in either order.
+    /// </summary>
+    [Fact]
+    public void TextStreamAndStreamOfOneBlobAreIndependent()
+    {
+        var engine = TextStreamEngine();
+        engine.Execute("var b = new Blob(['hello']); var raw = b.stream(); var txt = b.textStream();");
+
+        // Neither is locked by the other's existence, although textStream() has locked the *source* it made
+        // for itself — which is a different stream from the one stream() handed over.
+        engine.Evaluate("raw.locked || txt.locked").AsBoolean().Should().BeFalse();
+
+        engine.Execute("collect(txt, 'txt');");
+        engine.Execute("""
+            (async function () {
+              const reader = raw.getReader();
+              const chunk = await reader.read();
+              log.push('raw:' + chunk.value.constructor.name + ':' + chunk.value.length);
+              log.push('raw:' + (await reader.read()).done);
+            })();
+            """);
+
+        // The byte stream still yields bytes and the text stream still yields the string they decode to.
+        Log(engine).Should().Be("txt:string:hello,txt:done,raw:Uint8Array:5,raw:true");
+    }
+
+    /// <summary>
+    /// Cancelling the returned stream. The pipe is built with every option defaulted — nothing prevented —
+    /// so cancelling the readable side errors the transform's writable side and the pipe cancels the source
+    /// behind it, which is what <c>preventCancel</c> being false means.
+    /// </summary>
+    /// <remarks>
+    /// What that backward cancellation does to the source is not observable from script here, because the
+    /// source is a blob's bytes in memory and its cancel steps have nothing to release. What is observable,
+    /// and is what this pins, is that the cancellation settles cleanly rather than erroring the stream: the
+    /// promise fulfils with <c>undefined</c>, the next read is done, and <c>closed</c> fulfils.
+    /// </remarks>
+    [Fact]
+    public void TextStreamCanBeCancelled()
+    {
+        var engine = TextStreamEngine();
+        engine.Execute("""
+            var s = new Blob(['hello world']).textStream();
+            (async function () {
+              const reader = s.getReader();
+              log.push('cancel:' + String(await reader.cancel('no thanks')));
+              const after = await reader.read();
+              log.push('after:' + after.done + ':' + String(after.value));
+              try { await reader.closed; log.push('closed:fulfilled'); }
+              catch (e) { log.push('closed:rejected:' + e.name); }
+            })();
+            """);
+
+        Log(engine).Should().Be("cancel:undefined,after:true:undefined,closed:fulfilled");
+
+        // And through the stream itself, with no reader ever acquired — cancel() acquires and releases one.
+        var direct = TextStreamEngine();
+        direct.Execute("""
+            var s = new Blob(['hello world']).textStream();
+            s.cancel('no thanks').then(v => log.push('cancel:' + String(v)), e => log.push('cancel:error:' + e.name));
+            """);
+
+        Log(direct).Should().Be("cancel:undefined");
+    }
+
+    /// <summary>
+    /// The result is an ordinary <c>ReadableStream</c> of strings: the byte-stream machinery is the
+    /// <i>source</i>, and what a transform's readable side hands out is not a byte stream.
+    /// </summary>
+    [Fact]
+    public void TextStreamIsNotAByteStream()
+    {
+        var engine = WebEngine();
+
+        // Files and nothing else, so ReadableStream is not a global — but the object is the real interface,
+        // reached through its prototype, exactly as stream()'s is.
+        engine.Evaluate("typeof ReadableStream").AsString().Should().Be("undefined");
+        engine.Evaluate("Object.prototype.toString.call(new Blob(['x']).textStream())").AsString()
+            .Should().Be("[object ReadableStream]");
+        engine.Evaluate("Object.getPrototypeOf(new Blob(['x']).stream()) === Object.getPrototypeOf(new Blob(['x']).textStream())")
+            .AsBoolean().Should().BeTrue();
+
+        // stream() serves a BYOB reader; textStream() cannot, because its chunks are strings.
+        engine.Execute("var byob = new Blob(['x']).stream().getReader({ mode: 'byob' });");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Blob(['x']).textStream().getReader({ mode: 'byob' })"))
+            .Error.Get("name").AsString().Should().Be("TypeError");
+    }
+
+    [Fact]
+    public void TextStreamBrandChecksItsReceiver()
+    {
+        var engine = WebEngine();
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream()"))
+            .Error.Get("name").AsString().Should().Be("TypeError");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream.call({})"))
+            .Error.Get("name").AsString().Should().Be("TypeError");
+    }
+
     [Fact]
     public void DeclaresTheArityTheIdlDoes()
     {
@@ -440,6 +705,8 @@ public class BlobTests
         engine.Evaluate("Blob.prototype.arrayBuffer.length").AsNumber().Should().Be(0);
         engine.Evaluate("Blob.prototype.bytes.length").AsNumber().Should().Be(0);
         engine.Evaluate("Blob.prototype.stream.length").AsNumber().Should().Be(0);
+        engine.Evaluate("Blob.prototype.textStream.length").AsNumber().Should().Be(0);
+        engine.Evaluate("Blob.prototype.textStream.name").AsString().Should().Be("textStream");
     }
 }
 #endif

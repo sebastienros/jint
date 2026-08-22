@@ -290,15 +290,16 @@ assertion this change added to the shim.
 
 ## What the File API corpus says about this engine
 
-342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), of which **11 do not pass**.
+342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), of which **3 do not pass**.
 
-**8 are `Blob.textStream()`** (`NeedsBlobTextStream`), which
-[the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) after this `Blob` was written. It is
-normative rather than optional, and its algorithm is three steps over pieces the engine already has — get the
-blob's stream, set up a `TextDecoderStream` with UTF-8, pipe one through the other — so `Blob-textStream.any.js`
-is 8-for-8 red purely because the method is absent.
+The eight that used to be red were the whole of `Blob-textStream.any.js`, under a `NeedsBlobTextStream`
+category, because [the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) `textStream()`
+after this `Blob` was written. They pass since
+[#3211](https://github.com/sebastienros/jint/issues/3211) implemented it — the blob's stream piped through a
+UTF-8 `TextDecoderStream`, which is four steps over pieces the engine already had — and the two entries and
+the category are gone with them.
 
-**The other 3 are `NeedsTriage`, and the defect is not in `Blob` at all.** All three rows of
+**The 3 that remain are `NeedsTriage`, and the defect is not in `Blob` at all.** All three rows of
 `Blob-constructor.any.js` fail with `TypeError: cannot construct iterator`, thrown by
 `Array.prototype.values`:
 

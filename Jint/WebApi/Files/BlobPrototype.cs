@@ -25,8 +25,9 @@ namespace Jint.WebApi.Files;
 /// <c>text()</c>, <c>arrayBuffer()</c> and <c>bytes()</c> each answer an already-resolved promise — the
 /// bytes are in memory, so there is nothing for an event-loop turn to wait for. They are still real
 /// promises: <c>await blob.text()</c> works exactly as it does in a browser, and the value arrives on the
-/// microtask turn a <c>then</c> would give it. <c>stream()</c> is the fourth, and answers a
-/// <c>ReadableStream</c> over those same bytes.
+/// microtask turn a <c>then</c> would give it. The other two read methods answer a <c>ReadableStream</c>
+/// over those same bytes instead of a promise: <c>stream()</c> a byte stream, and <c>textStream()</c> that
+/// byte stream piped through a UTF-8 <c>TextDecoderStream</c>, so its chunks are strings.
 /// </para>
 /// <para>
 /// One documented simplification against WebIDL: the operations are non-enumerable, where a WebIDL
@@ -184,6 +185,42 @@ internal sealed partial class BlobPrototype : Prototype
     private Streams.JsReadableStream Stream(JsValue thisObject)
     {
         return Streams.ByteStreams.CreateFromBytes(_engine, _realm, Brand(thisObject).Data);
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#dom-blob-textstream — four steps over pieces that already exist: get
+    /// the blob's stream, make a <c>TextDecoderStream</c> in this realm, set it up with UTF-8, and return
+    /// the source piped through it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Always UTF-8.</b> The interface takes no encoding argument and the blob's own <c>type</c> is never
+    /// consulted, so a <c>charset</c> parameter on it — valid, invalid, or contradicting the bytes — changes
+    /// nothing. That is the specification's own note, and the difference from <c>FileReader.readAsText()</c>,
+    /// which does read the charset. Being an ordinary UTF-8 <c>TextDecoderStream</c> also fixes the rest of
+    /// the behaviour: one leading BOM is dropped, an ill-formed sequence becomes U+FFFD rather than failing,
+    /// and a sequence split across two chunks decodes to what the whole byte sequence would have.
+    /// </para>
+    /// <para>
+    /// <b>What comes back is an ordinary <c>ReadableStream</c> of strings.</b> The byte-stream machinery
+    /// behind <see cref="Stream"/> is only the <i>source</i> here — the transform's readable side is a
+    /// default-controller stream whose chunks are strings, so <c>getReader({ mode: "byob" })</c> on it is
+    /// the <c>TypeError</c> it is on any non-byte stream. And <c>[NewObject]</c>: every call builds a fresh
+    /// source, a fresh decoder and a fresh result, so reading one cannot disturb another.
+    /// </para>
+    /// </remarks>
+    [JsFunction(Name = "textStream", Length = 0)]
+    private Streams.JsReadableStream TextStream(JsValue thisObject)
+    {
+        // Step 1, which is "get stream" on this — the same algorithm stream() is, so the two cannot drift.
+        var stream = Stream(thisObject);
+
+        // Steps 2 and 3: a new TextDecoderStream in this's relevant realm, set up with UTF-8. The decoder
+        // itself never reaches script; only the readable side of its transform does.
+        var decoder = Encoding.JsTextDecoderStream.SetUpUtf8(_engine, _realm);
+
+        // Step 4.
+        return Streams.ReadableStreamPipe.PipeThrough(stream, decoder.Transform);
     }
 
     /// <summary>

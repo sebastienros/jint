@@ -4,7 +4,6 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.WebApi.Streams;
 
 namespace Jint.WebApi.Encoding;
 
@@ -55,11 +54,7 @@ internal sealed class TextDecoderStreamConstructor : Constructor
 
         // The algorithms close over the instance, so the transform can only be set up once it exists —
         // which is why the specification's "set up" operation takes the stream as an argument.
-        stream.Transform = TransformStreamOperations.SetUp(
-            _engine,
-            _realm,
-            stream.DecodeAndEnqueue,
-            stream.FlushAndEnqueue);
+        stream.SetUpTransform();
 
         return stream;
     }

@@ -722,7 +722,9 @@ public enum WebApiFeatures
     /// <remarks>
     /// <c>Blob.stream()</c> answers a real <c>ReadableStream</c> whether or not <see cref="Streams"/> is also
     /// enabled — the interface is always there, and the flag only decides whether <c>ReadableStream</c> is a
-    /// global a script can name. <see cref="Default"/> has both.
+    /// global a script can name. The same goes for <c>Blob.textStream()</c>, which is that byte stream piped
+    /// through a UTF-8 <c>TextDecoderStream</c> and so needs neither <see cref="Streams"/> nor
+    /// <see cref="Encoding"/> to work. <see cref="Default"/> has all three.
     /// </remarks>
     Files = 1 << 9,
 
