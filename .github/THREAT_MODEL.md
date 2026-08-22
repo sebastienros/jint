@@ -1174,10 +1174,33 @@ returned value never sees it happen.
   (`JsFetchEvent.AddLifetimePromise`) — so a script that constructs its own `FetchEvent` and
   dispatches it cannot manufacture a response, and the host's operation can only ever settle
   from the event `FetchEventConstructor.CreateTrustedFetchEvent` made for a real inbound request.
-- **One constraint bracket covers the whole dispatch.** `DispatchFetchEvent` wraps
-  `listeners.DispatchEvent` in a single `Engine.ExecuteWithConstraints` — which is literally what
-  `Engine.Call` does for the handler route — so however many listeners run, they share one
-  `MaxStatements` allowance and one armed timeout instead of each being handed a fresh budget.
+- **One constraint bracket covers the whole dispatch, and every listener in it spends from that
+  one budget.** `DispatchFetchEvent` wraps `listeners.DispatchEvent` in a single
+  `Engine.ExecuteWithConstraints` — which is literally what `Engine.Call` does for the handler
+  route — so the dispatch is one entry into the engine however many listeners it invokes. What
+  that buys is more specific than "not one bracket each", because a listener is invoked through
+  `ICallable.Call` and never reaches `ExecuteWithConstraints` on its own: the bracket is what
+  *arms* the constraints for the dispatch, and `Engine.ResetConstraints` therefore runs exactly
+  twice, once on the way in and once on the way out, with every listener in between. Measured
+  with two and three listeners, and it holds for each constraint kind for that one reason rather
+  than four:
+  - `MaxStatements` — adding a listener adds its statements to the dispatch's count instead of
+    starting a new one, so the second listener spends what the first one left.
+  - `TimeoutInterval` — the deadline is captured in `TimeConstraint.Reset` and nowhere else, so
+    one deadline spans the dispatch and a listener does not get a fresh interval.
+  - `LimitMemory` — one accounting segment covers the dispatch, so the allocations are summed
+    across listeners. Note that without the bracket this one would still be bounded, but *per
+    listener*: `Engine.BeginImplicitMemoryOperation` opens an operation on the first execution
+    context a listener pushes.
+  - a host-written `Constraint` — reset on the same two edges as the built-ins, whatever it
+    counts.
+
+  Pinned in `Jint.Tests.PublicInterface/WebApiFetchHandlerTests.cs`
+  (`TheWholeDispatchIsOneConstraintRunWhateverTheListenerCount`,
+  `EveryListenerInTheDispatchDrawsOnOneStatementAllowance`,
+  `EveryListenerInTheDispatchDrawsOnOneAllocationBudget`), all three of which were confirmed to
+  go red against a build with the bracket moved inside the per-listener loop. The
+  single-listener test above them cannot: it is the shape that survives that regression.
 - A constraint failure is a `JintException` that is not a `JavaScriptException`, so it erupts
   past a `DiagnosticsSink` and becomes the operation's failure rather than a promise that never
   settles.
@@ -1197,9 +1220,21 @@ returned value never sees it happen.
   request.
 - The value the operation settles from is a script-built `Response` — status, headers and body
   are all the script's, and validating them on the way out is the host's job.
-- The bracket bounds the dispatch, not the turns the host pumps afterwards: an `async` listener's
-  continuations are separate entries with budgets of their own
-  ([TM-09](#tm-09-a-sequence-of-engine-entries-escapes-a-per-entry-budget)).
+- **The bracket bounds the dispatch, not the turns the host pumps afterwards**, and the two
+  budgets part company differently ([TM-09](#tm-09-a-sequence-of-engine-entries-escapes-a-per-entry-budget)).
+  A listener that answers with a promise has returned before the promise's reaction runs, and
+  `Advanced.ProcessTasks` is not a bracket. So the reaction gets a **fresh** `MaxStatements`
+  allowance — the reset on the way out of the dispatch refilled it — and runs against a
+  `TimeoutInterval` deadline armed at that same moment; refilled *once*, note, because nothing
+  resets a constraint again until the engine is next entered, so every turn pumped after that
+  accumulates against the one allowance. Its **allocations, meanwhile, are still charged to the
+  request**, because a promise reaction captures the operation's accounting state when it is
+  registered and resumes it when it runs. A constraint that fires in a pumped turn erupts from
+  the host's pump — the invocation has long since returned, so there is no call left for it to
+  fail — and a host that answers requests out of a script's promises therefore has to guard its
+  own loop and not only the invocation. Pinned by
+  `TheTurnsPumpedAfterTheDispatchGetAFreshStatementAllowance` and
+  `TheTurnsPumpedAfterTheDispatchStayInsideTheDispatchsAllocationBudget`.
 - With a `DiagnosticsSink` set, a listener that responds and *then* throws still serves its
   response; with no sink the same script fails the operation. The two configurations disagree
   deliberately, because with nowhere to report to, preferring the response would lose the
