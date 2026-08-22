@@ -291,5 +291,41 @@ public class UrlSearchParamsTests
         engine.Evaluate("sub.first").AsString().Should().Be("1");
         engine.Evaluate("sub.toString()").AsString().Should().Be("a=1");
     }
+
+    [Fact]
+    public void TheIteratorPrototypesNextCarriesWebIdlsAttributes()
+    {
+        // "An iterator prototype object must have a next data property with attributes
+        // { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true } and whose value is the
+        // built-in function object CreateBuiltinFunction(nextSteps, 0, "next", <<>>)" —
+        // https://webidl.spec.whatwg.org/#es-iterator-prototype-object. Enumerable is the surprise: a
+        // built-in function property is non-enumerable everywhere in ECMA-262
+        // (https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects), and WebIDL is the one binding
+        // that says otherwise.
+        var engine = WebEngine();
+        engine.Execute("var proto = Object.getPrototypeOf(new URLSearchParams().entries());");
+
+        engine.Evaluate("Object.getOwnPropertyNames(proto).join(',')").AsString().Should().Be("next");
+        engine.Execute("var d = Object.getOwnPropertyDescriptor(proto, 'next');");
+        engine.Evaluate("d.writable").AsBoolean().Should().BeTrue("next must be writable");
+        engine.Evaluate("d.enumerable").AsBoolean().Should().BeTrue("next must be enumerable");
+        engine.Evaluate("d.configurable").AsBoolean().Should().BeTrue("next must be configurable");
+        engine.Evaluate("d.value.length").AsNumber().Should().Be(0);
+        engine.Evaluate("d.value.name").AsString().Should().Be("next");
+
+        // The three kinds share one prototype, so the attributes above are the attributes of all of them.
+        engine.Evaluate("Object.getPrototypeOf(new URLSearchParams().keys()) === proto").AsBoolean().Should().BeTrue("the three kinds share one prototype");
+        engine.Evaluate("Object.getPrototypeOf(new URLSearchParams().values()) === proto").AsBoolean().Should().BeTrue("the three kinds share one prototype");
+
+        // The class string is the object's only other own property, and it keeps the attributes a class
+        // string carries — { [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true } — rather
+        // than WebIDL's operation attributes.
+        engine.Evaluate("Object.getOwnPropertySymbols(proto).length").AsNumber().Should().Be(1);
+        engine.Execute("var t = Object.getOwnPropertyDescriptor(proto, Symbol.toStringTag);");
+        engine.Evaluate("t.value").AsString().Should().Be("URLSearchParams Iterator");
+        engine.Evaluate("t.writable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("t.configurable").AsBoolean().Should().BeTrue("the class string is configurable");
+    }
 }
 #endif

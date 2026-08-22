@@ -42,7 +42,20 @@ internal sealed partial class HeadersIteratorPrototype : IteratorPrototype
         CreateSymbols_Generated();
     }
 
-    [JsFunction(Name = "next")]
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-iterator-prototype-object — "an iterator prototype object must
+    /// have a <c>next</c> data property with attributes <c>{ [[Writable]]: true, [[Enumerable]]: true,
+    /// [[Configurable]]: true }</c>".
+    /// </summary>
+    /// <remarks>
+    /// The attributes are WebIDL's, not ECMA-262's, and enumerable is the one that has to be spelled out: a
+    /// built-in function property is non-enumerable everywhere in the language
+    /// (https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects), which is what
+    /// <c>[JsFunction]</c> defaults to. The <c>@@toStringTag</c> below keeps the language's shape, because
+    /// a class string is <c>{ [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }</c> in
+    /// WebIDL too.
+    /// </remarks>
+    [JsFunction(Name = "next", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue NextHandler(JsValue thisObject) => Next(thisObject, Arguments.Empty);
 
     internal IteratorInstance ConstructEntryIterator(JsHeaders headers)

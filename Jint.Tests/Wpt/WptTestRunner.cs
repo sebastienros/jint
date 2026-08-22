@@ -970,12 +970,6 @@ public class WptTestRunner
         new("fetch/api/headers/headers-forbidden-override.any.js", "header * is forbidden to use value *", WptDivergence.NeedsForbiddenHeaderNames),
         new("fetch/api/headers/header-setcookie.any.js", "Set-Cookie is a forbidden response header", WptDivergence.NeedsForbiddenHeaderNames),
 
-        // WebIDL gives an iterator prototype object's `next` { writable, enumerable, configurable }; Jint's is
-        // non-enumerable. The same defect the streams corpus filed against the async iterator prototype.
-        new("fetch/api/headers/headers-basic.any.js", "Check keys method", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-basic.any.js", "Check values method", WptDivergence.NeedsTriage),
-        new("fetch/api/headers/headers-basic.any.js", "Check entries method", WptDivergence.NeedsTriage),
-
         // Two rows counting the operations a record<> conversion performs; Jint does one more than the
         // specification's order allows. See Vendor/README.md.
         new("fetch/api/headers/headers-record.any.js",
