@@ -109,6 +109,13 @@ public sealed partial class Engine : IDisposable
     private object? _asyncReleasePending;
     private object? _hostCallbackAdmissionClosed;
     private int _hostCallbackAdmission;
+
+    // A reservation taken for one host call that outlives it: see SuspendHostCallForCallbacks. Written only
+    // by the thread that owns the engine, and released when the scope that claimed the engine for that
+    // entry unwinds - HostCallScope's entry-root flag, plus this thread id, is what keeps a callback taking
+    // its turn under the reservation from releasing it out from under the entry.
+    private object? _entryReservation;
+    private int _entryReservationThreadId;
     private int _hostReentryThreadId;
     private MemoryLimitConstraint.OperationState? _transferredMemoryState;
     private ManualResetEventSlim? _ownershipReleased;
@@ -165,7 +172,7 @@ public sealed partial class Engine : IDisposable
 
         _ownerDepth = 1;
         _ownerToken = asyncOwner;
-        return new HostCallScope(this, callbackOwner);
+        return new HostCallScope(this, callbackOwner, isEntryRoot: true);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -287,9 +294,11 @@ public sealed partial class Engine : IDisposable
         {
             if (Volatile.Read(ref _asyncOwner) is null)
             {
+                // The reservation vanished under this transfer, so what is left is an ordinary claim of a
+                // free engine - and therefore an entry of its own, which may be handed a reservation later.
                 _ownerDepth = 1;
                 _ownerToken = null;
-                return new HostCallScope(this, callback ? owner : null);
+                return new HostCallScope(this, callback ? owner : null, isEntryRoot: true);
             }
 
             Volatile.Write(ref _ownerThreadId, 0);
@@ -331,7 +340,7 @@ public sealed partial class Engine : IDisposable
 
         _ownerDepth = 1;
         _ownerToken = null;
-        scope = new HostCallScope(this);
+        scope = new HostCallScope(this, callbackOwner: null, isEntryRoot: true);
         return true;
     }
 
@@ -377,6 +386,122 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Opens the engine's callback-admission window for a blocking drain, and keeps it open for the whole
+    /// of it: an authorized cross-thread callback arriving at any point during the drain is serialized
+    /// behind the drain's own turn instead of being refused.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The reservation (<see cref="_asyncOwner"/>) is what <see cref="EnterTransferredHostCallback"/> reads
+    /// to tell an authorized transfer - one the host was handed by this engine and may dispatch to another
+    /// thread - from an unrelated public caller. <see cref="DrainEventLoopUntil"/> used to take it for the
+    /// duration of <c>WaitForWork</c> alone, so on every iteration it was dropped again across
+    /// <see cref="RunAvailableContinuations"/> - which runs arbitrary script - and re-taken. A callback
+    /// landing in that gap took the "no reservation" path, was treated as an unrelated caller and destroyed
+    /// with <see cref="InvalidOperationException"/>, which contradicts what README.md's Thread-safety
+    /// section and THREAT_MODEL.md TM-13 both promise: "such an authorized transfer may wait for the current
+    /// callback turn". Whether a given callback was served or destroyed came down to where the OS scheduler
+    /// happened to put it (sebastienros/jint#3206, sebastienros/jint#3220).
+    /// </para>
+    /// <para>
+    /// This is the shape <c>AwaitPromiseSettlementAsync</c> has always had on the asynchronous side -
+    /// reservation for the whole outstanding operation, the <em>thread</em> claimed only around each
+    /// continuation cycle - and the drain is its synchronous twin. The per-iteration
+    /// <see cref="SuspendHostCallForCallbacks"/> around the wait therefore no longer takes a reservation of
+    /// its own: it finds this one and yields only the thread, which is all it ever needed to do.
+    /// </para>
+    /// <para>
+    /// Nothing else about who may enter changes. An unrelated public caller on another thread was refused
+    /// throughout the drain before - the drain thread held <see cref="_ownerThreadId"/> for all of it - and
+    /// is refused throughout it now. The window is deliberately scoped to a frame whose entire purpose is to
+    /// wait for outside work, because an admitted callback waits for the engine thread to yield and only
+    /// such a frame provably does; that is why the fail-fast branches in
+    /// <see cref="EnterTransferredHostCallback"/> stay fail-fast rather than becoming waits.
+    /// </para>
+    /// <para>
+    /// Returns a no-op window when a reservation already exists - an outstanding async host operation, or an
+    /// outer drain. That one is not ours to close, and the drain then behaves exactly as it did before.
+    /// </para>
+    /// </remarks>
+    internal HostCallbackAdmissionWindow OpenHostCallbackAdmissionWindow()
+    {
+        // Same identity rule as SuspendHostCallForCallbacks, deliberately: a drain entered with no operation
+        // token of its own reserves under the engine's ownership-released event, which is the anonymous
+        // owner EnterTransferredHostCallback recognizes as "any authorized callback may take a turn here".
+        var previousOwnerToken = _ownerToken;
+        var owner = previousOwnerToken ?? OwnershipReleasedEvent;
+        if (Interlocked.CompareExchange(ref _asyncOwner, owner, null) is not null)
+        {
+            return default;
+        }
+
+        _ownerToken = owner;
+        return new HostCallbackAdmissionWindow(
+            this,
+            owner,
+            previousOwnerToken,
+            Volatile.Read(ref _hostReentryThreadId),
+            Volatile.Read(ref _transferredMemoryState));
+    }
+
+    /// <summary>
+    /// Closes a window opened by <see cref="OpenHostCallbackAdmissionWindow"/>, once every callback admitted
+    /// through it has finished.
+    /// </summary>
+    private void CloseHostCallbackAdmissionWindow(
+        object owner,
+        object? previousOwnerToken,
+        int previousReentryThreadId,
+        MemoryLimitConstraint.OperationState? transferredMemoryState)
+    {
+        // Release the thread first. A callback admitted during the drain may be blocked in AcquireHostCall
+        // waiting for exactly this thread, and the teardown below waits for every admitted callback to
+        // finish - so closing while still holding the thread would wedge the two against each other. Every
+        // other caller of ResumeHostCall reaches it from a suspension that already released the thread; this
+        // one has to do it here, which is the whole difference between a window and a suspension.
+        var depth = _ownerDepth;
+        _ownerDepth = 0;
+        _ownerToken = null;
+        Volatile.Write(ref _ownerThreadId, 0);
+        Volatile.Read(ref _ownershipReleased)?.Set();
+
+        // The window suspends no memory segment of its own - it never yields the thread - so it hands back
+        // the state it was opened with, which leaves that accounting exactly as it found it.
+        ResumeHostCall(
+            owner,
+            previousOwnerToken,
+            depth,
+            previousReentryThreadId,
+            ownsReservation: true,
+            hasMemorySegment: false,
+            memorySegment: default,
+            transferredMemoryState);
+    }
+
+    /// <summary>
+    /// Yields the engine for the duration of a host call that was handed a JavaScript callback, so the host
+    /// may dispatch that callback to another thread, and reserves the engine against unrelated callers for
+    /// as long as the callback may still arrive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <em>thread</em> is yielded for the host call only. The <em>reservation</em> outlives it: when this
+    /// call is the one that took it, <see cref="ResumeHostCall"/> hands it to the host entry underneath
+    /// rather than dropping it, and <see cref="ExitHostCall"/> releases it when that entry unwinds. Dropping
+    /// it at the end of the host call is what sebastienros/jint#3206 reported: an <c>async</c> host method
+    /// returns at its first <c>await</c>, so the callback it captured is invoked long after this scope has
+    /// closed - and until the caller reaches something that reserves again (a blocking drain, an async
+    /// engine API) the engine looked unreserved while the calling thread was still on it, so an authorized
+    /// callback landing there was treated as an unrelated caller and destroyed.
+    /// </para>
+    /// <para>
+    /// The entry is the right scope because it is one that provably ends. Keying the hand-over on the
+    /// pending awaitable instead would tie the reservation to a <see cref="Task"/> the host may never
+    /// complete; keying it on the entry bounds it by the engine's own stack, and the entry's operation token
+    /// keeps a stale callback from an <em>earlier</em> entry refused exactly as before.
+    /// </para>
+    /// </remarks>
     internal HostCallSuspension SuspendHostCallForCallbacks(bool hasTransferredCallback)
     {
         if (!hasTransferredCallback)
@@ -426,6 +551,110 @@ public sealed partial class Engine : IDisposable
             previousTransferredMemoryState);
     }
 
+    /// <summary>
+    /// Ends a suspension taken by <see cref="SuspendHostCallForCallbacks"/>: reclaims the thread and, when
+    /// this suspension is the one that reserved the engine, hands that reservation to the host entry
+    /// underneath instead of dropping it.
+    /// </summary>
+    private void ResumeSuspendedHostCall(
+        object owner,
+        object? previousOwnerToken,
+        int depth,
+        int previousReentryThreadId,
+        bool ownsReservation,
+        bool hasMemorySegment,
+        MemoryLimitConstraint.SegmentToken memorySegment,
+        MemoryLimitConstraint.OperationState? previousTransferredMemoryState)
+    {
+        if (!ownsReservation)
+        {
+            ResumeHostCall(
+                owner,
+                previousOwnerToken,
+                depth,
+                previousReentryThreadId,
+                ownsReservation: false,
+                hasMemorySegment,
+                memorySegment,
+                previousTransferredMemoryState);
+            return;
+        }
+
+        // No admission gate and no drain here, unlike the reservation-owning path in ResumeHostCall: the
+        // reservation is not ending, so a callback admitted a moment ago simply waits for the thread the
+        // line below reclaims, exactly as one arriving a moment later will.
+        AcquireHostCall(System.Environment.CurrentManagedThreadId);
+        Volatile.Write(ref _transferredMemoryState, previousTransferredMemoryState);
+        if (hasMemorySegment)
+        {
+            _memoryLimitConstraint!.EndSegment(in memorySegment);
+        }
+
+        _ownerDepth = depth;
+        _ownerToken = previousOwnerToken;
+        Volatile.Write(ref _hostReentryThreadId, previousReentryThreadId);
+
+        // Ordered so that a thread seeing the reservation also sees whose it is;
+        // ReleaseEntryReservationIfHeld reads them the other way round.
+        _entryReservationThreadId = System.Environment.CurrentManagedThreadId;
+        Volatile.Write(ref _entryReservation, owner);
+    }
+
+    /// <summary>
+    /// Called when a host entry's own scope unwinds, to release any reservation
+    /// <see cref="ResumeSuspendedHostCall"/> handed to that entry.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on the scope that <em>claimed</em> the engine, deliberately not on <see cref="_ownerDepth"/>
+    /// reaching zero: a suspension zeroes that depth, so a callback taking its turn while the entry is
+    /// suspended also unwinds through zero. Releasing there would make the second callback-taking host call
+    /// of a single script (<c>list.Where(...).Sum(...)</c>) wait, inside its own callback, for the very
+    /// admission that callback still holds.
+    /// </remarks>
+    private void ReleaseEntryReservationIfHeld()
+    {
+        var reservation = Volatile.Read(ref _entryReservation);
+        if (reservation is null || _entryReservationThreadId != System.Environment.CurrentManagedThreadId)
+        {
+            return;
+        }
+
+        ReleaseEntryReservation(reservation);
+    }
+
+    /// <summary>
+    /// Drops a handed-over reservation once every callback admitted under it has finished. The thread is
+    /// already released by the time this runs, which is what lets an admitted callback take its turn while
+    /// this waits for it.
+    /// </summary>
+    private void ReleaseEntryReservation(object reservation)
+    {
+        _entryReservation = null;
+        _entryReservationThreadId = 0;
+
+        lock (reservation)
+        {
+            Volatile.Write(ref _hostCallbackAdmissionClosed, reservation);
+            while (Volatile.Read(ref _hostCallbackAdmission) > 0)
+            {
+                Monitor.Wait(reservation);
+            }
+
+            Interlocked.CompareExchange(ref _asyncOwner, null, reservation);
+            Interlocked.CompareExchange(ref _hostCallbackAdmissionClosed, null, reservation);
+        }
+    }
+
+    /// <summary>
+    /// Reclaims the engine for a suspended host call, once every callback admitted while it was suspended
+    /// has finished.
+    /// </summary>
+    /// <remarks>
+    /// The caller must not hold <see cref="_ownerThreadId"/>. The admission drain below blocks until no
+    /// admitted callback is outstanding, and an admitted callback reaches its turn by acquiring that very
+    /// field, so a caller still holding it would wedge the two against each other. Closing the admission
+    /// gate before <see cref="AcquireHostCall"/> rather than after is the other half of the same rule.
+    /// </remarks>
     private void ResumeHostCall(
         object owner,
         object? previousOwnerToken,
@@ -574,12 +803,20 @@ public sealed partial class Engine : IDisposable
         private readonly MemoryLimitConstraint.SegmentToken _memorySegment;
         private readonly bool _hasMemorySegment;
 
+        /// <summary>
+        /// Whether this scope is the one that claimed the engine for a host entry, as opposed to a nested
+        /// re-entry or a callback taking its turn under a reservation. Only such a scope may release a
+        /// reservation handed to the entry - see <see cref="ReleaseEntryReservationIfHeld"/>.
+        /// </summary>
+        private readonly bool _isEntryRoot;
+
         internal HostCallScope(Engine engine)
         {
             _engine = engine;
             _callbackOwner = null;
             _memorySegment = default;
             _hasMemorySegment = false;
+            _isEntryRoot = false;
         }
 
         internal HostCallScope(Engine engine, object? callbackOwner)
@@ -588,8 +825,23 @@ public sealed partial class Engine : IDisposable
             _callbackOwner = callbackOwner;
             _memorySegment = default;
             _hasMemorySegment = false;
+            _isEntryRoot = false;
         }
 
+        internal HostCallScope(Engine engine, object? callbackOwner, bool isEntryRoot)
+        {
+            _engine = engine;
+            _callbackOwner = callbackOwner;
+            _memorySegment = default;
+            _hasMemorySegment = false;
+            _isEntryRoot = isEntryRoot;
+        }
+
+        /// <summary>
+        /// A callback taking its turn under a reservation, charged to the memory operation it was authorized
+        /// under. Never an entry root: the reservation it runs under belongs to the entry that yielded, and
+        /// releasing it here would pull it out from under that entry.
+        /// </summary>
         internal HostCallScope(
             Engine engine,
             object? callbackOwner,
@@ -599,6 +851,7 @@ public sealed partial class Engine : IDisposable
             _callbackOwner = callbackOwner;
             _memorySegment = memorySegment;
             _hasMemorySegment = true;
+            _isEntryRoot = false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -612,7 +865,13 @@ public sealed partial class Engine : IDisposable
             _engine.ExitHostCall();
             if (_callbackOwner is not null)
             {
+                // Before the reservation release below, which waits for this very count to reach zero.
                 _engine.ReleaseHostCallbackAdmission(_callbackOwner);
+            }
+
+            if (_isEntryRoot)
+            {
+                _engine.ReleaseEntryReservationIfHeld();
             }
         }
     }
@@ -632,6 +891,44 @@ public sealed partial class Engine : IDisposable
         {
             get => Volatile.Read(ref _memoryState);
             set => Volatile.Write(ref _memoryState, value);
+        }
+    }
+
+    /// <summary>
+    /// The scope <see cref="OpenHostCallbackAdmissionWindow"/> returns. Unlike
+    /// <see cref="HostCallSuspension"/> it does <em>not</em> yield the thread: the engine stays claimed by
+    /// the opener, and only the reservation an authorized callback needs in order to wait for its turn is
+    /// held for the scope's duration.
+    /// </summary>
+    internal readonly struct HostCallbackAdmissionWindow : IDisposable
+    {
+        private readonly Engine? _engine;
+        private readonly object _owner;
+        private readonly object? _previousOwnerToken;
+        private readonly int _previousReentryThreadId;
+        private readonly MemoryLimitConstraint.OperationState? _transferredMemoryState;
+
+        internal HostCallbackAdmissionWindow(
+            Engine engine,
+            object owner,
+            object? previousOwnerToken,
+            int previousReentryThreadId,
+            MemoryLimitConstraint.OperationState? transferredMemoryState)
+        {
+            _engine = engine;
+            _owner = owner;
+            _previousOwnerToken = previousOwnerToken;
+            _previousReentryThreadId = previousReentryThreadId;
+            _transferredMemoryState = transferredMemoryState;
+        }
+
+        public void Dispose()
+        {
+            _engine?.CloseHostCallbackAdmissionWindow(
+                _owner,
+                _previousOwnerToken,
+                _previousReentryThreadId,
+                _transferredMemoryState);
         }
     }
 
@@ -671,7 +968,7 @@ public sealed partial class Engine : IDisposable
 
         public void Dispose()
         {
-            _engine?.ResumeHostCall(
+            _engine?.ResumeSuspendedHostCall(
                 _owner,
                 _previousOwnerToken,
                 _depth,
@@ -2162,6 +2459,12 @@ public sealed partial class Engine : IDisposable
         System.Threading.CancellationToken cancellationToken = default)
     {
         using var ownership = EnterHostCall();
+
+        // Hold the callback-admission window for the whole drain, not only for the blocking wait
+        // below. A drain is exactly the frame the thread-safety contract lets an authorized
+        // cross-thread callback wait in, and dropping the reservation across RunAvailableContinuations
+        // every iteration turned that promise into a scheduling coin flip (sebastienros/jint#3206).
+        using var admission = OpenHostCallbackAdmissionWindow();
 
         // Claim this thread as the one draining the loop so background threads (Task completions)
         // don't race to execute JavaScript continuations on the engine. Save/restore to support

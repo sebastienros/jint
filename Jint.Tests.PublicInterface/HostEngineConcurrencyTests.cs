@@ -343,6 +343,147 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
+    /// <summary>
+    /// How long a continuation running inside the drain keeps the engine thread, so that the callback
+    /// dispatched from another thread provably arrives while the owner is on the engine rather than inside
+    /// its blocking wait. This is the one place a clock is used to <em>occupy</em> rather than to wait for
+    /// something: what is under test is precisely what happens to a callback that arrives then, so the
+    /// arrival has to be inside a stretch this test controls. Nothing waits this out - the two tests below
+    /// both finish as soon as their callback has been served.
+    /// </summary>
+    private static readonly TimeSpan DrainOccupancy = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Long enough that the continuation it settles runs from the drain rather than from the tail of
+    /// <c>Evaluate</c>, which drains the microtask queue before it returns.
+    /// </summary>
+    private static readonly TimeSpan ContinuationDelay = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>
+    /// The window README's Thread-safety section and THREAT_MODEL.md TM-13 promise an authorized callback
+    /// may wait in - "such an authorized transfer may wait for the current callback turn" - reached
+    /// deterministically. An <c>async</c> host method returns at its first <c>await</c>, so by the time its
+    /// captured callback is invoked from another thread the host call it was handed to is long gone; the
+    /// owner thread is inside <c>UnwrapIfPromise</c>'s drain, running a continuation. The callback has to be
+    /// served after the owner's turn, not destroyed. sebastienros/jint#3206.
+    /// </summary>
+    [Fact]
+    public void AnAsyncHostMethodsCallbackIsServedWhileTheOwnerRunsTheDrain()
+    {
+        Func<int>? captured = null;
+        using var dispatcher = new CallbackDispatcher(() => captured!());
+
+        var engine = new Engine();
+        engine.SetValue("register", new Func<Func<int>, Task>(async callback =>
+        {
+            captured = callback;
+            await dispatcher.Attempted.ConfigureAwait(false);
+        }));
+        engine.SetValue("delay", new Func<Task>(() => Task.Delay(ContinuationDelay)));
+        engine.SetValue("hold", new Action(() =>
+        {
+            dispatcher.Release();
+            Thread.Sleep(DrainOccupancy);
+        }));
+
+        var result = engine.Evaluate("""
+            async function main() {
+                const pending = register(() => 42);
+                await delay();
+                hold();
+                await pending;
+                return 'done';
+            }
+            main();
+            """).UnwrapIfPromise(HandoffCeiling);
+
+        dispatcher.Failure.Should().BeNull("an authorized callback may wait for its turn, not be refused");
+        dispatcher.Result.Should().Be(42);
+        result.AsString().Should().Be("done");
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// The other half of sebastienros/jint#3206: the stretch between an <c>async</c> host method returning at
+    /// its first <c>await</c> and the caller reaching anything that waits. Here the callback is dispatched
+    /// while the engine thread is still running script for the very evaluation that handed it out, so there
+    /// is no drain to be admitted into - the reservation the host call took has to outlive that call.
+    /// </summary>
+    [Fact]
+    public void AnAsyncHostMethodsCallbackIsServedWhileTheOwnerFinishesTheEvaluation()
+    {
+        Func<int>? captured = null;
+        using var dispatcher = new CallbackDispatcher(() => captured!());
+
+        var engine = new Engine();
+        engine.SetValue("register", new Func<Func<int>, Task<string>>(async callback =>
+        {
+            captured = callback;
+            await dispatcher.Attempted.ConfigureAwait(false);
+            return "done";
+        }));
+        engine.SetValue("hold", new Action(() =>
+        {
+            dispatcher.Release();
+            Thread.Sleep(DrainOccupancy);
+        }));
+
+        var result = engine.Evaluate("""
+            const pending = register(() => 42);
+            hold();
+            pending;
+            """).UnwrapIfPromise(HandoffCeiling);
+
+        dispatcher.Failure.Should().BeNull("an authorized callback may wait for its turn, not be refused");
+        dispatcher.Result.Should().Be(42);
+        result.AsString().Should().Be("done");
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// The same window, reached by the shape the second comment on sebastienros/jint#3206 widened the report
+    /// to: any host API of the form "hand me a callback, I will call it later from my own thread", not only
+    /// an <c>async</c> method. Here the host call that received the callback returned synchronously long
+    /// before the callback is invoked, which is the shipped shape of
+    /// <see cref="DelayedCrossThreadCallbackReleasesBlockingPromiseOwnership"/> with the timing pinned.
+    /// </summary>
+    [Fact]
+    public void ACallbackStoredByAHostMethodIsServedWhileTheOwnerRunsTheDrain()
+    {
+        Action? captured = null;
+        using var dispatcher = new CallbackDispatcher(() =>
+        {
+            captured!();
+            return 0;
+        });
+
+        var engine = new Engine();
+        engine.SetValue("later", new Action<Action>(callback => captured = callback));
+        engine.SetValue("delay", new Func<Task>(() => Task.Delay(ContinuationDelay)));
+        engine.SetValue("attempted", new Func<Task>(() => dispatcher.Attempted));
+        engine.SetValue("hold", new Action(() =>
+        {
+            dispatcher.Release();
+            Thread.Sleep(DrainOccupancy);
+        }));
+
+        var result = engine.Evaluate("""
+            globalThis.marker = 0;
+            async function main() {
+                later(() => { globalThis.marker = 42; });
+                await delay();
+                hold();
+                await attempted();
+                return globalThis.marker;
+            }
+            main();
+            """).UnwrapIfPromise(HandoffCeiling);
+
+        dispatcher.Failure.Should().BeNull("an authorized callback may wait for its turn, not be refused");
+        result.AsNumber().Should().Be(42);
+        engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
+    }
+
     [Fact]
     public void DelayedCrossThreadCallbackReleasesBlockingPromiseOwnership()
     {
@@ -593,6 +734,67 @@ public class HostEngineConcurrencyTests
 
         await running;
         operation.GetResult().Get("value").AsNumber().Should().Be(42);
+    }
+
+    /// <summary>
+    /// A thread of the test's own, parked until <see cref="Release"/>, which then invokes the engine
+    /// callback it was handed exactly once and records what came back.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <c>Task.Run</c>. What the two tests above measure is <em>where</em> the invocation
+    /// lands relative to the owner's turn, and a pool worker that has to be injected first lands wherever
+    /// the pool feels like - which is the same wall-clock race <see cref="StartOwningThread"/> exists to
+    /// avoid on the other side of the hand-off.
+    /// </remarks>
+    private sealed class CallbackDispatcher : IDisposable
+    {
+        private readonly ManualResetEventSlim _release = new();
+        private readonly TaskCompletionSource<bool> _attempted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly Thread _thread;
+
+        internal CallbackDispatcher(Func<int> invoke)
+        {
+            _thread = new Thread(() =>
+            {
+                _release.Wait(HandoffCeiling);
+                try
+                {
+                    Result = invoke();
+                }
+                catch (Exception exception)
+                {
+                    Failure = exception;
+                }
+                finally
+                {
+                    _attempted.TrySetResult(true);
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "jint-callback-dispatcher",
+            };
+
+            _thread.Start();
+        }
+
+        /// <summary>
+        /// Completes once the callback has been invoked, whatever the outcome - so a script awaiting it
+        /// makes progress on a refusal as well as on a success, and a regression reports rather than hangs.
+        /// </summary>
+        internal Task Attempted => _attempted.Task;
+
+        internal Exception? Failure { get; private set; }
+
+        internal int Result { get; private set; }
+
+        internal void Release() => _release.Set();
+
+        public void Dispose()
+        {
+            _thread.Join(HandoffCeiling);
+            _release.Dispose();
+        }
     }
 
     private static Engine CreateBlockingEngine(ManualResetEventSlim entered, ManualResetEventSlim release)
