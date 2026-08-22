@@ -238,8 +238,16 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.Crypto) != WebApiFeatures.None)
         {
             // WebIDL exposes crypto through a [Replaceable] accessor pair; an ordinary enumerable data
-            // property is the same simplification console is installed with, documented on CryptoInstance.
-            Install(global, engine, "crypto", static e => e.Realm.Intrinsics.Crypto, PropertyFlag.ConfigurableEnumerableWritable);
+            // property is the same simplification console is installed with, documented on CryptoPrototype.
+            Install(global, engine, "crypto", static e => e.Realm.Intrinsics.CryptoObject, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // The two interface objects behind those, so that `crypto instanceof Crypto` and
+            // `crypto.subtle instanceof SubtleCrypto` are writable — WinterTC §5.1 lists both, and neither is
+            // constructible, which is what their own IDL says. SubtleCrypto is [SecureContext] in a browser and
+            // is exposed unconditionally here for the reason SubtleCryptoConstructor gives: an embedded engine
+            // has no origin and no transport for the bit to describe.
+            Install(global, engine, "Crypto", static e => e.Realm.Intrinsics.Crypto, PropertyFlag.NonEnumerable);
+            Install(global, engine, "SubtleCrypto", static e => e.Realm.Intrinsics.SubtleCrypto, PropertyFlag.NonEnumerable);
 
             // The interface object of the keys crypto.subtle hands out, so that `key instanceof CryptoKey`
             // works. It is not constructible, which is what its own IDL says.
@@ -248,7 +256,12 @@ internal static class WebApiRegistration
 
         if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
         {
-            Install(global, engine, "performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.ConfigurableEnumerableWritable);
+            Install(global, engine, "performance", static e => e.Realm.Intrinsics.PerformanceObject, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // Its interface object, which WinterTC §5.1 lists and which `performance instanceof Performance`
+            // needs. Not constructible, and — see PerformanceConstructor — it does not claim the EventTarget
+            // this interface inherits from in the specification, because nothing here fires an event at it.
+            Install(global, engine, "Performance", static e => e.Realm.Intrinsics.Performance, PropertyFlag.NonEnumerable);
 
             // The entry types are ordinary WebIDL interface objects — a script holds a mark and asks
             // `entry instanceof PerformanceMark`, which only works if the interface object is reachable.
@@ -276,17 +289,36 @@ internal static class WebApiRegistration
 
         if ((features & WebApiFeatures.Streams) != WebApiFeatures.None)
         {
-            // Only the five interfaces a script constructs directly are globals. The readers, the four
-            // controllers and ReadableStreamBYOBRequest exist as ordinary interface objects and are reached
-            // through their instances' prototypes — a deliberate, documented narrowing of the browser
-            // surface, since nothing but feature detection ever names them. That includes the byte-stream
-            // interfaces: a byte stream is asked for as new ReadableStream({ type: "bytes" }) and a BYOB
-            // reader as stream.getReader({ mode: "byob" }), never by naming the interface.
+            // Every interface the Streams Standard declares [Exposed=*], which is all thirteen of them. The
+            // five a script constructs by name come first; the eight below are the readers, the writer, the
+            // four controllers and ReadableStreamBYOBRequest, none of which a script builds itself but each of
+            // which it names — for an `instanceof`, for a prototype patch, or for the feature detection a
+            // library performing stream work starts with. They used to be reachable only as
+            // Object.getPrototypeOf(stream.getReader()).constructor, which made `reader instanceof
+            // ReadableStreamDefaultReader` unwritable while the object it would have named was sitting right
+            // there. Each is a lazy descriptor like every other global here, so the widening costs an engine
+            // that never mentions one exactly eight property slots and no object at all.
             Install(global, engine, "ReadableStream", static e => e.Realm.Intrinsics.ReadableStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "WritableStream", static e => e.Realm.Intrinsics.WritableStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "TransformStream", static e => e.Realm.Intrinsics.TransformStream, PropertyFlag.NonEnumerable);
             Install(global, engine, "ByteLengthQueuingStrategy", static e => e.Realm.Intrinsics.ByteLengthQueuingStrategy, PropertyFlag.NonEnumerable);
             Install(global, engine, "CountQueuingStrategy", static e => e.Realm.Intrinsics.CountQueuingStrategy, PropertyFlag.NonEnumerable);
+
+            // Constructible, because the Streams Standard gives all three a constructor operation taking the
+            // stream to lock — https://streams.spec.whatwg.org/#default-reader-constructor and its siblings.
+            Install(global, engine, "ReadableStreamDefaultReader", static e => e.Realm.Intrinsics.ReadableStreamDefaultReader, PropertyFlag.NonEnumerable);
+            Install(global, engine, "ReadableStreamBYOBReader", static e => e.Realm.Intrinsics.ReadableStreamBYOBReader, PropertyFlag.NonEnumerable);
+            Install(global, engine, "WritableStreamDefaultWriter", static e => e.Realm.Intrinsics.WritableStreamDefaultWriter, PropertyFlag.NonEnumerable);
+
+            // Not constructible: an interface that declares no constructor operation still has an interface
+            // object, and that object refuses to construct — https://webidl.spec.whatwg.org/#es-interface-call.
+            // ReadableStreamBYOBRequest joined them in whatwg/streams#870, which took away a constructor that
+            // could build a request out of step with its stream.
+            Install(global, engine, "ReadableStreamDefaultController", static e => e.Realm.Intrinsics.ReadableStreamDefaultController, PropertyFlag.NonEnumerable);
+            Install(global, engine, "ReadableByteStreamController", static e => e.Realm.Intrinsics.ReadableByteStreamController, PropertyFlag.NonEnumerable);
+            Install(global, engine, "ReadableStreamBYOBRequest", static e => e.Realm.Intrinsics.ReadableStreamBYOBRequest, PropertyFlag.NonEnumerable);
+            Install(global, engine, "WritableStreamDefaultController", static e => e.Realm.Intrinsics.WritableStreamDefaultController, PropertyFlag.NonEnumerable);
+            Install(global, engine, "TransformStreamDefaultController", static e => e.Realm.Intrinsics.TransformStreamDefaultController, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Scheduler) != WebApiFeatures.None)

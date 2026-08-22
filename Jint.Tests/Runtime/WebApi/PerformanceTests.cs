@@ -204,7 +204,7 @@ public class PerformanceTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.now.call({})"))
             .Message.Should().Contain("Performance");
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(performance, 'timeOrigin').get.call({})"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})"))
             .Message.Should().Contain("Performance");
 
         engine.Evaluate("(() => { const f = performance.now; return typeof f.call(performance); })()")
@@ -227,19 +227,20 @@ public class PerformanceTests
         var (engine, _) = PerformanceEngine();
 
         // A WebIDL readonly attribute is an accessor with no setter — never a data property, so that a host
-        // cannot be fooled by a script assigning to it.
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(performance, 'timeOrigin')").AsObject();
+        // cannot be fooled by a script assigning to it. It lives on Performance.prototype, as a browser's does.
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin')").AsObject();
         descriptor.Get("get").IsCallable.Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
 
-        var now = engine.Evaluate("Object.getOwnPropertyDescriptor(performance, 'now')").AsObject();
+        var now = engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'now')").AsObject();
         now.Get("writable").AsBoolean().Should().BeTrue();
         now.Get("configurable").AsBoolean().Should().BeTrue();
         now.Get("enumerable").AsBoolean().Should().BeFalse();
 
-        // Same observable answer a browser gives, where both live on Performance.prototype.
+        // The instance itself carries nothing of its own, which is the same answer a browser gives.
+        engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(performance))").AsString().Should().Be("[]");
         engine.Evaluate("JSON.stringify(Object.keys(performance))").AsString().Should().Be("[]");
     }
 

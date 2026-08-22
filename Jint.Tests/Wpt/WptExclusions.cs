@@ -189,28 +189,14 @@ internal enum WptDivergence
 
     /// <summary>
     /// The test asserts what a <b>non-secure</b> context sees, which Jint has no way to be: it has no scheme,
-    /// no origin and therefore no secure-context bit, and <c>crypto.subtle</c> is simply there once the
-    /// feature is enabled. Upstream runs <c>historical.any.js</c> over plain http for exactly the property it
-    /// asserts, so this is the corpus meeting an environment it was not written for rather than a gap to
-    /// close. Note the file's third test passes on its own merits: Jint exposes no <c>SubtleCrypto</c>
-    /// constructor either way.
+    /// no origin and therefore no secure-context bit, so <c>crypto.subtle</c>, the <c>SubtleCrypto</c>
+    /// interface object and <c>CryptoKey</c> are all simply there once the feature is enabled. Upstream runs
+    /// <c>historical.any.js</c> over plain http for exactly the property it asserts, so this is the corpus
+    /// meeting an environment it was not written for rather than a gap to close. All three of the file's tests
+    /// are here now: the <c>SubtleCrypto</c> row used to pass because there was no such interface object at
+    /// all, and sebastienros/jint#3195 installed it because WinterTC's Minimum Common API §5.1 lists it.
     /// </summary>
     NeedsSecureContextModel,
-
-    /// <summary>
-    /// The test names one of the Streams Standard's interface objects as a <b>global</b>. Jint installs only
-    /// the five a script constructs by name — <c>ReadableStream</c>, <c>WritableStream</c>,
-    /// <c>TransformStream</c>, <c>ByteLengthQueuingStrategy</c>, <c>CountQueuingStrategy</c> — and leaves the
-    /// readers, the writer, the four controllers and <c>ReadableStreamBYOBRequest</c> reachable only as
-    /// <c>Object.getPrototypeOf(stream.getReader()).constructor</c> and its siblings, which is where an
-    /// <c>instanceof</c> check and a prototype patch go. That reduction is documented on
-    /// <c>ReadableStreamDefaultReaderConstructor</c> and in <c>README.md</c>; a browser exposes all of them,
-    /// so this is a deliberate difference rather than a gap the corpus discovered. The whole of
-    /// <c>construct-byob-request.any.js</c> is out for it (it reads two of them at file scope, so there is no
-    /// test left to exclude) and seven rows of <c>default-reader.any.js</c> are named individually — the other
-    /// 22 rows of that file obtain the interface through the prototype chain and pass.
-    /// </summary>
-    NeedsStreamInterfaceGlobals,
 
     /// <summary>
     /// <para>
@@ -243,7 +229,7 @@ internal enum WptDivergence
     NeedsIncrementalInflater,
 
     /// <summary>
-    /// The test needs <c>PerformanceObserver</c>. <c>PerformanceInstance</c> names it first in the list of
+    /// The test needs <c>PerformanceObserver</c>. <c>PerformancePrototype</c> names it first in the list of
     /// what it does not implement — "<c>PerformanceObserver</c> and everything that reports to one,
     /// <c>toJSON</c>, <c>setResourceTimingBufferSize</c> and the resource-timing surface" — and says why it is
     /// <i>absent</i> rather than present-and-throwing: so that a script's own feature detection sees the truth.
@@ -257,7 +243,7 @@ internal enum WptDivergence
     /// <summary>
     /// The test dispatches an event at the <c>performance</c> object. <c>Performance</c> inherits from
     /// <c>EventTarget</c> in https://w3c.github.io/hr-time/#sec-performance, and
-    /// <c>PerformanceInstance</c> lists that inheritance in the same paragraph as the observer above: there is
+    /// <c>PerformanceConstructor</c> gives the reason, and <c>PerformancePrototype</c> lists that inheritance in the same paragraph as the observer above: there is
     /// no <c>Performance</c> interface object and no prototype here, the members are own properties of one
     /// object, and nothing in the specification's event surface (<c>resourcetimingbufferfull</c>) has anything
     /// to fire. One row of <c>hr-time/basic.any.js</c>; its other four pass.

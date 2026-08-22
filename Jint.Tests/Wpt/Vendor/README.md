@@ -458,7 +458,7 @@ is what it costs, and it is a cost paid by real third-party worker code and not 
 ## What the hr-time and user-timing corpora say about this engine
 
 85 assertions, of which **6 do not pass**, and the split is almost exactly the one
-`PerformanceInstance` predicts in its own documentation.
+`PerformancePrototype` predicts in its own documentation.
 
 Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
 "`PerformanceObserver` and everything that reports to one, `toJSON`, `setResourceTimingBufferSize` and the

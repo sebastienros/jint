@@ -13,7 +13,8 @@ using Jint.WebApi.DomException;
 namespace Jint.WebApi.Crypto;
 
 /// <summary>
-/// The <c>crypto</c> object — an instance of the <c>Crypto</c> interface.
+/// <c>Crypto.prototype</c> — the interface prototype object, and where every member of the <c>crypto</c>
+/// object lives.
 /// <para>
 /// https://w3c.github.io/webcrypto/#crypto-interface
 /// </para>
@@ -32,26 +33,30 @@ namespace Jint.WebApi.Crypto;
 /// then a question of which algorithms are registered for it, and a name that is not registered for an
 /// operation is the <c>NotSupportedError</c> the specification says it is — so the feature detection a
 /// library performing cryptography starts with gets the truthful answer at both levels. See
-/// <see cref="SubtleCryptoInstance"/>.
+/// <see cref="SubtleCryptoPrototype"/>.
 /// </para>
 /// <para>
-/// Three documented simplifications against WebIDL, the first pair of which <c>console</c> carries too. There
-/// is no <c>Crypto</c> interface object and no <c>Crypto.prototype</c>, so the two operations, the
-/// <c>subtle</c> attribute and the <c>@@toStringTag</c> are own properties of this object with the attributes
-/// an ECMAScript built-in member has — non-enumerable and configurable, the two operations writable as well —
-/// rather than those of a WebIDL interface prototype's members. What a script can actually observe of that is unchanged: <c>Object.keys(crypto)</c>
-/// answers the empty array in a browser too, because there the members live one level up on the prototype.
-/// All three still brand-check their receiver, so extracting one and calling it on something else raises a
-/// <c>TypeError</c> exactly as a browser does. The object is installed as an ordinary enumerable data
-/// property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL gives it. And
-/// <c>[SecureContext]</c>, which gates <c>subtle</c> and <c>randomUUID</c> in a browser, has no meaning for
-/// an embedded engine — there is no origin and no transport to be secure — so both are exposed
-/// unconditionally.
+/// Two documented simplifications against WebIDL remain, and one that used to be here is gone. The members
+/// are <b>non-enumerable</b>, where a WebIDL interface prototype object's are enumerable — the simplification
+/// every prototype in this assembly carries. And the <c>crypto</c> object is installed as an ordinary
+/// enumerable data property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL
+/// gives it. What is <i>no longer</i> a simplification is the interface itself: <c>Crypto</c> and
+/// <c>Crypto.prototype</c> are real, the members live here rather than on the instance, and
+/// <c>crypto instanceof Crypto</c> is answered by the prototype chain. All three members still brand-check
+/// their receiver, so extracting one and calling it on something else raises a <c>TypeError</c> exactly as a
+/// browser does.
+/// </para>
+/// <para>
+/// <c>[SecureContext]</c>, which gates <c>subtle</c> and <c>randomUUID</c> in a browser, has no meaning for an
+/// embedded engine — there is no origin and no transport to be secure — so both are exposed unconditionally.
 /// </para>
 /// </remarks>
-[JsObject]
-internal sealed partial class CryptoInstance : BuiltinShapeObject
+[JsObject(UseShape = true)]
+internal sealed partial class CryptoPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
+    private readonly CryptoConstructor _constructor;
+
     /// <summary>
     /// The quota step 3 enforces, https://w3c.github.io/webcrypto/#Crypto-method-getRandomValues: "If
     /// byteLength is greater than 65536, throw a QuotaExceededError".
@@ -61,12 +66,14 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString CryptoToStringTag = new("Crypto");
 
-    private readonly Realm _realm;
-
-    internal CryptoInstance(Engine engine, Realm realm, ObjectPrototype objectPrototype) : base(engine)
+    internal CryptoPrototype(
+        Engine engine,
+        Realm realm,
+        CryptoConstructor constructor,
+        ObjectPrototype objectPrototype) : base(engine, realm)
     {
-        _realm = realm;
         _prototype = objectPrototype;
+        _constructor = constructor;
     }
 
     protected override void Initialize()
@@ -85,10 +92,10 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     /// mentions <c>subtle</c> has not paid for one.
     /// </remarks>
     [JsAccessor("subtle")]
-    private SubtleCryptoInstance SubtleGet(JsValue thisObject)
+    private JsSubtleCrypto SubtleGet(JsValue thisObject)
     {
         Brand(thisObject, "Failed to read the 'subtle' property from 'Crypto'");
-        return _realm.Intrinsics.SubtleCrypto;
+        return _realm.Intrinsics.SubtleCryptoObject;
     }
 
     /// <summary>
@@ -234,7 +241,7 @@ internal sealed partial class CryptoInstance : BuiltinShapeObject
     /// </summary>
     private void Brand(JsValue thisObject, string what)
     {
-        if (thisObject is not CryptoInstance)
+        if (thisObject is not JsCrypto)
         {
             Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a Crypto object.");
         }

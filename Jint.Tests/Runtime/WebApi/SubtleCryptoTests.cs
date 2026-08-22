@@ -317,7 +317,7 @@ public class SubtleCryptoTests
         // An attribute is not a promise-returning operation, so its brand check is an ordinary throw.
         engine.Evaluate("""
             (() => {
-                const getter = Object.getOwnPropertyDescriptor(crypto, 'subtle').get;
+                const getter = Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle').get;
                 try { getter.call({}); } catch (e) { return e.constructor.name; }
                 return 'no error';
             })()
@@ -475,9 +475,9 @@ public class SubtleCryptoTests
 
         engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeTrue();
 
-        // There is no Crypto.prototype here, so the attribute is an own accessor of the object with the
-        // attributes an ECMAScript built-in member carries. Object.keys(crypto) stays empty, as in a browser.
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(crypto, 'subtle')").AsObject();
+        // The attribute is an accessor pair on Crypto.prototype, which is where a browser's is too, with the
+        // attributes a WebIDL attribute carries. Object.keys(crypto) stays empty, as in a browser.
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle')").AsObject();
         descriptor.Get("get").IsCallable.Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
@@ -504,11 +504,12 @@ public class SubtleCryptoTests
             ['wrapKey', 'unwrapKey'].filter(name => name in crypto.subtle).join(',')
             """).AsString().Should().Be("wrapKey,unwrapKey");
 
-        // As with crypto itself, the operation is an own property with a built-in method's attributes, so
-        // enumeration sees nothing.
+        // As with crypto itself, the operations live on SubtleCrypto.prototype, so the object carries nothing
+        // of its own and enumeration sees nothing.
+        engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(crypto.subtle))").AsString().Should().Be("[]");
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
 
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(crypto.subtle, 'digest')").AsObject();
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(SubtleCrypto.prototype, 'digest')").AsObject();
         descriptor.Get("writable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
