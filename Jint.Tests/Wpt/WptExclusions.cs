@@ -371,9 +371,18 @@ internal enum WptDivergence
     /// </para>
     /// <list type="bullet">
     /// <item><description>
-    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing. This
-    /// one wants https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
-    /// read before anything is changed, which is exactly why it is triage rather than a fix.
+    /// An empty <c>FormData</c> response body serializes to its closing boundary rather than to nothing —
+    /// <c>response-consume-empty.any.js</c>, "Consume empty FormData response body as text", which asks that
+    /// <c>await new Response(new FormData()).text()</c> have length 0. <b>It is not a defect.</b> This one
+    /// wanted https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm
+    /// read before anything was changed, and reading it settles the question the other way: the algorithm
+    /// defines the escaping and delegates the framing to RFC 7578 and, through it, to RFC 2046 section 5.1.1,
+    /// whose grammar ends every <c>multipart-body</c> with a <c>close-delimiter</c> that is not optional. Nor
+    /// does any implementation produce the empty body the row asks for — Chrome, Edge, Firefox and Safari all
+    /// report it 0/1 on wpt.fyi, where the file's thirteen other rows are 1/1 in all four. So the entry
+    /// stays, but this category — "a bug or a specification detail to chase" — is the wrong one for it, and
+    /// giving it one of its own is filed rather than done here. <c>Vendor/README.md</c> has the citations and
+    /// the measurement.
     /// </description></item>
     /// </list>
     /// <para>

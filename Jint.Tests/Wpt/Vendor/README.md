@@ -40,7 +40,7 @@ Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/
 **three**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
 (events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
 **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 271 theory cases over 40,632 assertions, of which 2,907 do
+directory's own files and never descends. That is 271 theory cases over 40,632 assertions, of which 2,894 do
 not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
 
 The corpora arrived a group at a time, most of them under
@@ -688,45 +688,106 @@ to read those steps should not have to rediscover.
 
 ## What the fetch object model says about this engine
 
-388 assertions across 29 files, of which **88 do not pass**. 73 of them are one documented decline:
-`HeadersGuard` refuses to enforce the *forbidden header name* and *forbidden response header name* lists,
-because they are a browser's protection of headers the user agent alone controls and Jint runs server-side,
-where those headers are exactly what a script legitimately needs to set — the same choice Node and Deno make.
-That is the whole of `headers-forbidden-override.any.js`'s 72 forbidden rows (its 18 "is allowed to use" rows
-pass) and one row of `header-setcookie.any.js`. One more row is `NeedsApiBaseUrl`: `Response.redirect("/")`
-with no document to resolve against.
+388 assertions across 29 files, of which **75 do not pass** — and every one of those is a decision rather
+than a defect. 73 are one documented decline: `HeadersGuard` refuses to enforce the *forbidden header name*
+and *forbidden response header name* lists, because they are a browser's protection of headers the user agent
+alone controls and Jint runs server-side, where those headers are exactly what a script legitimately needs to
+set — the same choice Node and Deno make. That is the whole of `headers-forbidden-override.any.js`'s 72
+forbidden rows (its 18 "is allowed to use" rows pass) and one row of `header-setcookie.any.js`. One more row
+is `NeedsApiBaseUrl`: `Response.redirect("/")` with no document to resolve against.
 
-**The remaining 14 are four defects:**
+**The seventy-fifth is a row no implementation passes**, and the three genuine defects that used to sit
+beside it are fixed under [#3212](https://github.com/sebastienros/jint/issues/3212).
 
-1. **The `Headers` iterator prototype's `next` is not enumerable** — three rows of `headers-basic.any.js`
-   (`keys`, `values`, `entries`).
-   [WebIDL's iterator prototype object](https://webidl.spec.whatwg.org/#es-iterator-prototype-object) gives it
-   `{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }`. This is the same attribute on the
-   same kind of object as the streams corpus's async-iterator defect above, and the fix is the same one flag
-   on `HeadersIteratorPrototype`.
-2. **A `Response` whose body came from bytes is not disturbed by consuming it** — eight of the twelve rows of
+### The one row that is not debt
+
+**An empty `FormData` body does not serialize to an empty body** — one row of `response-consume-empty.any.js`,
+which asks that `await new Response(new FormData()).text()` have length 0 and gets the 50-byte closing
+boundary `MultipartFormData` writes.
+
+The triage note said to read
+[the multipart/form-data encoding algorithm](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm)
+before changing anything. Reading it settles the question the other way. HTML's algorithm normalizes the
+newlines in each entry's name and value and then says to "return the byte sequence resulting from encoding
+the entry list using the rules described by RFC 7578" — it defines the *escaping* and delegates the *framing*
+entirely. RFC 7578 defers in turn to RFC 2046, whose section 5.1.1 grammar is
+
+```
+multipart-body := [preamble CRLF]
+                  dash-boundary transport-padding CRLF
+                  body-part *encapsulation
+                  close-delimiter transport-padding
+                  [CRLF epilogue]
+```
+
+The `close-delimiter` is not optional there, so an empty entry list has no shorter conforming encoding than
+the one Jint writes. Nothing in either document licenses the empty body the row asks for.
+
+The empirical half agrees, decisively. Measured on wpt.fyi against the four aligned stable runs at the time
+of writing (chrome 152, edge 151, firefox 154, safari 26.6), that row is **0/1 in all four**, while the
+file's thirteen other rows are 1/1 in all four. No browser produces an empty body for an empty `FormData`
+either, which is what one would expect of a serializer that writes its close delimiter after the loop.
+
+So this row is not debt. It keeps its exclusion, but `NeedsTriage` is the wrong category for it — that
+category means "a bug or a specification detail to chase", and this is neither. Reclassifying it wants a
+category of its own, which is filed rather than done here.
+
+### The three that are fixed
+
+1. **The `Headers` iterator prototype's `next` was not enumerable** — three rows of `headers-basic.any.js`
+   (`keys`, `values`, `entries`), each through the file's own `checkIteratorProperties`, which reads the
+   descriptor and asserts all three attributes.
+   [WebIDL's iterator prototype object](https://webidl.spec.whatwg.org/#es-iterator-prototype-object) gives
+   `next` `{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }`; writable and configurable
+   were already right and enumerable was the whole of it, because a built-in function property is
+   non-enumerable everywhere in ECMA-262
+   ([standard built-in objects](https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects)) and that
+   is what `[JsFunction]` defaults to. The fix is the `Flags` the streams corpus's async-iterator defect
+   introduced, spelled on three declarations rather than one: **no vendored row reaches
+   `FormDataIteratorPrototype` or `UrlSearchParamsIteratorPrototype`**, and both carried exactly the same
+   defect with nothing to find it. The `@@toStringTag` on all three was already right — WebIDL gives a class
+   string `{ [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }`.
+
+2. **A consumed byte-source body handed back a stream that was not locked** — eight of the twelve rows of
    `response-stream-disturbed-5.any.js`. After `response.blob()` (or `text`/`json`/`arrayBuffer`) has been
-   called, `response.body.getReader()` must throw a `TypeError` because
-   [the body is disturbed](https://fetch.spec.whatwg.org/#concept-body-disturbed) and its stream locked; here
-   it succeeds. The four rows whose body source is a `ReadableStream` the test built itself **pass**, which
-   locates the defect precisely: the stream `.body` exposes for a byte-source body is created lazily and is
-   not the one the consume path locked.
-3. **An empty `FormData` body does not serialize to an empty body** — one row of
-   `response-consume-empty.any.js`, which asks that `await new Response(new FormData()).text()` have length 0
-   and gets the 50-byte closing boundary `MultipartFormData` writes. Worth confirming against
-   [the multipart/form-data encoding algorithm](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm)
-   before changing anything, which is why it is triage rather than a fix.
-4. **A `record<ByteString, ByteString>` conversion performs one operation too many** — two rows of
+   called, `response.body.getReader()` must throw a `TypeError`; here it succeeded.
+   The triage note put this down to the stream `.body` exposes being "not the one the consume path locked",
+   and the wrong half of that is the instructive one: the consume path locked nothing, and *disturbed* is not
+   what `getReader()` refuses. It refuses a **locked** stream and only a locked one —
+   [SetUpReadableStreamDefaultReader](https://streams.spec.whatwg.org/#set-up-readable-stream-default-reader)
+   step 1 — so the disturbed-but-unlocked stream Jint handed back was given a reader quite correctly.
+   What makes a browser refuse it is that consuming a body runs
+   [fully read](https://fetch.spec.whatwg.org/#concept-body-fully-read), whose step 3 is "let reader be the
+   result of [getting a reader](https://streams.spec.whatwg.org/#readablestream-get-a-reader) for body's
+   stream" — which locks it — and whose read-all-bytes step never releases that reader. The stream a consumed
+   body exposes is therefore disturbed, closed *and locked for good*. That is also exactly why the four rows
+   whose body source is a `ReadableStream` **passed**: those go through `FetchBody.FullyRead`, which acquires
+   the reader and holds it. `GetOrCreateStream` defers building the stream for a bytes-source body, so what
+   it has to reproduce on first ask is the state fully read would have left — and it was reproducing only the
+   `disturbed` half.
+
+3. **A `record<ByteString, ByteString>` conversion performed one operation too many** — two rows of
    `headers-record.any.js`, "Correct operation ordering with two properties one of which has an invalid name"
    (6 where 5 are allowed) and "Basic operation with Symbol keys" (8 where 7 are). Both count the operations a
    proxy records while [WebIDL's record conversion](https://webidl.spec.whatwg.org/#es-record) walks the
-   object, so what they pin is the order of `OwnPropertyKeys`, `GetOwnProperty` and `Get` rather than the
-   header list behind it.
+   object, so what they pin is the order of `[[OwnPropertyKeys]]`, `[[GetOwnProperty]]` and `Get` rather than
+   the header list behind it — and measured through the file's own logging proxy, the extra operation was the
+   same one on both rows: a `[[Get]]` of the very key that ends the conversion. Step 4.2 is 4.2.1 "let
+   *typedKey* be *key* converted to an IDL value of type *K*" and *then* 4.2.2 "let *value* be
+   `? Get(O, key)`"; `FillFromRecord` did the `Get` first and converted the key inside `append`.
+   Writing step 3 as the unfiltered `? O.[[OwnPropertyKeys]]()` the specification asks for also removed an
+   inconsistency that predated the rows: `JsProxy.GetOwnPropertyKeys` honours Jint's `types` filter only when
+   there is no `ownKeys` trap — correctly, since the spec's internal method has no filter — so a Symbol key
+   already reached the walk through a proxy while `new Headers({ [Symbol.toStringTag]: 'x' })` on a plain
+   object was silently accepted where a browser throws.
 
 ## The whole corpus, standard by standard
 
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
-the shim did not record `PASS`, which is exactly the set the table names.
+the shim did not record `PASS`, which is exactly the set the table names. Re-measured in full for
+[#3212](https://github.com/sebastienros/jint/issues/3212), which is why five rows move at once: the Fetch row
+is that change's own, and Streams, Compression, User Timing and DOM had gone stale against fixes that
+removed their exclusions without revisiting this table. Every per-standard section above was already right.
 
 | Standard | Suites | Files | Assertions | Not passing |
 | --- | --- | --- | --- | --- |
@@ -742,8 +803,8 @@ the shim did not record `PASS`, which is exactly the set the table names.
 | HTML — workers | `workers/` ×3 | 11 | 15 | 7 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
-| **total** | **34** | **271** | **40,632** | **2,907** |
+| Fetch | `fetch/api/` ×2 | 29 | 388 | 75 |
+| **total** | **34** | **271** | **40,632** | **2,894** |
 
 Two of those rows are worth a caveat. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,

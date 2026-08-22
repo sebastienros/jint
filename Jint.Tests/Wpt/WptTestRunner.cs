@@ -972,6 +972,10 @@ public class WptTestRunner
 
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
+        // The one row this corpus still names, and it is not a defect: an empty FormData body is asked to
+        // serialize to nothing, where HTML's encoding algorithm delegates the framing to RFC 7578 and RFC
+        // 2046, whose grammar makes the close-delimiter mandatory — and where no browser passes the row
+        // either. Left here because moving it wants a category of its own. See WptDivergence.NeedsTriage.
         new("fetch/api/response/response-consume-empty.any.js",
             "Consume empty FormData response body as text", WptDivergence.NeedsTriage),
 
