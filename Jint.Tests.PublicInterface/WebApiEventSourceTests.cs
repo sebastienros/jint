@@ -15,14 +15,33 @@ namespace Jint.Tests.PublicInterface;
 /// on, and what a restore does to a connection that is still open.
 /// </summary>
 /// <remarks>
+/// <para>
 /// This project has no <c>InternalsVisibleTo</c>, so everything here is reachable by a third party — the stub
 /// transport goes in through <c>Options.WebApi.Fetch.HttpClient</c>, the same door a host uses for a
 /// <c>DelegatingHandler</c> or an <c>IHttpClientFactory</c> client, and it is the same group <c>fetch</c>
 /// reads because server-sent events deliberately share it.
+/// </para>
+/// <para>
+/// <b>The three tests that wait for a hanging handler's token run on
+/// <see cref="DedicatedThread.RunAsync"/>.</b> A handler that hangs is parked in <c>Task.Delay</c>, so the
+/// <c>catch</c> that sets <see cref="StubHandler.Cancelled"/> is a thread-pool continuation — and blocking an
+/// xUnit pool worker to wait for one is the resource inversion described on
+/// <see cref="DedicatedThread.RunAsync"/>, which is exactly the claim and exactly the treatment
+/// sebastienros/jint#3207 gave the in-assembly sibling of these tests. Every other test here drives a handler
+/// that answers synchronously, so its connection loop runs inline on the thread that started it and there is
+/// nothing to wait for.
+/// </para>
 /// </remarks>
 public class WebApiEventSourceTests
 {
     private const string StreamUrl = "https://example.org/stream";
+
+    /// <summary>
+    /// How long a test will wait for a signal the transport raises. The claim is that the signal happens at
+    /// all, never how quickly, so this is a ceiling only a genuine failure to propagate can reach — never an
+    /// interval a loaded runner can lose (sebastienros/jint#3213).
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
 
     /// <summary>
     /// A clock that only moves when a test moves it, so the reconnect delay is exact and instant.
@@ -152,9 +171,13 @@ public class WebApiEventSourceTests
     /// Pumps the engine from the host's own thread, which is the only way anything an event source produces
     /// is delivered at all.
     /// </summary>
+    /// <remarks>
+    /// The bound is <see cref="TransportSignalCeiling"/> rather than an interval the engine is expected to
+    /// beat: what is being waited for is a hand-over, so only a hand-over that never happens can reach it.
+    /// </remarks>
     private static void Pump(Engine engine, Func<bool> until, string expectation)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline)
         {
             engine.Advanced.ProcessTasks();
@@ -293,7 +316,7 @@ public class WebApiEventSourceTests
     }
 
     [Fact]
-    public void CloseCancelsTheRequestInFlight()
+    public Task CloseCancelsTheRequestInFlight() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
         var (engine, _, records) = SseEngine(handler);
@@ -304,17 +327,17 @@ public class WebApiEventSourceTests
         engine.Execute("es.close();");
 
         // The abort reached the socket, not just the object.
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("closing an EventSource must cancel the request in flight, not merely mark the object CLOSED");
 
         engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
 
         // And closing fires nothing: it is not a failure, so there is no error event.
         Idle(engine);
         Joined(records).Should().BeEmpty();
-    }
+    });
 
     [Fact]
-    public void ARestoreCancelsTheConnectionAndDeliversNothingIntoTheRestoredEngine()
+    public Task ARestoreCancelsTheConnectionAndDeliversNothingIntoTheRestoredEngine() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
         var (engine, _, records) = SseEngine(handler);
@@ -326,7 +349,7 @@ public class WebApiEventSourceTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         // The socket is let go at once ...
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("a restore must cancel the connection rather than leave the socket held");
 
         // ... and nothing from the ended cycle ever reaches the restored engine.
         Idle(engine);
@@ -335,7 +358,7 @@ public class WebApiEventSourceTests
         // The engine is perfectly usable afterwards.
         engine.Evaluate("typeof EventSource").AsString().Should().Be("function");
         engine.Evaluate("typeof es").AsString().Should().Be("undefined");
-    }
+    });
 
     [Fact]
     public void ARestoreAlsoTakesTheReconnectDelayWithIt()
@@ -362,7 +385,7 @@ public class WebApiEventSourceTests
     }
 
     [Fact]
-    public void AnEngineCancellationEndsTheConnectionSilently()
+    public Task AnEngineCancellationEndsTheConnectionSilently() => DedicatedThread.RunAsync(() =>
     {
         // A constraint that became an error event would let the script carry on — and reconnect — which is
         // precisely what the constraint exists to stop.
@@ -375,14 +398,14 @@ public class WebApiEventSourceTests
         Pump(engine, () => handler.RequestCount == 1, "the request to reach the transport");
 
         cancellation.Cancel();
-        handler.Cancelled.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue();
+        handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("an engine cancellation must reach the connection in flight");
 
         clock.Advance(60_000);
         Idle(engine);
 
         Count(records).Should().Be(0);
         handler.RequestCount.Should().Be(1);
-    }
+    });
 
     [Fact]
     public void BoundsHowManyStreamsOneEngineMayHaveOpen()

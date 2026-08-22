@@ -26,6 +26,16 @@ public class WebApiMultipartTests
 {
     private const string TypePrefix = "multipart/form-data; boundary=";
 
+    /// <summary>
+    /// How long the two tests that read a <i>response</i> back will wait for it. Their promise settles only
+    /// once <c>FetchBodyStream</c>'s <c>Task.Run</c> read loop has delivered the body, so it is a thread-pool
+    /// continuation they are waiting for; the bound is a ceiling only a genuine failure to deliver can reach,
+    /// and both hand their bodies to <see cref="DedicatedThread.RunAsync"/> so the wait is not itself holding
+    /// the worker that loop needs (sebastienros/jint#3213). The request-side tests assert what the handler was
+    /// sent and wait for nothing.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>A handler that answers immediately and keeps what it was sent.</summary>
     private sealed class CapturingHandler : HttpMessageHandler
     {
@@ -118,7 +128,7 @@ public class WebApiMultipartTests
     }
 
     [Fact]
-    public void ReadsAMultipartResponseBackAsFormData()
+    public Task ReadsAMultipartResponseBackAsFormData() => DedicatedThread.RunAsync(() =>
     {
         var handler = new CapturingHandler
         {
@@ -150,11 +160,11 @@ public class WebApiMultipartTests
         engine.Evaluate(@"fetch('https://api.example.org/')
                 .then(r => r.formData())
                 .then(fd => fd.get('status') + '|' + fd.get('receipt').name + '|' + fd.get('receipt').type)")
-            .UnwrapIfPromise().AsString().Should().Be("done|r.txt|text/plain");
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("done|r.txt|text/plain");
+    });
 
     [Fact]
-    public void RejectsAMalformedMultipartResponseWithATypeError()
+    public Task RejectsAMalformedMultipartResponseWithATypeError() => DedicatedThread.RunAsync(() =>
     {
         var handler = new CapturingHandler
         {
@@ -175,7 +185,7 @@ public class WebApiMultipartTests
         engine.Evaluate(@"fetch('https://api.example.org/')
                 .then(r => r.formData())
                 .then(() => 'resolved', e => e.constructor.name)")
-            .UnwrapIfPromise().AsString().Should().Be("TypeError");
-    }
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError");
+    });
 }
 #endif

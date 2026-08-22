@@ -22,6 +22,33 @@ public class CacheTests
     private static JsValue Run(string source) => Run(CacheEngine(), source);
 
     /// <summary>
+    /// <see cref="Run(Engine, string)"/> for a cache that is filled over the network. It is a separate helper
+    /// because the promise it waits for settles only once <c>FetchBodyStream</c>'s <c>Task.Run</c> read loop
+    /// has delivered the whole body, so the wait depends on a thread-pool continuation where every other test
+    /// in this class settles on the engine's own queue.
+    /// </summary>
+    /// <remarks>
+    /// Hence <see cref="TransportSignalCeiling"/> rather than the ten-second default: what is asserted is what
+    /// the cache ended up holding, never how long the transport took, so the bound must be one only a genuine
+    /// failure to deliver can reach. Every test that reaches the transport also hands its body to
+    /// <see cref="DedicatedThread.RunAsync"/>, so this wait is not holding the worker the read loop needs —
+    /// which is the inversion that dropped <see cref="AddAllRefusesTwoRequestsThatMatchEachOther"/> on a
+    /// loaded machine (sebastienros/jint#3213).
+    /// <para>
+    /// It is what every test built on <see cref="FetchingCacheEngine"/> uses, including the several that
+    /// refuse before a socket is opened and pin that with <c>Requests.Should().BeEmpty()</c>: which of them
+    /// reaches the transport is a property of the case, not of the harness, and one helper for the group
+    /// keeps a test that starts fetching from silently inheriting the ten-second default.
+    /// </para>
+    /// </remarks>
+    private static JsValue RunFetching(Engine engine, string source) => engine.Evaluate(source).UnwrapIfPromise(TransportSignalCeiling);
+
+    /// <summary>
+    /// How long a network-backed cache operation may take to settle. Not a measurement and not a budget.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
+    /// <summary>
     /// Wraps a body in an immediately-invoked async function, which is how every one of these tests reads the
     /// promises the whole interface is made of.
     /// </summary>
@@ -638,11 +665,11 @@ public class CacheTests
     }
 
     [Fact]
-    public void AddAllFetchesEveryRequestAndStoresThemAll()
+    public Task AddAllFetchesEveryRequestAndStoresThemAll() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             const result = await cache.addAll(['https://example.org/a', 'https://example.org/b']);
 
@@ -652,22 +679,22 @@ public class CacheTests
             """)).AsString().Should().Be("undefined|https://example.org/a,https://example.org/b|body of https://example.org/a");
 
         handler.Requests.Should().BeEquivalentTo(["https://example.org/a", "https://example.org/b"]);
-    }
+    });
 
     [Fact]
-    public void AddStoresTheOneResponseItFetched()
+    public Task AddStoresTheOneResponseItFetched() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             await cache.add('https://example.org/a');
             return await (await cache.match('https://example.org/a')).text();
             """)).AsString().Should().Be("body of https://example.org/a");
-    }
+    });
 
     [Fact]
-    public void AddAllStoresNothingWhenAnyResponseIsNotOk()
+    public Task AddAllStoresNothingWhenAnyResponseIsNotOk() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -678,7 +705,7 @@ public class CacheTests
 
         // "If response's … status is not an ok status … reject responsePromise with a TypeError" — and
         // because nothing is committed until every response has passed, the first one is not stored either.
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             let outcome = 'stored';
             try { await cache.addAll(['https://example.org/a', 'https://example.org/b']); }
@@ -686,10 +713,10 @@ public class CacheTests
 
             return outcome + ':' + (await cache.keys()).length;
             """)).AsString().Should().Be("TypeError:0");
-    }
+    });
 
     [Fact]
-    public void AddAllStoresNothingWhenAResponseVariesByEverything()
+    public Task AddAllStoresNothingWhenAResponseVariesByEverything() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
         {
@@ -701,7 +728,7 @@ public class CacheTests
             },
         };
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             let outcome = 'stored';
             try { await cache.addAll(['https://example.org/a']); }
@@ -709,16 +736,16 @@ public class CacheTests
 
             return outcome + ':' + (await cache.keys()).length;
             """)).AsString().Should().Be("TypeError:0");
-    }
+    });
 
     [Fact]
-    public void AddAllRefusesTwoRequestsThatMatchEachOther()
+    public Task AddAllRefusesTwoRequestsThatMatchEachOther() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
 
         // Batch Cache Operations step 4.3: "if the result of running Query Cache with operation's request …
         // and addedItems is not empty, throw an InvalidStateError" — and the rollback leaves nothing behind.
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             let outcome = 'stored';
             try { await cache.addAll(['https://example.org/a', 'https://example.org/a']); }
@@ -726,14 +753,14 @@ public class CacheTests
 
             return outcome + ':' + (await cache.keys()).length;
             """)).AsString().Should().Be("InvalidStateError:0");
-    }
+    });
 
     [Fact]
     public void AddAllRefusesANonHttpSchemeBeforeFetchingAnything()
     {
         var handler = new StubHandler();
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             let outcome = 'stored';
             try { await cache.addAll(['https://example.org/a', 'data:,hello']); }
@@ -751,7 +778,7 @@ public class CacheTests
     {
         var handler = new StubHandler();
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             try { await cache.addAll([new Request('https://example.org/a', { method: 'POST', body: 'x' })]); return 'stored'; }
             catch (e) { return e.constructor.name; }
@@ -769,7 +796,7 @@ public class CacheTests
         // list, size cap and deadline bound them exactly as they bound a fetch the script wrote itself.
         var engine = FetchingCacheEngine(handler, fetch => fetch.UrlFilter = uri => uri.Host.Equals("allowed.example", StringComparison.Ordinal));
 
-        Run(engine, Async("""
+        RunFetching(engine, Async("""
             const cache = await caches.open('v1');
             let outcome = 'stored';
             try { await cache.add('https://denied.example/a'); }
@@ -786,7 +813,7 @@ public class CacheTests
     {
         var handler = new StubHandler();
 
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             const result = await cache.addAll([]);
             return typeof result + ':' + (await cache.keys()).length;
@@ -802,7 +829,7 @@ public class CacheTests
 
         // The sequence<RequestInfo> conversion is an argument conversion, so its failure is a rejection like
         // every other — https://webidl.spec.whatwg.org/#es-sequence.
-        Run(FetchingCacheEngine(handler), Async("""
+        RunFetching(FetchingCacheEngine(handler), Async("""
             const cache = await caches.open('v1');
             try { await cache.addAll(5); return 'accepted'; }
             catch (e) { return e.constructor.name; }

@@ -134,6 +134,21 @@ public class WebApiCacheTests
     private static string Run(Engine engine, string body)
         => engine.Evaluate("(async () => {" + body + "})()").UnwrapIfPromise().AsString();
 
+    /// <summary>
+    /// <see cref="Run(Engine, string)"/> for a cache filled over the network. Separate because the promise it
+    /// waits for settles only once <c>FetchBodyStream</c>'s <c>Task.Run</c> read loop has delivered each body,
+    /// so the wait needs a thread-pool worker where every other test here settles on the engine's own queue.
+    /// The bound is therefore a ceiling only a genuine failure to deliver can reach rather than a ten-second
+    /// interval a loaded runner can lose, and its caller hands its body to
+    /// <see cref="DedicatedThread.RunAsync"/> so the wait is not holding the worker the read loop needs
+    /// (sebastienros/jint#3213).
+    /// </summary>
+    private static string RunFetching(Engine engine, string body)
+        => engine.Evaluate("(async () => {" + body + "})()").UnwrapIfPromise(TransportSignalCeiling).AsString();
+
+    /// <summary>How long a network-backed cache operation may take to settle. Not a measurement.</summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     [Fact]
     public void ADefaultEngineHasNoCaches()
     {
@@ -414,7 +429,7 @@ public class WebApiCacheTests
     }
 
     [Fact]
-    public void AddAllCommitsTheWholeBatchAsOneWrite()
+    public Task AddAllCommitsTheWholeBatchAsOneWrite() => DedicatedThread.RunAsync(() =>
     {
         var provider = new RecordingProvider();
         var handler = new StubHandler();
@@ -423,7 +438,7 @@ public class WebApiCacheTests
             .UseCacheApi(cache => cache.Provider = provider)
             .UseFetch(fetch => fetch.HttpClient = new HttpClient(handler)));
 
-        Run(engine, """
+        RunFetching(engine, """
             const cache = await caches.open('v1');
             await cache.addAll(['https://example.org/a', 'https://example.org/b']);
             return 'done';
@@ -437,7 +452,7 @@ public class WebApiCacheTests
         store.Writes.Should().ContainSingle();
         store.Writes[0].Added.Should().HaveCount(2);
         store.Entries.Should().HaveCount(2);
-    }
+    });
 
     [Fact]
     public void AFailedAddAllNeverReachesTheProvider()

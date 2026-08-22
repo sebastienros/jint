@@ -20,6 +20,15 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiSchedulingSurfaceTests
 {
+    /// <summary>
+    /// The one wall-clock bound in this class, and it is reached only by a wedge: the thread it waits for is
+    /// one the test started itself, doing nothing but <c>Cancel()</c>, so no amount of runner load can lose
+    /// the race and only a cancellation that blocks forever — the very thing being ruled out — can spend two
+    /// minutes here. Deliberately not the thirty-second interval it replaced (sebastienros/jint#3213): a
+    /// bound that a slow machine can plausibly reach is a flake, and one it cannot is a check.
+    /// </summary>
+    private static readonly TimeSpan HandoffCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>A host-supplied clock, so that a suite exercising timed work need not sleep.</summary>
     private sealed class ManualClock : TimeProvider
     {
@@ -218,7 +227,7 @@ public class WebApiSchedulingSurfaceTests
         };
 
         canceller.Start();
-        canceller.Join(TimeSpan.FromSeconds(30)).Should().BeTrue("the cancelling thread must not block");
+        canceller.Join(HandoffCeiling).Should().BeTrue("the cancelling thread must not block");
 
         // Cancel() has returned, so every registration it runs has run. Nothing observed the abort, because
         // the registration only enqueued.

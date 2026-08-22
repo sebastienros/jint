@@ -26,9 +26,22 @@ namespace Jint.Tests.PublicInterface;
 /// is how many of them happened and in which order; the waits on a <see cref="ManualResetEventSlim"/> are
 /// waits for an event at a deliberately generous bound, not measurements.
 /// </para>
+/// <para>
+/// <b>Every test that reaches the transport runs on <see cref="DedicatedThread.RunAsync"/>.</b> A network
+/// response body is pumped by a <c>Task.Run</c> loop inside <c>FetchBodyStream</c>, so each chunk and each
+/// cancellation arrives on a thread-pool worker; a body that blocked an xUnit pool worker to wait for one
+/// would be the resource inversion described on <see cref="DedicatedThread.RunAsync"/>, and the bound would
+/// stop being a check and start being a race (sebastienros/jint#3213).
+/// </para>
 /// </remarks>
 public class WebApiFetchStreamTests
 {
+    /// <summary>
+    /// How long a test will wait for the transport. A ceiling only a genuine failure to deliver can reach,
+    /// never a budget the pool has to beat: what is asserted is that the read, or the cancel, happens at all.
+    /// </summary>
+    private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
+
     /// <summary>
     /// A response body whose reads are served from a channel the test fills, so a read blocks until the test
     /// has said what it should answer with.
@@ -117,7 +130,7 @@ public class WebApiFetchStreamTests
     }
 
     [Fact]
-    public void AHostScriptDrainsTheResponseBodyChunkByChunk()
+    public Task AHostScriptDrainsTheResponseBodyChunkByChunk() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
         handler.Body.Emit("first ");
@@ -136,14 +149,14 @@ public class WebApiFetchStreamTests
                     seen.push(dec(value));
                 }
                 return seen.join('|');
-            })()").UnwrapIfPromise().AsString().Should().Be("first |second");
+            })()").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("first |second");
 
         // One read per chunk, plus the one that saw the end of the body.
         handler.Body.ReadCount.Should().Be(3);
-    }
+    });
 
     [Fact]
-    public void TheTransportIsOnlyReadWhenTheScriptAsks()
+    public Task TheTransportIsOnlyReadWhenTheScriptAsks() => DedicatedThread.RunAsync(() =>
     {
         // Backpressure, from the host's side: a script that takes the response and never reads its body
         // leaves the transport untouched however hard the engine is pumped.
@@ -169,12 +182,12 @@ public class WebApiFetchStreamTests
         handler.Body.ReadCount.Should().Be(0);
 
         // The first read is what reaches the socket.
-        engine.Evaluate("r.body.getReader().read().then(x => dec(x.value))").UnwrapIfPromise().AsString().Should().Be("ignored");
+        engine.Evaluate("r.body.getReader().read().then(x => dec(x.value))").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ignored");
         handler.Body.ReadCount.Should().Be(1);
-    }
+    });
 
     [Fact]
-    public void CancellingTheBodyLetsGoOfTheConnection()
+    public Task CancellingTheBodyLetsGoOfTheConnection() => DedicatedThread.RunAsync(() =>
     {
         // Nothing is emitted, so the transport is parked in a read and only its token can end it.
         var handler = new GatedHandler();
@@ -186,16 +199,16 @@ public class WebApiFetchStreamTests
         engine.Execute("var reader = r.body.getReader(); reader.read();");
         engine.Advanced.ProcessTasks();
 
-        handler.Body.ReadStarted.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the read should have reached the transport");
+        handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("the read should have reached the transport");
 
         engine.Execute("reader.cancel();");
         engine.Advanced.ProcessTasks();
 
-        handler.Body.Cancelled.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
-    }
+        handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("cancelling the body must cancel the read in flight, not merely close the stream");
+    });
 
     [Fact]
-    public void ARestoreLetsGoOfAStreamingBodyMidFlight()
+    public Task ARestoreLetsGoOfAStreamingBodyMidFlight() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
         var engine = WebEngine(handler);
@@ -207,20 +220,20 @@ public class WebApiFetchStreamTests
         engine.Execute("var reader = r.body.getReader(); reader.read();");
         engine.Advanced.ProcessTasks();
 
-        handler.Body.ReadStarted.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("the read should have reached the transport");
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         // The socket goes with the cycle that opened it: a body still arriving is not something the restored
         // engine can finish reading, so it is cancelled rather than left holding a connection.
-        handler.Body.Cancelled.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("a restore must cancel the read in flight rather than leave the connection held");
 
         engine.Evaluate("typeof r").AsString().Should().Be("undefined");
         engine.Evaluate("typeof fetch").AsString().Should().Be("function");
-    }
+    });
 
     [Fact]
-    public void AResponseBodyCanBePipedThroughATransformStream()
+    public Task AResponseBodyCanBePipedThroughATransformStream() => DedicatedThread.RunAsync(() =>
     {
         // The two features meeting: a streaming body driving a TransformStream, all on the engine's own job
         // queue and with nothing but the host's transport off it.
@@ -240,7 +253,7 @@ public class WebApiFetchStreamTests
                 let out = '';
                 for await (const piece of r.body.pipeThrough(upper)) { out += piece; }
                 return out;
-            })()").UnwrapIfPromise().AsString().Should().Be("ABCD");
-    }
+            })()").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ABCD");
+    });
 }
 #endif
