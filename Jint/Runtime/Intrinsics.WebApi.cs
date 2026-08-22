@@ -425,10 +425,28 @@ public sealed partial class Intrinsics
         _globalEventFunctions ??= Jint.WebApi.GlobalEvents.GlobalEventFunctions.Create(_engine, _realm);
 
     private WorkerConstructor? _worker;
+    private WorkerGlobalScopeConstructor? _workerGlobalScope;
+    private DedicatedWorkerGlobalScopeConstructor? _dedicatedWorkerGlobalScope;
 
     /// <summary><c>Worker</c> inherits from <c>EventTarget</c>.</summary>
     internal WorkerConstructor Worker =>
         _worker ??= new WorkerConstructor(_engine, _realm, EventTarget);
+
+    /// <summary>
+    /// The <c>WorkerGlobalScope</c> interface object. Reached only from <c>WorkerGlobalScope.Install</c>, on a
+    /// worker engine, because the interface is <c>[Exposed=Worker]</c> — an engine that <i>creates</i> workers
+    /// is not one.
+    /// </summary>
+    internal WorkerGlobalScopeConstructor WorkerGlobalScope =>
+        _workerGlobalScope ??= new WorkerGlobalScopeConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>DedicatedWorkerGlobalScope</c> interface object, which inherits from the one above — so reaching
+    /// it builds both, and <c>Object.getPrototypeOf(DedicatedWorkerGlobalScope) === WorkerGlobalScope</c> holds
+    /// however the two were first touched.
+    /// </summary>
+    internal DedicatedWorkerGlobalScopeConstructor DedicatedWorkerGlobalScope =>
+        _dedicatedWorkerGlobalScope ??= new DedicatedWorkerGlobalScopeConstructor(_engine, _realm, WorkerGlobalScope);
 
     private FetchEventConstructor? _fetchEvent;
 
