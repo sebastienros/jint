@@ -27,9 +27,11 @@ public class HostEngineConcurrencyTests
 
     /// <summary>
     /// Reached only by a genuine wedge. Every wait in this class is released by a thread the test owns, so
-    /// no amount of runner load can lose the race and only a hang can spend two minutes here.
+    /// no amount of runner load can lose the race and only a hang can spend two minutes here. It is also
+    /// what an engine here is given as its <c>PromiseTimeout</c> when the settle it is waiting for is
+    /// delivered by the thread pool rather than by the test — see <see cref="TestBudgets.WedgeCeiling"/>.
     /// </summary>
-    private static readonly TimeSpan HandoffCeiling = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan HandoffCeiling = TestBudgets.WedgeCeiling;
 
     /// <summary>
     /// Runs the call that takes the engine and parks inside <c>block()</c> on a thread of the test's own.
@@ -491,8 +493,11 @@ public class HostEngineConcurrencyTests
         engine.SetValue("later", new Action<Action>(callback =>
             Task.Delay(50).ContinueWith(_ => callback(), TaskScheduler.Default)));
 
+        // The three siblings above already pass HandoffCeiling here; this call site was the one left on the
+        // parameterless overload, whose ceiling is a hard-coded ten seconds that no engine option reaches -
+        // and the release it is waiting for is a Task.Delay continuation, i.e. a thread-pool worker.
         engine.Evaluate("new Promise(resolve => later(() => resolve(42)))")
-            .UnwrapIfPromise()
+            .UnwrapIfPromise(HandoffCeiling)
             .AsNumber()
             .Should()
             .Be(42);
@@ -533,7 +538,13 @@ public class HostEngineConcurrencyTests
     public async Task BackgroundModuleCompletionCanFinishTheOwningImport()
     {
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        // The settle is delivered by a thread-pool worker, so the engine's default ten-second budget would
+        // make the pool's injection rate part of the outcome. HandoffCeiling instead.
+        var engine = new Engine(options =>
+        {
+            options.EnableModules(loader);
+            options.Constraints.PromiseTimeout = HandoffCeiling;
+        });
 
         var pending = engine.Modules.ImportAsync("module");
         pending.IsCompleted.Should().BeFalse();

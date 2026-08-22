@@ -689,6 +689,12 @@ public class HostMemoryLimitTests
         {
             options.LimitMemory(SingleAllocationBudget);
             options.EnableModules(loader);
+
+            // What this asserts is that the memory operation travels with the import and is released by it,
+            // never how long the import takes. The loader is completed from a thread-pool worker, so on the
+            // engine's default ten-second budget a saturated pool would decide the outcome instead of the
+            // memory scope. Same treatment the file's SynchronousImport... sibling already gives it.
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
         });
         engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
         var constraint = engine.Constraints.Find<MemoryLimitConstraint>()!;

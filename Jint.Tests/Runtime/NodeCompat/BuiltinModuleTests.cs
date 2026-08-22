@@ -362,9 +362,16 @@ public class BuiltinModuleTests
     public async Task ComposesWithAnAsynchronousLoader()
     {
         var loader = new RecordingAsyncLoader();
-        var engine = new Engine(options => options
-            .EnableModules(loader)
-            .UseNodeBuiltinModules(o => o.Platform = "linux"));
+        var engine = new Engine(options =>
+        {
+            options.EnableModules(loader).UseNodeBuiltinModules(o => o.Platform = "linux");
+
+            // RecordingAsyncLoader yields, so the hosted import below is finished by a thread-pool
+            // continuation. This test asserts what each import resolves to and which of them reached the
+            // loader, never how long either took, so the budget is a ceiling on a wedge: on the engine's
+            // default ten seconds a saturated pool turns it into "Timeout of 00:00:10 reached".
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
+        });
 
         engine.Modules.ModuleLoader.Should().BeAssignableTo<IAsyncModuleLoader>();
 

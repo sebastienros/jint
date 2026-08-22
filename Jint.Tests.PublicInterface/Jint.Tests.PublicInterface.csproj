@@ -44,6 +44,12 @@
       that itself needs one is the shortage to avoid.
     -->
     <Compile Include="..\Jint.Tests\DedicatedThread.cs" Link="DedicatedThread.cs" />
+    <!--
+      Shared so that both suites spell "a ceiling only a wedge can reach" the same way, and say once what
+      the number means. See TestBudgets.WedgeCeiling for the distinction it exists to keep: a budget that
+      bounds a hang is not a budget a test asserts.
+    -->
+    <Compile Include="..\Jint.Tests\TestBudgets.cs" Link="TestBudgets.cs" />
   </ItemGroup>
 
   <ItemGroup>

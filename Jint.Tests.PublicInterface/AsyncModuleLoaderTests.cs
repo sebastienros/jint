@@ -29,7 +29,7 @@ public class AsyncModuleLoaderTests
     private static Engine CreateEngine(IModuleLoader loader) => new(options =>
     {
         options.EnableModules(loader);
-        options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
+        options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
     });
     /// <summary>
     /// A loader that hands every request to the test and finishes nothing by itself, so a test can prove the
@@ -680,16 +680,26 @@ public class AsyncModuleLoaderTests
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
     });
 
+    /// <summary>
+    /// The same cancellation as <see cref="ACanceledFetchIsAnOrdinarySanitizedLoadFailure"/>, reaching a
+    /// caller that is awaiting rather than pumping. The rejection <em>value</em> is what is asserted, not
+    /// merely the exception type: a <see cref="PromiseRejectedException"/> is also what a promise budget
+    /// that ran out throws, so a type-only assertion would go on passing on a runner where the settle never
+    /// arrived — testing nothing, and never failing to say so. Asserting the sanitized message costs that
+    /// test its vacuity, which is why the engine comes through <see cref="CreateEngine"/>: the budget it
+    /// sets is what keeps the tightened assertion honest instead of flaky.
+    /// </summary>
     [Fact]
     public async Task ACanceledFetchSettlesWhileImportAsyncOwnsTheEngine()
     {
         var loader = new TokenCapturingLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = CreateEngine(loader);
 
         var import = engine.Modules.ImportAsync("./doomed.js");
         loader.CancelPendingFetch();
 
-        await Invoking(() => import).Should().ThrowAsync<PromiseRejectedException>();
+        var rejection = await Invoking(() => import).Should().ThrowAsync<PromiseRejectedException>();
+        rejection.Which.RejectedValue.Get("message").AsString().Should().Be("Could not load module.");
     }
 
     /// <summary>
