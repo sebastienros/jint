@@ -256,6 +256,24 @@ public class GlobalErrorEventTests
     }
 
     [Fact]
+    public void AnUncaughtIdleCallbackErrorFiresATrustedErrorEvent()
+    {
+        // requestIdleCallback invokes its callback with "report" too, so the same report an idle failure makes
+        // reaches the global error event before it reaches the sink —
+        // https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm.
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("""
+            addEventListener('error', function (e) { log.push('global:' + e.message); });
+            requestIdleCallback(function () { throw new Error('idle'); });
+            requestIdleCallback(function () { log.push('second'); });
+            """);
+
+        Log(engine).Should().Be("global:idle,second");
+        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+    }
+
+    [Fact]
     public void ReportErrorFiresTheErrorEventAndStillFeedsTheSink()
     {
         var (engine, sink, _) = Reporting();

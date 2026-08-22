@@ -47,9 +47,15 @@ namespace Jint.WebApi.Idle;
 /// </list>
 /// <para>
 /// <b>Callbacks run only while the engine is being pumped</b>, exactly as timers and scheduler tasks do. An
-/// engine nobody pumps runs none of them, and a callback that throws erupts out of whatever was pumping — the
-/// same contract a timer callback has. The standard says to <i>report</i> such an exception, which presumes
-/// the <c>reportError</c> channel Jint does not have yet.
+/// engine nobody pumps runs none of them.
+/// </para>
+/// <para>
+/// <b>A callback that throws is reported, not propagated — when the host gave the engine somewhere to
+/// report to.</b> Both algorithms that reach a callback invoke it with WebIDL's <c>"report"</c> exception
+/// behavior, so with a <see cref="DiagnosticsSink"/> set the failure is reported and the idle period carries
+/// on to the next callback, and with no sink it erupts out of whatever was pumping — the same contract a
+/// timer callback has, and the reason a sinkless engine is byte-identical here. See
+/// <see cref="DiagnosticCallbackSource.IdleCallback"/>.
 /// </para>
 /// </remarks>
 internal sealed class IdleCallbackQueue
@@ -288,6 +294,16 @@ internal sealed class IdleCallbackQueue
         return null;
     }
 
+    /// <summary>
+    /// The last step of both invocation algorithms, which is the same step in each: "Invoke callback with
+    /// « deadlineArg » and <c>"report"</c>".
+    /// <para>
+    /// https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm
+    /// </para>
+    /// <para>
+    /// https://w3c.github.io/requestidlecallback/#invoke-idle-callback-timeout-algorithm
+    /// </para>
+    /// </summary>
     private void Invoke(IdleCallbackEntry entry, long deadlineTimestamp, bool didTimeout)
     {
         var deadline = new JsIdleDeadline(
@@ -297,9 +313,48 @@ internal sealed class IdleCallbackQueue
             deadlineTimestamp,
             didTimeout);
 
+        // The catch belongs inside the accounted turn, exactly where a timer's and a microtask's do: firing
+        // the `error` event and converting the failure to text both run script, and that script is spent by
+        // the operation whose callback failed rather than by whatever the engine does next.
         _engine.RunWithMemoryAccounting(
             entry.MemoryState,
-            () => entry.Callback.Call(JsValue.Undefined, [deadline]));
+            () => InvokeCallback(entry, deadline));
+    }
+
+    /// <summary>
+    /// The invocation itself, with WebIDL's <c>"report"</c> exception behavior
+    /// (https://webidl.spec.whatwg.org/#invoke-a-callback-function): "Report an exception
+    /// completion.[[Value]] for realm’s global object. Return the unique undefined IDL value."
+    /// </summary>
+    /// <remarks>
+    /// The same shape <c>TimerEntry.Fire</c>, <c>TimerFunctions.InvokeMicrotask</c> and
+    /// <c>JsEventTarget.InvokePass</c> have, for the same reasons — and one thing that is particular to
+    /// this queue: a callback the <c>timeout</c> option reached runs from inside a timer job, so without a
+    /// catch here its failure would be reported as a <see cref="DiagnosticCallbackSource.Timer"/> by the
+    /// timer's own catch. The timer is only how the timeout was measured; the callback is the one
+    /// <c>requestIdleCallback</c> was given, and it is reported as such.
+    /// </remarks>
+    private void InvokeCallback(IdleCallbackEntry entry, JsIdleDeadline deadline)
+    {
+        try
+        {
+            entry.Callback.Call(JsValue.Undefined, [deadline]);
+        }
+        catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
+        {
+            // Report the exception is HTML's report an exception, whose step 5 fires an `error` event at the
+            // global scope before step 6 reaches the console. A no-op unless the GlobalEvents feature is on and
+            // a script is listening; see WebApiEngineState.FireGlobalErrorEvent.
+            _engine._webApi?.FireGlobalErrorEvent(exception);
+
+            // Only a JavaScriptException, which is exactly the class of failure a script could have caught
+            // itself. Everything that exists to bound execution — ExecutionCanceledException,
+            // TimeoutException, the statement, memory and recursion budgets — is a JintException but not a
+            // JavaScriptException, so none of it is caught here and a constraint still stops the engine. With
+            // no sink there is no catch at all and the throw erupts out of whatever is pumping, exactly as it
+            // always did; the callbacks still waiting run on the next period either way.
+            diagnostics.Report(DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.IdleCallback));
+        }
     }
 
     private void Retire(IdleCallbackEntry entry)

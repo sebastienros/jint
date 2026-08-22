@@ -14,10 +14,16 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <remarks>
 /// <para>
 /// Half of what is asserted here is what happens <i>without</i> a sink, because setting one is what changes
-/// the contract: with no sink a timer callback, a <c>queueMicrotask</c> callback or an event listener that
-/// throws erupts, which is the
+/// the contract: with no sink a timer callback, a <c>queueMicrotask</c> callback, a
+/// <c>requestIdleCallback</c> callback or an event listener that throws erupts, which is the
 /// behaviour every other test in this folder was written against and which must stay exactly as it was.
 /// Every report-and-continue test therefore has an erupts-without-a-sink twin.
+/// </para>
+/// <para>
+/// <c>scheduler.postTask</c> is the one engine-invoked callback queue that is deliberately <i>not</i> a report
+/// site, because its own specification invokes the callback with <c>"rethrow"</c> and turns the throw into the
+/// returned promise's rejection. The two tests that say so sit with the rest so the asymmetry is visible
+/// beside the symmetry.
 /// </para>
 /// <para>
 /// The specifications behind the three kinds are HTML's
@@ -378,6 +384,143 @@ public class DiagnosticsTests
 
         Log(engine).Should().Be("entered");
         sink.Reports.Should().BeEmpty();
+    }
+
+    // Idle callbacks — https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm
+
+    [Fact]
+    public void AThrowingIdleCallbackIsReportedAndTheIdlePeriodCarriesOn()
+    {
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("""
+            requestIdleCallback(() => { log.push('first'); throw new Error('boom'); });
+            requestIdleCallback(() => log.push('second'));
+            """);
+
+        // "Invoke callback with « deadlineArg » and "report"": both callbacks were runnable when the period
+        // started, so the one behind the failure still runs and Execute's own drain never sees the throw.
+        Log(engine).Should().Be("first,second");
+
+        var report = Assert.Single(sink.Reports);
+        report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
+        report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+        report.Exception.Should().NotBeNull();
+        report.Exception!.Message.Should().Be("boom");
+        report.Value.Should().BeSameAs(report.Exception.Error);
+        report.Promise.Should().BeNull();
+    }
+
+    [Fact]
+    public void AThrowingIdleCallbackEruptsWithoutASink()
+    {
+        // The twin of the test above, and the behaviour every engine without a sink keeps: it erupts from
+        // whatever is pumping, which for a callback requested by a script is Execute's own drain.
+        var (engine, _) = Silent();
+
+        Assert.Throws<JavaScriptException>(
+                () => engine.Execute("requestIdleCallback(() => { log.push('first'); throw new Error('boom'); });"))
+            .Message.Should().Be("boom");
+
+        Log(engine).Should().Be("first");
+    }
+
+    [Fact]
+    public void AThrowingTimedOutIdleCallbackIsReportedAsAnIdleCallback()
+    {
+        // The invoke idle callback timeout algorithm is a second algorithm with the same "report" invocation —
+        // https://w3c.github.io/requestidlecallback/#invoke-idle-callback-timeout-algorithm. A zero budget
+        // says the host has no idle time at all, so this is the only route left to the callback, and it runs
+        // on the timer the timeout option armed. It is still an idle callback: the timer is the transport, not
+        // the source.
+        var sink = new RecordingSink();
+        var clock = new ManualClock();
+        var engine = new Engine(options => options.UseWebApis(webApi =>
+        {
+            webApi.Timers.TimeProvider = clock;
+            webApi.Timers.IdleBudget = TimeSpan.Zero;
+            webApi.Diagnostics.Sink = sink;
+        }));
+
+        engine.Execute("var log = []; requestIdleCallback(d => { log.push(d.didTimeout); throw new Error('boom'); }, { timeout: 10 });");
+
+        clock.Advance(10);
+        engine.Advanced.ProcessTasks();
+
+        Log(engine).Should().Be("true");
+
+        var report = Assert.Single(sink.Reports);
+        report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+        report.Exception!.Message.Should().Be("boom");
+    }
+
+    [Fact]
+    public void AConstraintFailureInAnIdleCallbackStillErupts()
+    {
+        // The same MustPropagate rule the other three report sites keep: RecursionDepthOverflowException is a
+        // JintException but not a JavaScriptException, so the catch never sees it and the budget still bounds.
+        var (engine, sink, _) = Reporting(options => options.LimitRecursion(8));
+
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute("""
+            function recurse() { return recurse(); }
+            requestIdleCallback(() => { log.push('entered'); recurse(); });
+            """));
+
+        Log(engine).Should().Be("entered");
+        sink.Reports.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AStatementBudgetTrippedInsideAnIdleCallbackStillErupts()
+    {
+        // The other half of the same rule, over the budget a runaway callback actually trips: an idle callback
+        // that never returns must not be able to spend the engine's statement budget and then have the
+        // overflow filed as a diagnostic.
+        var (engine, sink, _) = Reporting(options => options.MaxStatements(1000));
+
+        Assert.Throws<StatementsCountOverflowException>(
+            () => engine.Execute("requestIdleCallback(() => { log.push('entered'); for (var i = 0; ; i++) { } });"));
+
+        Log(engine).Should().Be("entered");
+        sink.Reports.Should().BeEmpty();
+    }
+
+    // Scheduler tasks — https://wicg.github.io/scheduling-apis/#schedule-a-posttask-task, which is deliberately
+    // *not* a report site: its callback is invoked with "rethrow" and the throw becomes the promise's
+    // rejection. The two tests below are what stops that being "fixed" into symmetry with the four above.
+
+    [Fact]
+    public void AThrowingSchedulerTaskRejectsItsPromiseAndIsNeverReportedAsACallbackError()
+    {
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("""
+            scheduler.postTask(() => { log.push('ran'); throw new RangeError('boom'); })
+                .then(() => log.push('resolved'), e => log.push('rejected:' + e.message));
+            """);
+
+        // "Let callbackResult be the result of invoking callback with « » and "rethrow". If that threw an
+        // exception, then reject result with that."
+        Log(engine).Should().Be("ran,rejected:boom");
+
+        // A handler was attached before the task ran, so the rejection was never unhandled either: reporting
+        // it would have told the host about a failure the script demonstrably dealt with.
+        sink.Reports.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AnUnhandledSchedulerTaskRejectionIsReportedAsARejectionRatherThanACallbackError()
+    {
+        // Where the throw does reach the host it arrives as what it is — the promise rejection nobody handled,
+        // which is HTML's own arrangement for a promise-returning operation — and never as an
+        // UncaughtCallbackError.
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("scheduler.postTask(() => { throw new RangeError('boom'); });");
+
+        var report = Assert.Single(sink.Reports);
+        report.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
+        report.CallbackSource.Should().BeNull();
     }
 
     // Event listeners — https://dom.spec.whatwg.org/#concept-event-listener-inner-invoke
