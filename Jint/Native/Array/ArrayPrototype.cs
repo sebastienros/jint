@@ -91,29 +91,42 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }, PropertyFlag.Configurable));
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.keys - two steps, <i>ToObject(this)</i> and
+    /// <i>CreateArrayIterator(O, key)</i>, and neither reads <c>length</c>. See <see cref="Values"/> for
+    /// why there is no array-like test here.
+    /// </summary>
     [JsFunction]
     private ObjectInstance Keys(JsValue thisObject)
-    {
-        if (thisObject is ObjectInstance oi && oi.IsArrayLike)
-        {
-            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Key);
-        }
+        => _realm.Intrinsics.ArrayIteratorPrototype.Construct(TypeConverter.ToObject(_realm, thisObject), ArrayIteratorType.Key);
 
-        Throw.TypeError(_realm, "cannot construct iterator");
-        return null;
-    }
-
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.values - <i>ToObject(this)</i> followed by
+    /// <i>CreateArrayIterator(O, value)</i>, and that is the whole algorithm: nothing here reads
+    /// <c>length</c>, and there is no array-like precondition for the receiver to fail.
+    /// <para>
+    /// The <c>length</c> read belongs to the iterator instead — step 1.b of the abstract closure is
+    /// <i>LengthOfArrayLike</i>, performed afresh on every <c>next()</c> — so a receiver with no
+    /// <c>length</c> yields nothing, a string or boolean one is coerced, a negative one clamps to zero,
+    /// and a throwing <c>length</c> getter throws from the first <c>next()</c> rather than from here.
+    /// Gating on <c>ObjectInstance.IsArrayLike</c> (present, already a <c>JsNumber</c>, non-negative)
+    /// made every one of those a <c>TypeError</c>, so <c>[...Array.prototype.values.call({})]</c> threw
+    /// where the specification says <c>[]</c>. That is what the per-step read in
+    /// <see cref="ArrayIteratorPrototype"/>'s array-like iterator already implements.
+    /// </para>
+    /// <para>
+    /// A <see cref="JsArray"/> receiver is unaffected: <c>ToObject</c> hands an object straight back and
+    /// <c>Construct</c> routes it to the dense-array iterator exactly as before — one virtual
+    /// <c>IsArrayLike</c> call lighter than the gate that used to precede it. A typed-array receiver is
+    /// unaffected too, and deliberately keeps its <i>ValidateTypedArray</i>: step 1.b.i of the closure asks
+    /// for it whenever the receiver has a <c>[[TypedArrayName]]</c> slot, which is why a detach or an
+    /// out-of-bounds resize mid-iteration is a <c>TypeError</c> here as much as it is under
+    /// <c>%TypedArray%.prototype.values</c>.
+    /// </para>
+    /// </summary>
     [JsFunction]
     internal ObjectInstance Values(JsValue thisObject)
-    {
-        if (thisObject is ObjectInstance oi && oi.IsArrayLike)
-        {
-            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Value);
-        }
-
-        Throw.TypeError(_realm, "cannot construct iterator");
-        return null;
-    }
+        => _realm.Intrinsics.ArrayIteratorPrototype.Construct(TypeConverter.ToObject(_realm, thisObject), ArrayIteratorType.Value);
 
     [JsFunction(Length = 2)]
     private ObjectInstance With(JsValue thisObject, JsCallArguments arguments)
@@ -182,17 +195,14 @@ public sealed partial class ArrayPrototype : ArrayInstance
         return new JsArray(_constructor, a);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.entries - <i>ToObject(this)</i> then
+    /// <i>CreateArrayIterator(O, key+value)</i>. See <see cref="Values"/> for why there is no array-like
+    /// test here; the key+value kind re-reads <c>length</c> per <c>next()</c> like the other two.
+    /// </summary>
     [JsFunction]
     private ObjectInstance Entries(JsValue thisObject)
-    {
-        if (thisObject is ObjectInstance oi && oi.IsArrayLike)
-        {
-            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.KeyAndValue);
-        }
-
-        Throw.TypeError(_realm, "cannot construct iterator");
-        return null;
-    }
+        => _realm.Intrinsics.ArrayIteratorPrototype.Construct(TypeConverter.ToObject(_realm, thisObject), ArrayIteratorType.KeyAndValue);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.prototype.fill

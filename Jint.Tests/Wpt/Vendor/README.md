@@ -328,7 +328,9 @@ assertion this change added to the shim.
 
 ## What the File API corpus says about this engine
 
-342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), of which **3 do not pass**.
+342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), **all of them passing**. Both
+groups that used to be red are worth an account, because between them they are everything this corpus has
+caught.
 
 The eight that used to be red were the whole of `Blob-textStream.any.js`, under a `NeedsBlobTextStream`
 category, because [the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) `textStream()`
@@ -337,35 +339,40 @@ after this `Blob` was written. They pass since
 UTF-8 `TextDecoderStream`, which is four steps over pieces the engine already had — and the two entries and
 the category are gone with them.
 
-**The 3 that remain are `NeedsTriage`, and the defect is not in `Blob` at all.** All three rows of
-`Blob-constructor.any.js` fail with `TypeError: cannot construct iterator`, thrown by
-`Array.prototype.values`:
+### The three `Blob-constructor.any.js` rows this corpus found, and the engine defect behind them
+
+The other three sat under `NeedsTriage`, failing with `TypeError: cannot construct iterator` thrown by
+`Array.prototype.values` — and the defect was not in `Blob` at all. It is fixed
+([#3209](https://github.com/sebastienros/jint/issues/3209)); the account is kept because it is the
+best-documented thing this corpus has caught so far, and because the deleted entries are what now enforce the
+fix.
 
 ```js
-[...Array.prototype.values.call({})]                    // spec: []           Jint: TypeError
+[...Array.prototype.values.call({})]                    // spec: []           was: TypeError
 [...Array.prototype.values.call({length: '3', 0: 'a', 1: 'b', 2: 'c'})]
-                                                        // spec: [a, b, c]    Jint: TypeError
-[...Array.prototype.values.call({length: -1})]          // spec: []           Jint: TypeError
-[...Array.prototype.values.call({length: null})]        // spec: []           Jint: TypeError
-[...Array.prototype.values.call({length: true, 0: 'a'})]// spec: ['a']        Jint: TypeError
+                                                        // spec: [a, b, c]    was: TypeError
+[...Array.prototype.values.call({length: -1})]          // spec: []           was: TypeError
+[...Array.prototype.values.call({length: null})]        // spec: []           was: TypeError
+[...Array.prototype.values.call({length: true, 0: 'a'})]// spec: ['a']        was: TypeError
+[...{[Symbol.iterator]: Array.prototype.values}]        // spec: []           was: TypeError
 Array.prototype.values.call({get length() { throw e; }})// spec: throws at the first next()
-                                                        // Jint: throws at values()
+                                                        // was: threw at values()
 ```
 
 [`Array.prototype.values`](https://tc39.es/ecma262/#sec-array.prototype.values) is *ToObject(this)* followed
 by *CreateArrayIterator(O, value)*, and neither step reads `length`; the iterator's own closure does
-*LengthOfArrayLike* — a `Get` and a `ToLength` — on each `next()`. `ArrayPrototype.Values` instead gates on
+*LengthOfArrayLike* — a `Get` and a `ToLength` — on each `next()`. `ArrayPrototype.Values` instead gated on
 `ObjectInstance.IsArrayLike`, which demands a `length` that is *present*, already a `JsNumber`, and
-non-negative, and throws when it is not. That is wrong in six ways at once: absent means 0, a string or a
+non-negative, and threw when it was not. That was wrong in six ways at once: absent means 0, a string or a
 boolean is coerced, a negative clamps to 0, and the read belongs to `next()` rather than to `values()`.
-`keys` and `entries` have the same three-line body and the same defect.
+`keys` and `entries` had the same three-line body and the same defect. The fix drops the gate from all three —
+the per-`next()` read the specification asks for was already what the array-like iterator did — and
+`ArrayIteratorReceiverTests` pins every shape above plus growth and shrink between two steps.
 
-The corpus reaches it because `new Blob(x)` converts `x` to a WebIDL `sequence`, and the file deliberately
+The corpus reached it because `new Blob(x)` converts `x` to a WebIDL `sequence`, and the file deliberately
 hands it plain objects whose `@@iterator` *is* `Array.prototype[Symbol.iterator]` — which is how a browser's
-`Blob` sees `{length: 1, 0: 'PASS'}` as a one-element sequence. It reproduces with no web API enabled at all,
-which is what makes it an engine finding rather than a `Blob` one. The rest of `Blob-constructor.any.js`'s 73
-rows pass, including the sibling that supplies a numeric `length` and the one that supplies a hand-written
-`@@iterator`.
+`Blob` sees `{length: 1, 0: 'PASS'}` as a one-element sequence. It reproduced with no web API enabled at all,
+which is what made it an engine finding rather than a `Blob` one. `Blob-constructor.any.js` is 73-for-73 now.
 
 `Blob-stream.any.js` passes, and it is worth knowing why it can: it calls `garbageCollect()` from
 `/common/gc.js`, whose fallback merely allocates a lot of garbage, so it asserts that a blob's stream keeps

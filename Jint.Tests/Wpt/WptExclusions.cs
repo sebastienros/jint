@@ -325,7 +325,7 @@ internal enum WptDivergence
     /// documenting the divergence on itself and raising it upstream as
     /// https://github.com/w3c/webcrypto/issues/560.
     /// <para>
-    /// <b>The streams corpus filed five, and the File API corpus one more.</b> Each is analysed in
+    /// <b>The streams corpus filed five, and the workers corpus one more.</b> Each is analysed in
     /// <c>Vendor/README.md</c>; in one line apiece:
     /// </para>
     /// <list type="bullet">
@@ -346,18 +346,6 @@ internal enum WptDivergence
     /// the chunk in a reaction to the reader's promise and can never be synchronous with the enqueue.
     /// </description></item>
     /// <item><description>
-    /// <b>Three rows of <c>FileAPI/blob/Blob-constructor.any.js</c>, and the defect is not in <c>Blob</c> at
-    /// all — it is in <c>Array.prototype.values</c>/<c>keys</c>/<c>entries</c>.</b>
-    /// https://tc39.es/ecma262/#sec-array.prototype.values is <i>ToObject(this)</i> and then
-    /// <i>CreateArrayIterator</i>, which never reads <c>length</c>; the iterator's own step 1.b does
-    /// <i>LengthOfArrayLike</i> on each <c>next()</c>. <c>ArrayPrototype.Values</c> instead gates on
-    /// <c>ObjectInstance.IsArrayLike</c> — a <c>length</c> that is present, is already a <c>JsNumber</c>, and
-    /// is non-negative — and throws <c>TypeError: cannot construct iterator</c> when it is not, so
-    /// <c>[...Array.prototype.values.call({})]</c> is a <c>TypeError</c> where the specification says
-    /// <c>[]</c>. Reproduces with no web API involved at all; see <c>Vendor/README.md</c> for the six shapes
-    /// and what each one should answer.
-    /// </description></item>
-    /// <item><description>
     /// <b><c>self</c> is writable in a worker, where <c>WorkerGlobalScope.self</c> is read-only.</b>
     /// <c>workers/interfaces/WorkerGlobalScope/self.any.js</c>, "self = 1": the file assigns to <c>self</c> and
     /// asserts it did not change. <c>WebApiRegistration</c> installs <c>self</c> once, for every global, as an
@@ -375,6 +363,12 @@ internal enum WptDivergence
     /// </description></item>
     /// </list>
     /// <para>
+    /// The File API corpus filed one too, and it is gone: three rows of
+    /// <c>FileAPI/blob/Blob-constructor.any.js</c> were one <em>engine</em> defect rather than three
+    /// <c>Blob</c> ones — <c>Array.prototype.values</c>/<c>keys</c>/<c>entries</c> gated on
+    /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
+    /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
+    /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
     /// <b>The hr-time, DOM, structured-clone and fetch corpora filed ten more</b>, and <c>Vendor/README.md</c>
     /// analyses each with its citation. In one line apiece:
     /// </para>
