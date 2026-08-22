@@ -5,7 +5,7 @@ using Jint.Native;
 namespace Jint.Benchmark;
 
 /// <summary>
-/// CLR interop bench. Gates [JsAccessible] (Phase 3 of the source-gen plan), which will replace
+/// CLR interop bench. Gates [JsAccessible] (Phase 3 of the source-gen plan), which replaces
 /// the reflection-based PropertyAccessor / FieldAccessor / MethodDescriptor paths with directly-
 /// generated typed accessors and a pre-built TypeDescriptor seeded via [ModuleInitializer].
 ///
@@ -35,6 +35,7 @@ public class InteropAccessibleBenchmarks
 {
     private const int OperationsPerInvoke = 1_000;
 
+    [JsAccessible]
     public sealed class Player
     {
         public int Score { get; set; }

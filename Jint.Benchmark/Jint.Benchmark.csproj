@@ -19,7 +19,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- BenchmarkTopology reads the processor topology through a [LibraryImport] stub. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);CS8002</NoWarn>
+    <!-- CS0436: the source generator emits internal Jint attributes into this assembly that are
+         InternalsVisibleTo'd from Jint.dll (same SNK). Harmless duplicates; the attributes are
+         conditional-compiled out of release IL anyway. -->
+    <NoWarn>$(NoWarn);CS8002;CS0436</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Include=".\Scripts\*.*" CopyToOutputDirectory="PreserveNewest" />
@@ -28,6 +31,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <ProjectReference Include="..\Jint.SourceGenerators\Jint.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
