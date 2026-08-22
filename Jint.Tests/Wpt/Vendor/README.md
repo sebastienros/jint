@@ -36,7 +36,7 @@ Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/
 **three**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
 (events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
 **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 269 theory cases over 40,617 assertions, of which 3,021 do
+directory's own files and never descends. That is 269 theory cases over 40,617 assertions, of which 2,980 do
 not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
 
 The corpora arrived a group at a time, most of them under
@@ -538,30 +538,87 @@ Everything else passes, including all sixteen rows of `dom/abort/event.any.js`, 
 
 ## What the structured-clone battery says about this engine
 
-137 assertions, of which **33 do not pass**. Three are the environment: a `WebAssembly.Memory`-backed growable
-`SharedArrayBuffer`, an `ImageBitmap` and an `OffscreenCanvas`. Two rows that this corpus arrived excluding
-are green on the branch it landed on, which is worth recording because it is the table working as designed —
-"a non-serializable platform object fails" needed a `Response` to be non-serializable *with*, and every
-engine the driver builds now carries the object model; and "a subclass instance will be received as its
+137 assertions, of which **3 do not pass**, and all three are the environment: a `WebAssembly.Memory`-backed
+growable `SharedArrayBuffer`, an `ImageBitmap` and an `OffscreenCanvas`. Two rows that this corpus arrived
+excluding are green on the branch it landed on, which is worth recording because it is the table working as
+designed — "a non-serializable platform object fails" needed a `Response` to be non-serializable *with*, and
+every engine the driver builds now carries the object model; and "a subclass instance will be received as its
 closest transferable superclass" needed `ReadableStream` transfer, which
 [issue #3199](https://github.com/sebastienros/jint/issues/3199) implemented.
 
-**The other 30 are three defects**, each of which reproduces outside the harness:
+**The other 30 were three defects**, filed as `NeedsTriage` when the corpus landed and fixed by
+[issue #3212](https://github.com/sebastienros/jint/issues/3212). All three are kept written down here rather
+than deleted with their rows, because in the first two the fix deliberately follows web-platform-tests past
+what the prose of the owning standard currently says — a decision, not an oversight, and one the next person
+to read those steps should not have to rediscover.
 
-1. **An `Error`'s `cause` is not carried.** Seven rows, one per error type.
-   [HTML's serialization steps for an Error](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal)
-   read `cause` when the object has it as an own property and serialize it into the record;
-   `StructuredSerializer` reads the name, the message and the stack and stops there, so
-   `structuredClone(new Error("x", { cause: "my cause" })).cause` is `undefined`.
-2. **`Blob` and `File` are not serializable at all** — 20 rows, every one a `DataCloneError`. Both are
-   `[Serializable]` in [the File API](https://w3c.github.io/FileAPI/#dfn-Blob), and Jint has both interfaces
-   (the `Files` feature is in `WebApiFeatures.Default`); what is missing is their serialization steps in
-   `StructuredSerializer`/`StructuredDeserializer`. Two further rows are the same defect seen from a different
-   angle — a `Blob` whose interface object has been deleted from the global must still deserialize, and a
-   `File` subclass must come back as a plain `File`.
-3. **`%Object.prototype%` is refused.** `structuredClone(Object.prototype)` raises `DataCloneError` where
-   HTML clones it as an ordinary object — it has no internal slot beyond `[[Prototype]]` and `[[Extensible]]`,
-   and being an immutable-prototype exotic object is exactly the property the test says the *clone* must lose.
+1. **An `Error`'s `cause` was not carried.** Seven rows, one per error type: `compare_Error` asserts
+   `assert_equals(actual.cause, input.cause)` and Jint answered `undefined`. **The HTML Standard as published
+   does not require this.**
+   [Step 17 of StructuredSerializeInternal](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal)
+   records the name, the message and the stack; the word *cause* does not appear in the section at all, and
+   step 17.6's licence to attach "any interesting accompanying data" is explicitly scoped to data *"which are
+   not yet specified"* — which the editor reads as excluding `cause`, since ECMA-262 specifies it
+   ([whatwg/html#11321](https://github.com/whatwg/html/issues/11321): "Chromium and Firefox are actually not
+   conformant to the current spec, which does not allow copying `cause`"). The change that would specify it,
+   [whatwg/html#5749](https://github.com/whatwg/html/pull/5749), has been open since 2020 and is stalled on
+   the larger plan to move structured cloning into ECMA-262. Two of the three engines carry `cause` today and
+   the corpus asserts it, so Jint carries it: `SerializedError` gained `HasCause`/`Cause`, the error arm
+   became the one deep arm that is not a container (registered in the memory map first, so an error that is
+   its own cause terminates), and the clone gets it back through
+   [CreateNonEnumerableDataPropertyOrThrow](https://tc39.es/ecma262/#sec-installerrorcause), the same
+   writable/non-enumerable/configurable shape the language gives it.
+   What was deliberately **not** taken from that pull request is its rewrite of `message`, which would `Get`
+   the property rather than read an own data descriptor and install the result unconditionally: the same
+   battery asserts the published semantics with
+   `assert_equals(actual.hasOwnProperty("message"), input.hasOwnProperty("message"))`, so half-adopting the
+   proposal would have turned a passing row red. `cause` is therefore read exactly as `message` is — an own
+   *data* property, absent when the source has none.
+2. **`Blob` and `File` were not serializable at all** — 22 rows, every one a `DataCloneError`. (The issue
+   said 23; enumerating what the three globs and three named rows actually cover gives 6 + 7 + 6 + 1 + 1 + 1.)
+   Both are `[Serializable]` in [the File API](https://w3c.github.io/FileAPI/#dfn-Blob), and Jint has both
+   interfaces, so what was missing was only their serialization steps. Four things about the fix are worth
+   knowing.
+   The File API's `Blob` steps carry `[[SnapshotState]]` and `[[ByteSequence]]` and **nothing else** — `type`
+   is not in them, which would make `structuredClone(new Blob(['x'], { type: 'text/plain' })).type` the empty
+   string. `compare_Blob` asserts `assert_equals(actual.type, input.type)` and every engine carries it, so the
+   media type is carried here too; that is a gap in the prose rather than a decision anyone made.
+   `[[SnapshotState]]` has no representation, and that is not an omission: snapshot state is the state of the
+   *underlying storage*, and a `JsBlob` is always built from bytes already in memory.
+   The byte sequence is **shared with the clone, not copied**: a `Blob` is immutable by specification and
+   `JsBlob` never hands its array out, so the source, the record and every clone can hold one array with
+   nothing able to observe it — which is the opposite of an `ArrayBuffer`, whose storage script can write to
+   and which therefore copies. It is also why a `Blob` record is exempt from the copy a `sharedRecord`
+   deserialization otherwise makes.
+   `SerializedFile` derives from `SerializedBlob` and is matched first in both switches, for the reason
+   `SerializedQuotaExceededError` derives from `SerializedDomException`: it makes "and also the Blob fields"
+   literal and keeps a `File` from flattening into a `Blob`. Because the deserializer builds a fresh instance
+   from the realm's intrinsic, the two rows that look at the problem from a different angle fall out for free
+   — a `Blob` whose interface object was deleted from the global still deserializes (the intrinsic is not the
+   global property), and a `File` subclass comes back as a plain `File` (only the primary interface takes
+   part). The deserializer also implements the step those two rows sit next to: *"if the interface identified
+   by interfaceName is not exposed in targetRealm, throw a `DataCloneError`"*, which is reachable in Jint
+   because a `MessagePort`, a `BroadcastChannel` or a `Worker` can carry a blob to an engine that never
+   enabled `WebApiFeatures.Files`.
+3. **`%Object.prototype%` was refused**, and the cause was not a check aimed at platform objects catching
+   something by accident: the ordinary-object arm was a **type test on Jint's ordinary-object storage class**,
+   `case JsObject`, where the specification's test is about internal slots and exoticness. `Object.prototype`
+   is an `ObjectPrototype`, built by the source generator in builtin-shape mode, so it never matched and fell
+   through to the blanket refusal. HTML's
+   [step 23](https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal) refuses
+   "an exotic object [that] is not the `%Object.prototype%` intrinsic object associated with **any** realm" —
+   `%Object.prototype%` *is* exotic (immutable prototype) and is carved out by name — and step 24's own note
+   says the result "will be an empty object (not an immutable prototype exotic object)", which is exactly what
+   the test checks by calling `Object.setPrototypeOf` on the clone. The arm is now
+   `case JsObject or ObjectPrototype`, and matching the type is that predicate rather than an identity check
+   standing in for it: `ObjectPrototype` is sealed and `Intrinsics` builds exactly one per realm, so
+   `is ObjectPrototype` is true of every realm's `%Object.prototype%` and of nothing else.
+   The refusal stays conservative in the direction it was designed to be — everything the recognized steps
+   name is serialized and anything else is refused, which is what keeps a host's own `ObjectInstance`
+   subclass, and every platform object Jint has not declared `[Serializable]`, refused rather than silently
+   flattened into a plain object that has lost its state. Two shapes are still stricter than a browser for
+   that reason and are recorded on `ThrowUncloneable`: a namespace object (`Math`, `JSON`, `console`) and an
+   unmapped `arguments` object, both of which a browser clones as `{}`.
 
 ## What the fetch object model says about this engine
 
@@ -613,14 +670,14 @@ the shim did not record `PASS`, which is exactly the set the table names.
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,448 |
 | Streams | `streams/` ×7 | 65 | 1,154 | 16 |
 | Compression | `compression/` | 15 | 297 | 84 |
-| File API | `FileAPI/` ×3 | 14 | 342 | 11 |
+| File API | `FileAPI/` ×3 | 14 | 342 | 0 |
 | High Resolution Time | `hr-time/` | 2 | 7 | 1 |
 | User Timing | `user-timing/` | 19 | 78 | 9 |
 | HTML — workers | `workers/` ×3 | 11 | 15 | 7 |
-| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 33 |
+| HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 10 | 153 | 3 |
 | DOM | `dom/` ×2 | 12 | 62 | 2 |
 | Fetch | `fetch/api/` ×2 | 29 | 388 | 88 |
-| **total** | **34** | **269** | **40,617** | **3,021** |
+| **total** | **34** | **269** | **40,617** | **2,980** |
 
 Two of those rows are worth a caveat. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,

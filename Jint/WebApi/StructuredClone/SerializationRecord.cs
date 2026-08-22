@@ -17,10 +17,10 @@ namespace Jint.WebApi.StructuredClone;
 /// <remarks>
 /// <para>
 /// <b>Nothing reachable from here is engine-affine.</b> Every node is a plain CLR object — numbers, strings,
-/// <see cref="BigInteger"/>s, <c>byte[]</c>s, lists and the tagged records below — and there is deliberately
-/// no <c>JsValue</c>, <c>Engine</c>, <c>Realm</c> or <c>ObjectInstance</c> anywhere in the graph. That is what
-/// makes a record safe to build on one engine's thread and consume on another's, which is what
-/// <c>MessagePort</c> does: <see cref="StructuredSerializer"/> runs entirely on the sender and
+/// <see cref="BigInteger"/>s, <c>byte[]</c>s and windows over them, lists and the tagged records below — and
+/// there is deliberately no <c>JsValue</c>, <c>Engine</c>, <c>Realm</c> or <c>ObjectInstance</c> anywhere in
+/// the graph. That is what makes a record safe to build on one engine's thread and consume on another's,
+/// which is what <c>MessagePort</c> does: <see cref="StructuredSerializer"/> runs entirely on the sender and
 /// <see cref="StructuredDeserializer"/> entirely on the receiver, and the record is the only thing that
 /// crosses. <c>Jint.Tests.Runtime.WebApi.SerializationRecordTests</c> pins the property both from the type
 /// declarations and from a walk of an actual graph.
@@ -46,6 +46,12 @@ namespace Jint.WebApi.StructuredClone;
 /// standard's steps say, so it asks the deserializer to copy the storage instead
 /// (<see cref="StructuredDeserializer"/>'s <c>sharedRecord</c>). It has no transfer list, so there is never
 /// storage there that had to be moved rather than copied.
+/// </para>
+/// <para>
+/// <b>A <see cref="SerializedBlob"/> is the exception in the other direction.</b> Its bytes are a
+/// <c>Blob</c>'s associated byte sequence, which is immutable and which no <c>Blob</c> ever hands out, so
+/// they are shared with the source and with every clone rather than owned by one of them — and
+/// <c>sharedRecord</c> deliberately does not copy them. Such a record is readable any number of times.
 /// </para>
 /// <para>
 /// Sharing and cycles are carried by CLR reference identity: two references to one source object serialize to
@@ -409,11 +415,43 @@ internal enum SerializedErrorName : byte
 /// property, which is the difference between a clone that has no own <c>message</c> and one whose
 /// <c>message</c> is the empty string.
 /// </summary>
+/// <remarks>
+/// <b><c>cause</c> is carried, and the HTML Standard as published does not yet say so.</b> Step 17 records
+/// the name, the message and the stack, and its step 17.6 permits a user agent to attach "any interesting
+/// accompanying data <i>which are not yet specified</i>" — which the editor reads as excluding <c>cause</c>,
+/// since ECMA-262 does specify it (https://github.com/whatwg/html/issues/11321). The change that would
+/// specify it is https://github.com/whatwg/html/pull/5749, open since 2020 and stalled on the larger question
+/// of moving structured cloning into ECMA-262. Two of the three engines carry <c>cause</c> today and
+/// web-platform-tests asserts it — <c>structured-clone-battery-of-tests.js</c>'s <c>compare_Error</c> does
+/// <c>assert_equals(actual.cause, input.cause)</c> for all seven error types — so Jint carries it too.
+/// <para>
+/// What is deliberately <i>not</i> taken from that pull request is its rewrite of <c>message</c>, which would
+/// <c>Get</c> the property rather than read an own data descriptor and install the result unconditionally.
+/// The same battery asserts the published semantics
+/// (<c>assert_equals(actual.hasOwnProperty("message"), input.hasOwnProperty("message"))</c>), so adopting the
+/// proposal's half of that would break a passing row. <c>cause</c> is therefore read exactly the way
+/// <c>message</c> is read: as an own data property, absent when the source has none.
+/// </para>
+/// </remarks>
 internal sealed class SerializedError : SerializedObject
 {
     internal SerializedErrorName Name { get; init; }
 
     internal string? Message { get; init; }
+
+    /// <summary>
+    /// Whether the source carried <c>cause</c> as an own <i>data</i> property, which is the difference
+    /// between a clone that has no <c>cause</c> at all and one whose <c>cause</c> is <c>undefined</c> —
+    /// <c>new Error(m)</c> and <c>new Error(m, { cause: undefined })</c> respectively.
+    /// </summary>
+    internal bool HasCause { get; init; }
+
+    /// <summary>
+    /// The sub-serialization of <c>cause</c>, meaningful only when <see cref="HasCause"/> is set. Settable
+    /// for the reason every deep record's contents are: the error is registered in the memory map before its
+    /// cause is walked, so that an error which is its own cause terminates.
+    /// </summary>
+    internal SerializedValue Cause { get; set; }
 
     /// <summary>
     /// The <c>stack</c>, which neither specification requires but both say a user agent "should attach". An
@@ -454,5 +492,62 @@ internal sealed class SerializedQuotaExceededError : SerializedDomException
 
     /// <summary>The <c>[[Requested]]</c>: a number, or <see langword="null"/>.</summary>
     internal double? Requested { get; init; }
+}
+
+/// <summary>
+/// The <c>Blob</c> serialization steps, https://w3c.github.io/FileAPI/#dfn-Blob: <c>[[SnapshotState]]</c> and
+/// <c>[[ByteSequence]]</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The byte sequence is shared, not copied.</b> A <c>Blob</c> is immutable by specification — it "refers
+/// to a byte sequence", and Jint's <c>JsBlob</c> never hands its array out (<c>slice</c> takes a window,
+/// <c>arrayBuffer</c> and <c>bytes</c> copy) — so the source, the record and every clone made from it can
+/// hold one array with nothing able to observe the sharing. That is the opposite of
+/// <see cref="SerializedArrayBuffer"/>, whose storage script <i>can</i> write to and which therefore copies
+/// on the way in; it is also why this record is exempt from the copy a <c>sharedRecord</c> deserialization
+/// makes, and why holding a <see cref="ReadOnlyMemory{T}"/> rather than a <c>byte[]</c> costs nothing: a
+/// blob produced by <c>slice</c> is a window over its parent's array and stays one.
+/// </para>
+/// <para>
+/// <b><c>[[SnapshotState]]</c> has no representation here</b>, and that is not an omission: snapshot state is
+/// "the state of the underlying storage, if any such underlying storage exists", and a <c>JsBlob</c> is
+/// always built from bytes already in memory — Jint has no file-backed blob for a snapshot to be of. When one
+/// arrives, it goes here.
+/// </para>
+/// <para>
+/// <b><see cref="MediaType"/> is carried although the File API's steps do not list it.</b> Those two steps
+/// name only the snapshot state and the byte sequence, which would make <c>structuredClone(new Blob(['x'],
+/// { type: 'text/plain' })).type</c> the empty string; every engine carries the type and
+/// web-platform-tests asserts it (<c>compare_Blob</c>'s <c>assert_equals(actual.type, input.type)</c>). It is
+/// a gap in the specification's prose rather than a decision, so the type is carried.
+/// </para>
+/// </remarks>
+internal class SerializedBlob : SerializedObject
+{
+    /// <summary>The <c>[[ByteSequence]]</c>: the blob's associated byte sequence, shared rather than copied.</summary>
+    internal ReadOnlyMemory<byte> Bytes { get; init; }
+
+    /// <summary>The normalized media type, or the empty string.</summary>
+    internal string MediaType { get; init; } = "";
+}
+
+/// <summary>
+/// The <c>File</c> serialization steps, https://w3c.github.io/FileAPI/#file-section: the <c>Blob</c> steps'
+/// two fields, plus <c>[[Name]]</c> and <c>[[LastModified]]</c>.
+/// </summary>
+/// <remarks>
+/// A record of its own deriving from <see cref="SerializedBlob"/>, for the reason
+/// <see cref="SerializedQuotaExceededError"/> derives from <see cref="SerializedDomException"/>: it makes
+/// "and also the Blob fields" literal, and it forces the two switches that consume these records to match the
+/// derived type first, which is what keeps a <c>File</c> from arriving as a plain <c>Blob</c>.
+/// </remarks>
+internal sealed class SerializedFile : SerializedBlob
+{
+    /// <summary>The <c>[[Name]]</c>, https://w3c.github.io/FileAPI/#dfn-name.</summary>
+    internal string Name { get; init; } = "";
+
+    /// <summary>The <c>[[LastModified]]</c>, in milliseconds since the Unix epoch.</summary>
+    internal long LastModified { get; init; }
 }
 #endif

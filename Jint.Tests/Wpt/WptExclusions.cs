@@ -369,7 +369,7 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM, structured-clone and fetch corpora filed ten more</b>, and <c>Vendor/README.md</c>
+    /// <b>The hr-time, DOM and fetch corpora filed seven more</b>, and <c>Vendor/README.md</c>
     /// analyses each with its citation. In one line apiece:
     /// </para>
     /// <list type="bullet">
@@ -385,18 +385,6 @@ internal enum WptDivergence
     /// <item><description>
     /// <c>Event</c> has neither <c>srcElement</c> nor <c>returnValue</c>, both of which the DOM Standard's own
     /// interface declares.
-    /// </description></item>
-    /// <item><description>
-    /// An <c>Error</c>'s <c>cause</c> is not carried through <c>structuredClone</c>, where HTML's
-    /// serialization steps read it.
-    /// </description></item>
-    /// <item><description>
-    /// <c>Blob</c> and <c>File</c> are not serializable at all, though the File API declares both
-    /// <c>[Serializable]</c> and Jint has the interfaces.
-    /// </description></item>
-    /// <item><description>
-    /// <c>structuredClone(Object.prototype)</c> raises <c>DataCloneError</c> where HTML clones it as the
-    /// ordinary object it is.
     /// </description></item>
     /// <item><description>
     /// The <c>Headers</c> iterator prototype's <c>next</c> is not enumerable — the same attribute on the same
@@ -417,6 +405,15 @@ internal enum WptDivergence
     /// read before anything is changed, which is exactly why it is triage rather than a fix.
     /// </description></item>
     /// </list>
+    /// <para>
+    /// <b>The structured-clone corpus filed three more, and they are gone</b> — an <c>Error</c>'s
+    /// <c>cause</c> was not carried, <c>Blob</c> and <c>File</c> were not serializable at all, and
+    /// <c>structuredClone(Object.prototype)</c> raised a <c>DataCloneError</c>. All three are fixed, so the
+    /// thirty rows they held here left with them and that corpus now runs with three exclusions, all of them
+    /// environment rather than debt. The analysis is still in <c>Vendor/README.md</c>, because two of the
+    /// three are places where Jint follows web-platform-tests past what the prose of the relevant standard
+    /// currently says.
+    /// </para>
     /// <para>
     /// One further defect is recorded in <c>Vendor/README.md</c> with no entry here, because the test that
     /// finds it cannot be named: a throw from a <c>queueMicrotask</c> callback erupts from the pump instead of

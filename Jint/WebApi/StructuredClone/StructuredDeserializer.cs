@@ -7,6 +7,7 @@ using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Streams;
 
@@ -240,9 +241,20 @@ internal sealed class StructuredDeserializer
                 result = DeserializeView(view);
                 break;
 
+            // Deep, and for one field only: the error is registered before its `cause` is deserialized, so an
+            // error that is its own cause comes back as one rather than recursing forever.
             case SerializedError error:
-                result = DeserializeError(error);
-                break;
+                {
+                    var target = DeserializeError(error);
+                    _memory[record] = target;
+
+                    if (error.HasCause)
+                    {
+                        _pending.Push(new ErrorCauseFrame(error.Cause, target));
+                    }
+
+                    return target;
+                }
 
             // Before the DOMException arm it derives from — https://webidl.spec.whatwg.org/#quotaexceedederror
             // deserializes into the interface, not into a DOMException wearing the name.
@@ -252,6 +264,16 @@ internal sealed class StructuredDeserializer
 
             case SerializedDomException domException:
                 result = DeserializeDomException(domException);
+                break;
+
+            // The File API's deserialization steps, and — as in the serializer — the derived interface first,
+            // or a File would come back as a Blob. https://w3c.github.io/FileAPI/#file-section
+            case SerializedFile file:
+                result = DeserializeFile(file);
+                break;
+
+            case SerializedBlob blob:
+                result = DeserializeBlob(blob);
                 break;
 
             // The three streams' transfer-receiving steps. Each builds its half of a cross-realm transform
@@ -445,6 +467,61 @@ internal sealed class StructuredDeserializer
         return result;
     }
 
+    /// <summary>
+    /// The <c>Blob</c> deserialization steps, https://w3c.github.io/FileAPI/#dfn-Blob: the byte sequence and
+    /// the snapshot state (which Jint has nothing to represent — see <see cref="SerializedBlob"/>), plus the
+    /// media type the steps omit but every engine carries.
+    /// </summary>
+    /// <remarks>
+    /// The byte sequence is adopted rather than copied even for a <c>sharedRecord</c>, unlike an
+    /// <c>ArrayBuffer</c>'s: a blob's bytes are immutable and never handed out, so several receivers holding
+    /// one array cannot observe one another.
+    /// </remarks>
+    private JsBlob DeserializeBlob(SerializedBlob record)
+    {
+        RequireFileApiExposed("Blob");
+
+        return new JsBlob(_engine, record.Bytes, record.MediaType)
+        {
+            _prototype = _realm.Intrinsics.Blob.PrototypeObject,
+        };
+    }
+
+    /// <summary>
+    /// The <c>File</c> deserialization steps, https://w3c.github.io/FileAPI/#file-section. The result is a
+    /// plain <c>File</c> in this realm whatever the source's prototype was, which is what makes a subclass
+    /// instance "deserialize as its closest serializable superclass": only the primary interface takes part.
+    /// </summary>
+    private JsFile DeserializeFile(SerializedFile record)
+    {
+        RequireFileApiExposed("File");
+
+        return new JsFile(_engine, record.Bytes, record.MediaType, record.Name, record.LastModified)
+        {
+            _prototype = _realm.Intrinsics.File.PrototypeObject,
+        };
+    }
+
+    /// <summary>
+    /// "If the interface identified by interfaceName is not exposed in targetRealm, then throw a
+    /// DataCloneError" — https://html.spec.whatwg.org/multipage/structured-data.html#structureddeserialize.
+    /// Reachable because a record crosses engines: a <c>MessagePort</c>, a <c>BroadcastChannel</c> or a
+    /// <c>Worker</c> can carry a blob from an engine that enabled <see cref="WebApiFeatures.Files"/> to one
+    /// that did not.
+    /// </summary>
+    /// <remarks>
+    /// The feature set is asked, not the global object: <c>Intrinsics.Blob</c> exists on any engine that
+    /// reaches for it, and the global property can be deleted by script — which is exactly the case the
+    /// battery's "an object whose interface is deleted from the global must still deserialize" pins.
+    /// </remarks>
+    private void RequireFileApiExposed(string interfaceName)
+    {
+        if ((_engine._webApiFeatures & WebApiFeatures.Files) == WebApiFeatures.None)
+        {
+            StructuredSerializer.ThrowDataCloneError(_realm, interfaceName + " is not exposed in the target realm");
+        }
+    }
+
     private JsQuotaExceededError DeserializeQuotaExceededError(SerializedQuotaExceededError record)
     {
         var result = _realm.Intrinsics.QuotaExceededError.CreateException(record.Message, record.Quota, record.Requested);
@@ -547,6 +624,31 @@ internal sealed class StructuredDeserializer
         {
             _ = _target.CreateDataProperty(_currentKey, value);
         }
+    }
+
+    /// <summary>
+    /// One error's <c>cause</c>, installed the way the language installs it: CreateNonEnumerableDataProperty,
+    /// so the clone's descriptor is writable, non-enumerable and configurable — exactly what
+    /// https://tc39.es/ecma262/#sec-installerrorcause gives an error the engine constructed itself.
+    /// </summary>
+    /// <remarks>
+    /// It runs after the error's own arm, so <c>message</c> is already installed and <c>cause</c> lands
+    /// second, which is the own-key order <c>new Error(m, { cause: c })</c> produces.
+    /// </remarks>
+    private sealed class ErrorCauseFrame(SerializedValue cause, JsError target) : DeserializeFrame
+    {
+        private bool _done;
+
+        internal override bool TryGetNextSource(out SerializedValue source)
+        {
+            source = _done ? SerializedValue.Undefined : cause;
+            var pending = !_done;
+            _done = true;
+            return pending;
+        }
+
+        internal override void Accept(JsValue value)
+            => target.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Cause, value);
     }
 
     private sealed class MapFrame : DeserializeFrame
