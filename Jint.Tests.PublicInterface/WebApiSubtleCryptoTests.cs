@@ -145,7 +145,12 @@ public class WebApiSubtleCryptoTests
     {
         var engine = WebEngine();
 
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(crypto, 'subtle')").AsObject();
+        // On Crypto.prototype, where a browser's is: `crypto` itself carries no own property at all.
+        engine.Evaluate("Object.getOwnPropertyNames(crypto).length").AsNumber().Should().Be(0);
+        engine.Evaluate("crypto instanceof Crypto").AsBoolean().Should().BeTrue();
+        engine.Evaluate("crypto.subtle instanceof SubtleCrypto").AsBoolean().Should().BeTrue();
+
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle')").AsObject();
         descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
