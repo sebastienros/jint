@@ -183,8 +183,9 @@ internal static class ReadableStreamOperations
             return;
         }
 
-        reader.ClosedCapability.Reject(error);
-        StreamPromises.MarkHandled(reader.ClosedPromise);
+        // "Reject reader.[[closedPromise]] with e" and "set reader.[[closedPromise]].[[PromiseIsHandled]] to
+        // true" — the pair, in the one order a tracker that fires at rejection time can tell apart.
+        StreamPromises.RejectHandled(reader.ClosedCapability, error);
 
         if (reader is JsReadableStreamDefaultReader defaultReader)
         {
@@ -348,8 +349,7 @@ internal static class ReadableStreamOperations
                 break;
 
             default:
-                StreamPromises.MarkHandled(StreamPromises.PromiseOf(capability));
-                capability.Reject(stream.StoredError);
+                StreamPromises.RejectHandled(capability, stream.StoredError);
                 break;
         }
     }
@@ -372,20 +372,15 @@ internal static class ReadableStreamOperations
         var released = realm.Intrinsics.TypeError.Construct(
             "Reader was released and can no longer be used to monitor the stream's closedness");
 
-        if (stream.State == ReadableStreamState.Readable)
-        {
-            reader.ClosedCapability.Reject(released);
-        }
-        else
+        if (stream.State != ReadableStreamState.Readable)
         {
             // The closed promise has already settled, so it cannot be rejected: the reader is given a
             // freshly rejected one instead, which is what makes `reader.closed` observably a different
             // promise after releasing the lock on a closed stream.
             reader.ClosedCapability = StreamPromises.NewPromise(engine, realm);
-            reader.ClosedCapability.Reject(released);
         }
 
-        StreamPromises.MarkHandled(reader.ClosedPromise);
+        StreamPromises.RejectHandled(reader.ClosedCapability, released);
 
         // The default controller's [[ReleaseSteps]] do nothing; the byte controller's downgrades the
         // pull-into descriptor the underlying source may be writing into right now.
