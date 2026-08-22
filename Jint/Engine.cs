@@ -248,7 +248,14 @@ public sealed partial class Engine : IDisposable
         authorization.MemoryState = CaptureMemoryLimitState();
     }
 
-    internal object? GetHostCallbackOwner(ObjectInstance callback)
+    /// <summary>
+    /// The authorization recorded for <paramref name="callback"/> by <see cref="AuthorizeHostCallback"/>, as
+    /// an opaque token: the type is private, so the delegate shim that carries it across the thread hop holds
+    /// it as <see cref="object"/> and hands it straight back to
+    /// <see cref="EnterTransferredHostCallback"/>. It names both the owner the callback may re-enter under
+    /// and the memory operation its turn is charged to.
+    /// </summary>
+    internal object? GetHostCallbackAuthorization(ObjectInstance callback)
     {
         var authorizations = _hostCallbackAuthorizations;
         return authorizations is not null && authorizations.TryGetValue(callback, out var authorization)
@@ -1101,16 +1108,6 @@ public sealed partial class Engine : IDisposable
         }
         _memoryLimitConstraint = memoryLimitConstraint;
         memoryLimitConstraint?.Attach(this);
-        if (memoryLimitConstraint is not null)
-        {
-            foreach (var constraint in _constraints)
-            {
-                if (!ReferenceEquals(constraint, memoryLimitConstraint))
-                {
-                    constraint.BeforeFailure = EndImplicitMemoryOperationWithoutCheck;
-                }
-            }
-        }
 
         // Everything the context snapshots is settled by now (debug mode, the constraint partition),
         // and it must exist before Options.Apply below, whose configuration callbacks may execute
@@ -1571,7 +1568,14 @@ public sealed partial class Engine : IDisposable
         }
     }
 
-    private void EndImplicitMemoryOperationWithoutCheck()
+    /// <summary>
+    /// Ends the implicit operation without its exit check, for a caller that is about to throw a failure of
+    /// its own. <see cref="LeaveImplicitMemoryOperation"/> checks the memory budget on the way out, and a
+    /// limit raised there would replace the failure being thrown — a memory error reported where the script
+    /// actually ran out of time, or out of stack. The constraint that fired is the one that has to reach the
+    /// host, so the operation is ended silently and the caller's exception propagates.
+    /// </summary>
+    internal void AbandonImplicitMemoryOperation()
     {
         if (_implicitMemoryContextDepth == 0)
         {
@@ -1584,8 +1588,28 @@ public sealed partial class Engine : IDisposable
         _implicitMemorySegment = default;
     }
 
-    internal void PreserveConstraintFailure() => EndImplicitMemoryOperationWithoutCheck();
-
+    /// <summary>
+    /// Ends this evaluation cycle because an operation exceeded its allocation budget: the same teardown a
+    /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> performs, minus the globals.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <see cref="MemoryLimitExceededException"/> is not catchable by script, so the operation that raised
+    /// it is over — but what it had scheduled is not. Its queued jobs, its pending module loads, its timers
+    /// and its host-stream bridges would otherwise go on running, on an engine whose budget the very next
+    /// check fails again, with an open file handle each. Discarding them here is what makes the limit end
+    /// the work rather than merely report on it, and the generation bump is the fence for the completions
+    /// that are still in flight on other threads.
+    /// </para>
+    /// <para>
+    /// The teardown is best-effort: it runs host code (a worker host learning its connection ended, a host
+    /// stream being disposed), and a host that throws there must not replace the memory failure with its own
+    /// exception. It comes back to be attached as the inner exception instead, and the generation still
+    /// moves — the same "always bump, never restore" rule the snapshot restore keeps, and for the same
+    /// reason: half a teardown must not leave the previous cycle's completions looking current.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whatever the teardown threw, or <see langword="null"/>.</returns>
     internal Exception? AbortMemoryLimitedOperation()
     {
         Exception? cleanupFailure = null;
@@ -1836,8 +1860,7 @@ public sealed partial class Engine : IDisposable
         // arbitrarily later on a background thread, and stamping the job with the generation captured now
         // is what lets the drain tell "work this engine is still waiting for" from "work whose cycle a
         // RestoreGlobalSnapshot has since ended".
-        var generation = _eventLoop.Generation;
-        var memoryState = CaptureMemoryLimitState();
+        var registration = CaptureEventLoopRegistration();
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
@@ -1847,7 +1870,7 @@ public sealed partial class Engine : IDisposable
             AddToEventLoop(() =>
             {
                 settle.Call(JsValue.Undefined, [value]);
-            }, generation, memoryState);
+            }, registration);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             promise.CompletedEvent.Set();
@@ -1883,8 +1906,7 @@ public sealed partial class Engine : IDisposable
         // Registration-time generation; see RegisterPromise. This is the path a CLR Task awaited from script
         // takes (JsValue.ConvertTaskToPromise), so it is the one that carries a fire-and-forget Task across a
         // restore if nothing stamps it.
-        var generation = _eventLoop.Generation;
-        var memoryState = CaptureMemoryLimitState();
+        var registration = CaptureEventLoopRegistration();
 
         Action<object?> SettleWithClr(Function settle) => clrValue =>
         {
@@ -1895,7 +1917,7 @@ public sealed partial class Engine : IDisposable
             {
                 var jsValue = JsValue.FromObject(this, clrValue);
                 settle.Call(JsValue.Undefined, [jsValue]);
-            }, generation, memoryState);
+            }, registration);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             // NOTE: We do NOT call RunAvailableContinuations() here because this method is
@@ -1919,15 +1941,17 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Enqueues work on behalf of an earlier registration, carrying that registration's generation. Used by
-    /// the promise settle closures, which can fire on a background thread long after their cycle ended.
+    /// Enqueues work on behalf of an earlier registration, carrying both halves of what that registration
+    /// captured: the cycle the work belongs to and the operation whose allocation budget its turn is charged
+    /// to. Used by the promise settle closures, the timers and the web continuations, all of which can fire
+    /// on a background thread long after the call that registered them returned.
     /// </summary>
-    internal void AddToEventLoop(
-        Action continuation,
-        int generation,
-        MemoryLimitConstraint.OperationState? memoryState)
+    internal void AddToEventLoop(Action continuation, EventLoopRegistration registration)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState));
+        _eventLoop.Enqueue(new EventLoopJob(
+            continuation,
+            registration.Generation,
+            registration.MemoryState));
     }
 
     /// <summary>
@@ -1940,20 +1964,15 @@ public sealed partial class Engine : IDisposable
     /// or <c>EventSource</c> frame, a <c>MessagePort</c> or <c>BroadcastChannel</c> delivery, host
     /// cancellation, or finalization-registry cleanup. They keep the generation stamp for the reason every
     /// cross-cycle enqueue does; what they do not have is one originating operation whose budget the turn
-    /// belongs to. Finite continuations such as timers, fetch and stream operations use
-    /// <see cref="EventLoopRegistration"/> instead.
+    /// belongs to, and a source that delivers for as long as the script leaves it open must not accumulate
+    /// against one either — each delivery begins a budget of its own. The finite continuations — a
+    /// <c>setTimeout</c>, a <c>fetch</c>, one host-stream read or write — use
+    /// <see cref="AddToEventLoop(Action, EventLoopRegistration)"/> instead, and so does a <c>setInterval</c>,
+    /// whose registration carries the cycle but deliberately no budget (see <c>TimerEntry</c>).
     /// </remarks>
     internal void AddToEventLoop(Action continuation, int generation)
     {
         _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null));
-    }
-
-    internal void AddToEventLoop(Action continuation, EventLoopRegistration registration)
-    {
-        _eventLoop.Enqueue(new EventLoopJob(
-            continuation,
-            registration.Generation,
-            registration.MemoryState));
     }
 
     /// <summary>
@@ -1977,15 +1996,15 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Queues the engine-thread half of an asynchronous module load. Separate from
-    /// <see cref="AddToEventLoop(Action, int, MemoryLimitConstraint.OperationState)"/> only in name, to keep the module loader's one cross-thread
-    /// entry point findable.
+    /// <see cref="AddToEventLoop(Action, EventLoopRegistration)"/> only in name, to keep the module loader's
+    /// one cross-thread entry point findable.
     /// </summary>
-    internal void EnqueueModuleLoadCompletion(
-        Action continuation,
-        int generation,
-        MemoryLimitConstraint.OperationState? memoryState)
+    internal void EnqueueModuleLoadCompletion(Action continuation, EventLoopRegistration registration)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState));
+        _eventLoop.Enqueue(new EventLoopJob(
+            continuation,
+            registration.Generation,
+            registration.MemoryState));
     }
 
     internal MemoryLimitConstraint.OperationState? CaptureMemoryLimitState()
@@ -2019,6 +2038,13 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs <paramref name="callback"/> as one accounted turn of <paramref name="operationState"/>, for the
+    /// queues that promote their own work rather than enqueueing a job per item — the idle-callback queue
+    /// and the scheduler's shared pump, whose one job runs whichever task is next and so cannot carry any
+    /// single task's registration. A <see langword="null"/> state begins an ordinary budget, exactly as a
+    /// job with no captured state does.
+    /// </summary>
     internal void RunWithMemoryAccounting(
         MemoryLimitConstraint.OperationState? operationState,
         Action callback)
@@ -2270,10 +2296,24 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
     {
-        // Avoid allocating the enumerator because we run this loop very often.
-        foreach (var constraint in _constraints)
+        // Avoid allocating the enumerator because we run this loop very often. The try costs nothing until
+        // something throws; see the handler.
+        try
         {
-            CheckConstraint(constraint);
+            foreach (var constraint in _constraints)
+            {
+                constraint.Check();
+            }
+        }
+        catch (Exception exception) when (_implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
+        {
+            // The implicit operation ends with a memory Check() of its own, which would raise a limit over
+            // the top of the constraint that actually fired — a memory failure reported where the script ran
+            // out of time. End it silently instead. The one exception left out is a user constraint raising a
+            // JavaScriptException: script can catch that one and carry on, and abandoning the operation under
+            // it would hand the script a fresh budget.
+            AbandonImplicitMemoryOperation();
+            throw;
         }
 
         if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
@@ -2294,10 +2334,20 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal void RunPerStatementChecks(StatementOrExpression? statement)
     {
-        // Avoid allocating the enumerator because we run this loop very often.
-        foreach (var constraint in _exactConstraints)
+        // Avoid allocating the enumerator because we run this loop very often. The try costs nothing until
+        // something throws; see the handler.
+        try
         {
-            CheckConstraint(constraint);
+            foreach (var constraint in _exactConstraints)
+            {
+                constraint.Check();
+            }
+        }
+        catch (Exception exception) when (_implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
+        {
+            // See RunBeforeExecuteStatementChecks.
+            AbandonImplicitMemoryOperation();
+            throw;
         }
 
         // After the constraints on purpose: a statement a constraint refused is a statement that never ran.
@@ -2327,34 +2377,17 @@ public sealed partial class Engine : IDisposable
             return;
         }
 
-        foreach (var constraint in _amortizedConstraints)
-        {
-            CheckConstraint(constraint);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void CheckConstraint(Constraint constraint)
-    {
-        if (_memoryLimitConstraint is null)
-        {
-            constraint.Check();
-            return;
-        }
-
-        CheckConstraintWithMemory(constraint);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private void CheckConstraintWithMemory(Constraint constraint)
-    {
         try
         {
-            constraint.Check();
+            foreach (var constraint in _amortizedConstraints)
+            {
+                constraint.Check();
+            }
         }
-        catch
+        catch (Exception exception) when (_implicitMemoryContextDepth != 0 && exception is not JavaScriptException)
         {
-            EndImplicitMemoryOperationWithoutCheck();
+            // See RunBeforeExecuteStatementChecks.
+            AbandonImplicitMemoryOperation();
             throw;
         }
     }
@@ -3900,7 +3933,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
-            PreserveConstraintFailure();
+            AbandonImplicitMemoryOperation();
             Throw.RecursionDepthOverflowException(CallStack);
         }
 
@@ -3933,7 +3966,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > _maxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
-            PreserveConstraintFailure();
+            AbandonImplicitMemoryOperation();
             Throw.RecursionDepthOverflowException(CallStack);
         }
 

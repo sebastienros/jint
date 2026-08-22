@@ -245,6 +245,31 @@ public class HostMemoryLimitTests
     }
 
     [Fact]
+    public void AnIntervalStartsAFreshBudgetOnEveryTick()
+    {
+        var allocations = new List<byte[]>();
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+
+        engine.Execute("setInterval(() => allocate(), 5);");
+
+        // Each tick allocates well inside the budget. An interval is not one finite continuation of the
+        // operation that registered it, so ten of them must not add up to one.
+        for (var i = 0; i < 10; i++)
+        {
+            clock.Advance(5);
+            Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        }
+
+        allocations.Should().HaveCount(10);
+    }
+
+    [Fact]
     public void TimerAllocationLimitOutranksItsJavaScriptError()
     {
         var allocations = new List<byte[]>();
@@ -743,6 +768,45 @@ public class HostMemoryLimitTests
         Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
         callbackRan.Should().BeFalse();
     }
+
+    [Fact]
+    public void AnEngineIsUsableAgainAfterAnAllocationFailureToreDownTheCycle()
+    {
+        var allocations = new List<byte[]>();
+        var engine = CreateEngine(allocations);
+
+        Invoking(() => engine.Execute("allocate(); allocate();"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+
+        // The teardown ends the cycle, it does not end the engine: the next top-level entry is a new
+        // operation with a budget of its own, and the globals the failed script defined are still there.
+        engine.Execute("globalThis.survived = 1; allocate();");
+        engine.Evaluate("survived").AsNumber().Should().Be(1);
+    }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public void AnAllocationFailureDiscardsTheTimersTheFailedOperationScheduled()
+    {
+        var allocations = new List<byte[]>();
+        var fired = false;
+        var clock = new ManualClock();
+        var engine = new Engine(options =>
+        {
+            options.LimitMemory(SingleAllocationBudget);
+            options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock);
+        });
+        engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
+        engine.SetValue("mark", new Action(() => fired = true));
+
+        Invoking(() => engine.Execute("setTimeout(() => mark(), 5); allocate(); allocate();"))
+            .Should().ThrowExactly<MemoryLimitExceededException>();
+
+        clock.Advance(5);
+        Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        fired.Should().BeFalse();
+    }
+#endif
 
     [Fact]
     public async Task SharedOptionsCreateIsolatedMemoryAccountingPerEngine()

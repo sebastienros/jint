@@ -260,7 +260,12 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return null;
         }
 
-        if (ConstraintFailure.MustPropagate(exception))
+        // Throw.MustPropagateHostException rather than ConstraintFailure.MustPropagate: the latter adds
+        // every TimeoutException and OperationCanceledException, which for a queued turn are Jint's own and
+        // nothing else, but for a host Task are the two most ordinary failures there are — an HttpClient
+        // timeout, a cancelled upload. Those must stay a promise rejection. Jint's own, raised through
+        // Throw, are marked and match here anyway.
+        if (Throw.MustPropagateHostException(exception))
         {
             return exception;
         }

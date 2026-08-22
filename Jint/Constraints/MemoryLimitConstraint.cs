@@ -55,6 +55,7 @@ public sealed class MemoryLimitConstraint : Constraint
     private int _segmentThreadId;
     private int _segmentDepth;
     private Engine? _engine;
+    private bool _aborting;
 
     public MemoryLimitConstraint(long memoryLimit)
     {
@@ -157,16 +158,41 @@ public sealed class MemoryLimitConstraint : Constraint
         var usage = GetUsage(state);
         if (state.Exceeded || usage > _memoryLimit)
         {
-            if (!state.Exceeded)
+            var message = $"Script has allocated {usage} but is limited to {_memoryLimit}";
+            if (state.Exceeded)
             {
-                state.Exceeded = true;
-                var cleanupFailure = _engine?.AbortMemoryLimitedOperation();
-                Throw.MemoryLimitExceededException(
-                    $"Script has allocated {usage} but is limited to {_memoryLimit}",
-                    cleanupFailure);
+                // A later check on an operation already over budget: the cycle was torn down the first
+                // time and there is nothing left to abort.
+                Throw.MemoryLimitExceededException(message);
             }
 
-            Throw.MemoryLimitExceededException($"Script has allocated {usage} but is limited to {_memoryLimit}");
+            state.Exceeded = true;
+            Throw.MemoryLimitExceededException(message, Abort());
+        }
+    }
+
+    /// <summary>
+    /// Tears down the evaluation cycle's transient asynchronous work, once. The teardown runs host code —
+    /// a worker host is told its connection ended, a host stream is disposed — and host code may re-enter
+    /// the engine, whose next statement check would find a fresh operation over the same budget and start a
+    /// second teardown from inside the first. One is what this path promises; the flag is what makes that
+    /// true whatever the host does.
+    /// </summary>
+    private Exception? Abort()
+    {
+        if (_aborting || _engine is not { } engine)
+        {
+            return null;
+        }
+
+        _aborting = true;
+        try
+        {
+            return engine.AbortMemoryLimitedOperation();
+        }
+        finally
+        {
+            _aborting = false;
         }
     }
 
@@ -358,10 +384,9 @@ public sealed class MemoryLimitConstraint : Constraint
     {
         if (!GCPolyfills.AllocatedBytesForCurrentThreadIsSupported)
         {
-            Throw.MemoryLimitPlatformNotSupportedException(
+            Throw.PlatformNotSupportedException(
                 "The current runtime does not expose GC.GetAllocatedBytesForCurrentThread, so Jint cannot enforce a memory allocation limit without charging unrelated process allocations.");
         }
-
     }
 
     internal sealed class OperationState
@@ -375,6 +400,3 @@ public sealed class MemoryLimitConstraint : Constraint
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct SegmentToken(bool Switched, OperationState? PreviousState, int PreviousDepth);
 }
-
-internal sealed class MemoryLimitPlatformNotSupportedException(string message)
-    : PlatformNotSupportedException(message);

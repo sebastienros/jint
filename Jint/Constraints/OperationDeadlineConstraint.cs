@@ -182,15 +182,13 @@ public sealed class OperationDeadlineConstraint : Constraint
     {
         if (_cancellationToken.IsCancellationRequested)
         {
-            BeforeFailure?.Invoke();
-            Throw.ConstraintOperationCanceledException(_cancellationToken);
+            Throw.OperationCanceledException(_cancellationToken);
         }
 
         var deadline = _deadline;
         if (deadline != 0 && Stopwatch.GetTimestamp() >= deadline)
         {
-            BeforeFailure?.Invoke();
-            Throw.ConstraintTimeoutException("The operation's time budget elapsed.");
+            Throw.TimeoutException("The operation's time budget elapsed.");
         }
     }
 

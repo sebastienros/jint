@@ -48,7 +48,7 @@ public class DefaultTypeConverter : ITypeConverter
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
     private static readonly MethodInfo enterHostCallback = engineType.GetMethod(nameof(Engine.EnterTransferredHostCallback), BindingFlags.Instance | BindingFlags.NonPublic)!;
-    private static readonly MethodInfo getHostCallbackOwner = engineType.GetMethod(nameof(Engine.GetHostCallbackOwner), BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo getHostCallbackOwner = engineType.GetMethod(nameof(Engine.GetHostCallbackAuthorization), BindingFlags.Instance | BindingFlags.NonPublic)!;
     private static readonly MethodInfo exitHostCallback = typeof(Engine.HostCallScope).GetMethod(nameof(IDisposable.Dispose))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 

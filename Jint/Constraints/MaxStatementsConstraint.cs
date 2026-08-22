@@ -26,7 +26,6 @@ public sealed class MaxStatementsConstraint : Constraint
     {
         if (MaxStatements > 0 && ++_statementsCount > MaxStatements)
         {
-            BeforeFailure?.Invoke();
             Throw.StatementsCountOverflowException();
         }
     }

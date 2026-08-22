@@ -299,7 +299,16 @@ internal sealed class TimerEntry
         _arguments = arguments;
         RequestedDelay = requestedDelay;
         Repeat = repeat;
-        Registration = registration;
+
+        // An interval keeps the cycle stamp and drops the allocation budget. A one-shot timer is one finite
+        // continuation of the operation that scheduled it, so its turn is charged there; an interval fires
+        // for as long as the script leaves it running, and charging every tick to that one operation would
+        // fail an engine whose heartbeat allocates a few bytes a second. Each tick begins an ordinary budget
+        // of its own instead, exactly as a persistent event source's delivery does — so a tick is still
+        // bounded, it just does not inherit what the ticks before it spent.
+        Registration = repeat
+            ? new EventLoopRegistration(registration.Generation, MemoryState: null)
+            : registration;
     }
 
     /// <summary>The id <c>setTimeout</c> returned, assigned by <see cref="TimerQueue.Schedule"/>.</summary>
@@ -315,12 +324,13 @@ internal sealed class TimerEntry
     internal int NestingLevel { get; set; }
 
     /// <summary>
-    /// The evaluation cycle this timer was registered in. The promoted job carries it, so a timer surviving
-    /// into a cycle a <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> started is dropped at
-    /// dequeue even if something bypassed <see cref="TimerQueue.Clear"/>.
+    /// The evaluation cycle this timer was registered in, and — for a one-shot timer only, see the
+    /// constructor — the operation whose allocation budget its callback's turn is charged to. The promoted
+    /// job carries both, so a timer surviving into a cycle a
+    /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> started is dropped at dequeue even if
+    /// something bypassed <see cref="TimerQueue.Clear"/>.
     /// </summary>
     internal EventLoopRegistration Registration { get; }
-    internal int Generation => Registration.Generation;
 
     /// <summary>Set by <see cref="TimerQueue.Cancel"/>; the schedule discards a marked entry lazily.</summary>
     internal bool Cancelled { get; set; }

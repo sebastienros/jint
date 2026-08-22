@@ -570,7 +570,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                     if (recursionDepth > engine._maxRecursionDepth)
                     {
-                        engine.PreserveConstraintFailure();
+                        engine.AbandonImplicitMemoryOperation();
                         Throw.RecursionDepthOverflowException(callStack, preserveTop: true);
                     }
 

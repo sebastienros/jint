@@ -75,7 +75,7 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
             return promise;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Only reachable for a bridge a restore has abandoned — the standard's own machinery stops a
             // write to a closed, closing or errored stream long before it reaches the sink.
@@ -83,7 +83,6 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
                 "The host stream was released: Engine.Advanced.RestoreGlobalSnapshot ended the evaluation cycle it was created in."));
             return promise;
         }
-        var registration = OperationRegistration;
 
         if (bytes.IsEmpty)
         {
@@ -196,13 +195,12 @@ internal sealed class HostWritableStreamSink : HostStreamBridge
         var capability = StreamPromises.NewPromise(Engine, Realm);
         var promise = StreamPromises.PromiseOf(capability);
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Abandoned by a restore. Nothing is left to close, and nothing will observe this promise.
             capability.Resolve(JsValue.Undefined);
             return promise;
         }
-        var registration = OperationRegistration;
 
         var task = FlushAndDisposeAsync();
 

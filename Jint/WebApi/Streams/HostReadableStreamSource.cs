@@ -104,7 +104,7 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
         var capability = StreamPromises.NewPromise(Engine, Realm);
         var promise = StreamPromises.PromiseOf(capability);
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Only reachable for a bridge a restore has abandoned: a cancelled or closed stream is no longer
             // readable, and the controller does not pull one. The cycle this promise belongs to has ended,
@@ -112,7 +112,6 @@ internal sealed class HostReadableStreamSource : HostStreamBridge
             capability.Resolve(JsValue.Undefined);
             return promise;
         }
-        var registration = OperationRegistration;
 
         ValueTask<int> read;
         try

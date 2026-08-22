@@ -284,8 +284,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         /// read whatever cycle the engine is in by then, and a wait registered before a
         /// <c>RestoreGlobalSnapshot</c> would resolve its promise into the restored engine.
         /// </summary>
-        private readonly int _generation;
-        private readonly MemoryLimitConstraint.OperationState? _memoryState;
+        private readonly EventLoopRegistration _registration;
 
         /// <summary>
         /// The list this wait joined, so that the timeout route can leave it the way the wake route does.
@@ -305,8 +304,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         {
             _engine = engine;
             _promiseCapability = promiseCapability;
-            _generation = engine.EventLoopGeneration;
-            _memoryState = engine.CaptureMemoryLimitState();
+            _registration = engine.CaptureEventLoopRegistration();
         }
 
         public bool Resolved => _resolved != 0;
@@ -349,7 +347,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
                 _engine.AddToEventLoop(() =>
                 {
                     _promiseCapability.Resolve(new JsString(result));
-                }, _generation, _memoryState);
+                }, _registration);
             }
         }
     }

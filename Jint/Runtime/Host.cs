@@ -506,9 +506,7 @@ public class Host
     /// any thread for exactly that reason: the stamp is read at registration on the engine's thread and
     /// checked at dequeue on the engine's thread, and this enqueue in between is the only cross-thread step.
     /// </param>
-    internal void HostEnqueueFinalizationRegistryCleanupJob(
-        Action cleanupJob,
-        int generation)
+    internal void HostEnqueueFinalizationRegistryCleanupJob(Action cleanupJob, int generation)
     {
         Engine.AddToEventLoop(cleanupJob, generation);
     }

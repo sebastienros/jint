@@ -5,8 +5,6 @@ namespace Jint;
 /// </summary>
 public abstract class Constraint
 {
-    internal Action? BeforeFailure { get; set; }
-
     /// <summary>
     /// Called before each statement to check if your requirements are met; if not - throws an exception.
     /// </summary>

@@ -41,11 +41,12 @@ public sealed class ModuleLoadCompletion
     private readonly Engine.ModuleCacheKey _cacheKey;
 
     /// <summary>
-    /// The evaluation cycle this load was registered in, captured at registration rather than read at settle
-    /// time: the two differ exactly when the engine's globals were restored while the load was in flight, and
-    /// that is the case the fence exists for.
+    /// The evaluation cycle this load was registered in and the operation whose allocation budget its
+    /// engine-thread half is charged to, both captured at registration rather than read at settle time: they
+    /// differ from the current ones exactly when the engine's globals were restored, or another operation
+    /// began, while the load was in flight — which is the case the fence exists for.
     /// </summary>
-    private readonly int _generation;
+    private readonly EventLoopRegistration _registration;
 
     /// <summary>
     /// The realm the load was started in, captured at registration for the same reason as the generation. A
@@ -57,7 +58,6 @@ public sealed class ModuleLoadCompletion
     /// synchronously loaded one always has.
     /// </summary>
     private readonly Realm _realm;
-    private readonly MemoryLimitConstraint.OperationState? _memoryState;
     private readonly ParsingConstraints _parsingConstraints;
 
     /// <summary>
@@ -87,9 +87,8 @@ public sealed class ModuleLoadCompletion
         _cacheKey = cacheKey;
         Resolved = resolved;
         Engine = modules.Engine;
-        _generation = Engine.EventLoopGeneration;
+        _registration = Engine.CaptureEventLoopRegistration();
         _realm = Engine.Realm;
-        _memoryState = Engine.CaptureMemoryLimitState();
         _parsingConstraints = Engine.GetActiveParsingConstraints();
         _cancellationToken = Engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
     }
@@ -233,13 +232,13 @@ public sealed class ModuleLoadCompletion
         // load on this very stack and a synchronous Import over such answers never touches the event loop.
         // The generation check keeps the restore fence airtight even for the pathological loader that
         // restores a snapshot from inside LoadModuleAsync before settling.
-        if (_inlineSettleThreadId == Environment.CurrentManagedThreadId && _generation == Engine.EventLoopGeneration)
+        if (_inlineSettleThreadId == Environment.CurrentManagedThreadId && _registration.Generation == Engine.EventLoopGeneration)
         {
             onEngineThread();
             return;
         }
 
-        Engine.EnqueueModuleLoadCompletion(onEngineThread, _generation, _memoryState);
+        Engine.EnqueueModuleLoadCompletion(onEngineThread, _registration);
     }
 
     private void Build(Func<Module> build)

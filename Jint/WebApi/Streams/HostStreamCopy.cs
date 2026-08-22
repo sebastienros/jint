@@ -158,12 +158,11 @@ internal sealed class HostStreamCopy : HostStreamBridge
             return;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             // Abandoned by a restore between the read and here.
             return;
         }
-        var registration = OperationRegistration;
 
         // Copied out of script-visible storage before the write can start; see HostWritableStreamSink.Write.
         var count = bytes.Length;
@@ -256,11 +255,10 @@ internal sealed class HostStreamCopy : HostStreamBridge
             return;
         }
 
-        if (!TryBeginOperation())
+        if (!TryBeginOperation(out var registration))
         {
             return;
         }
-        var registration = OperationRegistration;
 
         var task = FlushAndDisposeAsync();
 

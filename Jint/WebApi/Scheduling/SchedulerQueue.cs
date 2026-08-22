@@ -202,8 +202,10 @@ internal sealed class SchedulerQueue
 
         _pumpScheduled = true;
 
-        // The pump is shared by tasks from different operations, so it deliberately carries no operation's
-        // memory state. Each SchedulerTask switches to its own captured state around Run().
+        // The current generation: the job is registered and queued in one act, so there is no window in
+        // which the cycle could have ended in between. No memory state, though: one pump turn runs whichever
+        // task is next, and those come from different operations — RunNextTask switches to the task's own
+        // captured state around Run() instead.
         _engine.AddToEventLoop(
             _pumpJob ??= RunNextTask,
             _engine.EventLoopGeneration);

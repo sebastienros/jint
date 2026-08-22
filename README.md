@@ -2820,13 +2820,14 @@ var engine = new Engine(options => {
 
 `LimitMemory` measures managed bytes allocated while Jint actively executes one top-level operation. Promise
 reactions, `EvaluateAsync` / `InvokeAsync`, and asynchronous module loading keep the originating budget across
-thread hops. Finite web continuations such as fetch and stream completions, timers, idle callbacks and scheduler
-tasks do the same. Persistent external event sources — message ports, broadcast channels, sockets, event streams,
-host cancellation and finalization cleanup — start a fresh ordinary budget for each delivered task rather than
-accumulating forever against the operation that created the object. Synchronous host callbacks are included;
-allocations performed by background work before it hands a result back to Jint are not. The limit is not retained
-heap, unmanaged memory, or a process-wide quota, and initial source parsing happens before the execution
-constraint starts. Use an operating-system memory limit for a hard worker boundary.
+thread hops, and so do the finite web continuations: fetch and stream completions, `setTimeout`, idle callbacks
+and scheduler tasks. What does not is anything that fires for as long as the script leaves it running —
+`setInterval`, message ports, broadcast channels, sockets, event streams, host cancellation and finalization
+cleanup. Each of those deliveries starts a fresh ordinary budget, so a turn is still bounded but does not
+accumulate forever against the operation that created the object. Synchronous host callbacks are included;
+allocations performed by background work before it hands a result back to Jint are not. The limit is not
+retained heap, unmanaged memory, or a process-wide quota, and initial source parsing happens before the
+execution constraint starts. Use an operating-system memory limit for a hard worker boundary.
 
 Exceeding the limit ends that evaluation cycle's transient asynchronous work: queued jobs, pending loads,
 timers and scheduler/idle tasks are discarded, host-stream bridges are abandoned, and completions arriving
