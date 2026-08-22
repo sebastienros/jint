@@ -518,20 +518,37 @@ vendored resource and against every shape it declines.
 
 ## What the DOM events and abort corpora say about this engine
 
-62 assertions across twelve files, of which **two do not pass**, and both are `Event`'s legacy members:
+62 assertions across twelve files, of which **one does not pass**. Both of the two that used to fail were
+`Event`'s legacy members, and one is fixed:
 
-1. **`Event.isTrusted` is on the prototype, where WebIDL makes it an own property.**
+1. **`Event.isTrusted` was on the prototype, where WebIDL makes it an own property — fixed.**
    `dom/events/Event-isTrusted.any.js` takes `Object.getOwnPropertyDescriptor(new Event("x"), "isTrusted")`
    from two separate events and requires both to be an accessor and to be the *same* getter.
    [The DOM Standard](https://dom.spec.whatwg.org/#dom-event-istrusted) declares it
-   `[LegacyUnforgeable]`, which [WebIDL](https://webidl.spec.whatwg.org/#LegacyUnforgeable) defines as an own,
-   non-configurable accessor installed on every instance rather than on the interface prototype object.
-   `EventPrototype` declares it beside `type` and `bubbles` as an ordinary configurable prototype accessor.
+   `[LegacyUnforgeable]`, which [WebIDL](https://webidl.spec.whatwg.org/#LegacyUnforgeable) defines as
+   "non-configurable and … exist[ing] as an own property on the object itself rather than on its prototype",
+   with the attributes [§3.7.6](https://webidl.spec.whatwg.org/#es-attributes) gives it —
+   `{ [[Set]]: undefined, [[Enumerable]]: true, [[Configurable]]: false }` — and which the same section
+   *removes* from the interface prototype object's attribute set. `EventPrototype` declared it beside `type`
+   and `bubbles` as an ordinary configurable prototype accessor.
+
+   It is an own property of every event now, and it is **free**. `JsEvent.GetOwnProperty` answers it from the
+   realm's one shared descriptor and `GetInitialOwnStringPropertyKeys` lists the name ahead of anything script
+   adds — the shape `Function` uses for `length`/`name`/`prototype` and `JsError` for `message`. Measured on
+   `net10.0` with `GC.GetAllocatedBytesForCurrentThread`, over 20,000 iterations, before and after the change:
+   `new Event('x')` is **112 bytes** either way, and `new Event('x').isTrusted` is **112 bytes** either way.
+   That is worth stating precisely because the obvious implementation is not free: giving an event one stored
+   own property costs a `PropertyDictionary`, a list node and a descriptor, which the same probe measures at
+   **+184 bytes**, more than doubling an event — and the engine creates one per `dispatchEvent` and more
+   throughout the abort, message, worker and fetch paths. Two things did change for every event, both of them
+   the point: `Object.keys(new Event('x'))` is `["isTrusted"]` and `JSON.stringify(new Event('x'))` is
+   `{"isTrusted":false}`, which is what a browser answers.
 2. **`Event` has no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
-   [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement) as a `[LegacyUnforgeable]` alias of
-   `target`, [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue) as a writable alias of
-   "not `defaultPrevented`" whose setter runs *set the canceled flag* — so they are missing members rather than
-   a legacy extension nobody requires. The test that finds `returnValue` is
+   [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement), a plain `readonly attribute` whose
+   "getter steps are to return this's target", and
+   [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue), whose getter is "false if this's
+   canceled flag is set; otherwise true" and whose setter runs *set the canceled flag* — so they are missing
+   members rather than a legacy extension nobody requires. The test that finds `returnValue` is
    `AddEventListenerOptions-passive.any.js`'s "returnValue should be ignored if-and-only-if the passive option
    is true", which is also the only one of that file's five rows to fail;
    `dom/events/Event-constructors.any.js` finds both, but registers every test without a name, which is what

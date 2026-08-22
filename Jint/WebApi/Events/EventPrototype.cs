@@ -1,9 +1,11 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.WebApi.Events;
 
@@ -110,13 +112,64 @@ internal sealed partial class EventPrototype : Prototype
     private JsBoolean ComposedGet(JsValue thisObject) => JsBoolean.Create(Brand(thisObject).Composed);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-event-istrusted. <c>[LegacyUnforgeable]</c> in the IDL, which makes it
-    /// a non-configurable own accessor of the instance in a browser; it is an ordinary prototype accessor here,
-    /// so a script can shadow it. Nothing in the engine trusts the JavaScript-visible value — the flag the
-    /// dispatch algorithm reads is the CLR one.
+    /// The attribute getter for <c>isTrusted</c> — the one member of the interface that does <b>not</b> live
+    /// on this object. https://dom.spec.whatwg.org/#dom-event-istrusted declares it
+    /// <c>[LegacyUnforgeable]</c>, so https://webidl.spec.whatwg.org/#es-attributes removes it from the
+    /// prototype's attribute set ("Remove from <i>attributes</i> all the attributes that are unforgeable")
+    /// and installs it on every instance instead — see <see cref="JsEvent.GetOwnProperty"/>.
     /// </summary>
-    [JsAccessor("isTrusted", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsBoolean IsTrustedGet(JsValue thisObject) => JsBoolean.Create(Brand(thisObject).IsTrusted);
+    /// <remarks>
+    /// <para>
+    /// It is nevertheless created here, once per realm, because that is what an attribute getter is: one
+    /// function object for the interface rather than one per object that carries it.
+    /// <c>dom/events/Event-isTrusted.any.js</c> reads the descriptor off two separate events and requires the
+    /// same getter in both, and every event's descriptor is built from this one.
+    /// </para>
+    /// <para>
+    /// Realm-pinned rather than built against whichever realm happens to be running when the first event asks
+    /// for it, for the reason the internal <see cref="ClrFunction"/> constructor documents. Its <c>length</c>
+    /// is a configurable, non-writable, non-enumerable <c>0</c>, which is what every other member of this
+    /// prototype carries.
+    /// </para>
+    /// </remarks>
+    internal Function IsTrustedGetter =>
+        _isTrustedGetter ??= new ClrFunction(
+            _engine,
+            _realm,
+            "get isTrusted",
+            (thisObject, _) => JsBoolean.Create(Brand(thisObject).IsTrusted),
+            length: 0,
+            PropertyFlag.Configurable);
+
+    private ClrFunction? _isTrustedGetter;
+
+    /// <summary>
+    /// The descriptor every event's own <c>isTrusted</c> is answered with:
+    /// <c>{ [[Get]]: <see cref="IsTrustedGetter"/>, [[Set]]: undefined, [[Enumerable]]: true,
+    /// [[Configurable]]: false }</c>, per https://webidl.spec.whatwg.org/#es-attributes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One instance for the realm, shared by every event, so carrying the property costs an event nothing and
+    /// reading it allocates nothing either. An accessor descriptor is unwrapped by invoking its getter with
+    /// the <i>receiver</i>, so one descriptor answering for every event is exactly right.
+    /// </para>
+    /// <para>
+    /// Sharing is safe because the descriptor is non-configurable and has no setter, which puts it out of
+    /// reach of every mutating branch of <c>ObjectInstance.ValidateAndApplyPropertyDescriptor</c>
+    /// (https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor): an incoming <c>[[Value]]</c> or
+    /// <c>[[Writable]]</c> field makes that descriptor a data one and the data-versus-accessor mismatch is
+    /// refused before any write; a differing <c>[[Enumerable]]</c>, or a <c>[[Configurable]]</c> of
+    /// <see langword="true"/>, is refused for the same reason, so the only assignments that survive write back
+    /// the values already there; and a <c>[[Get]]</c>/<c>[[Set]]</c> field is applied to a <i>copy</i>. It is
+    /// the argument the engine already makes process-wide for
+    /// <c>PropertyDescriptor.AllForbiddenDescriptor</c>, which every function's <c>length</c> shares.
+    /// </para>
+    /// </remarks>
+    internal PropertyDescriptor IsTrustedDescriptor =>
+        _isTrustedDescriptor ??= new GetSetPropertyDescriptor(IsTrustedGetter, set: null, enumerable: true, configurable: false);
+
+    private GetSetPropertyDescriptor? _isTrustedDescriptor;
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-timestamp

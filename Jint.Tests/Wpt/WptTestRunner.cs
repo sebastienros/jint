@@ -979,14 +979,11 @@ public class WptTestRunner
         new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
 
         // ---------------------------------------------------------------- dom
-        // Event's two legacy members. `returnValue` is https://dom.spec.whatwg.org/#dom-event-returnvalue and
-        // `isTrusted` is [LegacyUnforgeable], so it must be an *own* property of every event rather than an
-        // accessor on the prototype. Both are defects rather than declines; Vendor/README.md analyses them,
-        // and Event-constructors.any.js is not vendored because its own two failures are the same pair and it
-        // registers every one of its tests without a name.
+        // Event's `returnValue`, https://dom.spec.whatwg.org/#dom-event-returnvalue — a defect rather than a
+        // decline; Vendor/README.md analyses it, and Event-constructors.any.js is not vendored because its own
+        // failures include it and it registers every one of its tests without a name.
         new("dom/events/AddEventListenerOptions-passive.any.js",
             "returnValue should be ignored if-and-only-if the passive option is true", WptDivergence.NeedsTriage),
-        new("dom/events/Event-isTrusted.any.js", "undefined", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- fetch
         // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"

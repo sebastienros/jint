@@ -160,10 +160,11 @@ public class EventTests
     {
         var engine = WebEngine();
 
-        // WebIDL attributes live on the interface prototype object, so the instance owns none of them.
-        engine.Evaluate("Object.getOwnPropertyNames(new Event('x')).length").AsNumber().Should().Be(0);
+        // A WebIDL attribute lives on the interface prototype object unless it is unforgeable, so the one own
+        // property an instance carries is `isTrusted`.
+        engine.Evaluate("Object.getOwnPropertyNames(new Event('x')).join(',')").AsString().Should().Be("isTrusted");
 
-        foreach (var name in new[] { "type", "target", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "isTrusted", "timeStamp" })
+        foreach (var name in new[] { "type", "target", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "timeStamp" })
         {
             var descriptor = $"Object.getOwnPropertyDescriptor(Event.prototype, '{name}')";
             engine.Evaluate($"typeof {descriptor}.get").AsString().Should().Be("function");
@@ -171,6 +172,117 @@ public class EventTests
             engine.Evaluate($"{descriptor}.enumerable").AsBoolean().Should().BeTrue();
             engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeTrue();
         }
+    }
+
+    /// <summary>
+    /// <c>[LegacyUnforgeable] readonly attribute boolean isTrusted</c>
+    /// (https://dom.spec.whatwg.org/#dom-event-istrusted). WebIDL
+    /// (https://webidl.spec.whatwg.org/#LegacyUnforgeable) makes such a member "non-configurable and …
+    /// exist as an own property on the object itself rather than on its prototype", and
+    /// https://webidl.spec.whatwg.org/#es-attributes gives it
+    /// <c>{ [[Enumerable]]: true, [[Configurable]]: false }</c>.
+    /// </summary>
+    [Fact]
+    public void IsTrustedIsAnUnforgeableOwnAccessorOfEveryInstance()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("Event.prototype.hasOwnProperty('isTrusted')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new Event('x').hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+
+        engine.Execute("var d = Object.getOwnPropertyDescriptor(new Event('x'), 'isTrusted');");
+        engine.Evaluate("typeof d.get").AsString().Should().Be("function");
+        engine.Evaluate("d.set").IsUndefined().Should().BeTrue();
+        engine.Evaluate("d.enumerable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("d.configurable").AsBoolean().Should().BeFalse();
+        engine.Evaluate("d.get.name").AsString().Should().Be("get isTrusted");
+        engine.Evaluate("d.get.length").AsNumber().Should().Be(0);
+
+        // One getter for the whole interface, not one per instance — which is what
+        // dom/events/Event-isTrusted.any.js asserts.
+        engine.Evaluate("""
+            Object.getOwnPropertyDescriptor(new Event('a'), 'isTrusted').get ===
+            Object.getOwnPropertyDescriptor(new Event('b'), 'isTrusted').get
+            """).AsBoolean().Should().BeTrue();
+
+        // Unforgeable: it cannot be redefined, shadowed or deleted.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { value: true })"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { get: function () { return true; } })"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.defineProperty(new Event('x'), 'isTrusted', { enumerable: false })"));
+        engine.Evaluate("delete new Event('x').isTrusted").AsBoolean().Should().BeFalse();
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; delete new Event('x').isTrusted"));
+
+        // A read-only accessor: an assignment is a no-op in sloppy mode and a TypeError in strict mode.
+        engine.Execute("var e = new Event('x'); e.isTrusted = true;");
+        engine.Evaluate("e.isTrusted").AsBoolean().Should().BeFalse();
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("'use strict'; new Event('x').isTrusted = true;"));
+
+        // The own property is enumerable, so it shows up in every script-visible enumeration.
+        engine.Evaluate("Object.keys(new Event('x')).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("JSON.stringify(new Event('x'))").AsString().Should().Be("""{"isTrusted":false}""");
+        engine.Evaluate("Object.keys({ ...new Event('x') }).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("'isTrusted' in new Event('x')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new Event('x').propertyIsEnumerable('isTrusted')").AsBoolean().Should().BeTrue();
+
+        // …on every event, whichever interface it came from, and however it was created.
+        engine.Evaluate("new CustomEvent('x').hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.keys(new CustomEvent('x')).join(',')").AsString().Should().Be("isTrusted");
+        engine.Evaluate("""
+            class MyEvent extends Event {}
+            Object.getOwnPropertyDescriptor(new MyEvent('x'), 'isTrusted').get ===
+            Object.getOwnPropertyDescriptor(new Event('x'), 'isTrusted').get
+            """).AsBoolean().Should().BeTrue();
+
+        // The getter still brand-checks its receiver.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("d.get.call({})"));
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("d.get.call(Event.prototype)"));
+    }
+
+    /// <summary>
+    /// An event's own <c>isTrusted</c> is the earliest of its own string keys, so a subclass field declared
+    /// in a JavaScript constructor comes after it — the ordering the interface's own creation implies.
+    /// </summary>
+    [Fact]
+    public void TheUnforgeableOwnPropertyComesBeforeAnythingScriptAdds()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            class MyEvent extends Event {
+                constructor(type) { super(type); this.extra = 1; }
+            }
+            var e = new MyEvent('x');
+            """);
+
+        engine.Evaluate("Object.getOwnPropertyNames(e).join(',')").AsString().Should().Be("isTrusted,extra");
+        engine.Evaluate("Object.keys(e).join(',')").AsString().Should().Be("isTrusted,extra");
+        engine.Evaluate("JSON.stringify(e)").AsString().Should().Be("""{"isTrusted":false,"extra":1}""");
+
+        // The added property is ordinary; the unforgeable one still refuses to move.
+        engine.Evaluate("delete e.extra").AsBoolean().Should().BeTrue();
+        engine.Evaluate("delete e.isTrusted").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Object.getOwnPropertyNames(e).join(',')").AsString().Should().Be("isTrusted");
+    }
+
+    /// <summary>
+    /// The engine's own events are trusted, which is the whole point of the attribute —
+    /// https://dom.spec.whatwg.org/#concept-event-fire.
+    /// </summary>
+    [Fact]
+    public void AnEngineFiredEventIsTrusted()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            var controller = new AbortController();
+            var seen = null;
+            controller.signal.addEventListener('abort', function (e) { seen = e; });
+            controller.abort();
+            """);
+
+        engine.Evaluate("seen.isTrusted").AsBoolean().Should().BeTrue();
+        engine.Evaluate("seen.hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getOwnPropertyDescriptor(seen, 'isTrusted').configurable").AsBoolean().Should().BeFalse();
     }
 
     [Fact]

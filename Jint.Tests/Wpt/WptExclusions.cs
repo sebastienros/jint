@@ -369,16 +369,13 @@ internal enum WptDivergence
     /// <c>ObjectInstance.IsArrayLike</c> where https://tc39.es/ecma262/#sec-array.prototype.values reads no
     /// <c>length</c> at all, the iterator's own step 1.b doing <i>LengthOfArrayLike</i> on each
     /// <c>next()</c>. Fixed under sebastienros/jint#3209, which is what the deleted entries now enforce.
-    /// <b>The hr-time, DOM, structured-clone and fetch corpora filed seven more</b>, of which the
-    /// <c>PerformanceMarkOptions</c> dictionary conversion is fixed under sebastienros/jint#3212 — the four
-    /// entries that used to be here now enforce it. <c>Vendor/README.md</c> analyses what is left, each with
-    /// its citation. In one line apiece:
+    /// <b>The hr-time, DOM, structured-clone and fetch corpora filed ten more</b>, of which the
+    /// <c>PerformanceMarkOptions</c> dictionary conversion and <c>Event.isTrusted</c>'s
+    /// <c>[LegacyUnforgeable]</c> shape are fixed under sebastienros/jint#3212 — the five entries that used to
+    /// be here now enforce them. <c>Vendor/README.md</c> analyses what is left, each with its citation. In one
+    /// line apiece:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>
-    /// <c>Event.isTrusted</c> is a prototype accessor where https://dom.spec.whatwg.org/#dom-event-istrusted
-    /// declares it <c>[LegacyUnforgeable]</c> — an own, non-configurable accessor on every instance.
-    /// </description></item>
     /// <item><description>
     /// <c>Event</c> has neither <c>srcElement</c> nor <c>returnValue</c>, both of which the DOM Standard's own
     /// interface declares.

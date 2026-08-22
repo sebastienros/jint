@@ -105,7 +105,9 @@ public class WebSocketEventTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("MessageEvent.prototype.data"))
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        engine.Evaluate("Object.getOwnPropertyNames(new CloseEvent('x')).length").AsNumber().Should().Be(0);
+        // …so the only own property either instance carries is the one WebIDL puts there: `Event`'s
+        // `[LegacyUnforgeable]` isTrusted — https://dom.spec.whatwg.org/#dom-event-istrusted.
+        engine.Evaluate("Object.getOwnPropertyNames(new CloseEvent('x')).join(',')").AsString().Should().Be("isTrusted");
     }
 
     /// <summary>
