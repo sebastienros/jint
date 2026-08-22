@@ -114,7 +114,7 @@ internal sealed partial class ReadableStreamAsyncIteratorPrototype : Prototype
     {
         if (iterator.IsFinished)
         {
-            return StreamPromises.ResolvedWith(_realm, IteratorResult.CreateValueIteratorPosition(_engine, Undefined, JsBoolean.True));
+            return StreamPromises.ResolvedWith(_engine, _realm, IteratorResult.CreateValueIteratorPosition(_engine, Undefined, JsBoolean.True));
         }
 
         var nextPromise = GetNextIterationResult(iterator);
@@ -203,7 +203,7 @@ internal sealed partial class ReadableStreamAsyncIteratorPrototype : Prototype
     {
         if (iterator.IsFinished)
         {
-            return StreamPromises.ResolvedWith(_realm, IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.True));
+            return StreamPromises.ResolvedWith(_engine, _realm, IteratorResult.CreateValueIteratorPosition(_engine, value, JsBoolean.True));
         }
 
         iterator.IsFinished = true;

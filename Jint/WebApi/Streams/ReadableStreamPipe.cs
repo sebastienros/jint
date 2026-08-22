@@ -318,7 +318,7 @@ internal sealed class ReadableStreamPipe
     {
         if (_shuttingDown)
         {
-            return StreamPromises.ResolvedWith(_realm, JsBoolean.True);
+            return StreamPromises.ResolvedWith(_engine, _realm, JsBoolean.True);
         }
 
         // The read waits for the destination to want more: this is where backpressure is enforced.

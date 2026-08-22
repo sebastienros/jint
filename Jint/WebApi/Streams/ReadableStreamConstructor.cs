@@ -213,7 +213,7 @@ internal sealed partial class ReadableStreamConstructor : Constructor
                 Throw.TypeError(_realm, "The iterator's next method did not return an object");
             }
 
-            return StreamPromises.ResolvedWith(_realm, nextResult);
+            return StreamPromises.ResolvedWith(_engine, _realm, nextResult);
         }
         catch (JavaScriptException e)
         {
@@ -245,7 +245,7 @@ internal sealed partial class ReadableStreamConstructor : Constructor
             return StreamPromises.RejectedWith(_engine, _realm, e.Error);
         }
 
-        var returnPromise = StreamPromises.ResolvedWith(_realm, returnResult);
+        var returnPromise = StreamPromises.ResolvedWith(_engine, _realm, returnResult);
 
         return StreamPromises.TransformPromiseWith(
             _engine,

@@ -518,7 +518,7 @@ internal static class ReadableStreamOperations
         // the start callback's return type is `any`, so an exception it raises is not converted to a
         // rejection and propagates out of the ReadableStream constructor.
         var startResult = startAlgorithm();
-        var startPromise = StreamPromises.ResolvedWith(realm, startResult);
+        var startPromise = StreamPromises.ResolvedWith(engine, realm, startResult);
 
         StreamPromises.UponPromise(
             engine,
