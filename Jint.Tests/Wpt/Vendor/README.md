@@ -214,8 +214,8 @@ prose where a browser answers `InvalidAccessError`.
 
 ## What the streams corpus says about this engine
 
-1,154 assertions across 65 files, of which **16 do not pass** — 98.6%, which is what one expects of an
-implementation written operation by operation against the standard, and also why the sixteen are worth naming
+1,154 assertions across 65 files, of which **11 do not pass** — 99.0%, which is what one expects of an
+implementation written operation by operation against the standard, and also why the eleven are worth naming
 individually. (Only the URL Pattern corpus below beats it, at 100%.)
 
 `transferable/transform-stream-members.any.js` is the newest of the 65 and all four of its assertions pass.
@@ -226,49 +226,72 @@ the list's other entry is reached that side is both locked and `[[Detached]]` �
 refusal fall out of the steps rather than needing a rule of its own. The file took 0.4 s at the pin,
 including the runner's start-up.
 
-Eleven are a decision already taken. Seven rows of `readable-streams/default-reader.any.js` reach for the
+All eleven are a decision already taken. Seven rows of `readable-streams/default-reader.any.js` reach for the
 `ReadableStreamDefaultReader` **global** (`NeedsStreamInterfaceGlobals`): only the five interfaces a script
 constructs by name are installed here, and the other 22 rows of that file obtain the same interface as
 `stream.getReader().constructor` and pass. Four are `readable-byte-streams/non-transferable-buffers.any.js`
 (`NeedsWebAssembly`), which needs a `WebAssembly.Memory` buffer because that is the only `ArrayBuffer` a
 script can obtain that cannot be transferred.
 
-**The other five are `NeedsTriage` — genuine defects, recorded rather than fixed**, because the change that
-first runs a suite must not also be the change that moves the engine. Each reproduces outside the harness.
+**Five more used to be `NeedsTriage`, and [#3195](https://github.com/sebastienros/jint/issues/3195) fixed all
+three defects behind them.** They are recorded here because two of the three turned out to be something other
+than the triage note predicted, and because the third changes an ordering that shipped.
 
-1. **The async iterator's methods are not enumerable.**
+1. **The async iterator's methods were not enumerable.**
    `readable-streams/async-iterator.any.js`, "Async iterator instances should have the correct list of
-   properties". `Object.getOwnPropertyDescriptor(Object.getPrototypeOf(rs.values()), 'next')` reports
-   `enumerable: false`, and so does `return`;
-   [WebIDL's asynchronous iterator prototype object](https://webidl.spec.whatwg.org/#js-asynchronous-iterator-prototype-object)
-   gives both `{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }`. `writable` and
-   `configurable` are already right, so this is one attribute on two `[JsFunction]` declarations in
-   `ReadableStreamAsyncIteratorPrototype`. The rest of that file's 40 rows pass.
+   properties".
+   [WebIDL's asynchronous iterator prototype object](https://webidl.spec.whatwg.org/#es-asynchronous-iterator-prototype-object)
+   gives `next` and `return` `{ [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true }`, and both
+   reported `enumerable: false`. The triage note called it "one attribute on two `[JsFunction]` declarations",
+   but no such attribute existed: `JsFunctionAttribute` had no `Flags` property at all, so no host could
+   express WebIDL's rule — while the generator's *parser* already read a `Flags` named argument, which nothing
+   could supply. The fix declares the property, defaulting to exactly the value the parser already applied for
+   the omitted case (`PropertyFlag.NonEnumerable`, ECMA-262's rule for a
+   [built-in function property](https://tc39.es/ecma262/#sec-ecmascript-standard-built-in-objects)), so it is
+   a per-declaration opt-in and not a change of default: across the 224 files the generator emits for the
+   `Jint` assembly, exactly two lines move, both in
+   `ReadableStreamAsyncIteratorPrototype`. The `@@toStringTag` on that object was already right — WebIDL
+   §3.7.10.2 gives an asynchronous iterator prototype object the class string
+   "*interface* AsyncIterator" — and so is `ReadableStream.prototype[@@asyncIterator]`, which is
+   non-enumerable because it is an interface member rather than an iterator-prototype method.
 
-2. **`readable.cancel()` on a `TransformStream` rejects where it must fulfil** — three rows, one defect seen
+2. **`readable.cancel()` on a `TransformStream` rejected where it must fulfil** — three rows, one defect seen
    from three angles: `transform-streams/errors.any.js`'s "abort should set the close reason for the writable
    when it happens before cancel during start, and cancel should reject" (through `writer.abort()`) and
    "controller.error() should close writable immediately after readable.cancel()" (through
    `controller.error()`), and `transform-streams/general.any.js`'s "terminate() should abort writable
-   immediately after readable.cancel()" (through `controller.terminate()`). In each, the promise
-   `ts.readable.cancel(…)` returned rejects with the writable side's stored error where every browser fulfils
-   it. `TransformStreamOperations.SourceCancelAlgorithm` is a faithful transcription of
-   [TransformStreamDefaultSourceCancelAlgorithm](https://streams.spec.whatwg.org/#transform-stream-default-source-cancel),
-   including its "if *writable*.[[state]] is `errored`, reject" branch — so what diverges is *when* that
-   branch looks: the writable has already finished erroring by the time the reaction on `cancelPromise` runs,
-   where the specification's microtask chain leaves it still `erroring` (its controller's `[[started]]` has
-   not flipped yet), which is the state that takes the "otherwise" path and resolves. The triage is therefore
-   about ordering in `WritableStreamOperations.StartErroring`/`FinishErroring` relative to the transform
-   stream's start promise, not about the cancel algorithm itself.
+   immediately after readable.cancel()" (through `controller.terminate()`).
+   `TransformStreamOperations.SourceCancelAlgorithm` was a faithful transcription of
+   [TransformStreamDefaultSourceCancelAlgorithm](https://streams.spec.whatwg.org/#transform-stream-default-source-cancel)
+   and stayed one, and `StartErroring`/`FinishErroring` were faithful too. What was wrong was the phrase they
+   all hang off. Every "let *p* be **a promise resolved with** *x*" in the Streams Standard links to
+   [WebIDL's operation](https://webidl.spec.whatwg.org/#a-promise-resolved-with), which is
+   `NewPromiseCapability(%Promise%)` followed by calling its resolve function — always a *new* promise, so a
+   thenable *x* is adopted through `NewPromiseResolveThenableJob` and costs two microtasks.
+   `StreamPromises.ResolvedWith` used `PromiseResolve(%Promise%, x)` instead, which hands back *x itself*
+   when *x* is already an ordinary promise. The reference implementation warns about precisely this in
+   `lib/helpers/webidl.js`: "Cannot use original Promise.resolve since that will return value itself
+   sometimes, unlike Web IDL."
+   A `TransformStream` hands both of its controllers the *same* start promise, so the short-circuit flipped
+   both `[[started]]` flags two microtasks early — early enough for `WritableStreamFinishErroring` to overtake
+   the reaction `TransformStreamDefaultSourceCancelAlgorithm` registers, which then read `"errored"` where the
+   standard leaves the writable `"erroring"`, taking the reject branch instead of the resolve one.
 
-3. **`pipeTo()` reaches the sink's `write` synchronously with an `enqueue()` on the source.**
+3. **`pipeTo()` reached the sink's `write` synchronously with an `enqueue()` on the source.**
    `piping/general-addition.any.js`, "enqueue() must not synchronously call write algorithm".
-   `ReadableStreamPipe` reads through a raw `ReadRequest` rather than through a promise, and a `ReadRequest`'s
-   *chunk steps* are run synchronously by `ReadableStreamFulfillReadRequest` — so the write is started on the
-   `enqueue()` call's own stack. [ReadableStreamPipeTo](https://streams.spec.whatwg.org/#readable-stream-pipe-to)
-   deliberately leaves the mechanism flexible ("the exact manner in which this happens is not observable to
-   author code"), which is precisely the property that fails here: it *is* observable. The other 228 rows of
-   the piping suite pass, so this is the shape of the read rather than the pipe's semantics.
+   `ReadableStreamPipe` reads through a raw `ReadRequest`, and a `ReadRequest`'s *chunk steps* are run
+   synchronously by `ReadableStreamFulfillReadRequest` — so the write was started on the `enqueue()` call's own
+   stack. [ReadableStreamPipeTo](https://streams.spec.whatwg.org/#readable-stream-pipe-to) leaves the mechanism
+   flexible because "the exact manner in which this happens is not observable to author code", which is exactly
+   the property a synchronous re-entry into author code destroys. The fix defers the *whole* of
+   `PipeReadRequest.ChunkSteps` by one microtask, the same `AddToEventLoop` shape the tee already uses. Not
+   less: deferring only the write would let the next step consult the writer's `ready` promise before the chunk
+   just read had been charged to the destination's queue, and backpressure is the one thing the standard says
+   must throttle the reads. Not more: "reads or writes should not be delayed for reasons other than these
+   backpressure signals". `_currentWrite` is therefore assigned a microtask later than the chunk arrives, which
+   `waitForWritesToFinish`'s existing re-check already covers — every shutdown that reaches it is itself a
+   promise reaction queued behind that microtask — and a writer the pipe has already released is guarded
+   against explicitly.
 
 `readable-streams/garbage-collection.any.js` and `writable-streams/garbage-collection.any.js` pass, and it is
 worth knowing why they can. They call `garbageCollect()` from `/common/gc.js`, whose fallback — reached in any
