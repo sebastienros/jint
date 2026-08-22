@@ -28,7 +28,8 @@ namespace Jint.WebApi.Events;
 /// <para>
 /// Deliberately absent, both marked legacy by the specification: <c>cancelBubble</c> and
 /// <c>initEvent()</c>/<c>initCustomEvent()</c>. <c>relatedTarget</c> and the touch target list belong to
-/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here.
+/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here. The other two legacy members,
+/// <c>srcElement</c> and <c>returnValue</c>, <i>are</i> implemented — see <see cref="EventPrototype"/>.
 /// </para>
 /// </remarks>
 internal class JsEvent : ObjectInstance

@@ -132,7 +132,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js` | A defect, and one that cannot be an exclusion — see [What the timers and microtask corpora say](#what-the-timers-and-microtask-corpora-say-about-this-engine). |
-| `dom/events/Event-constructors.any.js` | Registers fourteen of its fifteen tests **without a name**, so every one of them is reported under the same name and no per-test exclusion can single out the two that fail. Those two are Event's legacy `srcElement` and `returnValue` members; both are recorded as defects below, and `returnValue` also has an exclusion of its own in `AddEventListenerOptions-passive.any.js`, where the test that finds it *is* named. |
+| `dom/events/Event-constructors.any.js` | Registers fourteen of its fifteen tests **without a name**, so every one of them is reported under the same name and no per-test exclusion can single out the two that fail. Those two assert the whole initial state of a new event, and what they now fail on is `assert_true("initEvent" in ev)` — [`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent), the one legacy member of the interface still absent. The `srcElement` and `returnValue` they also assert are implemented; see below. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
 | `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
@@ -518,10 +518,10 @@ vendored resource and against every shape it declines.
 
 ## What the DOM events and abort corpora say about this engine
 
-62 assertions across twelve files, of which **one does not pass**. Both of the two that used to fail were
-`Event`'s legacy members, and one is fixed:
+62 assertions across twelve files, and **every one of them passes**. The two that used to fail were both
+`Event`'s legacy members, and both are fixed:
 
-1. **`Event.isTrusted` was on the prototype, where WebIDL makes it an own property — fixed.**
+1. **`Event.isTrusted` was on the prototype, where WebIDL makes it an own property.**
    `dom/events/Event-isTrusted.any.js` takes `Object.getOwnPropertyDescriptor(new Event("x"), "isTrusted")`
    from two separate events and requires both to be an accessor and to be the *same* getter.
    [The DOM Standard](https://dom.spec.whatwg.org/#dom-event-istrusted) declares it
@@ -543,16 +543,22 @@ vendored resource and against every shape it declines.
    throughout the abort, message, worker and fetch paths. Two things did change for every event, both of them
    the point: `Object.keys(new Event('x'))` is `["isTrusted"]` and `JSON.stringify(new Event('x'))` is
    `{"isTrusted":false}`, which is what a browser answers.
-2. **`Event` has no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
+2. **`Event` had no `srcElement` and no `returnValue`.** Both are in the DOM Standard's own interface —
    [`srcElement`](https://dom.spec.whatwg.org/#dom-event-srcelement), a plain `readonly attribute` whose
    "getter steps are to return this's target", and
    [`returnValue`](https://dom.spec.whatwg.org/#dom-event-returnvalue), whose getter is "false if this's
-   canceled flag is set; otherwise true" and whose setter runs *set the canceled flag* — so they are missing
-   members rather than a legacy extension nobody requires. The test that finds `returnValue` is
+   canceled flag is set; otherwise true" and whose setter runs *set the canceled flag* — so they were missing
+   members rather than a legacy extension nobody requires. `returnValue` in particular is not a property over
+   a field: its setter is `preventDefault()` under another name, so a non-cancelable event and a passive
+   listener both ignore it and assigning `true` can never clear a flag already set. The test that finds it is
    `AddEventListenerOptions-passive.any.js`'s "returnValue should be ignored if-and-only-if the passive option
-   is true", which is also the only one of that file's five rows to fail;
-   `dom/events/Event-constructors.any.js` finds both, but registers every test without a name, which is what
-   keeps it out of the corpus.
+   is true", which was the only one of that file's five rows to fail.
+
+The reading that `dom/events/Event-constructors.any.js` stays out of the corpus for these two members alone
+was **incomplete**, and the not-vendored table above now says so: each of its two unnamed failures also
+asserts `assert_true("initEvent" in ev)`, and
+[`initEvent()`](https://dom.spec.whatwg.org/#dom-event-initevent) is a third legacy member of the same
+interface, still absent.
 
 Everything else passes, including all sixteen rows of `dom/abort/event.any.js`, all fourteen of
 `AbortSignal.any()`'s composition and ordering rules, and `AbortSignal.timeout()` firing in registration order

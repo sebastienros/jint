@@ -242,12 +242,13 @@ public class WptTestRunner
         // ---------------------------------------------------------------- dom
         // Fourteen of its fifteen tests are registered without a name, so every one of them is reported under
         // the same name and no per-test exclusion can single out the two that fail — which is what puts this
-        // row here rather than in the exclusion table. The two are Event's legacy `srcElement` and
-        // `returnValue` members, which this engine does not have; both are recorded as defects in
-        // Vendor/README.md, and `returnValue` also has an exclusion of its own in
-        // AddEventListenerOptions-passive.any.js, where the test that finds it *is* named.
+        // row here rather than in the exclusion table. Those two assert the whole initial state of a new
+        // event, and the corpus's reading that they fail for `srcElement` and `returnValue` was incomplete:
+        // each also asserts `"initEvent" in ev`, and initEvent() — https://dom.spec.whatwg.org/#dom-event-initevent
+        // — is a third legacy member of the same interface. The other two are implemented now, so it is the
+        // only thing left keeping the file out. See Vendor/README.md.
         ("dom/events/Event-constructors.any.js",
-            "registers every test without a name, so its two failures cannot be named; see Vendor/README.md"),
+            "registers every test without a name, so its two initEvent failures cannot be named; see Vendor/README.md"),
 
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
@@ -977,13 +978,6 @@ public class WptTestRunner
         new("user-timing/case-sensitivity.any.js", "getEntriesByType values are case sensitive", WptDivergence.NeedsPerformanceObserver),
         new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
         new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
-
-        // ---------------------------------------------------------------- dom
-        // Event's `returnValue`, https://dom.spec.whatwg.org/#dom-event-returnvalue — a defect rather than a
-        // decline; Vendor/README.md analyses it, and Event-constructors.any.js is not vendored because its own
-        // failures include it and it registers every one of its tests without a name.
-        new("dom/events/AddEventListenerOptions-passive.any.js",
-            "returnValue should be ignored if-and-only-if the passive option is true", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- fetch
         // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"

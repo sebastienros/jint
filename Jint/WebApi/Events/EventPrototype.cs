@@ -76,6 +76,15 @@ internal sealed partial class EventPrototype : Prototype
     private JsValue TargetGet(JsValue thisObject) => Brand(thisObject).Target;
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-event-srcelement — "The <c>srcElement</c> getter steps are to return
+    /// this's target." A second name for the same value, marked <c>// legacy</c> in the IDL and normative
+    /// all the same; unlike <c>isTrusted</c> it carries no extended attribute, so it is an ordinary
+    /// configurable prototype accessor like the rest.
+    /// </summary>
+    [JsAccessor("srcElement", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsValue SrcElementGet(JsValue thisObject) => Brand(thisObject).Target;
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-currenttarget
     /// </summary>
     [JsAccessor("currentTarget", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
@@ -98,6 +107,36 @@ internal sealed partial class EventPrototype : Prototype
     /// </summary>
     [JsAccessor("cancelable", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsBoolean CancelableGet(JsValue thisObject) => JsBoolean.Create(Brand(thisObject).Cancelable);
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-event-returnvalue — "The <c>returnValue</c> getter steps are to
+    /// return false if this's canceled flag is set; otherwise true."
+    /// </summary>
+    [JsAccessor("returnValue", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsBoolean ReturnValueGet(JsValue thisObject) => JsBoolean.Create(!Brand(thisObject).CanceledFlag);
+
+    /// <summary>
+    /// The setter half: "set the canceled flag with this if the given value is false; otherwise do nothing".
+    /// </summary>
+    /// <remarks>
+    /// It is <i>set the canceled flag</i> (https://dom.spec.whatwg.org/#set-the-canceled-flag) and not a
+    /// write, so this is <c>preventDefault()</c> under another name: a non-cancelable event and a passive
+    /// listener both ignore it, and assigning <c>true</c> can never clear a flag already set. The IDL type is
+    /// <c>boolean</c>, so the assigned value goes through
+    /// https://webidl.spec.whatwg.org/#es-boolean — <i>ToBoolean</i> — rather than being refused, which is why
+    /// <c>e.returnValue = 0</c> cancels and <c>e.returnValue = 1</c> does not.
+    /// </remarks>
+    [JsAccessor("returnValue", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsValue ReturnValueSet(JsValue thisObject, JsValue value)
+    {
+        var ev = Brand(thisObject);
+        if (!TypeConverter.ToBoolean(value))
+        {
+            ev.SetCanceledFlag();
+        }
+
+        return Undefined;
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-defaultprevented

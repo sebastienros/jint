@@ -164,7 +164,7 @@ public class EventTests
         // property an instance carries is `isTrusted`.
         engine.Evaluate("Object.getOwnPropertyNames(new Event('x')).join(',')").AsString().Should().Be("isTrusted");
 
-        foreach (var name in new[] { "type", "target", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "timeStamp" })
+        foreach (var name in new[] { "type", "target", "srcElement", "currentTarget", "eventPhase", "bubbles", "cancelable", "defaultPrevented", "composed", "timeStamp" })
         {
             var descriptor = $"Object.getOwnPropertyDescriptor(Event.prototype, '{name}')";
             engine.Evaluate($"typeof {descriptor}.get").AsString().Should().Be("function");
@@ -172,6 +172,13 @@ public class EventTests
             engine.Evaluate($"{descriptor}.enumerable").AsBoolean().Should().BeTrue();
             engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeTrue();
         }
+
+        // `returnValue` is the one writable attribute of the interface, so it is an accessor pair.
+        var returnValue = "Object.getOwnPropertyDescriptor(Event.prototype, 'returnValue')";
+        engine.Evaluate($"typeof {returnValue}.get").AsString().Should().Be("function");
+        engine.Evaluate($"typeof {returnValue}.set").AsString().Should().Be("function");
+        engine.Evaluate($"{returnValue}.enumerable").AsBoolean().Should().BeTrue();
+        engine.Evaluate($"{returnValue}.configurable").AsBoolean().Should().BeTrue();
     }
 
     /// <summary>
@@ -283,6 +290,102 @@ public class EventTests
         engine.Evaluate("seen.isTrusted").AsBoolean().Should().BeTrue();
         engine.Evaluate("seen.hasOwnProperty('isTrusted')").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.getOwnPropertyDescriptor(seen, 'isTrusted').configurable").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// <c>readonly attribute EventTarget? srcElement</c>, whose "getter steps are to return this's target" —
+    /// https://dom.spec.whatwg.org/#dom-event-srcelement.
+    /// </summary>
+    [Fact]
+    public void SrcElementIsAnAliasOfTarget()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("new Event('x').srcElement").IsNull().Should().BeTrue();
+
+        engine.Execute("""
+            var target = new EventTarget();
+            var during = null;
+            var after = null;
+            target.addEventListener('x', function (e) { during = e.srcElement; });
+            var e = new Event('x');
+            target.dispatchEvent(e);
+            after = e.srcElement;
+            """);
+
+        engine.Evaluate("during === target").AsBoolean().Should().BeTrue();
+
+        // "target" is not unset when the dispatch ends, and srcElement follows it wherever it goes.
+        engine.Evaluate("after === e.target").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// <c>attribute boolean returnValue</c> — "The returnValue getter steps are to return false if this's
+    /// canceled flag is set; otherwise true. The returnValue setter steps are to set the canceled flag with
+    /// this if the given value is false; otherwise do nothing" —
+    /// https://dom.spec.whatwg.org/#dom-event-returnvalue.
+    /// </summary>
+    [Fact]
+    public void ReturnValueIsTheCanceledFlagInverted()
+    {
+        var engine = WebEngine();
+
+        engine.Evaluate("new Event('x').returnValue").AsBoolean().Should().BeTrue();
+
+        // The setter runs "set the canceled flag", which a non-cancelable event ignores — exactly as
+        // preventDefault() does.
+        engine.Execute("var plain = new Event('x'); plain.returnValue = false;");
+        engine.Evaluate("plain.returnValue").AsBoolean().Should().BeTrue();
+        engine.Evaluate("plain.defaultPrevented").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var cancelable = new Event('x', { cancelable: true }); cancelable.returnValue = false;");
+        engine.Evaluate("cancelable.returnValue").AsBoolean().Should().BeFalse();
+        engine.Evaluate("cancelable.defaultPrevented").AsBoolean().Should().BeTrue();
+
+        // "otherwise do nothing" — assigning true never clears a flag that is already set.
+        engine.Execute("cancelable.returnValue = true;");
+        engine.Evaluate("cancelable.returnValue").AsBoolean().Should().BeFalse();
+
+        // The IDL type is `boolean`, so the assigned value goes through ToBoolean rather than being rejected.
+        engine.Execute("var zero = new Event('x', { cancelable: true }); zero.returnValue = 0;");
+        engine.Evaluate("zero.defaultPrevented").AsBoolean().Should().BeTrue();
+        engine.Execute("var one = new Event('x', { cancelable: true }); one.returnValue = 1;");
+        engine.Evaluate("one.defaultPrevented").AsBoolean().Should().BeFalse();
+
+        // preventDefault() and the setter are the same algorithm seen from two sides.
+        engine.Execute("var prevented = new Event('x', { cancelable: true }); prevented.preventDefault();");
+        engine.Evaluate("prevented.returnValue").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// "Set the canceled flag" is gated on the in-passive-listener flag as well as on <c>cancelable</c>
+    /// (https://dom.spec.whatwg.org/#set-the-canceled-flag), so a passive listener's <c>returnValue = false</c>
+    /// is ignored just as its <c>preventDefault()</c> is — which is what
+    /// <c>dom/events/AddEventListenerOptions-passive.any.js</c> asserts.
+    /// </summary>
+    [Fact]
+    public void ReturnValueIsIgnoredInsideAPassiveListener()
+    {
+        var engine = WebEngine();
+
+        engine.Execute("""
+            function run(options) {
+                var target = new EventTarget();
+                var prevented;
+                var handler = function (e) { e.returnValue = false; prevented = e.defaultPrevented; };
+                target.addEventListener('x', handler, options);
+                var uncanceled = target.dispatchEvent(new Event('x', { bubbles: true, cancelable: true }));
+                target.removeEventListener('x', handler, options);
+                return prevented + '/' + uncanceled;
+            }
+            """);
+
+        engine.Evaluate("run(undefined)").AsString().Should().Be("true/false");
+        engine.Evaluate("run({})").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: false })").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: true })").AsString().Should().Be("false/true");
+        engine.Evaluate("run({ passive: 0 })").AsString().Should().Be("true/false");
+        engine.Evaluate("run({ passive: 1 })").AsString().Should().Be("false/true");
     }
 
     [Fact]
