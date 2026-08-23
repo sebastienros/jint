@@ -907,6 +907,168 @@ public class GlobalSnapshotTests
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Lazy globals: a restore reverts the descriptor, never the factory's own memo
+    // ---------------------------------------------------------------------------------------------
+    //
+    // The three tests below are one rule seen from three sides, and it is the rule a host has to apply to
+    // its own globals as well as read about ours. A restore returns an unmaterialized lazy descriptor to
+    // the "not resolved yet" state it was captured in, and the next read therefore runs the factory AGAIN.
+    // Whether that produces a fresh object is decided entirely by the factory — not by the restore, which
+    // has no idea what the factory does. A factory that constructs gives the next cycle a new object; a
+    // factory that hands back something it is holding gives the next cycle exactly what the previous one
+    // mutated. Every global Jint installs itself — the 58 ECMAScript ones and every web API — is the second
+    // kind, because its factory is a read of the realm's memoized intrinsic.
+
+    /// <summary>
+    /// Honesty pin, and the one a host is most likely to get wrong about its own globals. The factory runs
+    /// a second time after the restore, but it answers with the object it kept — so the next cycle sees the
+    /// previous cycle's mutations. This is the shape every in-box lazy global has.
+    /// </summary>
+    [Fact]
+    public void ALazyGlobalWhoseFactoryMemoizesHandsBackTheSameObjectAfterRestore()
+    {
+        var runs = 0;
+        ObjectInstance? memo = null;
+        var engine = new Engine(options => options.AddLazyGlobal(
+            "host",
+            e =>
+            {
+                runs++;
+                return memo ??= new JsObject(e);
+            }));
+
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var before = engine.Evaluate("host");
+        engine.Evaluate("host.scribble = 1;");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        var after = engine.Evaluate("host");
+
+        // The descriptor really was reverted: the factory was asked a second time.
+        runs.Should().Be(2);
+
+        // ... and answered with the same object, mutation and all.
+        after.Should().BeSameAs(before);
+        engine.Evaluate("host.scribble").AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// The other side of the same rule: a factory that builds rather than remembers does give the next
+    /// cycle a genuinely fresh object. Jint's own <c>process</c> shim is the one in-box global of this
+    /// shape; everything else memoizes.
+    /// </summary>
+    [Fact]
+    public void ALazyGlobalWhoseFactoryConstructsHandsBackAFreshObjectAfterRestore()
+    {
+        var runs = 0;
+        var engine = new Engine(options => options.AddLazyGlobal(
+            "host",
+            e =>
+            {
+                runs++;
+                return new JsObject(e);
+            }));
+
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var before = engine.Evaluate("host");
+        engine.Evaluate("host.scribble = 1;");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        var after = engine.Evaluate("host");
+
+        runs.Should().Be(2);
+        after.Should().NotBeSameAs(before);
+        engine.Evaluate("typeof host.scribble").AsString().Should().Be("undefined");
+    }
+
+    /// <summary>
+    /// And the freshness above is only available while the snapshot was captured <em>before</em> the global
+    /// was first read. Capture it afterwards and the captured descriptor already holds the object, so the
+    /// restore reinstates that object rather than the unmaterialized state — the factory is never asked
+    /// again, whatever it would have answered. Which is why the documented recipe is to capture after host
+    /// configuration and before evaluating anything.
+    /// </summary>
+    [Fact]
+    public void ALazyGlobalCapturedAfterItsFirstReadIsReinstatedRatherThanRebuilt()
+    {
+        var runs = 0;
+        var engine = new Engine(options => options.AddLazyGlobal(
+            "host",
+            e =>
+            {
+                runs++;
+                return new JsObject(e);
+            }));
+
+        var before = engine.Evaluate("host");
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        engine.Evaluate("host.scribble = 1;");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        var after = engine.Evaluate("host");
+
+        runs.Should().Be(1);
+        after.Should().BeSameAs(before);
+        engine.Evaluate("host.scribble").AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// Honesty pin for the in-box half of that rule, on the plainest engine there is. <c>Math</c> is a
+    /// namespace object reached through a lazy global whose factory is a read of the realm's memoized
+    /// intrinsic — structurally the same global as <c>console</c>, and the reason the answer for the web
+    /// APIs cannot be different from the answer here without the engine contradicting itself.
+    /// </summary>
+    [Fact]
+    public void AnIntrinsicNamespaceObjectIsTheSameObjectAfterRestoreAndKeepsWhatWasWrittenOnIt()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var before = engine.Evaluate("Math");
+        engine.Evaluate("Math.scribble = 1; JSON.scribble = 2;");
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+        var after = engine.Evaluate("Math");
+
+        after.Should().BeSameAs(before);
+        engine.Evaluate("Math.scribble").AsNumber().Should().Be(1);
+        engine.Evaluate("JSON.scribble").AsNumber().Should().Be(2);
+    }
+
+    /// <summary>
+    /// The other half of "where does the value live", and the case that makes the rule not simply "nothing
+    /// is rebuilt". The global object's own built-in function slots — <c>decodeURI</c> and its eight
+    /// siblings — hold their function object in the slot and nowhere else, so returning the slot to
+    /// unmaterialized really does mean the next read builds a new function. A host that kept a reference
+    /// across the restore is holding a detached one, and a mutation the previous cycle made is gone.
+    /// </summary>
+    /// <remarks>
+    /// Contrast <c>parseInt</c> and <c>parseFloat</c>, which look like the same kind of global and are not:
+    /// they are the very function objects <c>Number.parseInt</c> and <c>Number.parseFloat</c> are, so they
+    /// live on the realm and come back unchanged. Asserting both here is the point — the difference is not
+    /// about laziness, it is about whether anything but the slot is holding the value.
+    /// </remarks>
+    [Fact]
+    public void ABuiltInFunctionSlotOnTheGlobalObjectIsRebuiltByARestore()
+    {
+        var engine = new Engine();
+        var snapshot = engine.Advanced.CaptureGlobalSnapshot();
+
+        var decodeBefore = engine.Evaluate("decodeURI");
+        var parseIntBefore = engine.Evaluate("parseInt");
+        engine.Evaluate("decodeURI.scribble = 1; parseInt.scribble = 1;");
+
+        engine.Advanced.RestoreGlobalSnapshot(snapshot);
+
+        engine.Evaluate("decodeURI").Should().NotBeSameAs(decodeBefore);
+        engine.Evaluate("typeof decodeURI.scribble").AsString().Should().Be("undefined");
+        engine.Evaluate("decodeURI('%41')").AsString().Should().Be("A");
+
+        engine.Evaluate("parseInt").Should().BeSameAs(parseIntBefore);
+        engine.Evaluate("parseInt.scribble").AsNumber().Should().Be(1);
+        engine.Evaluate("parseInt === Number.parseInt").AsBoolean().Should().BeTrue();
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // The point of the feature: host configuration is what survives
     // ---------------------------------------------------------------------------------------------
 

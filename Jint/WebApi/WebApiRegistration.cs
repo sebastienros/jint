@@ -22,9 +22,27 @@ namespace Jint.WebApi;
 /// Each global is a <see cref="LazyPropertyDescriptor{T}"/> installed through
 /// <c>GlobalObject.SetProperty</c>, which is what <c>Options.AddLazyGlobal</c> does and for the same two
 /// reasons: <c>SetProperty</c> bumps the own-property version every global-identifier and member-read inline
-/// cache revalidates against, and a lazy descriptor is what
-/// <c>Engine.Advanced.RestoreGlobalSnapshot</c> can return to its unmaterialized state so a pooled engine
-/// rebuilds the object for the next cycle rather than inheriting the previous one's.
+/// cache revalidates against, and a lazy descriptor is what <c>Engine.Advanced.RestoreGlobalSnapshot</c> can
+/// return to its unmaterialized state, so an engine whose script never named the global has still built
+/// nothing and a restore puts it back to having built nothing.
+/// </para>
+/// <para>
+/// <b>That is not the same as rebuilding the object, and this file used to say it was.</b> A restore reverts
+/// the <i>descriptor</i>; the next read therefore runs the value factory a second time — but every factory
+/// here is <c>e =&gt; e.Realm.Intrinsics.Something</c>, and those intrinsics memoize per realm, so the second
+/// run hands back the object the previous cycle had, monkey-patches and all. It is exactly what
+/// <c>globalThis.Math</c> and <c>globalThis.JSON</c> do, and for exactly the same reason: they are installed
+/// by the same emitted lazy descriptor over the same memo (see <c>GlobalObject.Properties.cs</c>). Reverting
+/// them would mean re-creating the realm, which is <c>new Engine</c> — and would not even isolate, since a
+/// singleton's methods live on an interface prototype that is a separate intrinsic and would survive
+/// regardless. <c>RestoreGlobalSnapshot</c> is honest about this: object graphs behind restored bindings are
+/// on its documented list of things it does not revert, and a web-API singleton is one of them.
+/// </para>
+/// <para>
+/// The rule for a host reading this and installing globals of its own: <b>a restore reverts a descriptor,
+/// never whatever that descriptor's factory reads from.</b> A factory that constructs gives the next cycle a
+/// fresh object — Jint's own <c>process</c> shim is the one built-in global of that shape. A factory that
+/// hands back something it is holding gives the next cycle what the previous one mutated.
 /// </para>
 /// <para>
 /// Nothing here touches anything but the principal realm's global object, so a <c>ShadowRealm</c> never

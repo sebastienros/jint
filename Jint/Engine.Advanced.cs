@@ -498,9 +498,14 @@ public partial class Engine
         /// The property is installed eagerly, so existence checks and enumeration — <c>in</c>,
         /// <c>hasOwnProperty</c>, <c>Object.keys(globalThis)</c>, <c>Object.getOwnPropertyNames</c> — see it
         /// immediately without materializing anything. Only its value is left unresolved:
-        /// <paramref name="valueFactory"/> runs at most once, on the first read of that value, and the
-        /// produced value is stored in the descriptor so subsequent reads are ordinary property reads.
-        /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type.
+        /// <paramref name="valueFactory"/> runs on the first read of that value, and the produced value is
+        /// stored in the descriptor so subsequent reads are ordinary property reads.
+        /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type. Once per
+        /// engine, then — with the single exception of
+        /// <see cref="RestoreGlobalSnapshot"/>, which returns an unread global to its unmaterialized state
+        /// on purpose, so the factory runs again on the next read. What that second run produces is the
+        /// factory's business and not the restore's: one that constructs gives the next cycle a fresh value,
+        /// one that hands back something it is holding gives the next cycle what the previous one mutated.
         /// </para>
         /// <para>
         /// A script that <b>deletes</b> the global before ever reading it (<c>delete globalThis.name</c>,
@@ -618,7 +623,8 @@ public partial class Engine
         /// <param name="name">The global property name.</param>
         /// <param name="state">Passed to <paramref name="valueFactory"/> unchanged when it runs.</param>
         /// <param name="valueFactory">
-        /// Produces the value, given this engine and <paramref name="state"/>. Invoked lazily, at most once. A
+        /// Produces the value, given this engine and <paramref name="state"/>. Invoked lazily, once per
+        /// materialization — so once, unless <see cref="RestoreGlobalSnapshot"/> re-arms the global. A
         /// <see langword="null"/> return is replaced by <see cref="JsValue.Undefined"/>.
         /// </param>
         /// <param name="flags">Property attributes; see the non-generic overload.</param>

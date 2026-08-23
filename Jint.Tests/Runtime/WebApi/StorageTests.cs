@@ -530,12 +530,16 @@ public class StorageTests
         var engine = StorageEngine();
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
+        var before = engine.Evaluate("localStorage");
         engine.Execute("localStorage.setItem('written', 'in the first cycle'); var x = 1;");
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        // The binding is back to its unmaterialized lazy descriptor, so the object is rebuilt — but the map
-        // behind it is host state, which a restore deliberately does not revert (like the module registry).
+        // The binding is back to its unmaterialized lazy descriptor, so the next read runs the factory
+        // again — and the factory reads the realm's memoized intrinsic, so it hands back the same object.
+        // Two independent reasons the contents survive, then: the object is not rebuilt, and the map behind
+        // it is host state a restore deliberately does not revert (like the module registry).
         engine.Evaluate("typeof x").AsString().Should().Be("undefined");
+        engine.Evaluate("localStorage").Should().BeSameAs(before);
         engine.Evaluate("localStorage.getItem('written')").AsString().Should().Be("in the first cycle");
     }
 

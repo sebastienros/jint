@@ -134,6 +134,21 @@ public partial class Engine
         /// is returned to that state, so its factory runs again on the next access.
         /// </para>
         /// <para>
+        /// <b>Running the factory again is not the same as getting a new value, and the difference is the
+        /// factory's, not this method's.</b> A restore reverts the descriptor; it cannot revert whatever the
+        /// factory reads from, and does not try. So a factory that <em>constructs</em> gives the next cycle
+        /// a fresh object — Jint's own <c>process</c> shim, and the global object's built-in function slots
+        /// (<c>decodeURI</c> and its eight siblings), are the built-in globals of that shape. A factory that
+        /// hands back something it is <em>holding</em> gives the next cycle exactly what the previous one
+        /// mutated. Every global Jint installs apart from those is the second kind: the 58 ECMAScript ones
+        /// and every opt-in web API are lazy descriptors in front of a realm intrinsic that memoizes, so
+        /// <c>Math</c>, <c>JSON</c>, <c>console</c>, <c>crypto</c>, <c>performance</c>, <c>caches</c>,
+        /// <c>localStorage</c>, <c>navigator</c> and <c>scheduler</c> all come back carrying whatever the
+        /// previous cycle wrote on them. That is the "object graphs reachable from restored bindings" clause
+        /// above, seen from the far end, and a host installing lazy globals of its own inherits the same
+        /// rule: freshness is something its factory has to provide.
+        /// </para>
+        /// <para>
         /// <b>What the event-loop fence does and does not cover.</b> It covers everything that reaches the
         /// engine through a promise: a fire-and-forget async function suspended on a host
         /// <see cref="System.Threading.Tasks.Task"/> never resumes after a restore, and a
