@@ -71,9 +71,11 @@ namespace Jint
         public Jint.Engine SetValue(string name, bool value) { }
         public Jint.Engine SetValue(string name, double value) { }
         public Jint.Engine SetValue(string name, int value) { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"The runtime type of obj is not known at the call site, so the members Jint resolves by reflection cannot be preserved by the trimmer, and a removed one reads as undefined rather than as an error. Prefer SetValue<T>(string, T), whose type parameter carries [DynamicallyAccessedMembers]; pass an already-built JsValue; or root the type yourself.")]
         public Jint.Engine SetValue(string name, object? obj) { }
         public Jint.Engine SetValue(string name, string? value) { }
         public Jint.Engine SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name, T? obj) { }
+        public Jint.Engine SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name, T[]? obj) { }
         public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(string code, string? source = null, Jint.ModulePreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
         public class AdvancedOperations
@@ -513,6 +515,7 @@ namespace Jint
     }
     public static class OptionsExtensions
     {
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"Extension methods are discovered by reflecting over the supplied types' public methods, which trimming can remove - and a removed one fails as 'not a function' rather than as an error. The parameter cannot carry DynamicallyAccessedMembers because it is an array, so root the declaring types yourself: <TrimmerRootAssembly Include=""YourAssembly"" /> or a [DynamicDependency] on each registered type.")]
         public static Jint.Options AddExtensionMethods(this Jint.Options options, params System.Type[] types) { }
         public static Jint.Options AddImmutableCrossing(this Jint.Options options, params System.Type[] types) { }
         public static Jint.Options AddLazyGlobal(this Jint.Options options, string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
@@ -520,7 +523,9 @@ namespace Jint
         public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.IObjectConverter objectConverter, params System.Type[] handledTypes) { }
         public static Jint.Options AddObjectConverter<T>(this Jint.Options options)
             where T : Jint.Runtime.Interop.IObjectConverter, new () { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=""YourAssembly"" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.")]
         public static Jint.Options AllowClr(this Jint.Options options) { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=""YourAssembly"" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.")]
         public static Jint.Options AllowClr(this Jint.Options options, params System.Reflection.Assembly[] assemblies) { }
         public static Jint.Options AllowClrWrite(this Jint.Options options, bool allow = true) { }
         public static Jint.Options AllowOperatorOverloading(this Jint.Options options, bool allow = true) { }
@@ -2312,6 +2317,7 @@ namespace Jint.Runtime.Interop
         public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
         protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override object ToObject() { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
         public static Jint.Native.Object.ObjectInstance Create(Jint.Engine engine, object target, System.Type? type = null) { }
         public static Jint.Runtime.Descriptors.PropertyDescriptor GetPropertyDescriptor(Jint.Engine engine, object target, System.Reflection.MemberInfo member) { }
     }

@@ -1832,6 +1832,13 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Registers an object value as variable, creates an interop wrapper when needed.
     /// </summary>
+    /// <remarks>
+    /// This overload binds only where the argument's static type is <see cref="object"/> — a typed
+    /// variable picks <see cref="SetValue{T}(string, T)"/>, whose type parameter carries
+    /// <c>[DynamicallyAccessedMembers]</c> and therefore preserves what Jint reflects over. Here there is
+    /// no type to annotate, which is the whole of the difference.
+    /// </remarks>
+    [RequiresUnreferencedCode("The runtime type of obj is not known at the call site, so the members Jint resolves by reflection cannot be preserved by the trimmer, and a removed one reads as undefined rather than as an error. Prefer SetValue<T>(string, T), whose type parameter carries [DynamicallyAccessedMembers]; pass an already-built JsValue; or root the type yourself.")]
     public Engine SetValue(string name, object? obj)
     {
         using var ownership = EnterHostCall();
@@ -1862,6 +1869,34 @@ public sealed partial class Engine : IDisposable
         return obj is Type t
             ? SetValue(name, t)
             : SetValue(name, JsValue.FromObject(this, obj));
+    }
+
+    /// <summary>
+    /// Registers an array as variable, creates an interop wrapper when needed. Behaves exactly like
+    /// <see cref="SetValue{T}(string, T)"/>; it exists so that the annotation lands on the
+    /// <em>element</em> type.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// C# picks this over <see cref="SetValue{T}(string, T)"/> for any array argument, because a parameter
+    /// of type <c>T[]</c> is more specific than one of type <c>T</c>. Nothing about what the engine does
+    /// changes — both bodies are the same call — so this is purely about what a trimmer is told.
+    /// </para>
+    /// <para>
+    /// What it fixes is that <c>SetValue("items", companies)</c> used to infer <c>T = Company[]</c>, and
+    /// <c>[DynamicallyAccessedMembers]</c> on an array type preserves the public members of
+    /// <see cref="Array"/> — never <c>Company</c>'s. So the one thing script actually reaches,
+    /// <c>items[0].name</c>, was the one thing not preserved. Inferring <c>T = Company</c> annotates the
+    /// type whose members are resolved. It also spares an embedder four <c>IL3050</c> diagnostics per
+    /// registration: preserving all public methods of an array type reaches
+    /// <see cref="Array.CreateInstance(Type, int)"/> and its overloads, which are
+    /// <c>[RequiresDynamicCode]</c> and have nothing to do with reading elements.
+    /// </para>
+    /// </remarks>
+    public Engine SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T[]? obj)
+    {
+        using var ownership = EnterHostCall();
+        return SetValue(name, JsValue.FromObject(this, obj));
     }
 
     internal void LeaveExecutionContext()

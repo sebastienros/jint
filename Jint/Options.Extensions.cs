@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -18,6 +19,12 @@ namespace Jint;
 /// </summary>
 public static class OptionsExtensions
 {
+    /// <summary>
+    /// Shared by both <c>AllowClr</c> overloads, so the two cannot drift.
+    /// </summary>
+    private const string AllowClrRequiresUnreferencedCodeMessage =
+        "AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=\"YourAssembly\" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.";
+
     /// <summary>
     /// Configures the engine to run untrusted JavaScript with a hardened static surface and explicit,
     /// request-appropriate resource limits.
@@ -380,6 +387,19 @@ public static class OptionsExtensions
         return options;
     }
 
+    /// <summary>
+    /// Registers types whose public static methods are offered to script as extension methods on their
+    /// first parameter's type.
+    /// </summary>
+    /// <remarks>
+    /// The types are scanned by reflection, and the parameter cannot say so to the trimmer:
+    /// <c>[DynamicallyAccessedMembers]</c> is only honoured on a <see cref="Type"/> or a
+    /// <see cref="string"/>, never on an array of them. So a trimmed build keeps this array's
+    /// <em>types</em> and can still drop the very methods being registered — and a dropped one is not an
+    /// error, it is <c>company.shout is not a function</c> with no diagnostic anywhere. Root the declaring
+    /// types when trimming.
+    /// </remarks>
+    [RequiresUnreferencedCode("Extension methods are discovered by reflecting over the supplied types' public methods, which trimming can remove - and a removed one fails as 'not a function' rather than as an error. The parameter cannot carry DynamicallyAccessedMembers because it is an array, so root the declaring types yourself: <TrimmerRootAssembly Include=\"YourAssembly\" /> or a [DynamicDependency] on each registered type.")]
     public static Options AddExtensionMethods(this Options options, params Type[] types)
     {
         options.Interop.ExtensionMethodTypes.AddRange(types);
@@ -438,6 +458,12 @@ public static class OptionsExtensions
     /// Allows scripts to resolve CLR types from the core assembly containing <see cref="object"/> through
     /// <c>System</c> and <c>importNamespace</c>.
     /// </summary>
+    /// <remarks>
+    /// Script names the types it wants as strings, so nothing in the host statically references what this
+    /// exposes and a trimmed build is free to remove all of it. Native AOT is a different question and a
+    /// milder one — most of what CLR interop does works there; see <c>docs/v5-migration.md</c>.
+    /// </remarks>
+    [RequiresUnreferencedCode(AllowClrRequiresUnreferencedCodeMessage)]
     public static Options AllowClr(this Options options)
     {
         options.Interop.Enabled = true;
@@ -455,6 +481,7 @@ public static class OptionsExtensions
     /// The supplied assemblies are a closed namespace-resolution allow-list. They do not restrict CLR objects,
     /// delegates, or <see cref="TypeReference"/> values explicitly exported by the host.
     /// </remarks>
+    [RequiresUnreferencedCode(AllowClrRequiresUnreferencedCodeMessage)]
     public static Options AllowClr(this Options options, params Assembly[] assemblies)
     {
         options.Interop.Enabled = true;

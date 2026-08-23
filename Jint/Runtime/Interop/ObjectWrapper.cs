@@ -138,6 +138,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <summary>
     /// Creates a new object wrapper for given object instance and exposed type.
     /// </summary>
+    /// <remarks>
+    /// Everything this projects is resolved from <paramref name="target"/>'s runtime type by reflection.
+    /// Neither parameter can say so to the trimmer — <c>object</c> cannot carry
+    /// <c>[DynamicallyAccessedMembers]</c> at all, and the optional <c>type</c> is a hint about which type
+    /// to expose rather than a promise that its members survive.
+    /// </remarks>
+    [RequiresUnreferencedCode("Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
     public static ObjectInstance Create(Engine engine, object target, Type? type = null)
     {
         if (target == null)

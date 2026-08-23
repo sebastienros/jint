@@ -30,6 +30,16 @@
       UnconditionalSuppressMessage, which ILC does honour.
     -->
     <NoWarn>$(NoWarn);IL3000</NoWarn>
+
+    <!--
+      Jint's reflection-dependent entry points carry [RequiresUnreferencedCode], so AllowClr and
+      AddExtensionMethods raise IL2026 at every call below - which is the point of annotating them, and
+      is what an embedder now sees at their own call site rather than at run time. This project meets
+      the requirement in the way those messages name: it roots both assemblies with
+      TrimmerRootAssembly. The analyzer cannot see an MSBuild item, so it goes on asking; suppressing
+      it here is the acknowledgement, and the native run below is what actually checks the answer.
+    -->
+    <NoWarn>$(NoWarn);IL2026</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

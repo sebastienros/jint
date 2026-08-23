@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Runtime.Interop;
@@ -34,6 +35,7 @@ internal sealed class ClrHelper
     /// <summary>
     /// Cast `obj as ISomeInterface` to `obj`
     /// </summary>
+    [RequiresUnreferencedCode("Re-projects the target on its own runtime type, whose members are resolved by reflection. Reachable only from script, on an engine whose host enabled CLR interop.")]
 #pragma warning disable CA1822
     public JsValue Unwrap(ObjectWrapper obj)
 #pragma warning restore CA1822
@@ -46,6 +48,7 @@ internal sealed class ClrHelper
     /// <summary>
     /// Cast `obj` to `obj as ISomeInterface`
     /// </summary>
+    [RequiresUnreferencedCode("Re-projects the target on a script-chosen interface, whose members are resolved by reflection. Reachable only from script, on an engine whose host enabled CLR interop.")]
 #pragma warning disable CA1822
     public JsValue Wrap(ObjectWrapper obj, TypeReference type)
 #pragma warning restore CA1822

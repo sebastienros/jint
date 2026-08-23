@@ -57,6 +57,10 @@ Probe("member, field, indexer and method access", static () =>
     Expect("Hello Mary!", engine.Evaluate("company.sayHello('Mary')"));
 });
 
+// Binds to SetValue<T>(string, T[]), which infers T = int rather than T = int[]. That is what keeps
+// this registration free of the four IL3050 an embedder used to pay here: annotating an ARRAY type
+// preserves all public methods of System.Array, Array.CreateInstance among them, which is
+// [RequiresDynamicCode] and has nothing to do with reading an element.
 Probe("int[] crossing", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
@@ -128,6 +132,17 @@ Probe("IEnumerable<int> snapshot (object snapshot fallback under AOT)", static (
     Expect(3, engine.Evaluate("seq.length"));
 });
 
+// The other half of the same overload: T = Company, so [DynamicallyAccessedMembers] preserves the
+// members script actually reads. Inferring T = Company[] preserved System.Array's members instead and
+// left companies[0].name to be trimmed away - a wrong answer with no diagnostic, the same failure mode
+// the extension-method probe below exists for.
+Probe("Company[] crossing, reading a member of an element", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("companies", new[] { new Company() });
+    Expect("Jint", engine.Evaluate("companies[0].name"));
+});
+
 Probe("Dictionary<string, object> crossing", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
@@ -173,7 +188,10 @@ Probe("delegate crossing: CLR Func<int, int> -> JS", static () =>
     // SetValue(string, Delegate), and SetValue<T>'s [DynamicallyAccessedMembers] then demands every
     // public method of Func<int, int> - including the inherited, [RequiresUnreferencedCode]
     // Delegate.CreateDelegate overloads. The embedder's own project gets six IL2026/IL2111
-    // diagnostics for a one-line registration; see the AOT section of Jint/Runtime/Interop/AGENTS.md.
+    // diagnostics for a one-line registration. The array half of this had the same cause and was
+    // fixable with an overload; this half is not, because a `where T : Delegate` overload would have
+    // the same signature as SetValue<T> after substitution and make every delegate call site
+    // ambiguous. See the AOT section of Jint/Runtime/Interop/AGENTS.md.
     engine.SetValue("twice", (Delegate) new Func<int, int>(static x => x * 2));
 
     Expect(8, engine.Evaluate("twice(4)"));
