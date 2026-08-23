@@ -15,7 +15,12 @@
 // Type.MakeGenericType + Activator.CreateInstance or MethodInfo.MakeGenericMethod. Reference-type
 // arguments share canonical code and work; value types need a specific instantiation the compiler
 // never saw. The sibling probe beside each gap pins that boundary rather than merely asserting it.
-// All five are https://github.com/sebastienros/jint/issues/3299.
+// All five were https://github.com/sebastienros/jint/issues/3299; three of them now degrade to an
+// untyped wrapper instead of throwing, and their rows below are Probes rather than gaps. The two
+// that remain are the two with no non-generic answer to degrade TO: there is no way to produce a
+// Task<double> without Task.FromResult<double>, and declining a generic host method would report
+// "no matching overload" for a method that plainly exists. Both would trade a diagnosable throw for
+// a wrong answer, so both stay gaps.
 
 using Jint;
 using Jint.Native;
@@ -68,10 +73,12 @@ Probe("List<string> crossing (GenericListWrapperFactory<string>)", static () =>
     Expect("b", engine.Evaluate("list[1]"));
 });
 
-// ObjectWrapper.TryBuildArrayLikeWrapper: typeof(GenericListWrapperFactory<>).MakeGenericType(int).
-// Its catch (MissingMethodException) fallback to the non-generic ListWrapper never engages, because
-// Native AOT raises NotSupportedException from Activator.CreateInstance, not MissingMethodException.
-KnownAotGap("List<int> crossing (GenericListWrapperFactory<int>)", static () =>
+// ObjectWrapper.TryBuildArrayLikeWrapper: typeof(GenericListWrapperFactory<>).MakeGenericType(int)
+// has no native code under AOT, and the site now degrades to the non-generic ListWrapper rather than
+// letting NotSupportedException reach script. This is a Probe, not a KnownAotGap, because the
+// degradation has to be correct and not merely quiet - a wrapper answering the wrong length would
+// satisfy a try/catch and fail here.
+Probe("List<int> crossing (ListWrapper fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("list", new List<int> { 1, 2, 3 });
@@ -86,8 +93,11 @@ Probe("IReadOnlyList<string> crossing (ReadOnlyListWrapperFactory<string>)", sta
     Expect("x", engine.Evaluate("ro[0]"));
 });
 
-// Same site as above, IReadOnlyList<> branch.
-KnownAotGap("IReadOnlyList<double> crossing (ReadOnlyListWrapperFactory<double>)", static () =>
+// Same site as above, IReadOnlyList<> branch. ReadOnlyDoubles is not an IList either, so the
+// degradation goes one step further than the row above: no array-like wrapper at all, and the read is
+// served by a plain ObjectWrapper resolving the type's own indexer. Array-likeness is what is lost -
+// ro.length and the Array.prototype generics go with the typed factory, ro[0] does not.
+Probe("IReadOnlyList<double> crossing (plain ObjectWrapper fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("ro", new ReadOnlyDoubles());
@@ -105,9 +115,9 @@ Probe("IEnumerable<string> snapshot (EnumerableSnapshotFactory<string>)", static
     Expect(2, engine.Evaluate("seq.length"));
 });
 
-// ObjectWrapper.ResolveEnumerableSnapshotFactory: same MakeGenericType + Activator shape, and the
-// same catch (MissingMethodException) that Native AOT walks straight past.
-KnownAotGap("IEnumerable<int> snapshot (EnumerableSnapshotFactory<int>)", static () =>
+// ObjectWrapper.ResolveEnumerableSnapshotFactory: same MakeGenericType + Activator shape, degrading
+// to ObjectEnumerableSnapshotFactory, which snapshots the sequence as objects rather than as int.
+Probe("IEnumerable<int> snapshot (object snapshot fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg =>
     {
