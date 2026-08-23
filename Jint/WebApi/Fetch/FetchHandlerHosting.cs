@@ -41,9 +41,23 @@ internal static class FetchHandlerHosting
     /// Builds the <c>Request</c> the handler is called with.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The URL is required to be absolute, because the Fetch Standard's request URL is absolute and this
     /// engine has no document to resolve a relative one against — the same reason
     /// <c>new Request('/a')</c> is a <c>TypeError</c> in script.
+    /// </para>
+    /// <para>
+    /// Its headers carry the <c>request</c> guard rather than the <c>immutable</c> one, which is a deliberate
+    /// divergence from the Service Worker Standard: <i>Handle Fetch</i> creates a <c>FetchEvent</c>'s request
+    /// "given request, a new <c>Headers</c> object's guard which is <c>immutable</c>"
+    /// (https://w3c.github.io/ServiceWorker/#on-fetch-request-algorithm). One <c>Request</c> is built here for
+    /// <b>both</b> inbound routes, and the other route is <c>Engine.Advanced.SetFetchHandler</c>'s plain
+    /// callback, which no algorithm governs and where the script <i>is</i> the endpoint rather than an
+    /// interceptor observing a request the user agent is already making. Two inbound requests that disagreed
+    /// about whether their headers can be edited would be worse than either answer, and nothing downstream
+    /// reads this list back — a handler's edit reaches its own script and nothing else. A script that wants
+    /// the browser's discipline gets it by not editing.
+    /// </para>
     /// </remarks>
     /// <param name="engine">The engine the request is built for.</param>
     /// <param name="realm">The principal realm, whose intrinsics the request's prototypes come from.</param>

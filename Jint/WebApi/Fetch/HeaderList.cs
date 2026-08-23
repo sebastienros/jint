@@ -21,13 +21,46 @@ internal readonly record struct HeaderEntry(string LowerName, string Value);
 /// <c>Headers</c> object in front of the list allows.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Which guard each construction site carries, and where the algorithm that says so lives:
+/// </para>
+/// <list type="table">
+/// <item><term><c>new Headers()</c></term><description><see cref="None"/> — https://fetch.spec.whatwg.org/#dom-headers</description></item>
+/// <item><term><c>new Request()</c></term><description><see cref="Request"/> — https://fetch.spec.whatwg.org/#dom-request</description></item>
+/// <item><term><c>new Response()</c></term><description><see cref="Response"/> — https://fetch.spec.whatwg.org/#dom-response</description></item>
+/// <item><term><c>Response.json()</c></term><description><see cref="Response"/> — https://fetch.spec.whatwg.org/#dom-response-json</description></item>
+/// <item><term><c>Response.error()</c></term><description><see cref="Immutable"/> — https://fetch.spec.whatwg.org/#dom-response-error</description></item>
+/// <item><term><c>Response.redirect()</c></term><description><see cref="Immutable"/> — https://fetch.spec.whatwg.org/#dom-response-redirect</description></item>
+/// <item><term>the response <c>fetch</c> resolves with</term><description><see cref="Immutable"/> — https://fetch.spec.whatwg.org/#dom-global-fetch</description></item>
+/// <item><term><c>Cache.match</c>, <c>Cache.matchAll</c></term><description><see cref="Immutable"/> — https://w3c.github.io/ServiceWorker/#cache-matchall</description></item>
+/// <item><term><c>Cache.keys</c></term><description><see cref="Immutable"/> — https://w3c.github.io/ServiceWorker/#cache-keys</description></item>
+/// <item><term>a fetch handler's inbound <c>Request</c></term><description><see cref="Request"/>, deliberately — see <c>FetchHandlerHosting.CreateRequest</c></description></item>
+/// </list>
+/// <para>
+/// <c>clone()</c> is the one site that names no guard of its own: both
+/// https://fetch.spec.whatwg.org/#dom-request-clone and https://fetch.spec.whatwg.org/#dom-response-clone
+/// pass <i>this</i> object's guard on, so the clone of an immutable response is immutable too. Filling one
+/// <c>Headers</c> from another is the opposite — the guard belongs to the object rather than to the headers
+/// in it, so <c>new Headers(immutableOne)</c> copies the headers and not the refusal, which is how a script
+/// edits what came off the wire.
+/// </para>
+/// <para>
 /// Only <see cref="Immutable"/> changes behaviour here. The <c>request</c>, <c>request-no-cors</c> and
-/// <c>response</c> guards exist in the standard to enforce the <i>forbidden header name</i> and <i>forbidden
-/// response header name</i> lists, which are a browser's protection of headers the user agent alone controls
-/// (<c>Host</c>, <c>Cookie</c>, <c>Origin</c>, …). Jint runs server-side, where those headers are exactly what
-/// a script legitimately needs to set, so the lists are deliberately not enforced — the same choice Node and
-/// Deno make. The guards are still tracked, so that the two objects the standard makes immutable
-/// (<c>Response.error()</c>'s and <c>Response.redirect()</c>'s headers) really are.
+/// <c>response</c> guards exist in the standard to enforce the <i>forbidden request-header</i> and
+/// <i>forbidden response-header name</i> lists, which are a browser's protection of headers the user agent
+/// alone controls (<c>Host</c>, <c>Cookie</c>, <c>Origin</c>, …). Jint runs server-side, where those headers
+/// are exactly what a script legitimately needs to set, so the lists are deliberately not enforced — the same
+/// choice Node and Deno make. <c>request-no-cors</c> has no member at all, because the only step that sets it
+/// is the <c>new Request()</c> arm for a request whose mode is <c>no-cors</c>, and <c>RequestInit</c>'s
+/// <c>mode</c> member is accepted and ignored here: there is no origin for a cross-origin mode to mean
+/// anything against.
+/// </para>
+/// <para>
+/// The guard is what the <i>script</i> may not do. Every algorithm the engine runs itself reaches
+/// <see cref="HeaderList"/> directly, so an immutable guard never stands in the way of the transport building
+/// a response, of <c>Response.redirect()</c> appending its own <c>Location</c>, or of a host reading a
+/// handler's answer back out.
+/// </para>
 /// </remarks>
 internal enum HeadersGuard
 {
@@ -40,7 +73,11 @@ internal enum HeadersGuard
     /// <summary>A <c>Response</c>'s headers.</summary>
     Response,
 
-    /// <summary>Refuses every mutation with a <c>TypeError</c>.</summary>
+    /// <summary>
+    /// Refuses <c>append</c>, <c>set</c> and <c>delete</c> with a <c>TypeError</c> — and nothing else: every
+    /// way of <i>reading</i> a header list is unguarded, so <c>get</c>, <c>has</c>, <c>getSetCookie</c>,
+    /// <c>forEach</c> and iteration behave exactly as they do under any other guard.
+    /// </summary>
     Immutable,
 }
 

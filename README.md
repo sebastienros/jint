@@ -1181,6 +1181,16 @@ and validated, because it decides whether a body may be a stream at all (see bel
 `mode`, `referrer` and `integrity` are accepted and ignored, the same convention Node and workerd follow,
 because there is no origin, cookie jar or HTTP cache here to honour them with.
 
+A `Headers` object carries the standard's
+[guard](https://fetch.spec.whatwg.org/#concept-headers-guard), so **the headers of a response `fetch`
+resolved with are immutable**: `append`, `set` and `delete` on them throw a `TypeError`, exactly as they do
+in a browser and in Node's own `fetch`. So do `Response.error()`'s, `Response.redirect()`'s, and the objects
+`caches.match()` and `cache.keys()` answer with. Everything a script builds itself — `new Headers()`,
+`new Request()`, `new Response()`, `Response.json()` — stays writable, and reading is never guarded. To add
+a header to a response that came off the wire, copy it —
+`new Response(body, { headers: new Headers(r.headers) })` — because filling one `Headers` from another
+copies the headers and not the guard.
+
 ### Bodies stream, in both directions
 
 `response.body` is a real `ReadableStream`, and a network response is read **on demand**: the promise

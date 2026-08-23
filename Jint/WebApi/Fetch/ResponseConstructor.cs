@@ -223,13 +223,18 @@ internal sealed partial class ResponseConstructor : Constructor
     }
 
     /// <summary>
-    /// Builds a <c>Response</c> for a response the engine produced itself, which is what <c>fetch</c> settles
-    /// its promise with.
+    /// "Create a Response object", https://fetch.spec.whatwg.org/#response-class, for a response the engine
+    /// produced itself — which is what <c>fetch</c> settles its promise with.
     /// </summary>
-    internal JsResponse CreateInstance(HeaderList headerList)
+    /// <remarks>
+    /// The guard is a parameter for the reason the specification's own algorithm takes one: it is a property
+    /// of the <i>caller's</i> algorithm and not of the response, and every caller names it. A response the
+    /// transport built carries <c>immutable</c>, which is what stops a script rewriting what the server said.
+    /// </remarks>
+    internal JsResponse CreateInstance(HeaderList headerList, HeadersGuard guard)
     {
         var headers = _realm.Intrinsics.Headers.CreateInstance(headerList);
-        headers.List.Guard = HeadersGuard.Response;
+        headers.List.Guard = guard;
 
         return new JsResponse(_engine, headers)
         {

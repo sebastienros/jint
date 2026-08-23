@@ -415,7 +415,13 @@ internal sealed class FetchOperation
         var list = new HeaderList();
         list.Entries.AddRange(snapshot.Headers);
 
-        var response = _realm.Intrinsics.Response.CreateInstance(list);
+        // "Set responseObject to the result of creating a Response object, given response, "immutable", and
+        // relevantRealm" — https://fetch.spec.whatwg.org/#dom-global-fetch. What the server said is not the
+        // script's to rewrite: a header edited in place here would look like an edit of the response while
+        // reaching nothing that already read it, and a cache put or a handler's answer would carry the
+        // script's version of what the origin sent. A script that does need to add one builds its own
+        // Headers from these — filling copies the headers and not the guard.
+        var response = _realm.Intrinsics.Response.CreateInstance(list, HeadersGuard.Immutable);
         response.Status = snapshot.Status;
         response.StatusText = snapshot.StatusText;
         response.Url = snapshot.Url;
