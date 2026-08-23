@@ -518,11 +518,6 @@ internal enum WptDivergence
     /// never reach the wire, because the BCL files them as content headers and a GET has no content to hang
     /// them on.
     /// </description></item>
-    /// <item><description>
-    /// https://github.com/sebastienros/jint/issues/3283 — <c>response/response-clone.any.js</c>: the two
-    /// bodies <c>clone()</c> tees deliver the <i>same</i> buffer rather than the structured clone
-    /// https://fetch.spec.whatwg.org/#concept-body-clone requires.
-    /// </description></item>
     /// </list>
     /// </para>
     /// </summary>
