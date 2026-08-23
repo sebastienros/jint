@@ -42,7 +42,7 @@ public class PropertyDescriptorTests
                     typeof(TestClass).Assembly,
                     typeof(Console).Assembly,
                     typeof(File).Assembly)
-                .AllowClrWrite())
+                .Interop.AllowWrite = true)
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>

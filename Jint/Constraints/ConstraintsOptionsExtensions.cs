@@ -7,20 +7,31 @@ namespace Jint;
 /// <summary>
 /// Registers the built-in execution constraints.
 /// <para>
-/// Each method here <b>replaces</b> the constraint of its own kind, so calling one twice leaves a
-/// single constraint registered, and each treats a value that cannot express a real limit as
-/// "remove the constraint" rather than registering one. That is deliberate: such a constraint could
-/// never fail, so registering it would only add per-check work to every evaluation — and an exact
-/// constraint can additionally disable the interpreter's tight-loop lane, which costs every loop in the
-/// program. (<see cref="MemoryLimitConstraint"/> always does; a lone <see cref="MaxStatementsConstraint"/>
-/// is charged inline and keeps the lane, but disarms it as soon as a second exact constraint joins it.)
+/// <b>A limit that cannot be reached is not a limit.</b> That one rule governs every built-in bound in
+/// Jint, and each kind of bound obeys it in the way its own kind can: a <i>constraint</i> that could never
+/// fail is not registered, and a <i>value</i> setting on <see cref="Options.ConstraintOptions"/> that could
+/// never be reached does not arm its check. So the two spellings of "no limit" — the explicit sentinel
+/// (<c>MaxRecursionDepth = -1</c>, <c>MaxArraySize = uint.MaxValue</c>) and the saturated value
+/// (<see cref="int.MaxValue"/>, <see cref="long.MaxValue"/>, <see cref="TimeSpan.MaxValue"/>) — produce one
+/// and the same engine.
+/// </para>
+/// <para>
+/// Each method here additionally <b>replaces</b> the constraint of its own kind, so calling one twice leaves
+/// a single constraint registered, and a value that cannot express a limit removes any earlier registration
+/// of that kind rather than adding one. Not registering it is the point: such a constraint could never fail,
+/// so registering it would only add per-check work to every evaluation — and an exact constraint can
+/// additionally disable the interpreter's tight-loop lane, which costs every loop in the program.
+/// (<see cref="MemoryLimitConstraint"/> always does; a lone <see cref="MaxStatementsConstraint"/> is charged
+/// inline and keeps the lane, but disarms it as soon as a second exact constraint joins it.)
 /// </para>
 /// <para>
 /// The consequence is worth stating plainly, because it is easy to configure by accident: spelling
 /// "effectively unlimited" as a saturated value produces exactly the same engine as never calling
 /// the method, not an engine carrying a very large limit. A host that sets one believing it has a
 /// limit has none, and a comparison of "with a limit" against "without" written that way compares
-/// an engine against itself.
+/// an engine against itself. What tells a host it did that is
+/// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>,
+/// which reports an unlimited bound and a saturated one under their own diagnostic codes.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -38,20 +49,21 @@ public static class ConstraintsOptionsExtensions
     /// <param name="options">Options to modify.</param>
     /// <param name="maxStatements">
     /// The statement budget. Only <c>1</c> to <see cref="int.MaxValue"/> - 1 registers a constraint;
-    /// every other value removes it and leaves the statement count unlimited. A non-positive budget
-    /// (including the parameter's own default) is removed because the constraint treats it as "no
-    /// limit" internally, and <see cref="int.MaxValue"/> because the constraint counts statements in
-    /// an <see cref="int"/> and so can never reach that many.
+    /// every other value removes it and leaves the statement count unlimited. A non-positive budget is
+    /// removed because the constraint treats it as "no limit" internally, and <see cref="int.MaxValue"/>
+    /// because the constraint counts statements in an <see cref="int"/> and so can never reach that many.
+    /// Through 4.16.x this parameter defaulted to <c>0</c>, so <c>MaxStatements()</c> spelled "no limit";
+    /// it has no default now, because that is not what it looked like it meant.
     /// </param>
     /// <returns>Options instance for fluent syntax.</returns>
-    public static Options MaxStatements(this Options options, int maxStatements = 0)
+    public static Options LimitStatements(this Options options, int maxStatements)
     {
-        options.WithoutConstraint(x => x is MaxStatementsConstraint);
+        options.RemoveConstraints(x => x is MaxStatementsConstraint);
         options.Constraints.RequestedMaxStatements = maxStatements;
 
         if (maxStatements > 0 && maxStatements < int.MaxValue)
         {
-            options.Constraint(() => new MaxStatementsConstraint(maxStatements));
+            options.AddConstraint(() => new MaxStatementsConstraint(maxStatements));
         }
         return options;
     }
@@ -72,12 +84,12 @@ public static class ConstraintsOptionsExtensions
     /// <returns>Options instance for fluent syntax.</returns>
     public static Options LimitMemory(this Options options, long memoryLimit)
     {
-        options.WithoutConstraint(x => x is MemoryLimitConstraint);
+        options.RemoveConstraints(x => x is MemoryLimitConstraint);
         options.Constraints.RequestedMemoryLimit = memoryLimit;
 
         if (memoryLimit > 0 && memoryLimit < long.MaxValue)
         {
-            options.Constraint(() => new MemoryLimitConstraint(memoryLimit));
+            options.AddConstraint(() => new MemoryLimitConstraint(memoryLimit));
         }
         return options;
     }
@@ -94,9 +106,9 @@ public static class ConstraintsOptionsExtensions
     /// reached.
     /// </param>
     /// <returns>Options instance for fluent syntax.</returns>
-    public static Options TimeoutInterval(this Options options, TimeSpan timeoutInterval)
+    public static Options LimitExecutionTime(this Options options, TimeSpan timeoutInterval)
     {
-        options.WithoutConstraint(x => x is TimeConstraint);
+        options.RemoveConstraints(x => x is TimeConstraint);
         options.Constraints.RequestedTimeoutInterval = timeoutInterval;
 
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
@@ -107,9 +119,9 @@ public static class ConstraintsOptionsExtensions
             // configuration order does not matter. TimeProvider is a .NET 8 type, so the downlevel
             // targets register the constraint exactly as they always did.
             var constraints = options.Constraints;
-            options.Constraint(() => new TimeConstraint(timeoutInterval, constraints.TimeProvider));
+            options.AddConstraint(() => new TimeConstraint(timeoutInterval, constraints.TimeProvider));
 #else
-            options.Constraint(() => new TimeConstraint(timeoutInterval));
+            options.AddConstraint(() => new TimeConstraint(timeoutInterval));
 #endif
         }
         return options;
@@ -125,14 +137,14 @@ public static class ConstraintsOptionsExtensions
     /// unobserved, because a token that cannot be cancelled has nothing to report.
     /// </param>
     /// <returns>Options instance for fluent syntax.</returns>
-    public static Options CancellationToken(this Options options, CancellationToken cancellationToken)
+    public static Options ObserveCancellation(this Options options, CancellationToken cancellationToken)
     {
-        options.WithoutConstraint(x => x is CancellationConstraint);
+        options.RemoveConstraints(x => x is CancellationConstraint);
         options.Constraints.CancellationConstraintRequested = cancellationToken != default;
 
         if (cancellationToken != default)
         {
-            options.Constraint(() => new CancellationConstraint(cancellationToken));
+            options.AddConstraint(() => new CancellationConstraint(cancellationToken));
         }
         return options;
     }

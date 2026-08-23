@@ -1137,7 +1137,7 @@ public class AsyncTests
             options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
             // Deliberately huge so that a wait that lasts anywhere near it proves cancellation was NOT observed.
             options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
-            options.CancellationToken(cts.Token);
+            options.ObserveCancellation(cts.Token);
         });
 
         // A Task that never completes: the awaited promise stays pending forever unless cancellation breaks in.
@@ -3183,7 +3183,7 @@ public class AsyncTests
         // https://github.com/sebastienros/jint/issues/2564
         var engine = new Engine(options =>
         {
-            options.Strict();
+            options.Strict = true;
             options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(30);
         });
 

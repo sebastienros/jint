@@ -148,7 +148,7 @@ public class ModuleLoaderTests
             _main = main;
             _modules = modules;
 
-            _engine = new Engine(options => options.EnableModules(this));
+            _engine = new Engine(options => options.UseModules(this));
             _engine.SetValue("log", _logs.Add);
         }
 
@@ -349,7 +349,7 @@ public class ModuleLoaderTests
 
         foreach (var _ in Enumerable.Range(0, 3))
         {
-            var engine = new Engine(options => options.EnableModules(loader));
+            var engine = new Engine(options => options.UseModules(loader));
 
             var ns = engine.Modules.Import("file:///modules/main.js");
 

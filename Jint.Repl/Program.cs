@@ -93,7 +93,7 @@ var engine = new Engine(cfg =>
 
     if (timeoutSeconds.HasValue)
     {
-        cfg.TimeoutInterval(TimeSpan.FromSeconds(timeoutSeconds.Value));
+        cfg.LimitExecutionTime(TimeSpan.FromSeconds(timeoutSeconds.Value));
     }
 
     // Even if the script is not a module, modules still need to be enabled
@@ -101,7 +101,7 @@ var engine = new Engine(cfg =>
     var basePath = inputFile != null
         ? Path.GetDirectoryName(Path.GetFullPath(inputFile))!
         : Directory.GetCurrentDirectory();
-    cfg.EnableModules(basePath, restrictToBasePath: false);
+    cfg.UseModules(basePath, restrictToBasePath: false);
 });
 
 engine

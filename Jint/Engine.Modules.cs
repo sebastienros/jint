@@ -639,7 +639,7 @@ public partial class Engine
         /// <summary>
         /// Resolves each registration that has not been resolved yet and indexes it under the resulting key.
         /// Lazy rather than done in <see cref="Add(string,ModuleBuilder)"/> so that registering a module stays
-        /// independent of the loader: <c>Add</c> keeps working before <c>EnableModules</c>, and cannot start
+        /// independent of the loader: <c>Add</c> keeps working before <c>UseModules</c>, and cannot start
         /// throwing for a specifier the loader refuses.
         /// </summary>
         private void IndexBuilderKeys()
@@ -842,7 +842,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// Resolution happens on first use rather than here, so registering a module neither requires
-        /// <see cref="OptionsExtensions.EnableModules(Options,string,bool)"/> nor fails for a specifier the
+        /// <see cref="OptionsExtensions.UseModules(Options,string,bool)"/> nor fails for a specifier the
         /// loader would reject. The first import after a registration puts every not-yet-resolved registration
         /// through <see cref="IModuleLoader.Resolve"/>, so a loader observes resolve calls for names no script
         /// has imported. Each registration is resolved at most once: a resolution that fails - whether the

@@ -29,8 +29,9 @@ public sealed class UntrustedCodeLimits
     /// <param name="maxStatements">Maximum statements executed by one engine entry.</param>
     /// <param name="memoryLimit">Maximum bytes allocated by one engine entry.</param>
     /// <param name="maxRecursionDepth">
-    /// Maximum recursion depth. Zero forbids recursion; unlike <see cref="OptionsExtensions.LimitRecursion"/>,
-    /// negative and saturated values are rejected rather than treated as unlimited or effectively unlimited.
+    /// Maximum recursion depth. Zero forbids recursion; unlike
+    /// <see cref="Options.ConstraintOptions.MaxRecursionDepth"/>, negative and saturated values are rejected
+    /// rather than treated as unlimited.
     /// </param>
     /// <param name="maxArraySize">Maximum JavaScript array size.</param>
     /// <param name="regexTimeout">

@@ -137,7 +137,7 @@ public class WorkerMechanismTests
             () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
 
         exception.Message.Should().Contain("request.TerminationToken");
-        exception.Message.Should().Contain("options.CancellationToken", "the message names the one-line fix");
+        exception.Message.Should().Contain("options.ObserveCancellation", "the message names the one-line fix");
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class WorkerMechanismTests
     {
         var host = new TestWorkerHost
         {
-            Build = request => new Engine(options => options.CancellationToken(request.TerminationToken)),
+            Build = request => new Engine(options => options.ObserveCancellation(request.TerminationToken)),
         };
         var parent = Parent(host);
 
@@ -976,7 +976,7 @@ public class WorkerMechanismTests
             addEventListener('message', () => { var n = 0; for (var i = 0; i < 5000; i++) { n += i; } record('finished'); });
             """));
 
-        var parent = Parent(host, tune: options => options.Constraint(() => new TripwireConstraint(tripwire)));
+        var parent = Parent(host, tune: options => options.AddConstraint(() => new TripwireConstraint(tripwire)));
         parent.Execute("""
             var seen = [];
             var w = new Worker('./worker.js', { type: 'module' });

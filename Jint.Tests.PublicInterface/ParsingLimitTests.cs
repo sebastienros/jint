@@ -342,9 +342,7 @@ public class ParsingLimitTests
             ParsingOptions = new ScriptParsingOptions { MaxSourceLength = 20 },
         };
         var prepared = Engine.PrepareScript("eval(payload)", options: preparationOptions);
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
         engine.SetValue("payload", new string(' ', 30));
         engine.Debugger.Break += (_, _) =>
         {
@@ -364,9 +362,7 @@ public class ParsingLimitTests
             {
                 ParsingOptions = new ScriptParsingOptions { MaxSourceLength = 50 },
             });
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
         engine.SetValue("payload", new string(' ', 60));
         engine.Debugger.Break += (_, _) =>
         {
@@ -386,7 +382,7 @@ public class ParsingLimitTests
         var engine = new Engine(options =>
         {
             options.Parsing.MaxSourceLength = 5;
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
 
         AssertSourceLimit(() => engine.Modules.Import("main"), 5, 23);
@@ -399,7 +395,7 @@ public class ParsingLimitTests
         var engine = new Engine(options =>
         {
             options.Parsing.MaxSourceLength = 5;
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
 
         AssertSourceLimit(() => engine.Modules.Import("main"), 5, 23);
@@ -408,7 +404,7 @@ public class ParsingLimitTests
     [Fact]
     public void AsynchronousLoaderParsingLimitFaultIsNotARejection()
     {
-        var engine = new Engine(options => options.EnableModules(new ParsingFaultAsyncModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new ParsingFaultAsyncModuleLoader()));
 
         Invoking(() => engine.Modules.Import("main"))
             .Should().ThrowExactly<ParsingLimitException>();
@@ -426,7 +422,7 @@ public class ParsingLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(16_000_000);
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
         var memory = engine.Constraints.Find<MemoryLimitConstraint>()!;
 
@@ -449,7 +445,7 @@ public class ParsingLimitTests
         {
             options.LimitMemory(16_000_000);
             options.Parsing.MaxSourceLength = 20;
-            options.EnableModules(loader);
+            options.UseModules(loader);
 
             // The source is delivered from a thread-pool worker, twice. What is asserted is the
             // ParsingLimitException, the released ownership and the removed pending-load entry - never a
@@ -494,7 +490,7 @@ public class ParsingLimitTests
             {
                 ParsingOptions = new ScriptParsingOptions { MaxSourceLength = 10 },
             });
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         engine.SetValue("drain", new Action(engine.Advanced.ProcessTasks));
 
         engine.Evaluate(importing);
@@ -532,7 +528,7 @@ public class ParsingLimitTests
             var engine = new Engine(options =>
             {
                 options.Parsing.MaxSourceLength = 5;
-                options.EnableModules(directory);
+                options.UseModules(directory);
             });
 
             AssertSourceLimit(() => engine.Modules.Import("./main.js"), 5, 6);
@@ -582,7 +578,7 @@ public class ParsingLimitTests
             var engine = new Engine(options =>
             {
                 options.Parsing.MaxSourceLength = int.MaxValue;
-                options.EnableModules(directory);
+                options.UseModules(directory);
             });
 
             engine.Modules.Import("./main.js").Get("value").Should().Be(1);
@@ -655,7 +651,7 @@ public class ParsingLimitTests
         IModuleLoader loader = asynchronous
             ? new DependencyAsyncModuleLoader()
             : new DependencyModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         engine.Modules.Add("root", builder => builder.AddModule(prepared));
 
         AssertSourceLimit(() => engine.Modules.Import("root"), 20, 23);
@@ -754,7 +750,7 @@ public class ParsingLimitTests
             {
                 ParsingOptions = new ScriptParsingOptions { MaxSourceLength = 100 },
             });
-        var engine = new Engine(options => options.RetainFunctionSourceText());
+        var engine = new Engine(options => options.RetainFunctionSourceText = true);
         JsValue? result = null;
         engine.SetValue("reenter", new Action(() =>
         {

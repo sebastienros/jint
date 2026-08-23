@@ -152,8 +152,8 @@ public partial class InteropTests
         var engine = new Engine(options =>
         {
             options.Interop.ExposeDetailedResolutionErrors = true;
-            options.DecorateClrResolutionErrors(static (_, error, info) =>
-                error.Set("message", $"{info.Type.Name}.{info.MemberName}: no matching overload"));
+            options.Interop.ClrResolutionErrorDecorator = static (_, error, info) =>
+                error.Set("message", $"{info.Type.Name}.{info.MemberName}: no matching overload");
         });
         engine.SetValue("speaker", new Speaker());
 
@@ -169,8 +169,7 @@ public partial class InteropTests
     [Fact]
     public void ResolutionErrorDecoratorCanAddErrorCodeProperty()
     {
-        var engine = new Engine(options => options.DecorateClrResolutionErrors(
-            static (_, error, _) => error.Set("errorCode", "USR-001")));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = static (_, error, _) => error.Set("errorCode", "USR-001"));
         engine.SetValue("speaker", new Speaker());
 
         var errorCode = engine.Evaluate("try { speaker.Say('Hello', 'World'); } catch (e) { e.errorCode }");
@@ -212,7 +211,7 @@ public partial class InteropTests
     public void ResolutionErrorDecoratorReceivesStructuredInfoForConstructors()
     {
         ClrResolutionErrorInfo capturedInfo = null;
-        var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, info) => capturedInfo = info));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = (_, _, info) => capturedInfo = info);
         engine.SetValue("CtorFails", TypeReference.CreateTypeReference<CtorFails>(engine));
 
         Invoking(() => engine.Evaluate("new CtorFails(1, 2)")).Should().ThrowExactly<JavaScriptException>();
@@ -231,7 +230,7 @@ public partial class InteropTests
     public void ResolutionErrorDecoratorIsNotCalledOnSuccessfulResolution()
     {
         var called = false;
-        var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, _) => called = true));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = (_, _, _) => called = true);
         engine.SetValue("speaker", new Speaker());
 
         var result = engine.Evaluate("speaker.Say('Hello')");
@@ -243,8 +242,7 @@ public partial class InteropTests
     [Fact]
     public void ResolutionErrorDecoratorPreservesHostSideClrInfo()
     {
-        var engine = new Engine(options => options.DecorateClrResolutionErrors(
-            static (_, error, _) => error.Set("message", "rewritten")));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = static (_, error, _) => error.Set("message", "rewritten"));
         engine.SetValue("speaker", new Speaker());
 
         var ex = Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>().Which;
@@ -260,7 +258,7 @@ public partial class InteropTests
     public void ResolutionErrorDecoratorArgumentsSurviveBeyondCallback()
     {
         ClrResolutionErrorInfo capturedInfo = null;
-        var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, info) => capturedInfo = info));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = (_, _, info) => capturedInfo = info);
         engine.SetValue("speaker", new Speaker());
 
         Invoking(() => engine.Evaluate("speaker.Say('Hello', 'World')")).Should().ThrowExactly<JavaScriptException>();

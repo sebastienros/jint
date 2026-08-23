@@ -427,7 +427,7 @@ public class UrlPatternTests
         // that it is fast — no machine finishes 2^40 backtracking steps, so nothing here can flake on timing.
         var engine = new Engine(options => options
             .UseWebApis(WebApiFeatures.Url)
-            .RegexTimeoutInterval(TimeSpan.FromMilliseconds(50)));
+            .Constraints.RegexTimeout = TimeSpan.FromMilliseconds(50));
 
         engine.Execute("const p = new URLPattern({ pathname: '/:x((?:a+)+)' });");
         engine.SetValue("hostileInput", "/" + new string('a', 40) + "!");

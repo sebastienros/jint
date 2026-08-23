@@ -72,7 +72,7 @@ public class WorkerTests
     [Fact]
     public void TheDefaultOptionsReplayTheParentsConstraintFactories()
     {
-        var parentOptions = new Options().MaxStatements(100);
+        var parentOptions = new Options().LimitStatements(100);
         var parent = new Engine(parentOptions);
 
         var worker = new Engine(Request(parent).CreateDefaultOptions());
@@ -95,7 +95,7 @@ public class WorkerTests
     {
         var instance = new CountingConstraint();
         var parentOptions = new Options();
-        parentOptions.Constraint(instance);
+        parentOptions.AddConstraint(instance);
         var parent = new Engine(parentOptions);
 
         var workerOptions = Request(parent).CreateDefaultOptions();

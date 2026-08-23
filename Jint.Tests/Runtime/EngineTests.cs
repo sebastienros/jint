@@ -1139,7 +1139,7 @@ public partial class EngineTests : IDisposable
     {
         var customTimeZone = _tongaTimeZone;
 
-        var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+        var engine = new Engine(cfg => cfg.TimeZone = customTimeZone);
 
         var result = engine.Evaluate("Date.UTC(1970,0,1)").AsNumber();
         result.Should().Be(0);
@@ -1151,7 +1151,7 @@ public partial class EngineTests : IDisposable
         const string customName = "Custom Time";
         var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
 
-        var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+        var engine = new Engine(cfg => cfg.TimeZone = customTimeZone);
 
         var epochGetLocalMinutes = engine.Evaluate("var d = new Date(0); d.getMinutes();").AsNumber();
         epochGetLocalMinutes.Should().Be(11);
@@ -1192,7 +1192,7 @@ public partial class EngineTests : IDisposable
     public void ShouldParseAsUtc(string date)
     {
         var customTimeZone = _tongaTimeZone;
-        var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+        var engine = new Engine(cfg => cfg.TimeZone = customTimeZone);
 
         engine.SetValue("d", date);
         var result = engine.Evaluate("Date.parse(d);").AsNumber();
@@ -1226,7 +1226,7 @@ public partial class EngineTests : IDisposable
         const int msPriorMidnight = -timespanMinutes * 60 * 1000;
         const string customName = "Custom Time";
         var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
-        var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
+        var engine = new Engine(cfg => cfg.TimeZone = customTimeZone).SetValue("d", date);
 
         var result = engine.Evaluate("Date.parse(d);").AsNumber();
 
@@ -1260,7 +1260,7 @@ public partial class EngineTests : IDisposable
     {
         var customTimeZone = _pacificTimeZone;
 
-        var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+        var engine = new Engine(ctx => ctx.TimeZone = customTimeZone);
         var date = ParseTestDate(testDate);
         var testDateTimeOffset = new DateTimeOffset(date, customTimeZone.GetUtcOffset(date));
         engine.Execute(
@@ -1273,7 +1273,7 @@ public partial class EngineTests : IDisposable
     {
         var customTimeZone = _pacificTimeZone;
 
-        var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+        var engine = new Engine(ctx => ctx.TimeZone = customTimeZone);
         var date = ParseTestDate(testDate);
         var dt = new DateTimeOffset(date, customTimeZone.GetUtcOffset(date));
         var dateScript = $"var d = new Date({dt.Year}, {dt.Month - 1}, {dt.Day}, {dt.Hour}, {dt.Minute}, {dt.Second}, {dt.Millisecond});";
@@ -1550,7 +1550,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.None;
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.Break += EngineStep;
 
@@ -1571,7 +1571,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.Into;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = stepMode; });
 
         engine.Debugger.Step += EngineStep;
 
@@ -1590,7 +1590,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.Into;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = stepMode; });
         engine.Debugger.BreakPoints.Set(new BreakPoint(1, 1));
         engine.Debugger.Step += EngineStep;
         engine.Debugger.Break += EngineStep;
@@ -1619,7 +1619,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.None;
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
         engine.Debugger.BreakPoints.Set(new BreakPoint(5, 0));
         engine.Debugger.Break += EngineStepVerifyDebugInfo;
 
@@ -1665,7 +1665,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.None;
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.Break += EngineStep;
 
@@ -1691,7 +1691,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.Out;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         engine.Debugger.Step += EngineStep;
 
@@ -1713,7 +1713,7 @@ var prep = function (fn) { fn(); };
     {
         countBreak = 0;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         engine.Debugger.Step += EngineStepOutWhenInsideFunction;
 
@@ -1749,7 +1749,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.None;
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 32));
         engine.Debugger.Break += EngineStep;
 
@@ -1772,7 +1772,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.Over;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = stepMode; });
 
         engine.Debugger.Step += EngineStep;
 
@@ -1795,7 +1795,7 @@ var prep = function (fn) { fn(); };
         countBreak = 0;
         stepMode = StepMode.Over;
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = stepMode; });
 
         engine.Debugger.Step += EngineStep;
 
@@ -1885,7 +1885,7 @@ var prep = function (fn) { fn(); };
         var PDT = _pacificTimeZone;
         var FR = new CultureInfo("fr-FR");
 
-        var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+        var engine = new Engine(options => { options.TimeZone = PDT; options.Culture = FR; })
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -1909,7 +1909,7 @@ var prep = function (fn) { fn(); };
     public void DateShouldHonorTimezoneDaylightSavingRules()
     {
         var EST = _easternTimeZone;
-        var engine = new Engine(options => options.LocalTimeZone(EST))
+        var engine = new Engine(options => options.TimeZone = EST)
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -1930,7 +1930,7 @@ var prep = function (fn) { fn(); };
         var PDT = _pacificTimeZone;
         var FR = new CultureInfo("fr-FR");
 
-        new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+        new Engine(options => { options.TimeZone = PDT; options.Culture = FR; })
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -1987,7 +1987,7 @@ var prep = function (fn) { fn(); };
         var PDT = _pacificTimeZone;
         var FR = new CultureInfo("fr-FR");
 
-        var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+        var engine = new Engine(options => { options.TimeZone = PDT; options.Culture = FR; })
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -2058,7 +2058,7 @@ var prep = function (fn) { fn(); };
     [Fact]
     public void ShouldSetYearBefore1970()
     {
-        new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc))
+        new Engine(options => options.TimeZone = TimeZoneInfo.Utc)
             .SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             .Execute(@"
@@ -2636,7 +2636,7 @@ var prep = function (fn) { fn(); };
     [InlineData("new Date(2012, 1, 19, 14, 38, 15)", "new Date(2012, 1, 29, 23, 59, -897645)")]
     public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string expected, string actual)
     {
-        var engine = new Engine(o => o.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(o => o.TimeZone = TimeZoneInfo.Utc);
         var expectedValue = engine.Evaluate(expected).ToObject();
         var actualValue = engine.Evaluate(actual).ToObject();
         actualValue.Should().Be(expectedValue);
@@ -2845,7 +2845,7 @@ function output(x) {
     public void ShouldParseAnonymousToTypeObject()
     {
         var obj = new Wrapper();
-        var engine = new Engine(options => options.AllowClrWrite())
+        var engine = new Engine(options => options.Interop.AllowWrite = true)
             .SetValue("x", obj);
         var js = @"
 x.test = {
@@ -3066,7 +3066,7 @@ x.test = {
     {
         var engine = new Engine(options =>
         {
-            options.DisableStringCompilation();
+            options.Host.StringCompilationAllowed = false;
         });
 
         const string ExpectedExceptionMessage = "String compilation has been disabled in engine options";

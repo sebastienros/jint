@@ -168,7 +168,7 @@ public class JsonSerializerTests
     [Fact]
     public void ToJsonExecutionUsesEngineConstraints()
     {
-        using var engine = new Engine(options => options.MaxStatements(100));
+        using var engine = new Engine(options => options.LimitStatements(100));
         var value = engine.Evaluate("({ toJSON() { while (true) {} } })");
 
         Invoking(() => new JsonSerializer(engine).SerializeWithLimits(value, ResultLimits.Conservative))

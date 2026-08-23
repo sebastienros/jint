@@ -19,7 +19,7 @@ public class DebugHandlerTests
                 'target';
             ";
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         bool didPropertyAccess = false;
 

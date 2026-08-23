@@ -64,7 +64,7 @@ public class HostEngineStateTests
     public void TheDefaultIsNull()
     {
         new Engine().Advanced.HostDefined.Should().BeNull();
-        new Engine(options => options.Strict()).Advanced.HostDefined.Should().BeNull();
+        new Engine(options => options.Strict = true).Advanced.HostDefined.Should().BeNull();
     }
 
     [Fact]

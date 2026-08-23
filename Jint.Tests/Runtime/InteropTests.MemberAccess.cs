@@ -13,7 +13,7 @@ public partial class InteropTests
     [Fact]
     public void ShouldHideSpecificMembers()
     {
-        var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
+        var engine = new Engine(options => options.Interop.MemberAccessor = (e, target, member) =>
         {
             if (target is HiddenMembers)
             {
@@ -24,7 +24,7 @@ public partial class InteropTests
             }
 
             return null;
-        }));
+        });
 
         engine.SetValue("m", new HiddenMembers());
 
@@ -38,7 +38,7 @@ public partial class InteropTests
     [Fact]
     public void ShouldOverrideMembers()
     {
-        var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
+        var engine = new Engine(options => options.Interop.MemberAccessor = (e, target, member) =>
         {
             if (target is HiddenMembers && member == nameof(HiddenMembers.Member1))
             {
@@ -46,7 +46,7 @@ public partial class InteropTests
             }
 
             return null;
-        }));
+        });
 
         engine.SetValue("m", new HiddenMembers());
 
@@ -57,10 +57,10 @@ public partial class InteropTests
     public void ShouldBeAbleToFilterMembers()
     {
         var engine = new Engine(options => options
-            .SetTypeResolver(new TypeResolver
+            .Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
-            })
+            }
         );
 
         engine.SetValue("m", new HiddenMembers());
@@ -81,10 +81,10 @@ public partial class InteropTests
     public void ShouldBeAbleToFilterConstructors()
     {
         var engine = new Engine(options => options
-            .SetTypeResolver(new TypeResolver
+            .Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = member => member is System.Reflection.ConstructorInfo ci && ci.GetParameters().Length == 0
-            })
+            }
         );
 
         engine.SetValue("HiddenMembers", TypeReference.CreateTypeReference<HiddenMembers>(engine));
@@ -148,10 +148,10 @@ public partial class InteropTests
     {
         var engine = new Engine(options =>
         {
-            options.SetTypeResolver(new TypeResolver
+            options.Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
-            });
+            };
         });
         engine.SetValue("EchoService", TypeReference.CreateTypeReference(engine, typeof(EchoService)));
         engine.Evaluate("EchoService.Echo('anyone there')").AsString().Should().Be("anyone there");
@@ -167,7 +167,7 @@ public partial class InteropTests
         var engine = new Engine(options =>
         {
             options.AllowClr();
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
         });
 
         var dc = new CustomDictionary<float>();
@@ -193,7 +193,7 @@ public partial class InteropTests
         var engine = new Engine(options =>
         {
             options.AllowClr();
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
         });
 
         engine.SetValue("B", TypeReference.CreateTypeReference(engine, typeof(InheritingFromClassWithStatics)));
@@ -272,7 +272,7 @@ public partial class InteropTests
     [Fact]
     public void NewTypedObjectFromUntypedInitializerShouldBeMapped()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
 
         engine.SetValue("obj", new ClassWithData());
         engine.Execute("obj.Data = { Value: '123' };");

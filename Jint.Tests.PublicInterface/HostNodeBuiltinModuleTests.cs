@@ -53,7 +53,7 @@ public class HostNodeBuiltinModuleTests
             Write(root, "node_modules/tiny-titles/index.js", "import { basename, extname } from 'node:path'; export function titleOf(p) { return basename(p, extname(p)); }");
 
             var engine = new Engine(options => options
-                .EnableModules(new NodeStyleModuleLoader(root))
+                .UseModules(new NodeStyleModuleLoader(root))
                 .UseNodeBuiltinModules(o => o.Platform = "linux"));
 
             engine.Modules.Import("./main.js").Get("title").AsString().Should().Be("getting-started");

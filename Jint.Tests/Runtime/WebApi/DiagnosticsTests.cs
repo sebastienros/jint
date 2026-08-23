@@ -279,7 +279,7 @@ public class DiagnosticsTests
         // MustPropagate-class failures are never reported: a budget that turns into a diagnostic no longer
         // bounds anything. RecursionDepthOverflowException is a JintException but not a JavaScriptException,
         // which is exactly what the catch keys on.
-        var (engine, sink, clock) = Reporting(options => options.LimitRecursion(8));
+        var (engine, sink, clock) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
 
         engine.Execute("""
             function recurse() { return recurse(); }
@@ -358,7 +358,7 @@ public class DiagnosticsTests
     {
         // The same MustPropagate rule the timer and listener sites keep: RecursionDepthOverflowException is a
         // JintException but not a JavaScriptException, so the catch never sees it and the budget still bounds.
-        var (engine, sink, _) = Reporting(options => options.LimitRecursion(8));
+        var (engine, sink, _) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
 
         Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute("""
             function recurse() { return recurse(); }
@@ -377,7 +377,7 @@ public class DiagnosticsTests
         // The other half of the same rule, over the budget a runaway callback actually trips: a microtask
         // that never returns must not be able to spend the engine's statement budget and then have the
         // overflow filed as a diagnostic.
-        var (engine, sink, _) = Reporting(options => options.MaxStatements(1000));
+        var (engine, sink, _) = Reporting(options => options.LimitStatements(1000));
 
         Assert.Throws<StatementsCountOverflowException>(
             () => engine.Execute("queueMicrotask(() => { log.push('entered'); for (var i = 0; ; i++) { } });"));
@@ -459,7 +459,7 @@ public class DiagnosticsTests
     {
         // The same MustPropagate rule the other three report sites keep: RecursionDepthOverflowException is a
         // JintException but not a JavaScriptException, so the catch never sees it and the budget still bounds.
-        var (engine, sink, _) = Reporting(options => options.LimitRecursion(8));
+        var (engine, sink, _) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
 
         Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute("""
             function recurse() { return recurse(); }
@@ -476,7 +476,7 @@ public class DiagnosticsTests
         // The other half of the same rule, over the budget a runaway callback actually trips: an idle callback
         // that never returns must not be able to spend the engine's statement budget and then have the
         // overflow filed as a diagnostic.
-        var (engine, sink, _) = Reporting(options => options.MaxStatements(1000));
+        var (engine, sink, _) = Reporting(options => options.LimitStatements(1000));
 
         Assert.Throws<StatementsCountOverflowException>(
             () => engine.Execute("requestIdleCallback(() => { log.push('entered'); for (var i = 0; ; i++) { } });"));
@@ -592,7 +592,7 @@ public class DiagnosticsTests
     [Fact]
     public void AConstraintFailureInAListenerStillErupts()
     {
-        var (engine, sink, _) = Reporting(options => options.LimitRecursion(8));
+        var (engine, sink, _) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
 
         engine.Execute("""
             function recurse() { return recurse(); }

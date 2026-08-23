@@ -39,13 +39,14 @@ public class OperatorOverloadingConfigurationTests
     [Fact]
     public void TheConstructorConfigureDelegateEnablesIt()
     {
-        Add(new Engine(options => options.AllowOperatorOverloading())).Should().Be(3);
+        Add(new Engine(options => options.Interop.AllowOperatorOverloading = true)).Should().Be(3);
     }
 
     [Fact]
     public void AnOptionsInstanceConfiguredBeforeConstructionEnablesIt()
     {
-        var options = new Options().AllowOperatorOverloading();
+        var options = new Options();
+        options.Interop.AllowOperatorOverloading = true;
 
         Add(new Engine(options)).Should().Be(3);
     }
@@ -57,7 +58,7 @@ public class OperatorOverloadingConfigurationTests
         // at which the option used to be read. Registering one is the documented way to defer setup
         // to construction time, so a host that enables the option from there has to be honoured.
         var options = new Options();
-        options.Configure(_ => options.AllowOperatorOverloading());
+        options.Configure(_ => options.Interop.AllowOperatorOverloading = true);
 
         Add(new Engine(options)).Should().Be(3);
     }
@@ -73,8 +74,9 @@ public class OperatorOverloadingConfigurationTests
     {
         // The reading is taken once, at the end of construction, so the last writer before that wins
         // in both directions rather than only in the enabling one.
-        var options = new Options().AllowOperatorOverloading();
-        options.Configure(_ => options.AllowOperatorOverloading(allow: false));
+        var options = new Options();
+        options.Interop.AllowOperatorOverloading = true;
+        options.Configure(_ => options.Interop.AllowOperatorOverloading = false);
 
         Add(new Engine(options)).Should().Be(JsValue.Undefined);
     }
@@ -90,7 +92,7 @@ public class OperatorOverloadingConfigurationTests
         var options = new Options();
         var engine = new Engine(options);
 
-        options.AllowOperatorOverloading();
+        options.Interop.AllowOperatorOverloading = true;
 
         Add(engine).Should().Be(JsValue.Undefined);
 

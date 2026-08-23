@@ -11,7 +11,7 @@ public class ExceptionThrownTests
     [Fact]
     public void ExplicitThrowFiresEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         ExceptionThrownEventArgs? received = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -28,7 +28,7 @@ public class ExceptionThrownTests
     [Fact]
     public void CaughtExceptionStillFiresEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         var thrownValues = new List<JsValue>();
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -50,7 +50,7 @@ public class ExceptionThrownTests
     [Fact]
     public void ImplicitTypeErrorFiresEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         ExceptionThrownEventArgs? received = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -71,7 +71,7 @@ public class ExceptionThrownTests
     [Fact]
     public void ImplicitReferenceErrorFiresEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         ExceptionThrownEventArgs? received = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -113,7 +113,7 @@ public class ExceptionThrownTests
     [Fact]
     public void RethrowFiresEventTwice()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         var count = 0;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -138,7 +138,7 @@ public class ExceptionThrownTests
     [Fact]
     public void ThrowPrimitiveValueFiresEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         ExceptionThrownEventArgs? received = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -160,7 +160,7 @@ public class ExceptionThrownTests
     [Fact]
     public void CallStackIsAvailable()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         DebugCallStack? callStack = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -184,7 +184,7 @@ public class ExceptionThrownTests
     [Fact]
     public void LocationIsAvailable()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         SourceLocation? location = null;
         engine.Debugger.ExceptionThrown += (sender, args) =>
@@ -206,7 +206,7 @@ public class ExceptionThrownTests
     [Fact]
     public void MultipleExceptionsEachFireEvent()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         var count = 0;
         engine.Debugger.ExceptionThrown += (sender, args) =>

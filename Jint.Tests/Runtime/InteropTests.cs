@@ -26,7 +26,7 @@ public partial class InteropTests : IDisposable
                     typeof(Shape).GetTypeInfo().Assembly,
                     typeof(Console).GetTypeInfo().Assembly,
                     typeof(File).GetTypeInfo().Assembly)
-                .AllowClrWrite())
+                .Interop.AllowWrite = true)
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -895,7 +895,7 @@ public partial class InteropTests : IDisposable
         // This scenario is about a copied JS array's per-element descriptors, so it pins Copy mode
         var engine = new Engine(x =>
         {
-            x.Strict();
+            x.Strict = true;
             x.Interop.ArrayConversion = ArrayConversionMode.Copy;
         });
 
@@ -996,7 +996,7 @@ public partial class InteropTests : IDisposable
         // A frozen IList<T> wrapper must reject element assignment in strict mode rather than letting the
         // base SetSlow path silently "succeed". Wrappers don't track per-element writability, so the
         // non-extensible (frozen) state is what blocks the write.
-        var engine = new Engine(x => x.Strict().AllowClrWrite());
+        var engine = new Engine(x => { x.Strict = true; x.Interop.AllowWrite = true; });
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
         engine.Execute("Object.freeze(list);");
@@ -1009,7 +1009,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void FrozenListWrapper_SilentlyIgnoresIndexWrite_NonStrict()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
         engine.Execute("Object.freeze(list);");
@@ -1022,7 +1022,7 @@ public partial class InteropTests : IDisposable
     public void WritableListWrapper_AllowsIndexWrite()
     {
         // The frozen guard must not regress ordinary writable element assignment through the wrapper.
-        var engine = new Engine(x => x.Strict().AllowClrWrite());
+        var engine = new Engine(x => { x.Strict = true; x.Interop.AllowWrite = true; });
         var list = new List<object> { "a", "b" };
         engine.SetValue("list", list);
 
@@ -1039,7 +1039,7 @@ public partial class InteropTests : IDisposable
         // surface a raw NotSupportedException from the underlying collection.
         var readOnly = new List<int> { 1, 2 }.AsReadOnly();
 
-        var strict = new Engine(x => x.Strict());
+        var strict = new Engine(x => x.Strict = true);
         strict.SetValue("a", readOnly);
         var ex = Invoking(() => strict.Evaluate("a[0] = 9;")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().ContainEquivalentOf("Cannot assign");
@@ -1562,7 +1562,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void CanSetIsConcatSpreadableForArrays()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
 
         engine
             .SetValue("list1", new List<string> { "A", "B", "C" })
@@ -1672,7 +1672,7 @@ public partial class InteropTests : IDisposable
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ValueCoercion = ValueCoercionType.Boolean;
         });
 
@@ -1706,7 +1706,7 @@ public partial class InteropTests : IDisposable
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ValueCoercion = ValueCoercionType.Number;
         });
 
@@ -1739,7 +1739,7 @@ public partial class InteropTests : IDisposable
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ValueCoercion = ValueCoercionType.String;
         });
 
@@ -2827,11 +2827,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var handlerCalled = false;
         var engine = new Engine(options =>
         {
-            options.CatchClrExceptions(e =>
+            options.Interop.ExceptionHandler = e =>
             {
                 handlerCalled = true;
                 return true;
-            });
+            };
         });
 
         engine.Execute(@"
@@ -2961,7 +2961,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var engine = new Engine(o =>
             {
-                o.CatchClrExceptions(e => e is NotSupportedException);
+                o.Interop.ExceptionHandler = e => e is NotSupportedException;
                 o.Interop.ExposeDetailedExceptionMessages = true;
             })
             .SetValue("throwMyException1", new Action(() => { throw new NotSupportedException(exceptionMessage); }))
@@ -3025,7 +3025,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            options.Interop.ClrExceptionErrorDecorator = (engine, error, clrException) =>
             {
                 decoratorCalled = true;
                 capturedOriginalException = clrException;
@@ -3037,7 +3037,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                 // Modify existing property
                 var currentMessage = error.Get("message").ToString();
                 error.Set("message", $"[Decorated] {currentMessage}");
-            });
+            };
         });
 
         engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(exceptionMessage); }));
@@ -3072,11 +3072,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         {
             options.AllowClr();
             options.CatchClrExceptions();
-            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            options.Interop.ClrExceptionErrorDecorator = (engine, error, clrException) =>
             {
                 decoratorCallCount++;
                 error.Set("exceptionType", clrException.GetType().Name);
-            });
+            };
         });
 
         engine.SetValue("instance", new MemberExceptionTest(false));
@@ -3101,11 +3101,11 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var engine = new Engine(options =>
         {
-            options.CatchClrExceptions(e => e is NotSupportedException);
-            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            options.Interop.ExceptionHandler = e => e is NotSupportedException;
+            options.Interop.ClrExceptionErrorDecorator = (engine, error, clrException) =>
             {
                 decoratorCalled = true;
-            });
+            };
         });
 
         engine.SetValue("throwException", new Action(() => { throw new InvalidOperationException(); }));
@@ -3121,12 +3121,12 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.DecorateClrExceptionErrors((engine, error, clrException) =>
+            options.Interop.ClrExceptionErrorDecorator = (engine, error, clrException) =>
             {
                 // Decorator can access engine and add context from it
                 error.Set("hasRealm", engine.Realm != null);
                 error.Set("timestamp", DateTime.UtcNow.ToString("o"));
-            });
+            };
         });
 
         engine.SetValue("throwException", new Action(() => { throw new Exception("test"); }));
@@ -3223,7 +3223,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void ShouldBeAbleToPlusAssignStringProperty()
     {
         var p = new Person();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("P", p);
         engine.Evaluate("P.Name = 'b';");
         engine.Evaluate("P.Name += 'c';");
@@ -3308,7 +3308,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldNotChangeFunctionArgumentsWhenFunctionStoredInDictionary()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("globalScope", new Dictionary<string, object>());
 
         engine.Execute("""
@@ -3419,7 +3419,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(cfg => cfg
             .AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly)
-            .AllowClrWrite());
+            .Interop.AllowWrite = true);
         engine.SetValue("log", new Action<object>(Console.WriteLine));
         engine.Execute(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
@@ -3655,10 +3655,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         e = new Engine(options =>
         {
-            options.SetTypeResolver(new TypeResolver
+            options.Interop.TypeResolver = new TypeResolver
             {
                 MemberNameComparer = StringComparer.Ordinal
-            });
+            };
         });
         e.SetValue("a", new A());
         e.Evaluate("a.call1").IsUndefined().Should().BeTrue();
@@ -3667,10 +3667,10 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         e = new Engine(options =>
         {
-            options.SetTypeResolver(new TypeResolver
+            options.Interop.TypeResolver = new TypeResolver
             {
                 MemberNameComparer = StringComparer.OrdinalIgnoreCase
-            });
+            };
         });
         e.SetValue("a", new A());
         e.Evaluate("a.call1").IsObject().Should().BeTrue();
@@ -3825,8 +3825,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
-            options.SetTypeResolver(customTypeResolver);
+            options.Interop.AllowWrite = true;
+            options.Interop.TypeResolver = customTypeResolver;
             options.AddExtensionMethods(typeof(CustomNamedExtensions));
         });
 
@@ -3860,7 +3860,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldBeAbleToHandleInvalidClrConversionViaCatchClrExceptions()
     {
-        var engine = new Engine(cfg => cfg.CatchClrExceptions().AllowClrWrite());
+        var engine = new Engine(cfg => cfg.CatchClrExceptions().Interop.AllowWrite = true);
         engine.SetValue("a", new Person());
         var ex = Invoking(() => engine.Execute("a.age = 'It will not work, but it is normal'")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().ContainEquivalentOf("input string ");
@@ -3982,7 +3982,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ArrayPrototypePushWithInteropList()
     {
-        var engine = new Jint.Engine(options => options.AllowClrWrite());
+        var engine = new Jint.Engine(options => options.Interop.AllowWrite = true);
 
         var list = new List<string> { "A", "B", "C" };
 
@@ -3997,7 +3997,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ArrayPrototypePopWithInteropList()
     {
-        var engine = new Jint.Engine(options => options.AllowClrWrite());
+        var engine = new Jint.Engine(options => options.Interop.AllowWrite = true);
 
         var list = new List<string> { "A", "B", "C" };
         engine.SetValue("list", list);
@@ -4026,7 +4026,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void PreferJsPrototypeMethodsMakesArrayReverseWin()
     {
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods().AllowClrWrite());
+        var engine = new Jint.Engine(cfg => { cfg.Interop.PreferJsPrototypeMethods = true; cfg.Interop.AllowWrite = true; });
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
 
@@ -4040,7 +4040,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         // Without the flag List<int>.Sort gives ascending int sort and returns void.
         // With the flag, Array.prototype.sort returns the array and uses JS string-compare semantics
         // ([10, 2, 1] -> [1, 10, 2] because "10" < "2" lexicographically).
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods().AllowClrWrite());
+        var engine = new Jint.Engine(cfg => { cfg.Interop.PreferJsPrototypeMethods = true; cfg.Interop.AllowWrite = true; });
         var list = new List<int> { 10, 2, 1 };
         engine.SetValue("list", list);
 
@@ -4051,7 +4051,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void PreferJsPrototypeMethodsLeavesNonClashingClrMethodsAlone()
     {
         // Methods without an Array.prototype counterpart must still resolve to CLR.
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var engine = new Jint.Engine(cfg => cfg.Interop.PreferJsPrototypeMethods = true);
         var list = new List<string> { "A", "B" };
         engine.SetValue("list", list);
 
@@ -4067,7 +4067,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void PreferJsPrototypeMethodsKeepsLengthMappedToCount()
     {
         // length is served by the fast path in ObjectWrapper.Get — must be unaffected.
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var engine = new Jint.Engine(cfg => cfg.Interop.PreferJsPrototypeMethods = true);
         var list = new List<int> { 10, 20, 30, 40 };
         engine.SetValue("list", list);
 
@@ -4078,7 +4078,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     public void PreferJsPrototypeMethodsDoesNotAffectPlainObjectWrapper()
     {
         // POCOs get Object.prototype, which the check explicitly skips, so CLR ToString still wins.
-        var engine = new Jint.Engine(cfg => cfg.PreferJsPrototypeMethods());
+        var engine = new Jint.Engine(cfg => cfg.Interop.PreferJsPrototypeMethods = true);
         engine.SetValue("obj", new ClassWithToString());
 
         engine.Evaluate("obj.toString()").AsString().Should().Be("Test");
@@ -4090,8 +4090,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         // Documents the workaround that works without the new flag, on existing Jint versions.
         var engine = new Jint.Engine(options =>
         {
-            options.AllowClrWrite();
-            options.SetTypeResolver(new TypeResolver
+            options.Interop.AllowWrite = true;
+            options.Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = m =>
                 {
@@ -4103,7 +4103,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
                     }
                     return true;
                 }
-            });
+            };
         });
 
         var list = new List<int> { 1, 2, 3 };
@@ -4118,7 +4118,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     {
         var engine = new Engine(cfg =>
         {
-            cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions();
+            cfg.AllowClr().CatchClrExceptions();
+            cfg.Interop.AllowOperatorOverloading = true;
             cfg.Interop.ExposeDetailedExceptionMessages = true;
         });
         engine.SetValue("Dimensional", typeof(Dimensional));
@@ -4232,7 +4233,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
     [Fact]
     public void ShouldAllowClrExceptionsThrough()
     {
-        var engine = new Engine(opts => opts.CatchClrExceptions(exc => false));
+        var engine = new Engine(opts => opts.Interop.ExceptionHandler = exc => false);
         engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
         const string Source = @"
 function wrap() {
@@ -4249,7 +4250,7 @@ wrap();
     {
         var engine = new Engine(opts =>
         {
-            opts.CatchClrExceptions(exc => exc is InvalidOperationException);
+            opts.Interop.ExceptionHandler = exc => exc is InvalidOperationException;
             opts.Interop.ExposeDetailedExceptionMessages = true;
         });
         engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
@@ -4269,7 +4270,7 @@ wrap();
     {
         var engine = new Engine(opts =>
         {
-            opts.CatchClrExceptions(exc => exc is InvalidOperationException);
+            opts.Interop.ExceptionHandler = exc => exc is InvalidOperationException;
             opts.Interop.ExposeDetailedExceptionMessages = true;
         });
         engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
@@ -4367,7 +4368,7 @@ try {
     [Fact]
     public void ShouldBeAbleToDeleteDictionaryEntries()
     {
-        var engine = new Engine(options => options.Strict().AllowClrWrite());
+        var engine = new Engine(options => { options.Strict = true; options.Interop.AllowWrite = true; });
 
         var dictionary = new Dictionary<string, int>
         {
@@ -4392,7 +4393,7 @@ try {
 
         dictionary.ContainsKey("a").Should().BeFalse();
 
-        var engineNoWrite = new Engine(options => options.Strict().AllowClrWrite(false));
+        var engineNoWrite = new Engine(options => { options.Strict = true; options.Interop.AllowWrite = false; });
 
         dictionary = new Dictionary<string, int>
         {
@@ -4452,7 +4453,7 @@ try {
     [Fact]
     public void CanPassDateTimeMinAndMaxViaInterop()
     {
-        var engine = new Engine(cfg => cfg.AllowClrWrite());
+        var engine = new Engine(cfg => cfg.Interop.AllowWrite = true);
 
         var dt = DateTime.UtcNow;
         engine.SetValue("capture", new Action<object>(o => dt = (DateTime) o));
@@ -4741,10 +4742,10 @@ try {
     {
         var engine = new Engine(options =>
         {
-            options.SetTypeResolver(new TypeResolver
+            options.Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = member => member.Name == "Extras"
-            });
+            };
         });
 
         engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
@@ -5067,7 +5068,7 @@ try {
     [Fact]
     public void ShouldSetDerivedTypePropertyWhenDeclaredTypeHasIndexer()
     {
-        var engine = new Engine(cfg => cfg.AllowClrWrite());
+        var engine = new Engine(cfg => cfg.Interop.AllowWrite = true);
         var feature = new FeatureWithBaseTypeProperty();
         engine.SetValue("feature", feature);
 

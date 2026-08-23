@@ -12,7 +12,7 @@ public class PlainAssignmentTests
     [Fact]
     public void AnonymousFunctionAndClassGetAssignedName()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var g = function () {};
@@ -30,7 +30,7 @@ public class PlainAssignmentTests
     [Fact]
     public void ValuePositionAndChainedAssignments()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var a = 1, b, c;
@@ -46,7 +46,7 @@ public class PlainAssignmentTests
     [Fact]
     public void ThrowingRightHandSideDoesNotAssign()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var a = 'initial';
@@ -62,7 +62,7 @@ public class PlainAssignmentTests
     [Fact]
     public void RightHandSideRewritingTargetIsOverwritten()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var b = 0; b = (b = 5, 9); return b; } f();").AsNumber();
 
         result.Should().Be(9);
@@ -71,7 +71,7 @@ public class PlainAssignmentTests
     [Fact]
     public void ConstTargetThrowsTypeErrorAfterEvaluatingRightHandSide()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         var ex = Invoking(() => engine.Execute("""
             function f() {
@@ -88,7 +88,7 @@ public class PlainAssignmentTests
     [Fact]
     public void AssignmentBeforeLetDeclarationThrowsReferenceError()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         var ex = Invoking(() => engine.Execute("function f() { { x = 1; let x; } } f();")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();

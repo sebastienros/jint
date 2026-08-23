@@ -59,9 +59,9 @@ public abstract partial class Test262Test
         var engine = new Engine(cfg =>
         {
             var relativePath = Path.GetDirectoryName(file.FileName) ?? "";
-            cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
+            cfg.UseModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
             cfg.ExperimentalFeatures = ExperimentalFeature.All;
-            cfg.TimeoutInterval(GetTimeoutInterval(file));
+            cfg.LimitExecutionTime(GetTimeoutInterval(file));
             // Test262 runs worker-like agents unless a test explicitly marks the agent as unable to block.
             cfg.AgentCanSuspend = !file.Flags.Contains("CanBlockIsFalse");
             // Use ICU-based CLDR provider for better Intl support

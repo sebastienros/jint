@@ -651,7 +651,7 @@ internal static class WptHarness
             }
 
             // A guard on a hung script rather than a budget anything is measured against; see the field.
-            options.TimeoutInterval(_harnessDeadline);
+            options.LimitExecutionTime(_harnessDeadline);
         });
 
         // Headers, Request and Response, which no feature flag names on their own — see the class remarks.

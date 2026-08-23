@@ -94,7 +94,7 @@ internal static class MemoryProbe
 
         void Run(string scriptText, List<(string Name, long Bytes)>? recordSink)
         {
-            var engine = new Engine(static options => options.Strict());
+            var engine = new Engine(static options => options.Strict = true);
             long openSnapshot = 0;
             engine.SetValue("__probeBegin", new Func<long>(() =>
             {

@@ -11,7 +11,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void StringAppendLoopInFunction()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 100; i++) { s += 'ab'; } return s; } f();").AsString();
 
         result.Should().Be(string.Concat(Enumerable.Repeat("ab", 100)));
@@ -23,7 +23,7 @@ public class CompoundAssignmentTests
         // The materialized lane skips the write-back when the rope was mutated in place,
         // so a right-hand side that reassigns the binding wins. This pins that behavior
         // so the slot lane cannot silently diverge from the slow path.
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var s = ''; s += 'x'; s += (s = 'z', 'a'); return s; } f();").AsString();
 
         result.Should().Be("z");
@@ -32,7 +32,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void RightSideReassignmentOnNumberSlot()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var n = 5; n += (n = 1, 2); return n; } f();").AsNumber();
 
         result.Should().Be(7);
@@ -41,7 +41,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void CompoundAssignToConstThrowsTypeError()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         var ex = Invoking(() => engine.Execute("function f() { const c = 'a'; c += 'b'; } f();")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
@@ -50,7 +50,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void CompoundAssignInTemporalDeadZoneThrowsReferenceError()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         var ex = Invoking(() => engine.Execute("function f() { { t += 'x'; let t; } } f();")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
@@ -59,7 +59,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void NumberSlotWithStringRightHandSide()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("function f() { var n = 2; n += 'x'; return n; } f();").AsString();
 
         result.Should().Be("2x");
@@ -70,7 +70,7 @@ public class CompoundAssignmentTests
     {
         // eval bodies have completion-value semantics, so their expression statements take the
         // value-producing lane; the in-place-append skip must behave identically there.
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("eval(\"var s = ''; s += 'x'; s += (s = 'z', 'a'); s;\")").AsString();
 
         result.Should().Be("z");
@@ -79,7 +79,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void CompoundAssignmentIsTheEvalCompletionValue()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         engine.Evaluate("eval(\"var s = 'a'; s += 'b';\")").AsString().Should().Be("ab");
         engine.Evaluate("eval(\"var q = 'a'; var t = (q += 'b'); t + '|' + q;\")").AsString().Should().Be("ab|ab");
@@ -88,7 +88,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void ConstCompoundAssignInEvalThrowsTypeError()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         var ex = Invoking(() => engine.Execute("eval(\"const c = 'a'; c += 'b';\");")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
@@ -97,7 +97,7 @@ public class CompoundAssignmentTests
     [Fact]
     public void StringAppendLoopInsideEval()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("var out; var src = \"var s = ''; for (var i = 0; i < 50; i++) { s += 'q'; } out = s;\";");
 
         for (var i = 0; i < 3; i++)

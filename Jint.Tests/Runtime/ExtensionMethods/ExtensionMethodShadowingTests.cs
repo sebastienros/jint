@@ -113,7 +113,7 @@ public class ExtensionMethodShadowingTests
         {
             options.AddExtensionMethods(typeof(Enumerable));
             options.Interop.PreferJsPrototypeMethods = true;
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
         });
         engine.SetValue("list", new List<int> { 1, 2, 3 });
 

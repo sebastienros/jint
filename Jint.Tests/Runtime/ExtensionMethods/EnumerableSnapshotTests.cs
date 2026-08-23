@@ -14,7 +14,7 @@ public class EnumerableSnapshotTests
     {
         return new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             if (withExtensions)
             {
                 options.AddExtensionMethods(typeof(ShadowingMapExtensions));

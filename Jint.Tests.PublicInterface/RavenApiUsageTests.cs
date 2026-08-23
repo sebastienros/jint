@@ -40,7 +40,7 @@ public class RavenApiUsageTests
     [Fact]
     public void CanChangeMaxStatementValue()
     {
-        var engine = new Engine(options => options.MaxStatements(123));
+        var engine = new Engine(options => options.LimitStatements(123));
 
         var constraint = engine.Constraints.Find<MaxStatementsConstraint>();
         constraint.Should().NotBeNull();
@@ -207,7 +207,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine(options =>
         {
-            options.ReferenceResolver = new MyReferenceResolver();
+            options.SetReferenceResolver(new MyReferenceResolver());
         });
 
         engine

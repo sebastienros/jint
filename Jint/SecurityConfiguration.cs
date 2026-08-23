@@ -53,7 +53,9 @@ internal readonly record struct EngineSecurityConfigurationSnapshot(
             engine.Options.Parsing.MaxNodeCount,
             engine.Options.RetainFunctionSourceText,
             engine.Options.Constraints.RegexTimeout,
-            engine._maxRecursionDepth,
+            // The configured depth, not the engine's normalized one: a saturated limit and no limit at all
+            // produce the same engine, and the two are still worth telling a host apart.
+            engine.Options.Constraints.MaxRecursionDepth,
             engine.Options.Constraints.StackOverflowGuard,
             engine.Options.Constraints.MaxExecutionStackCount,
             interop.Enabled && interop.ClrAccessConfiguration == ClrAccessConfiguration.Compatibility,

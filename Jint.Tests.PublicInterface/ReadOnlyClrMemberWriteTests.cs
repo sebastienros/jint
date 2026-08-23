@@ -57,7 +57,7 @@ public class ReadOnlyClrMemberWriteTests
         public const string Constant = Initial;
     }
 
-    private static Engine CreateEngine(object host) => new Engine(options => options.AllowClrWrite()).SetValue("host", host);
+    private static Engine CreateEngine(object host) => new Engine(options => options.Interop.AllowWrite = true).SetValue("host", host);
 
     private static void AssertTypeError(Engine engine, string script, string memberName)
     {

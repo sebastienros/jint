@@ -233,8 +233,8 @@ public class CodeCoverageTests
         var engine = new Engine(options =>
         {
             options.Coverage.Enabled = true;
-            options.MaxStatements(10_000);
-            options.TimeoutInterval(TimeSpan.FromSeconds(10));
+            options.LimitStatements(10_000);
+            options.LimitExecutionTime(TimeSpan.FromSeconds(10));
         });
 
         const string Code = "var n = 0; for (var i = 0; i < 5; i++) { n += i; }";

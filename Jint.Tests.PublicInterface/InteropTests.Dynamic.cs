@@ -96,7 +96,7 @@ public partial class InteropTests
     public void CanAccessDynamicObject()
     {
         var test = new DynamicClass();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
 
         engine.SetValue("test", test);
 

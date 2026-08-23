@@ -8,7 +8,7 @@ public class ShadowRealmTests
     [Fact]
     public void CanUseViaEngineMethods()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
 
         // lexically scoped (let/const) are visible during single call
@@ -32,7 +32,7 @@ public class ShadowRealmTests
     [Fact]
     public void MultipleShadowRealmsDoNotInterfere()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         engine.SetValue("message", "world");
         engine.Evaluate("function hello() {return message}");
 
@@ -54,7 +54,7 @@ public class ShadowRealmTests
     [Fact]
     public void MultipleShadowRealm_SettingGlobalVariable_DoNotInterfere()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         engine.SetValue("message", "hello ");
         engine.Evaluate("(function hello() {message += \"engine\"})();");
 
@@ -75,7 +75,7 @@ public class ShadowRealmTests
     [Fact]
     public void CanReuseScriptWithShadowRealm()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         engine.SetValue("message", "engine");
 
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();

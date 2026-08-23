@@ -33,7 +33,7 @@ public class GlobalAccessBenchmarks
     /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
     private static Engine CreateEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("var gx = 0; var gy = 0; var gz = 0; var gobj = null; var gsum = 0; var gval = 0;");
         return engine;
     }

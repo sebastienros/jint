@@ -31,7 +31,7 @@ public class HostDictionaryEnumerationTests
         {
             if (allowWrite)
             {
-                options.AllowClrWrite();
+                options.Interop.AllowWrite = true;
             }
         });
         engine.SetValue("doc", host);

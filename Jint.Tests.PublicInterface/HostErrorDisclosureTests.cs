@@ -160,7 +160,7 @@ public class HostErrorDisclosureTests
     public void ResolutionFailuresHideTypesAndSignaturesByDefault()
     {
         ClrResolutionErrorInfo? resolution = null;
-        var engine = new Engine(options => options.DecorateClrResolutionErrors((_, _, info) => resolution = info));
+        var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = (_, _, info) => resolution = info);
         engine.SetValue("api", new SecretApi("value"));
         engine.SetValue("SecretCtor", TypeReference.CreateTypeReference<SecretApi>(engine));
 
@@ -185,7 +185,7 @@ public class HostErrorDisclosureTests
     {
         var original = new HostFailure(new InvalidOperationException("inner-secret"));
         var loader = new DeferredLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var import = engine.Modules.StartImport("https://user:token@internal.example/module.js");
 
         loader.Completion!.SetError(original);
@@ -205,8 +205,8 @@ public class HostErrorDisclosureTests
         var decoratorCalls = 0;
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.UseModules(loader);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
         var import = engine.Modules.StartImport("https://user:token@internal.example/private/module.js");
 
@@ -230,13 +230,13 @@ public class HostErrorDisclosureTests
         var loader = new DeferredLoader();
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
-            options.DecorateClrExceptionErrors((_, error, exception) =>
+            options.UseModules(loader);
+            options.Interop.ClrExceptionErrorDecorator = (_, error, exception) =>
             {
                 decoratorCalls++;
                 decorated = exception;
                 error.Set("code", "MODULE_LOAD_FAILED");
-            });
+            };
         });
         var import = engine.Modules.StartImport("./module.js");
 
@@ -253,7 +253,7 @@ public class HostErrorDisclosureTests
     public async Task FaultedTasksAreGenericAndRetainTheOriginal()
     {
         var original = new HostFailure();
-        var engine = new Engine(options => options.EnableModules(new FaultedTaskLoader(original)));
+        var engine = new Engine(options => options.UseModules(new FaultedTaskLoader(original)));
 
         var rejection = await Invoking(() => engine.Modules.ImportAsync("./module.js"))
             .Should().ThrowAsync<PromiseRejectedException>();
@@ -266,20 +266,20 @@ public class HostErrorDisclosureTests
     [Fact]
     public void OrdinaryLoaderCancellationIsSanitizedWhileHostCancellationRemainsControlFlow()
     {
-        var canceled = new Engine(options => options.EnableModules(new CanceledTaskLoader()));
+        var canceled = new Engine(options => options.UseModules(new CanceledTaskLoader()));
 
         var canceledImport = canceled.Modules.StartImport("./module.js");
         canceled.Advanced.ProcessTasks();
         canceledImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
 
         var faultedCancellation = new Engine(options =>
-            options.EnableModules(new FaultedTaskLoader(new OperationCanceledException(Secret))));
+            options.UseModules(new FaultedTaskLoader(new OperationCanceledException(Secret))));
         var faultedImport = faultedCancellation.Modules.StartImport("./module.js");
         faultedCancellation.Advanced.ProcessTasks();
         faultedImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
 
         var loader = new DeferredLoader();
-        var explicitCancellation = new Engine(options => options.EnableModules(loader));
+        var explicitCancellation = new Engine(options => options.UseModules(loader));
         var explicitImport = explicitCancellation.Modules.StartImport("./module.js");
         var transportCancellation = new OperationCanceledException(Secret);
         loader.Completion!.SetError(transportCancellation);
@@ -293,8 +293,8 @@ public class HostErrorDisclosureTests
         cancellation.Cancel();
         var hostCanceled = new Engine(options =>
         {
-            options.CancellationToken(cancellation.Token);
-            options.EnableModules(new FaultedTaskLoader(new OperationCanceledException(cancellation.Token)));
+            options.ObserveCancellation(cancellation.Token);
+            options.UseModules(new FaultedTaskLoader(new OperationCanceledException(cancellation.Token)));
         });
         Invoking(() => hostCanceled.Modules.StartImport("./module.js"))
             .Should().Throw<OperationCanceledException>();
@@ -308,8 +308,8 @@ public class HostErrorDisclosureTests
         var decoratorCalls = 0;
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.UseModules(loader);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
 
         var operation = engine.Modules.StartImport("https://user:token@internal.example/module.js");
@@ -321,7 +321,7 @@ public class HostErrorDisclosureTests
         clrException.Should().BeSameAs(original);
         decoratorCalls.Should().Be(1);
 
-        var synchronous = Invoking(() => new Engine(options => options.EnableModules(loader)).Modules.Import("./module.js"))
+        var synchronous = Invoking(() => new Engine(options => options.UseModules(loader)).Modules.Import("./module.js"))
             .Should().Throw<JavaScriptException>().Which;
         synchronous.Message.Should().Be("Could not load module.");
         JintException.TryGetClrException(synchronous, out var synchronousClrException).Should().BeTrue();
@@ -331,7 +331,7 @@ public class HostErrorDisclosureTests
     [Fact]
     public void ReimplementedModuleLoaderCannotBypassTheDisclosurePolicy()
     {
-        var engine = new Engine(options => options.EnableModules(new ReimplementedModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new ReimplementedModuleLoader()));
 
         var import = engine.Modules.StartImport("./module.js");
         engine.Advanced.ProcessTasks();
@@ -346,8 +346,8 @@ public class HostErrorDisclosureTests
         var decoratorCalls = 0;
         var engine = new Engine(options =>
         {
-            options.EnableModules(new ReimplementedModuleLoader());
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.UseModules(new ReimplementedModuleLoader());
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
 
         var exception = Invoking(() => engine.Modules.Import("./module.js"))
@@ -365,7 +365,7 @@ public class HostErrorDisclosureTests
     {
         var trustedLoader = new DeferredLoader();
         var trusted = new Engine(options =>
-            options.EnableModules(trustedLoader).ExposeDetailedErrors());
+            options.UseModules(trustedLoader).ExposeDetailedErrors());
         var trustedImport = trusted.Modules.StartImport("./trusted.js");
         trustedLoader.Completion!.SetError(new HostFailure());
         trusted.Advanced.ProcessTasks();
@@ -375,8 +375,8 @@ public class HostErrorDisclosureTests
         var safeLoader = new DeferredLoader();
         var safe = new Engine(options =>
         {
-            options.EnableModules(safeLoader);
-            options.DecorateClrExceptionErrors((_, _, _) => safeDecoratorCalls++);
+            options.UseModules(safeLoader);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => safeDecoratorCalls++;
         });
         var safeImport = safe.Modules.StartImport("./safe.js");
         safeLoader.Completion!.SetError(new JavaScriptException(trustedImport.Error));
@@ -388,7 +388,7 @@ public class HostErrorDisclosureTests
 
         var changingLoader = new DeferredLoader();
         var changingOptions = new Options()
-            .EnableModules(changingLoader)
+            .UseModules(changingLoader)
             .ExposeDetailedErrors();
         var changing = new Engine(changingOptions);
         var detailedImport = changing.Modules.StartImport("./detailed.js");
@@ -410,8 +410,8 @@ public class HostErrorDisclosureTests
         var loader = new DeferredLoader();
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.UseModules(loader);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
         engine.Debugger.BeforeEvaluate += (_, _) =>
             throw new JavaScriptException(engine.Intrinsics.Error, Secret);
@@ -431,9 +431,9 @@ public class HostErrorDisclosureTests
         var decoratorCalls = 0;
         var engine = new Engine(options =>
         {
-            options.EnableModules(new ThrowingResolveLoader());
+            options.UseModules(new ThrowingResolveLoader());
             options.ExposeDetailedErrors();
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
 
         var import = engine.Modules.StartImport("./module.js");
@@ -450,9 +450,9 @@ public class HostErrorDisclosureTests
         var loader = new DeferredLoader();
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
+            options.UseModules(loader);
             options.ExposeDetailedErrors();
-            options.DecorateClrExceptionErrors((_, _, _) => decoratorCalls++);
+            options.Interop.ClrExceptionErrorDecorator = (_, _, _) => decoratorCalls++;
         });
         var import = engine.Modules.StartImport("./module.js");
 
@@ -484,7 +484,7 @@ public class HostErrorDisclosureTests
     private static (ModuleLoadCompletion Completion, WeakReference Operation) CreateCanceledImport()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var operation = engine.Modules.StartImport("./module.js");
         var completion = loader.Completion!;
 
@@ -499,7 +499,7 @@ public class HostErrorDisclosureTests
     public void DetailedDevelopmentOptInRestoresModuleFailureMessages()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(options => options.EnableModules(loader).ExposeDetailedErrors());
+        var engine = new Engine(options => options.UseModules(loader).ExposeDetailedErrors());
         var import = engine.Modules.StartImport("./module.js");
 
         loader.Completion!.SetError(new HostFailure());

@@ -1375,7 +1375,8 @@ var limits = new UntrustedCodeLimits(
         maxOutputBytes: 2_000_000));
 
 // This declaration is safe to share across concurrent Engine construction.
-var sharedOptions = new Options().Strict().ForUntrustedCode(limits);
+var sharedOptions = new Options().ForUntrustedCode(limits);
+sharedOptions.Strict = true;
 using var engine = new Engine(sharedOptions);
 using (limits.BeginOperation(engine, requestAborted))
 {
@@ -1396,7 +1397,7 @@ cannot use that closed profile unchanged; it needs a separately reviewed, hand-b
 with explicit limits and an allowlist matched to the loader:
 
 ```csharp
-options.EnableModules(moduleRoot);
+options.UseModules(moduleRoot);
 options.Modules.MaxModuleCount = 50;
 options.Modules.MaxTotalModuleSourceBytes = 1_000_000;
 options.Modules.MaxModuleGraphDepth = 10;

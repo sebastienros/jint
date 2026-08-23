@@ -46,7 +46,7 @@ public class EvalExecutionBenchmarks
         _evalEngine = CreateEngineWithTmp();
         _newFunctionEngine = CreateEngineWithTmp();
 
-        _plainFunctionEngine = new Engine(static options => options.Strict());
+        _plainFunctionEngine = new Engine(static options => options.Strict = true);
         _plainFunctionEngine.Execute("var ret; function __f() { " + _tmp16 + " }");
         _plainFunctionEngine.Evaluate(_plainFunctionCall);
 
@@ -61,7 +61,7 @@ public class EvalExecutionBenchmarks
 
     private Engine CreateEngineWithTmp()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("var ret;");
         engine.SetValue("tmp", _tmp16);
         return engine;
@@ -79,14 +79,14 @@ public class EvalExecutionBenchmarks
     [Benchmark]
     public void EvalFreshEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_freshEvalScript);
     }
 
     [Benchmark]
     public void NewFunctionFreshEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_freshNewFunctionScript);
     }
 

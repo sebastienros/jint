@@ -48,7 +48,7 @@ public class RegExpFreshEngineBenchmark
     [Benchmark]
     public void FreshEngineSource()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(Script);
     }
 
@@ -57,7 +57,7 @@ public class RegExpFreshEngineBenchmark
     [Benchmark]
     public void FreshEnginePrepared()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_prepared);
     }
 }

@@ -166,12 +166,12 @@ public class HostObjectAccessBenchmark
 
             // No interest set means ReferenceResolverInterests.All, which is what the row is for.
             case HostResolverKind.Unfiltered:
-                options.SetReferencesResolver(new NullPropagationResolver());
+                options.SetReferenceResolver(new NullPropagationResolver());
                 break;
 
             // Same resolver, subscribed only to the situation it actually serves.
             case HostResolverKind.NullishOnly:
-                options.SetReferencesResolver(new NullPropagationResolver(), ReferenceResolverInterests.NullishPropertyBase);
+                options.SetReferenceResolver(new NullPropagationResolver(), ReferenceResolverInterests.NullishPropertyBase);
                 break;
 
             default:
@@ -180,7 +180,7 @@ public class HostObjectAccessBenchmark
 
         if (StatementLimit)
         {
-            options.MaxStatements(StatementBudget);
+            options.LimitStatements(StatementBudget);
         }
 
         _engine = new Engine(options);

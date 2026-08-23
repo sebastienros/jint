@@ -93,16 +93,16 @@ public class NullPropagatingResolverTests
                 case Setup.Default:
                     break;
                 case Setup.InlineNullishInterest:
-                    options.SetReferencesResolver(NullPropagatingReferenceResolver.Instance, ReferenceResolverInterests.NullishPropertyBase);
+                    options.SetReferenceResolver(NullPropagatingReferenceResolver.Instance, ReferenceResolverInterests.NullishPropertyBase);
                     break;
                 case Setup.InlineDefaultInterests:
-                    options.SetReferencesResolver(NullPropagatingReferenceResolver.Instance);
+                    options.SetReferenceResolver(NullPropagatingReferenceResolver.Instance);
                     break;
                 case Setup.HandWrittenNullishInterest:
-                    options.SetReferencesResolver(new HandWrittenNullPropagatingResolver(), ReferenceResolverInterests.NullishPropertyBase);
+                    options.SetReferenceResolver(new HandWrittenNullPropagatingResolver(), ReferenceResolverInterests.NullishPropertyBase);
                     break;
                 case Setup.HandWrittenDefaultInterests:
-                    options.SetReferencesResolver(new HandWrittenNullPropagatingResolver());
+                    options.SetReferenceResolver(new HandWrittenNullPropagatingResolver());
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(setup), setup, null);
@@ -429,7 +429,7 @@ public class NullPropagatingResolverTests
     [Fact]
     public void TheRecommendedRegistrationPropagates()
     {
-        var engine = new Engine(options => options.SetReferencesResolver(
+        var engine = new Engine(options => options.SetReferenceResolver(
             NullPropagatingReferenceResolver.Instance,
             ReferenceResolverInterests.NullishPropertyBase));
 
@@ -439,10 +439,10 @@ public class NullPropagatingResolverTests
     [Fact]
     public void RegistrationWithoutInterestsPropagatesIdentically()
     {
-        var narrow = new Engine(options => options.SetReferencesResolver(
+        var narrow = new Engine(options => options.SetReferenceResolver(
             NullPropagatingReferenceResolver.Instance,
             ReferenceResolverInterests.NullishPropertyBase));
-        var wide = new Engine(options => options.SetReferencesResolver(NullPropagatingReferenceResolver.Instance));
+        var wide = new Engine(options => options.SetReferenceResolver(NullPropagatingReferenceResolver.Instance));
 
         foreach (var script in new[] { "var o = {}; o.a.b.c", "var n = null; n.a", "var o2 = { x: 1 }; o2.x" })
         {
@@ -455,7 +455,7 @@ public class NullPropagatingResolverTests
     {
         // the interest set is a filter, and the inline lane has to honour it: a host that registered the
         // singleton but did not subscribe to nullish bases gets standard behaviour there
-        var engine = new Engine(options => options.SetReferencesResolver(
+        var engine = new Engine(options => options.SetReferenceResolver(
             NullPropagatingReferenceResolver.Instance,
             ReferenceResolverInterests.UnresolvableReference));
 
@@ -467,7 +467,7 @@ public class NullPropagatingResolverTests
     [Fact]
     public void NoneMeansTheSingletonIsNeverConsulted()
     {
-        var engine = new Engine(options => options.SetReferencesResolver(
+        var engine = new Engine(options => options.SetReferenceResolver(
             NullPropagatingReferenceResolver.Instance,
             ReferenceResolverInterests.None));
 

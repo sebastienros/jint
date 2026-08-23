@@ -1499,7 +1499,7 @@ public sealed partial class Engine : IDisposable
 
         // Read after Options.Apply so the snapshot observes the same value JintCallStack does
         // (Apply runs the user's configuration callbacks, which can still touch Constraints).
-        _maxRecursionDepth = Options.Constraints.MaxRecursionDepth;
+        _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
 
         // Likewise after Apply: a configuration callback registered with Options.Configure is a
         // documented place to finish configuring an engine, and enabling operator overloading from

@@ -267,7 +267,7 @@ public class OwnPropertyProbeTests
     [Fact]
     public void WrappedDictionaryProbeAgreesWhenAScriptHasRedefinedAKey()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("doc", new Dictionary<string, object>(StringComparer.Ordinal) { ["a"] = 1d, ["b"] = 2d });
         engine.Execute("Object.defineProperty(doc, 'a', { value: 9, enumerable: false, configurable: true });");
 

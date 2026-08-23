@@ -264,7 +264,7 @@ public class HostResultLimitsTests
     [Fact]
     public void GetterExecutionUsesEngineConstraints()
     {
-        using var engine = new Engine(options => options.MaxStatements(100));
+        using var engine = new Engine(options => options.LimitStatements(100));
         var value = engine.Evaluate("({ get value() { while (true) {} } })");
 
         Invoking(() => engine.Advanced.ConvertResult(value, ResultLimits.Conservative))
@@ -275,7 +275,7 @@ public class HostResultLimitsTests
     public void ConstraintCadenceSpansManySmallContainers()
     {
         var constraint = new ArmedConstraint();
-        using var engine = new Engine(new Options().Constraint(constraint));
+        using var engine = new Engine(new Options().AddConstraint(constraint));
         var value = engine.Evaluate("""
             var node = { value: 0 };
             for (var i = 0; i < 14; i++) {
@@ -336,7 +336,7 @@ public class HostResultLimitsTests
     [Fact]
     public void JavaScriptErrorStackAccessUsesEngineConstraints()
     {
-        using var engine = new Engine(options => options.MaxStatements(100));
+        using var engine = new Engine(options => options.LimitStatements(100));
         var error = engine.Evaluate("""
             var error = new Error("x");
             Object.defineProperty(error, "stack", { get() { while (true) {} } });
@@ -437,7 +437,7 @@ public class HostResultLimitsTests
     {
         var clock = new ManualClock();
         var deadline = new OperationDeadlineConstraint(clock);
-        using var engine = new Engine(options => options.Constraint(deadline));
+        using var engine = new Engine(options => options.AddConstraint(deadline));
 
         // Warm parsing, the getter's call path and ConvertResult. Nothing depends on it any more — the
         // clock does not move on its own — but it keeps the row's shape comparable with the downlevel leg.
@@ -487,7 +487,7 @@ public class HostResultLimitsTests
         // to leave time on it. The net8.0-and-later leg above drives the clock instead and needs none
         // of this.
         var deadline = new OperationDeadlineConstraint();
-        using var engine = new Engine(options => options.Constraint(deadline));
+        using var engine = new Engine(options => options.AddConstraint(deadline));
 
         // Warm parsing, the getter's call path and ConvertResult before the clock starts.
         engine.Advanced.ConvertResult(engine.Evaluate(CheckedEvaluationSource));

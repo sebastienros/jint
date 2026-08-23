@@ -156,7 +156,7 @@ public class DateTests
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
         }
 
-        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
 
         engine.Evaluate("new Date(2022,1,1).toString()").Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
         engine.Evaluate("new Date(2022,1,1)").ToString().Should().Be("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)");
@@ -175,7 +175,7 @@ public class DateTests
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
         }
 
-        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
 
         // July 4, 2022 is in summer (EDT = UTC-4, daylight saving time)
         engine.Evaluate("new Date(2022, 6, 4).toString()").AsString().Should().Contain("(Eastern Daylight Time)");
@@ -197,7 +197,7 @@ public class DateTests
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
         }
 
-        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
 
         const string script = """
             (function() {
@@ -253,7 +253,7 @@ public class DateTests
         {
             timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
         }
-        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+        var engine = new Engine(options => options.TimeZone = timeZoneInfo);
         _engine.Evaluate($"new Date('{input}').getDate()").AsNumber().Should().Be(expectedDate);
     }
 
@@ -479,7 +479,7 @@ public class DateTests
     public void ToLocaleStringOutsideDateTimeRangeRendersALocaleString(
         long timeValue, string expectedDateTime, string expectedDate, string expectedTime)
     {
-        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
 
         engine.Evaluate($"new Date({timeValue}).toLocaleString('en-US')").AsString().Should().Be(expectedDateTime);
         engine.Evaluate($"new Date({timeValue}).toLocaleDateString('en-US')").AsString().Should().Be(expectedDate);
@@ -492,7 +492,7 @@ public class DateTests
     [Fact]
     public void ToLocaleStringOutsideDateTimeRangeHonoursTheOptionsBag()
     {
-        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
 
         engine.Evaluate("new Date(8640000000000000).toLocaleString('en-US', { month: 'long' })")
             .AsString().Should().Be("September");
@@ -513,7 +513,7 @@ public class DateTests
     [Fact]
     public void ToLocaleStringOutsideDateTimeRangeDoesNotThrowAClrException()
     {
-        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
 
         engine.Evaluate("(function () { try { return new Date(8640000000000000).toLocaleString(); } catch (e) { return 'caught'; } })()")
             .AsString().Should().Contain("275760");
@@ -531,7 +531,7 @@ public class DateTests
     [Fact]
     public void ToLocaleStringAtTheDateTimeBoundaryWithAnOffsetTimeZoneDoesNotThrowAClrException()
     {
-        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
 
         engine.Evaluate("new Date(253402300799999).toLocaleString('en-US', { timeZone: '+03:00' })").AsString()
             .Should().NotBeEmpty();
@@ -548,7 +548,7 @@ public class DateTests
     [Fact]
     public void ToLocaleStringIsLocaleFormattedOnBothSidesOfTheDateTimeBoundary()
     {
-        var engine = new Engine(options => options.LocalTimeZone(TimeZoneInfo.Utc));
+        var engine = new Engine(options => options.TimeZone = TimeZoneInfo.Utc);
 
         var localeString = engine.Evaluate("new Date(0).toLocaleString('en-US')").AsString();
         localeString.Should().NotBe(engine.Evaluate("new Date(0).toString()").AsString());
@@ -639,7 +639,7 @@ public class DateTests
             nztz = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Auckland");
         }
 
-        var engine = new Engine(options => options.LocalTimeZone(nztz));
+        var engine = new Engine(options => options.TimeZone = nztz);
 
         // NZDT (GMT+13) ends at 3:00 AM on the first Sunday of April 2025.
         // At midnight April 6, we are still in NZDT (GMT+13).

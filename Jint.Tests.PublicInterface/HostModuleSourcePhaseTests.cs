@@ -53,7 +53,7 @@ public class HostModuleSourcePhaseTests
     }
 
     private static Engine CreateEngine(SourceProvidingModuleLoader loader)
-        => new Engine(options => options.EnableModules(loader));
+        => new Engine(options => options.UseModules(loader));
 
     [Fact]
     public void DynamicImportSourceResolvesWithTheHostSuppliedModuleSource()

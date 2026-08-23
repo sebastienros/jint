@@ -240,7 +240,7 @@ var wrap = function(v) {
     [Fact]
     public void CallStackBuildingShouldSkipResolvingFromEngine()
     {
-        var engine = new Engine(o => o.LimitRecursion(200));
+        var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 200);
         var recordedFolderTraversalOrder = new List<string>();
         engine.SetValue("log", new Action<object>(o => recordedFolderTraversalOrder.Add(o.ToString())));
 

@@ -39,7 +39,7 @@ public class HostModuleImportStateTests
     [Fact]
     public void ImportingAModuleADeferredImportLeftLinkedEvaluatesIt()
     {
-        var engine = new Engine(options => options.EnableModules(new DictionaryModuleLoader(new Dictionary<string, string>
+        var engine = new Engine(options => options.UseModules(new DictionaryModuleLoader(new Dictionary<string, string>
         {
             ["main"] = "import defer * as d from 'dep'; export const touch = () => d.v;",
             ["dep"] = "globalThis.depEvaluations = (globalThis.depEvaluations ?? 0) + 1; export const v = 5;",
@@ -63,7 +63,7 @@ public class HostModuleImportStateTests
         {
             options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
             options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(30);
-            options.EnableModules(new DictionaryModuleLoader(new Dictionary<string, string>
+            options.UseModules(new DictionaryModuleLoader(new Dictionary<string, string>
             {
                 ["m"] = "const x = await gate(); export const v = x;",
             }));

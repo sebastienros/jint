@@ -113,7 +113,7 @@ public class TightLoopTests
     [Fact]
     public void ConstraintConfiguredEngineStillEnforcesInsideLoops()
     {
-        var engine = new Engine(options => options.MaxStatements(50));
+        var engine = new Engine(options => options.LimitStatements(50));
         // constraint-configured contexts must keep per-statement accounting (tight loop is
         // gated off), so a runaway loop still trips MaxStatements
         Invoking(() =>
@@ -306,7 +306,7 @@ public class TightLoopTests
     [Fact]
     public void ConstraintConfiguredEngineStillEnforcesInsideIfChainLoops()
     {
-        var engine = new Engine(options => options.MaxStatements(50));
+        var engine = new Engine(options => options.LimitStatements(50));
         Invoking(() =>
             engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { if (i % 2 == 0) x += 1; else x -= 1; } })()")).Should().ThrowExactly<Jint.Runtime.StatementsCountOverflowException>();
     }

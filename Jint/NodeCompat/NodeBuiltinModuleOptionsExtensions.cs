@@ -29,7 +29,7 @@ public static class NodeBuiltinModuleOptionsExtensions
     /// <para>
     /// <b>It composes rather than replaces.</b> The engine's configured module loader keeps answering
     /// everything else, whichever loader that is and whichever order the calls were made in — pair it with
-    /// <c>options.EnableModules(new NodeStyleModuleLoader(dir))</c> and a package in <c>node_modules</c> can
+    /// <c>options.UseModules(new NodeStyleModuleLoader(dir))</c> and a package in <c>node_modules</c> can
     /// import <c>node:path</c>. It also needs no loader at all: an engine that enabled nothing else can still
     /// import the builtins, and everything else keeps failing as it did.
     /// </para>
@@ -51,7 +51,7 @@ public static class NodeBuiltinModuleOptionsExtensions
     /// <example>
     /// <code>
     /// var engine = new Engine(options => options
-    ///     .EnableModules(new NodeStyleModuleLoader(@"C:\app"))
+    ///     .UseModules(new NodeStyleModuleLoader(@"C:\app"))
     ///     .UseNodeBuiltinModules());
     ///
     /// engine.Modules.Add("main", "import { join } from 'node:path'; export const p = join('a', 'b');");

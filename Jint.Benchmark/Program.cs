@@ -63,7 +63,7 @@ if (args.Length > 0 && args[0] == "--smoke-comparison")
     }
 
     var failures = 0;
-    RunSmoke("Jint", () => new Engine(static options => options.Strict()).Execute(source));
+    RunSmoke("Jint", () => new Engine(static options => options.Strict = true).Execute(source));
     RunSmoke("Okojo", () =>
     {
         using var runtime = Okojo.Runtime.JsRuntime.Create();

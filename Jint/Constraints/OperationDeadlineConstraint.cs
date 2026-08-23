@@ -12,7 +12,7 @@ namespace Jint.Constraints;
 /// Every public entry that runs script (<c>Execute</c>, <c>Evaluate</c>, <c>Invoke</c>, <c>Engine.Call</c>,
 /// the <c>JsValue.Call</c> extension helpers) is a complete top-level run: the engine resets every
 /// registered constraint before the entry and again on the way out. That is what makes a reused engine
-/// usable, but it also means <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> arms a
+/// usable, but it also means <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> arms a
 /// <em>fresh</em> deadline for each entry. An operation built from several entries — import a module, call
 /// the component it exported, then invoke a handler once per row — therefore has no wall-clock bound at
 /// all, however small the configured interval: <c>foreach (var row in rows) handler.Call(row);</c> gives
@@ -23,7 +23,7 @@ namespace Jint.Constraints;
 /// <code>
 /// // one instance per engine, owned by the host
 /// var deadline = new OperationDeadlineConstraint();
-/// var engine = new Engine(options => options.Constraint(deadline));
+/// var engine = new Engine(options => options.AddConstraint(deadline));
 ///
 /// deadline.Begin(TimeSpan.FromSeconds(2), cancellationToken);
 /// try
@@ -43,9 +43,9 @@ namespace Jint.Constraints;
 /// <para>
 /// The instance is host-owned on purpose: <c>Begin</c> and <c>End</c> are not something the engine can
 /// infer, since only the host knows where its operation starts and stops. Register it with
-/// <see cref="OptionsExtensions.Constraint(Options, Constraint)"/> and keep the reference, or — when one
+/// <see cref="OptionsExtensions.AddConstraint(Options, Constraint)"/> and keep the reference, or — when one
 /// <see cref="Options"/> is shared by several engines — register a factory
-/// (<see cref="OptionsExtensions.Constraint(Options, System.Func{Constraint})"/>) and reach each engine's
+/// (<see cref="OptionsExtensions.AddConstraint(Options, System.Func{Constraint})"/>) and reach each engine's
 /// own instance through <c>engine.Constraints.Find&lt;OperationDeadlineConstraint&gt;()</c>.
 /// </para>
 /// <para>
@@ -230,7 +230,7 @@ public sealed class OperationDeadlineConstraint : Constraint
     /// </exception>
     /// <exception cref="TimeoutException">
     /// The budget handed to <see cref="Begin"/> has elapsed. The same exception type the built-in
-    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> throws, so a host that already handles a
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> throws, so a host that already handles a
     /// timeout does not need a second catch clause.
     /// </exception>
     public override void Check()

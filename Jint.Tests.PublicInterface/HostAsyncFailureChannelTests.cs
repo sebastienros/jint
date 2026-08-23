@@ -38,7 +38,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task AStatementBudgetReachesTheTaskRatherThanTheCall()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("for (var i = 0; i < 1000; i++) { }"));
 
@@ -49,7 +49,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task AWallClockBudgetReachesTheTaskRatherThanTheCall()
     {
-        var engine = new Engine(options => options.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
+        var engine = new Engine(options => options.LimitExecutionTime(TimeSpan.FromMilliseconds(50)));
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("while (true) { }"));
 
@@ -72,7 +72,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task ARecursionLimitReachesTheTaskRatherThanTheCall()
     {
-        var engine = new Engine(options => options.LimitRecursion(5));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 5);
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("function f() { return f(); } f();"));
 
@@ -84,7 +84,7 @@ public class HostAsyncFailureChannelTests
     public async Task ACancellationConstraintReachesTheTaskRatherThanTheCall()
     {
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(options => options.CancellationToken(cts.Token));
+        var engine = new Engine(options => options.ObserveCancellation(cts.Token));
         engine.SetValue("cancel", new Action(cts.Cancel));
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("cancel(); for (var i = 0; i < 1000000; i++) { }"));
@@ -120,7 +120,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task ThePreparedScriptOverloadReportsItsBudgetThroughTheTaskToo()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
         var prepared = Engine.PrepareScript("for (var i = 0; i < 1000; i++) { }");
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync(prepared));
@@ -132,7 +132,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task ExecuteAsyncReportsItsBudgetThroughTheTaskToo()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
 
         Task<Engine>? pending = null;
         Invoking(() => { pending = engine.ExecuteAsync("for (var i = 0; i < 1000; i++) { }"); })
@@ -145,7 +145,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task InvokeAsyncReportsItsBudgetThroughTheTaskToo()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
         engine.Execute("function work() { for (var i = 0; i < 1000; i++) { } }");
 
         var pending = StartWithoutThrowing(() => engine.InvokeAsync("work"));
@@ -169,7 +169,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task ImportAsyncReportsItsBudgetThroughTheTaskToo()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
         engine.Modules.Add("module", builder => builder.AddSource("for (var i = 0; i < 1000; i++) { }"));
 
         Task<ObjectInstance>? pending = null;
@@ -230,10 +230,10 @@ public class HostAsyncFailureChannelTests
     {
         const string Script = "globalThis.marker = 1; for (var i = 0; i < 1000; i++) { } globalThis.finished = true;";
 
-        var synchronous = new Engine(options => options.MaxStatements(10));
+        var synchronous = new Engine(options => options.LimitStatements(10));
         var fromEvaluate = Record.Exception(() => synchronous.Evaluate(Script));
 
-        var asynchronous = new Engine(options => options.MaxStatements(10));
+        var asynchronous = new Engine(options => options.LimitStatements(10));
         var fromEvaluateAsync = await Record.ExceptionAsync(() => asynchronous.EvaluateAsync(Script));
 
         fromEvaluate.Should().BeOfType<StatementsCountOverflowException>();
@@ -248,7 +248,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task TheEngineIsUsableAgainAfterATaskFaultedBudgetFailure()
     {
-        var engine = new Engine(options => options.MaxStatements(50));
+        var engine = new Engine(options => options.LimitStatements(50));
 
         var first = await Record.ExceptionAsync(() => engine.EvaluateAsync("for (var i = 0; i < 1000; i++) { }"));
         first.Should().BeOfType<StatementsCountOverflowException>();
@@ -263,7 +263,7 @@ public class HostAsyncFailureChannelTests
     [Fact]
     public async Task TheBudgetStillFiresWhenTheFailureOnlyReachesTheTask()
     {
-        var engine = new Engine(options => options.MaxStatements(10));
+        var engine = new Engine(options => options.LimitStatements(10));
 
         // The shape the issue names as the one a host actually writes: the call is not wrapped, only the
         // await is. The budget must still fire, and it must land here.

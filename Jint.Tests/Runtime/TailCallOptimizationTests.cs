@@ -92,7 +92,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void DoesNotOptimizeSloppyTailRecursion()
     {
-        var engine = new Engine(options => options.LimitRecursion(20));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
 
         Invoking(() => engine.Evaluate("""
             function recurse(n) {
@@ -105,7 +105,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void DoesNotOptimizeNonTailRecursion()
     {
-        var engine = new Engine(options => options.LimitRecursion(20));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -119,7 +119,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void DoesNotMoveTailCallPastFinally()
     {
-        var engine = new Engine(options => options.LimitRecursion(20));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -137,7 +137,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void DoesNotMoveTailCallPastCatch()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         var result = engine.Evaluate("""
             "use strict";
@@ -160,7 +160,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void PreservesUsingDisposalOrder()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         var result = engine.Evaluate("""
             "use strict";
@@ -211,7 +211,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void PreservesIteratorCloseOrder()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         var result = engine.Evaluate("""
             "use strict";
@@ -248,7 +248,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void ResolvesTailCallReturnValueFromConstructor()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         var result = engine.Evaluate("""
             "use strict";
@@ -268,7 +268,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void AppliesDerivedConstructorReturnValidationAfterTailCall()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         Invoking(() => engine.Evaluate("""
             function primitive() {
@@ -437,7 +437,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void RecursionLimitFailureLeavesCallStackBalanced()
     {
-        var engine = new Engine(options => options.LimitRecursion(0));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 0);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -456,7 +456,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void InfiniteStrictTailRecursionHonorsRecursionLimit()
     {
-        var engine = new Engine(options => options.LimitRecursion(8));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 8);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -472,7 +472,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void MultiFunctionTailCycleHonorsRecursionLimit()
     {
-        var engine = new Engine(options => options.LimitRecursion(1));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -505,7 +505,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void RecursionLimitFiresWhenATailCallReEntersThroughAGetter()
     {
-        var engine = new Engine(options => options.LimitRecursion(20));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -530,7 +530,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void RecursionLimitFailureLeavesTheDepthStatisticBalanced()
     {
-        var engine = new Engine(options => options.LimitRecursion(0));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 0);
         engine.Execute("""
             "use strict";
             var stop = false;
@@ -551,7 +551,7 @@ public class TailCallOptimizationTests
     [Fact]
     public void DebugModeKeepsTailCallerFrame()
     {
-        var stack = new Engine(options => options.DebugMode()).Evaluate("""
+        var stack = new Engine(options => options.Debugger.Enabled = true).Evaluate("""
             "use strict";
             function target() {
                 return new Error("expected").stack;

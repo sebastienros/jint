@@ -54,6 +54,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.Advanced.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
 
 ### 2.1 Sealed types
 
@@ -193,6 +194,152 @@ engine.Execute(code, parsingOptions: parsingOptions);
 `Engine.PrepareScript` and pass the result to the `Prepared<Script>` overload, which is also the cheaper
 thing to do when the same source runs more than once. `ExecuteAsync(in Prepared<Script>, CancellationToken)`
 is new in v5 — `EvaluateAsync` already had it.
+### 3.3 `Options` is configured through its properties ([#3310](https://github.com/sebastienros/jint/pull/3310))
+
+`Options` and its groups carry every setting as a property. Through 4.16.x about twenty extension methods
+mirrored one of those properties one for one, so most settings had two spellings and the class that held
+them described itself as a "compatibility layer to allow fluent syntax". Those mirrors are gone: **assign
+the property**.
+
+```c#
+// 4.16.x
+var engine = new Engine(options => options
+    .Strict()
+    .AllowClrWrite()
+    .LimitRecursion(64));
+
+// 5.x
+var engine = new Engine(options =>
+{
+    options.Strict = true;
+    options.Interop.AllowWrite = true;
+    options.Constraints.MaxRecursionDepth = 64;
+});
+```
+
+Every deleted method and the property that replaces it:
+
+| 4.16.x | 5.x |
+| --- | --- |
+| `options.Strict(v)` | `options.Strict = v;` |
+| `options.RetainFunctionSourceText(v)` | `options.RetainFunctionSourceText = v;` |
+| `options.Culture(c)` | `options.Culture = c;` |
+| `options.LocalTimeZone(tz)` | `options.TimeZone = tz;` |
+| `options.DebugMode(v)` | `options.Debugger.Enabled = v;` |
+| `options.InitialStepMode(m)` | `options.Debugger.InitialStepMode = m;` |
+| `options.DebuggerStatementHandling(h)` | `options.Debugger.StatementHandling = h;` |
+| `options.DisableStringCompilation(v)` | `options.Host.StringCompilationAllowed = !v;` |
+| `options.AllowClrWrite(v)` | `options.Interop.AllowWrite = v;` |
+| `options.AllowOperatorOverloading(v)` | `options.Interop.AllowOperatorOverloading = v;` |
+| `options.PreferJsPrototypeMethods(v)` | `options.Interop.PreferJsPrototypeMethods = v;` |
+| `options.ChainClrExceptions(v)` | `options.Interop.ChainClrExceptionAsInnerException = v;` |
+| `options.SetWrapObjectHandler(h)` | `options.Interop.WrapObjectHandler = h;` |
+| `options.SetBuildCallStackHandler(h)` | `options.Interop.BuildCallStackHandler = h;` |
+| `options.SetMemberAccessor(a)` | `options.Interop.MemberAccessor = a;` |
+| `options.SetTypeResolver(r)` | `options.Interop.TypeResolver = r;` |
+| `options.DecorateClrExceptionErrors(d)` | `options.Interop.ClrExceptionErrorDecorator = d;` |
+| `options.DecorateClrResolutionErrors(d)` | `options.Interop.ClrResolutionErrorDecorator = d;` |
+| `options.CatchClrExceptions(handler)` | `options.Interop.ExceptionHandler = handler;` |
+| `options.LimitRecursion(n)` | `options.Constraints.MaxRecursionDepth = n;` |
+| `options.RegexTimeoutInterval(t)` | `options.Constraints.RegexTimeout = t;` |
+| `options.MaxArraySize(n)` | `options.Constraints.MaxArraySize = n;` |
+| `options.MaxJsonParseDepth(n)` | `options.Json.MaxParseDepth = n;` |
+
+`options.CatchClrExceptions()` — the parameterless one — stays: it is the preset every host writes,
+`Interop.ExceptionHandler = static _ => true`.
+
+Note that a property assignment is an expression, so a one-setting configuration callback still fits on one
+line (`new Engine(o => o.Strict = true)`); a chain of two or more becomes a statement block.
+
+### 3.4 The surviving extension methods have one verb per intent ([#3310](https://github.com/sebastienros/jint/pull/3310))
+
+What is left on `Options` is only what an assignment cannot do — install a subsystem, append to a registry,
+register a factory, set two coupled values at once, apply a profile — and the verb now says which:
+
+| verb | intent |
+| --- | --- |
+| `Use*` | installs a subsystem the engine otherwise does not have |
+| `Add*` / `Remove*` | appends to, or prunes, a registry that holds many |
+| `Allow*` | grants script a capability that is denied by default |
+| `Limit*` | registers a built-in budget constraint |
+| `Observe*` | registers a built-in constraint that watches host state |
+| `Set*` | replaces one host-supplied service an assignment cannot express |
+| `For*` | applies a named profile |
+| `Expose*` | widens what script may see, across more than one group |
+| `Catch*` | routes CLR exceptions into script |
+| `Configure` | runs a callback against the engine being built |
+| `Validate*` / `Ensure*` | inspects configuration; never changes it |
+
+The renames that follow from it:
+
+| 4.16.x | 5.x |
+| --- | --- |
+| `options.EnableModules(path)` / `(loader)` | `options.UseModules(path)` / `(loader)` |
+| `options.MaxStatements(n)` | `options.LimitStatements(n)` |
+| `options.TimeoutInterval(t)` | `options.LimitExecutionTime(t)` |
+| `options.CancellationToken(token)` | `options.ObserveCancellation(token)` |
+| `options.Constraint(c)` / `(factory)` | `options.AddConstraint(c)` / `(factory)` |
+| `options.WithoutConstraint(predicate)` | `options.RemoveConstraints(predicate)` |
+
+```c#
+// 4.16.x
+var options = new Options()
+    .EnableModules(loader)
+    .MaxStatements(100_000)
+    .TimeoutInterval(TimeSpan.FromSeconds(2))
+    .CancellationToken(requestAborted)
+    .Constraint(static () => new OperationDeadlineConstraint());
+
+// 5.x
+var options = new Options()
+    .UseModules(loader)
+    .LimitStatements(100_000)
+    .LimitExecutionTime(TimeSpan.FromSeconds(2))
+    .ObserveCancellation(requestAborted)
+    .AddConstraint(static () => new OperationDeadlineConstraint());
+```
+
+`LimitStatements` additionally lost its parameter default. `MaxStatements()` written with no argument passed
+`0`, which the helper reads as *no limit* — the opposite of what it looked like. Say the number.
+
+### 3.5 A reference resolver and its interests are one registration ([#3310](https://github.com/sebastienros/jint/pull/3310))
+
+`Options.ReferenceResolver` and `Options.ReferenceResolverInterests` are read-only now, and
+`SetReferencesResolver` is `SetReferenceResolver` with the interests defaulted. The two values were always
+one registration — an interest set describes one particular resolver — and while both were settable, the
+resolver's setter silently reset the interests to `All`, so the same two assignments meant different things
+depending on the order they were written in.
+
+```c#
+// 4.16.x — this narrows nothing: assigning the resolver reset the interests afterwards
+options.ReferenceResolverInterests = ReferenceResolverInterests.NullishPropertyBase;
+options.ReferenceResolver = new MyResolver();
+
+// 5.x — one call, so the order cannot be got wrong
+options.SetReferenceResolver(new MyResolver(), ReferenceResolverInterests.NullishPropertyBase);
+
+// and with no interests named, the resolver is consulted for everything, as before
+options.SetReferenceResolver(new MyResolver());
+```
+
+### 3.6 `Options.Json` is read-only, like every other group ([#3310](https://github.com/sebastienros/jint/pull/3310))
+
+Every option group — including `Options.Json`, which was the only one with a public setter — is now a
+read-only property materialized on first access. A host that replaced the whole group assigns into it
+instead:
+
+```c#
+// 4.16.x
+options.Json = new Options.JsonOptions { MaxParseDepth = 32 };
+
+// 5.x
+options.Json.MaxParseDepth = 32;
+```
+
+Two things follow that are not visible in a signature. A default `Options` now allocates **no** group at all,
+where it used to allocate ten eagerly; and `ForUntrustedCode`'s private snapshot copies every group rather
+than the six it happened to name, so a group added later cannot silently escape the profile.
+
 
 ## 4. Breaking without a signature change
 
@@ -203,7 +350,7 @@ compiles exactly as it did in 4.16 and behaves differently at run time.
 
 | PR | Setting | 4.16.x | 5.x | Restore the 4.16 behaviour |
 | --- | --- | --- | --- | --- |
-| [#3054](https://github.com/sebastienros/jint/pull/3054) | `Interop.AllowWrite` | `true` | `false` | `options.AllowClrWrite()` |
+| [#3054](https://github.com/sebastienros/jint/pull/3054) | `Interop.AllowWrite` | `true` | `false` | `options.Interop.AllowWrite = true;` |
 | [#3056](https://github.com/sebastienros/jint/pull/3056) | `Interop.ArrayConversion` | `LiveView` | `Copy` | `options.Interop.ArrayConversion = ArrayConversionMode.LiveView;` |
 | [#3057](https://github.com/sebastienros/jint/pull/3057) | `Constraints.StackOverflowGuard` | `false` | `true` | `options.Constraints.StackOverflowGuard = false;` |
 | [#3058](https://github.com/sebastienros/jint/pull/3058) | `AgentCanSuspend` | `true` | `false` | `options.AgentCanSuspend = true;` |
@@ -224,7 +371,7 @@ unaffected: that is a capability the host handed out, not a projected write.
 var engine = new Engine().SetValue("host", host);
 
 // 5.x — the same engine now refuses that write; opt back in explicitly
-var engine = new Engine(options => options.AllowClrWrite())
+var engine = new Engine(options => options.Interop.AllowWrite = true)
     .SetValue("host", host);
 ```
 
@@ -239,11 +386,11 @@ answered `false`, and `push`, `pop` and `length` writes now succeed on the copy 
 view threw `TypeError`.
 
 ```c#
-// 5.x — opt back into the live view; write-through additionally needs AllowClrWrite()
+// 5.x — opt back into the live view; write-through additionally needs Interop.AllowWrite
 var engine = new Engine(options =>
 {
     options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
-    options.AllowClrWrite();
+    options.Interop.AllowWrite = true;
 });
 ```
 
@@ -343,7 +490,7 @@ names. Nothing host-side is lost: `JintException.TryGetClrException`, `TryGetClr
 // 5.x — restore the 4.16 development-friendly messages on all three surfaces
 var engine = new Engine(options => options
     .CatchClrExceptions()
-    .EnableModules(loader)
+    .UseModules(loader)
     .ExposeDetailedErrors());
 ```
 
@@ -403,7 +550,27 @@ new Uint8Array(4).set([1], 1e20)
 // 5.x:            RangeError on every target framework
 ```
 
-### 4.12 New limits, all defaulting to unlimited
+### 4.12 A limit that cannot be reached is not a limit ([#3310](https://github.com/sebastienros/jint/pull/3310))
+
+One rule now governs every built-in bound, where 4.16 had two that disagreed. A *constraint* that could
+never fail is not registered — which is what `LimitStatements`, `LimitMemory` and `LimitExecutionTime`
+already did for a saturated or non-positive value — and a *value* setting that could never be reached no
+longer arms its check either. Two settings change behaviour because of it:
+
+| Setting | 4.16.x | 5.x |
+| --- | --- | --- |
+| `Constraints.MaxRecursionDepth = int.MaxValue` | armed the call-stack depth tracking, which then never fired | identical to `-1`: nothing is tracked, nothing can fire |
+| `Constraints.RegexTimeout = TimeSpan.MaxValue` (or any non-positive interval, or anything above `Regex`'s own ~24.8-day ceiling) | untimed inside Jint's regex engine, `ArgumentOutOfRangeException` out of the .NET `Regex` constructor | untimed on both paths |
+
+Neither weakens anything: both spellings already meant "no limit" to a script, and both are still reported
+as configuration errors by `options.ValidateSecurityConfiguration()`, which reads back the value the host
+assigned rather than the normalized one — so `JINTSEC010` (recursion limit disabled) and `JINTSEC011`
+(recursion limit saturated) still tell the two mistakes apart.
+
+`LimitStatements` also lost the parameter default that made `MaxStatements()` mean "no limit"; see
+[3.4](#34-the-surviving-extension-methods-have-one-verb-per-intent).
+
+### 4.13 New limits, all defaulting to unlimited
 
 These add controls rather than change behaviour: a host that configures nothing gets the 4.16
 behaviour. They are listed here because a host running untrusted code should now configure them.
@@ -432,7 +599,7 @@ Two further additions in the same stack are entirely opt-in and change nothing o
 The supported boundaries and the residual risks are in the
 [threat model](../.github/THREAT_MODEL.md).
 
-### 4.13 `Engine.Constraints.Find<T>()` matches derived constraints ([#3309](https://github.com/sebastienros/jint/pull/3309))
+### 4.14 `Engine.Constraints.Find<T>()` matches derived constraints ([#3309](https://github.com/sebastienros/jint/pull/3309))
 
 The match was `constraint.GetType() == typeof(T)` — an exact type identity, documented nowhere. It is
 `constraint is T` in v5, so a base type matches. Two shapes that used to answer `null` now answer:
@@ -526,9 +693,12 @@ own call site rather than as a wrong answer at run time. Each message names what
 
 (`ClrHelper.Unwrap` and `ClrHelper.Wrap`, reachable only from script through `clrHelper`, carry it too.)
 
-`Options.Interop.Enabled = true` is the unannotated equivalent of `AllowClr`; it is a property setter,
-and annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you
-are taking on what `AllowClr`'s message says.
+`Options.Interop.Enabled = true` opens the same door unannotated: it is a property setter, and
+annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you are
+taking on what `AllowClr`'s message says. It is not otherwise the same thing — it is the gate and not
+the grant, so on its own it installs `System`, `importNamespace` and `clrHelper` while
+`Interop.AllowedAssemblies` stays empty and every namespace script names is unresolvable. `AllowClr()`
+opens the gate *and* names assemblies.
 
 Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>`,
 `TypeReference.CreateTypeReference`, `ModuleBuilder.ExportType` and `JsValue.FromObject`. The first

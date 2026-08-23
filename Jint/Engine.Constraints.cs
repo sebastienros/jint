@@ -25,7 +25,7 @@ public partial class Engine
     /// engine cannot simply take a reference to whatever the options hold: two engines would then share
     /// one budget and one engine's reset would rewind another engine's in-flight execution. Factory
     /// registrations therefore produce a fresh instance per engine here. Instances registered directly
-    /// through <see cref="OptionsExtensions.Constraint(Options, Constraint)"/> are used as given — that
+    /// through <see cref="OptionsExtensions.AddConstraint(Options, Constraint)"/> are used as given — that
     /// overload is documented as single-engine-only, and nothing can be cloned out of an arbitrary
     /// user-derived <see cref="Constraint"/>.
     /// </remarks>

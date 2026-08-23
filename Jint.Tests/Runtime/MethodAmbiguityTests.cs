@@ -11,7 +11,7 @@ public class MethodAmbiguityTests : IDisposable
     public MethodAmbiguityTests()
     {
         _engine = new Engine(cfg => cfg
-                    .AllowOperatorOverloading())
+                    .Interop.AllowOperatorOverloading = true)
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("throws", new Func<Action, Exception>(static action => action.Should().Throw<Exception>().Which))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
@@ -88,7 +88,7 @@ public class MethodAmbiguityTests : IDisposable
     [Fact]
     public void ShouldFavorOtherOverloadsOverObjectParameter()
     {
-        var engine = new Engine(cfg => cfg.AllowOperatorOverloading());
+        var engine = new Engine(cfg => cfg.Interop.AllowOperatorOverloading = true);
         engine.SetValue("Class1", TypeReference.CreateTypeReference<Class1>(engine));
         engine.SetValue("Class2", TypeReference.CreateTypeReference<Class2>(engine));
 

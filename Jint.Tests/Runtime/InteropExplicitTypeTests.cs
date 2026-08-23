@@ -93,7 +93,7 @@ public class InteropExplicitTypeTests
                     typeof(CI1).Assembly,
                     typeof(Console).Assembly,
                     typeof(File).Assembly)
-                .AllowClrWrite())
+                .Interop.AllowWrite = true)
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -183,7 +183,7 @@ public class InteropExplicitTypeTests
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ThrowOnUnresolvedMember = true;
         });
         var holder = new BaseValueHolder();

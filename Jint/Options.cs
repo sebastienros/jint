@@ -3,6 +3,7 @@ using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Intl;
@@ -48,49 +49,82 @@ public sealed partial class Options
     public delegate IEnumerable<JsValue>? ReportedPropertyKeysDelegate(Engine engine, object target);
 
     /// <summary>
+    /// Materializes an option group on first access.
+    /// </summary>
+    /// <remarks>
+    /// Every group accessor on <see cref="Options"/> and on its web-API group has this one shape,
+    /// so a default <see cref="Options"/> allocates no group at all and a host pays only for the groups it
+    /// touches. The interlocked publication is not decoration: <see cref="Options"/> is documented as safe to
+    /// share between engines being constructed concurrently, and every engine build reads several of these
+    /// groups, so a plain <c>??=</c> would let two builds each get their own instance and only one of them
+    /// see a later host mutation. Groups are read while an engine is being built and never on an execution
+    /// path, so the null check costs nothing that matters.
+    /// </remarks>
+    private static T Materialize<T>(ref T? field) where T : class, new()
+        => field ?? Interlocked.CompareExchange(ref field, new T(), null) ?? field;
+
+    /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
-    public ConstraintOptions Constraints { get; private set; } = new();
+    public ConstraintOptions Constraints => Materialize(ref _constraints);
+
+    private ConstraintOptions? _constraints;
 
     /// <summary>
     /// Resource limits applied while parsing scripts and modules.
     /// </summary>
-    public ParsingOptions Parsing { get; private set; } = new();
+    public ParsingOptions Parsing => Materialize(ref _parsing);
+
+    private ParsingOptions? _parsing;
 
     /// <summary>
     /// CLR interop related options.
     /// </summary>
-    public InteropOptions Interop { get; private set; } = new();
+    public InteropOptions Interop => Materialize(ref _interop);
+
+    private InteropOptions? _interop;
 
     /// <summary>
     /// Debugger configuration.
     /// </summary>
-    public DebuggerOptions Debugger { get; private set; } = new();
+    public DebuggerOptions Debugger => Materialize(ref _debugger);
+
+    private DebuggerOptions? _debugger;
 
     /// <summary>
     /// Script code coverage configuration. Off by default.
     /// </summary>
-    public CoverageOptions Coverage { get; } = new();
+    public CoverageOptions Coverage => Materialize(ref _coverage);
+
+    private CoverageOptions? _coverage;
 
     /// <summary>
     /// Host options.
     /// </summary>
-    public HostOptions Host { get; private set; } = new();
+    public HostOptions Host => Materialize(ref _host);
+
+    private HostOptions? _host;
 
     /// <summary>
     /// Module options
     /// </summary>
-    public ModuleOptions Modules { get; private set; } = new();
+    public ModuleOptions Modules => Materialize(ref _modules);
+
+    private ModuleOptions? _modules;
 
     /// <summary>
     /// Internationalization (Intl) options.
     /// </summary>
-    public IntlOptions Intl { get; } = new();
+    public IntlOptions Intl => Materialize(ref _intl);
+
+    private IntlOptions? _intl;
 
     /// <summary>
     /// Temporal API options.
     /// </summary>
-    public TemporalOptions Temporal { get; } = new();
+    public TemporalOptions Temporal => Materialize(ref _temporal);
+
+    private TemporalOptions? _temporal;
 
     /// <summary>
     /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -136,22 +170,12 @@ public sealed partial class Options
     /// null/undefined on first occurrence.
     /// </summary>
     /// <remarks>
-    /// Assigning a resolver resets <see cref="ReferenceResolverInterests"/> to
-    /// <see cref="ReferenceResolverInterests.All"/>: interests describe one particular resolver, so a
-    /// replacement never inherits the set narrowed for its predecessor. Assign the interests after the
-    /// resolver — which is what
-    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>
-    /// does — to register a resolver with a narrower set.
+    /// Read-only, because a resolver and the situations it wants to be consulted for are one registration:
+    /// interests describe one particular resolver, so a replacement must never inherit the set narrowed for
+    /// its predecessor, and a narrowed set must never survive the resolver it was written for. Register both
+    /// together with <see cref="OptionsExtensions.SetReferenceResolver"/>.
     /// </remarks>
-    public IReferenceResolver ReferenceResolver
-    {
-        get => _referenceResolver;
-        set
-        {
-            _referenceResolver = value;
-            ReferenceResolverInterests = ReferenceResolverInterests.All;
-        }
-    }
+    public IReferenceResolver ReferenceResolver => _referenceResolver;
 
     private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
 
@@ -163,18 +187,28 @@ public sealed partial class Options
     /// <see cref="ReferenceResolver"/> is the built-in default.
     /// </summary>
     /// <remarks>
-    /// Assigning <see cref="ReferenceResolver"/> — directly or through
-    /// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> — resets this to
-    /// <see cref="ReferenceResolverInterests.All"/>, so a second resolver never silently inherits a narrower
-    /// set from the first. Narrow it after registering the resolver it describes.
+    /// Read-only, and set together with the resolver it describes through
+    /// <see cref="OptionsExtensions.SetReferenceResolver"/>. Through 4.16.x both were settable and assigning
+    /// <see cref="ReferenceResolver"/> silently reset this to <see cref="ReferenceResolverInterests.All"/>, so
+    /// the same two assignments meant different things depending on the order they were written in.
     /// </remarks>
-    public ReferenceResolverInterests ReferenceResolverInterests { get; set; } = ReferenceResolverInterests.All;
+    public ReferenceResolverInterests ReferenceResolverInterests => _referenceResolverInterests;
+
+    private ReferenceResolverInterests _referenceResolverInterests = ReferenceResolverInterests.All;
+
+    internal void SetReferenceResolverCore(IReferenceResolver resolver, ReferenceResolverInterests interests)
+    {
+        _referenceResolver = resolver;
+        _referenceResolverInterests = interests;
+    }
 
     /// <summary>
     /// Options for the built-in JSON (de)serializer which
     /// gets used using <c>JSON.parse</c> or <c>JSON.stringify</c>
     /// </summary>
-    public JsonOptions Json { get; set; } = new();
+    public JsonOptions Json => Materialize(ref _json);
+
+    private JsonOptions? _json;
 
     /// <summary>
     /// Limits applied by host-side result conversion and JSON serialization. Defaults to
@@ -345,10 +379,6 @@ public sealed partial class Options
         // retaining — is the restrictive one, so a fresh engine already takes the safe answer.
         "RetainFunctionSourceText",
 
-        // Describes a reference resolver, which is a host object rather than a restriction and is not copied.
-        // Interests without their resolver mean nothing, and assigning a resolver resets them anyway.
-        "ReferenceResolverInterests",
-
         // Grant-shaped: the only feature it carries today is CLR task interop, and interop grants are the
         // host's to make deliberately, per engine.
         "ExperimentalFeatures",
@@ -420,7 +450,7 @@ public sealed partial class Options
         // register programmatic modules at construction time.
         //
         // The opt-in node: builtins are a decorator over whatever loader the host configured, applied here
-        // rather than in UseNodeBuiltinModules so that the order of that call and EnableModules cannot
+        // rather than in UseNodeBuiltinModules so that the order of that call and UseModules cannot
         // matter, and so that options.Modules.ModuleLoader keeps reading back what the host set.
         var moduleLoader = _nodeBuiltinModules is null
             ? Modules.ModuleLoader
@@ -501,15 +531,27 @@ public sealed partial class Options
             return this;
         }
 
+        // MemberwiseClone copies every group *reference*, so each one the profile may write to has to be
+        // replaced by a copy of its own — otherwise hardening one engine mutates the host's shared options.
+        // Every group is cloned rather than the handful the profile happens to touch today, so that adding a
+        // group or widening the profile cannot silently reopen that hole; a group nobody materialized stays
+        // unmaterialized, and costs nothing to "clone".
         var clone = (Options) MemberwiseClone();
         clone._configurations = new List<EngineConfiguration>(_configurations);
-        clone.Constraints = Constraints.Clone();
-        clone.Parsing = Parsing.Clone();
-        clone.Interop = Interop.Clone();
-        clone.Debugger = Debugger.Clone();
-        clone.Host = Host.Clone();
-        clone.Modules = Modules.Clone();
-        clone.Json = new JsonOptions { MaxParseDepth = Json.MaxParseDepth };
+        clone._constraints = _constraints?.Clone();
+        clone._parsing = _parsing?.Clone();
+        clone._interop = _interop?.Clone();
+        clone._debugger = _debugger?.Clone();
+        clone._coverage = _coverage?.Clone();
+        clone._host = _host?.Clone();
+        clone._modules = _modules?.Clone();
+        clone._intl = _intl?.Clone();
+        clone._temporal = _temporal?.Clone();
+        clone._json = _json?.Clone();
+        clone._profiling = _profiling?.Clone();
+#if NET8_0_OR_GREATER
+        clone._webApi = _webApi?.Clone();
+#endif
         OptionsExtensions.ApplyUntrustedCodeOptions(clone, UntrustedCodeLimits);
         return clone;
     }
@@ -632,13 +674,32 @@ public sealed partial class Options
         /// what the report contains, not how the engine executes: both values collect through the same lane.
         /// </summary>
         public CoverageGranularity Granularity { get; set; } = CoverageGranularity.Statements;
+
+        internal CoverageOptions Clone() => (CoverageOptions) MemberwiseClone();
     }
 
     public sealed class InteropOptions
     {
         /// <summary>
-        /// Whether accessing CLR and it's types and methods is allowed from JS code, defaults to false.
+        /// Whether the <c>System</c> namespace object, <c>importNamespace</c> and <c>clrHelper</c> are
+        /// installed on the global object at all, defaults to <see langword="false"/>.
         /// </summary>
+        /// <remarks>
+        /// <b>Setting this alone grants script nothing to resolve.</b> It is the gate, not the grant:
+        /// <see cref="AllowedAssemblies"/> is a closed allow-list, and an engine with the gate open and an
+        /// empty list has <c>importNamespace</c> present and every namespace it names unresolvable. The
+        /// grant is <see cref="OptionsExtensions.AllowClr(Options, System.Reflection.Assembly[])"/>, which
+        /// opens the gate <i>and</i> names the assemblies; the parameterless
+        /// <see cref="OptionsExtensions.AllowClr(Options)"/> additionally adds the assembly containing
+        /// <see cref="object"/> and selects the permissive resolution policy, so it is strictly more than
+        /// this property, not a spelling of it.
+        /// <para>
+        /// Both are reported by
+        /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
+        /// — the gate as <c>JINTSEC015</c>, and <c>AllowClr()</c>'s compatibility policy additionally as its
+        /// own diagnostic — so a host hardening an engine sees the difference rather than having to know it.
+        /// </para>
+        /// </remarks>
         public bool Enabled { get; set; }
 
         internal ClrAccessConfiguration ClrAccessConfiguration { get; set; }
@@ -1036,7 +1097,7 @@ public sealed partial class Options
         /// carry per-execution state (a statement counter, a deadline), so a shared instance is only
         /// safe when a single engine is built from the options and it is never used concurrently.
         /// To share one <see cref="Options"/> across several engines, register a factory instead
-        /// (<see cref="OptionsExtensions.Constraint(Options, Func{Constraint})"/>) so each engine gets
+        /// (<see cref="OptionsExtensions.AddConstraint(Options, Func{Constraint})"/>) so each engine gets
         /// its own instance; the built-in constraint extension methods already do that.
         /// </remarks>
         public List<Constraint> Constraints { get; private set; } = new();
@@ -1062,11 +1123,27 @@ public sealed partial class Options
         /// Maximum recursion depth allowed, defaults to -1 (no checks).
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
         /// engine that already exists — the call stack decides from the same value whether to track depth at
         /// all, so the limit could not be raised later even if every check re-read it.
+        /// </para>
+        /// <para>
+        /// A limit that cannot be reached is not a limit, so <see cref="int.MaxValue"/> arms nothing and gives
+        /// exactly the engine <c>-1</c> gives — the depth tracking that feeds the check is not turned on
+        /// either. Through 4.16.x the two differed: a saturated depth armed the tracking and then never fired,
+        /// so it cost what enforcement costs and enforced nothing. The value still reads back as it was
+        /// assigned, and <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
+        /// still distinguishes the two spellings — a host that meant to set a limit is told which mistake it made.
+        /// </para>
         /// </remarks>
         public int MaxRecursionDepth { get; set; } = -1;
+
+        /// <summary>
+        /// <see cref="MaxRecursionDepth"/> reduced to the two states the engine can be in: a non-negative depth
+        /// to enforce, or <c>-1</c> for "do not track depth at all".
+        /// </summary>
+        internal int EffectiveMaxRecursionDepth => MaxRecursionDepth == int.MaxValue ? -1 : MaxRecursionDepth;
 
         /// <summary>
         /// Maximum recursion stack count, defaults to -1 (as-is dotnet stacktrace).
@@ -1143,7 +1220,33 @@ public sealed partial class Options
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
         /// </summary>
+        /// <remarks>
+        /// A limit that cannot be reached is not a limit, and .NET's <see cref="System.Text.RegularExpressions.Regex"/>
+        /// can only enforce a timeout between one tick and <see cref="int.MaxValue"/> milliseconds. Anything
+        /// outside that — a non-positive interval, <see cref="TimeSpan.MaxValue"/>, anything above the
+        /// ceiling — therefore means untimed, on the .NET path and on Jint's own regex engine alike. Through
+        /// 4.16.x it meant neither consistently: <see cref="TimeSpan.MaxValue"/> was silently untimed inside
+        /// Jint's engine and an <see cref="ArgumentOutOfRangeException"/> out of the <c>Regex</c> constructor
+        /// on the .NET one. The value reads back as it was assigned, and
+        /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
+        /// reports an untimed engine as an error.
+        /// </remarks>
         public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// The largest interval .NET's <see cref="System.Text.RegularExpressions.Regex"/> accepts as a match
+        /// timeout: <see cref="int.MaxValue"/> milliseconds, about 24.8 days.
+        /// </summary>
+        private static readonly TimeSpan _maximumEnforceableRegexTimeout = TimeSpan.FromMilliseconds(int.MaxValue);
+
+        /// <summary>
+        /// Reduces a configured regex timeout to the two states a regex engine can be in: an enforceable
+        /// interval, or <see cref="System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> for untimed.
+        /// </summary>
+        internal static TimeSpan NormalizeRegexTimeout(TimeSpan timeout)
+            => timeout <= TimeSpan.Zero || timeout >= _maximumEnforceableRegexTimeout
+                ? System.Text.RegularExpressions.Regex.InfiniteMatchTimeout
+                : timeout;
 
         /// <summary>
         /// Maximum time allowed for unwrapping a Promise and getting its resolved/rejected value.
@@ -1163,7 +1266,7 @@ public sealed partial class Options
 
 #if NET8_0_OR_GREATER
         /// <summary>
-        /// The clock <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>'s constraint measures against.
+        /// The clock <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>'s constraint measures against.
         /// Defaults to <see cref="TimeProvider.System"/>; a fake one makes a timeout test exact instead of a
         /// race against the machine it runs on.
         /// </summary>
@@ -1176,7 +1279,7 @@ public sealed partial class Options
         /// </para>
         /// <para>
         /// Read when the engine builds its constraints, so it may be set in any order relative to
-        /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>; assigning it afterwards only reaches
+        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>; assigning it afterwards only reaches
         /// engines built later. Leaving it at <see cref="TimeProvider.System"/> costs exactly what it cost
         /// before this property existed — see <c>ConstraintClock</c> for the fold that makes that true.
         /// </para>
@@ -1346,6 +1449,8 @@ public sealed partial class Options
         /// defaults to 64.
         /// </summary>
         public int MaxParseDepth { get; set; } = 64;
+
+        internal JsonOptions Clone() => (JsonOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1362,6 +1467,8 @@ public sealed partial class Options
         /// to enable full locale support for the Intl API.
         /// </remarks>
         public ICldrProvider CldrProvider { get; set; } = DefaultCldrProvider.Instance;
+
+        internal IntlOptions Clone() => (IntlOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1390,6 +1497,8 @@ public sealed partial class Options
         /// Persian astronomical, or Chinese/Dangi calendars at extreme dates.
         /// </remarks>
         public ICalendarProvider CalendarProvider { get; set; } = DefaultCalendarProvider.Instance;
+
+        internal TemporalOptions Clone() => (TemporalOptions) MemberwiseClone();
     }
 }
 

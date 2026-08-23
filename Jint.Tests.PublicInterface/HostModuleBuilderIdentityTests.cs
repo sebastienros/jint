@@ -39,7 +39,7 @@ public class HostModuleBuilderIdentityTests
         // `new Uri("http://localhost").AbsoluteUri` is "http://localhost/", so the registration name and the
         // resolved key differ by the path Uri supplies. The loader throws if it is reached, which is what the
         // mismatch used to cause.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = 'from the builder';");
 
@@ -52,7 +52,7 @@ public class HostModuleBuilderIdentityTests
         // The direction a raw-specifier fallback cannot reach: the import is written the way an import map or a
         // generated specifier writes it, so it already equals the resolved key and never needs the fallback -
         // but the registration is still filed under the shorter name.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = 'from the builder';");
 
@@ -64,7 +64,7 @@ public class HostModuleBuilderIdentityTests
     {
         // Both spellings resolve to one key, so they are one module - not two, and not one plus a failure once
         // the registration has been consumed.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = {};");
 
@@ -89,7 +89,7 @@ public class HostModuleBuilderIdentityTests
             File.WriteAllText(Path.Combine(sub, "entry.js"), "export { origin } from './dep.js';");
             File.WriteAllText(Path.Combine(sub, "dep.js"), "export const origin = 'the real sibling';");
 
-            var engine = new Engine(options => options.EnableModules(path));
+            var engine = new Engine(options => options.UseModules(path));
             engine.Modules.Add("./dep.js", "export const origin = 'the registration';");
 
             engine.Modules.Import("./sub/entry.js").Get("origin").AsString().Should().Be("the real sibling");
@@ -113,7 +113,7 @@ public class HostModuleBuilderIdentityTests
         // actually in the dictionary rather than the resolved key. It caches into the module map before
         // removing, so passing the wrong name leaves a builder entry alive for the engine's lifetime and no
         // import ever notices. Re-registering the same specifier is what notices.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = 'first';");
         engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("first");
@@ -133,7 +133,7 @@ public class HostModuleBuilderIdentityTests
         // the location is the referrer that the module's *own* imports resolve against. With a loader mapping
         // the bare name `lib` into a virtual tree, a module registered as `lib` and named `lib` would resolve
         // its nested `./util.js` against a name that has no directory at all.
-        var engine = new Engine(options => options.EnableModules(new VirtualTreeLoader(new Dictionary<string, string>
+        var engine = new Engine(options => options.UseModules(new VirtualTreeLoader(new Dictionary<string, string>
         {
             ["/vfs/util.js"] = "export const value = 'from the virtual sibling';",
         })));
@@ -195,7 +195,7 @@ public class HostModuleBuilderIdentityTests
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, "entry.js"), "export const value = 'from disk';");
 
-            var engine = new Engine(options => options.EnableModules(path));
+            var engine = new Engine(options => options.UseModules(path));
             engine.Modules.Add("./not-a-module", "export const value = 'unreachable';");
 
             engine.Modules.Import("./entry.js").Get("value").AsString().Should().Be("from disk");
@@ -224,7 +224,7 @@ public class HostModuleBuilderIdentityTests
     {
         // The index is built lazily, so a registration added after an earlier import already triggered it has
         // to be picked up rather than left behind the first pass.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = 'first';");
         engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("first");
@@ -240,7 +240,7 @@ public class HostModuleBuilderIdentityTests
         // unreachable under every name - its own name resolves to the shared key too, which now belongs to the
         // winner. That is host-supplied source being discarded, the failure this identity scheme exists to
         // eliminate, so the import that discovers the pair throws instead of picking a winner.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost", "export const value = 'first';");
         engine.Modules.Add("HTTP://localhost", "export const value = 'second';");
@@ -254,7 +254,7 @@ public class HostModuleBuilderIdentityTests
     {
         // The other collision shape: the earlier registration already carries the canonical spelling, so it is
         // matched without ever being indexed, and only the later registration's resolution reveals the clash.
-        var engine = new Engine(options => options.EnableModules(new CanonicalizingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new CanonicalizingModuleLoader()));
 
         engine.Modules.Add("http://localhost/", "export const value = 'canonical';");
         engine.Modules.Add("http://localhost", "export const value = 'short';");
@@ -269,7 +269,7 @@ public class HostModuleBuilderIdentityTests
         // A refusal is the loader rejecting one name; cancellation is the host calling off the whole
         // operation, and it must reach whoever cancelled rather than be treated as "leave that registration
         // unindexed" while the triggering import carries on loading and evaluating.
-        var engine = new Engine(options => options.EnableModules(new CancellingResolveLoader()));
+        var engine = new Engine(options => options.UseModules(new CancellingResolveLoader()));
 
         engine.Modules.Add("cancelled", "export const value = 1;");
         engine.Modules.Add("http://localhost", "export const value = 2;");
@@ -281,7 +281,7 @@ public class HostModuleBuilderIdentityTests
     [Fact]
     public void CancellationInsideTheIndexingPassCanBeRetried()
     {
-        var engine = new Engine(options => options.EnableModules(new CancelOnceResolveLoader()));
+        var engine = new Engine(options => options.UseModules(new CancelOnceResolveLoader()));
 
         engine.Modules.Add("cancelled", "export const value = 1;");
 
@@ -338,7 +338,7 @@ public class HostModuleBuilderIdentityTests
         // A loader compiled without nullable annotations can hand back a null key instead of throwing. That is
         // a refusal in a different costume, and like the thrown kind it must not surface on the import that
         // merely triggered the indexing pass.
-        var engine = new Engine(options => options.EnableModules(new NullKeyResolveLoader()));
+        var engine = new Engine(options => options.UseModules(new NullKeyResolveLoader()));
 
         engine.Modules.Add("broken", "export const value = 'unreachable';");
         engine.Modules.Add("http://localhost", "export const value = 'fine';");
@@ -373,7 +373,7 @@ public class HostModuleBuilderIdentityTests
         // A pre-compiled module cannot be renamed by the registration - the AST is the host's - so its
         // relative imports resolve against the name it was prepared with. Preparing it under the key the
         // loader resolves the registration to, as the AddModule doc says, is what makes the two agree.
-        var engine = new Engine(options => options.EnableModules(new VirtualTreeLoader(new Dictionary<string, string>
+        var engine = new Engine(options => options.UseModules(new VirtualTreeLoader(new Dictionary<string, string>
         {
             ["/vfs/util.js"] = "export const value = 'from the virtual sibling';",
         })));

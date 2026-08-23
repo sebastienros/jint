@@ -153,7 +153,7 @@ public class HostGlobalErrorEventTests
                 webApi.Timers.TimeProvider = clock;
                 webApi.Diagnostics.Sink = sink;
             });
-            options.LimitRecursion(8);
+            options.Constraints.MaxRecursionDepth = 8;
         });
 
         engine.Execute("""

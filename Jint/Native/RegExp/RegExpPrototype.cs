@@ -1519,8 +1519,9 @@ internal sealed partial class RegExpPrototype : Prototype
         => R.GetCaseFoldingFallbackEngine(GetCustomEngineTimeout(R));
 
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
-        (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
-        ?? R.Engine.Options.Constraints.RegexTimeout;
+        Options.ConstraintOptions.NormalizeRegexTimeout(
+            (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout
+            ?? R.Engine.Options.Constraints.RegexTimeout);
 
     /// <summary>
     /// Runs the custom regex engine under the configured timeout. The deadline is enforced by inline
@@ -1576,6 +1577,14 @@ internal sealed partial class RegExpPrototype : Prototype
     /// </summary>
     private static long ComputeRegexDeadline(TimeSpan timeout)
     {
+        if (timeout <= TimeSpan.Zero)
+        {
+            // Untimed, which is what Regex.InfiniteMatchTimeout means and what a normalized timeout uses
+            // to say it. Without this the negative interval would put the deadline in the past and every
+            // match would report a timeout immediately.
+            return RegExpInterpreter.NoDeadline;
+        }
+
         var now = Stopwatch.GetTimestamp();
         var ticks = timeout.TotalSeconds * Stopwatch.Frequency;
         return ticks >= long.MaxValue - now ? RegExpInterpreter.NoDeadline : now + (long) ticks;

@@ -171,7 +171,7 @@ public class InteropCompiledMemberAccessorTests
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             configure?.Invoke(options);
         });
         engine.SetValue("host", host);
@@ -343,7 +343,7 @@ public class InteropCompiledMemberAccessorTests
         // converter - which cannot turn the resulting System.String back into a JsString. The fast
         // lane must not "fix" that, or the write would start succeeding where it used to throw.
         var host = new JsSubtypeHost();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("host", host);
 
         Invoking(() => engine.Execute("host.JsStringProp = 'abc';"))
@@ -956,7 +956,7 @@ public class InteropCompiledMemberAccessorTests
     public void IndexerIsResolvedBeforeTheMember()
     {
         var host = new IndexerHost();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("host", host);
 
         // the indexer is probed first and answers for "Value", shadowing the int property
@@ -970,7 +970,7 @@ public class InteropCompiledMemberAccessorTests
     [Fact]
     public void StructHostStillWorks()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("host", new StructHost(3));
 
         engine.Evaluate("host.IntProp").Should().Be(3);
@@ -985,7 +985,7 @@ public class InteropCompiledMemberAccessorTests
     public void ReadOnlyFieldAndPropertyWritesFail()
     {
         var host = new ReadOnlyHost();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("host", host);
 
         engine.Evaluate("host.ReadOnlyIntProp").Should().Be(11);
@@ -1011,7 +1011,7 @@ public class InteropCompiledMemberAccessorTests
         StaticHost.StaticIntProp = 3;
         StaticHost.StaticStringField = "s";
 
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("Statics", TypeReference.CreateTypeReference(engine, typeof(StaticHost)));
 
         engine.Evaluate("Statics.StaticIntProp").Should().Be(3);
@@ -1026,7 +1026,7 @@ public class InteropCompiledMemberAccessorTests
     public void InterfaceDeclaredPropertyWorksThroughTheInterface()
     {
         var owner = new HolderOwner();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("owner", owner);
 
         engine.Execute("owner.Holder.Value = 5; owner.Holder.Name = 'n';");
@@ -1104,7 +1104,7 @@ public class InteropCompiledMemberAccessorTests
     public void PropertyWithNonPublicGetter()
     {
         var host = new NonPublicGetterHost();
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         engine.SetValue("host", host);
 
         engine.Execute("host.HalfHidden = 9;");

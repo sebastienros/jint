@@ -38,7 +38,7 @@ run(gate);";
 
     private static Engine CreateEngine(out ManualPromise gate)
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
         gate = engine.Advanced.RegisterPromise();
         engine.SetValue("gate", gate.Promise);
         return engine;
@@ -176,7 +176,7 @@ it.next();";
     [Fact]
     public void AnIdleEngineStillRefusesToEvaluate()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         Invoking(() => engine.Debugger.Evaluate("1 + 1"))
             .Should().ThrowExactly<DebugEvaluationException>()

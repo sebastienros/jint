@@ -200,7 +200,7 @@ public sealed class WorkerRequest
     /// register a constraint factory when Options is shared") — so an implementation that copied instances
     /// here would fail loudly on the second engine rather than silently share a budget. A parent that
     /// registered an instance directly therefore gets an <i>unbounded</i> worker; the fix is one line —
-    /// register a factory instead (<c>options.Constraint(() =&gt; new MyConstraint())</c>), which every
+    /// register a factory instead (<c>options.AddConstraint(() =&gt; new MyConstraint())</c>), which every
     /// built-in constraint extension already does.
     /// </para>
     /// <para>
@@ -232,7 +232,7 @@ public sealed class WorkerRequest
         // cancellation constraint they find. A cancellation constraint the parent registered itself is
         // replayed below and sits beside it — a parent that cancels its own token stops its workers too,
         // which is a restriction travelling and not a grant.
-        options.CancellationToken(TerminationToken);
+        options.ObserveCancellation(TerminationToken);
 
         // Factories, never instances. ConstraintFactories is internal, so this is the only place the replay
         // can happen at all: a provider cannot do it for itself, which is one reason the request offers it.

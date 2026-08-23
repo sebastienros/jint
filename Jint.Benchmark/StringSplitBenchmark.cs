@@ -35,7 +35,7 @@ public class StringSplitBenchmark
     /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
     private static Engine CreateEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         // Deterministic ~1M char source cycling 'a'..'y' (dromaeo-style: 'a' every 25 chars,
         // average 24-char segments; "xy" also appears once per cycle).
         engine.Execute("""

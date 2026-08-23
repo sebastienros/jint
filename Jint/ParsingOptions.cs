@@ -126,7 +126,10 @@ public sealed record ScriptParsingOptions : IParsingOptions, IParsingLimitOption
     private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
-        var timeout = RegexTimeout ?? fallbackRegexTimeout;
+        // Normalized here rather than at either source, so that "a limit that cannot be reached is not a
+        // limit" holds for the per-parse override and the engine setting alike, and neither can reach
+        // Regex with an interval it refuses to construct with.
+        var timeout = Options.ConstraintOptions.NormalizeRegexTimeout(RegexTimeout ?? fallbackRegexTimeout);
 
         var compilation = CompileRegex switch
         {
@@ -206,7 +209,10 @@ public sealed record class ModuleParsingOptions : IParsingOptions, IParsingLimit
     private OnRegExpHandler? GetOnRegExpHandler(RegexCompilation fallbackRegexCompilation, TimeSpan fallbackRegexTimeout)
     {
         // Explicit RegexTimeout takes priority, then engine's configured timeout
-        var timeout = RegexTimeout ?? fallbackRegexTimeout;
+        // Normalized here rather than at either source, so that "a limit that cannot be reached is not a
+        // limit" holds for the per-parse override and the engine setting alike, and neither can reach
+        // Regex with an interval it refuses to construct with.
+        var timeout = Options.ConstraintOptions.NormalizeRegexTimeout(RegexTimeout ?? fallbackRegexTimeout);
 
         var compilation = CompileRegex switch
         {

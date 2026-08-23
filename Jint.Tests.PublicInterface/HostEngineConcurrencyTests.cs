@@ -542,7 +542,7 @@ public class HostEngineConcurrencyTests
         // make the pool's injection rate part of the outcome. HandoffCeiling instead.
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
+            options.UseModules(loader);
             options.Constraints.PromiseTimeout = HandoffCeiling;
         });
 
@@ -574,7 +574,7 @@ public class HostEngineConcurrencyTests
     [Fact]
     public async Task ImportAsyncReportsInitialFailureThroughItsTask()
     {
-        var engine = new Engine(options => options.EnableModules(new RejectingModuleLoader()));
+        var engine = new Engine(options => options.UseModules(new RejectingModuleLoader()));
         Task<Jint.Native.Object.ObjectInstance>? task = null;
         Action start = () => task = engine.Modules.ImportAsync("blocked");
 
@@ -721,7 +721,7 @@ public class HostEngineConcurrencyTests
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var loader = new DeferredModuleLoader();
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         engine.SetValue("block", new Action(() =>
         {
             entered.Set();

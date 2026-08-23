@@ -169,7 +169,7 @@ internal static class AllocTypeProbe
                 })();
                 """;
             var prepared = Engine.PrepareScript(src, strict: true);
-            var engine = new Engine(static o => o.Strict());
+            var engine = new Engine(static o => o.Strict = true);
             runOnce = () => engine.Execute(prepared);
         }
         else if (CampaignTargets.TryGetValue(target, out var factory))
@@ -192,7 +192,7 @@ internal static class AllocTypeProbe
             var prepared = Engine.PrepareScript(src, strict: true);
             runOnce = () =>
             {
-                var engine = new Engine(static o => o.Strict());
+                var engine = new Engine(static o => o.Strict = true);
                 engine.Execute(prepared);
             };
         }

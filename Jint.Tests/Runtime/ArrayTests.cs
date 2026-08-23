@@ -516,7 +516,7 @@ public class ArrayTests
     {
         var engine = new Engine(o =>
         {
-            o.DebugMode(true);
+            o.Debugger.Enabled = true;
         });
         engine.SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
@@ -1207,7 +1207,7 @@ return get + '' === ""length,0,1,2,3"";";
     [Fact]
     public void PopWrappedGenericList()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
         var list = new List<int> { 1, 2, 3 };
         engine.SetValue("list", list);
         var result = engine.Evaluate("list.pop()").AsNumber();

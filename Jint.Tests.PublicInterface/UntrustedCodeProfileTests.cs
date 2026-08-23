@@ -20,13 +20,13 @@ public class UntrustedCodeProfileTests
         var limits = CreateLimits();
         var options = new Options()
             .AllowClr(typeof(UntrustedCodeProfileTests).Assembly)
-            .AllowClrWrite()
             .AddExtensionMethods(typeof(UntrustedCodeProfileStringExtensions))
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Clr)
-            .InitialStepMode(StepMode.Into)
-            .EnableModules(Environment.CurrentDirectory)
-            .DisableStringCompilation(disable: false);
+            .UseModules(Environment.CurrentDirectory);
+        options.Interop.AllowWrite = true;
+        options.Debugger.Enabled = true;
+        options.Debugger.StatementHandling = DebuggerStatementHandling.Clr;
+        options.Debugger.InitialStepMode = StepMode.Into;
+        options.Host.StringCompilationAllowed = true;
 
         options.AgentCanSuspend = true;
         options.Interop.AllowGetType = true;
@@ -119,7 +119,8 @@ public class UntrustedCodeProfileTests
         using var secondCallbackEntered = new ManualResetEventSlim(false);
         using var releaseSecondCallback = new ManualResetEventSlim(false);
         var callbackCount = 0;
-        var options = new Options().AllowClrWrite();
+        var options = new Options();
+        options.Interop.AllowWrite = true;
         options.Configure(_ =>
         {
             if (Interlocked.Increment(ref callbackCount) == 2)
@@ -362,7 +363,7 @@ public class UntrustedCodeProfileTests
     {
         var limits = CreateLimits();
         var engine = new Engine(options =>
-            options.Constraint(static () => new OperationDeadlineConstraint()));
+            options.AddConstraint(static () => new OperationDeadlineConstraint()));
 
         using var cancellation = new CancellationTokenSource();
         Invoking(() => limits.BeginOperation(engine, cancellation.Token))

@@ -41,14 +41,7 @@ public class ConstraintRegistrationTests
     [InlineData(int.MaxValue)]
     public void MaxStatementsRegistersNothingForValuesThatCannotExpressALimit(int maxStatements)
     {
-        CountOf<MaxStatementsConstraint>(o => o.MaxStatements(maxStatements)).Should().Be(0);
-    }
-
-    [Fact]
-    public void MaxStatementsWithNoArgumentRegistersNothing()
-    {
-        // the parameter defaults to 0, which means unlimited - not "no statements allowed"
-        CountOf<MaxStatementsConstraint>(o => o.MaxStatements()).Should().Be(0);
+        CountOf<MaxStatementsConstraint>(o => o.LimitStatements(maxStatements)).Should().Be(0);
     }
 
     [Theory]
@@ -57,16 +50,16 @@ public class ConstraintRegistrationTests
     [InlineData(int.MaxValue - 1)]
     public void MaxStatementsRegistersOneForARealLimit(int maxStatements)
     {
-        CountOf<MaxStatementsConstraint>(o => o.MaxStatements(maxStatements)).Should().Be(1);
+        CountOf<MaxStatementsConstraint>(o => o.LimitStatements(maxStatements)).Should().Be(1);
     }
 
     [Fact]
     public void MaxStatementsReplacesAndCanBeCleared()
     {
-        Register(o => o.MaxStatements(10).MaxStatements(20))
+        Register(o => o.LimitStatements(10).LimitStatements(20))
             .OfType<MaxStatementsConstraint>().Should().ContainSingle().Which.MaxStatements.Should().Be(20);
 
-        CountOf<MaxStatementsConstraint>(o => o.MaxStatements(10).MaxStatements(int.MaxValue)).Should().Be(0);
+        CountOf<MaxStatementsConstraint>(o => o.LimitStatements(10).LimitStatements(int.MaxValue)).Should().Be(0);
     }
 
     [Theory]
@@ -95,9 +88,9 @@ public class ConstraintRegistrationTests
     [Fact]
     public void TimeoutIntervalRegistersNothingForIntervalsThatCannotExpressALimit()
     {
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.Zero)).Should().Be(0);
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.FromSeconds(-1))).Should().Be(0);
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.MaxValue)).Should().Be(0);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.Zero)).Should().Be(0);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.FromSeconds(-1))).Should().Be(0);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.MaxValue)).Should().Be(0);
     }
 
     [Fact]
@@ -105,15 +98,15 @@ public class ConstraintRegistrationTests
     {
         // the second call must win outright; two live time constraints would silently leave the
         // stricter of the two in charge
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.FromSeconds(1))).Should().Be(1);
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.FromSeconds(1)).TimeoutInterval(TimeSpan.FromSeconds(5))).Should().Be(1);
-        TimeConstraintCount(o => o.TimeoutInterval(TimeSpan.FromSeconds(1)).TimeoutInterval(TimeSpan.MaxValue)).Should().Be(0);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.FromSeconds(1))).Should().Be(1);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.FromSeconds(1)).LimitExecutionTime(TimeSpan.FromSeconds(5))).Should().Be(1);
+        TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.FromSeconds(1)).LimitExecutionTime(TimeSpan.MaxValue)).Should().Be(0);
     }
 
     [Fact]
     public void CancellationTokenRegistersNothingForTheDefaultToken()
     {
-        CountOf<CancellationConstraint>(o => o.CancellationToken(default)).Should().Be(0);
+        CountOf<CancellationConstraint>(o => o.ObserveCancellation(default)).Should().Be(0);
     }
 
     [Fact]
@@ -122,8 +115,8 @@ public class ConstraintRegistrationTests
         using var source = new System.Threading.CancellationTokenSource();
         using var other = new System.Threading.CancellationTokenSource();
 
-        CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token)).Should().Be(1);
-        CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token).CancellationToken(other.Token)).Should().Be(1);
-        CountOf<CancellationConstraint>(o => o.CancellationToken(source.Token).CancellationToken(default)).Should().Be(0);
+        CountOf<CancellationConstraint>(o => o.ObserveCancellation(source.Token)).Should().Be(1);
+        CountOf<CancellationConstraint>(o => o.ObserveCancellation(source.Token).ObserveCancellation(other.Token)).Should().Be(1);
+        CountOf<CancellationConstraint>(o => o.ObserveCancellation(source.Token).ObserveCancellation(default)).Should().Be(0);
     }
 }

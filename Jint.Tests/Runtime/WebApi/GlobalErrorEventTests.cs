@@ -382,7 +382,7 @@ public class GlobalErrorEventTests
         // Only a JavaScriptException is ever dispatched or reported. A budget that a listener could observe
         // is a budget a listener could be tempted to swallow, so the ones that bound execution keep erupting
         // past both the event and the sink.
-        var (engine, sink, clock) = Reporting(options => options.LimitRecursion(8));
+        var (engine, sink, clock) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
 
         engine.Execute("""
             addEventListener('error', function () { log.push('seen'); });

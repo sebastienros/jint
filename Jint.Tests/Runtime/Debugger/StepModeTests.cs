@@ -14,10 +14,7 @@ public class StepModeTests
     /// <returns>Number of steps from source to target</returns>
     private static int StepsFromSourceToTarget(string script, StepMode stepMode)
     {
-        var engine = new Engine(options => options
-            .DebugMode()
-            .InitialStepMode(StepMode.Into)
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
 
         int steps = 0;
         bool sourceReached = false;
@@ -344,7 +341,7 @@ public class StepModeTests
 
                 test();";
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
         int step = 0;
         engine.Debugger.Step += (sender, info) =>
         {
@@ -381,9 +378,7 @@ public class StepModeTests
                     'target';
                 }";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
 
         bool stepping = false;
 
@@ -416,9 +411,7 @@ public class StepModeTests
                     'dummy';
                 }";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         int stepCount = 0;
         engine.Debugger.Step += (sender, info) =>
@@ -445,10 +438,7 @@ public class StepModeTests
                 'step';
                 ";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script)
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; options.Debugger.InitialStepMode = StepMode.Into; });
 
         int stepCount = 0;
         int skipCount = 0;

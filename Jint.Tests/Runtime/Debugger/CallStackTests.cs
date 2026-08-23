@@ -103,7 +103,7 @@ bar()";
 
             foo();";
 
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         bool atReturn = false;
         bool didCheckReturn = false;

@@ -41,7 +41,7 @@ public class BuiltinModuleTests
         using var tree = new PackageTree();
         tree.Add("main.js", "export const x = 1;");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import("node:path"));
 
@@ -248,7 +248,7 @@ public class BuiltinModuleTests
         tree.Add("main.js", "export const x = 41;");
 
         var loader = new NodeStyleModuleLoader(tree.Root);
-        var options = new Options().EnableModules(loader).UseNodeBuiltinModules();
+        var options = new Options().UseModules(loader).UseNodeBuiltinModules();
 
         options.Modules.ModuleLoader.Should().BeSameAs(loader);
 
@@ -263,13 +263,13 @@ public class BuiltinModuleTests
     /// build rather than inside <c>UseNodeBuiltinModules</c>.
     /// </summary>
     [Fact]
-    public void TheOrderOfEnableModulesAndUseNodeBuiltinModulesDoesNotMatter()
+    public void TheOrderOfUseModulesAndUseNodeBuiltinModulesDoesNotMatter()
     {
         using var tree = new PackageTree();
         tree.Add("main.js", "export const x = 1;");
 
-        var first = new Engine(options => options.UseNodeBuiltinModules().EnableModules(new NodeStyleModuleLoader(tree.Root)));
-        var second = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)).UseNodeBuiltinModules());
+        var first = new Engine(options => options.UseNodeBuiltinModules().UseModules(new NodeStyleModuleLoader(tree.Root)));
+        var second = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)).UseNodeBuiltinModules());
 
         foreach (var engine in new[] { first, second })
         {
@@ -316,7 +316,7 @@ public class BuiltinModuleTests
                 """);
 
         var engine = new Engine(options => options
-            .EnableModules(new NodeStyleModuleLoader(tree.Root))
+            .UseModules(new NodeStyleModuleLoader(tree.Root))
             .UseNodeBuiltinModules(o => o.Platform = "linux"));
 
         var namespaceObject = engine.Modules.Import("./app/main.js");
@@ -340,14 +340,14 @@ public class BuiltinModuleTests
             .Add("node_modules/path/index.js", "export const sep = 'from the polyfill';");
 
         var withBuiltins = new Engine(options => options
-            .EnableModules(new NodeStyleModuleLoader(tree.Root))
+            .UseModules(new NodeStyleModuleLoader(tree.Root))
             .UseNodeBuiltinModules(o => o.Platform = "linux"));
 
         withBuiltins.Modules.Import("./main.js").Get("separator").AsString().Should().Be("/");
 
         // And with the alias turned off the package is what the same tree resolves to.
         var withoutAlias = new Engine(options => options
-            .EnableModules(new NodeStyleModuleLoader(tree.Root))
+            .UseModules(new NodeStyleModuleLoader(tree.Root))
             .UseNodeBuiltinModules(o => o.AllowUnprefixedSpecifiers = false));
 
         withoutAlias.Modules.Import("./main.js").Get("separator").AsString().Should().Be("from the polyfill");
@@ -364,7 +364,7 @@ public class BuiltinModuleTests
         var loader = new RecordingAsyncLoader();
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader).UseNodeBuiltinModules(o => o.Platform = "linux");
+            options.UseModules(loader).UseNodeBuiltinModules(o => o.Platform = "linux");
 
             // RecordingAsyncLoader yields, so the hosted import below is finished by a thread-pool
             // continuation. This test asserts what each import resolves to and which of them reached the
@@ -395,7 +395,7 @@ public class BuiltinModuleTests
         tree.Add("main.js", "export const x = 1;");
 
         var engine = new Engine(options => options
-            .EnableModules(new NodeStyleModuleLoader(tree.Root))
+            .UseModules(new NodeStyleModuleLoader(tree.Root))
             .UseNodeBuiltinModules());
 
         engine.Modules.ModuleLoader.Should().NotBeAssignableTo<IAsyncModuleLoader>();

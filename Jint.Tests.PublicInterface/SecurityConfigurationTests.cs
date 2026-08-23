@@ -32,14 +32,14 @@ public class SecurityConfigurationTests
         var cases = new (string Code, Func<Options> CreateOptions)[]
         {
             (SecurityDiagnosticCodes.StatementLimitMissing, CreateWithoutStatementLimit),
-            (SecurityDiagnosticCodes.StatementLimitNonPositive, () => CreateSafeOptions().MaxStatements(0)),
-            (SecurityDiagnosticCodes.StatementLimitSaturated, () => CreateSafeOptions().MaxStatements(int.MaxValue)),
+            (SecurityDiagnosticCodes.StatementLimitNonPositive, () => CreateSafeOptions().LimitStatements(0)),
+            (SecurityDiagnosticCodes.StatementLimitSaturated, () => CreateSafeOptions().LimitStatements(int.MaxValue)),
             (SecurityDiagnosticCodes.MemoryLimitMissing, CreateWithoutMemoryLimit),
             (SecurityDiagnosticCodes.MemoryLimitNonPositive, () => CreateSafeOptions().LimitMemory(0)),
             (SecurityDiagnosticCodes.MemoryLimitSaturated, () => CreateSafeOptions().LimitMemory(long.MaxValue)),
             (SecurityDiagnosticCodes.TimeoutMissing, CreateWithoutTimeout),
-            (SecurityDiagnosticCodes.TimeoutNonPositive, () => CreateSafeOptions().TimeoutInterval(TimeSpan.Zero)),
-            (SecurityDiagnosticCodes.TimeoutSaturated, () => CreateSafeOptions().TimeoutInterval(TimeSpan.MaxValue)),
+            (SecurityDiagnosticCodes.TimeoutNonPositive, () => CreateSafeOptions().LimitExecutionTime(TimeSpan.Zero)),
+            (SecurityDiagnosticCodes.TimeoutSaturated, () => CreateSafeOptions().LimitExecutionTime(TimeSpan.MaxValue)),
             (SecurityDiagnosticCodes.RecursionLimitDisabled, () => Change(CreateSafeOptions(), x => x.Constraints.MaxRecursionDepth = -1)),
             (SecurityDiagnosticCodes.RecursionLimitSaturated, () => Change(CreateSafeOptions(), x => x.Constraints.MaxRecursionDepth = int.MaxValue)),
             (SecurityDiagnosticCodes.StackOverflowGuardDisabled, () => Change(CreateSafeOptions(), x => x.Constraints.StackOverflowGuard = false)),
@@ -48,21 +48,21 @@ public class SecurityConfigurationTests
             (SecurityDiagnosticCodes.ClrAccessEnabled, CreateWithRestrictiveClr),
             (SecurityDiagnosticCodes.GetTypeEnabled, () => Change(CreateSafeOptions(), x => x.Interop.AllowGetType = true)),
             (SecurityDiagnosticCodes.SystemReflectionEnabled, () => Change(CreateSafeOptions(), x => x.Interop.AllowSystemReflection = true)),
-            (SecurityDiagnosticCodes.ClrWriteEnabled, () => CreateSafeOptions().AllowClrWrite()),
+            (SecurityDiagnosticCodes.ClrWriteEnabled, () => Change(CreateSafeOptions(), x => x.Interop.AllowWrite = true)),
             (SecurityDiagnosticCodes.LiveClrArraysEnabled, () => Change(CreateSafeOptions(), x => x.Interop.ArrayConversion = ArrayConversionMode.LiveView)),
             (SecurityDiagnosticCodes.StringCompilationEnabled, () => Change(CreateSafeOptions(), x => x.Host.StringCompilationAllowed = true)),
-            (SecurityDiagnosticCodes.ModuleLoadingEnabled, () => CreateSafeOptions().EnableModules(new EmptyModuleLoader())),
+            (SecurityDiagnosticCodes.ModuleLoadingEnabled, () => CreateSafeOptions().UseModules(new EmptyModuleLoader())),
             (SecurityDiagnosticCodes.RequireWithoutModuleLoader, () => Change(CreateSafeOptions(), x => x.Modules.RegisterRequire = true)),
-            (SecurityDiagnosticCodes.DebuggerEnabled, () => CreateSafeOptions().DebugMode()),
-            (SecurityDiagnosticCodes.ArraySizeUnlimited, () => CreateSafeOptions().MaxArraySize(uint.MaxValue)),
-            (SecurityDiagnosticCodes.RegexTimeoutUnbounded, () => CreateSafeOptions().RegexTimeoutInterval(TimeSpan.Zero)),
-            (SecurityDiagnosticCodes.RegexTimeoutLong, () => CreateSafeOptions().RegexTimeoutInterval(TimeSpan.FromSeconds(2))),
+            (SecurityDiagnosticCodes.DebuggerEnabled, () => Change(CreateSafeOptions(), x => x.Debugger.Enabled = true)),
+            (SecurityDiagnosticCodes.ArraySizeUnlimited, () => Change(CreateSafeOptions(), x => x.Constraints.MaxArraySize = uint.MaxValue)),
+            (SecurityDiagnosticCodes.RegexTimeoutUnbounded, () => Change(CreateSafeOptions(), x => x.Constraints.RegexTimeout = TimeSpan.Zero)),
+            (SecurityDiagnosticCodes.RegexTimeoutLong, () => Change(CreateSafeOptions(), x => x.Constraints.RegexTimeout = TimeSpan.FromSeconds(2))),
             (SecurityDiagnosticCodes.PromiseTimeoutUnbounded, () => Change(CreateSafeOptions(), x => x.Constraints.PromiseTimeout = TimeSpan.Zero)),
             (SecurityDiagnosticCodes.PromiseTimeoutLong, () => Change(CreateSafeOptions(), x => x.Constraints.PromiseTimeout = TimeSpan.FromSeconds(2))),
-            (SecurityDiagnosticCodes.SharedConstraintInstance, () => CreateSafeOptions().Constraint(new NoOpConstraint())),
+            (SecurityDiagnosticCodes.SharedConstraintInstance, () => CreateSafeOptions().AddConstraint(new NoOpConstraint())),
             (SecurityDiagnosticCodes.DetailedClrErrorsEnabled, () => Change(CreateSafeOptions(), x => x.Interop.ExposeDetailedResolutionErrors = true)),
             (SecurityDiagnosticCodes.EngineConstructionCallback, () => CreateSafeOptions().Configure(static _ => { })),
-            (SecurityDiagnosticCodes.RegexTimeoutExcessive, () => CreateSafeOptions().RegexTimeoutInterval(TimeSpan.MaxValue)),
+            (SecurityDiagnosticCodes.RegexTimeoutExcessive, () => Change(CreateSafeOptions(), x => x.Constraints.RegexTimeout = TimeSpan.MaxValue)),
             (SecurityDiagnosticCodes.CancellationMissing, CreateWithoutCancellation),
             (SecurityDiagnosticCodes.OperationDeadlineMissing, CreateWithoutOperationDeadline),
             (SecurityDiagnosticCodes.ParserSourceLengthUnlimited, () => Change(CreateSafeOptions(), x => x.Parsing.MaxSourceLength = null)),
@@ -82,7 +82,7 @@ public class SecurityConfigurationTests
             (SecurityDiagnosticCodes.ClrCallbackConfigured, () => Change(CreateSafeOptions(), x => x.Interop.ExceptionHandler = static _ => false)),
             (SecurityDiagnosticCodes.ClrCompatibilityModeEnabled, () => CreateSafeOptions().AllowClr()),
             (SecurityDiagnosticCodes.ClrPolicyUnrestricted, () => CreateSafeOptions().AllowClr(Array.Empty<System.Reflection.Assembly>())),
-            (SecurityDiagnosticCodes.LiveClrArrayWritesEnabled, () => Change(CreateSafeOptions().AllowClrWrite(), x => x.Interop.ArrayConversion = ArrayConversionMode.LiveView)),
+            (SecurityDiagnosticCodes.LiveClrArrayWritesEnabled, () => Change(Change(CreateSafeOptions(), x => x.Interop.AllowWrite = true), x => x.Interop.ArrayConversion = ArrayConversionMode.LiveView)),
             (SecurityDiagnosticCodes.ModuleAllowlistInsufficient, CreateSchemeOnlyModuleOptions),
             (SecurityDiagnosticCodes.ClrExtensionMethodsConfigured, () => CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions))),
             (SecurityDiagnosticCodes.ClrOperatorOverloadingEnabled, () => Change(CreateSafeOptions(), x => x.Interop.AllowOperatorOverloading = true)),
@@ -175,7 +175,7 @@ public class SecurityConfigurationTests
     public void RemovingABuiltInConstraintUpdatesTheReport()
     {
         var options = CreateSafeOptions()
-            .WithoutConstraint(static constraint => constraint is MaxStatementsConstraint);
+            .RemoveConstraints(static constraint => constraint is MaxStatementsConstraint);
 
         options.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle().Which.Code
             .Should().Be(SecurityDiagnosticCodes.StatementLimitMissing);
@@ -184,7 +184,7 @@ public class SecurityConfigurationTests
     [Fact]
     public void SideEffectFreeConstraintFactoriesRemainSupported()
     {
-        var options = CreateSafeOptions().Constraint(static () => new NoOpConstraint());
+        var options = CreateSafeOptions().AddConstraint(static () => new NoOpConstraint());
 
         options.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
@@ -399,7 +399,7 @@ public class SecurityConfigurationTests
     public void ConstraintFactoriesAreNotInvokedByDiagnostics()
     {
         var calls = 0;
-        var options = CreateSafeOptions().Constraint(() =>
+        var options = CreateSafeOptions().AddConstraint(() =>
         {
             calls++;
             return new NoOpConstraint();
@@ -465,9 +465,9 @@ public class SecurityConfigurationTests
     private static Options CreateSafeOptions()
     {
         var options = CreateBaseOptions();
-        options.MaxStatements(100_000);
+        options.LimitStatements(100_000);
         options.LimitMemory(4_000_000);
-        options.TimeoutInterval(TimeSpan.FromSeconds(2));
+        options.LimitExecutionTime(TimeSpan.FromSeconds(2));
         return options;
     }
 
@@ -475,22 +475,22 @@ public class SecurityConfigurationTests
     {
         var options = CreateBaseOptions();
         options.LimitMemory(4_000_000);
-        options.TimeoutInterval(TimeSpan.FromSeconds(2));
+        options.LimitExecutionTime(TimeSpan.FromSeconds(2));
         return options;
     }
 
     private static Options CreateWithoutMemoryLimit()
     {
         var options = CreateBaseOptions();
-        options.MaxStatements(100_000);
-        options.TimeoutInterval(TimeSpan.FromSeconds(2));
+        options.LimitStatements(100_000);
+        options.LimitExecutionTime(TimeSpan.FromSeconds(2));
         return options;
     }
 
     private static Options CreateWithoutTimeout()
     {
         var options = CreateBaseOptions();
-        options.MaxStatements(100_000);
+        options.LimitStatements(100_000);
         options.LimitMemory(4_000_000);
         return options;
     }
@@ -513,28 +513,28 @@ public class SecurityConfigurationTests
         options.Interop.ArrayConversion = ArrayConversionMode.Copy;
         options.Host.StringCompilationAllowed = false;
         options.ResultLimits = ResultLimits.Conservative;
-        options.CancellationToken(new CancellationTokenSource().Token);
-        options.Constraint(static () => new OperationDeadlineConstraint());
+        options.ObserveCancellation(new CancellationTokenSource().Token);
+        options.AddConstraint(static () => new OperationDeadlineConstraint());
         return options;
     }
 
     private static Options CreateWithoutCancellation()
     {
         var options = CreateSafeOptions();
-        options.WithoutConstraint(static constraint => constraint is CancellationConstraint);
+        options.RemoveConstraints(static constraint => constraint is CancellationConstraint);
         return options;
     }
 
     private static Options CreateWithoutOperationDeadline()
     {
         var options = CreateSafeOptions();
-        options.WithoutConstraint(static constraint => constraint is OperationDeadlineConstraint);
+        options.RemoveConstraints(static constraint => constraint is OperationDeadlineConstraint);
         return options;
     }
 
     private static Options CreateSafeModuleOptions()
     {
-        var options = CreateSafeOptions().EnableModules(new EmptyModuleLoader());
+        var options = CreateSafeOptions().UseModules(new EmptyModuleLoader());
         options.Modules.MaxModuleCount = 100;
         options.Modules.MaxTotalModuleSourceBytes = 1_000_000;
         options.Modules.MaxModuleGraphDepth = 20;

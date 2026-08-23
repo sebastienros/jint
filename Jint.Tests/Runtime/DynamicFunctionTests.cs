@@ -10,7 +10,7 @@ public class DynamicFunctionTests
     [Fact]
     public void RepeatedDynamicFunctionCallsGetFreshBindings()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("""
             var results = [];
             for (var k = 0; k < 5; k++) {
@@ -24,7 +24,7 @@ public class DynamicFunctionTests
     [Fact]
     public void ClosureCapturingDynamicFunctionsKeepIndependentEnvironments()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("""
             var counters = [];
             for (var k = 0; k < 3; k++) {
@@ -39,7 +39,7 @@ public class DynamicFunctionTests
     [Fact]
     public void InterleavedInstancesOfTheSameSourceStayIndependent()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("""
             var src = "var n = seed; seed = seed + 1; return n;";
             var seed = 10;

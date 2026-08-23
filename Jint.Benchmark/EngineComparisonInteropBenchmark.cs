@@ -108,7 +108,7 @@ public class EngineComparisonInteropBenchmark
     [Benchmark]
     public void Jint()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.SetValue("host", new InteropHost());
         engine.Execute(_files[FileName]);
     }

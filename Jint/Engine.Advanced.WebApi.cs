@@ -462,7 +462,7 @@ public partial class Engine
         /// <b>It is not an execution constraint.</b> A handler that never yields — <c>while (true) {}</c> —
         /// never reaches a pump, so it never sees the abort; bounding the interpreter itself is what
         /// <c>Options.Constraints</c> is for, and
-        /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> is the constraint that takes a token.
+        /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> is the constraint that takes a token.
         /// The two compose: the constraint stops the run, this tells the script.
         /// </para>
         /// <para>
@@ -541,8 +541,8 @@ public partial class Engine
         /// response promise — that is, at event-loop continuation boundaries. A handler that never yields
         /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
         /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-        /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
-        /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
+        /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
+        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
         /// amortizable, so neither disarms the interpreter's tight-loop lane.
         /// </para>
         /// <para>

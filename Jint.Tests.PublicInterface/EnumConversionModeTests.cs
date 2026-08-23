@@ -55,7 +55,7 @@ public class EnumConversionModeTests
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             if (mode is not null)
             {
                 options.Interop.EnumConversion = mode.Value;

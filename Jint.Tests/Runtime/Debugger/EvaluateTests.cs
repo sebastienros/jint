@@ -30,7 +30,7 @@ public class EvaluateTests
     [Fact]
     public void ThrowsIfNoCurrentContext()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
         var exception = Invoking(() => engine.Debugger.Evaluate("let x = 1;")).Should().ThrowExactly<DebugEvaluationException>().Which;
         exception.InnerException.Should().BeNull(); // Not a JavaScript or parser exception
     }

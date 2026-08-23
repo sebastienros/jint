@@ -56,10 +56,10 @@ public class StatementLimitThrowPointTests
         var sink = new List<string>();
         var engine = new Engine(options =>
         {
-            options.MaxStatements(maxStatements);
+            options.LimitStatements(maxStatements);
             if (disarmTightLane)
             {
-                options.Constraint(new InertConstraint());
+                options.AddConstraint(new InertConstraint());
             }
         });
         engine.SetValue("log", new System.Action<string>(sink.Add));
@@ -126,7 +126,7 @@ public class StatementLimitThrowPointTests
     [Fact]
     public void StatementLimitStillTripsInsideTightLoops()
     {
-        var engine = new Engine(options => options.MaxStatements(50));
+        var engine = new Engine(options => options.LimitStatements(50));
 
         Invoking(() => engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } })()"))
             .Should().ThrowExactly<StatementsCountOverflowException>();
@@ -135,7 +135,7 @@ public class StatementLimitThrowPointTests
     [Fact]
     public void StatementLimitCountsAcrossEvaluationsAsBefore()
     {
-        var engine = new Engine(options => options.MaxStatements(20));
+        var engine = new Engine(options => options.LimitStatements(20));
 
         engine.Evaluate("var a = 1;");
         Invoking(() => engine.Evaluate("(function () { for (var i = 0; i < 100; i++) { a++; } })()"))
@@ -150,7 +150,7 @@ public class StatementLimitThrowPointTests
     public void UnlimitedStatementConstraintDoesNotThrow()
     {
         // MaxStatements <= 0 means unlimited; the inline charge must reproduce that short-circuit
-        var engine = new Engine(options => options.MaxStatements(0));
+        var engine = new Engine(options => options.LimitStatements(0));
 
         engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 10000; i++) { x += 1; } return x; })()")
             .AsNumber().Should().Be(10000);
@@ -162,8 +162,8 @@ public class StatementLimitThrowPointTests
         var tripwire = new AmortizableTripwire();
         var engine = new Engine(options =>
         {
-            options.MaxStatements(40);
-            options.Constraint(tripwire);
+            options.LimitStatements(40);
+            options.AddConstraint(tripwire);
         });
 
         // the amortizable constraint joins the amortized partition, so the exact partition is still
@@ -183,7 +183,7 @@ public class StatementLimitThrowPointTests
     public void AmortizableUserConstraintIsStillCheckedInsideATightLoop()
     {
         var tripwire = new AmortizableTripwire();
-        var engine = new Engine(options => options.Constraint(tripwire));
+        var engine = new Engine(options => options.AddConstraint(tripwire));
 
         // no exact constraints at all: the tight lane runs, and the amortized cadence must still reach
         // the constraint often enough to interrupt an otherwise unbounded loop
@@ -198,7 +198,7 @@ public class StatementLimitThrowPointTests
     public void NonAmortizableUserConstraintKeepsPerStatementCadence()
     {
         var counting = new CountingConstraint();
-        var engine = new Engine(options => options.Constraint(counting));
+        var engine = new Engine(options => options.AddConstraint(counting));
 
         engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 10; i++) { x += 1; } return x; })()");
 

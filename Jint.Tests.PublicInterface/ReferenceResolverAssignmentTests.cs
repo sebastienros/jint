@@ -65,10 +65,10 @@ public class ReferenceResolverAssignmentTests
 
     private static Engine CreateEngine(bool withResolver) => new(options =>
     {
-        options.AllowClrWrite();
+        options.Interop.AllowWrite = true;
         if (withResolver)
         {
-            options.SetReferencesResolver(new PassThroughResolver());
+            options.SetReferenceResolver(new PassThroughResolver());
         }
     });
 
@@ -199,17 +199,18 @@ public class ReferenceResolverAssignmentTests
     }
 
     [Fact]
-    public void AssigningAResolverResetsTheInterestsNarrowedForThePreviousOne()
+    public void RegisteringAResolverResetsTheInterestsNarrowedForThePreviousOne()
     {
-        // Interests describe one particular resolver, so registering another one - through the property
-        // just as much as through SetReferencesResolver - must not leave the newcomer consulted only for
-        // the situations its predecessor cared about.
+        // Interests describe one particular resolver, so registering another one must not leave the newcomer
+        // consulted only for the situations its predecessor cared about. In 4.16.x the two were settable
+        // properties and the reset was a side effect of assigning one of them; they are one registration now,
+        // so the interests default back to All whenever a resolver arrives without them.
         var options = new Options();
-        options.SetReferencesResolver(new PassThroughResolver(), ReferenceResolverInterests.NullishPropertyBase);
+        options.SetReferenceResolver(new PassThroughResolver(), ReferenceResolverInterests.NullishPropertyBase);
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
 
         var substituting = new SubstitutingResolver();
-        options.ReferenceResolver = substituting;
+        options.SetReferenceResolver(substituting);
 
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.All);
 
@@ -224,13 +225,11 @@ public class ReferenceResolverAssignmentTests
     }
 
     [Fact]
-    public void NarrowedInterestsSurviveWhenAssignedAfterTheResolver()
+    public void NarrowedInterestsAreRegisteredWithTheResolverTheyDescribe()
     {
-        // The documented way to register a resolver with a narrower set is to assign the interests after
-        // the resolver, which is exactly what the two-argument overload does.
+        // One call, so the pair cannot be written in the order that used to silently discard the narrowing.
         var options = new Options();
-        options.ReferenceResolver = new PassThroughResolver();
-        options.ReferenceResolverInterests = ReferenceResolverInterests.NullishPropertyBase;
+        options.SetReferenceResolver(new PassThroughResolver(), ReferenceResolverInterests.NullishPropertyBase);
 
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
     }
@@ -242,7 +241,7 @@ public class ReferenceResolverAssignmentTests
         // path - so an unresolvable base must still be substituted, and the assignment must land on the
         // substitute rather than throwing a ReferenceError.
         var resolver = new SubstitutingResolver();
-        var engine = new Engine(options => options.SetReferencesResolver(resolver));
+        var engine = new Engine(options => options.SetReferenceResolver(resolver));
 
         var target = engine.Evaluate("({})").AsObject();
         resolver.Substitute = target;

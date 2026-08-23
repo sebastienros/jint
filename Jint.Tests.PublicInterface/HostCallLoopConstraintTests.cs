@@ -124,7 +124,7 @@ public class HostCallLoopConstraintTests
     {
         // Budget generously above what a single invocation costs, and far below what the whole loop does.
         var budget = StatementsPerInvocation() * 2;
-        var engine = new Engine(o => o.MaxStatements(budget));
+        var engine = new Engine(o => o.LimitStatements(budget));
         engine.Execute(FunctionSource);
         var work = engine.GetValue("work");
 
@@ -145,7 +145,7 @@ public class HostCallLoopConstraintTests
     {
         // ...and the identical work, driven from inside one script instead, is bounded as documented.
         var budget = StatementsPerInvocation() * 2;
-        var engine = new Engine(o => o.MaxStatements(budget));
+        var engine = new Engine(o => o.LimitStatements(budget));
         engine.Execute(FunctionSource);
 
         Invoking(() => engine.Execute(EquivalentScript)).Should().Throw<StatementsCountOverflowException>();
@@ -197,7 +197,7 @@ public class HostCallLoopConstraintTests
     [Fact]
     public void TimeoutBoundsTheIdenticalWorkWhenTheLoopLivesInsideTheScript()
     {
-        var engine = new Engine(o => o.TimeoutInterval(TimeSpan.FromMilliseconds(250)));
+        var engine = new Engine(o => o.LimitExecutionTime(TimeSpan.FromMilliseconds(250)));
         engine.Execute(FunctionSource);
 
         Invoking(() => engine.Execute("while (true) { work(1); }")).Should().Throw<TimeoutException>();
@@ -255,7 +255,7 @@ public class HostCallLoopConstraintTests
     {
         // Engine.Invoke is the same top-level entry as JsValue.Call: neither accumulates.
         var budget = StatementsPerInvocation() * 2;
-        var engine = new Engine(o => o.MaxStatements(budget));
+        var engine = new Engine(o => o.LimitStatements(budget));
         engine.Execute(FunctionSource);
 
         Invoking(() =>
@@ -273,7 +273,7 @@ public class HostCallLoopConstraintTests
         // The mechanism, observed from the public surface: Engine.ExecuteWithConstraints resets before
         // running the callback and again in its finally block, for every non-nested entry.
         var constraint = new ResetCountingConstraint();
-        var engine = new Engine(new Options().Constraint(constraint));
+        var engine = new Engine(new Options().AddConstraint(constraint));
         engine.Execute(FunctionSource);
         var work = engine.GetValue("work");
 
@@ -306,7 +306,7 @@ public class HostCallLoopConstraintTests
         // forward into the next instead of every top-level entry restarting it at 64. This is the one
         // shape in this file where the host loop *is* bounded from inside the engine.
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(o => o.CancellationToken(cts.Token));
+        var engine = new Engine(o => o.ObserveCancellation(cts.Token));
         engine.Execute("function tiny() { return 1; }");
         var tiny = engine.GetValue("tiny");
 
@@ -335,7 +335,7 @@ public class HostCallLoopConstraintTests
         // The contrast that proves the previous test is about the check cadence and not about the token:
         // one invocation of a callee running well past 64 statements does notice.
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(o => o.CancellationToken(cts.Token));
+        var engine = new Engine(o => o.ObserveCancellation(cts.Token));
         engine.Execute(FunctionSource);
         var work = engine.GetValue("work");
 
@@ -380,7 +380,7 @@ public class HostCallLoopConstraintTests
         // default it is checked on every statement — including the first statement of every host call.
         // The cost is that an exact constraint disarms the interpreter's tight-loop fast lanes.
         var budget = StatementsPerInvocation() * 2;
-        var engine = new Engine(new Options().Constraint(new SpanningStatementBudget(budget)));
+        var engine = new Engine(new Options().AddConstraint(new SpanningStatementBudget(budget)));
         engine.Execute(FunctionSource);
         var work = engine.GetValue("work");
 
@@ -401,7 +401,7 @@ public class HostCallLoopConstraintTests
         // countdown is engine state that spans top-level entries. An always-failing amortizable
         // constraint is therefore consulted — within 64 statements — by a loop of short calls too.
         // It still keeps the tight-loop fast lane armed, unlike the exact constraint above.
-        var engine = new Engine(new Options().Constraint(new AlwaysFailingAmortizableConstraint()));
+        var engine = new Engine(new Options().AddConstraint(new AlwaysFailingAmortizableConstraint()));
         engine.Execute("function tiny() { return 1; }");
         var tiny = engine.GetValue("tiny");
 
@@ -749,7 +749,7 @@ public class HostCallLoopConstraintTests
     /// </summary>
     private static Engine CreateDeadlineEngine(OperationDeadlineConstraint deadline)
     {
-        var engine = new Engine(new Options().Constraint(deadline));
+        var engine = new Engine(new Options().AddConstraint(deadline));
         engine.Execute(FunctionSource);
         return engine;
     }
@@ -760,7 +760,7 @@ public class HostCallLoopConstraintTests
     /// </summary>
     private static Engine CreatePausingDeadlineEngine(OperationDeadlineConstraint deadline, TimeSpan pause)
     {
-        var engine = new Engine(new Options().Constraint(deadline));
+        var engine = new Engine(new Options().AddConstraint(deadline));
         engine.SetValue("pause", new Action(() => Thread.Sleep(pause)));
         engine.Execute(PausingFunctionSource);
         return engine;
@@ -772,7 +772,7 @@ public class HostCallLoopConstraintTests
     /// </summary>
     private static Engine CreatePausingEngine(TimeSpan pause)
     {
-        var engine = new Engine(o => o.TimeoutInterval(HostCallTimeout));
+        var engine = new Engine(o => o.LimitExecutionTime(HostCallTimeout));
         engine.SetValue("pause", new Action(() => Thread.Sleep(pause)));
         engine.Execute(PausingFunctionSource);
         return engine;
@@ -901,7 +901,7 @@ public class HostCallLoopConstraintTests
     private static int StatementsPerInvocation()
     {
         var constraint = new HighWaterMarkConstraint();
-        var engine = new Engine(new Options().Constraint(constraint));
+        var engine = new Engine(new Options().AddConstraint(constraint));
         engine.Execute(FunctionSource);
         constraint.Reset();
         engine.GetValue("work").Call(1);

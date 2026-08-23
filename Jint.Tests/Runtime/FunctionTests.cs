@@ -189,7 +189,7 @@ function execute(doc, args){
 
         var engine = new Engine(options =>
         {
-            options.Strict();
+            options.Strict = true;
         });
         engine.Execute(Script);
 
@@ -849,7 +849,7 @@ assertEqual(booleanCount, 1);
         code = Regex.Replace(code, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
         expectedResult = Regex.Replace(expectedResult, @"\r\n?", "\n", RegexOptions.CultureInvariant); // normalize line endings to '\n'
 
-        var returnValue = new Engine(options => options.RetainFunctionSourceText()).Evaluate(code);
+        var returnValue = new Engine(options => options.RetainFunctionSourceText = true).Evaluate(code);
 
         var actualResults = returnValue.Should().BeOfType<JsArray>().Which;
         actualResults.Length.Should().Be(2u);
@@ -906,7 +906,7 @@ assertEqual(booleanCount, 1);
         // was parsed apart from the script, so it carries no source text. The text has to come from the
         // class node itself, which is what the parenthesized cases below also pin -- the parentheses of a
         // CoverParenthesizedExpression are outside the ClassExpression production and must not be included.
-        var engine = new Engine(options => options.RetainFunctionSourceText());
+        var engine = new Engine(options => options.RetainFunctionSourceText = true);
 
         engine.Evaluate("(class {}).toString()").AsString().Should().Be("class {}");
         engine.Evaluate("((class {})).toString()").AsString().Should().Be("class {}");
@@ -920,7 +920,7 @@ assertEqual(booleanCount, 1);
     {
         // They all borrow the same synthesized constructor AST, so the interpreter definition that carries
         // the source-text node must be keyed on the class node and not on that shared function node.
-        var engine = new Engine(options => options.RetainFunctionSourceText());
+        var engine = new Engine(options => options.RetainFunctionSourceText = true);
 
         engine.Evaluate("class D {} class E {} [D.toString(), E.toString()].join('|')")
             .AsString().Should().Be("class D {}|class E {}");

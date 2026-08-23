@@ -44,7 +44,7 @@ public class HostConstraintClockTests
         var engine = new Engine(options =>
         {
             options.Constraints.TimeProvider = clock;
-            options.TimeoutInterval(Interval);
+            options.LimitExecutionTime(Interval);
         });
         engine.Execute(Source);
         var work = engine.GetValue("work");
@@ -65,7 +65,7 @@ public class HostConstraintClockTests
         var advancingEngine = new Engine(options =>
         {
             options.Constraints.TimeProvider = advancing;
-            options.TimeoutInterval(Interval);
+            options.LimitExecutionTime(Interval);
         });
         advancingEngine.Execute(Source);
 
@@ -79,7 +79,7 @@ public class HostConstraintClockTests
         // The factory the extension method registers runs while the engine is being constructed, not when
         // the interval was configured, so neither order silently drops the clock.
         var clock = new ManualClock();
-        var options = new Options().TimeoutInterval(Interval);
+        var options = new Options().LimitExecutionTime(Interval);
         options.Constraints.TimeProvider = clock;
 
         var engine = new Engine(options);
@@ -89,7 +89,7 @@ public class HostConstraintClockTests
         Invoking(() => work.Call()).Should().NotThrow();
 
         var advancing = new AdvancingClock(Interval);
-        var lateOptions = new Options().TimeoutInterval(Interval);
+        var lateOptions = new Options().LimitExecutionTime(Interval);
         lateOptions.Constraints.TimeProvider = advancing;
         var lateEngine = new Engine(lateOptions);
         lateEngine.Execute(Source);
@@ -108,7 +108,7 @@ public class HostConstraintClockTests
         var engine = new Engine(o =>
         {
             o.Constraints.TimeProvider = TimeProvider.System;
-            o.TimeoutInterval(TimeSpan.FromSeconds(30));
+            o.LimitExecutionTime(TimeSpan.FromSeconds(30));
         });
         engine.Execute(Source);
 
@@ -124,7 +124,7 @@ public class HostConstraintClockTests
         Invoking(() => new Engine(o =>
             {
                 o.Constraints.TimeProvider = new FrequencylessClock();
-                o.TimeoutInterval(Interval);
+                o.LimitExecutionTime(Interval);
             }))
             .Should().Throw<ArgumentException>().WithMessage("*TimestampFrequency*");
 
@@ -139,7 +139,7 @@ public class HostConstraintClockTests
         // additive: nothing an embedder already wrote changes meaning.
         foreach (var deadline in new[] { new OperationDeadlineConstraint(), new OperationDeadlineConstraint(null) })
         {
-            var engine = new Engine(options => options.Constraint(deadline));
+            var engine = new Engine(options => options.AddConstraint(deadline));
             engine.Execute(Source);
 
             deadline.Begin(TimeSpan.FromMinutes(10));

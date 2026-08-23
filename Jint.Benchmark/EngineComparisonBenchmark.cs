@@ -112,14 +112,14 @@ public class EngineComparisonBenchmark
     [Benchmark]
     public void Jint()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_files[FileName]);
     }
 
     [Benchmark]
     public void Jint_ParsedScript()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_parsedScripts[FileName]);
     }
 

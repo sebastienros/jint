@@ -221,7 +221,7 @@ public class FastCallLaneTests
     [Fact]
     public void ARecursionThatOnlyPassesThroughABuiltinIsStillChargedTheRecursionLimit()
     {
-        var engine = new Engine(options => options.LimitRecursion(24));
+        var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 24);
         engine.Execute("""
             var depth = 0;
             var arg = 0;

@@ -77,7 +77,7 @@ public class BigIntTests
     {
         var engine = new Engine(options =>
         {
-            options.TimeoutInterval(TimeSpan.FromSeconds(5));
+            options.LimitExecutionTime(TimeSpan.FromSeconds(5));
             options.LimitMemory(16_000_000);
         });
 
@@ -92,7 +92,7 @@ public class BigIntTests
     {
         var engine = new Engine(options =>
         {
-            options.TimeoutInterval(TimeSpan.FromSeconds(5));
+            options.LimitExecutionTime(TimeSpan.FromSeconds(5));
             options.LimitMemory(16_000_000);
         });
 
