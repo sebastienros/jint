@@ -28,7 +28,7 @@
     already contain, and "wpt.url.url-constructor.any.js" cannot be turned back into a path.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="Wpt\Vendor\**\*.js;Wpt\Vendor\**\*.json">
+    <EmbeddedResource Include="Wpt\Vendor\**\*.js;Wpt\Vendor\**\*.json;Wpt\Vendor\**\*.txt">
       <LogicalName>wpt/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Wpt\Prelude\*.js">

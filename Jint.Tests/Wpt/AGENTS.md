@@ -20,24 +20,39 @@ sides, because a shim that quietly passed everything would make five thousand ca
 Six things to know before touching it. **The exclusion table is the artefact**: a test that does not pass is
 named in `WptTestRunner._exclusions` with a `WptDivergence` category, and an entry must match at least one
 failing test and no passing one — so a fix, a rename, or a corpus bump makes the run fail until the table is
-brought back in line, and a `*` glob can never widen into a blanket. **`NeedsTriage` is the debt, and it is
-empty**: those are genuine defects the harness found, recorded rather than fixed so that the change which
-first ran a suite is not also the change that moved the engine — every one filed so far has been paid, and the
-emptiness is the signal, so a non-zero count there means the corpus has found something. A row that turns out
-not to be a defect at all leaves for `AssertsWhatNothingRequires`, the analogue of test262's
-`PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued decision, never a
-to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
+brought back in line, and a `*` glob can never widen into a blanket. A test *name* may itself contain a `*`,
+which is what the `\*` escape is for; without it there is no pattern at all that names
+`fetch/api/basic/accept-header.any.js`'s failing `…with value '*/*'` row and not its passing sibling
+`…with value 'custom/*'`. **`NeedsTriage` is the debt**: those are genuine defects the harness found, recorded
+rather than fixed so that the change which first ran a suite is not also the change that moved the engine — a
+non-zero count there means the corpus has found something and somebody still owes the engine a fix. It was
+empty until [#3260](https://github.com/sebastienros/jint/issues/3260) gave the fetch corpus a server; the five
+things it found the moment it could make a real request are filed as #3279–#3283 and named there with their
+citations. A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
+analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
+decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
 enable and shims one onto the event loop, this driver enables
 `WebApiFeatures.Timers` and pumps with `Advanced.ProcessTasks()` bounded by `TimeUntilNextPumpScheduledWork()`,
 so a suite that schedules a timer exercises the shipped `TimerQueue`. **`// META: variant=` sharding is
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
 run of a file is the union of all of its variants. And **every engine carries the fetch object model**:
-`WptHarness.BuildEngine` installs `Headers`, `Request` and `Response` on top of `Default` — and pointedly not
-`fetch`, which no feature flag names the model without, so no suite can open a socket either way. Two suite
-groups need it: `url/urlencoded-parser.any.js` reaches the urlencoded parser through `Request.formData()` and
-`Response.formData()` as well as `URLSearchParams`, and the two vendored `fetch/api/` suites are about those
-three interfaces and nothing else, which is what let half of that corpus be vendored while the half that
-talks to a server could not. Last, **every engine carries a `DiagnosticsSink`**, because that is what makes an
+`WptHarness.BuildEngine` installs `Headers`, `Request` and `Response` on top of `Default` — and, for all but
+the files `WptHarness._serverBackedFiles` names, pointedly not `fetch`, which no feature flag names the model
+without. `url/urlencoded-parser.any.js` reaches the urlencoded parser through `Request.formData()` and
+`Response.formData()` as well as `URLSearchParams`, and the `headers/` and `response/` suites are about those
+three interfaces and nothing else, which is what let that half of the fetch corpus be vendored years before
+there was anything for the other half to talk to. **That other half is `WptServer`** — an in-process HTTP/1.1
+origin on the loopback interface, a raw `TcpListener` on port 0, serving the *vendored* corpus plus a C# port
+of six wptserve `.py` handlers, which `WptServerTests` holds to the upstream source at the pin. Only the
+seventeen files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
+server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
+list in both directions — so *no suite can reach the network*, which is the promise the driver has always
+made, while the twenty files that could not produce a test report at all now do. Two things about that lane
+are worth knowing before touching it: the shim supplies the API base URL the engine deliberately has not got
+(`new URL(relative, base).href`, which is what `RequestConstructor` tells a host to do, and it pointedly does
+*not* wrap `Request`), and the drive loop polls there rather than treating "nothing scheduled" as stalled,
+because a request in flight is a thread-pool completion `TimeUntilNextScheduledWork` cannot report. Last,
+**every engine carries a `DiagnosticsSink`**, because that is what makes an
 exception escaping a timer callback, a `queueMicrotask` callback or an event listener report-and-continue
 rather than erupt from the pump — the environment the corpus was written for, and the same choice
 `WorkerRequest.CreateDefaultOptions` already makes for a worker engine. It is a *recorder* rather than

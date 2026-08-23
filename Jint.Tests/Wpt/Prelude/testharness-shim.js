@@ -915,7 +915,16 @@
     // `/common/subset-tests.js` and `/common/subset-tests-by-key.js` read `location.search` to decide which
     // slice of a sharded suite to run. An empty search means "run the whole file", which is the union of
     // every `// META: variant=` line — see WptHarness.cs on why the driver does not shard.
-    global.location = { search: '', hash: '', href: 'about:blank' };
+    //
+    // `href` is `about:blank` for every file but the ones in the server lane, where the driver hands over the
+    // URL the file is actually served at: `fetch/api/basic/stream-safe-creation.any.js` fetches
+    // `location.href` and constructs Requests from it, so a placeholder there would be a suite asserting
+    // against the shim rather than against the engine.
+    global.location = {
+        search: '',
+        hash: '',
+        href: typeof __wptLocationHref === 'string' ? __wptLocationHref : 'about:blank'
+    };
 
     // Not the Fetch API: a loader for the vendored `resources/*.json` files a suite reads its corpus from,
     // and the only reason any of these files needs a network verb at all. There is deliberately no failure
@@ -929,9 +938,45 @@
     // duck-typed object whose `body` is undefined lets
     // `assert_throws_js(TypeError, () => response.body.getReader())` pass for the wrong reason, which is
     // exactly the kind of green this file exists to avoid.
-    global.fetch = function (input) {
-        return Promise.resolve(new global.Response(__wptReadResource(String(input))));
-    };
+    //
+    // Only when the engine has not got the real one. A file in the driver's server lane runs on an engine
+    // built with `WebApiFeatures.Fetch` and a `UrlFilter` bounded to the driver's own loopback origin — see
+    // `WptHarness._serverBackedFiles` — and overwriting the shipped `fetch` there would replace the very
+    // thing those files exist to test. Every other engine has no `fetch` at all, so the reader below is what
+    // it gets, exactly as before.
+    if (typeof global.fetch !== 'function') {
+        global.fetch = function (input) {
+            return Promise.resolve(new global.Response(__wptReadResource(String(input))));
+        };
+    } else {
+        // The engine's own `fetch`, given the one thing an embedded engine cannot have: an API base URL.
+        //
+        // Fetch resolves a string input in the Request constructor, "against the entry settings object's API
+        // base URL" — a *document's* URL. RequestConstructor documents declining to invent one and tells a
+        // host what to do instead, verbatim: "Pass an absolute URL, or resolve it yourself with
+        // `new URL(relative, base).href`". That is what this does, with `location.href` as the base, which is
+        // the URL the driver's server really serves the file at. It is the harness playing the part of the
+        // browsing environment, exactly as it does by supplying `location` and `GLOBAL` at all — every file in
+        // the fetch corpus writes `fetch("../resources/status.py?…")`, so without it there is nothing for a
+        // server to answer.
+        //
+        // It deliberately does *not* wrap `Request`: a file that constructs one from a relative url is
+        // asserting about the constructor, and those rows stay excluded under NeedsApiBaseUrl rather than
+        // being quietly fixed up by the harness.
+        var __engineFetch = global.fetch;
+        global.fetch = function (input, init) {
+            if (typeof input === 'string') {
+                try {
+                    input = new global.URL(input, global.location.href).href;
+                } catch (e) {
+                    // An input no URL parser can make sense of is a network error the engine must report, not
+                    // something for the harness to throw synchronously in its place.
+                }
+            }
+
+            return __engineFetch(input, init);
+        };
+    }
 
     // Not the XMLHttpRequest of https://xhr.spec.whatwg.org/: the resource loader above wearing the shape the
     // encoding suites reach for, and nothing more. GET only, read synchronously out of the vendored tree, and

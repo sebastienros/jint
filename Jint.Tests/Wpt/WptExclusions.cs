@@ -293,9 +293,12 @@ internal enum WptDivergence
 
     /// <summary>
     /// The test needs an HTTP response that only a wpt server can produce — a <c>.py</c> handler that echoes
-    /// headers, generates bytes with a charset, trickles a body or redirects. The driver's <c>fetch</c> and
-    /// <c>XMLHttpRequest</c> are readers over the vendored tree and nothing else, so a row that asks for one
-    /// fails saying so. Whole files whose every test does this are not vendored; these entries are the rows
+    /// headers, generates bytes with a charset, trickles a body or redirects — <b>from a lane that has no
+    /// server</b>. <see cref="WptServer"/> now stands in for wptserve, but only for the files
+    /// <c>WptHarness._serverBackedFiles</c> names: every other engine the driver builds still has no
+    /// <c>fetch</c> at all, and the shim's <c>XMLHttpRequest</c> is a reader over the vendored tree on every
+    /// lane there is (<see cref="NeedsXmlHttpRequest"/> is the category for a row that wants the real one).
+    /// Whole files whose every test does this are not vendored; these entries are the rows
     /// that sit inside a file which is otherwise about something else — the <c>(XMLHttpRequest)</c> half of
     /// <c>encoding/single-byte-decoder.any.js</c>, whose <c>(TextDecoder)</c> half tests the same decoders and
     /// passes, and two of the nine cases of <c>workers/modules/dedicated-worker-import.any.js</c>, whose
@@ -317,6 +320,58 @@ internal enum WptDivergence
     /// inside a file that is otherwise about something else.
     /// </summary>
     NeedsApiBaseUrl,
+
+    /// <summary>
+    /// The test reaches for a real <c>XMLHttpRequest</c>, which Jint does not implement and the driver does
+    /// not pretend to: the shim's is a synchronous GET reader over the vendored corpus and refuses anything
+    /// else by name, deliberately, so that a row asking for one fails saying what it wanted rather than
+    /// hanging or quietly passing against a stub. The two <c>fetch/api/headers/header-values*</c> files are
+    /// where this shows up in bulk — each runs its whole table of header values twice, once through
+    /// <c>XMLHttpRequest.setRequestHeader</c> and once through <c>fetch</c>, and only the second half is
+    /// about anything Jint has. <see cref="NeedsWptServer"/> is the neighbouring category and a different
+    /// fact: that one is a row wanting a <i>server</i> from a lane that has none.
+    /// </summary>
+    NeedsXmlHttpRequest,
+
+    /// <summary>
+    /// <para>
+    /// The test asserts the <b>opaque redirect filtered response</b> that <c>redirect: "manual"</c> produces
+    /// in a browser — status 0, type <c>"opaqueredirect"</c>, an empty header list — and gets the redirect
+    /// response itself, <c>Location</c> and all.
+    /// </para>
+    /// <para>
+    /// <c>FetchTransport</c> documents the choice and it is Node's reading of
+    /// https://fetch.spec.whatwg.org/#concept-http-fetch step 6: the filtered response exists to hide a
+    /// cross-origin redirect from a <i>page</i>, which is a concern an embedded engine with no origin does
+    /// not have, and handing the script the response it actually got is more useful than handing it a blank.
+    /// So this is a divergence Jint chose rather than a gap — the same kind of fact as
+    /// <see cref="NeedsForbiddenHeaderNames"/>, and for the same reason it is not
+    /// <see cref="AssertsWhatNothingRequires"/>: the standard really does require what the test asserts.
+    /// </para>
+    /// </summary>
+    NeedsOpaqueRedirect,
+
+    /// <summary>
+    /// The test sends or reads a header value the Fetch Standard calls valid — a header value may hold any
+    /// byte but NUL, LF and CR (https://fetch.spec.whatwg.org/#header-value) — and the <b>.NET HTTP stack</b>
+    /// does not carry it. It is not an engine defect and not the driver's server either: the bytes leave
+    /// <see cref="WptServer"/> intact, and <c>WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack</c>
+    /// measures where the line falls — exactly at ASCII, control characters surviving and every byte from
+    /// 0x80 up lost — with no engine in the picture at all, which is what that test exists for. Nothing Jint
+    /// can do moves these rows short of writing its own HTTP client.
+    /// </summary>
+    NeedsPermissiveHeaderTransport,
+
+    /// <summary>
+    /// The test asserts a request header a <b>browser</b> adds on the script's behalf out of user or document
+    /// state — <c>Accept-Language</c> from the user's language preferences, and the <c>Referer</c> family
+    /// from the document that made the request. An embedded engine has neither, and inventing a value would
+    /// be inventing a fact about a user who does not exist. Deliberately not the same row as a header the
+    /// <i>standard</i> requires of every client: <c>Accept: */*</c> is step 8 of
+    /// https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch and is owed by anyone implementing
+    /// fetch, so its row is a defect and lives in <see cref="NeedsTriage"/>.
+    /// </summary>
+    NeedsBrowserRequestHeaders,
 
     /// <summary>
     /// The test asserts the <i>forbidden header name</i> or <i>forbidden response header name</i> list —
@@ -439,6 +494,42 @@ internal enum WptDivergence
     /// precedent for a named-but-empty category. An entry that turns out not to be a defect leaves for
     /// <see cref="AssertsWhatNothingRequires"/> rather than earning a longer explanation under this one.
     /// </para>
+    /// <para>
+    /// <b>It is not empty any more, and that is the mechanism working.</b> Standing
+    /// <see cref="WptServer"/> up (https://github.com/sebastienros/jint/issues/3260) let the fetch corpus
+    /// make a real request for the first time, and five things it asserts turned out not to hold. Each is
+    /// filed as its own issue and deliberately left unfixed here, for the reason the paragraphs above give:
+    /// the change that first ran a suite must not also be the change that moves the engine, or nobody can
+    /// tell which of the two a number came from.
+    /// <list type="bullet">
+    /// <item><description>
+    /// https://github.com/sebastienros/jint/issues/3279 — <c>basic/accept-header.any.js</c>: no
+    /// <c>Accept: */*</c> is appended, which is step 8 of
+    /// https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch.
+    /// </description></item>
+    /// <item><description>
+    /// https://github.com/sebastienros/jint/issues/3280 — <c>basic/response-null-body.any.js</c>: a
+    /// <c>HEAD</c> response carries a body stream where
+    /// https://fetch.spec.whatwg.org/#concept-http-network-fetch gives it a null body.
+    /// </description></item>
+    /// <item><description>
+    /// https://github.com/sebastienros/jint/issues/3281 — <c>response/response-headers-guard.any.js</c>: a
+    /// fetched response's <c>Headers</c> are mutable where
+    /// https://fetch.spec.whatwg.org/#concept-response-header-list gives them the <i>immutable</i> guard.
+    /// </description></item>
+    /// <item><description>
+    /// https://github.com/sebastienros/jint/issues/3282 — <c>redirect/redirect-method.any.js</c>:
+    /// <c>Content-Encoding</c>, <c>Content-Language</c> and <c>Content-Location</c> set on a bodiless request
+    /// never reach the wire, because the BCL files them as content headers and a GET has no content to hang
+    /// them on.
+    /// </description></item>
+    /// <item><description>
+    /// https://github.com/sebastienros/jint/issues/3283 — <c>response/response-clone.any.js</c>: the two
+    /// bodies <c>clone()</c> tees deliver the <i>same</i> buffer rather than the structured clone
+    /// https://fetch.spec.whatwg.org/#concept-body-clone requires.
+    /// </description></item>
+    /// </list>
+    /// </para>
     /// </summary>
     NeedsTriage,
 
@@ -534,8 +625,18 @@ internal sealed record WptExclusion(
     /// table is checked with, since that is the same question asked about a path.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Iterative rather than recursive, so a pattern with several stars cannot blow the stack on a long
     /// name — the URL corpus builds test names out of its inputs and some of those are long.
+    /// </para>
+    /// <para>
+    /// <c>\*</c> is a literal asterisk, which some test <i>names</i> genuinely contain:
+    /// <c>fetch/api/basic/accept-header.any.js</c> has a row called "…with value '*/*'" beside one called
+    /// "…with value 'custom/*'", and without an escape there is no pattern at all that names the first and
+    /// not the second — every literal segment of the one is a segment of the other, so the wildcard reading
+    /// makes them indistinguishable and the two-sided rule (match a failing test, match no passing one) can
+    /// never be satisfied. No other escape is recognized, and a lone backslash is a lone backslash.
+    /// </para>
     /// </remarks>
     internal static bool MatchesPattern(string pattern, string value)
     {
@@ -548,14 +649,14 @@ internal sealed record WptExclusion(
 
         while (v < value.Length)
         {
-            if (p < pattern.Length && pattern[p] == '*')
+            if (p < pattern.Length && IsWildcard(pattern, p))
             {
                 starPattern = p++;
                 starValue = v;
             }
-            else if (p < pattern.Length && pattern[p] == value[v])
+            else if (p < pattern.Length && LiteralAt(pattern, p) == value[v])
             {
-                p++;
+                p += WidthAt(pattern, p);
                 v++;
             }
             else if (starPattern >= 0)
@@ -569,12 +670,22 @@ internal sealed record WptExclusion(
             }
         }
 
-        while (p < pattern.Length && pattern[p] == '*')
+        while (p < pattern.Length && IsWildcard(pattern, p))
         {
             p++;
         }
 
         return p == pattern.Length;
+
+        static bool IsWildcard(string pattern, int at)
+            => pattern[at] == '*' && (at == 0 || pattern[at - 1] != '\\');
+
+        static bool IsEscapedStar(string pattern, int at)
+            => pattern[at] == '\\' && at + 1 < pattern.Length && pattern[at + 1] == '*';
+
+        static char LiteralAt(string pattern, int at) => IsEscapedStar(pattern, at) ? '*' : pattern[at];
+
+        static int WidthAt(string pattern, int at) => IsEscapedStar(pattern, at) ? 2 : 1;
     }
 }
 #endif

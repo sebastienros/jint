@@ -139,6 +139,84 @@ internal static class WptHarness
     /// </summary>
     private static readonly TimeSpan _harnessDeadline = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long the drive loop keeps pumping a server-backed file after the engine has run out of scheduled
+    /// work and stopped making progress.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every other lane can treat "nothing queued and nothing scheduled" as proof that no amount of pumping
+    /// will change the answer, because everything those files wait on is the engine's own clock or its own
+    /// queue. A request in flight is neither: it is a completion on a thread pool thread that will
+    /// <i>enqueue</i> when it lands, and until then there is no due time for
+    /// <c>Advanced.TimeUntilNextScheduledWork</c> to report — which is exactly the case
+    /// <c>Advanced.WaitForScheduledWork</c> documents as findable only by polling.
+    /// </para>
+    /// <para>
+    /// So the server lane polls, and the idle timer is reset by <i>progress</i> — a test settling — rather
+    /// than by the wall clock, so a file making 250 requests one after another never approaches it. It is
+    /// deliberately longer than <c>Options.WebApi.Fetch.Timeout</c> below: a request the server never answers
+    /// has to become a rejected promise and a failing test, and a drive loop that gave up first would report
+    /// it as a stall for the whole file instead.
+    /// </para>
+    /// </remarks>
+    private static readonly TimeSpan _offThreadGrace = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// The bound on one request to the driver's own loopback server. It has to be well inside
+    /// <see cref="_offThreadGrace"/> — see there — and a request to a server in this process is either
+    /// answered at once or not at all.
+    /// </summary>
+    private static readonly TimeSpan _fetchTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The files that run against <see cref="WptServer"/> — a real <c>fetch</c>, over a real socket, to the
+    /// driver's own loopback origin — rather than against the shim's reader over the vendored tree.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is a list rather than a rule, and deliberately so.</b> Giving the whole <c>fetch/api/</c> corpus
+    /// the lane would turn thirty already-green rows into network-dependent ones for nothing: they build
+    /// their own <c>Response</c> and never ask for a URL. Naming the files keeps the new failure surface to
+    /// the rows that could not run at all before, and keeps the harness's oldest promise true for every other
+    /// suite — no engine outside this list has <c>fetch</c> at all, so no suite outside it can open a socket.
+    /// </para>
+    /// <para>
+    /// The lane's engine differs from every other one in exactly three ways, and each is forced by the files
+    /// in it. <see cref="WebApiFeatures.Fetch"/> is on, because the whole point is to exercise the shipped
+    /// <c>fetch</c> rather than a reader wearing its shape. <c>Options.WebApi.Fetch.UrlFilter</c> is
+    /// <see cref="WptServer.Owns"/>, so the first hop and every redirect are checked against the driver's own
+    /// port and a suite still cannot reach the network. And <c>location.href</c> is the file's own URL on that
+    /// server, because <c>basic/stream-safe-creation.any.js</c> fetches it.
+    /// </para>
+    /// </remarks>
+    private static readonly HashSet<string> _serverBackedFiles = new(StringComparer.Ordinal)
+    {
+        "fetch/api/basic/accept-header.any.js",
+        "fetch/api/basic/request-head.any.js",
+        "fetch/api/basic/request-headers-nonascii.any.js",
+        "fetch/api/basic/response-null-body.any.js",
+        "fetch/api/basic/scheme-about.any.js",
+        "fetch/api/basic/stream-response.any.js",
+        "fetch/api/basic/stream-safe-creation.any.js",
+        "fetch/api/basic/text-utf8.any.js",
+        "fetch/api/headers/header-values-normalize.any.js",
+        "fetch/api/headers/header-values.any.js",
+        "fetch/api/redirect/redirect-count.any.js",
+        "fetch/api/redirect/redirect-empty-location.any.js",
+        "fetch/api/redirect/redirect-location.any.js",
+        "fetch/api/redirect/redirect-method.any.js",
+        "fetch/api/response/response-cancel-stream.any.js",
+        "fetch/api/response/response-clone.any.js",
+        "fetch/api/response/response-headers-guard.any.js",
+    };
+
+    /// <summary>Whether a file runs in the server lane. Read by the runner's inventory checks as well.</summary>
+    internal static bool IsServerBacked(string testFilePath) => _serverBackedFiles.Contains(testFilePath);
+
+    /// <summary>Every file the server lane claims, so the inventory can hold the list to the corpus.</summary>
+    internal static IEnumerable<string> ServerBackedFiles => _serverBackedFiles;
+
     internal static WptRunOutcome Run(string testFilePath)
     {
         var directory = WptCorpus.DirectoryOf(testFilePath);
@@ -434,12 +512,20 @@ internal static class WptHarness
             ? new WptWorkerProvider(moduleSource: null, directory, sink)
             : null;
 
-        var engine = BuildEngine(directory, sink, workers);
+        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName));
 
         try
         {
             // Before the shim, which reads it: `setup({single_test: true})` names its one test after the file.
             engine.SetValue("__wptTestFile", sourceName);
+
+            // And the URL the file is served at, which the shim installs as `location.href`. A file outside
+            // the server lane keeps the shim's `about:blank`, exactly as before.
+            if (IsServerBacked(sourceName))
+            {
+                engine.SetValue("__wptLocationHref", WptServer.Instance.UrlFor(sourceName));
+            }
+
             engine.Execute(WptCorpus.Prelude, source: "wpt-prelude/testharness-shim.js");
 
             foreach (var script in metaScripts)
@@ -452,7 +538,7 @@ internal static class WptHarness
             // Pump to completion first and read afterwards: the shim records a test's outcome when it
             // finishes, so reading before the drive loop has run would report every async test as NOTRUN.
             var stalled = Outstanding(engine) is { } outstanding
-                ? Pump(engine, outstanding, workers)
+                ? Pump(engine, outstanding, workers, IsServerBacked(sourceName))
                 : "the harness shim did not install __wpt";
             return new WptRunOutcome(ReadResults(engine), stalled ?? UndeclaredCallbackErrors(engine, sink));
         }
@@ -524,12 +610,30 @@ internal static class WptHarness
         => engine.GetValue("__wpt") is ObjectInstance wpt
             && TypeConverter.ToBoolean(wpt.Get("allowUncaughtException"));
 
-    private static Engine BuildEngine(string directory, WptDiagnosticsSink sink, WptWorkerProvider? workers = null)
+    private static Engine BuildEngine(
+        string directory,
+        WptDiagnosticsSink sink,
+        WptWorkerProvider? workers = null,
+        bool serverBacked = false)
     {
         var engine = new Engine(options =>
         {
-            // Everything except outbound network access, which is what a suite under test is allowed to see.
-            options.UseWebApis(WebApiFeatures.Default);
+            // Everything except outbound network access, which is what a suite under test is allowed to see —
+            // unless the file is in the server lane, where the point is the shipped `fetch` and the reach is
+            // bounded by the filter below rather than by the feature being absent.
+            options.UseWebApis(serverBacked ? WebApiFeatures.Default | WebApiFeatures.Fetch : WebApiFeatures.Default);
+
+            if (serverBacked)
+            {
+                // Re-run on every redirect hop, which is what a redirect suite needs it to be: a chain that
+                // walked off this port would be refused rather than followed. Nothing here can reach the
+                // network, which is the property the driver has always had and keeps.
+                options.WebApi.Fetch.UrlFilter = WptServer.Instance.Owns;
+
+                // Well inside the drive loop's own grace period, so a request the server never answers is
+                // reported as a failing test rather than as a stalled file. See _fetchTimeout.
+                options.WebApi.Fetch.Timeout = _fetchTimeout;
+            }
 
             // What makes an exception escaping a timer callback, an event listener or a queueMicrotask
             // callback report-and-continue rather than erupt from the pump, which is the environment the
@@ -610,9 +714,15 @@ internal static class WptHarness
     /// timer settles, and it made the loop declare a run stalled whose last test had just finished, on a
     /// machine loaded enough for the timer to come due inside the check.
     /// </remarks>
-    private static string? Pump(Engine engine, ObjectInstance outstanding, WptWorkerProvider? workers = null)
+    private static string? Pump(
+        Engine engine,
+        ObjectInstance outstanding,
+        WptWorkerProvider? workers = null,
+        bool offThreadWorkPossible = false)
     {
         var started = Stopwatch.GetTimestamp();
+        var lastProgress = started;
+        var settled = TypeConverter.ToNumber(outstanding.Get("length"));
 
         while (!IsComplete(outstanding))
         {
@@ -635,12 +745,30 @@ internal static class WptHarness
                 return null;
             }
 
+            // A test settling is progress, and it is what resets the server lane's idle timer below.
+            var remaining = TypeConverter.ToNumber(outstanding.Get("length"));
+            if (remaining != settled)
+            {
+                settled = remaining;
+                lastProgress = Stopwatch.GetTimestamp();
+            }
+
             // Nothing is queued and the engine has scheduled nothing for itself, so no amount of pumping can
             // change the answer: a test is waiting on something that will never arrive. Reporting that at
             // once beats waiting out the deadline to say the same thing.
+            //
+            // Unless a request is in flight, which has no due time to report — see _offThreadGrace. Then the
+            // loop keeps polling until the file stops making progress for that long.
             if (NextDue(engine, workers) is not { } untilDue)
             {
-                return Stalled(outstanding, "nothing is left to pump");
+                if (!offThreadWorkPossible || Stopwatch.GetElapsedTime(lastProgress) >= _offThreadGrace)
+                {
+                    return Stalled(outstanding, offThreadWorkPossible
+                        ? $"nothing is left to pump and no test settled for {_offThreadGrace}"
+                        : "nothing is left to pump");
+                }
+
+                untilDue = TimeSpan.FromMilliseconds(1);
             }
 
             if (Stopwatch.GetElapsedTime(started) >= _harnessDeadline)
