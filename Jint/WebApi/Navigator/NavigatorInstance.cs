@@ -33,12 +33,26 @@ namespace Jint.WebApi.Navigator;
 /// embedding application. Read it as WinterTC says to: "a single, complete, opaque, unstructured value".
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL, the same pair <c>console</c>, <c>crypto</c> and
-/// <c>performance</c> carry. There is no <c>Navigator</c> interface object and no <c>Navigator.prototype</c>,
-/// so <c>userAgent</c> is an own accessor of this object rather than one on an interface prototype — it still
-/// brand-checks its receiver, and <c>Object.keys(navigator)</c> answers the empty array here exactly as it
-/// does in a browser. And the object is installed as an ordinary enumerable data property of the global
-/// rather than through the <c>[Replaceable]</c> accessor pair WebIDL gives it.
+/// <b>There is no <c>Navigator</c> interface object and no <c>Navigator.prototype</c></b>, so
+/// <c>userAgent</c> is an own accessor of this object rather than one on an interface prototype; it still
+/// brand-checks its receiver.
+/// </para>
+/// <para>
+/// <b>That is why it keeps an ECMAScript built-in's property attributes</b> — non-enumerable — where every
+/// other attribute under <c>Jint/WebApi/</c> carries WebIDL's <c>{ [[Enumerable]]: true,
+/// [[Configurable]]: true }</c> (https://webidl.spec.whatwg.org/#es-attributes). WebIDL's rule assumes the
+/// member is where the specification puts it, and Node 24 is the oracle for what that looks like:
+/// <c>userAgent</c> is an enumerable accessor on <c>Navigator.prototype</c>, and
+/// <c>Object.keys(navigator)</c> is nevertheless the empty array, because the instance has no own properties
+/// at all. Non-enumerable <i>here</i> is what reproduces that answer; declaring it enumerable would make
+/// <c>Object.keys(navigator)</c> report <c>["userAgent"]</c>, which no implementation does, so a blanket flip
+/// would move this object further from a browser rather than closer. What fixes it is the interface object,
+/// not a flag. The exemption is recorded, and checked for staleness, in
+/// <c>Jint.Tests.Runtime.WebApi.WebIdlPropertyAttributeTests</c>.
+/// </para>
+/// <para>
+/// The object is also installed as an ordinary enumerable data property of the global rather than through the
+/// <c>[Replaceable]</c> accessor pair WebIDL gives it.
 /// </para>
 /// </remarks>
 [JsObject]
