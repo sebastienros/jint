@@ -225,11 +225,11 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
 | `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` | `Files` | ✔ shipped |
-| `navigator.userAgent` | `Navigator` | ✔ shipped |
+| `navigator.userAgent` / `Navigator` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
 | `CompressionStream` / `DecompressionStream` (`gzip`, `deflate`, `deflate-raw`, `brotli`) | `Compression` **and** `Streams` | ✔ shipped |
-| `scheduler.postTask` / `scheduler.yield` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
+| `scheduler.postTask` / `scheduler.yield` / `Scheduler` / `TaskController` / `TaskSignal` | `Scheduler` | ✔ shipped |
 | `requestIdleCallback` / `cancelIdleCallback` / `IdleDeadline` | `IdleCallback` | ✔ shipped |
 | `MessageChannel` / `MessagePort` / `MessageEvent` (incl. cross-engine ports and port transfer) / `BroadcastChannel` | `Messaging` | ✔ shipped |
 | `Worker` (module workers only, over a host-supplied `WorkerProvider`) | `Workers` — **opt-in on its own, and does nothing without a provider** | ✔ shipped |
@@ -608,6 +608,11 @@ order the two were queued in; among the tasks pending together the highest prior
 oldest; and every runnable task runs before any *due* timer — the one place this deliberately differs from a
 browser, which is free to make the opposite choice for a `background` task and typically does.
 
+`Scheduler` is a real interface object — `scheduler instanceof Scheduler` holds, `postTask` and `yield` live
+on `Scheduler.prototype`, and `Object.keys(scheduler)` is `[]` — joining the `TaskController`, `TaskSignal`
+and `TaskPriorityChangeEvent` this feature already exposed. It is not constructible, which is what the draft's
+IDL says.
+
 ### Events dispatch to one target, because there is no tree
 
 `EventTarget` is constructible and `Event`, `CustomEvent`, `AbortController` and `AbortSignal` behave as the
@@ -669,6 +674,12 @@ token with no comment component, so nothing about your operating system or your 
 and it is there because [WinterTC's Minimum Common API](https://min-common-api.proposal.wintertc.org/)
 requires `globalThis.navigator.userAgent` of a conforming runtime. Everything else a browser's `Navigator`
 carries describes a user agent with a user, a document and a network stack, so it is absent rather than faked.
+
+`Navigator` is a real interface object, so `navigator instanceof Navigator` holds and `userAgent` lives on
+`Navigator.prototype` where a browser's and Node's do — which is why `Object.keys(navigator)` and
+`Reflect.ownKeys(navigator)` are both `[]`, exactly as they are in Node 24. It is not constructible, which is
+what its IDL says. Having a prototype of its own also means `navigator.__proto__.foo = …`, the idiom a
+patching library reaches for, lands on that object instead of on `Object.prototype`.
 
 ### Channel messaging can span two engines
 

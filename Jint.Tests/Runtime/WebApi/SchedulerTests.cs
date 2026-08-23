@@ -832,7 +832,7 @@ public class SchedulerTests
         (scheduler._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
         scheduler._value.Should().BeNull();
 
-        foreach (var name in new[] { "TaskController", "TaskSignal", "TaskPriorityChangeEvent" })
+        foreach (var name in new[] { "Scheduler", "TaskController", "TaskSignal", "TaskPriorityChangeEvent" })
         {
             var descriptor = global.GetOwnProperty(name);
             descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
@@ -864,11 +864,72 @@ public class SchedulerTests
         engine.Evaluate("scheduler.yield.length").AsNumber().Should().Be(0);
         engine.Evaluate("scheduler.yield.name").AsString().Should().Be("yield");
 
-        // The operations are not enumerable, so the object looks as empty as a browser's does.
+        // The operations live on the interface prototype object, where WebIDL puts them and where they are
+        // enumerable — https://webidl.spec.whatwg.org/#es-operations. The instance carries nothing of its
+        // own, so it looks as empty as a browser's does.
+        foreach (var member in new[] { "postTask", "yield" })
+        {
+            engine.Evaluate($"Object.prototype.hasOwnProperty.call(Scheduler.prototype, '{member}')").AsBoolean().Should().BeTrue(member);
+            engine.Evaluate($"Object.prototype.hasOwnProperty.call(scheduler, '{member}')").AsBoolean().Should().BeFalse(member);
+            engine.Evaluate($"Object.keys(Scheduler.prototype).indexOf('{member}') >= 0").AsBoolean().Should().BeTrue(member);
+        }
+
         engine.Evaluate("Object.keys(scheduler).length").AsNumber().Should().Be(0);
+        engine.Evaluate("Reflect.ownKeys(scheduler).length").AsNumber().Should().Be(0);
 
         // The scheduler object is the same one on every read.
         engine.Evaluate("scheduler === scheduler").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The interface object and the interface prototype object, which <c>scheduler</c> had neither of.
+    /// https://wicg.github.io/scheduling-apis/#sec-scheduler declares
+    /// <c>[Exposed=(Window, Worker)] interface Scheduler</c> with no constructor operation, which is what
+    /// Chrome ships and what these lines assert.
+    /// </summary>
+    [Fact]
+    public void HasARealInterfaceObjectAndInterfacePrototypeObject()
+    {
+        var (engine, _) = SchedulerEngine();
+
+        engine.Evaluate("typeof Scheduler").AsString().Should().Be("function");
+        engine.Evaluate("Scheduler.name").AsString().Should().Be("Scheduler");
+        engine.Evaluate("Scheduler.length").AsNumber().Should().Be(0);
+
+        engine.Evaluate("scheduler instanceof Scheduler").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(scheduler) === Scheduler.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(Scheduler.prototype) === Object.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Scheduler.prototype.constructor === Scheduler").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.prototype.toString.call(scheduler)").AsString().Should().Be("[object Scheduler]");
+
+        // instanceof is answered by the chain, never by a shim.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Scheduler, Symbol.hasInstance)").AsBoolean().Should().BeFalse();
+
+        // No constructor operation means an interface object that refuses to construct —
+        // https://webidl.spec.whatwg.org/#es-interface-call.
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new Scheduler()"))
+            .Error.Get("message").AsString().Should().Be("Illegal constructor");
+    }
+
+    /// <summary>
+    /// The containment half of https://github.com/sebastienros/jint/issues/3257, which #3266 closed for
+    /// <c>console</c> and left open here: while the singleton sat directly on <c>%Object.prototype%</c>,
+    /// <c>scheduler.__proto__.foo = …</c> poisoned every object in the realm.
+    /// </summary>
+    [Fact]
+    public void PatchingSchedulersPrototypeDoesNotReachObjectPrototype()
+    {
+        var (engine, _) = SchedulerEngine();
+
+        engine.Execute("scheduler.__proto__.decorated = 42;");
+
+        engine.Evaluate("scheduler.decorated").AsNumber().Should().Be(42);
+
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'decorated' in {}").AsBoolean().Should().BeFalse();
+        engine.Evaluate("({}).decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("[].decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("(function () {}).decorated").IsUndefined().Should().BeTrue();
     }
 
     // --- Engine lifecycle -----------------------------------------------------------------------------

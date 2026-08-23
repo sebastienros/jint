@@ -71,9 +71,9 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <b>A green matrix is not a conformance certificate.</b> It says every member carries the attributes its
 /// kind requires; it says nothing about whether the member is on the right object, whether the object has the
 /// right prototype, or whether the interface exists at all. <see cref="Divergences"/> is where that
-/// distinction bites — the two objects listed there carry ECMAScript attributes precisely because their
-/// object model is not the browser's, and flipping the flags without fixing the model would move them
-/// further from a browser rather than closer.
+/// distinction bit — it held the three members whose object model was not the browser's, and for which the
+/// right answer was never a flag but the interface object they had no place on. It is empty now, and the
+/// machinery stays for the next member that finds itself in the same position.
 /// </para>
 /// </remarks>
 public class WebIdlPropertyAttributeTests
@@ -101,16 +101,16 @@ public class WebIdlPropertyAttributeTests
     /// fails on one that has started agreeing with the rule, so a fix cannot leave a stale exemption behind.
     /// </summary>
     /// <remarks>
-    /// Both entries are the same finding. <c>navigator</c> and <c>scheduler</c> have no interface object and
-    /// no interface prototype object in Jint, so their members are own properties of the singleton rather
-    /// than of a prototype. WebIDL's enumerability rule assumes the member is where the specification puts
-    /// it: on <c>Navigator.prototype</c> and <c>Scheduler.prototype</c>, where a browser (and, for
-    /// <c>Navigator</c>, Node 24) puts them, they are enumerable and <c>Object.keys(navigator)</c> is the
-    /// empty array. Declaring them enumerable <i>here</i> would make <c>Object.keys(navigator)</c> answer
-    /// <c>["userAgent"]</c> and <c>Object.keys(scheduler)</c> answer <c>["postTask", "yield"]</c>, which no
-    /// implementation does. So the flags stay ECMAScript's, deliberately, and what fixes them is the
-    /// interface object — not a flag. See <see cref="TheTwoSingletonsWithoutAnInterfaceObjectKeepEmptyOwnKeys"/>,
-    /// which pins the property that reasoning rests on.
+    /// <b>Empty, and that is the news.</b> It used to hold <c>navigator.userAgent</c>, <c>scheduler.postTask</c>
+    /// and <c>scheduler.yield</c>, which were own properties of their singleton because Jint exposed no
+    /// <c>Navigator</c> and no <c>Scheduler</c> interface object for them to sit on. WebIDL's enumerability
+    /// rule assumes the member is where the specification puts it — on the interface prototype object, where
+    /// the enumerability is invisible from the instance — so declaring them enumerable on the singleton would
+    /// have made <c>Object.keys(navigator)</c> answer <c>["userAgent"]</c> and <c>Object.keys(scheduler)</c>
+    /// answer <c>["postTask", "yield"]</c>, which no implementation does. The fix was never a flag: it was the
+    /// interface object, and once the members moved onto <c>Navigator.prototype</c> and
+    /// <c>Scheduler.prototype</c> they became ordinary and the exemptions went with them.
+    /// <see cref="TheSingletonsAreEmptyOfOwnKeys"/> pins the property the whole argument rested on.
     /// <para>
     /// <c>console</c> is the counter-example that proves the rule rather than a precedent against it: it is a
     /// WebIDL <i>namespace</i> (https://webidl.spec.whatwg.org/#es-namespaces), whose members genuinely are
@@ -118,12 +118,7 @@ public class WebIdlPropertyAttributeTests
     /// are in Node.
     /// </para>
     /// </remarks>
-    private static readonly string[] Divergences =
-    [
-        "navigator.userAgent",
-        "scheduler.postTask",
-        "scheduler.yield",
-    ];
+    private static readonly string[] Divergences = [];
 
     /// <summary>
     /// Hosts the sweep cannot reach from the principal realm's global object, with the reason. Anything else
@@ -185,19 +180,22 @@ public class WebIdlPropertyAttributeTests
     }
 
     /// <summary>
-    /// The property the two divergences rest on: with the members sitting on the singleton rather than on an
-    /// interface prototype object, keeping them non-enumerable is what makes the own-key list match what a
-    /// browser answers. Node 24 reports <c>Object.keys(navigator)</c> as <c>[]</c>, with <c>userAgent</c> an
-    /// enumerable accessor on <c>Navigator.prototype</c>; a browser reports <c>Object.keys(scheduler)</c> as
-    /// <c>[]</c> for the same reason.
+    /// The property the deleted divergences rested on, kept as the pin it always was: a platform-object
+    /// singleton enumerates as empty, because its members belong to its interface prototype object. Node 24
+    /// reports <c>Object.keys(navigator)</c> as <c>[]</c> — and <c>Reflect.ownKeys(navigator)</c> as <c>[]</c>
+    /// too, since the instance has no own properties whatever — with <c>userAgent</c> an enumerable accessor
+    /// on <c>Navigator.prototype</c>; a browser reports the same of <c>scheduler</c>.
     /// </summary>
     [Fact]
-    public void TheTwoSingletonsWithoutAnInterfaceObjectKeepEmptyOwnKeys()
+    public void TheSingletonsAreEmptyOfOwnKeys()
     {
         var engine = BuildEngine();
 
-        engine.Evaluate("JSON.stringify(Object.keys(navigator))").AsString().Should().Be("[]");
-        engine.Evaluate("JSON.stringify(Object.keys(scheduler))").AsString().Should().Be("[]");
+        foreach (var singleton in new[] { "navigator", "scheduler", "crypto", "performance" })
+        {
+            engine.Evaluate($"JSON.stringify(Object.keys({singleton}))").AsString().Should().Be("[]", singleton);
+            engine.Evaluate($"Reflect.ownKeys({singleton}).length").AsNumber().Should().Be(0, singleton);
+        }
 
         // And the counter-example: console is a WebIDL namespace, so its operations really are own
         // enumerable properties of the namespace object, exactly as they are in Node.

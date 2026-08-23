@@ -10,7 +10,8 @@ using Jint.WebApi.Timers;
 namespace Jint.WebApi.Scheduling;
 
 /// <summary>
-/// The <c>scheduler</c> object — an instance of the <c>Scheduler</c> interface.
+/// <c>Scheduler.prototype</c> — the interface prototype object, and where both members of the
+/// <c>scheduler</c> object live.
 /// <para>
 /// https://wicg.github.io/scheduling-apis/#sec-scheduler
 /// </para>
@@ -37,34 +38,30 @@ namespace Jint.WebApi.Scheduling;
 /// https://webidl.spec.whatwg.org/#dfn-create-operation-function).
 /// </para>
 /// <para>
-/// <b>There is no <c>Scheduler</c> interface object and no <c>Scheduler.prototype</c></b>, so
-/// <c>postTask</c> and <c>yield</c> are own properties of this object rather than of a prototype; both still
-/// brand-check their receiver.
+/// <b>The two operations are here, not on the instance</b>, which is where WebIDL puts them and what Chrome
+/// shows. That is what lets them carry WebIDL's attributes
+/// (https://webidl.spec.whatwg.org/#es-operations) without <c>Object.keys(scheduler)</c> reporting
+/// <c>["postTask", "yield"]</c>, which no implementation does — the enumerability is invisible from an
+/// instance with no own properties. Both still brand-check their receiver, and because the return type is a
+/// promise that check surfaces as a rejection rather than a throw.
 /// </para>
 /// <para>
-/// <b>That is why the two of them keep an ECMAScript built-in's property attributes</b>, where every other
-/// operation under <c>Jint/WebApi/</c> carries WebIDL's <c>{ [[Writable]]: true, [[Enumerable]]: true,
-/// [[Configurable]]: true }</c> (https://webidl.spec.whatwg.org/#es-operations). WebIDL's rule assumes the
-/// member is where the specification puts it — on <c>Scheduler.prototype</c>, which is what a browser builds
-/// — and there the enumerability is invisible from the instance: <c>Object.keys(scheduler)</c> is the empty
-/// array, because the object has no own properties at all. Declaring these two enumerable <i>here</i> would
-/// make it answer <c>["postTask", "yield"]</c>, which no implementation does, so a blanket flip would move
-/// this object further from a browser rather than closer. What fixes it is the interface object, not a flag.
-/// <c>console</c> is the counter-example that proves the rule rather than a precedent against it: it is a
-/// WebIDL <i>namespace</i> (https://webidl.spec.whatwg.org/#es-namespaces), whose members genuinely are own
-/// properties of the namespace object, so its operations are enumerable here exactly as they are in Node.
-/// The exemption is recorded, and checked for staleness, in
-/// <c>Jint.Tests.Runtime.WebApi.WebIdlPropertyAttributeTests</c>.
+/// The queues each operation works on belong to <see cref="JsScheduler"/>, the instance: the members here
+/// brand-check their receiver and then operate on it, which is the split WebIDL draws and what makes an
+/// extracted <c>postTask</c> behave as a browser's does.
 /// </para>
 /// <para>
-/// The object is also installed as an ordinary enumerable data property of the global rather than through the
-/// <c>[Replaceable]</c> accessor pair
+/// One documented simplification remains: the <c>scheduler</c> object is installed as an ordinary enumerable
+/// data property of the global rather than through the <c>[Replaceable]</c> accessor pair
 /// https://wicg.github.io/scheduling-apis/#dom-windoworworkerglobalscope-scheduler gives it.
 /// </para>
 /// </remarks>
-[JsObject]
-internal sealed partial class SchedulerInstance : BuiltinShapeObject
+[JsObject(UseShape = true)]
+internal sealed partial class SchedulerPrototype : Prototype
 {
+    [JsProperty(Name = "constructor", Flags = PropertyFlag.NonEnumerable)]
+    private readonly SchedulerConstructor _constructor;
+
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString SchedulerToStringTag = new("Scheduler");
 
@@ -72,36 +69,14 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     private static readonly JsString _priorityProperty = new("priority");
     private static readonly JsString _signalProperty = new("signal");
 
-    private readonly Realm _realm;
-    private readonly SchedulerQueue _tasks;
-    private readonly TimerQueue _timers;
-
-    private SchedulerInstance(
+    internal SchedulerPrototype(
         Engine engine,
         Realm realm,
-        ObjectPrototype objectPrototype,
-        SchedulerQueue tasks,
-        TimerQueue timers)
-        : base(engine)
+        SchedulerConstructor constructor,
+        ObjectPrototype objectPrototype) : base(engine, realm)
     {
-        _realm = realm;
-        _tasks = tasks;
-        _timers = timers;
         _prototype = objectPrototype;
-    }
-
-    internal static SchedulerInstance Create(Engine engine, Realm realm, ObjectPrototype objectPrototype)
-    {
-        var state = engine._webApi;
-        if (state?.Scheduler is not { } tasks || state.Timers is not { } timers)
-        {
-            // Unreachable: the global that reaches this property is installed only where both queues were
-            // created, in the same block of WebApiRegistration.
-            Throw.InvalidOperationException("The scheduler object was reached on an engine that has no scheduler queue.");
-            return null!;
-        }
-
-        return new SchedulerInstance(engine, realm, objectPrototype, tasks, timers);
+        _constructor = constructor;
     }
 
     protected override void Initialize()
@@ -115,7 +90,7 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     /// method steps are to return the result of scheduling a postTask task for this given callback and
     /// options", https://wicg.github.io/scheduling-apis/#schedule-a-posttask-task.
     /// </summary>
-    [JsFunction(Name = "postTask", Length = 1)]
+    [JsFunction(Name = "postTask", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue PostTask(JsValue thisObject, JsValue callback, JsValue options)
     {
         // Step 1: the promise exists before anything can fail, because everything that can fail from here on
@@ -124,7 +99,7 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
 
         try
         {
-            Brand(thisObject, "Failed to execute 'postTask' on 'Scheduler'");
+            var scheduler = Brand(thisObject, "Failed to execute 'postTask' on 'Scheduler'");
 
             if (callback is not ICallable callable)
             {
@@ -147,7 +122,7 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
             var state = new SchedulingState(signal, prioritySource, priority ?? SchedulerTaskPriority.UserVisible);
 
             // Steps 9 and 10.
-            var task = new SchedulerTask(_tasks, capability, callable, in state, isContinuation: false);
+            var task = new SchedulerTask(scheduler.Tasks, capability, callable, in state, isContinuation: false);
             task.RegisterAbortSteps();
 
             // Steps 12 to 14: a delay defers the *enqueueing*, so the task takes its enqueue order — and
@@ -155,11 +130,11 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
             // the moment postTask was called.
             if (delay > 0)
             {
-                ScheduleAfterDelay(task, delay);
+                ScheduleAfterDelay(scheduler, task, delay);
             }
             else
             {
-                _tasks.Enqueue(task);
+                scheduler.Tasks.Enqueue(task);
             }
         }
         catch (JavaScriptException ex)
@@ -181,17 +156,17 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     /// ahead of the work queued behind it. See <see cref="SchedulerQueue.CurrentState"/> for how far that
     /// inheritance reaches here.
     /// </remarks>
-    [JsFunction(Name = "yield", Length = 0)]
+    [JsFunction(Name = "yield", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Yield(JsValue thisObject)
     {
         var capability = NewPromiseCapability();
 
         try
         {
-            Brand(thisObject, "Failed to execute 'yield' on 'Scheduler'");
+            var scheduler = Brand(thisObject, "Failed to execute 'yield' on 'Scheduler'");
 
             // Steps 2 to 6: the inherited state, or user-visible with nothing to abort it.
-            var inherited = _tasks.CurrentState ?? new SchedulingState(null, null, SchedulerTaskPriority.UserVisible);
+            var inherited = scheduler.Tasks.CurrentState ?? new SchedulingState(null, null, SchedulerTaskPriority.UserVisible);
 
             // Step 4.
             if (inherited.AbortSource is { Aborted: true } abortSource)
@@ -202,9 +177,9 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
 
             // Steps 7 to 10: no callback — the task's only step is to resolve the promise — and the queue is
             // the continuation one, whose effective priority is a notch above the task queue beside it.
-            var task = new SchedulerTask(_tasks, capability, callback: null, in inherited, isContinuation: true);
+            var task = new SchedulerTask(scheduler.Tasks, capability, callback: null, in inherited, isContinuation: true);
             task.RegisterAbortSteps();
-            _tasks.Enqueue(task);
+            scheduler.Tasks.Enqueue(task);
         }
         catch (JavaScriptException ex)
         {
@@ -219,24 +194,26 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     /// … given delay": the wait is an entry on the engine's own timer queue, so it elapses only while the
     /// engine is being pumped and it occupies one of the engine's timer slots until then.
     /// </summary>
-    private void ScheduleAfterDelay(SchedulerTask task, long delay)
+    private void ScheduleAfterDelay(JsScheduler scheduler, SchedulerTask task, long delay)
     {
-        if (_timers.Count >= _timers.MaxActiveTimers)
+        var timers = scheduler.Timers;
+        if (timers.Count >= timers.MaxActiveTimers)
         {
             // Not a specified failure mode — the specification assumes a browser's resources — but a delayed
             // task is a timer, and a script must not be able to register them without bound.
             ThrowQuotaExceededError(
-                $"Failed to execute 'postTask' on 'Scheduler': the engine already has {_timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
+                timers,
+                $"Failed to execute 'postTask' on 'Scheduler': the engine already has {timers.MaxActiveTimers} active timers, which is its Options.WebApi.Timers.MaxActiveTimers limit.");
         }
 
         var entry = new TimerEntry(
-            _timers,
-            new DelayedEnqueue(_tasks, task),
+            timers,
+            new DelayedEnqueue(scheduler.Tasks, task),
             [],
             delay,
             repeat: false,
             _engine.CaptureEventLoopRegistration());
-        task.SetDelayTimer(_timers, _timers.Schedule(entry));
+        task.SetDelayTimer(timers, timers.Schedule(entry));
     }
 
     /// <summary>
@@ -323,12 +300,12 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     /// The engine's own timer cap, reported as https://webidl.spec.whatwg.org/#quotaexceedederror — the
     /// interface, carrying the cap and the count, rather than the bare name on a <c>DOMException</c>.
     /// </summary>
-    private void ThrowQuotaExceededError(string message)
+    private void ThrowQuotaExceededError(TimerQueue timers, string message)
     {
         var exception = _realm.Intrinsics.QuotaExceededError.CreateException(
             message,
-            quota: _timers.RefusalQuota,
-            requested: _timers.RefusalRequested);
+            quota: timers.RefusalQuota,
+            requested: timers.RefusalRequested);
 
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
@@ -338,12 +315,15 @@ internal sealed partial class SchedulerInstance : BuiltinShapeObject
     /// The WebIDL brand check every member performs: a receiver that is not a platform object implementing the
     /// interface raises a <c>TypeError</c> — which, for these two, the caller turns into a rejection.
     /// </summary>
-    private void Brand(JsValue thisObject, string what)
+    private JsScheduler Brand(JsValue thisObject, string what)
     {
-        if (thisObject is not SchedulerInstance)
+        if (thisObject is not JsScheduler scheduler)
         {
             Throw.TypeError(_realm, what + ": illegal invocation, receiver is not a Scheduler object.");
+            return null!;
         }
+
+        return scheduler;
     }
 
     /// <summary>
