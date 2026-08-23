@@ -693,9 +693,12 @@ own call site rather than as a wrong answer at run time. Each message names what
 
 (`ClrHelper.Unwrap` and `ClrHelper.Wrap`, reachable only from script through `clrHelper`, carry it too.)
 
-`Options.Interop.Enabled = true` is the unannotated equivalent of `AllowClr`; it is a property setter,
-and annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you
-are taking on what `AllowClr`'s message says.
+`Options.Interop.Enabled = true` opens the same door unannotated: it is a property setter, and
+annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you are
+taking on what `AllowClr`'s message says. It is not otherwise the same thing — it is the gate and not
+the grant, so on its own it installs `System`, `importNamespace` and `clrHelper` while
+`Interop.AllowedAssemblies` stays empty and every namespace script names is unresolvable. `AllowClr()`
+opens the gate *and* names assemblies.
 
 Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>`,
 `TypeReference.CreateTypeReference`, `ModuleBuilder.ExportType` and `JsValue.FromObject`. The first
