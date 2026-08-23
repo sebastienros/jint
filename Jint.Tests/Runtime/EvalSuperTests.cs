@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 /// <summary>
 /// <see href="https://tc39.es/ecma262/#sec-performeval">PerformEval</see> admits a direct
 /// <c>super()</c> in eval code only when its <i>inDerivedConstructor</i> parameter is true. Jint hands
-/// that computed flag to the parser as <c>ParserOptions.AllowDirectSuperOutsideMethod</c> rather than
+/// that computed flag to the parser as <c>ParserOptions.AllowSuperCallOutsideConstructor</c> rather than
 /// switching the option on for every eval, so the parse itself refuses what the specification refuses.
 /// The option follows the eval'd unit's this binding, which is why an arrow function declared in the
 /// eval may call <c>super()</c> while an ordinary function declared there may not - the latter would

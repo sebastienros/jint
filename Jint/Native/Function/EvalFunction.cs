@@ -533,7 +533,7 @@ public sealed class EvalFunction : Function
         AllowReturnOutsideFunction = false,
         AllowNewTargetOutsideFunction = true,
         AllowSuperOutsideMethod = true,
-        AllowDirectSuperOutsideMethod = inDerivedConstructor,
+        AllowSuperCallOutsideConstructor = inDerivedConstructor,
         // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
         // TODO: implement a correct solution
         CheckPrivateFields = false
