@@ -6,11 +6,47 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <PublishAot>true</PublishAot>
+
+    <!--
+      Jint's own csproj suppresses eight IL warning codes (IL3050 and seven IL2xxx) so that Jint
+      compiles clean. That NoWarn is a property of Jint's *compilation* and reaches nothing here: ILC
+      re-derives the whole set when it compiles the closed program, and this project's publish is
+      where all 122 of them surface. Turning them into errors - which repository-wide
+      TreatWarningsAsErrors would otherwise do, since IlcTreatWarningsAsErrors defaults to it - would
+      make `dotnet publish` fail before it ever produced a binary, and the binary is the point: the
+      warnings say what *might* break, the run says what *does*.
+
+      So the warnings stay loud and non-fatal, and CI summarises them per code into the job summary.
+      Paying them down (annotating the APIs, then removing Jint's NoWarn) is separate work; when it
+      is finished this property should go, and a clean publish becomes the assertion.
+    -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+
+    <!--
+      The one IL3000 in Program.cs is the probe reading Assembly.Location to tell a Native AOT run
+      from a JIT one; the diagnostic states exactly the fact it relies on. It is suppressed here
+      rather than with a source #pragma because a pragma reaches Roslyn and not ILC, and this
+      project is one file - if it ever grows, move the suppression back to the call site with
+      UnconditionalSuppressMessage, which ILC does honour.
+    -->
+    <NoWarn>$(NoWarn);IL3000</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+
+    <!--
+      Rooting Jint keeps the probe about *Jint's* AOT behaviour rather than about how much of Jint a
+      given program happens to reach; a real embedder would not do this, so treat the run as an upper
+      bound on what works, never a lower one.
+
+      Rooting this assembly is not cosmetic. Without it the trimmer removes CompanyExtensions.Shout -
+      nothing calls it from C# - and `company.shout()` then fails as "not a function": a wrong answer
+      with no AOT diagnostic anywhere. An embedder whose host types are reached only through Jint's
+      reflection owes itself the same root.
+    -->
     <TrimmerRootAssembly Include="Jint" />
+    <TrimmerRootAssembly Include="Jint.AotExample" />
   </ItemGroup>
 
 </Project>

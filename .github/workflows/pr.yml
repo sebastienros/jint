@@ -95,3 +95,75 @@ jobs:
     - name: Test Jint.Tests.PublicInterface
       run: dotnet test Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
+  # <IsAotCompatible> is a csproj property, not evidence. Jint sets it for net7.0+ and then suppresses the
+  # eight IL codes that would substantiate it, so nothing in the repository could tell an embedder whether a
+  # published Jint actually runs — until this leg. It publishes Jint.AotExample with PublishAot=true and
+  # *runs the native binary*, which is the only place a Native AOT failure appears: the analysis warnings say
+  # what might break, the run says what does. The warnings are summarised into the job summary rather than
+  # gating, because paying them down is separate work and a red leg for a known 122 would be ignored within
+  # a week. What gates is the binary: Jint.AotExample/Program.cs pins both directions, so a probe that stops
+  # working AND a known gap that starts working fail here.
+  #
+  # One OS is enough — the gaps are ILC generic-instantiation gaps, not platform ones — and Linux is the
+  # cheapest runner whose image already carries the native toolchain.
+  aot:
+
+    name: 'linux - native aot'
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    # Native AOT shells out to the platform C++ toolchain to link. The runner image already carries clang and
+    # zlib1g-dev, so this checks rather than installs: an unconditional apt-get update costs ~15 s on every
+    # run to reinstall what is already there, and an unconditional apt-get install fails on a stale index.
+    - name: Ensure the Native AOT toolchain is present
+      run: |
+        if command -v clang > /dev/null && dpkg -s zlib1g-dev > /dev/null 2>&1; then
+          echo "already present: $(clang --version | head -1)"
+        else
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+        fi
+
+    - name: Publish Jint.AotExample with Native AOT
+      run: |
+        set -o pipefail
+        dotnet publish Jint.AotExample/Jint.AotExample.csproj --configuration Release 2>&1 | tee aot-publish.log
+
+    # The binary either prints ALL PROBES PASSED and exits 0, or names the probe that failed and exits 1. The
+    # grep is not redundant: it is what catches a Program.cs that stopped running any probes at all.
+    - name: Run the native binary
+      run: |
+        set -o pipefail
+        ./artifacts/publish/Jint.AotExample/release/Jint.AotExample | tee aot-run.log
+        grep -q '^ALL PROBES PASSED' aot-run.log
+
+    - name: Summarise the trim and AOT analysis warnings
+      if: always()
+      run: |
+        {
+          echo '### Native AOT analysis diagnostics'
+          echo
+          echo 'ILC re-derives these over the whole closed program, so the `NoWarn` in `Jint/Jint.csproj` does not reach them.'
+          echo
+          echo '| code | count |'
+          echo '| --- | --- |'
+          grep -oE 'IL[0-9]{4}' aot-publish.log | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
+          echo
+          echo "total: $(grep -cE 'IL[0-9]{4}' aot-publish.log || true)"
+          echo
+          echo '### Probe run'
+          echo
+          echo '```'
+          cat aot-run.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
