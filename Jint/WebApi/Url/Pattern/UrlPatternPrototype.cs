@@ -14,9 +14,7 @@ namespace Jint.WebApi.Url.Pattern;
 /// </summary>
 /// <remarks>
 /// The nine attributes are read-only, so each is an accessor pair with no setter, and each brand-checks its
-/// receiver as WebIDL requires. The two operations carry the same documented simplification the rest of this
-/// subtree carries: they are non-enumerable, where https://webidl.spec.whatwg.org/#es-operations makes an
-/// interface's operations enumerable.
+/// receiver as WebIDL requires.
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class UrlPatternPrototype : Prototype
@@ -86,7 +84,7 @@ internal sealed partial class UrlPatternPrototype : Prototype
     private JsBoolean HasRegExpGroupsGet(JsValue thisObject) => JsBoolean.Create(Brand(thisObject).Pattern.HasRegexpGroups);
 
     /// <summary>https://urlpattern.spec.whatwg.org/#dom-urlpattern-test</summary>
-    [JsFunction(Name = "test", Length = 0)]
+    [JsFunction(Name = "test", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBoolean Test(JsValue thisObject, JsValue input, JsValue baseUrl)
     {
         var pattern = Brand(thisObject);
@@ -97,7 +95,7 @@ internal sealed partial class UrlPatternPrototype : Prototype
     }
 
     /// <summary>https://urlpattern.spec.whatwg.org/#dom-urlpattern-exec</summary>
-    [JsFunction(Name = "exec", Length = 0)]
+    [JsFunction(Name = "exec", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Exec(JsValue thisObject, JsValue input, JsValue baseUrl)
     {
         var pattern = Brand(thisObject);

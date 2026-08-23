@@ -958,14 +958,15 @@ public class SubtleCryptoAesWrapTests
                 + "deriveBits:function:2:deriveBits,deriveKey:function:5:deriveKey,"
                 + "wrapKey:function:4:wrapKey,unwrapKey:function:7:unwrapKey");
 
-        // Properties of SubtleCrypto.prototype with an ECMAScript built-in method's attributes, as every other
-        // operation is.
+        // Properties of SubtleCrypto.prototype with a WebIDL regular operation's attributes, as every other
+        // operation is. The instance carries nothing of its own, so Object.keys(crypto.subtle) stays empty.
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
+        engine.Evaluate("Object.keys(SubtleCrypto.prototype).length").AsNumber().Should().Be(12);
 
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(SubtleCrypto.prototype, 'wrapKey')").AsObject();
         descriptor.Get("writable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
     }
 
     [Theory]

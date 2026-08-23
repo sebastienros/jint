@@ -36,11 +36,9 @@ namespace Jint.WebApi.Crypto;
 /// <see cref="SubtleCryptoPrototype"/>.
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL remain, and one that used to be here is gone. The members
-/// are <b>non-enumerable</b>, where a WebIDL interface prototype object's are enumerable — the simplification
-/// every prototype in this assembly carries. And the <c>crypto</c> object is installed as an ordinary
-/// enumerable data property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL
-/// gives it. What is <i>no longer</i> a simplification is the interface itself: <c>Crypto</c> and
+/// One documented simplification against WebIDL remains: the <c>crypto</c> object is installed as an
+/// ordinary enumerable data property of the global rather than through the <c>[Replaceable]</c> accessor
+/// pair WebIDL gives it. What is <i>no longer</i> a simplification is the interface itself: <c>Crypto</c> and
 /// <c>Crypto.prototype</c> are real, the members live here rather than on the instance, and
 /// <c>crypto instanceof Crypto</c> is answered by the prototype chain. All three members still brand-check
 /// their receiver, so extracting one and calling it on something else raises a <c>TypeError</c> exactly as a
@@ -91,7 +89,7 @@ internal sealed partial class CryptoPrototype : Prototype
     /// script may keep the reference. It is built on the first read and never before: a script that never
     /// mentions <c>subtle</c> has not paid for one.
     /// </remarks>
-    [JsAccessor("subtle")]
+    [JsAccessor("subtle", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsSubtleCrypto SubtleGet(JsValue thisObject)
     {
         Brand(thisObject, "Failed to read the 'subtle' property from 'Crypto'");
@@ -117,7 +115,7 @@ internal sealed partial class CryptoPrototype : Prototype
     /// array comes back untouched rather than raising: the quota in step 3 is a maximum, not a minimum.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "getRandomValues", Length = 1)]
+    [JsFunction(Name = "getRandomValues", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GetRandomValues(JsValue thisObject, JsValue array)
     {
         Brand(thisObject, "Failed to execute 'getRandomValues' on 'Crypto'");
@@ -204,7 +202,7 @@ internal sealed partial class CryptoPrototype : Prototype
     /// big-endian constructor and <c>ToString("D")</c> are exactly the hex-and-hyphens concatenation the last
     /// step spells out.
     /// </remarks>
-    [JsFunction(Name = "randomUUID", Length = 0)]
+    [JsFunction(Name = "randomUUID", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsString RandomUuid(JsValue thisObject)
     {
         Brand(thisObject, "Failed to execute 'randomUUID' on 'Crypto'");

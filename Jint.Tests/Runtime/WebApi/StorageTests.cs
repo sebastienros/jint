@@ -164,10 +164,13 @@ public class StorageTests
     {
         var engine = StorageEngine();
 
-        // for-in walks the prototype chain, and a WebIDL attribute is an enumerable accessor — so `length`
-        // is visited too, exactly as it is in a browser. What a browser additionally visits, and Jint does
-        // not, is the six operations: Jint's prototype methods are non-enumerable, the documented
-        // simplification every prototype it ships carries. Object.keys is the way to ask for the keys alone.
+        // for-in walks the prototype chain, and both WebIDL member kinds on Storage.prototype are
+        // enumerable — the `length` attribute and the five operations — so all six are visited, exactly as
+        // they are in a browser and in Node. Object.keys is the way to ask for the stored keys alone.
+        //
+        // Node 24 visits the same six names in a different order (`length` first, because its prototype is
+        // built in IDL declaration order, where Jint's generator sorts a host's members by JS name).
+        // Membership is what WebIDL specifies here, and it matches.
         engine.Evaluate("""
             (() => {
                 localStorage.setItem('one', '1');
@@ -178,7 +181,7 @@ public class StorageTests
                 for (const key in localStorage) { if (localStorage.hasOwnProperty(key)) own.push(key); }
                 return seen.join(',') + '/' + own.join(',');
             })()
-            """).AsString().Should().Be("one,two,length/one,two");
+            """).AsString().Should().Be("one,two,clear,getItem,key,removeItem,setItem,length/one,two");
     }
 
     [Fact]

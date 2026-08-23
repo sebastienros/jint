@@ -570,7 +570,7 @@ public class EncodingTests
     }
 
     [Fact]
-    public void ExposesAttributesAsEnumerableAccessorsAndOperationsAsNonEnumerable()
+    public void ExposesAttributesAndOperationsWithTheirWebIdlPropertyAttributes()
     {
         var engine = WebEngine();
 
@@ -580,11 +580,12 @@ public class EncodingTests
             [typeof d.get, typeof d.set, d.enumerable, d.configurable].join('|');
             """).AsString().Should().Be("function|undefined|true|true");
 
-        // The operations are non-enumerable, which is Jint's one documented simplification here: WebIDL
-        // makes them enumerable, and the source generator gives every built-in method the ECMAScript
-        // attributes instead.
-        engine.Evaluate("Object.getOwnPropertyDescriptor(TextDecoder.prototype, 'decode').enumerable").AsBoolean().Should().BeFalse();
+        // The operations are enumerable too — https://webidl.spec.whatwg.org/#es-operations, and the triple
+        // Node 24 reports for TextDecoder.prototype.decode. This is where WebIDL parts company with
+        // ECMA-262, whose built-in function properties are non-enumerable.
+        engine.Evaluate("Object.getOwnPropertyDescriptor(TextDecoder.prototype, 'decode').enumerable").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.getOwnPropertyDescriptor(TextEncoder.prototype, 'encode').writable").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.keys(TextDecoder.prototype).includes('decode')").AsBoolean().Should().BeTrue();
 
         // @@toStringTag is configurable only, as the specification gives it.
         engine.Evaluate("""

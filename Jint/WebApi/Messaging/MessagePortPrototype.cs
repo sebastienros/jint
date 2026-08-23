@@ -57,7 +57,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// <c>@@iterator</c> is the sequence, anything else is the dictionary. That is what makes both
     /// <c>postMessage(x, [buf])</c> and <c>postMessage(x, { transfer: [buf] })</c> work.
     /// </remarks>
-    [JsFunction(Name = "postMessage", Length = 1)]
+    [JsFunction(Name = "postMessage", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue PostMessage(JsValue thisObject, JsCallArguments arguments)
     {
         var port = Brand(thisObject);
@@ -75,7 +75,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-start
     /// </summary>
-    [JsFunction(Name = "start", Length = 0)]
+    [JsFunction(Name = "start", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Start(JsValue thisObject)
     {
         Brand(thisObject).Start();
@@ -85,7 +85,7 @@ internal sealed partial class MessagePortPrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-messageport-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject)
     {
         Brand(thisObject).Close();

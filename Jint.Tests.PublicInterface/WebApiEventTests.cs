@@ -98,12 +98,25 @@ public class WebApiEventTests
         engine.Evaluate($"{atTarget}.enumerable").AsBoolean().Should().BeTrue();
         engine.Evaluate($"{atTarget}.configurable").AsBoolean().Should().BeFalse();
 
-        // Operations are non-enumerable, which is a documented simplification of WebIDL — the same one
-        // console carries. Pinned so that changing it is a deliberate act.
+        // Operations: writable, ENUMERABLE, configurable — https://webidl.spec.whatwg.org/#es-operations,
+        // which is where WebIDL parts company with ECMA-262's rule for a built-in function property. So a
+        // script that walks an interface prototype's own enumerable keys — a polyfill shim, a
+        // property-copying helper, a for-in — sees the operations, exactly as it does in a browser and in
+        // Node.
         var dispatch = "Object.getOwnPropertyDescriptor(EventTarget.prototype, 'dispatchEvent')";
         engine.Evaluate($"{dispatch}.writable").AsBoolean().Should().BeTrue();
-        engine.Evaluate($"{dispatch}.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate($"{dispatch}.enumerable").AsBoolean().Should().BeTrue();
         engine.Evaluate($"{dispatch}.configurable").AsBoolean().Should().BeTrue();
+
+        engine.Evaluate("JSON.stringify(Object.keys(EventTarget.prototype).sort())").AsString()
+            .Should().Be("[\"addEventListener\",\"dispatchEvent\",\"removeEventListener\"]");
+
+        // The 'constructor' back-reference stays non-enumerable, which is WebIDL's own rule for it and the
+        // reason the line above lists three names rather than four.
+        var ctor = "Object.getOwnPropertyDescriptor(EventTarget.prototype, 'constructor')";
+        engine.Evaluate($"{ctor}.writable").AsBoolean().Should().BeTrue();
+        engine.Evaluate($"{ctor}.enumerable").AsBoolean().Should().BeFalse();
+        engine.Evaluate($"{ctor}.configurable").AsBoolean().Should().BeTrue();
     }
 
     [Fact]

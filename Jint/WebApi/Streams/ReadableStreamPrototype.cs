@@ -63,7 +63,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-cancel
     /// </summary>
-    [JsFunction(Name = "cancel", Length = 0)]
+    [JsFunction(Name = "cancel", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Cancel(JsValue thisObject, JsValue reason)
     {
         try
@@ -86,7 +86,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-get-reader
     /// </summary>
-    [JsFunction(Name = "getReader", Length = 0)]
+    [JsFunction(Name = "getReader", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsReadableStreamReader GetReader(JsValue thisObject, JsValue options)
     {
         var stream = Brand(thisObject);
@@ -104,7 +104,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-pipe-through
     /// </summary>
-    [JsFunction(Name = "pipeThrough", Length = 1)]
+    [JsFunction(Name = "pipeThrough", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsReadableStream PipeThrough(JsValue thisObject, JsValue transform, JsValue options)
     {
         var stream = Brand(thisObject);
@@ -134,7 +134,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-pipe-to
     /// </summary>
-    [JsFunction(Name = "pipeTo", Length = 1)]
+    [JsFunction(Name = "pipeTo", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise PipeTo(JsValue thisObject, JsValue destination, JsValue options)
     {
         try
@@ -171,7 +171,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-tee
     /// </summary>
-    [JsFunction(Name = "tee", Length = 0)]
+    [JsFunction(Name = "tee", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray Tee(JsValue thisObject)
     {
         var (branch1, branch2) = ReadableStreamOperations.Tee(Brand(thisObject));
@@ -182,7 +182,7 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     /// https://streams.spec.whatwg.org/#rs-asynciterator — the <c>values</c> method a WebIDL
     /// <c>async_iterable&lt;any&gt;</c> declaration produces, which is also <c>@@asyncIterator</c>.
     /// </summary>
-    [JsFunction(Name = "values", Length = 0)]
+    [JsFunction(Name = "values", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private ReadableStreamAsyncIterator Values(JsValue thisObject, JsValue options)
     {
         var stream = Brand(thisObject);

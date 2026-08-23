@@ -27,11 +27,6 @@ namespace Jint.WebApi.Fetch;
 /// re-read on every step, as https://webidl.spec.whatwg.org/#es-default-iterator-object specifies, so a
 /// callback that mutates the headers is observed.
 /// </para>
-/// <para>
-/// One documented simplification, the same one <c>URL.prototype</c> and <c>Blob.prototype</c> carry: the
-/// operations are non-enumerable, where https://webidl.spec.whatwg.org/#es-operations makes an interface's
-/// operations enumerable.
-/// </para>
 /// </remarks>
 [JsSymbolAlias("Iterator", "entries")]
 [JsObject(UseShape = true)]
@@ -71,7 +66,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-headers-append
     /// </summary>
-    [JsFunction(Name = "append", Length = 2)]
+    [JsFunction(Name = "append", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Append(JsValue thisObject, JsValue name, JsValue value)
     {
         Brand(thisObject).AppendChecked(_realm, name, value);
@@ -84,7 +79,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// <remarks>
     /// Deleting a name the list does not hold is not an error — the specification's step 5 simply returns.
     /// </remarks>
-    [JsFunction(Name = "delete", Length = 1)]
+    [JsFunction(Name = "delete", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Delete(JsValue thisObject, JsValue name)
     {
         var headers = Brand(thisObject);
@@ -103,7 +98,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-headers-get — the combined value, or <c>null</c>.
     /// </summary>
-    [JsFunction(Name = "get", Length = 1)]
+    [JsFunction(Name = "get", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GetHeader(JsValue thisObject, JsValue name)
     {
         var headers = Brand(thisObject);
@@ -122,7 +117,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// https://fetch.spec.whatwg.org/#dom-headers-getsetcookie — the one place a header list's values are
     /// handed out uncombined, because a <c>Set-Cookie</c> value may itself contain a comma.
     /// </summary>
-    [JsFunction(Name = "getSetCookie", Length = 0)]
+    [JsFunction(Name = "getSetCookie", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetSetCookie(JsValue thisObject)
     {
         var values = Brand(thisObject).List.GetSetCookie();
@@ -139,7 +134,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-headers-has
     /// </summary>
-    [JsFunction(Name = "has", Length = 1)]
+    [JsFunction(Name = "has", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBoolean Has(JsValue thisObject, JsValue name)
     {
         var headers = Brand(thisObject);
@@ -157,7 +152,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// https://fetch.spec.whatwg.org/#dom-headers-set — unlike <c>append</c> this replaces, and the header
     /// keeps the position the first one with that name had.
     /// </summary>
-    [JsFunction(Name = "set", Length = 2)]
+    [JsFunction(Name = "set", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue SetHeader(JsValue thisObject, JsValue name, JsValue value)
     {
         var headers = Brand(thisObject);
@@ -172,7 +167,7 @@ internal sealed partial class HeadersPrototype : Prototype
     /// the value first and the name second, and the pairs are recomputed on every step so a callback that
     /// mutates the list is observed.
     /// </summary>
-    [JsFunction(Name = "forEach", Length = 1)]
+    [JsFunction(Name = "forEach", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ForEach(JsValue thisObject, JsValue callback, JsValue thisArg)
     {
         var headers = Brand(thisObject);
@@ -197,19 +192,19 @@ internal sealed partial class HeadersPrototype : Prototype
     /// https://webidl.spec.whatwg.org/#js-iterable — <c>entries</c>, and through the alias above also
     /// <c>@@iterator</c>.
     /// </summary>
-    [JsFunction(Name = "entries", Length = 0)]
+    [JsFunction(Name = "entries", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Entries(JsValue thisObject) => IteratorPrototypeObject.ConstructEntryIterator(Brand(thisObject));
 
     /// <summary>
     /// https://webidl.spec.whatwg.org/#js-iterable
     /// </summary>
-    [JsFunction(Name = "keys", Length = 0)]
+    [JsFunction(Name = "keys", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Keys(JsValue thisObject) => IteratorPrototypeObject.ConstructKeyIterator(Brand(thisObject));
 
     /// <summary>
     /// https://webidl.spec.whatwg.org/#js-iterable
     /// </summary>
-    [JsFunction(Name = "values", Length = 0)]
+    [JsFunction(Name = "values", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Values(JsValue thisObject) => IteratorPrototypeObject.ConstructValueIterator(Brand(thisObject));
 
     /// <summary>

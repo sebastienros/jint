@@ -53,7 +53,7 @@ internal sealed partial class ReadableStreamBYOBRequestPrototype : Prototype
     /// <c>view</c>". The view is transferred by this call, so the underlying source must not write into it
     /// afterwards.
     /// </summary>
-    [JsFunction(Name = "respond", Length = 1)]
+    [JsFunction(Name = "respond", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Respond(JsValue thisObject, JsValue bytesWritten)
     {
         var request = Brand(thisObject);
@@ -82,7 +82,7 @@ internal sealed partial class ReadableStreamBYOBRequestPrototype : Prototype
     /// view of the same memory instead", which is how a source that had to hand its buffer to something else
     /// still avoids a copy.
     /// </summary>
-    [JsFunction(Name = "respondWithNewView", Length = 1)]
+    [JsFunction(Name = "respondWithNewView", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue RespondWithNewView(JsValue thisObject, JsValue viewArgument)
     {
         var request = Brand(thisObject);

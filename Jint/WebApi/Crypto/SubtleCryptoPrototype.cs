@@ -86,10 +86,9 @@ namespace Jint.WebApi.Crypto;
 /// works, and the value arrives on the microtask turn a <c>then</c> would give it.
 /// </para>
 /// <para>
-/// One documented simplification against WebIDL, which every prototype in this assembly carries: the
-/// operations are non-enumerable where an interface prototype object's are enumerable.
 /// <c>Object.keys(crypto.subtle)</c> answers the empty array here exactly as it does in a browser, because
-/// there too the operations live one level up. And <c>[SecureContext]</c> has no meaning for an embedded
+/// there too the operations live one level up — on this object, where they are enumerable as
+/// https://webidl.spec.whatwg.org/#es-operations asks. And <c>[SecureContext]</c> has no meaning for an embedded
 /// engine — there is no origin, no transport and no browsing context — so the operations are exposed
 /// unconditionally, which is the same reading Node and workerd take.
 /// </para>
@@ -146,7 +145,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// one would — argument conversion runs before a single step of the method body does. The <i>bytes</i>
     /// are a different matter and are step 4's, taken after normalization; see the remarks on this class.
     /// </remarks>
-    [JsFunction(Name = "digest", Length = 2)]
+    [JsFunction(Name = "digest", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Digest(JsValue thisObject, JsValue algorithm, JsValue data)
     {
         return Perform(thisObject, CryptoOperation.Digest, what =>
@@ -169,7 +168,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-sign, whose IDL is
     /// <c>Promise&lt;ArrayBuffer&gt; sign(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
     /// </summary>
-    [JsFunction(Name = "sign", Length = 3)]
+    [JsFunction(Name = "sign", Length = 3, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Sign(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
     {
         return Perform(thisObject, CryptoOperation.Sign, what =>
@@ -218,7 +217,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// between — but it is written the way the steps number it rather than the way the parameters happened to
     /// be converted.
     /// </remarks>
-    [JsFunction(Name = "verify", Length = 4)]
+    [JsFunction(Name = "verify", Length = 4, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Verify(JsValue thisObject, JsValue algorithm, JsValue key, JsValue signature, JsValue data)
     {
         return Perform(thisObject, CryptoOperation.Verify, what =>
@@ -261,7 +260,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-encrypt, whose IDL is
     /// <c>Promise&lt;ArrayBuffer&gt; encrypt(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
     /// </summary>
-    [JsFunction(Name = "encrypt", Length = 3)]
+    [JsFunction(Name = "encrypt", Length = 3, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Encrypt(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
     {
         return Perform(thisObject, CryptoOperation.Encrypt, what =>
@@ -310,7 +309,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// https://w3c.github.io/webcrypto/#SubtleCrypto-method-decrypt, whose IDL is
     /// <c>Promise&lt;ArrayBuffer&gt; decrypt(AlgorithmIdentifier algorithm, CryptoKey key, BufferSource data)</c>.
     /// </summary>
-    [JsFunction(Name = "decrypt", Length = 3)]
+    [JsFunction(Name = "decrypt", Length = 3, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Decrypt(JsValue thisObject, JsValue algorithm, JsValue key, JsValue data)
     {
         return Perform(thisObject, CryptoOperation.Decrypt, what =>
@@ -366,7 +365,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// public key is public — and the two halves split the requested usages between them by the usage
     /// intersection each algorithm's steps name, which for an ECDH public key is the empty list.
     /// </remarks>
-    [JsFunction(Name = "generateKey", Length = 3)]
+    [JsFunction(Name = "generateKey", Length = 3, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GenerateKey(JsValue thisObject, JsValue algorithm, JsValue extractable, JsValue keyUsages)
     {
         return Perform(thisObject, CryptoOperation.GenerateKey, what =>
@@ -481,7 +480,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// onto anything.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "importKey", Length = 5)]
+    [JsFunction(Name = "importKey", Length = 5, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ImportKey(JsValue thisObject, JsValue format, JsValue keyData, JsValue algorithm, JsValue extractable, JsValue keyUsages)
     {
         return Perform(thisObject, CryptoOperation.ImportKey, what =>
@@ -600,7 +599,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// be extractable. Neither is a property of the request — both are properties of the key, decided when it
     /// was made.
     /// </remarks>
-    [JsFunction(Name = "exportKey", Length = 2)]
+    [JsFunction(Name = "exportKey", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ExportKey(JsValue thisObject, JsValue format, JsValue key)
     {
         return Perform(thisObject, CryptoOperation.ExportKey, what =>
@@ -682,7 +681,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// such restriction.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "deriveBits", Length = 2)]
+    [JsFunction(Name = "deriveBits", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue DeriveBits(JsValue thisObject, JsValue algorithm, JsValue baseKey, JsValue length)
     {
         return Perform(thisObject, CryptoOperation.DeriveBits, what =>
@@ -721,7 +720,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// non-extractable PBKDF2 password produce an extractable AES-GCM key.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "deriveKey", Length = 5)]
+    [JsFunction(Name = "deriveKey", Length = 5, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue DeriveKey(
         JsValue thisObject,
         JsValue algorithm,
@@ -808,7 +807,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// exports — all of them are ASCII — and is the count AES-KW actually constrains.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "wrapKey", Length = 4)]
+    [JsFunction(Name = "wrapKey", Length = 4, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue WrapKey(JsValue thisObject, JsValue format, JsValue key, JsValue wrappingKey, JsValue wrapAlgorithm)
     {
         return Perform(thisObject, CryptoOperation.WrapKey, what =>
@@ -882,7 +881,7 @@ internal sealed partial class SubtleCryptoPrototype : Prototype
     /// unwrapping key produces under a cipher with no integrity check of its own.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "unwrapKey", Length = 7)]
+    [JsFunction(Name = "unwrapKey", Length = 7, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue UnwrapKey(
         JsValue thisObject,
         JsValue format,

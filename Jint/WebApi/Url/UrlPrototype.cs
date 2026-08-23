@@ -26,12 +26,6 @@ namespace Jint.WebApi.Url;
 /// Tests setter corpus can drive it directly. What stays here is the WebIDL skin: the brand check, the USVString
 /// conversion, and — for <c>href</c> and <c>search</c> — keeping the query object's list in step.
 /// </para>
-/// <para>
-/// One documented simplification, the same one <c>console</c> carries: the operations (<c>toString</c>,
-/// <c>toJSON</c>) are non-enumerable, where https://webidl.spec.whatwg.org/#es-operations makes an interface's
-/// operations enumerable. The attributes above are enumerable and configurable as WebIDL specifies. Neither is
-/// observable except to code inspecting property attributes or enumerating the prototype.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class UrlPrototype : Prototype
@@ -247,13 +241,13 @@ internal sealed partial class UrlPrototype : Prototype
     /// The stringification behaviour of <c>stringifier attribute USVString href</c>,
     /// https://webidl.spec.whatwg.org/#idl-stringifiers.
     /// </summary>
-    [JsFunction(Name = "toString", Length = 0)]
+    [JsFunction(Name = "toString", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsString Stringify(JsValue thisObject) => JsString.Create(Brand(thisObject).Url.Serialize());
 
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-url-tojson
     /// </summary>
-    [JsFunction(Name = "toJSON", Length = 0)]
+    [JsFunction(Name = "toJSON", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsString ToJsonMethod(JsValue thisObject) => JsString.Create(Brand(thisObject).Url.Serialize());
 
     /// <summary>

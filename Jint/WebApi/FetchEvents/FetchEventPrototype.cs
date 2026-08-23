@@ -20,11 +20,6 @@ namespace Jint.WebApi.FetchEvents;
 /// between the two and <c>waitUntil()</c> on it; that interface is not materialized here, so
 /// <c>waitUntil</c> is a member of this object instead — see <see cref="JsFetchEvent"/>.
 /// </para>
-/// <para>
-/// The two operations are non-enumerable, where a WebIDL interface prototype object's operations are
-/// enumerable — the same documented simplification <c>Event.prototype</c> and <c>EventTarget.prototype</c>
-/// carry.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class FetchEventPrototype : Prototype
@@ -60,7 +55,7 @@ internal sealed partial class FetchEventPrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/ServiceWorker/#fetch-event-respondwith
     /// </summary>
-    [JsFunction(Name = "respondWith", Length = 1)]
+    [JsFunction(Name = "respondWith", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue RespondWith(JsValue thisObject, JsCallArguments arguments)
     {
         var ev = Brand(thisObject);
@@ -72,7 +67,7 @@ internal sealed partial class FetchEventPrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/ServiceWorker/#dom-extendableevent-waituntil
     /// </summary>
-    [JsFunction(Name = "waitUntil", Length = 1)]
+    [JsFunction(Name = "waitUntil", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue WaitUntil(JsValue thisObject, JsCallArguments arguments)
     {
         var ev = Brand(thisObject);

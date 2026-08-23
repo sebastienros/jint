@@ -15,9 +15,9 @@ namespace Jint.WebApi.Events;
 /// </para>
 /// </summary>
 /// <remarks>
-/// The three operations are non-enumerable here, where a WebIDL interface prototype object's operations are
-/// enumerable — the same documented simplification <c>console</c> and <c>Event.prototype</c> carry, and the
-/// only thing about this object that is not what a browser exposes.
+/// The three operations carry a WebIDL regular operation's property attributes
+/// (https://webidl.spec.whatwg.org/#es-operations), so <c>Object.keys(EventTarget.prototype)</c> lists all
+/// three exactly as it does in a browser.
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class EventTargetPrototype : Prototype
@@ -47,7 +47,7 @@ internal sealed partial class EventTargetPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-eventtarget-addeventlistener
     /// </summary>
-    [JsFunction(Name = "addEventListener", Length = 2)]
+    [JsFunction(Name = "addEventListener", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue AddEventListener(JsValue thisObject, JsCallArguments arguments)
     {
         var target = Brand(thisObject);
@@ -58,7 +58,7 @@ internal sealed partial class EventTargetPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-eventtarget-removeeventlistener
     /// </summary>
-    [JsFunction(Name = "removeEventListener", Length = 2)]
+    [JsFunction(Name = "removeEventListener", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue RemoveEventListener(JsValue thisObject, JsCallArguments arguments)
     {
         var target = Brand(thisObject);
@@ -69,7 +69,7 @@ internal sealed partial class EventTargetPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-eventtarget-dispatchevent
     /// </summary>
-    [JsFunction(Name = "dispatchEvent", Length = 1)]
+    [JsFunction(Name = "dispatchEvent", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBoolean DispatchEvent(JsValue thisObject, JsValue eventArgument)
     {
         var target = Brand(thisObject);

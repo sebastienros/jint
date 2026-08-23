@@ -469,21 +469,25 @@ public class SubtleCryptoTests
     }
 
     [Fact]
-    public void IsAReadOnlyNonEnumerableAttributeOfTheCryptoObject()
+    public void IsAReadOnlyEnumerableAttributeOnTheCryptoPrototype()
     {
         var engine = WebEngine();
 
         engine.Evaluate("'subtle' in crypto").AsBoolean().Should().BeTrue();
 
         // The attribute is an accessor pair on Crypto.prototype, which is where a browser's is too, with the
-        // attributes a WebIDL attribute carries. Object.keys(crypto) stays empty, as in a browser.
+        // attributes https://webidl.spec.whatwg.org/#es-attributes gives an attribute: enumerable and
+        // configurable, with no setter. Node 24 reports the same triple for Crypto.prototype.subtle.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle')").AsObject();
         descriptor.Get("get").IsCallable.Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
 
+        // Enumerable on the prototype, and still nothing of its own on the instance — which is exactly what
+        // a browser answers, and the reason the enumerability is safe to have.
         engine.Evaluate("JSON.stringify(Object.keys(crypto))").AsString().Should().Be("[]");
+        engine.Evaluate("Object.keys(Crypto.prototype).includes('subtle')").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -509,10 +513,13 @@ public class SubtleCryptoTests
         engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(crypto.subtle))").AsString().Should().Be("[]");
         engine.Evaluate("JSON.stringify(Object.keys(crypto.subtle))").AsString().Should().Be("[]");
 
+        // A WebIDL regular operation: writable, enumerable and configurable —
+        // https://webidl.spec.whatwg.org/#es-operations, and the triple Node 24 reports for this very
+        // property.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(SubtleCrypto.prototype, 'digest')").AsObject();
         descriptor.Get("writable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
     }
 
     [Fact]

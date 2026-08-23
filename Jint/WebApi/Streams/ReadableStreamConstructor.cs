@@ -111,7 +111,7 @@ internal sealed partial class ReadableStreamConstructor : Constructor
     /// <c>CreateAsyncFromSyncIterator</c> the language uses for <c>for await…of</c>, which is what makes
     /// <c>ReadableStream.from([Promise.resolve('a')])</c> yield <c>'a'</c> rather than the promise.
     /// </remarks>
-    [JsFunction(Name = "from", Length = 1)]
+    [JsFunction(Name = "from", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsReadableStream From(JsValue thisObject, JsValue asyncIterable)
     {
         var iterator = OpenAsyncSequence(asyncIterable);

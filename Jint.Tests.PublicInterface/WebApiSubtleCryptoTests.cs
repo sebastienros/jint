@@ -141,7 +141,7 @@ public class WebApiSubtleCryptoTests
     }
 
     [Fact]
-    public void IsAReadOnlyNonEnumerableAttribute()
+    public void IsAReadOnlyEnumerableAttribute()
     {
         var engine = WebEngine();
 
@@ -150,14 +150,18 @@ public class WebApiSubtleCryptoTests
         engine.Evaluate("crypto instanceof Crypto").AsBoolean().Should().BeTrue();
         engine.Evaluate("crypto.subtle instanceof SubtleCrypto").AsBoolean().Should().BeTrue();
 
+        // A WebIDL attribute: an enumerable, configurable accessor with no setter,
+        // https://webidl.spec.whatwg.org/#es-attributes. Node 24 reports the same triple.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle')").AsObject();
         descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
 
-        // The operation carries an ECMAScript built-in method's attributes, and WebIDL's length counts the
-        // required arguments only.
+        // The operation carries a WebIDL regular operation's attributes — enumerable included,
+        // https://webidl.spec.whatwg.org/#es-operations — and WebIDL's length counts the required arguments
+        // only.
+        engine.Evaluate("Object.getOwnPropertyDescriptor(SubtleCrypto.prototype, 'digest').enumerable").AsBoolean().Should().BeTrue();
         engine.Evaluate("crypto.subtle.digest.length").AsNumber().Should().Be(2);
         engine.Evaluate("crypto.subtle.digest.name").AsString().Should().Be("digest");
         engine.Evaluate("Object.prototype.toString.call(crypto.subtle)").AsString().Should().Be("[object SubtleCrypto]");

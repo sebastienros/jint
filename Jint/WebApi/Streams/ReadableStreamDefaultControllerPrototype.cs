@@ -51,7 +51,7 @@ internal sealed partial class ReadableStreamDefaultControllerPrototype : Prototy
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-default-controller-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject)
     {
         var controller = Brand(thisObject);
@@ -68,7 +68,7 @@ internal sealed partial class ReadableStreamDefaultControllerPrototype : Prototy
     /// <summary>
     /// https://streams.spec.whatwg.org/#rs-default-controller-enqueue
     /// </summary>
-    [JsFunction(Name = "enqueue", Length = 0)]
+    [JsFunction(Name = "enqueue", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Enqueue(JsValue thisObject, JsValue chunk)
     {
         var controller = Brand(thisObject);
@@ -86,7 +86,7 @@ internal sealed partial class ReadableStreamDefaultControllerPrototype : Prototy
     /// https://streams.spec.whatwg.org/#rs-default-controller-error — silently does nothing for a stream
     /// that has already stopped being readable, so a source that errors twice is not itself an error.
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, JsValue error)
     {
         ReadableStreamDefaultControllerOperations.Error(Brand(thisObject), error);

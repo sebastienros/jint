@@ -295,7 +295,11 @@ than the triage note predicted, and because the third changes an ordering that s
    `ReadableStreamAsyncIteratorPrototype`. The `@@toStringTag` on that object was already right — WebIDL
    §3.7.10.2 gives an asynchronous iterator prototype object the class string
    "*interface* AsyncIterator" — and so is `ReadableStream.prototype[@@asyncIterator]`, which is
-   non-enumerable because it is an interface member rather than an iterator-prototype method.
+   non-enumerable because [WebIDL's iterable declarations](https://webidl.spec.whatwg.org/#es-iterable) give
+   that symbol `{ [[Writable]]: true, [[Enumerable]]: false, [[Configurable]]: true }`. (The wider sweep that
+   gave every operation in `Jint/WebApi/` WebIDL's attributes is
+   [#3239](https://github.com/sebastienros/jint/issues/3239); it moved no corpus row in either direction, and
+   that symbol is one of the few members it deliberately left alone.)
 
 2. **`readable.cancel()` on a `TransformStream` rejected where it must fulfil** — three rows, one defect seen
    from three angles: `transform-streams/errors.any.js`'s "abort should set the close reason for the writable

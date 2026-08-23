@@ -66,7 +66,7 @@ internal sealed partial class ReadableStreamBYOBReaderPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#generic-reader-cancel
     /// </summary>
-    [JsFunction(Name = "cancel", Length = 0)]
+    [JsFunction(Name = "cancel", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Cancel(JsValue thisObject, JsValue reason)
     {
         try
@@ -103,7 +103,7 @@ internal sealed partial class ReadableStreamBYOBReaderPrototype : Prototype
     /// https://webidl.spec.whatwg.org/#js-operations.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "read", Length = 1)]
+    [JsFunction(Name = "read", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Read(JsValue thisObject, JsValue viewArgument, JsValue options)
     {
         JsReadableStreamBYOBReader reader;
@@ -157,7 +157,7 @@ internal sealed partial class ReadableStreamBYOBReaderPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#byob-reader-release-lock
     /// </summary>
-    [JsFunction(Name = "releaseLock", Length = 0)]
+    [JsFunction(Name = "releaseLock", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ReleaseLock(JsValue thisObject)
     {
         var reader = Brand(thisObject);

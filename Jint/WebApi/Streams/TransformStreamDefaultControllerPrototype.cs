@@ -52,7 +52,7 @@ internal sealed partial class TransformStreamDefaultControllerPrototype : Protot
     /// <summary>
     /// https://streams.spec.whatwg.org/#ts-default-controller-enqueue
     /// </summary>
-    [JsFunction(Name = "enqueue", Length = 0)]
+    [JsFunction(Name = "enqueue", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Enqueue(JsValue thisObject, JsValue chunk)
     {
         TransformStreamOperations.ControllerEnqueue(Brand(thisObject), chunk);
@@ -63,7 +63,7 @@ internal sealed partial class TransformStreamDefaultControllerPrototype : Protot
     /// https://streams.spec.whatwg.org/#ts-default-controller-error — errors both sides, discarding whatever
     /// was queued for transformation.
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, JsValue reason)
     {
         TransformStreamOperations.ControllerError(Brand(thisObject), reason);
@@ -74,7 +74,7 @@ internal sealed partial class TransformStreamDefaultControllerPrototype : Protot
     /// https://streams.spec.whatwg.org/#ts-default-controller-terminate — closes the readable side and
     /// errors the writable side, for a transformer that only wants part of what is written to it.
     /// </summary>
-    [JsFunction(Name = "terminate", Length = 0)]
+    [JsFunction(Name = "terminate", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Terminate(JsValue thisObject)
     {
         TransformStreamOperations.ControllerTerminate(Brand(thisObject));

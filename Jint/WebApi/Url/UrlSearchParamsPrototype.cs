@@ -29,11 +29,6 @@ namespace Jint.WebApi.Url;
 /// <c>url.searchParams.sort()</c> can change <c>url.href</c> even when it changes no name and no value. The
 /// specification calls that out with the same example.
 /// </para>
-/// <para>
-/// One documented simplification, the same one <c>console</c> and <c>URL.prototype</c> carry: the operations
-/// are non-enumerable, where https://webidl.spec.whatwg.org/#es-operations makes an interface's operations
-/// enumerable. The <c>size</c> attribute is enumerable and configurable as WebIDL specifies.
-/// </para>
 /// </remarks>
 [JsSymbolAlias("Iterator", "entries")]
 [JsObject(UseShape = true)]
@@ -79,7 +74,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-append
     /// </summary>
-    [JsFunction(Name = "append", Length = 2)]
+    [JsFunction(Name = "append", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Append(JsValue thisObject, JsValue name, JsValue value)
     {
         var parameters = Brand(thisObject);
@@ -91,7 +86,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-delete
     /// </summary>
-    [JsFunction(Name = "delete", Length = 1)]
+    [JsFunction(Name = "delete", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Delete(JsValue thisObject, JsValue name, JsValue value)
     {
         var parameters = Brand(thisObject);
@@ -109,7 +104,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-get
     /// </summary>
-    [JsFunction(Name = "get", Length = 1)]
+    [JsFunction(Name = "get", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GetValue(JsValue thisObject, JsValue name)
     {
         var parameters = Brand(thisObject);
@@ -129,7 +124,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-getall
     /// </summary>
-    [JsFunction(Name = "getAll", Length = 1)]
+    [JsFunction(Name = "getAll", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetAll(JsValue thisObject, JsValue name)
     {
         var parameters = Brand(thisObject);
@@ -150,7 +145,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-has
     /// </summary>
-    [JsFunction(Name = "has", Length = 1)]
+    [JsFunction(Name = "has", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBoolean Has(JsValue thisObject, JsValue name, JsValue value)
     {
         var parameters = Brand(thisObject);
@@ -172,7 +167,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-urlsearchparams-set
     /// </summary>
-    [JsFunction(Name = "set", Length = 2)]
+    [JsFunction(Name = "set", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue SetValue(JsValue thisObject, JsValue name, JsValue value)
     {
         var parameters = Brand(thisObject);
@@ -217,7 +212,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// <c>sort</c>. <c>List&lt;T&gt;.Sort</c> is an unstable introsort, so this goes through the engine's own
     /// merge sort instead. "Code unit less than" is an ordinal comparison of UTF-16 code units.
     /// </remarks>
-    [JsFunction(Name = "sort", Length = 0)]
+    [JsFunction(Name = "sort", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Sort(JsValue thisObject)
     {
         var parameters = Brand(thisObject);
@@ -240,7 +235,7 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// the value first and the name second, and the list is re-read on every step so a callback that mutates
     /// it is observed.
     /// </summary>
-    [JsFunction(Name = "forEach", Length = 1)]
+    [JsFunction(Name = "forEach", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ForEach(JsValue thisObject, JsValue callback, JsValue thisArg)
     {
         var parameters = Brand(thisObject);
@@ -259,25 +254,25 @@ internal sealed partial class UrlSearchParamsPrototype : Prototype
     /// https://webidl.spec.whatwg.org/#js-iterable — <c>entries</c>, and through the alias above also
     /// <c>@@iterator</c>.
     /// </summary>
-    [JsFunction(Name = "entries", Length = 0)]
+    [JsFunction(Name = "entries", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Entries(JsValue thisObject) => IteratorPrototypeObject.ConstructEntryIterator(Brand(thisObject));
 
     /// <summary>
     /// https://webidl.spec.whatwg.org/#js-iterable
     /// </summary>
-    [JsFunction(Name = "keys", Length = 0)]
+    [JsFunction(Name = "keys", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Keys(JsValue thisObject) => IteratorPrototypeObject.ConstructKeyIterator(Brand(thisObject));
 
     /// <summary>
     /// https://webidl.spec.whatwg.org/#js-iterable
     /// </summary>
-    [JsFunction(Name = "values", Length = 0)]
+    [JsFunction(Name = "values", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private IteratorInstance Values(JsValue thisObject) => IteratorPrototypeObject.ConstructValueIterator(Brand(thisObject));
 
     /// <summary>
     /// The anonymous stringifier, https://url.spec.whatwg.org/#dom-urlsearchparams-stringification-behavior.
     /// </summary>
-    [JsFunction(Name = "toString", Length = 0)]
+    [JsFunction(Name = "toString", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsString Stringify(JsValue thisObject) => JsString.Create(FormUrlEncoded.Serialize(Brand(thisObject).List));
 
     /// <summary>

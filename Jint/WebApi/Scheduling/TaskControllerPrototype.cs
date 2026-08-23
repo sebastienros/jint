@@ -53,7 +53,7 @@ internal sealed partial class TaskControllerPrototype : Prototype
     /// nothing at all, and calling this from inside a <c>prioritychange</c> listener is a
     /// <c>NotAllowedError</c>.
     /// </remarks>
-    [JsFunction(Name = "setPriority", Length = 1)]
+    [JsFunction(Name = "setPriority", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue SetPriority(JsValue thisObject, JsValue priority)
     {
         var signal = Brand(thisObject);

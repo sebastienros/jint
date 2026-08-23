@@ -119,7 +119,9 @@ public class ReadableStreamAsyncIterationTests
         engine.Evaluate("t.configurable").AsBoolean().Should().BeTrue();
 
         // The @@asyncIterator that reaches the iterator is inherited from %AsyncIteratorPrototype%; the one
-        // on ReadableStream.prototype is an interface member, and those stay non-enumerable.
+        // on ReadableStream.prototype belongs to the asynchronously iterable declaration, and WebIDL makes
+        // that symbol { writable: true, enumerable: FALSE, configurable: true } — the one member kind here
+        // whose enumerability is the language's rather than the binding's.
         engine.Execute("var a = Object.getOwnPropertyDescriptor(ReadableStream.prototype, Symbol.asyncIterator);");
         engine.Evaluate("a.writable").AsBoolean().Should().BeTrue();
         engine.Evaluate("a.enumerable").AsBoolean().Should().BeFalse();

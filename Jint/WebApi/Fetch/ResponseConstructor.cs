@@ -75,7 +75,7 @@ internal sealed partial class ResponseConstructor : Constructor
     /// https://fetch.spec.whatwg.org/#dom-response-error — a response representing a network error. Its
     /// headers are immutable and its status is 0, so <c>ok</c> is false and nothing about it can be edited.
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsResponse Error(JsValue thisObject)
     {
         var response = NewResponse();
@@ -92,7 +92,7 @@ internal sealed partial class ResponseConstructor : Constructor
     /// The URL is parsed without a base, for the reason <c>Request</c>'s constructor documents: an embedded
     /// engine has no document to be relative to.
     /// </remarks>
-    [JsFunction(Name = "redirect", Length = 1)]
+    [JsFunction(Name = "redirect", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsResponse Redirect(JsValue thisObject, JsValue url, JsValue status)
     {
         var href = UrlValues.ToUsvString(url);
@@ -122,7 +122,7 @@ internal sealed partial class ResponseConstructor : Constructor
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-response-json
     /// </summary>
-    [JsFunction(Name = "json", Length = 1)]
+    [JsFunction(Name = "json", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsResponse Json(JsValue thisObject, JsValue data, JsValue init)
     {
         // "Serialize a JavaScript value to JSON bytes", https://infra.spec.whatwg.org/#serialize-a-javascript-value-to-json-bytes:

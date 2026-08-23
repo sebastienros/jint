@@ -19,12 +19,6 @@ namespace Jint.WebApi.Encoding;
 /// brand-checks its receiver — including <c>TextDecoder.prototype</c> itself, which is not a
 /// <c>TextDecoder</c>.
 /// </para>
-/// <para>
-/// One documented simplification against WebIDL, the same one <c>console</c> makes: <c>decode</c> is
-/// non-enumerable, where https://webidl.spec.whatwg.org/#es-operations gives an interface prototype
-/// object's operations <c>{ writable: true, enumerable: true, configurable: true }</c>. The attributes
-/// themselves are enumerable, as WebIDL asks.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class TextDecoderPrototype : Prototype
@@ -90,7 +84,7 @@ internal sealed partial class TextDecoderPrototype : Prototype
     /// became). Passing <c>null</c> is not the same as omitting it — the IDL type is not nullable — so it
     /// is a <c>TypeError</c>.
     /// </remarks>
-    [JsFunction(Name = "decode", Length = 0)]
+    [JsFunction(Name = "decode", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsString Decode(JsValue thisObject, JsValue input, JsValue options)
     {
         var decoder = Brand(thisObject);

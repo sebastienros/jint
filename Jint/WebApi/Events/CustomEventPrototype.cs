@@ -56,7 +56,7 @@ internal sealed partial class CustomEventPrototype : Prototype
     /// detail the constructor set rather than leaving it alone. <c>length</c> is 1 for the reason
     /// <c>initEvent</c>'s is: only <c>type</c> is required.
     /// </remarks>
-    [JsFunction(Name = "initCustomEvent", Length = 1)]
+    [JsFunction(Name = "initCustomEvent", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue InitCustomEvent(JsValue thisObject, JsValue type, JsValue bubbles, JsValue cancelable, JsValue detail)
     {
         var ev = Brand(thisObject);

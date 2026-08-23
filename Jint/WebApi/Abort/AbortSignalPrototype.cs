@@ -110,7 +110,7 @@ internal sealed partial class AbortSignalPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-abortsignal-throwifaborted
     /// </summary>
-    [JsFunction(Name = "throwIfAborted", Length = 0)]
+    [JsFunction(Name = "throwIfAborted", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ThrowIfAborted(JsValue thisObject)
     {
         var signal = Brand(thisObject);

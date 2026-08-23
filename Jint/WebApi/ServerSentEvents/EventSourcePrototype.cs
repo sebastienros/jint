@@ -117,7 +117,7 @@ internal sealed partial class EventSourcePrototype : Prototype
     /// instances of the fetch algorithm started for this EventSource object, and must set the readyState
     /// attribute to CLOSED". Calling it twice, or on a source that already failed, does nothing.
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject)
     {
         Brand(thisObject).Close();

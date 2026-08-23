@@ -24,11 +24,6 @@ namespace Jint.WebApi.Fetch;
 /// interface that includes it — <c>Request.prototype.text</c> and <c>Response.prototype.text</c> are two
 /// different function objects, exactly as in a browser.
 /// </para>
-/// <para>
-/// One documented simplification, the same one every other web-API prototype here carries: the operations are
-/// non-enumerable, where https://webidl.spec.whatwg.org/#es-operations makes an interface's operations
-/// enumerable.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class RequestPrototype : Prototype
@@ -122,44 +117,44 @@ internal sealed partial class RequestPrototype : Prototype
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-arraybuffer
     /// </summary>
-    [JsFunction(Name = "arrayBuffer", Length = 0)]
+    [JsFunction(Name = "arrayBuffer", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ArrayBuffer(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.ArrayBuffer);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-bytes
     /// </summary>
-    [JsFunction(Name = "bytes", Length = 0)]
+    [JsFunction(Name = "bytes", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Bytes(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Bytes);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-blob
     /// </summary>
-    [JsFunction(Name = "blob", Length = 0)]
+    [JsFunction(Name = "blob", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Blob(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Blob);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-json
     /// </summary>
-    [JsFunction(Name = "json", Length = 0)]
+    [JsFunction(Name = "json", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Json(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Json);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-text
     /// </summary>
-    [JsFunction(Name = "text", Length = 0)]
+    [JsFunction(Name = "text", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Text(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Text);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-formdata
     /// </summary>
-    [JsFunction(Name = "formData", Length = 0)]
+    [JsFunction(Name = "formData", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue FormData(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.FormData);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-request-clone — the one member of the pair that throws
     /// synchronously rather than rejecting, because it is not defined to return a promise.
     /// </summary>
-    [JsFunction(Name = "clone", Length = 0)]
+    [JsFunction(Name = "clone", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsRequest Clone(JsValue thisObject)
     {
         var request = Brand(thisObject);

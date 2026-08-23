@@ -68,7 +68,7 @@ internal sealed partial class TaskSignalConstructor : Constructor
     /// <c>TaskSignal.any(…)</c> would reach the parent interface's static through the interface object's
     /// prototype chain and get back a plain <c>AbortSignal</c>, which has no priority at all.
     /// </remarks>
-    [JsFunction(Name = "any", Length = 1)]
+    [JsFunction(Name = "any", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsTaskSignal StaticAny(JsValue thisObject, JsValue signals, JsValue init)
     {
         var sources = _realm.Intrinsics.AbortSignal.ReadSignalSequence(signals, "TaskSignal");

@@ -313,7 +313,7 @@ public class CryptoTests
     }
 
     [Fact]
-    public void GivesItsMembersTheAttributesOfBuiltInMethods()
+    public void GivesItsMembersTheAttributesWebIdlGivesAnOperation()
     {
         var engine = WebEngine();
 
@@ -322,13 +322,20 @@ public class CryptoTests
         engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(crypto))").AsString().Should().Be("[]");
         engine.Evaluate("JSON.stringify(Object.keys(crypto))").AsString().Should().Be("[]");
 
+        // On the prototype they are WebIDL regular operations — writable, ENUMERABLE and configurable,
+        // https://webidl.spec.whatwg.org/#es-operations — not ECMAScript built-in methods.
         foreach (var member in new[] { "getRandomValues", "randomUUID" })
         {
             var descriptor = engine.Evaluate($"Object.getOwnPropertyDescriptor(Crypto.prototype, '{member}')").AsObject();
             descriptor.Get("writable").AsBoolean().Should().BeTrue();
             descriptor.Get("configurable").AsBoolean().Should().BeTrue();
-            descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+            descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
         }
+
+        // So the whole interface is visible to a for-in or an Object.keys over the prototype, which is the
+        // observable point of the enumerability: two operations and the subtle attribute.
+        engine.Evaluate("JSON.stringify(Object.keys(Crypto.prototype).sort())").AsString()
+            .Should().Be("[\"getRandomValues\",\"randomUUID\",\"subtle\"]");
     }
 
     [Fact]

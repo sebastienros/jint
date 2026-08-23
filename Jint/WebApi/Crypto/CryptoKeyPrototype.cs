@@ -19,12 +19,6 @@ namespace Jint.WebApi.Crypto;
 /// and each brand-checks its receiver with a <c>TypeError</c> — including <c>CryptoKey.prototype</c> itself,
 /// which is not a key. None of them can reach the key material; see <see cref="JsCryptoKey"/>.
 /// </para>
-/// <para>
-/// One documented simplification against WebIDL, which every prototype in this subtree carries: the members
-/// are non-enumerable, where a WebIDL interface prototype object's attributes are enumerable. That is how
-/// every built-in Jint has ever shipped declares its prototype members, and it is observable only to code
-/// inspecting property attributes.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class CryptoKeyPrototype : Prototype

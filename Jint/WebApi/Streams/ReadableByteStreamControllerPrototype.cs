@@ -62,7 +62,7 @@ internal sealed partial class ReadableByteStreamControllerPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#rbs-controller-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject)
     {
         var controller = Brand(thisObject);
@@ -86,7 +86,7 @@ internal sealed partial class ReadableByteStreamControllerPrototype : Prototype
     /// an empty one — or one over a detached buffer, whose byte length is therefore also zero — is refused:
     /// a zero-length chunk would be indistinguishable from end-of-stream to a BYOB consumer.
     /// </summary>
-    [JsFunction(Name = "enqueue", Length = 1)]
+    [JsFunction(Name = "enqueue", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Enqueue(JsValue thisObject, JsValue chunk)
     {
         var controller = Brand(thisObject);
@@ -120,7 +120,7 @@ internal sealed partial class ReadableByteStreamControllerPrototype : Prototype
     /// https://streams.spec.whatwg.org/#rbs-controller-error — silently does nothing for a stream that has
     /// already stopped being readable, exactly as the default controller's does.
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, JsValue error)
     {
         ReadableByteStreamControllerOperations.Error(Brand(thisObject), error);

@@ -91,7 +91,7 @@ internal sealed partial class WritableStreamDefaultWriterPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#default-writer-abort
     /// </summary>
-    [JsFunction(Name = "abort", Length = 0)]
+    [JsFunction(Name = "abort", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Abort(JsValue thisObject, JsValue reason)
     {
         try
@@ -114,7 +114,7 @@ internal sealed partial class WritableStreamDefaultWriterPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#default-writer-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Close(JsValue thisObject)
     {
         try
@@ -145,7 +145,7 @@ internal sealed partial class WritableStreamDefaultWriterPrototype : Prototype
     /// https://streams.spec.whatwg.org/#default-writer-release-lock — the lock may be released while writes
     /// are still outstanding: it prevents interleaved producers, it does not span the writes themselves.
     /// </summary>
-    [JsFunction(Name = "releaseLock", Length = 0)]
+    [JsFunction(Name = "releaseLock", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ReleaseLock(JsValue thisObject)
     {
         var writer = Brand(thisObject);
@@ -162,7 +162,7 @@ internal sealed partial class WritableStreamDefaultWriterPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#default-writer-write
     /// </summary>
-    [JsFunction(Name = "write", Length = 0)]
+    [JsFunction(Name = "write", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Write(JsValue thisObject, JsValue chunk)
     {
         try

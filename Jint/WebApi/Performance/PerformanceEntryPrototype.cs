@@ -26,11 +26,6 @@ namespace Jint.WebApi.Performance;
 /// type <c>any</c> — so it is <b>not</b> part of the result, and a script that wants it reads
 /// <c>entry.detail</c>.
 /// </para>
-/// <para>
-/// One documented simplification against WebIDL: the operation is non-enumerable, where a WebIDL interface
-/// prototype object's operations are enumerable. That is how every built-in Jint has ever shipped declares
-/// its prototype methods, and it is observable only to code inspecting property attributes.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class PerformanceEntryPrototype : Prototype
@@ -98,7 +93,7 @@ internal sealed partial class PerformanceEntryPrototype : Prototype
     /// https://w3c.github.io/performance-timeline/#dom-performanceentry-tojson — the default <c>toJSON</c>
     /// steps, https://webidl.spec.whatwg.org/#default-tojson-steps.
     /// </summary>
-    [JsFunction(Name = "toJSON", Length = 0)]
+    [JsFunction(Name = "toJSON", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsObject ToJson(JsValue thisObject)
     {
         var entry = Brand(thisObject);

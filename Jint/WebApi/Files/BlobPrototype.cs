@@ -29,11 +29,6 @@ namespace Jint.WebApi.Files;
 /// over those same bytes instead of a promise: <c>stream()</c> a byte stream, and <c>textStream()</c> that
 /// byte stream piped through a UTF-8 <c>TextDecoderStream</c>, so its chunks are strings.
 /// </para>
-/// <para>
-/// One documented simplification against WebIDL: the operations are non-enumerable, where a WebIDL
-/// interface prototype object's operations are enumerable. That is how every built-in Jint has ever shipped
-/// declares its prototype methods, and it is observable only to code inspecting property attributes.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class BlobPrototype : Prototype
@@ -87,7 +82,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// and a slice of a file has no name to carry. The bytes are shared with the receiver rather than
     /// copied, which a blob's immutability makes safe.
     /// </remarks>
-    [JsFunction(Name = "slice", Length = 0)]
+    [JsFunction(Name = "slice", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBlob Slice(JsValue thisObject, JsValue start, JsValue end, JsValue contentType)
     {
         var blob = Brand(thisObject);
@@ -136,7 +131,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// The fulfillment value is the UTF-8 decode of the bytes, which is BOM-stripping and lenient: an
     /// ill-formed sequence becomes U+FFFD rather than rejecting — https://encoding.spec.whatwg.org/#utf-8-decode.
     /// </remarks>
-    [JsFunction(Name = "text", Length = 0)]
+    [JsFunction(Name = "text", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Text(JsValue thisObject)
     {
         var data = Brand(thisObject).Data.Span;
@@ -153,7 +148,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/FileAPI/#arraybuffer-method-algo
     /// </summary>
-    [JsFunction(Name = "arrayBuffer", Length = 0)]
+    [JsFunction(Name = "arrayBuffer", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ArrayBuffer(JsValue thisObject)
     {
         return Resolved(NewArrayBuffer(Brand(thisObject)));
@@ -181,7 +176,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// immutable and what script is handed is writable.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "stream", Length = 0)]
+    [JsFunction(Name = "stream", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private Streams.JsReadableStream Stream(JsValue thisObject)
     {
         return Streams.ByteStreams.CreateFromBytes(_engine, _realm, Brand(thisObject).Data);
@@ -209,7 +204,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// source, a fresh decoder and a fresh result, so reading one cannot disturb another.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "textStream", Length = 0)]
+    [JsFunction(Name = "textStream", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private Streams.JsReadableStream TextStream(JsValue thisObject)
     {
         // Step 1, which is "get stream" on this — the same algorithm stream() is, so the two cannot drift.
@@ -226,7 +221,7 @@ internal sealed partial class BlobPrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/FileAPI/#bytes-method-algo
     /// </summary>
-    [JsFunction(Name = "bytes", Length = 0)]
+    [JsFunction(Name = "bytes", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Bytes(JsValue thisObject)
     {
         var blob = Brand(thisObject);

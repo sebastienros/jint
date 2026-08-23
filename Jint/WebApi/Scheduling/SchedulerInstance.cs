@@ -37,11 +37,28 @@ namespace Jint.WebApi.Scheduling;
 /// https://webidl.spec.whatwg.org/#dfn-create-operation-function).
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL, the same pair <c>console</c>, <c>crypto</c> and
-/// <c>performance</c> carry. There is no <c>Scheduler</c> interface object and no <c>Scheduler.prototype</c>,
-/// so <c>postTask</c> and <c>yield</c> are own properties of this object with the attributes an ECMAScript
-/// built-in has; both still brand-check their receiver. And the object is installed as an ordinary enumerable
-/// data property of the global rather than through the <c>[Replaceable]</c> accessor pair
+/// <b>There is no <c>Scheduler</c> interface object and no <c>Scheduler.prototype</c></b>, so
+/// <c>postTask</c> and <c>yield</c> are own properties of this object rather than of a prototype; both still
+/// brand-check their receiver.
+/// </para>
+/// <para>
+/// <b>That is why the two of them keep an ECMAScript built-in's property attributes</b>, where every other
+/// operation under <c>Jint/WebApi/</c> carries WebIDL's <c>{ [[Writable]]: true, [[Enumerable]]: true,
+/// [[Configurable]]: true }</c> (https://webidl.spec.whatwg.org/#es-operations). WebIDL's rule assumes the
+/// member is where the specification puts it — on <c>Scheduler.prototype</c>, which is what a browser builds
+/// — and there the enumerability is invisible from the instance: <c>Object.keys(scheduler)</c> is the empty
+/// array, because the object has no own properties at all. Declaring these two enumerable <i>here</i> would
+/// make it answer <c>["postTask", "yield"]</c>, which no implementation does, so a blanket flip would move
+/// this object further from a browser rather than closer. What fixes it is the interface object, not a flag.
+/// <c>console</c> is the counter-example that proves the rule rather than a precedent against it: it is a
+/// WebIDL <i>namespace</i> (https://webidl.spec.whatwg.org/#es-namespaces), whose members genuinely are own
+/// properties of the namespace object, so its operations are enumerable here exactly as they are in Node.
+/// The exemption is recorded, and checked for staleness, in
+/// <c>Jint.Tests.Runtime.WebApi.WebIdlPropertyAttributeTests</c>.
+/// </para>
+/// <para>
+/// The object is also installed as an ordinary enumerable data property of the global rather than through the
+/// <c>[Replaceable]</c> accessor pair
 /// https://wicg.github.io/scheduling-apis/#dom-windoworworkerglobalscope-scheduler gives it.
 /// </para>
 /// </remarks>
