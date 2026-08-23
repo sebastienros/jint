@@ -135,10 +135,17 @@ public class WaitForScheduledWorkTests
     /// merely advisory — a second host loop cannot quietly become a second drainer.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Deliberately separate from <see cref="ASecondThreadWaitingIsRefused"/>, which asks the reverse question
     /// and would pass even with the wait's claim removed: the token linkage inside reads
     /// <c>Constraints.Find&lt;CancellationConstraint&gt;()</c>, which takes an admission of its own and would
     /// report the refusal from there. Only entering <em>while</em> a wait is parked distinguishes the two.
+    /// </para>
+    /// <para>
+    /// The park and the probe that detects it are one object (<see cref="TopLevelPark"/>) because they race
+    /// each other at the start: the probe is a claim attempt, and a top-level park's entry is refused by any
+    /// claim that beats it. That class documents the whole of it.
+    /// </para>
     /// </remarks>
     [Fact]
     public async Task AParkedWaitOwnsTheEngineForItsWholeDuration()
@@ -146,28 +153,17 @@ public class WaitForScheduledWorkTests
         using var engine = new Engine();
         using var releaseWait = new CancellationTokenSource();
 
-        var parked = DedicatedThread.RunAsync(() =>
-        {
-            try
-            {
-                engine.Advanced.WaitForScheduledWork(WedgeCeiling, releaseWait.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // How the test ends the park; the assertion is what happened while it was parked.
-            }
-        });
-
+        var park = TopLevelPark.Start(engine, WedgeCeiling, releaseWait.Token);
         try
         {
-            await WaitUntilRefused(engine, parked);
+            park.WaitUntilOwningTheEngine();
         }
         finally
         {
             releaseWait.Cancel();
         }
 
-        await parked;
+        await park.Completed;
 
         // The claim goes back with the wait rather than outliving it.
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
@@ -190,7 +186,7 @@ public class WaitForScheduledWorkTests
         }));
 
         var running = DedicatedThread.RunAsync(() => engine.Execute("block()"));
-        await WaitUntilOwned(entered, running);
+        WaitUntilOwned(entered, running);
         try
         {
             Invoking(() => engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50)))
@@ -288,60 +284,24 @@ public class WaitForScheduledWorkTests
     private static void SettleBeforeEnqueueing() => Thread.Sleep(SettleInterval);
 
     /// <summary>
-    /// Polls a guarded entry until the engine refuses it, which is the only signal a parked wait can give:
-    /// it runs no script, so there is nothing for it to announce itself with. Ends on the refusal, on
-    /// <paramref name="parked"/> finishing without ever taking the engine — reporting whatever stopped it —
-    /// or on <see cref="WedgeCeiling"/>.
-    /// </summary>
-    /// <remarks>
-    /// A poll rather than a handshake, and deliberately not one an assertion times: the loop only decides
-    /// <em>when</em> the observation is made, never what it has to be. Each probe is a
-    /// <see cref="Engine.AdvancedOperations.ProcessTasks"/> on an engine with nothing queued, so a probe that
-    /// lands before the park runs the empty loop and costs nothing.
-    /// </remarks>
-    private static async Task WaitUntilRefused(Engine engine, Task parked)
-    {
-        var elapsed = Stopwatch.StartNew();
-        while (true)
-        {
-            try
-            {
-                engine.Advanced.ProcessTasks();
-            }
-            catch (InvalidOperationException e) when (e.Message.Contains("already in use", StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (parked.IsCompleted)
-            {
-                await parked;
-                throw new XunitException("the parked wait returned without ever owning the engine");
-            }
-
-            if (elapsed.Elapsed > WedgeCeiling)
-            {
-                throw new XunitException($"the wait did not claim the engine within {WedgeCeiling}");
-            }
-
-            Thread.Sleep(TimeSpan.FromMilliseconds(20));
-        }
-    }
-
-    /// <summary>
     /// Waits until <paramref name="running"/> is provably parked inside <c>block()</c>. Ends on the signal, on
     /// that thread finishing without ever reaching <c>block()</c> — reporting whatever stopped it rather than a
     /// timeout — or on <see cref="WedgeCeiling"/>.
     /// </summary>
-    private static async Task WaitUntilOwned(ManualResetEventSlim entered, Task running)
+    private static void WaitUntilOwned(ManualResetEventSlim entered, Task running)
     {
         var elapsed = Stopwatch.StartNew();
         while (!entered.Wait(TimeSpan.FromMilliseconds(20)))
         {
             if (running.IsCompleted)
             {
-                await running;
-                throw new XunitException("the owning call returned without ever entering block()");
+                // Deliberately not `await running`: that throws whatever stopped the call and loses the
+                // sentence saying what was being waited for, which is what a reader needs first.
+                var failure = running.Exception?.GetBaseException();
+                throw new XunitException(
+                    "the owning call returned without ever entering block(): "
+                    + (failure is null ? "it returned normally" : $"it failed with {failure.GetType().Name}: {failure.Message}"),
+                    failure);
             }
 
             if (elapsed.Elapsed > WedgeCeiling)
