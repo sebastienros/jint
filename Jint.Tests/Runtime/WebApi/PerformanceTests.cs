@@ -227,17 +227,21 @@ public class PerformanceTests
         var (engine, _) = PerformanceEngine();
 
         // A WebIDL readonly attribute is an accessor with no setter — never a data property, so that a host
-        // cannot be fooled by a script assigning to it. It lives on Performance.prototype, as a browser's does.
+        // cannot be fooled by a script assigning to it. It lives on Performance.prototype, as a browser's
+        // does, and carries an attribute's property attributes: enumerable and configurable,
+        // https://webidl.spec.whatwg.org/#es-attributes. Node 24 reports the same triple.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin')").AsObject();
         descriptor.Get("get").IsCallable.Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
 
+        // And now() is a regular operation, https://webidl.spec.whatwg.org/#es-operations — enumerable too,
+        // which is again what Node 24 reports.
         var now = engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'now')").AsObject();
         now.Get("writable").AsBoolean().Should().BeTrue();
         now.Get("configurable").AsBoolean().Should().BeTrue();
-        now.Get("enumerable").AsBoolean().Should().BeFalse();
+        now.Get("enumerable").AsBoolean().Should().BeTrue();
 
         // The instance itself carries nothing of its own, which is the same answer a browser gives.
         engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(performance))").AsString().Should().Be("[]");
