@@ -15,6 +15,7 @@
 // Type.MakeGenericType + Activator.CreateInstance or MethodInfo.MakeGenericMethod. Reference-type
 // arguments share canonical code and work; value types need a specific instantiation the compiler
 // never saw. The sibling probe beside each gap pins that boundary rather than merely asserting it.
+// All five are https://github.com/sebastienros/jint/issues/3299.
 
 using Jint;
 using Jint.Native;

@@ -51,7 +51,10 @@ The first three already carry a `catch (MissingMethodException)` fallback writte
 scenario, and **it never engages**: Native AOT raises `NotSupportedException` from
 `Activator.CreateInstance`, not `MissingMethodException`, so the non-generic `ListWrapper` /
 `ObjectEnumerableSnapshotFactory` fallback beside it is dead code under AOT. Do not add another such
-fallback without checking which exception the runtime actually throws.
+fallback without checking which exception the runtime actually throws. All five rows, and what a fix
+would have to decide, are [issue #3299](https://github.com/sebastienros/jint/issues/3299); none is fixed
+yet, and **not one member is annotated `[RequiresDynamicCode]`**, so an embedder's first warning is the
+run-time throw.
 
 Two costs land in the *embedder's* project rather than in Jint's, both from
 `Engine.SetValue<T>`'s `[DynamicallyAccessedMembers]`, and both from ordinary one-line registrations. An
