@@ -622,12 +622,19 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
   unwrap or import, or a host thread is parked on `Engine.Advanced.WaitForScheduledWork` or its
   asynchronous form; Jint yields and transfers the reserved engine one callback turn at a time
   without admitting unrelated public callers.
-- How narrowly a window admits depends on whether an operation token is in force under it. A window
-  opened under one — a host call inside a running evaluation, an outstanding async engine API —
-  admits only callbacks issued under that same operation. A window opened where none is in force is
-  anonymous, and admits any callback this engine ever authorized, including one whose operation has
-  long since ended: that is the case at a top-level blocking drain and at a top-level park. A pump
-  reached from inside a running evaluation opens no window at all and refuses.
+- How narrowly a window admits is decided by whether an operation token is in force under it, never by
+  where the frame sits on the stack. A window opened under one — a host call that was handed a callback,
+  an outstanding async engine API — admits only callbacks issued under that same operation. A window
+  opened where none is in force is anonymous, and admits any callback this engine ever authorized,
+  including one whose operation ended long ago. A blocking drain therefore opens a window wherever it
+  runs, nested inside a running evaluation included, and it is anonymous exactly when the enclosing entry
+  has not yet handed a callback to a host call. That is deliberate rather than an oversight, and a pump is
+  deliberately not the same case: a pump executes no script, so a callback admitted there would be the only
+  script interleaved into somebody else's evaluation, whereas a drain runs queued jobs on every iteration
+  whether one is admitted or not. Note also that "top level" and "the frame that claimed the engine" are
+  different questions here — `Engine.Modules.Import` claims the engine before its own drain begins, so a
+  blocking import on an otherwise idle engine is one of these windows on exactly these terms. A pump reached from inside a running evaluation opens
+  no window at all and refuses.
 - Background Task and module completions only enqueue work; an owning host turn drains it.
 
 **Missing or residual mitigation.**
@@ -650,6 +657,11 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
 - `WaitForScheduledWork`'s timeout bounds the idle wait, not the call. An admitted callback holds
   the engine and the park cannot return until it finishes, so a host budgeting a frame can be handed
   control back arbitrarily later by a callback of its own making.
+- Script can reach a blocking drain on its own — a module's top-level `await using` whose disposal is
+  asynchronous — so which frames open an admission window is not entirely the host's choice. What a window
+  admits is unchanged by that: only a callback this engine authorized, dispatched from another thread by
+  something outside the engine. Script gains no new capability, only influence over the moment an
+  already-dispatched callback takes its turn.
 - A host can still share projected CLR objects across otherwise separate engines.
 
 **Required host action.** Give an engine exclusive ownership for each complete operation and

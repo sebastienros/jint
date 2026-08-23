@@ -371,7 +371,7 @@ public partial class Engine
                     // taking one of its own — the shape DrainEventLoopUntil's per-iteration suspension has. A
                     // callback admitted here holds the engine until it finishes, and the resume below waits
                     // for it, which is why the ceiling bounds this wait and not the call around it.
-                    using (SuspendHostCallForCallbacks(hasTransferredCallback: isTopLevelPark))
+                    using (SuspendHostCallForCallbacks(yieldForCallbacks: isTopLevelPark))
                     {
                         _eventLoop.WaitForWork(completedEvent: null, interval, waitToken);
                     }
