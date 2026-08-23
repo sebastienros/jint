@@ -76,22 +76,25 @@ public class PrototypeMethodCacheTests
         };
 
         // Not exotic at all: the override is a sealed `=> base.Get(...)` whose only purpose is to stop a host
-        // subclass from going exotic underneath the lanes that resolve an indexed read without calling Get. The
-        // constructor therefore declares PropertyAccessSemantics.Ordinary, which is what CanCacheAgainstVersions
-        // keys the receiver-side exemption on: ReadFromNonPlainReceiver is the only lane that reaches the cache
-        // with such a receiver, and it re-establishes the own miss — here through the class's
-        // TryGetOwnPropertyValue, which consults the live collection — before every consult. So an element
-        // appearing at an index-like name cannot be shadowed by a stale entry, even though the host's
-        // own-property set lives outside the engine and moves no version.
+        // subclass from going exotic underneath the guarantees the base class makes for it — for
+        // ArrayLikeObject, the lanes that resolve an indexed read without calling Get at all; for
+        // NamedPropertyObject, the coherence matrix it derives and seals. The constructor therefore declares
+        // PropertyAccessSemantics.Ordinary, which is what CanCacheAgainstVersions keys the receiver-side
+        // exemption on: ReadFromNonPlainReceiver is the only lane that reaches the cache with such a receiver,
+        // and it re-establishes the own miss — here through the class's TryGetOwnPropertyValue, which consults
+        // the live host state — before every consult. So a member appearing behind the engine's back cannot be
+        // shadowed by a stale entry, even though the host's own-property set lives outside the engine and moves
+        // no version.
         //
-        // Receiver only. On the *holder* side VersionWitnessesOwnProperty refuses it, and must keep refusing it:
-        // the BuiltinShapeMode carve-out there is sound precisely because such an object keeps its whole
-        // own-property set in engine storage and versions it, which is the one thing a live host collection does
-        // not do. ArrayLikeObject cannot enter that mode (InitializeBuiltinShape is private protected), so the
+        // Receiver only. On the *holder* side VersionWitnessesOwnProperty refuses both, and must keep refusing
+        // them: the BuiltinShapeMode carve-out there is sound precisely because such an object keeps its whole
+        // own-property set in engine storage and versions it, which is the one thing a live host projection
+        // does not do. Neither class can enter that mode (InitializeBuiltinShape is private protected), so the
         // refusal stands by construction — pinned in ArrayLikeObjectLaneTests.
         var ordinaryByConstruction = new[]
         {
             "Jint.Native.Object.ArrayLikeObject",
+            "Jint.Native.Object.NamedPropertyObject",
         };
 
         var expected = exoticGet
