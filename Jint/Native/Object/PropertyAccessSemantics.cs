@@ -1,4 +1,4 @@
-namespace Jint.Native.Object;
+﻿namespace Jint.Native.Object;
 
 /// <summary>
 /// How an <see cref="ObjectInstance"/> subclass resolves property reads.
@@ -31,8 +31,9 @@ public enum PropertyAccessSemantics
     /// <para>
     /// Declaring it explicitly is only needed for a type that overrides <c>Get</c> and is nevertheless ordinary
     /// — an override that adds tracing, or one that special-cases a name and delegates everything else to
-    /// <c>base.Get</c> while still agreeing with its own <c>GetOwnProperty</c>. Debug builds of Jint verify the
-    /// claim on every read, so running an integration suite against a Debug build acts as a checker.
+    /// <c>base.Get</c> while still agreeing with its own <c>GetOwnProperty</c>. A build with host-contract
+    /// verification on verifies the claim on every read, so running an integration suite that way acts as a
+    /// checker.
     /// </para>
     /// </summary>
     Ordinary = 0,

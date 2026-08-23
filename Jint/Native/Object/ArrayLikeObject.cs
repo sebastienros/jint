@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Array;
 using Jint.Native.Symbol;
@@ -71,7 +71,16 @@ namespace Jint.Native.Object;
 /// <see cref="ObjectInstance"/>. Live named getters are still available by overriding
 /// <see cref="ObjectInstance.GetOwnProperty"/> (and <see cref="GetOwnPropertyKeys"/> /
 /// <see cref="GetOwnProperties"/> to advertise them): such an override <b>must</b> delegate canonical array-index
-/// keys and <c>length</c> to <c>base</c>, which a Debug build of Jint verifies on every read.
+/// keys and <c>length</c> to <c>base</c>, which a build with host-contract verification on verifies on
+/// every read.
+/// </para>
+/// <para>
+/// <b>Turning that verification on.</b> Every obligation below is trusted on the hot path and checked only
+/// when host-contract verification is enabled. A Debug build of Jint has it on; the shipped <em>Release</em>
+/// package — which is the only one on NuGet — needs the AppContext switch set before the first use of any
+/// Jint type: <c>AppContext.SetSwitch("Jint.EnableHostContractVerification", true)</c>. Running a host's own
+/// integration suite that way is how these contracts get checked; it is not something to leave on in
+/// production, because each verifier redoes exactly the work the lane it guards exists to avoid.
 /// </para>
 /// <para>
 /// <b>Read-only by design.</b> There is no write hook in this version; every mutating <c>Array.prototype</c>
@@ -122,7 +131,8 @@ public abstract class ArrayLikeObject : ObjectInstance
     /// <para>
     /// <see langword="false"/> is <b>authoritative</b>: the engine trusts it, does not re-probe, and resolves the
     /// read on the prototype chain instead. It must agree with what <see cref="ObjectInstance.GetOwnProperty"/>
-    /// would report at the same instant — a Debug build of Jint verifies that on every read. Never hand back a
+    /// would report at the same instant — a build with host-contract verification on verifies that on every
+    /// read. Never hand back a
     /// CLR <see langword="null"/> value.
     /// </para>
     /// <para>
@@ -155,7 +165,8 @@ public abstract class ArrayLikeObject : ObjectInstance
     /// The engine trusts it and does not re-verify: a wrong <see langword="false"/> silently drops the element
     /// from every enumeration and existence check above while <c>list[index]</c> still reads it, and a wrong
     /// <see langword="true"/> advertises a key whose read yields <c>undefined</c> or resolves on the prototype.
-    /// A Debug build of Jint verifies both directions on every probe, so running a host suite against one is the
+    /// A build with host-contract verification on verifies both directions on every probe, so running a host
+    /// suite that way is the
     /// checker. Like <see cref="TryGetIndex"/> it must be O(1), allocation-free, free of observable side effects,
     /// and must answer <see langword="false"/> rather than throw for an index that has just gone out of range.
     /// </para>
@@ -166,7 +177,7 @@ public abstract class ArrayLikeObject : ObjectInstance
     /// The single funnel every engine-side index read goes through, so the host contract is enforced in one
     /// place: a <see langword="false"/> answer always leaves <paramref name="value"/> as <c>undefined</c> rather
     /// than whatever the host left in the <c>out</c> slot, and a <see langword="true"/> answer is checked for the
-    /// documented "never null" obligation in Debug.
+    /// documented "never null" obligation when host-contract verification is on.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool ReadIndex(uint index, out JsValue value)
