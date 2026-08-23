@@ -64,7 +64,8 @@ public sealed partial class Intrinsics
     private PerformanceEntryConstructor? _performanceEntry;
     private PerformanceMarkConstructor? _performanceMark;
     private PerformanceMeasureConstructor? _performanceMeasure;
-    private NavigatorInstance? _navigator;
+    private NavigatorConstructor? _navigator;
+    private JsNavigator? _navigatorObject;
 
     internal DomExceptionConstructor DomException =>
         _domException ??= new DomExceptionConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject);
@@ -292,8 +293,18 @@ public sealed partial class Intrinsics
     internal PerformanceMeasureConstructor PerformanceMeasure =>
         _performanceMeasure ??= new PerformanceMeasureConstructor(_engine, _realm, PerformanceEntry);
 
-    internal NavigatorInstance Navigator =>
-        _navigator ??= new NavigatorInstance(_engine, _realm, Object.PrototypeObject);
+    /// <summary>
+    /// The <c>Navigator</c> interface object. Reaching it builds <c>Navigator.prototype</c>, which is what the
+    /// <c>navigator</c> object inherits from and where its one member lives.
+    /// </summary>
+    internal NavigatorConstructor Navigator =>
+        _navigator ??= new NavigatorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
+    /// The <c>navigator</c> object — the realm's one instance, carrying no state and no own properties.
+    /// </summary>
+    internal JsNavigator NavigatorObject =>
+        _navigatorObject ??= JsNavigator.Create(_engine, _realm);
 
     private ReadableStreamConstructor? _readableStream;
     private ReadableStreamDefaultReaderConstructor? _readableStreamDefaultReader;
@@ -372,17 +383,25 @@ public sealed partial class Intrinsics
     internal ByteLengthQueuingStrategyConstructor ByteLengthQueuingStrategy =>
         _byteLengthQueuingStrategy ??= new ByteLengthQueuingStrategyConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-    private SchedulerInstance? _scheduler;
+    private SchedulerConstructor? _scheduler;
+    private JsScheduler? _schedulerObject;
     private TaskSignalConstructor? _taskSignal;
     private TaskControllerConstructor? _taskController;
     private TaskPriorityChangeEventConstructor? _taskPriorityChangeEvent;
 
     /// <summary>
+    /// The <c>Scheduler</c> interface object. Reaching it builds <c>Scheduler.prototype</c>, which is what the
+    /// <c>scheduler</c> object inherits from and where both of its operations live.
+    /// </summary>
+    internal SchedulerConstructor Scheduler =>
+        _scheduler ??= new SchedulerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>
     /// The <c>scheduler</c> object, which reaches the engine's prioritized task queues and the timer queue a
     /// delayed <c>postTask</c> waits on — both created by <c>WebApiRegistration</c> alongside the global.
     /// </summary>
-    internal SchedulerInstance Scheduler =>
-        _scheduler ??= SchedulerInstance.Create(_engine, _realm, Object.PrototypeObject);
+    internal JsScheduler SchedulerObject =>
+        _schedulerObject ??= JsScheduler.Create(_engine, _realm);
 
     /// <summary>
     /// <c>TaskSignal</c> inherits from <c>AbortSignal</c>, so reaching it builds <c>AbortSignal</c> — and

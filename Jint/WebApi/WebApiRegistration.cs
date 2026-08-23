@@ -290,8 +290,14 @@ internal static class WebApiRegistration
         {
             // WebIDL exposes navigator through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console and crypto are installed with, documented on
-            // NavigatorInstance.
-            Install(global, engine, "navigator", static e => e.Realm.Intrinsics.Navigator, PropertyFlag.ConfigurableEnumerableWritable);
+            // NavigatorPrototype.
+            Install(global, engine, "navigator", static e => e.Realm.Intrinsics.NavigatorObject, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // Its interface object, which `navigator instanceof Navigator` needs and which is where
+            // `userAgent` actually lives. HTML declares it [Exposed=Window] with no constructor operation, so
+            // it is a function that refuses to construct; NavigatorConstructor says why an engine whose global
+            // is not a Window carries the name anyway, and Node 24 — whose global is not one either — agrees.
+            Install(global, engine, "Navigator", static e => e.Realm.Intrinsics.Navigator, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Fetch) != WebApiFeatures.None)
@@ -341,8 +347,13 @@ internal static class WebApiRegistration
         {
             // WebIDL exposes scheduler through a [Replaceable] accessor pair; an ordinary enumerable data
             // property is the same simplification console, crypto and performance are installed with, and it
-            // is documented on SchedulerInstance.
-            Install(global, engine, "scheduler", static e => e.Realm.Intrinsics.Scheduler, PropertyFlag.ConfigurableEnumerableWritable);
+            // is documented on SchedulerPrototype.
+            Install(global, engine, "scheduler", static e => e.Realm.Intrinsics.SchedulerObject, PropertyFlag.ConfigurableEnumerableWritable);
+
+            // The interface object of that singleton, alongside the three this API already exposed. Not
+            // constructible: https://wicg.github.io/scheduling-apis/#sec-scheduler declares no constructor
+            // operation, unlike TaskController and TaskPriorityChangeEvent below.
+            Install(global, engine, "Scheduler", static e => e.Realm.Intrinsics.Scheduler, PropertyFlag.NonEnumerable);
 
             Install(global, engine, "TaskController", static e => e.Realm.Intrinsics.TaskController, PropertyFlag.NonEnumerable);
             Install(global, engine, "TaskSignal", static e => e.Realm.Intrinsics.TaskSignal, PropertyFlag.NonEnumerable);

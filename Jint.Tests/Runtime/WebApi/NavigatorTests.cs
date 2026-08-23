@@ -3,6 +3,8 @@
 
 using System.Text.RegularExpressions;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -41,21 +43,33 @@ public class NavigatorTests
         engine.Evaluate("navigator[Symbol.toStringTag]").AsString().Should().Be("Navigator");
     }
 
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-attributes — a <c>readonly attribute</c> is an accessor with no
+    /// setter, on the interface prototype object, carrying
+    /// <c>{ [[Enumerable]]: true, [[Configurable]]: true }</c>. Node 24 answers exactly that for
+    /// <c>Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')</c>.
+    /// </summary>
     [Fact]
-    public void ExposesUserAgentAsAReadOnlyAccessor()
+    public void ExposesUserAgentAsAReadOnlyAccessorOnTheInterfacePrototypeObject()
     {
         var engine = NavigatorEngine();
 
         // A WebIDL readonly attribute is an accessor with no setter, so a script cannot assign a different
         // user agent and fool the next reader.
-        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(navigator, 'userAgent')").AsObject();
+        var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')").AsObject();
         descriptor.Get("get").IsCallable.Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
-        descriptor.Get("enumerable").AsBoolean().Should().BeFalse();
+        descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
 
-        // Same observable answer a browser gives, where the attribute lives on Navigator.prototype.
+        // The instance carries nothing of its own, which is why the enumerability above is invisible from it
+        // — the answer Node 24 gives to both questions.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(navigator, 'userAgent')").AsBoolean().Should().BeFalse();
         engine.Evaluate("JSON.stringify(Object.keys(navigator))").AsString().Should().Be("[]");
+        engine.Evaluate("Reflect.ownKeys(navigator).length").AsNumber().Should().Be(0);
+
+        // And it is enumerable where a browser has it.
+        engine.Evaluate("Object.keys(Navigator.prototype).indexOf('userAgent') >= 0").AsBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -64,10 +78,10 @@ public class NavigatorTests
         var engine = NavigatorEngine();
 
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(navigator, 'userAgent').get.call({})"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})"))
             .Message.Should().Contain("Navigator");
 
-        engine.Evaluate("Object.getOwnPropertyDescriptor(navigator, 'userAgent').get.call(navigator)")
+        engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call(navigator)")
             .AsString().Should().StartWith("Jint/");
     }
 
@@ -83,9 +97,86 @@ public class NavigatorTests
             engine.Evaluate($"typeof navigator.{member}").AsString().Should().Be("undefined");
         }
 
-        // There is no Navigator interface object either, which is the same simplification console, crypto and
-        // performance carry.
-        engine.Evaluate("typeof Navigator").AsString().Should().Be("undefined");
+        // The interface prototype object carries nothing of theirs either — the absence is the interface's,
+        // not merely the instance's.
+        foreach (var member in new[] { "language", "languages", "onLine", "platform", "hardwareConcurrency" })
+        {
+            engine.Evaluate($"Object.prototype.hasOwnProperty.call(Navigator.prototype, '{member}')")
+                .AsBoolean().Should().BeFalse(member);
+        }
+    }
+
+    /// <summary>
+    /// The interface object and the interface prototype object, which <c>navigator</c> had neither of. Node 24
+    /// is the oracle for every line: <c>typeof Navigator</c> is <c>"function"</c>, the instance's
+    /// <c>[[Prototype]]</c> is <c>Navigator.prototype</c>, that object's is <c>%Object.prototype%</c>, and
+    /// <c>Reflect.ownKeys(navigator)</c> is the empty array.
+    /// </summary>
+    [Fact]
+    public void HasARealInterfaceObjectAndInterfacePrototypeObject()
+    {
+        var engine = NavigatorEngine();
+
+        engine.Evaluate("typeof Navigator").AsString().Should().Be("function");
+        engine.Evaluate("Navigator.name").AsString().Should().Be("Navigator");
+        engine.Evaluate("Navigator.length").AsNumber().Should().Be(0);
+
+        engine.Evaluate("navigator instanceof Navigator").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(navigator) === Navigator.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(Navigator.prototype) === Object.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Navigator.prototype.constructor === Navigator").AsBoolean().Should().BeTrue();
+
+        // instanceof is answered by the chain, never by a shim.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Navigator, Symbol.hasInstance)").AsBoolean().Should().BeFalse();
+
+        // https://html.spec.whatwg.org/multipage/system-state.html#the-navigator-object declares no
+        // constructor operation, so the interface object is a function that refuses to construct —
+        // https://webidl.spec.whatwg.org/#es-interface-call. Node 24 answers 'TypeError: Illegal constructor'.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Navigator()"))
+            .Message.Should().Be("Illegal constructor");
+    }
+
+    /// <summary>
+    /// The containment half of https://github.com/sebastienros/jint/issues/3257, which #3266 closed for
+    /// <c>console</c> and left open here: a singleton sitting directly on <c>%Object.prototype%</c> makes
+    /// <c>navigator.__proto__.foo = …</c> a realm-wide poisoning. An interface prototype object is the
+    /// landing pad that contains it.
+    /// </summary>
+    [Fact]
+    public void PatchingNavigatorsPrototypeDoesNotReachObjectPrototype()
+    {
+        var engine = NavigatorEngine();
+
+        engine.Execute("navigator.__proto__.decorated = 42;");
+
+        // It still works on navigator, which is what a patching library is after.
+        engine.Evaluate("navigator.decorated").AsNumber().Should().Be(42);
+
+        // And it reaches nothing else.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'decorated' in {}").AsBoolean().Should().BeFalse();
+        engine.Evaluate("({}).decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("[].decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("(function () {}).decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("'s'.decorated").IsUndefined().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The interface prototype object is per realm, so one engine's patch is not another's.
+    /// </summary>
+    [Fact]
+    public void GivesEachEngineItsOwnNavigatorPrototype()
+    {
+        var options = new Options().UseWebApis();
+
+        var first = new Engine(options);
+        var second = new Engine(options);
+
+        first.Execute("navigator.__proto__.decorated = 42;");
+
+        first.Evaluate("navigator.decorated").AsNumber().Should().Be(42);
+        second.Evaluate("navigator.decorated").IsUndefined().Should().BeTrue();
+        second.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -97,6 +188,13 @@ public class NavigatorTests
         descriptor.Writable.Should().BeTrue();
         descriptor.Enumerable.Should().BeTrue();
         descriptor.Configurable.Should().BeTrue();
+
+        // And still unmaterialized: an engine that never mentions `navigator` has built neither the object
+        // nor the interface behind it. The interface object's own half is pinned by
+        // InterfaceObjectExposureTests.CostsNothingUntilItIsRead.
+        descriptor.Should().BeOfType<LazyPropertyDescriptor<Engine>>();
+        (descriptor._flags & PropertyFlag.CustomJsValue).Should().NotBe(PropertyFlag.None);
+        descriptor._value.Should().BeNull();
     }
 
     [Fact]

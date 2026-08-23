@@ -755,7 +755,9 @@ public enum WebApiFeatures
     /// The <c>navigator</c> object, whose single member is <c>userAgent</c> — the one thing WinterTC's
     /// Minimum Common API (https://min-common-api.proposal.wintertc.org/) requires of it and the one a script
     /// identifies a runtime by. Everything else a browser's <c>Navigator</c> carries describes a user agent
-    /// with a user, a document and a network stack, so it is absent rather than faked.
+    /// with a user, a document and a network stack, so it is absent rather than faked. The <c>Navigator</c>
+    /// interface object comes with it — <c>userAgent</c> is its prototype's, which is where a browser and
+    /// Node keep it, so <c>Reflect.ownKeys(navigator)</c> is the empty array.
     /// </summary>
     Navigator = 1 << 11,
 
@@ -771,10 +773,12 @@ public enum WebApiFeatures
     Streams = 1 << 12,
 
     /// <summary>
-    /// The <c>scheduler</c> object — <c>postTask()</c> and <c>yield()</c> — with <c>TaskController</c>,
-    /// <c>TaskSignal</c> and <c>TaskPriorityChangeEvent</c>: prioritized tasks, from
-    /// https://wicg.github.io/scheduling-apis/. Tasks run only while the engine is being pumped, exactly as
-    /// the timers do, and a <c>delay</c> rides the same timer queue.
+    /// The <c>scheduler</c> object — <c>postTask()</c> and <c>yield()</c> — with the <c>Scheduler</c>,
+    /// <c>TaskController</c>, <c>TaskSignal</c> and <c>TaskPriorityChangeEvent</c> interface objects:
+    /// prioritized tasks, from https://wicg.github.io/scheduling-apis/. The two operations are
+    /// <c>Scheduler.prototype</c>'s, which is where the draft puts them, so
+    /// <c>Reflect.ownKeys(scheduler)</c> is the empty array. Tasks run only while the engine is being pumped,
+    /// exactly as the timers do, and a <c>delay</c> rides the same timer queue.
     /// </summary>
     Scheduler = 1 << 13,
 

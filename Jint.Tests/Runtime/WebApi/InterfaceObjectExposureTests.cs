@@ -8,9 +8,9 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// The §5.1 interface objects that used not to be globals: the eight Streams interfaces a script never
-/// constructs by name, and the three — <c>Crypto</c>, <c>SubtleCrypto</c> and <c>Performance</c> — that had no
-/// interface object at all.
+/// The interface objects that used not to be globals: the eight Streams interfaces a script never constructs
+/// by name, and the five singletons — <c>Crypto</c>, <c>SubtleCrypto</c>, <c>Performance</c>,
+/// <c>Navigator</c> and <c>Scheduler</c> — that had no interface object at all.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,6 +28,13 @@ namespace Jint.Tests.Runtime.WebApi;
 public class InterfaceObjectExposureTests
 {
     /// <summary>Every interface object this exposure decision added, with the flag that provides it.</summary>
+    /// <remarks>
+    /// <c>Navigator</c> and <c>Scheduler</c> arrived last, in
+    /// https://github.com/sebastienros/jint/issues/3270, and for the reason the other three did:
+    /// their singleton's members had nowhere but the singleton to live, which cost them WebIDL's property
+    /// attributes and left <c>navigator.__proto__</c> pointing at <c>%Object.prototype%</c>. Both interfaces
+    /// are exposed in a browser and neither is constructible.
+    /// </remarks>
     public static TheoryData<string, WebApiFeatures> Exposed => new()
     {
         { "ReadableStreamDefaultReader", WebApiFeatures.Streams },
@@ -41,6 +48,8 @@ public class InterfaceObjectExposureTests
         { "Crypto", WebApiFeatures.Crypto },
         { "SubtleCrypto", WebApiFeatures.Crypto },
         { "Performance", WebApiFeatures.Performance },
+        { "Navigator", WebApiFeatures.Navigator },
+        { "Scheduler", WebApiFeatures.Scheduler },
     };
 
     [Theory]
@@ -169,6 +178,8 @@ public class InterfaceObjectExposureTests
     [InlineData("Crypto")]
     [InlineData("SubtleCrypto")]
     [InlineData("Performance")]
+    [InlineData("Navigator")]
+    [InlineData("Scheduler")]
     public void ANonConstructibleInterfaceObjectRefusesNew(string name)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -177,15 +188,18 @@ public class InterfaceObjectExposureTests
     }
 
     /// <summary>
-    /// The three interfaces WinterTC §5.1 lists that had no interface object at all. They are real now: the
-    /// members live on the interface prototype object, the instance inherits from it, and the brand check is
-    /// what it always was.
+    /// The five interfaces whose singleton had no interface object at all. They are real now: the members
+    /// live on the interface prototype object, the instance inherits from it, and the brand check is what it
+    /// always was. The last argument is what <c>typeof instance.member</c> answers, which separates an
+    /// operation from an attribute without needing two tests.
     /// </summary>
     [Theory]
-    [InlineData("crypto", "Crypto", "randomUUID")]
-    [InlineData("crypto.subtle", "SubtleCrypto", "digest")]
-    [InlineData("performance", "Performance", "now")]
-    public void TheThreeSingletonsAreRealInstancesOfTheirInterface(string instance, string name, string member)
+    [InlineData("crypto", "Crypto", "randomUUID", "function")]
+    [InlineData("crypto.subtle", "SubtleCrypto", "digest", "function")]
+    [InlineData("performance", "Performance", "now", "function")]
+    [InlineData("navigator", "Navigator", "userAgent", "string")]
+    [InlineData("scheduler", "Scheduler", "postTask", "function")]
+    public void TheSingletonsAreRealInstancesOfTheirInterface(string instance, string name, string member, string memberType)
     {
         var engine = new Engine(options => options.UseWebApis());
 
@@ -194,28 +208,47 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("Object.getPrototypeOf(" + name + ".prototype) === Object.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate(name + ".prototype.constructor === " + name).AsBoolean().Should().BeTrue();
         engine.Evaluate(name + ".name").AsString().Should().Be(name);
+        engine.Evaluate(name + ".length").AsNumber().Should().Be(0);
+
+        // instanceof comes from the chain, not from a Symbol.hasInstance shim.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(" + name + ", Symbol.hasInstance)").AsBoolean().Should().BeFalse();
 
         // The members are the prototype's, which is what WebIDL says and what a browser shows.
         engine.Evaluate("Object.prototype.hasOwnProperty.call(" + name + ".prototype, '" + member + "')").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.prototype.hasOwnProperty.call(" + instance + ", '" + member + "')").AsBoolean().Should().BeFalse();
-        engine.Evaluate("typeof " + instance + "." + member).AsString().Should().Be("function");
+        engine.Evaluate("typeof " + instance + "." + member).AsString().Should().Be(memberType);
+
+        // And enumerable where they live, which is the WebIDL rule the instance's empty key list hides.
+        engine.Evaluate("Object.keys(" + name + ".prototype).indexOf('" + member + "') >= 0").AsBoolean().Should().BeTrue();
 
         // @@toStringTag rides the prototype too.
         engine.Evaluate("Object.prototype.toString.call(" + instance + ")").AsString().Should().Be("[object " + name + "]");
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(" + instance + ", Symbol.toStringTag)").AsBoolean().Should().BeFalse();
 
-        // The object is still its own singleton and enumerates as empty, exactly as in a browser.
+        // The object is still its own singleton and has no own properties at all, exactly as in a browser.
         engine.Evaluate("Object.keys(" + instance + ").length").AsNumber().Should().Be(0);
+        engine.Evaluate("Reflect.ownKeys(" + instance + ").length").AsNumber().Should().Be(0);
+
+        // The prototype is the landing pad that keeps a __proto__ patch out of %Object.prototype%.
+        engine.Evaluate("Object.getPrototypeOf(" + instance + ") !== Object.prototype").AsBoolean().Should().BeTrue();
     }
 
     /// <summary>
-    /// The brand check every member of those three performs: an extracted member called on something else
+    /// The brand check every member of those five performs: an extracted member called on something else
     /// raises a <c>TypeError</c>, which is what stops the prototype being usable on an ordinary object.
     /// </summary>
+    /// <remarks>
+    /// <c>Scheduler</c>'s two are absent here on purpose: they return promises, so WebIDL turns the very same
+    /// <c>TypeError</c> into a rejection of the returned promise rather than a throw
+    /// (https://webidl.spec.whatwg.org/#dfn-create-operation-function). <c>SchedulerTests</c>'
+    /// <c>NeitherOperationEverThrows</c> is where that half is asserted.
+    /// </remarks>
     [Theory]
     [InlineData("Crypto.prototype.randomUUID.call({})")]
     [InlineData("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle').get.call({})")]
     [InlineData("Performance.prototype.now.call({})")]
     [InlineData("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})")]
+    [InlineData("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})")]
     public void APrototypeMemberBrandChecksItsReceiver(string expression)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -269,6 +302,8 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("new ReadableStream().getReader() instanceof ReadableStreamDefaultReader").AsBoolean().Should().BeTrue();
         engine.Evaluate("crypto instanceof Crypto").AsBoolean().Should().BeTrue();
         engine.Evaluate("performance instanceof Performance").AsBoolean().Should().BeTrue();
+        engine.Evaluate("navigator instanceof Navigator").AsBoolean().Should().BeTrue();
+        engine.Evaluate("scheduler instanceof Scheduler").AsBoolean().Should().BeTrue();
     }
 
     /// <summary>
@@ -283,11 +318,15 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("typeof ReadableStreamDefaultReader").AsString().Should().Be("undefined");
         engine.Evaluate("typeof Crypto").AsString().Should().Be("undefined");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Streams | WebApiFeatures.Crypto | WebApiFeatures.Performance);
+        engine.Advanced.EnableWebApis(
+            WebApiFeatures.Streams | WebApiFeatures.Crypto | WebApiFeatures.Performance
+            | WebApiFeatures.Navigator | WebApiFeatures.Scheduler);
 
         engine.Evaluate("new ReadableStream().getReader() instanceof ReadableStreamDefaultReader").AsBoolean().Should().BeTrue();
         engine.Evaluate("crypto instanceof Crypto").AsBoolean().Should().BeTrue();
         engine.Evaluate("performance instanceof Performance").AsBoolean().Should().BeTrue();
+        engine.Evaluate("navigator instanceof Navigator").AsBoolean().Should().BeTrue();
+        engine.Evaluate("scheduler instanceof Scheduler").AsBoolean().Should().BeTrue();
     }
 
     /// <summary>The constructor name of whatever <paramref name="expression"/> throws, or "no throw".</summary>
