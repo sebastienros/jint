@@ -54,7 +54,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.Advanced.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
-| The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties) | [#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM) |
+| The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
 
 ### 2.1 Sealed types
 
@@ -194,7 +194,7 @@ engine.Execute(code, parsingOptions: parsingOptions);
 `Engine.PrepareScript` and pass the result to the `Prepared<Script>` overload, which is also the cheaper
 thing to do when the same source runs more than once. `ExecuteAsync(in Prepared<Script>, CancellationToken)`
 is new in v5 — `EvaluateAsync` already had it.
-### 3.3 `Options` is configured through its properties ([#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM))
+### 3.3 `Options` is configured through its properties ([#3310](https://github.com/sebastienros/jint/pull/3310))
 
 `Options` and its groups carry every setting as a property. Through 4.16.x about twenty extension methods
 mirrored one of those properties one for one, so most settings had two spellings and the class that held
@@ -251,7 +251,7 @@ Every deleted method and the property that replaces it:
 Note that a property assignment is an expression, so a one-setting configuration callback still fits on one
 line (`new Engine(o => o.Strict = true)`); a chain of two or more becomes a statement block.
 
-### 3.4 The surviving extension methods have one verb per intent ([#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM))
+### 3.4 The surviving extension methods have one verb per intent ([#3310](https://github.com/sebastienros/jint/pull/3310))
 
 What is left on `Options` is only what an assignment cannot do — install a subsystem, append to a registry,
 register a factory, set two coupled values at once, apply a profile — and the verb now says which:
@@ -302,7 +302,7 @@ var options = new Options()
 `LimitStatements` additionally lost its parameter default. `MaxStatements()` written with no argument passed
 `0`, which the helper reads as *no limit* — the opposite of what it looked like. Say the number.
 
-### 3.5 A reference resolver and its interests are one registration ([#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM))
+### 3.5 A reference resolver and its interests are one registration ([#3310](https://github.com/sebastienros/jint/pull/3310))
 
 `Options.ReferenceResolver` and `Options.ReferenceResolverInterests` are read-only now, and
 `SetReferencesResolver` is `SetReferenceResolver` with the interests defaulted. The two values were always
@@ -322,7 +322,7 @@ options.SetReferenceResolver(new MyResolver(), ReferenceResolverInterests.Nullis
 options.SetReferenceResolver(new MyResolver());
 ```
 
-### 3.6 `Options.Json` is read-only, like every other group ([#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM))
+### 3.6 `Options.Json` is read-only, like every other group ([#3310](https://github.com/sebastienros/jint/pull/3310))
 
 Every option group — including `Options.Json`, which was the only one with a public setter — is now a
 read-only property materialized on first access. A host that replaced the whole group assigns into it
@@ -550,7 +550,7 @@ new Uint8Array(4).set([1], 1e20)
 // 5.x:            RangeError on every target framework
 ```
 
-### 4.12 A limit that cannot be reached is not a limit ([#PRNUM](https://github.com/sebastienros/jint/pull/PRNUM))
+### 4.12 A limit that cannot be reached is not a limit ([#3310](https://github.com/sebastienros/jint/pull/3310))
 
 One rule now governs every built-in bound, where 4.16 had two that disagreed. A *constraint* that could
 never fail is not registered — which is what `LimitStatements`, `LimitMemory` and `LimitExecutionTime`
