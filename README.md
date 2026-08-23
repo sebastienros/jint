@@ -3633,6 +3633,20 @@ timeout and block that thread indefinitely.
 
 ## Branches and releases
 
-- The recommended branch is __main__, any PR should target this branch
-- The __main__ branch is automatically built and published on [MyGet](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
-- The __main__ branch is occasionally published on [NuGet](https://www.nuget.org/packages/jint)
+Three branches are live, and which one a change belongs on depends on whether it is allowed to change
+observable behaviour.
+
+| Branch | What it is | What lands on it |
+| --- | --- | --- |
+| __main__ | Development of the next major version, __5.x__. The default target for a pull request. | Anything, including breaking changes to the public API and to default behaviour. |
+| __4.x__ | Maintenance of the __4.16.x__ line, branched from `main` at the last commit before the 5.x work began. | Correctness and conformance fixes backported from `main`, and nothing that changes an existing API or an existing default. |
+| __3.x__ | Maintenance of the __3.x__ line, which still parses with Esprima rather than Acornima. | Security and severe-correctness fixes only. |
+
+- Open a pull request against __main__ unless the change is a backport, in which case target the
+  maintenance branch it belongs to
+- __main__, __4.x__ and __3.x__ are automatically built and published on [MyGet](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
+- A release to [NuGet](https://www.nuget.org/packages/jint) is cut by pushing a `vX.Y.Z` tag to the
+  branch being released; the tag, not `Directory.Build.props`, is the version the package carries
+
+Upgrading from 4.16.x to 5.x: [docs/v5-migration.md](docs/v5-migration.md) records every change an
+embedder has to react to, including the ones that break without a signature change.

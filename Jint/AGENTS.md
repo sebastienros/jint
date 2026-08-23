@@ -46,6 +46,10 @@ Jint is AOT-compatible for .NET 7.0+ targets (`IsAotCompatible` is set for net7.
 
 ### What counts as a public contract
 
+**A change to any of it is a row in [`docs/v5-migration.md`](../docs/v5-migration.md), written in the same pull request.**
+That includes a change that breaks nothing at compile time — a flipped default, a narrowed lane, a message that stops
+being detailed. A compiler cannot find those, so the guide is the only place an embedder can.
+
 | Surface | Location |
 | --- | --- |
 | `ObjectInstance` overridable virtuals — `GetOwnProperty`, `HasProperty`, `Delete`, `DefineOwnProperty`, `GetOwnPropertyKeys`, `GetOwnProperties`, `RemoveOwnProperty`, `PreventExtensions`, `TryGetProperty`, `Initialize`, plus the `protected internal` `TryGetOwnPropertyValue`, `ProbeOwnProperty`, `SetOwnProperty`, `GetPrototypeOf` | `Jint/Native/Object/ObjectInstance.cs` |
