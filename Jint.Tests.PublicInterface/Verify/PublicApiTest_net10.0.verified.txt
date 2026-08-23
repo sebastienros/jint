@@ -1483,6 +1483,24 @@ namespace Jint.Native.Object
         public abstract bool TryGetIndex(uint index, out Jint.Native.JsValue value);
         protected override sealed bool TryGetOwnPropertyValue(Jint.Native.JsValue property, Jint.Native.JsValue receiver, out Jint.Native.JsValue value) { }
     }
+    public abstract class NamedPropertyObject : Jint.Native.Object.ObjectInstance
+    {
+        protected NamedPropertyObject(Jint.Engine engine) { }
+        public abstract int NameCount { get; }
+        public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override sealed bool Delete(Jint.Native.JsValue property) { }
+        public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override sealed System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override sealed Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override sealed System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        protected virtual bool HasName(string name) { }
+        public override sealed bool HasProperty(Jint.Native.JsValue property) { }
+        protected virtual bool IsNameEnumerable(string name) { }
+        public abstract string NameAt(int index);
+        protected override sealed Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public abstract bool TryGetNamedValue(string name, out Jint.Native.JsValue value);
+        protected override sealed bool TryGetOwnPropertyValue(Jint.Native.JsValue property, Jint.Native.JsValue receiver, out Jint.Native.JsValue value) { }
+    }
     public sealed class ObjectConstructor : Jint.Native.Constructor
     {
         public Jint.Native.Object.ObjectPrototype PrototypeObject { get; }

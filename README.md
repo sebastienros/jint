@@ -2131,6 +2131,22 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   projecting elements they only ever discard. Reach for it when the collection is live; when it is a snapshot,
   copying into a `JsArray` once is cheaper still — and give it a `JsObjectShape` prototype, per the bullet
   above, for the collection's own methods.
+- For a **named record** — a settings bag, a row, a live view over a host struct, anything whose properties
+  have names rather than indices — derive from `NamedPropertyObject`, the string-keyed sibling of
+  `ArrayLikeObject`. You implement three members, `int NameCount`, `string NameAt(int index)` and
+  `bool TryGetNamedValue(string name, out JsValue value)`; the base class derives and seals everything else,
+  so the five hooks this shape used to need kept mutually consistent cannot disagree — including
+  `GetOwnProperties`, which nothing script-visible enumerates through and which is the one embedders reach for
+  by mistake, shipping an object invisible to `Object.keys`, `for..in`, spread, `Object.assign` and
+  `JSON.stringify`. Because the base overrides `TryGetOwnPropertyValue` for you, reads cost **no descriptor
+  and no probe** without your having to know that lane exists. Two optional hooks refine it:
+  `protected virtual bool HasName(string name)` answers `in` / `hasOwnProperty` / `Object.keys` without
+  projecting a value to discard, and `protected virtual bool IsNameEnumerable(string name)` hides a name from
+  enumeration. A projected name is read-only —
+  `{ writable: false, enumerable: IsNameEnumerable(name), configurable: true }`, with `delete` and
+  `Object.defineProperty` against it refused — while symbols and names your projection does not carry stay
+  completely ordinary, so `Symbol.toStringTag`, `Symbol.iterator` and expandos all work. Give it a
+  `JsObjectShape` prototype, per the bullet above, for the record's own methods.
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
@@ -2144,7 +2160,8 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   AppContext.SetSwitch("Jint.EnableHostContractVerification", true);
   ```
 
-  It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, and an
+  It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, a
+  `NamedPropertyObject`'s `HasName` and `NameAt`, and an
   `IObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
   declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
   hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
