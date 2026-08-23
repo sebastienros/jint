@@ -774,9 +774,11 @@ public static class OptionsExtensions
     /// The property is installed eagerly, so existence checks and enumeration — <c>in</c>,
     /// <c>hasOwnProperty</c>, <c>Object.keys(globalThis)</c>, <c>Object.getOwnPropertyNames</c> — see it
     /// from the start without materializing anything. Only its value is left unresolved:
-    /// <paramref name="valueFactory"/> runs at most once per engine, on the first read of that value, and
-    /// the produced value is stored in the descriptor so subsequent reads are ordinary property reads.
-    /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type.
+    /// <paramref name="valueFactory"/> runs on the first read of that value, and the produced value is
+    /// stored in the descriptor so subsequent reads are ordinary property reads.
+    /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type. Once per engine,
+    /// then — with the single exception of a global snapshot restore, which re-arms an unread global
+    /// deliberately; see below.
     /// </para>
     /// <para>
     /// A script that <b>deletes</b> the global before ever reading it (<c>delete globalThis.name</c>,
@@ -812,8 +814,19 @@ public static class OptionsExtensions
     /// been read, <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> returns it to that
     /// unmaterialized state, and <paramref name="valueFactory"/> <b>runs again</b> on the next read. It is
     /// not merely permitted to — a host pooling engines across requests depends on it, since the value the
-    /// factory produced belongs to the request that read it. Capture before the first evaluation and the
-    /// globals of every later one are rebuilt rather than inherited.
+    /// factory produced belongs to the request that read it. Capture before the first evaluation and every
+    /// later one starts from an unresolved global rather than an inherited value.
+    /// <para>
+    /// <b>What the second run produces is the factory's business, not the restore's.</b> The restore reverts
+    /// the descriptor; it has no idea what <paramref name="valueFactory"/> reads from and cannot revert
+    /// that. A factory that constructs — <c>e =&gt; new JsObject(e)</c>, or one projecting the current
+    /// request's data — gives the next cycle a genuinely fresh value. A factory that hands back something it
+    /// is holding — a cached wrapper, a static, a captured local it assigns on first use — gives the next
+    /// cycle exactly what the previous one mutated, and re-running it changes nothing. Jint's own globals
+    /// are the second kind (their factories read memoized realm intrinsics), which is why
+    /// <c>globalThis.Math</c> and <c>globalThis.console</c> keep whatever was written on them across a
+    /// restore. A host that wants freshness has to put it in the factory.
+    /// </para>
     /// <para>
     /// The failure this rules out is silent, which is why it is stated rather than left to the
     /// implementation: were the descriptor reinstated with its materialized value intact, a reused engine

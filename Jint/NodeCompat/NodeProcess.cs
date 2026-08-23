@@ -52,9 +52,20 @@ internal static class NodeProcess
     /// <c>GlobalObject.SetProperty</c>, which is what <c>Options.AddLazyGlobal</c> does and for its two
     /// reasons: <c>SetProperty</c> bumps the own-property version that every global-identifier and
     /// member-read inline cache revalidates against, and an unmaterialized lazy descriptor is a state
-    /// <c>Engine.Advanced.RestoreGlobalSnapshot</c> can return to, so a pooled engine rebuilds <c>process</c>
-    /// for the next cycle instead of inheriting the previous one's — including whatever that cycle's script
-    /// wrote into <c>process.env</c>.
+    /// <c>Engine.Advanced.RestoreGlobalSnapshot</c> can return to.
+    /// </para>
+    /// <para>
+    /// Returning to that state is what actually rebuilds <c>process</c> for the next cycle — including
+    /// whatever the previous cycle's script wrote into <c>process.env</c> — and the reason it works here is
+    /// <see cref="Create"/>: the factory <i>constructs</i>, so <c>process</c> lives in the descriptor and
+    /// nowhere else. That makes this the one global Jint installs which a restore genuinely makes fresh.
+    /// Every web-API global, and every one of the 58 ECMAScript globals beside them, has a factory that
+    /// reads a memoized realm intrinsic instead, so reverting their descriptor reverts a cache and the next
+    /// read serves the previous cycle's object; <c>Jint.WebApi.WebApiRegistration</c> spells that out. Two
+    /// conditions come with the freshness here: the snapshot has to have been captured <i>before</i>
+    /// <c>process</c> was first read — a snapshot captured afterwards holds the object itself and reinstates
+    /// it — and nothing may hold <c>process</c> across the restore and expect it to still be the global,
+    /// because it will not be.
     /// </para>
     /// <para>
     /// Non-clobbering, like the web-API installs: a host that exposes its own <c>process</c> keeps it. The
