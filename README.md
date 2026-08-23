@@ -2535,19 +2535,57 @@ var engine = new Engine(options => options.AddExtensionMethods(typeof(MyExtensio
 Do not expose mutating methods to untrusted scripts when method side effects are outside the intended
 capability set.
 
-You can invoke JavaScript function reference
+### Calling a JavaScript function from the host
+
+There are two families, and they differ in one thing: what the arguments are.
+
+`Invoke` takes CLR objects and converts each one with `JsValue.FromObject`:
+
 ```c#
 var result = new Engine()
     .Execute("function add(a, b) { return a + b; }")
-    .Invoke("add",1, 2); // -> 3
+    .Invoke("add", 1, 2); // -> 3
 ```
-or directly by name 
-```c#
-var engine = new Engine()
-   .Execute("function add(a, b) { return a + b; }");
 
-engine.Invoke("add", 1, 2); // -> 3
+`Call` takes values that are already `JsValue`s and passes them through untouched:
+
+```c#
+var engine = new Engine().Execute("function add(a, b) { return a + b; }");
+var add = engine.GetValue("add");
+
+engine.Call(add, 1, 2);          // -> 3
+add.Call(1, 2);                  // the same call, reached from the value
 ```
+
+Both have an overload taking the `this` value first, and `JsValue.Call` — the extension method on the
+value itself — has arity overloads for nought to three arguments that avoid allocating an argument array.
+
+**A `string` names one property of the global object, and nothing else.** It is the same name
+`SetValue(string, …)` writes, it is never parsed as JavaScript, and a dot in it is part of the name rather
+than a path separator. To reach a nested function, read the value first:
+
+```c#
+engine.Execute("var api = { add: function (a, b) { return a + b; } };");
+
+var add = engine.GetValue(engine.GetValue("api"), "add");
+engine.Invoke(add, 1, 2); // -> 3
+```
+
+A property of the global object is what a top-level `var` or `function` declaration creates. A `class`,
+`let` or `const` declaration creates a *lexical binding of the global environment* instead, which is not a
+property of the global object and so cannot be read by name — evaluate the identifier for those:
+
+```c#
+engine.Execute("class Widget { constructor(n) { this.n = n; } }");
+
+engine.GetValue("Widget");                            // undefined
+engine.Construct(engine.Evaluate("Widget"), 1);       // the instance
+```
+
+In 4.16 `Engine.Call(string)` and `Engine.Construct(string)` compiled and ran their argument instead, so
+`engine.Call(name)` with a host-supplied `name` executed whatever JavaScript that string contained. Both
+were removed in v5; if you really do want to evaluate source, say so with `Evaluate`.
+
 ## Accessing .NET assemblies and classes
 
 You can allow an engine to access types from the core assembly that contains `System.Object` by configuring the engine instance like this:

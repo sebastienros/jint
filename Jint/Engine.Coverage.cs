@@ -37,7 +37,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// <b>Re-parsing the same source.</b> The counters are keyed on AST node identity, so a host calling
-        /// <see cref="Engine.Execute(string, string?)"/> with the same text twice counts two different node
+        /// <see cref="Engine.Execute(string, string, ScriptParsingOptions)"/> with the same text twice counts two different node
         /// sets for one construct. The report folds those together by source name and position, so such a host
         /// reads the total rather than one entry per parse — and a host that caches a
         /// <see cref="Prepared{TProgram}"/> (which it should) never creates the situation in the first place.

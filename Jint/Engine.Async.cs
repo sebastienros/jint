@@ -53,6 +53,12 @@ public partial class Engine
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
     /// amortizable, so neither disarms the interpreter's tight-loop lane.
     /// </para>
+    /// <para>
+    /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
+    /// with <see cref="PrepareScript"/> and pass the result to
+    /// <see cref="EvaluateAsync(in Prepared{Script}, CancellationToken)"/>, which is both the way to reach
+    /// custom parsing options and the cheaper thing to do when the source is evaluated more than once.
+    /// </para>
     /// </remarks>
     /// <param name="code">The JavaScript code to evaluate.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
@@ -169,6 +175,11 @@ public partial class Engine
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
     /// </para>
+    /// <para>
+    /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
+    /// with <see cref="PrepareScript"/> and pass the result to
+    /// <see cref="ExecuteAsync(in Prepared{Script}, CancellationToken)"/>.
+    /// </para>
     /// </remarks>
     /// <param name="code">The JavaScript code to execute.</param>
     /// <param name="source">Optional source identifier for debugging.</param>
@@ -207,10 +218,50 @@ public partial class Engine
     }
 
     /// <summary>
+    /// Executes a prepared script asynchronously, properly awaiting completion of any promises.
+    /// </summary>
+    /// <inheritdoc cref="EvaluateAsync(in Prepared{Script}, CancellationToken)" path="/remarks"/>
+    /// <param name="preparedScript">The pre-parsed script to execute.</param>
+    /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
+    /// <returns>The engine instance for chaining, after all async work completes.</returns>
+    /// <exception cref="ArgumentException"><paramref name="preparedScript"/> did not come from <c>PrepareScript</c>.</exception>
+    /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
+    public Task<Engine> ExecuteAsync(in Prepared<Script> preparedScript, CancellationToken cancellationToken = default)
+    {
+        if (!preparedScript.IsValid)
+        {
+            Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
+        }
+
+        var prepared = preparedScript;
+        var owner = ReserveAsyncHostOperation();
+        return ExecuteOnReservationAsync(prepared, owner, cancellationToken);
+    }
+
+    private async Task<Engine> ExecuteOnReservationAsync(Prepared<Script> preparedScript, object owner, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Task<JsValue> task;
+            using (EnterHostCall(owner))
+            {
+                task = UnwrapResultAsync(Evaluate(in preparedScript), owner, cancellationToken);
+            }
+
+            await task.ConfigureAwait(false);
+            return this;
+        }
+        finally
+        {
+            ReleaseAsyncHostOperation(owner);
+        }
+    }
+
+    /// <summary>
     /// Invokes a JavaScript function asynchronously, properly awaiting any returned promise.
     /// </summary>
     /// <inheritdoc cref="InvokeAsync(string, CancellationToken, object[])" path="/remarks"/>
-    /// <param name="propertyName">The name of the function to invoke.</param>
+    /// <param name="propertyName">The name of a property of the global object holding the function to invoke.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="propertyName"/> or <paramref name="arguments"/> is <see langword="null"/>.</exception>
@@ -239,8 +290,12 @@ public partial class Engine
     /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
     /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
     /// </para>
+    /// <para>
+    /// <paramref name="propertyName"/> resolves exactly as <see cref="Invoke(string, object, object[])"/>
+    /// resolves it: a single property name of the global object, never parsed and never a dotted path.
+    /// </para>
     /// </remarks>
-    /// <param name="propertyName">The name of the function to invoke.</param>
+    /// <param name="propertyName">The name of a property of the global object holding the function to invoke.</param>
     /// <param name="cancellationToken">Cancellation token to observe while awaiting promise settlement; see the remarks.</param>
     /// <param name="arguments">Arguments to pass to the function.</param>
     /// <returns>The resolved value if the function returns a promise, otherwise the direct result.</returns>

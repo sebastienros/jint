@@ -237,7 +237,7 @@ while (true)
 
     try
     {
-        var result = engine.Evaluate(input, parsingOptions);
+        var result = engine.Evaluate(input, parsingOptions: parsingOptions);
         JsValue str = result;
         if (!result.IsPrimitive() && result is not IJsPrimitive)
         {

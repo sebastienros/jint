@@ -41,21 +41,16 @@ namespace Jint
         public Jint.Engine.ModuleOperations Modules { get; }
         public Jint.Runtime.Interop.ITypeConverter TypeConverter { get; }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, params Jint.Native.JsValue[] arguments) { }
-        public Jint.Native.JsValue Call(string callableName, params Jint.Native.JsValue[] arguments) { }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
         public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue constructor, params Jint.Native.JsValue[] arguments) { }
-        public Jint.Native.Object.ObjectInstance Construct(string constructorName, params Jint.Native.JsValue[] arguments) { }
         public void Dispose() { }
         public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
-        public Jint.Native.JsValue Evaluate(string code, Jint.ScriptParsingOptions parsingOptions) { }
-        public Jint.Native.JsValue Evaluate(string code, string? source = null) { }
-        public Jint.Native.JsValue Evaluate(string code, string source, Jint.ScriptParsingOptions parsingOptions) { }
+        public Jint.Native.JsValue Evaluate(string code, string? source = null, Jint.ScriptParsingOptions? parsingOptions = null) { }
         public System.Threading.Tasks.Task<Jint.Native.JsValue> EvaluateAsync(in Jint.Prepared<Acornima.Ast.Script> preparedScript, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<Jint.Native.JsValue> EvaluateAsync(string code, string? source = null, System.Threading.CancellationToken cancellationToken = default) { }
         public Jint.Engine Execute(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
-        public Jint.Engine Execute(string code, Jint.ScriptParsingOptions parsingOptions) { }
-        public Jint.Engine Execute(string code, string? source = null) { }
-        public Jint.Engine Execute(string code, string source, Jint.ScriptParsingOptions parsingOptions) { }
+        public Jint.Engine Execute(string code, string? source = null, Jint.ScriptParsingOptions? parsingOptions = null) { }
+        public System.Threading.Tasks.Task<Jint.Engine> ExecuteAsync(in Jint.Prepared<Acornima.Ast.Script> preparedScript, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Threading.Tasks.Task<Jint.Engine> ExecuteAsync(string code, string? source = null, System.Threading.CancellationToken cancellationToken = default) { }
         public Jint.Native.JsValue GetValue(string propertyName) { }
         public Jint.Native.JsValue GetValue(Jint.Native.JsValue scope, Jint.Native.JsValue property) { }

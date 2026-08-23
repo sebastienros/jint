@@ -85,7 +85,7 @@ public sealed record CoverageSource
 
     /// <summary>
     /// The source name, i.e. <c>SourceLocation.SourceFile</c> of the nodes it holds: the <c>source</c>
-    /// argument given to <see cref="Engine.Execute(string, string?)"/> and friends (<c>"&lt;anonymous&gt;"</c>
+    /// argument given to <see cref="Engine.Execute(string, string, ScriptParsingOptions)"/> and friends (<c>"&lt;anonymous&gt;"</c>
     /// when none was given), or a module's location. Never <see langword="null"/>; a source parsed without a
     /// name is reported as the empty string.
     /// </summary>

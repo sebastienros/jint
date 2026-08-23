@@ -81,11 +81,11 @@ public partial class InteropTests
                 }
             ");
 
-        var extendsFromJs = _engine.Construct("ExtendsFromJs");
+        var extendsFromJs = _engine.Construct(_engine.Evaluate("ExtendsFromJs"));
         _engine.Evaluate("new ExtendsFromJs().getA();").Should().Be(1);
         extendsFromJs.Get("getA").Should().NotBe(JsValue.Undefined);
 
-        var extendsFromClr = _engine.Construct("ExtendsFromClr");
+        var extendsFromClr = _engine.Construct(_engine.Evaluate("ExtendsFromClr"));
         _engine.Evaluate("new ExtendsFromClr().getA();").Should().Be(1);
         extendsFromClr.Get("getA").Should().NotBe(JsValue.Undefined);
     }

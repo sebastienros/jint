@@ -1780,6 +1780,20 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Registers a delegate with given name. Delegate becomes a JavaScript function that can be called.
     /// </summary>
+    /// <remarks>
+    /// <b>This is the one <c>SetValue</c> overload whose property attributes differ.</b> A delegate is
+    /// installed with <see cref="PropertyFlag.NonEnumerable"/> — writable and configurable, but
+    /// <em>not</em> enumerable, which is what ECMA-262 §17 gives a built-in global function — while every
+    /// other overload goes through <see cref="ObjectInstance.Set(JsValue, JsValue)"/> and produces the ordinary
+    /// configurable/enumerable/writable data property. So a delegate registered here does not appear in
+    /// <c>Object.keys(globalThis)</c>, a <c>for..in</c> over the global object, or
+    /// <c>JSON.stringify(globalThis)</c>, and every other value does. To install a host function with the
+    /// ordinary attributes, build the function value yourself and use
+    /// <see cref="SetValue(string, JsValue)"/>:
+    /// <code>
+    /// engine.SetValue("log", new ClrFunction(engine, "log", (_, args) => { /* … */ return JsValue.Undefined; }));
+    /// </code>
+    /// </remarks>
     public Engine SetValue(string name, Delegate value)
     {
         using var ownership = EnterHostCall();
@@ -2039,41 +2053,24 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Evaluates code and returns last return value.
+    /// Evaluates code and returns the completion value.
     /// </summary>
-    public JsValue Evaluate(string code, string? source = null)
+    /// <remarks>
+    /// <see cref="Execute(string, string, ScriptParsingOptions)"/> is the same operation returning the
+    /// engine instead, for chaining; it discards the completion value and differs in nothing else.
+    /// </remarks>
+    /// <param name="code">The JavaScript source to evaluate.</param>
+    /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
+    /// <param name="parsingOptions">Parsing options for this evaluation. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
+    /// <returns>The completion value of the script.</returns>
+    public JsValue Evaluate(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
-        var parser = GetParserFor(_defaultParserOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
-        return Evaluate(new Prepared<Script>(
-            script,
-            _defaultParserOptions,
-            parsingConstraints: parser.Constraints));
+        return Evaluate(ParseForExecution(code, source, parsingOptions));
     }
 
     /// <summary>
-    /// Evaluates code and returns last return value.
-    /// </summary>
-    public JsValue Evaluate(string code, ScriptParsingOptions parsingOptions)
-        => Evaluate(code, "<anonymous>", parsingOptions);
-
-    /// <summary>
-    /// Evaluates code and returns last return value.
-    /// </summary>
-    public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
-    {
-        using var ownership = EnterHostCall();
-        var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
-        return Evaluate(new Prepared<Script>(
-            script,
-            parser.Options,
-            parsingConstraints: parser.Constraints));
-    }
-
-    /// <summary>
-    /// Evaluates code and returns last return value.
+    /// Evaluates a prepared script and returns the completion value.
     /// </summary>
     public JsValue Evaluate(in Prepared<Script> preparedScript)
         => ExecuteForCompletion(in preparedScript);
@@ -2081,44 +2078,51 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// Executes code into engine and returns the engine instance (useful for chaining).
     /// </summary>
-    public Engine Execute(string code, string? source = null)
+    /// <remarks>
+    /// <see cref="Evaluate(string, string, ScriptParsingOptions)"/> is the same operation returning the
+    /// script's completion value instead; the two differ in nothing else.
+    /// </remarks>
+    /// <param name="code">The JavaScript source to execute.</param>
+    /// <param name="source">The name the source is known by in stack traces and the debugger. Defaults to <c>&lt;anonymous&gt;</c>.</param>
+    /// <param name="parsingOptions">Parsing options for this execution. Defaults to the engine's <see cref="Options.Parsing"/>.</param>
+    /// <returns>This engine, for chaining.</returns>
+    public Engine Execute(string code, string? source = null, ScriptParsingOptions? parsingOptions = null)
     {
         using var ownership = EnterHostCall();
-        var parser = GetParserFor(_defaultParserOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict);
-        return Execute(new Prepared<Script>(
-            script,
-            _defaultParserOptions,
-            parsingConstraints: parser.Constraints));
+        return Execute(ParseForExecution(code, source, parsingOptions));
     }
 
     /// <summary>
-    /// Executes code into engine and returns the engine instance (useful for chaining).
-    /// </summary>
-    public Engine Execute(string code, ScriptParsingOptions parsingOptions)
-        => Execute(code, "<anonymous>", parsingOptions);
-
-    /// <summary>
-    /// Executes code into engine and returns the engine instance (useful for chaining).
-    /// </summary>
-    public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
-    {
-        using var ownership = EnterHostCall();
-        var parser = GetParserFor(parsingOptions);
-        var script = parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source, _isStrict);
-        return Execute(new Prepared<Script>(
-            script,
-            parser.Options,
-            parsingConstraints: parser.Constraints));
-    }
-
-    /// <summary>
-    /// Executes code into engine and returns the engine instance (useful for chaining).
+    /// Executes a prepared script into engine and returns the engine instance (useful for chaining).
     /// </summary>
     public Engine Execute(in Prepared<Script> preparedScript)
     {
         ExecuteForCompletion(in preparedScript);
         return this;
+    }
+
+    /// <summary>
+    /// Shared parse for the source-taking <see cref="Evaluate(string, string, ScriptParsingOptions)"/> and
+    /// <see cref="Execute(string, string, ScriptParsingOptions)"/>. Host-supplied parsing options carry a
+    /// <see cref="ScriptParsingOptions.SourceOffset"/>, which the engine's own defaults never do, so the
+    /// two cases reach the parser differently. Called with the host-call scope already held.
+    /// </summary>
+    private Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
+    {
+        if (parsingOptions is null)
+        {
+            var defaultParser = GetParserFor(_defaultParserOptions);
+            return new Prepared<Script>(
+                defaultParser.ParseScriptGuarded(Realm, code, source: source ?? "<anonymous>", strict: _isStrict),
+                _defaultParserOptions,
+                parsingConstraints: defaultParser.Constraints);
+        }
+
+        var parser = GetParserFor(parsingOptions);
+        return new Prepared<Script>(
+            parser.ParseScriptGuarded(Realm, code, parsingOptions.SourceOffset, source ?? "<anonymous>", _isStrict),
+            parser.Options,
+            parsingConstraints: parser.Constraints);
     }
 
     /// <summary>
@@ -3142,9 +3146,10 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Invoke the current value as function.
+    /// Invokes a function held by a property of the global object.
     /// </summary>
-    /// <param name="propertyName">The name of the function to call.</param>
+    /// <inheritdoc cref="Invoke(string, object, object[])" path="/remarks"/>
+    /// <param name="propertyName">The name of a property of the global object; see the remarks.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
     public JsValue Invoke(string propertyName, params object?[] arguments)
@@ -3153,9 +3158,32 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Invoke the current value as function.
+    /// Invokes a function held by a property of the global object.
     /// </summary>
-    /// <param name="propertyName">The name of the function to call.</param>
+    /// <remarks>
+    /// <para>
+    /// <paramref name="propertyName"/> is read as a <b>single property name of the global object</b>, the
+    /// same name <see cref="SetValue(string, JsValue)"/> writes. It is never parsed as JavaScript, and a
+    /// dot in it is part of the name rather than a path separator — <c>Invoke("foo.bar")</c> looks for a
+    /// global literally called <c>foo.bar</c>. To reach a nested callable, read it and use the
+    /// <see cref="Invoke(JsValue, object[])"/> overload:
+    /// </para>
+    /// <code>
+    /// var bar = engine.GetValue(engine.GetValue("foo"), "bar");
+    /// engine.Invoke(bar, arguments);
+    /// </code>
+    /// <para>
+    /// A property of the global object is what a <c>var</c> or <c>function</c> declaration at top level
+    /// creates. A <c>class</c>, <c>let</c> or <c>const</c> declaration creates a <em>lexical</em> binding of
+    /// the global environment instead, which is not a property of the global object and so is not reachable
+    /// by name here — <c>engine.Evaluate("MyClass")</c> is what reads one.
+    /// </para>
+    /// <para>
+    /// Arguments are CLR objects and are converted with <see cref="JsValue.FromObject"/>. Use
+    /// <see cref="Call(JsValue, JsValue[])"/> when they are already <see cref="JsValue"/>s.
+    /// </para>
+    /// </remarks>
+    /// <param name="propertyName">The name of a property of the global object; see the remarks.</param>
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
@@ -3168,23 +3196,32 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Invoke the current value as function.
+    /// Invokes the value as a function.
     /// </summary>
+    /// <inheritdoc cref="Invoke(JsValue, object, object[])" path="/remarks"/>
     /// <param name="value">The function to call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <seealso cref="Call(JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, params object?[] arguments)
     {
         return Invoke(value, thisObj: null, arguments);
     }
 
     /// <summary>
-    /// Invoke the current value as function.
+    /// Invokes the value as a function.
     /// </summary>
+    /// <remarks>
+    /// This is the CLR-argument form: <paramref name="thisObj"/> and every element of
+    /// <paramref name="arguments"/> are converted with <see cref="JsValue.FromObject"/>.
+    /// <see cref="Call(JsValue, JsValue, JsValue[])"/> is the <see cref="JsValue"/>-argument form, which
+    /// passes them through untouched. The two differ in nothing else.
+    /// </remarks>
     /// <param name="value">The function to call.</param>
     /// <param name="thisObj">The this value inside the function call.</param>
     /// <param name="arguments">The arguments of the function call.</param>
     /// <returns>The value returned by the function call.</returns>
+    /// <seealso cref="Call(JsValue, JsValue, JsValue[])"/>
     public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
     {
         using var ownership = EnterHostCall();
@@ -4219,34 +4256,30 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Invokes the named callable and returns the resulting object.
-    /// </summary>
-    /// <param name="callableName">The name of the callable.</param>
-    /// <param name="arguments">The arguments of the call.</param>
-    /// <returns>The value returned by the call.</returns>
-    public JsValue Call(string callableName, params JsCallArguments arguments)
-    {
-        using var ownership = EnterHostCall();
-        var callable = Evaluate(callableName);
-        return Call(callable, arguments);
-    }
-
-    /// <summary>
     /// Invokes the callable and returns the resulting object.
     /// </summary>
+    /// <remarks>
+    /// This is the <see cref="JsValue"/>-argument form: the arguments are already engine values and are
+    /// passed through untouched. <see cref="Invoke(JsValue, object[])"/> is the CLR-argument form, which
+    /// converts each argument through <see cref="JsValue.FromObject"/> first. The two differ in nothing
+    /// else.
+    /// </remarks>
     /// <param name="callable">The callable.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <seealso cref="Invoke(JsValue, object[])"/>
     public JsValue Call(JsValue callable, params JsCallArguments arguments)
         => Call(callable, thisObject: JsValue.Undefined, arguments);
 
     /// <summary>
     /// Invokes the callable and returns the resulting object.
     /// </summary>
+    /// <inheritdoc cref="Call(JsValue, JsValue[])" path="/remarks"/>
     /// <param name="callable">The callable.</param>
     /// <param name="thisObject">Value bound as this.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
+    /// <seealso cref="Invoke(JsValue, object, object[])"/>
     public JsValue Call(JsValue callable, JsValue thisObject, JsCallArguments arguments)
     {
         JsValue Callback()
@@ -4274,22 +4307,16 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Calls the named constructor and returns the resulting object.
-    /// </summary>
-    /// <param name="constructorName">The name of the constructor to call.</param>
-    /// <param name="arguments">The arguments of the constructor call.</param>
-    /// <returns>The value returned by the constructor call.</returns>
-    public ObjectInstance Construct(string constructorName, params JsCallArguments arguments)
-    {
-        using var ownership = EnterHostCall();
-        var constructor = Evaluate(constructorName);
-        return Construct(constructor, arguments);
-    }
-
-    /// <summary>
     /// Calls the constructor and returns the resulting object.
     /// </summary>
-    /// <param name="constructor">The name of the constructor to call.</param>
+    /// <remarks>
+    /// To construct something the host knows only by name, read the value first —
+    /// <c>engine.Construct(engine.GetValue("MyCtor"), arguments)</c> for a <c>function</c> declaration or
+    /// anything <see cref="SetValue(string, JsValue)"/> installed, and
+    /// <c>engine.Construct(engine.Evaluate("MyClass"), arguments)</c> for a <c>class</c> declaration, which
+    /// is a lexical binding of the global environment rather than a property of the global object.
+    /// </remarks>
+    /// <param name="constructor">The constructor to call.</param>
     /// <param name="arguments">The arguments of the constructor call.</param>
     /// <returns>The value returned by the constructor call.</returns>
     public ObjectInstance Construct(JsValue constructor, params JsCallArguments arguments)

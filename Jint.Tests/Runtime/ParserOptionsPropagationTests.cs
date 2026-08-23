@@ -106,7 +106,7 @@ public class ParserOptionsPropagationTests
             }
             else
             {
-                evalAction = () => engine.Evaluate(code, parsingOptions);
+                evalAction = () => engine.Evaluate(code, parsingOptions: parsingOptions);
             }
         }
         else
@@ -191,22 +191,22 @@ public class ParserOptionsPropagationTests
         var engine = new Engine();
 
         var parsingOptions = ScriptParsingOptions.Default with { AllowReturnOutsideFunction = true, Tolerant = true };
-        engine.Evaluate("return '' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
+        engine.Evaluate("return '' + eval('(1, 2,)')", parsingOptions: parsingOptions).Should().Be("2");
 
         var shadowRealm1 = engine.Intrinsics.ShadowRealm.Construct();
         var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
 
-        var ex = Invoking(() => shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        var ex = Invoking(() => shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions: parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
 
-        engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
+        engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions: parsingOptions).Should().Be("2");
 
-        ex = Invoking(() => shadowRealm2.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        ex = Invoking(() => shadowRealm2.Evaluate("'' + eval('(1, 2,)')", parsingOptions: parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
 
-        shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions).Should().Be("2");
+        shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions: parsingOptions).Should().Be("2");
 
-        ex = Invoking(() => engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        ex = Invoking(() => engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions: parsingOptions with { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.InstanceofOperator(engine.Intrinsics.SyntaxError).Should().BeTrue();
 
         shadowRealm2.Evaluate("'' + new Function('return (1, 2,)')()", parsingOptions).Should().Be("2");

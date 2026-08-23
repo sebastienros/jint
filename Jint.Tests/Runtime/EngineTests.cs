@@ -1358,8 +1358,8 @@ var prep = function (fn) { fn(); };
     public void ShouldExecuteKnockoutWithoutErrorWhetherTolerantOrIntolerant()
     {
         var content = GetEmbeddedFile("knockout-3.4.0.js");
-        _engine.Execute(content, new ScriptParsingOptions { Tolerant = true });
-        _engine.Execute(content, new ScriptParsingOptions { Tolerant = false });
+        _engine.Execute(content, parsingOptions: new ScriptParsingOptions { Tolerant = true });
+        _engine.Execute(content, parsingOptions: new ScriptParsingOptions { Tolerant = false });
     }
 
     [Fact]
@@ -1376,7 +1376,7 @@ var prep = function (fn) { fn(); };
     {
         var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
 
-        Exception ex = Invoking(() => _engine.Execute(code, new ScriptParsingOptions { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
+        Exception ex = Invoking(() => _engine.Execute(code, parsingOptions: new ScriptParsingOptions { Tolerant = false })).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().Contain("Duplicate __proto__ fields are not allowed in object literals");
 
         ex = Invoking(() => _engine.Execute($"eval('{code}')")).Should().ThrowExactly<JavaScriptException>().Which;
@@ -3100,7 +3100,7 @@ x.test = {
     public void ExecuteWithParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
-            (engine, code) => engine.Execute(code, ScriptParsingOptions.Default),
+            (engine, code) => engine.Execute(code, parsingOptions: ScriptParsingOptions.Default),
             expectedSource: "<anonymous>"
         );
     }
@@ -3136,7 +3136,7 @@ x.test = {
     public void EvaluateWithParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
-            (engine, code) => engine.Evaluate(code, ScriptParsingOptions.Default),
+            (engine, code) => engine.Evaluate(code, parsingOptions: ScriptParsingOptions.Default),
             expectedSource: "<anonymous>"
         );
     }
