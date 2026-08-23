@@ -42,7 +42,7 @@ Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/
 (events, abort), `fetch/api/` as **five** (basic, body, headers, redirect, response), `WebCryptoAPI/` as
 **eight** and `streams/` as **seven** — their root files plus one suite per sub-directory, because
 `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 293 theory cases over 40,983
-assertions, of which 2,983 do not pass and every one is named in the driver's table; the whole driver runs in
+assertions, of which 2,982 do not pass and every one is named in the driver's table; the whole driver runs in
 about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
@@ -185,9 +185,9 @@ is answering a request the corpus itself composed.
 
 **What it cost and what it bought.** The lane added 20 files and 326 assertions, and cost about **5 s**:
 medians of five `--filter Jint.Tests.Wpt` runs each side on one Windows machine, 68 s before and 73 s after,
-with the count identical on every run of both. Of those 326 assertions 232 pass; the 94 that do not are named
-in the exclusion table under six categories, five of which are engine defects filed separately (see
-`WptDivergence.NeedsTriage`) and the sixth of which is not an engine matter at all — the .NET HTTP stack does
+with the count identical on every run of both. Of those 326 assertions 233 pass; the 93 that do not are named
+in the exclusion table under five categories, four of which are engine defects filed separately (see
+`WptDivergence.NeedsTriage`) and the fifth of which is not an engine matter at all — the .NET HTTP stack does
 not carry a header value above ASCII, which
 `WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack` measures with no engine in the picture.
 
@@ -967,11 +967,14 @@ citation and an argued decision, never a to-do — and the rule that age alone n
 
 ## What the fetch *network* corpus says about this engine
 
-326 assertions across the twenty files [the server lane](#the-server-lane) added, of which **94 do not pass**.
+326 assertions across the twenty files [the server lane](#the-server-lane) added, of which **93 do not pass**.
 Unlike the object-model half above, most of these are not decisions — the corpus was making a real request for
-the first time, and it found five things. Each is filed as its own issue and deliberately **not** fixed here:
-the change that first runs a suite must not also be the change that moves the engine, or nobody can tell which
-of the two a number came from. They are the whole of `WptDivergence.NeedsTriage`, which was empty before.
+the first time, and it found five things. Each was filed as its own issue and deliberately **not** fixed by the
+change that first ran the suite: the change that first runs a suite must not also be the change that moves the
+engine, or nobody can tell which of the two a number came from. The four still open are the whole of
+`WptDivergence.NeedsTriage`, which was empty before. The fifth is fixed — a fetched response's `Headers` now
+carry the *immutable* guard ([#3281](https://github.com/sebastienros/jint/issues/3281)), so
+`response/response-headers-guard.any.js` passes whole.
 
 1. **No `Accept: */*` is appended** ([#3279](https://github.com/sebastienros/jint/issues/3279)). Step 8 of
    [HTTP-network-or-cache fetch](https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch) says to
@@ -981,17 +984,12 @@ of the two a number came from. They are the whole of `WptDivergence.NeedsTriage`
    [HTTP-network fetch](https://fetch.spec.whatwg.org/#concept-http-network-fetch) gives it a null body, and
    `response.body` is a `ReadableStream` here. One row of `basic/response-null-body.any.js`; the nine
    null-body-status rows (204, 205, 304) all pass, so it is the method half alone.
-3. **A fetched response's `Headers` are mutable**
-   ([#3281](https://github.com/sebastienros/jint/issues/3281)). The
-   [response header list](https://fetch.spec.whatwg.org/#concept-response-header-list) a `fetch` resolves with
-   carries the *immutable* guard, so `append` must throw; it does not. The whole of
-   `response/response-headers-guard.any.js`.
-4. **`Content-Encoding`, `Content-Language` and `Content-Location` never leave a bodiless request**
+3. **`Content-Encoding`, `Content-Language` and `Content-Location` never leave a bodiless request**
    ([#3282](https://github.com/sebastienros/jint/issues/3282)). The BCL
    files those three as *content* headers, so a GET or HEAD — which has no `HttpContent` to hang them on —
    drops them silently, where Fetch has no such category and they are ordinary request headers. Eight rows of
    `redirect/redirect-method.any.js`; its POST rows pass, which is what localises it.
-5. **`clone()` hands both bodies the same buffer** ([#3283](https://github.com/sebastienros/jint/issues/3283)).
+4. **`clone()` hands both bodies the same buffer** ([#3283](https://github.com/sebastienros/jint/issues/3283)).
    [Body clone](https://fetch.spec.whatwg.org/#concept-body-clone) tees the stream, and the chunks the two
    branches deliver must be structured clones of one another rather than the same object. Fourteen rows of
    `response/response-clone.any.js`, one per typed-array kind.
@@ -1023,9 +1021,11 @@ the two halves of that check and the one command that rewrites the table.
 
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
 the shim did not record `PASS`, which is exactly the set the table names. The last change to move a row is
-[#3260](https://github.com/sebastienros/jint/issues/3260), and it moved exactly one: Fetch, from 29 files /
+[#3281](https://github.com/sebastienros/jint/issues/3281), which gave a fetched response's `Headers` the
+*immutable* guard and moved Fetch's not-passing count alone, 169 to 168. Before it,
+[#3260](https://github.com/sebastienros/jint/issues/3260) moved exactly one row: Fetch, from 29 files /
 388 assertions / 75 not passing to 49 / 714 / 169 — [the server lane](#the-server-lane)'s twenty files, 326
-assertions, 232 of them passing. Every other row was re-derived in the same run and had not moved. The census
+assertions, 232 of them passing at the time. Every other row was re-derived in the same run and had not moved. The census
 before that was taken by hand for [#3212](https://github.com/sebastienros/jint/issues/3212), which moved five
 rows at once because Streams, Compression, User Timing and DOM had each gone stale against a fix that removed
 their exclusions without revisiting this table.
@@ -1044,8 +1044,8 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×5 | 49 | 714 | 169 |
-| **total** | **38** | **293** | **40,983** | **2,983** |
+| Fetch | `fetch/api/` ×5 | 49 | 714 | 168 |
+| **total** | **38** | **293** | **40,983** | **2,982** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
