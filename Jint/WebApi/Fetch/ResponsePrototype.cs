@@ -124,37 +124,37 @@ internal sealed partial class ResponsePrototype : Prototype
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-arraybuffer
     /// </summary>
-    [JsFunction(Name = "arrayBuffer", Length = 0)]
+    [JsFunction(Name = "arrayBuffer", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ArrayBuffer(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.ArrayBuffer);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-bytes
     /// </summary>
-    [JsFunction(Name = "bytes", Length = 0)]
+    [JsFunction(Name = "bytes", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Bytes(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Bytes);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-blob
     /// </summary>
-    [JsFunction(Name = "blob", Length = 0)]
+    [JsFunction(Name = "blob", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Blob(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Blob);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-json
     /// </summary>
-    [JsFunction(Name = "json", Length = 0)]
+    [JsFunction(Name = "json", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Json(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Json);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-text
     /// </summary>
-    [JsFunction(Name = "text", Length = 0)]
+    [JsFunction(Name = "text", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Text(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.Text);
 
     /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-body-formdata
     /// </summary>
-    [JsFunction(Name = "formData", Length = 0)]
+    [JsFunction(Name = "formData", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue FormData(JsValue thisObject) => Consume(thisObject, BodyConsumeKind.FormData);
 
     /// <summary>
@@ -167,7 +167,7 @@ internal sealed partial class ResponsePrototype : Prototype
     /// simply shares them. Either way the used flag is the clone's own, which is what makes the
     /// <c>const copy = response.clone(); await response.json(); await copy.text();</c> pattern work.
     /// </remarks>
-    [JsFunction(Name = "clone", Length = 0)]
+    [JsFunction(Name = "clone", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsResponse Clone(JsValue thisObject)
     {
         var response = Brand(thisObject);

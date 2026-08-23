@@ -41,10 +41,12 @@ namespace Jint.WebApi.Console;
 /// Node, so the empty object above it is only ever a landing pad.
 /// </para>
 /// <para>
-/// Two documented simplifications against WebIDL. The methods are non-enumerable, where a WebIDL namespace
-/// object's operations are enumerable; and the object is installed as an ordinary enumerable data property
-/// of the global rather than through an accessor pair. Neither is observable except to code inspecting
-/// property attributes.
+/// The methods carry a WebIDL namespace object's property attributes —
+/// https://webidl.spec.whatwg.org/#es-namespaces defines them with the same "define the operations" steps an
+/// interface's, so <c>{ writable: true, enumerable: true, configurable: true }</c> — which is why
+/// <c>Object.keys(console)</c> is non-empty here exactly as it is in Node. One documented simplification
+/// remains: the object is installed as an ordinary enumerable data property of the global rather than
+/// through an accessor pair, which nothing but code inspecting property attributes can observe.
 /// </para>
 /// <para>
 /// Not implemented: <c>clear</c>, <c>dirxml</c>, <c>profile</c> and <c>profileEnd</c>, none of which acts on
@@ -98,7 +100,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#log
     /// </summary>
-    [JsFunction(Name = "log", Length = 0)]
+    [JsFunction(Name = "log", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Log(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         Logger(ConsoleLogLevel.Log, data);
@@ -108,7 +110,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#info
     /// </summary>
-    [JsFunction(Name = "info", Length = 0)]
+    [JsFunction(Name = "info", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Info(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         Logger(ConsoleLogLevel.Info, data);
@@ -118,7 +120,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#warn
     /// </summary>
-    [JsFunction(Name = "warn", Length = 0)]
+    [JsFunction(Name = "warn", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Warn(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         Logger(ConsoleLogLevel.Warn, data);
@@ -128,7 +130,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#error
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         Logger(ConsoleLogLevel.Error, data);
@@ -138,7 +140,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#debug
     /// </summary>
-    [JsFunction(Name = "debug", Length = 0)]
+    [JsFunction(Name = "debug", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Debug(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         Logger(ConsoleLogLevel.Debug, data);
@@ -148,7 +150,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#trace
     /// </summary>
-    [JsFunction(Name = "trace", Length = 0, CaptureField = nameof(_traceFunction))]
+    [JsFunction(Name = "trace", Length = 0, CaptureField = nameof(_traceFunction), Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Trace(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         var header = data.Length == 0 ? "Trace" : "Trace: " + ConsoleFormatter.Format(data);
@@ -165,7 +167,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#assert
     /// </summary>
-    [JsFunction(Name = "assert", Length = 0)]
+    [JsFunction(Name = "assert", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Assert(JsValue thisObject, JsValue condition, [Rest] ReadOnlySpan<JsValue> data)
     {
         if (TypeConverter.ToBoolean(condition))
@@ -200,7 +202,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#dir
     /// </summary>
-    [JsFunction(Name = "dir", Length = 0)]
+    [JsFunction(Name = "dir", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Dir(JsValue thisObject, JsValue item, JsValue options)
     {
         // `options` is part of the IDL signature and has no member a string sink could honour.
@@ -220,7 +222,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <see cref="ConsoleLogLevel.Log"/> — a table is a single record however many lines it occupies, and
     /// group indentation applies to all of them.
     /// </remarks>
-    [JsFunction(Name = "table", Length = 0)]
+    [JsFunction(Name = "table", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Table(JsValue thisObject, JsValue tabularData, JsValue properties)
     {
         // The sequence conversion runs first and can raise a TypeError, exactly as WebIDL specifies, so a
@@ -253,7 +255,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// carries and therefore the least surprising choice for one that has no IDL.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "timeStamp", Length = 0)]
+    [JsFunction(Name = "timeStamp", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue TimeStamp(JsValue thisObject, JsValue label)
     {
         Emit(ConsoleLogLevel.Log, Label(label));
@@ -263,7 +265,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#group
     /// </summary>
-    [JsFunction(Name = "group", Length = 0)]
+    [JsFunction(Name = "group", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Group(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         return BeginGroup(data);
@@ -276,7 +278,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// specification says a non-interactive printer should do.
     /// </para>
     /// </summary>
-    [JsFunction(Name = "groupCollapsed", Length = 0)]
+    [JsFunction(Name = "groupCollapsed", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GroupCollapsed(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
         return BeginGroup(data);
@@ -285,7 +287,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#groupend
     /// </summary>
-    [JsFunction(Name = "groupEnd", Length = 0)]
+    [JsFunction(Name = "groupEnd", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GroupEnd(JsValue thisObject)
     {
         if (_groupDepth > 0)
@@ -299,7 +301,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#count
     /// </summary>
-    [JsFunction(Name = "count", Length = 0)]
+    [JsFunction(Name = "count", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Count(JsValue thisObject, JsValue label)
     {
         var key = Label(label);
@@ -315,7 +317,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#countreset
     /// </summary>
-    [JsFunction(Name = "countReset", Length = 0)]
+    [JsFunction(Name = "countReset", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue CountReset(JsValue thisObject, JsValue label)
     {
         var key = Label(label);
@@ -334,7 +336,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#time
     /// </summary>
-    [JsFunction(Name = "time", Length = 0)]
+    [JsFunction(Name = "time", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Time(JsValue thisObject, JsValue label)
     {
         var key = Label(label);
@@ -352,7 +354,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#timelog
     /// </summary>
-    [JsFunction(Name = "timeLog", Length = 0)]
+    [JsFunction(Name = "timeLog", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue TimeLog(JsValue thisObject, JsValue label, [Rest] ReadOnlySpan<JsValue> data)
     {
         var key = Label(label);
@@ -379,7 +381,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// <summary>
     /// https://console.spec.whatwg.org/#timeend
     /// </summary>
-    [JsFunction(Name = "timeEnd", Length = 0)]
+    [JsFunction(Name = "timeEnd", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue TimeEnd(JsValue thisObject, JsValue label)
     {
         var key = Label(label);

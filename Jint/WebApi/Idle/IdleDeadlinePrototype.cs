@@ -15,9 +15,7 @@ namespace Jint.WebApi.Idle;
 /// <remarks>
 /// Both members brand-check their receiver, so <c>IdleDeadline.prototype.timeRemaining()</c> and a plain
 /// object borrowed into the receiver position raise a <c>TypeError</c> rather than answering something
-/// meaningless. The same documented simplification the other web-API prototypes carry applies here: the
-/// operation is non-enumerable where WebIDL makes an interface prototype object's operations enumerable, while
-/// the attribute is enumerable as it should be.
+/// meaningless.
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class IdleDeadlinePrototype : Prototype
@@ -47,7 +45,7 @@ internal sealed partial class IdleDeadlinePrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/requestidlecallback/#dom-idledeadline-timeremaining
     /// </summary>
-    [JsFunction(Name = "timeRemaining", Length = 0)]
+    [JsFunction(Name = "timeRemaining", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsNumber TimeRemaining(JsValue thisObject) => JsNumber.Create(Brand(thisObject).TimeRemaining());
 
     /// <summary>

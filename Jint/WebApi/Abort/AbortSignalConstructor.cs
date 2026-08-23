@@ -52,7 +52,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-abortsignal-abort
     /// </summary>
-    [JsFunction(Name = "abort", Length = 0)]
+    [JsFunction(Name = "abort", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsAbortSignal StaticAbort(JsValue thisObject, JsValue reason)
     {
         var signal = CreateSignal();
@@ -76,7 +76,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
     /// this feature does, whether or not the timer globals were installed.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "timeout", Length = 1)]
+    [JsFunction(Name = "timeout", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsAbortSignal StaticTimeout(JsValue thisObject, JsValue milliseconds)
     {
         var delay = EnforceRangeMilliseconds(milliseconds);
@@ -110,7 +110,7 @@ internal sealed partial class AbortSignalConstructor : Constructor
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-abortsignal-any
     /// </summary>
-    [JsFunction(Name = "any", Length = 1)]
+    [JsFunction(Name = "any", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsAbortSignal StaticAny(JsValue thisObject, JsValue signals)
     {
         var sources = ReadSignalSequence(signals, "AbortSignal");

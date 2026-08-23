@@ -22,12 +22,6 @@ namespace Jint.WebApi.Events;
 /// <c>Event</c> — including <c>Event.prototype</c> itself, which is not one.
 /// </para>
 /// <para>
-/// One documented simplification against WebIDL, shared with <c>console</c>: the operations are
-/// non-enumerable, where a WebIDL interface prototype object's operations are enumerable. The attributes and
-/// the constants <i>are</i> enumerable, as they should be. Nothing but code inspecting property attributes can
-/// observe the difference.
-/// </para>
-/// <para>
 /// https://webidl.spec.whatwg.org/#es-constants defines the constants one after another in the order the IDL
 /// declares them, and that order is observable, so they are declared below in it and
 /// <c>PreserveDeclarationOrder</c> keeps the generator from sorting them by name.
@@ -221,7 +215,7 @@ internal sealed partial class EventPrototype : Prototype
     /// dispatch is running and empty otherwise, so this answers <c>[target]</c> or <c>[]</c> — which is what a
     /// browser answers for a target that is not in a tree.
     /// </summary>
-    [JsFunction(Name = "composedPath", Length = 0)]
+    [JsFunction(Name = "composedPath", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray ComposedPath(JsValue thisObject)
     {
         var ev = Brand(thisObject);
@@ -236,7 +230,7 @@ internal sealed partial class EventPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-stoppropagation
     /// </summary>
-    [JsFunction(Name = "stopPropagation", Length = 0)]
+    [JsFunction(Name = "stopPropagation", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue StopPropagation(JsValue thisObject)
     {
         Brand(thisObject).StopPropagationFlag = true;
@@ -246,7 +240,7 @@ internal sealed partial class EventPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-stopimmediatepropagation
     /// </summary>
-    [JsFunction(Name = "stopImmediatePropagation", Length = 0)]
+    [JsFunction(Name = "stopImmediatePropagation", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue StopImmediatePropagation(JsValue thisObject)
     {
         var ev = Brand(thisObject);
@@ -258,7 +252,7 @@ internal sealed partial class EventPrototype : Prototype
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-event-preventdefault
     /// </summary>
-    [JsFunction(Name = "preventDefault", Length = 0)]
+    [JsFunction(Name = "preventDefault", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue PreventDefault(JsValue thisObject)
     {
         Brand(thisObject).SetCanceledFlag();
@@ -281,7 +275,7 @@ internal sealed partial class EventPrototype : Prototype
     /// set for the whole of <c>dispatchEvent</c>, so the call is a silent no-op there rather than an error.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "initEvent", Length = 1)]
+    [JsFunction(Name = "initEvent", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue InitEvent(JsValue thisObject, JsValue type, JsValue bubbles, JsValue cancelable)
     {
         var ev = Brand(thisObject);

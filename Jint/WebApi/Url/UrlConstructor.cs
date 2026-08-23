@@ -73,7 +73,7 @@ internal sealed partial class UrlConstructor : Constructor
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-url-parse
     /// </summary>
-    [JsFunction(Name = "parse", Length = 1)]
+    [JsFunction(Name = "parse", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Parse(JsValue thisObject, JsValue url, JsValue baseUrl)
     {
         var record = UrlParser.ParseApi(UrlValues.ToUsvString(url), UrlValues.ToOptionalUsvString(baseUrl));
@@ -88,7 +88,7 @@ internal sealed partial class UrlConstructor : Constructor
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-url-canparse
     /// </summary>
-    [JsFunction(Name = "canParse", Length = 1)]
+    [JsFunction(Name = "canParse", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private static JsBoolean CanParse(JsValue thisObject, JsValue url, JsValue baseUrl)
     {
         var record = UrlParser.ParseApi(UrlValues.ToUsvString(url), UrlValues.ToOptionalUsvString(baseUrl));

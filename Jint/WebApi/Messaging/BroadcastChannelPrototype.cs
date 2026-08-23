@@ -57,7 +57,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// StructuredSerializeWithTransfer, so there is no second parameter to resolve — see
     /// <see cref="JsBroadcastChannel"/>.
     /// </remarks>
-    [JsFunction(Name = "postMessage", Length = 1)]
+    [JsFunction(Name = "postMessage", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue PostMessage(JsValue thisObject, JsCallArguments arguments)
     {
         var channel = Brand(thisObject);
@@ -74,7 +74,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#dom-broadcastchannel-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject)
     {
         Brand(thisObject).Close();

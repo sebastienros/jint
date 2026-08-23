@@ -47,7 +47,7 @@ internal sealed partial class WritableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#ws-abort
     /// </summary>
-    [JsFunction(Name = "abort", Length = 0)]
+    [JsFunction(Name = "abort", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Abort(JsValue thisObject, JsValue reason)
     {
         try
@@ -70,7 +70,7 @@ internal sealed partial class WritableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#ws-close
     /// </summary>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Close(JsValue thisObject)
     {
         try
@@ -98,7 +98,7 @@ internal sealed partial class WritableStreamPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#ws-get-writer
     /// </summary>
-    [JsFunction(Name = "getWriter", Length = 0)]
+    [JsFunction(Name = "getWriter", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsWritableStreamDefaultWriter GetWriter(JsValue thisObject)
         => WritableStreamOperations.AcquireDefaultWriter(Brand(thisObject));
 

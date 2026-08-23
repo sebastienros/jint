@@ -28,10 +28,9 @@ namespace Jint.WebApi.Storage;
 /// missing second argument rather than running the <c>toString</c>.
 /// </para>
 /// <para>
-/// One documented simplification against WebIDL, shared with every other prototype Jint ships: the
-/// operations are non-enumerable, where a WebIDL interface prototype object's operations are enumerable.
 /// <c>length</c> is a real accessor pair, as an attribute must be, because <c>Object.keys(storage)</c>
-/// listing a <c>length</c> would be visible to any script that enumerates a storage.
+/// listing a <c>length</c> would be visible to any script that enumerates a storage — the attribute belongs
+/// to this object, and the storage's own keys are the stored names and nothing else.
 /// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
@@ -78,7 +77,7 @@ internal sealed partial class StoragePrototype : Prototype
     /// everything else wraps modulo 2³². <c>storage.key(-1)</c> therefore asks for index 4294967295 and
     /// answers <c>null</c> rather than raising.
     /// </remarks>
-    [JsFunction(Name = "key", Length = 1)]
+    [JsFunction(Name = "key", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Key(JsValue thisObject, JsValue index, [ArgCount] int argCount)
     {
         var storage = Brand(thisObject);
@@ -95,7 +94,7 @@ internal sealed partial class StoragePrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/webstorage.html#dom-storage-getitem
     /// </summary>
-    [JsFunction(Name = "getItem", Length = 1)]
+    [JsFunction(Name = "getItem", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GetItem(JsValue thisObject, JsValue key, [ArgCount] int argCount)
     {
         var storage = Brand(thisObject);
@@ -114,7 +113,7 @@ internal sealed partial class StoragePrototype : Prototype
     /// raises the arity <c>TypeError</c> rather than storing <c>"undefined"</c>. The algorithm's steps are
     /// on <see cref="JsStorage.SetItem"/>, which this and the named property setter share.
     /// </remarks>
-    [JsFunction(Name = "setItem", Length = 2)]
+    [JsFunction(Name = "setItem", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue SetItem(JsValue thisObject, JsValue key, JsValue value, [ArgCount] int argCount)
     {
         var storage = Brand(thisObject);
@@ -127,7 +126,7 @@ internal sealed partial class StoragePrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/webstorage.html#dom-storage-removeitem
     /// </summary>
-    [JsFunction(Name = "removeItem", Length = 1)]
+    [JsFunction(Name = "removeItem", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue RemoveItem(JsValue thisObject, JsValue key, [ArgCount] int argCount)
     {
         var storage = Brand(thisObject);
@@ -142,7 +141,7 @@ internal sealed partial class StoragePrototype : Prototype
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/webstorage.html#dom-storage-clear
     /// </summary>
-    [JsFunction(Name = "clear", Length = 0)]
+    [JsFunction(Name = "clear", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Clear(JsValue thisObject)
     {
         Brand(thisObject).Provider.Clear();

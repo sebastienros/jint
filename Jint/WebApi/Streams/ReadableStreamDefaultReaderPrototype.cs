@@ -60,7 +60,7 @@ internal sealed partial class ReadableStreamDefaultReaderPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#generic-reader-cancel
     /// </summary>
-    [JsFunction(Name = "cancel", Length = 0)]
+    [JsFunction(Name = "cancel", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Cancel(JsValue thisObject, JsValue reason)
     {
         try
@@ -83,7 +83,7 @@ internal sealed partial class ReadableStreamDefaultReaderPrototype : Prototype
     /// <summary>
     /// https://streams.spec.whatwg.org/#default-reader-read
     /// </summary>
-    [JsFunction(Name = "read", Length = 0)]
+    [JsFunction(Name = "read", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPromise Read(JsValue thisObject)
     {
         JsReadableStreamDefaultReader reader;
@@ -113,7 +113,7 @@ internal sealed partial class ReadableStreamDefaultReaderPrototype : Prototype
     /// Releasing while reads are outstanding rejects each of them with a <c>TypeError</c>; the chunks they
     /// were waiting for stay in the stream's queue and can be read by a reader acquired later.
     /// </remarks>
-    [JsFunction(Name = "releaseLock", Length = 0)]
+    [JsFunction(Name = "releaseLock", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ReleaseLock(JsValue thisObject)
     {
         var reader = Brand(thisObject);

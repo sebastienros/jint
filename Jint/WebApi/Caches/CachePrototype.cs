@@ -27,11 +27,6 @@ namespace Jint.WebApi.Caches;
 /// number of microtask turns between the call and the settle — nothing a script can observe about
 /// <i>this</i> promise, only about how it interleaves with others.
 /// </para>
-/// <para>
-/// One documented simplification, the same one <c>Headers.prototype</c>, <c>URL.prototype</c> and
-/// <c>Blob.prototype</c> carry: the operations are non-enumerable, where
-/// https://webidl.spec.whatwg.org/#es-operations makes an interface's operations enumerable.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class CachePrototype : Prototype
@@ -62,7 +57,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-match — <c>matchAll</c>, then its first element or
     /// <c>undefined</c>.
     /// </summary>
-    [JsFunction(Name = "match", Length = 1)]
+    [JsFunction(Name = "match", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Match(JsValue thisObject, JsValue request, JsValue options)
         => CacheOperations.Promised(_engine, _realm, () => MatchAllCore(thisObject, request, options, "match", single: true));
 
@@ -70,7 +65,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-matchall — a frozen array, in cache order, of every
     /// response the query selects. With the request omitted that is every response the cache holds.
     /// </summary>
-    [JsFunction(Name = "matchAll", Length = 0)]
+    [JsFunction(Name = "matchAll", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue MatchAll(JsValue thisObject, JsValue request, JsValue options)
         => CacheOperations.Promised(_engine, _realm, () => MatchAllCore(thisObject, request, options, "matchAll", single: false));
 
@@ -78,7 +73,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-add — fetch one request and store what comes back.
     /// <b>Needs <c>fetch</c> enabled</b>; see <see cref="CacheAddAll"/>.
     /// </summary>
-    [JsFunction(Name = "add", Length = 1)]
+    [JsFunction(Name = "add", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Add(JsValue thisObject, JsValue request)
         => CacheOperations.Promised(_engine, _realm, () => CacheAddAll.Add(_engine, _realm, Brand(thisObject), request));
 
@@ -86,7 +81,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-addall — fetch every request and store all of them or
     /// none. <b>Needs <c>fetch</c> enabled</b>; see <see cref="CacheAddAll"/>.
     /// </summary>
-    [JsFunction(Name = "addAll", Length = 1)]
+    [JsFunction(Name = "addAll", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue AddAll(JsValue thisObject, JsValue requests)
         => CacheOperations.Promised(_engine, _realm, () => CacheAddAll.AddAll(_engine, _realm, Brand(thisObject), requests));
 
@@ -94,7 +89,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-put — store a pair the script already has, with no
     /// network involved.
     /// </summary>
-    [JsFunction(Name = "put", Length = 2)]
+    [JsFunction(Name = "put", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Put(JsValue thisObject, JsValue request, JsValue response)
         => CacheOperations.Promised(_engine, _realm, () => PutCore(thisObject, request, response));
 
@@ -102,7 +97,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-delete — whether anything matched, and it is gone if
     /// so.
     /// </summary>
-    [JsFunction(Name = "delete", Length = 1)]
+    [JsFunction(Name = "delete", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Delete(JsValue thisObject, JsValue request, JsValue options)
         => CacheOperations.Promised(_engine, _realm, () => DeleteCore(thisObject, request, options));
 
@@ -110,7 +105,7 @@ internal sealed partial class CachePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#dom-cache-keys — a frozen array, in cache order, of the requests
     /// the query selects. With the request omitted that is every request the cache holds.
     /// </summary>
-    [JsFunction(Name = "keys", Length = 0)]
+    [JsFunction(Name = "keys", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Keys(JsValue thisObject, JsValue request, JsValue options)
         => CacheOperations.Promised(_engine, _realm, () => KeysCore(thisObject, request, options));
 

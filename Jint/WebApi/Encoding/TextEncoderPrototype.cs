@@ -22,12 +22,6 @@ namespace Jint.WebApi.Encoding;
 /// here rather than an own property of the instance, as WebIDL specifies attributes, and brand-checks its
 /// receiver — including <c>TextEncoder.prototype</c> itself, which is not a <c>TextEncoder</c>.
 /// </para>
-/// <para>
-/// One documented simplification against WebIDL, the same one <c>console</c> makes: <c>encode</c> and
-/// <c>encodeInto</c> are non-enumerable, where https://webidl.spec.whatwg.org/#es-operations gives an
-/// interface prototype object's operations <c>{ writable: true, enumerable: true, configurable: true }</c>.
-/// The attributes themselves are enumerable, as WebIDL asks.
-/// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
 internal sealed partial class TextEncoderPrototype : Prototype
@@ -85,7 +79,7 @@ internal sealed partial class TextEncoderPrototype : Prototype
     /// encoded — which is exactly what .NET's UTF-8 encoder does with its replacement fallback, so the
     /// conversion and the encoding happen in one pass.
     /// </remarks>
-    [JsFunction(Name = "encode", Length = 0)]
+    [JsFunction(Name = "encode", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsTypedArray Encode(JsValue thisObject, JsValue input)
     {
         Brand(thisObject);
@@ -105,7 +99,7 @@ internal sealed partial class TextEncoderPrototype : Prototype
     /// is why a surrogate pair advances it by two while the U+FFFD an unpaired surrogate becomes advances
     /// it by one.
     /// </remarks>
-    [JsFunction(Name = "encodeInto", Length = 2)]
+    [JsFunction(Name = "encodeInto", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsObject EncodeInto(JsValue thisObject, JsValue source, JsValue destination)
     {
         Brand(thisObject);

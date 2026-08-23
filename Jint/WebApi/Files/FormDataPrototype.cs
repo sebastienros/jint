@@ -56,7 +56,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-formdata-append
     /// </summary>
-    [JsFunction(Name = "append", Length = 2)]
+    [JsFunction(Name = "append", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Append(JsValue thisObject, JsValue name, JsValue value, JsValue filename)
     {
         var formData = Brand(thisObject);
@@ -67,7 +67,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-formdata-delete
     /// </summary>
-    [JsFunction(Name = "delete", Length = 1)]
+    [JsFunction(Name = "delete", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Delete(JsValue thisObject, JsValue name)
     {
         var formData = Brand(thisObject);
@@ -88,7 +88,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-formdata-get
     /// </summary>
-    [JsFunction(Name = "get", Length = 1)]
+    [JsFunction(Name = "get", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GetEntry(JsValue thisObject, JsValue name)
     {
         var formData = Brand(thisObject);
@@ -99,7 +99,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-formdata-getall
     /// </summary>
-    [JsFunction(Name = "getAll", Length = 1)]
+    [JsFunction(Name = "getAll", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetAll(JsValue thisObject, JsValue name)
     {
         var formData = Brand(thisObject);
@@ -120,7 +120,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-formdata-has
     /// </summary>
-    [JsFunction(Name = "has", Length = 1)]
+    [JsFunction(Name = "has", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsBoolean Has(JsValue thisObject, JsValue name)
     {
         var formData = Brand(thisObject);
@@ -134,7 +134,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// The replacement keeps the first match's position and drops every later one, so <c>set</c> on an
     /// existing name never moves the entry to the end.
     /// </remarks>
-    [JsFunction(Name = "set", Length = 2)]
+    [JsFunction(Name = "set", Length = 2, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Set(JsValue thisObject, JsValue name, JsValue value, JsValue filename)
     {
         var formData = Brand(thisObject);
@@ -168,7 +168,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// The index is re-read against the live list on every step, which is what lets a callback that appends
     /// see what it appended and one that deletes shorten the walk.
     /// </remarks>
-    [JsFunction(Name = "forEach", Length = 1)]
+    [JsFunction(Name = "forEach", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ForEach(JsValue thisObject, JsValue callbackfn, JsValue thisArg)
     {
         var formData = Brand(thisObject);
@@ -186,7 +186,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://webidl.spec.whatwg.org/#es-iterable
     /// </summary>
-    [JsFunction(Name = "entries", Length = 0)]
+    [JsFunction(Name = "entries", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private FormDataIterator Entries(JsValue thisObject)
     {
         return _realm.Intrinsics.FormDataIteratorPrototype.ConstructEntryIterator(Brand(thisObject));
@@ -195,7 +195,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://webidl.spec.whatwg.org/#es-iterable
     /// </summary>
-    [JsFunction(Name = "keys", Length = 0)]
+    [JsFunction(Name = "keys", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private FormDataIterator Keys(JsValue thisObject)
     {
         return _realm.Intrinsics.FormDataIteratorPrototype.ConstructKeyIterator(Brand(thisObject));
@@ -204,7 +204,7 @@ internal sealed partial class FormDataPrototype : Prototype
     /// <summary>
     /// https://webidl.spec.whatwg.org/#es-iterable
     /// </summary>
-    [JsFunction(Name = "values", Length = 0)]
+    [JsFunction(Name = "values", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private FormDataIterator Values(JsValue thisObject)
     {
         return _realm.Intrinsics.FormDataIteratorPrototype.ConstructValueIterator(Brand(thisObject));

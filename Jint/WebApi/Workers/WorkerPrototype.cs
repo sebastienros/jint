@@ -57,7 +57,7 @@ internal sealed partial class WorkerPrototype : Prototype
     /// <c>postMessage(x, { transfer: [buf] })</c> work, and the list travels verbatim, which is what lets a
     /// <c>MessagePort</c> and a transferable stream ride through untouched.
     /// </remarks>
-    [JsFunction(Name = "postMessage", Length = 1)]
+    [JsFunction(Name = "postMessage", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue PostMessage(JsValue thisObject, JsCallArguments arguments)
     {
         var worker = Brand(thisObject);
@@ -83,7 +83,7 @@ internal sealed partial class WorkerPrototype : Prototype
     /// stronger than the field's: V8's <c>TerminateExecution</c> is frame-bounded in exactly the same way and
     /// does not unwind an embedder's native call either.
     /// </remarks>
-    [JsFunction(Name = "terminate", Length = 0)]
+    [JsFunction(Name = "terminate", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Terminate(JsValue thisObject)
     {
         Brand(thisObject).Link?.Terminate();

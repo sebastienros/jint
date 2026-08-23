@@ -147,7 +147,7 @@ internal sealed partial class WebSocketPrototype : Prototype
     /// written; only a write that reaches the network brings it down again.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "send", Length = 1)]
+    [JsFunction(Name = "send", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Send(JsValue thisObject, JsValue data)
     {
         var socket = Brand(thisObject);
@@ -195,7 +195,7 @@ internal sealed partial class WebSocketPrototype : Prototype
     /// Both arguments are converted before either is validated, which is the order WebIDL puts them in and is
     /// observable through a <c>reason</c> whose <c>toString</c> has a side effect.
     /// </remarks>
-    [JsFunction(Name = "close", Length = 0)]
+    [JsFunction(Name = "close", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Close(JsValue thisObject, JsCallArguments arguments)
     {
         var socket = Brand(thisObject);

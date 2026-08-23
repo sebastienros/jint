@@ -50,7 +50,7 @@ internal sealed partial class WritableStreamDefaultControllerPrototype : Prototy
     /// https://streams.spec.whatwg.org/#ws-default-controller-error — silently does nothing unless the
     /// stream is still writable.
     /// </summary>
-    [JsFunction(Name = "error", Length = 0)]
+    [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, JsValue error)
     {
         var controller = Brand(thisObject);

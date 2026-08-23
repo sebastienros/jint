@@ -48,7 +48,7 @@ internal sealed partial class AbortControllerPrototype : Prototype
     /// given". Calling it a second time does nothing, because signal abort returns early for a signal that has
     /// already aborted.
     /// </summary>
-    [JsFunction(Name = "abort", Length = 0)]
+    [JsFunction(Name = "abort", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Abort(JsValue thisObject, JsValue reason)
     {
         var controller = Brand(thisObject);

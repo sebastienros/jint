@@ -35,10 +35,9 @@ namespace Jint.WebApi.Performance;
 /// interface inherits from — see <see cref="PerformanceConstructor"/> for why the inheritance is not claimed.
 /// </para>
 /// <para>
-/// One documented simplification against WebIDL remains, and every prototype in this assembly carries it: the
-/// members are non-enumerable where an interface prototype object's are enumerable.
 /// <c>Object.keys(performance)</c> answers the empty array here exactly as it does in a browser, because there
-/// too the members live one level up. The <c>performance</c> object itself is installed as an ordinary
+/// too the members live one level up — on this object, where they are enumerable as WebIDL asks. One
+/// documented simplification remains: the <c>performance</c> object itself is installed as an ordinary
 /// enumerable data property of the global rather than through the <c>[Replaceable]</c> accessor pair WebIDL
 /// gives it.
 /// </para>
@@ -80,7 +79,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// resolution time", which is the duration from this engine's time origin to now, read from the monotonic
     /// clock.
     /// </summary>
-    [JsFunction(Name = "now", Length = 0)]
+    [JsFunction(Name = "now", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsNumber Now(JsValue thisObject)
     {
         return JsNumber.Create(Brand(thisObject, "Failed to execute 'now' on 'Performance'").State.CurrentHighResolutionTime);
@@ -90,7 +89,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// https://w3c.github.io/hr-time/#dom-performance-timeorigin — the duration from the Unix epoch to this
     /// engine's time origin, in milliseconds.
     /// </summary>
-    [JsAccessor("timeOrigin")]
+    [JsAccessor("timeOrigin", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsNumber TimeOriginGet(JsValue thisObject)
     {
         return JsNumber.Create(Brand(thisObject, "Failed to read the 'timeOrigin' property from 'Performance'").State.TimeOrigin);
@@ -105,7 +104,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// almost entirely about <c>PerformanceObserver</c>s, of which there are none here; what survives of it is
     /// the buffer add, which is why the two steps are one line.
     /// </remarks>
-    [JsFunction(Name = "mark", Length = 1)]
+    [JsFunction(Name = "mark", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPerformanceMark Mark(JsValue thisObject, JsValue markName, JsValue markOptions)
     {
         var performance = Brand(thisObject, "Failed to execute 'mark' on 'Performance'");
@@ -143,7 +142,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// with <c>{ start: 'missing-a', end: 'missing-b' }</c> it is <c>missing-b</c> that is reported.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "measure", Length = 1)]
+    [JsFunction(Name = "measure", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPerformanceMeasure Measure(JsValue thisObject, JsValue measureName, JsValue startOrMeasureOptions, JsValue endMark)
     {
         const string Context = "Failed to execute 'measure' on 'Performance'";
@@ -238,7 +237,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// https://w3c.github.io/performance-timeline/#dom-performance-getentries — "filter buffer map by name and
     /// type" with both filters set to null.
     /// </summary>
-    [JsFunction(Name = "getEntries", Length = 0)]
+    [JsFunction(Name = "getEntries", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetEntries(JsValue thisObject)
     {
         return Brand(thisObject, "Failed to execute 'getEntries' on 'Performance'").FilterBuffer(name: null, type: null);
@@ -247,7 +246,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/performance-timeline/#dom-performance-getentriesbytype
     /// </summary>
-    [JsFunction(Name = "getEntriesByType", Length = 1)]
+    [JsFunction(Name = "getEntriesByType", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetEntriesByType(JsValue thisObject, JsValue type)
     {
         return Brand(thisObject, "Failed to execute 'getEntriesByType' on 'Performance'")
@@ -258,7 +257,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// https://w3c.github.io/performance-timeline/#dom-performance-getentriesbyname — the entry type is an
     /// optional argument with no default, so an omitted or explicitly undefined one filters on the name alone.
     /// </summary>
-    [JsFunction(Name = "getEntriesByName", Length = 1)]
+    [JsFunction(Name = "getEntriesByName", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray GetEntriesByName(JsValue thisObject, JsValue name, JsValue type)
     {
         return Brand(thisObject, "Failed to execute 'getEntriesByName' on 'Performance'")
@@ -268,7 +267,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/user-timing/#dom-performance-clearmarks
     /// </summary>
-    [JsFunction(Name = "clearMarks", Length = 0)]
+    [JsFunction(Name = "clearMarks", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ClearMarks(JsValue thisObject, JsValue markName)
     {
         Brand(thisObject, "Failed to execute 'clearMarks' on 'Performance'")
@@ -279,7 +278,7 @@ internal sealed partial class PerformancePrototype : Prototype
     /// <summary>
     /// https://w3c.github.io/user-timing/#dom-performance-clearmeasures
     /// </summary>
-    [JsFunction(Name = "clearMeasures", Length = 0)]
+    [JsFunction(Name = "clearMeasures", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue ClearMeasures(JsValue thisObject, JsValue measureName)
     {
         Brand(thisObject, "Failed to execute 'clearMeasures' on 'Performance'")

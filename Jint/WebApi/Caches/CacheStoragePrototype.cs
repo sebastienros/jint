@@ -22,8 +22,7 @@ namespace Jint.WebApi.Caches;
 /// </para>
 /// <para>
 /// Every operation returns a promise and therefore never throws — see
-/// <see cref="CacheOperations.Promised"/>. The operations are non-enumerable, the same documented
-/// simplification the other prototypes in this assembly carry.
+/// <see cref="CacheOperations.Promised"/>.
 /// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
@@ -68,14 +67,14 @@ internal sealed partial class CacheStoragePrototype : Prototype
     /// jobs differs.
     /// </para>
     /// </remarks>
-    [JsFunction(Name = "match", Length = 1)]
+    [JsFunction(Name = "match", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Match(JsValue thisObject, JsValue request, JsValue options)
         => CacheOperations.Promised(_engine, _realm, () => MatchCore(thisObject, request, options));
 
     /// <summary>
     /// https://w3c.github.io/ServiceWorker/#cache-storage-has
     /// </summary>
-    [JsFunction(Name = "has", Length = 1)]
+    [JsFunction(Name = "has", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Has(JsValue thisObject, JsValue cacheName, [ArgCount] int argumentCount)
         => CacheOperations.Promised(_engine, _realm, () =>
         {
@@ -88,7 +87,7 @@ internal sealed partial class CacheStoragePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#cache-storage-open — the cache with that name, created if it did
     /// not exist. A new <c>Cache</c> object every time, over the same storage.
     /// </summary>
-    [JsFunction(Name = "open", Length = 1)]
+    [JsFunction(Name = "open", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Open(JsValue thisObject, JsValue cacheName, [ArgCount] int argumentCount)
         => CacheOperations.Promised(_engine, _realm, () =>
         {
@@ -105,7 +104,7 @@ internal sealed partial class CacheStoragePrototype : Prototype
     /// standard's own note asks for: what is deleted is the name, not the storage behind an object somebody
     /// already has.
     /// </remarks>
-    [JsFunction(Name = "delete", Length = 1)]
+    [JsFunction(Name = "delete", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Delete(JsValue thisObject, JsValue cacheName, [ArgCount] int argumentCount)
         => CacheOperations.Promised(_engine, _realm, () =>
         {
@@ -118,7 +117,7 @@ internal sealed partial class CacheStoragePrototype : Prototype
     /// https://w3c.github.io/ServiceWorker/#cache-storage-keys — the cache names, in the order they were
     /// first opened.
     /// </summary>
-    [JsFunction(Name = "keys", Length = 0)]
+    [JsFunction(Name = "keys", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Keys(JsValue thisObject)
         => CacheOperations.Promised(_engine, _realm, () =>
         {
