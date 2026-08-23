@@ -1,5 +1,9 @@
 #nullable enable
 
+// Reads ObjectRepresentation, which Jint declares as a non-contract diagnostic. Acknowledged the way an
+// embedder acknowledges it; see Jint/JintDiagnosticIds.cs.
+#pragma warning disable JINT0001
+
 using System.Globalization;
 using BenchmarkDotNet.Attributes;
 using Jint.Native;

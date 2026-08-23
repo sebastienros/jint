@@ -46,6 +46,13 @@ Three things about how it is wired are worth knowing before touching it:
   target in the `.csproj` builds the outer, cross-targeting Jint project so all five are present and current
   whenever this suite builds; if one is missing or the tree is left over from a different build, the test says
   so and names `dotnet build -c Release Jint/Jint.csproj` rather than passing on stale output.
+- **An attribute whose type is `internal` in that assembly is not rendered.** `PublicApiGenerator` skips it,
+  so `[Experimental("JINT0001")]` — Jint's marker on its declared non-contracts — shows up only in the
+  `net8.0` and `net10.0` baselines. Downlevel it is PolySharp's polyfill, which this repository deliberately
+  generates `internal`. The diagnostic itself still fires for a downlevel consumer (the `net472` leg of this
+  very project proves it, against Jint's `net462` asset); only the snapshot is silent. Do not "fix" that by
+  making the polyfills public — that would put a type whose members vary by target framework into the surface
+  these files exist to pin.
 - **The rows come from `Jint.csproj`'s own `<TargetFrameworks>`.** Adding a target framework adds a failing row
   that wants a baseline, rather than silently shipping an unsnapshotted surface. The test itself runs on the
   `net10.0` leg only — `PublicApiGenerator` formats through CodeDom and nothing promises .NET Framework's lays

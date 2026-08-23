@@ -19,6 +19,11 @@
 
     <NoWarn>$(NoWarn);1591</NoWarn>
 
+    <!-- JINT0001 is Jint's own [Experimental] marker on the declared non-contract diagnostics
+         (see Jint/JintDiagnosticIds.cs). It is a message to consumers about what they may depend on;
+         the assembly that owns those types has no one to acknowledge it to. -->
+    <NoWarn>$(NoWarn);JINT0001</NoWarn>
+
     <!-- TODO AOT improvements -->
     <NoWarn>$(NoWarn);IL3050;IL2080;IL2075;IL2072;IL2070;IL2069;IL2067;IL2060;</NoWarn>
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Jint.Diagnostics;
 using Jint.Native;
@@ -62,8 +63,25 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Forcefully processes the current task queues (micro and regular), this API may break and change behavior!
+        /// Gives the engine a turn: runs everything the event loop currently has to run — queued jobs,
+        /// promise reactions, a due timer, a completion that arrived from a background thread — and returns.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>This is the canonical host loop, together with
+        /// <see cref="TimeUntilNextScheduledWork"/>, which answers <i>when</i> to call it.</b> Jint never
+        /// starts a thread to run script, so an engine nobody pumps runs no <c>setTimeout</c> callback,
+        /// settles no <c>Atomics.waitAsync</c> and delivers no worker message. Any host using timers,
+        /// promises or workers has to call this, or one of the blocking waits built on it
+        /// (<see cref="WaitForScheduledWork(TimeSpan, System.Threading.CancellationToken)"/>).
+        /// </para>
+        /// <para>
+        /// It runs what is available and does not block: it is not a drain for a budget, and there is
+        /// deliberately no such method — see the loop shapes on <see cref="TimeUntilNextScheduledWork"/>.
+        /// A job belonging to an evaluation cycle <see cref="RestoreGlobalSnapshot"/> has ended is discarded
+        /// rather than run.
+        /// </para>
+        /// </remarks>
         public void ProcessTasks()
         {
             using var ownership = _engine.EnterHostCall();
@@ -113,8 +131,6 @@ public partial class Engine
         }
 
         /// <summary>
-        /// EXPERIMENTAL! Subject to change.
-        ///
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
@@ -122,6 +138,14 @@ public partial class Engine
         /// inline only when that thread can claim exclusive engine ownership; otherwise the owning host turn
         /// or a later <see cref="ProcessTasks"/> call drains it.
         /// </summary>
+        /// <remarks>
+        /// This is a low-level primitive — the supported way for host code to hand script a promise it
+        /// settles itself — and it is an ordinary part of the public surface: unlike the diagnostics marked
+        /// <c>JINT0001</c> (see <see cref="JintDiagnosticIds"/>), what it returns is a real capability rather
+        /// than a report about an internal representation, so a change to it is a migration-guide row like
+        /// any other. It carried an "EXPERIMENTAL! Subject to change" banner from before that distinction
+        /// existed; the banner was removed rather than promoted, so that the word means one thing here.
+        /// </remarks>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
@@ -219,6 +243,7 @@ public partial class Engine
         /// <param name="value">The object to inspect. It must belong to this engine.</param>
         /// <exception cref="ArgumentNullException"><paramref name="value"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentException"><paramref name="value"/> belongs to a different engine.</exception>
+        [Experimental(JintDiagnosticIds.NonContractDiagnostic)]
         public ObjectRepresentation GetObjectRepresentation(ObjectInstance value)
         {
             using var ownership = _engine.EnterHostCall();
@@ -408,6 +433,7 @@ public partial class Engine
         /// independently, so a host pooling engines should read them per engine.
         /// </para>
         /// </remarks>
+        [Experimental(JintDiagnosticIds.NonContractDiagnostic)]
         public InteropConversionDiagnostics GetInteropConversionDiagnostics()
         {
             using var ownership = _engine.EnterHostCall();
@@ -483,6 +509,7 @@ public partial class Engine
         /// that only wants the cheap counts should pass.
         /// </param>
         /// <returns>The counts, as of the moment of the call.</returns>
+        [Experimental(JintDiagnosticIds.NonContractDiagnostic)]
         public EngineMemoryReport GetMemoryReport(int objectCensusBound = 10_000)
             => EngineMemoryReportBuilder.Build(_engine, objectCensusBound);
 
@@ -545,7 +572,7 @@ public partial class Engine
         /// only known once the request is in hand:
         /// <code>
         /// engine.Advanced.AddLazyGlobal("user", _ => JsValue.FromObject(engine, request.User));
-        /// engine.Advanced.AddLazyGlobal("db", e => new ObjectWrapper(e, scope.ServiceProvider.GetRequiredService&lt;IDb&gt;()));
+        /// engine.Advanced.AddLazyGlobal("db", e => ObjectWrapper.Create(e, scope.ServiceProvider.GetRequiredService&lt;IDb&gt;()));
         /// </code>
         /// Neither the user projection nor the database wrapper is built for a script that never mentions
         /// the name.
@@ -783,7 +810,12 @@ public partial class Engine
 /// diagnostic naming <i>which</i> representation an object landed in, for the times a false answer has to be
 /// explained.
 /// </para>
+/// <para>
+/// That non-contract status is declared to the compiler as <c>JINT0001</c>; see
+/// <see cref="JintDiagnosticIds"/> for how a host acknowledges it.
+/// </para>
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public enum ObjectRepresentation
 {
     /// <summary>
@@ -834,8 +866,13 @@ public enum ObjectRepresentation
 /// See <see cref="Engine.AdvancedOperations.GetInteropConversionDiagnostics"/> for what falls inside and
 /// outside the counted set.
 /// </para>
+/// <para>
+/// That non-contract status is declared to the compiler as <c>JINT0001</c>; see
+/// <see cref="JintDiagnosticIds"/> for how a host acknowledges it.
+/// </para>
 /// </remarks>
 [StructLayout(LayoutKind.Auto)]
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public readonly record struct InteropConversionDiagnostics
 {
     internal InteropConversionDiagnostics(long arrayLiveViewConversions, long arrayCopyConversions)

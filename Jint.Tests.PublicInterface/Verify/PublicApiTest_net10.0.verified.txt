@@ -26,12 +26,6 @@ namespace Jint
         public static Jint.Options MaxStatements(this Jint.Options options, int maxStatements = 0) { }
         public static Jint.Options TimeoutInterval(this Jint.Options options, System.TimeSpan timeoutInterval) { }
     }
-    public enum DeclarationBindingType
-    {
-        GlobalCode = 0,
-        FunctionCode = 1,
-        EvalCode = 2,
-    }
     [System.Diagnostics.DebuggerTypeProxy(typeof(Jint.Engine.EngineDebugView))]
     public sealed class Engine : System.IDisposable
     {
@@ -105,8 +99,11 @@ namespace Jint
             public Jint.WebApiFeatures EnableWebApis() { }
             public Jint.WebApiFeatures EnableWebApis(Jint.WebApiFeatures features, System.Action<Jint.Options.WebApiOptions>? configure = null) { }
             public Jint.Runtime.Coverage.CoverageReport GetCoverage() { }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
             public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
             public Jint.Diagnostics.EngineMemoryReport GetMemoryReport(int objectCensusBound = 10000) { }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
             public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
             public Jint.Native.Object.PropertyAccessSemantics GetPropertyAccessSemantics(Jint.Native.Object.ObjectInstance value) { }
             public bool HasSharedShape(Jint.Native.Object.ObjectInstance value) { }
@@ -136,7 +133,6 @@ namespace Jint
         }
         public class ModuleOperations
         {
-            public ModuleOperations(Jint.Engine engine, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
             public void Add(string specifier, Jint.Runtime.Modules.ModuleBuilder moduleBuilder) { }
             public void Add(string specifier, System.Action<Jint.Runtime.Modules.ModuleBuilder> buildModule) { }
             public void Add(string specifier, string code) { }
@@ -161,8 +157,6 @@ namespace Jint
     public enum ExperimentalFeature
     {
         None = 0,
-        [System.Obsolete("This flag is no longer necessary as generators are fully supported.", true)]
-        Generators = 1,
         TaskInterop = 2,
         All = 2,
     }
@@ -180,6 +174,7 @@ namespace Jint
         bool FoldConstants { get; init; }
         TParsingOptions ParsingOptions { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public readonly struct InteropConversionDiagnostics : System.IEquatable<Jint.InteropConversionDiagnostics>
     {
         public long ArrayCopyConversions { get; }
@@ -294,6 +289,7 @@ namespace Jint
     {
         public static Jint.Options UseNodeProcess(this Jint.Options options, System.Action<Jint.NodeCompat.NodeProcessOptions>? configure = null) { }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public enum ObjectRepresentation
     {
         Dictionary = 0,
@@ -301,7 +297,7 @@ namespace Jint
         SharedBuiltinLayout = 2,
         Specialized = 3,
     }
-    public class Options
+    public sealed class Options
     {
         public Options() { }
         public bool AgentCanSuspend { get; set; }
@@ -322,23 +318,21 @@ namespace Jint
         public Jint.ResultLimits ResultLimits { get; set; }
         public bool RetainFunctionSourceText { get; set; }
         public bool Strict { get; set; }
-        [System.Obsolete("Use Options.Host.StringCompilationAllowed")]
-        public bool StringCompilationAllowed { get; set; }
         public Jint.Options.TemporalOptions Temporal { get; }
         public Jint.Runtime.ITimeSystem TimeSystem { get; set; }
         public System.TimeZoneInfo TimeZone { get; set; }
         public Jint.Options.WebApiOptions WebApi { get; }
-        public class CacheOptions
+        public sealed class CacheOptions
         {
             public CacheOptions() { }
             public Jint.WebApi.CacheStorageProvider? Provider { get; set; }
         }
-        public class ConsoleOptions
+        public sealed class ConsoleOptions
         {
             public ConsoleOptions() { }
             public Jint.WebApi.ConsoleSink Sink { get; set; }
         }
-        public class ConstraintOptions
+        public sealed class ConstraintOptions
         {
             public ConstraintOptions() { }
             public System.Collections.Generic.List<Jint.Constraint> Constraints { get; }
@@ -351,25 +345,25 @@ namespace Jint
             public bool StackOverflowGuard { get; set; }
             public System.TimeProvider TimeProvider { get; set; }
         }
-        public class CoverageOptions
+        public sealed class CoverageOptions
         {
             public CoverageOptions() { }
             public bool Enabled { get; set; }
             public Jint.Runtime.Coverage.CoverageGranularity Granularity { get; set; }
         }
-        public class DebuggerOptions
+        public sealed class DebuggerOptions
         {
             public DebuggerOptions() { }
             public bool Enabled { get; set; }
             public Jint.Runtime.Debugger.StepMode InitialStepMode { get; set; }
             public Jint.Runtime.Debugger.DebuggerStatementHandling StatementHandling { get; set; }
         }
-        public class DiagnosticsOptions
+        public sealed class DiagnosticsOptions
         {
             public DiagnosticsOptions() { }
             public Jint.WebApi.DiagnosticsSink? Sink { get; set; }
         }
-        public class FetchOptions
+        public sealed class FetchOptions
         {
             public FetchOptions() { }
             public System.Collections.Generic.List<string> AllowedSchemes { get; }
@@ -381,13 +375,13 @@ namespace Jint
             public System.TimeSpan Timeout { get; set; }
             public System.Func<System.Uri, bool> UrlFilter { get; set; }
         }
-        public class HostOptions
+        public sealed class HostOptions
         {
             public HostOptions() { }
             public System.Func<Jint.Native.Function.Function, Acornima.Ast.Node, string?> FunctionToStringHandler { get; set; }
             public bool StringCompilationAllowed { get; set; }
         }
-        public class InteropOptions
+        public sealed class InteropOptions
         {
             public InteropOptions() { }
             public bool AllowGetType { get; set; }
@@ -428,22 +422,22 @@ namespace Jint
             public Jint.ValueCoercionType ValueCoercion { get; set; }
             public Jint.Options.WrapObjectDelegate WrapObjectHandler { get; set; }
         }
-        public class IntlOptions
+        public sealed class IntlOptions
         {
             public IntlOptions() { }
             public Jint.Native.Intl.ICldrProvider CldrProvider { get; set; }
         }
-        public class JsonOptions
+        public sealed class JsonOptions
         {
             public JsonOptions() { }
             public int MaxParseDepth { get; set; }
         }
-        public class MessagingOptions
+        public sealed class MessagingOptions
         {
             public MessagingOptions() { }
             public Jint.WebApi.BroadcastChannelBroker? Broker { get; set; }
         }
-        public class ModuleOptions
+        public sealed class ModuleOptions
         {
             public ModuleOptions() { }
             public bool ExposeDetailedLoadErrors { get; set; }
@@ -461,34 +455,34 @@ namespace Jint
             public int? MaxNodeCount { get; set; }
             public int? MaxSourceLength { get; set; }
         }
-        public class ProfilingOptions
+        public sealed class ProfilingOptions
         {
             public const int DefaultMaxEvents = 1000000;
             public ProfilingOptions() { }
             public bool Enabled { get; set; }
             public int MaxEvents { get; set; }
         }
-        public class StorageOptions
+        public sealed class StorageOptions
         {
             public StorageOptions() { }
             public Jint.WebApi.StorageProvider? LocalStorageProvider { get; set; }
             public long MaxTotalBytes { get; set; }
             public Jint.WebApi.StorageProvider? SessionStorageProvider { get; set; }
         }
-        public class TemporalOptions
+        public sealed class TemporalOptions
         {
             public TemporalOptions() { }
             public Jint.Native.Temporal.ICalendarProvider CalendarProvider { get; set; }
             public Jint.Native.Temporal.ITimeZoneProvider TimeZoneProvider { get; set; }
         }
-        public class TimerOptions
+        public sealed class TimerOptions
         {
             public TimerOptions() { }
             public System.TimeSpan IdleBudget { get; set; }
             public int MaxActiveTimers { get; set; }
             public System.TimeProvider TimeProvider { get; set; }
         }
-        public class WebApiOptions
+        public sealed class WebApiOptions
         {
             public WebApiOptions() { }
             public Jint.Options.CacheOptions Cache { get; }
@@ -501,7 +495,7 @@ namespace Jint
             public Jint.Options.TimerOptions Timers { get; }
             public Jint.Options.WorkerOptions Workers { get; }
         }
-        public class WorkerOptions
+        public sealed class WorkerOptions
         {
             public WorkerOptions() { }
             public int MaxQueuedMessages { get; set; }
@@ -873,6 +867,7 @@ namespace Jint.Constraints
 }
 namespace Jint.Diagnostics
 {
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public sealed class EngineMemoryReport : System.IEquatable<Jint.Diagnostics.EngineMemoryReport>
     {
         public int EventLoopQueueDepth { get; }
@@ -888,6 +883,7 @@ namespace Jint.Diagnostics
         public Jint.Diagnostics.PoolReport Pools { get; }
         public int RegisteredModuleCount { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public sealed class HandlerTreeCacheReport : System.IEquatable<Jint.Diagnostics.HandlerTreeCacheReport>
     {
         public int EvaluatedScripts { get; }
@@ -895,11 +891,13 @@ namespace Jint.Diagnostics
         public int PropertyKeyExpressions { get; }
         public int ScriptStatementLists { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public sealed class InteropCacheReport : System.IEquatable<Jint.Diagnostics.InteropCacheReport>
     {
         public int TypeNameCacheCount { get; }
         public int TypeReferenceCount { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public sealed class ObjectCensusReport : System.IEquatable<Jint.Diagnostics.ObjectCensusReport>
     {
         public int Arrays { get; }
@@ -911,6 +909,7 @@ namespace Jint.Diagnostics
         public int OtherObjects { get; }
         public int PlainObjects { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
     public sealed class PoolReport : System.IEquatable<Jint.Diagnostics.PoolReport>
     {
         public int PooledArgumentsObjects { get; }
@@ -1057,7 +1056,6 @@ namespace Jint.Native
     }
     public sealed class JsMap : Jint.Native.Object.ObjectInstance, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>>, System.Collections.IEnumerable
     {
-        public JsMap(Jint.Engine engine, Jint.Runtime.Realm realm) { }
         public int Size { get; }
         public void Clear() { }
         public new Jint.Native.JsValue Get(Jint.Native.JsValue key) { }
@@ -1228,7 +1226,7 @@ namespace Jint.Native
         public override object? ToObject() { }
         public override string ToString() { }
     }
-    public abstract class JsValue : System.IConvertible, System.IEquatable<Jint.Native.JsValue>
+    public abstract class JsValue : System.IEquatable<Jint.Native.JsValue>
     {
         public static readonly Jint.Native.JsValue Null;
         public static readonly Jint.Native.JsValue Undefined;
@@ -1937,7 +1935,6 @@ namespace Jint.Runtime
     }
     public sealed class Realm
     {
-        public Realm() { }
         public Jint.Native.Object.ObjectInstance GlobalObject { get; }
         public object? HostDefined { get; set; }
         public Jint.Runtime.Intrinsics Intrinsics { get; }
@@ -1971,8 +1968,6 @@ namespace Jint.Runtime
     }
     public static class TypeConverter
     {
-        [System.Obsolete("Use TypeConverter.RequireObjectCoercible")]
-        public static void CheckObjectCoercible(Jint.Engine engine, Jint.Native.JsValue o) { }
         public static void RequireObjectCoercible(Jint.Engine engine, Jint.Native.JsValue o) { }
         public static System.Numerics.BigInteger ToBigInt(Jint.Native.JsValue value) { }
         public static bool ToBoolean(Jint.Native.JsValue o) { }

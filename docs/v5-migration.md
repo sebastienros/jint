@@ -41,13 +41,74 @@ carries a `net4x` target.
 
 ## 2. Removed API
 
-*Nothing recorded yet.* No public member has been removed from `Jint` since `v4.16.0`.
-
-This table is filled by the pull request that removes the member.
+This table is filled by the pull request that removes the member. A member that merely became
+*less* accessible is listed here too: it breaks the same callers a deletion does.
 
 | Removed | Replacement | PR |
 | --- | --- | --- |
-| — | — | — |
+| `Options.StringCompilationAllowed` | `Options.Host.StringCompilationAllowed` — the property it already forwarded to | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `ExperimentalFeature.Generators` | nothing; generators are unconditional. The flag was `[Obsolete(error: true)]`, so nothing compiled against it. Bit 1 is not reused, so any other persisted `ExperimentalFeature` value keeps its meaning | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `TypeConverter.CheckObjectCoercible(Engine, JsValue)` | `TypeConverter.RequireObjectCoercible(Engine, JsValue)` — same behaviour, spec name | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `DeclarationBindingType` (enum) | nothing. It was public, had no members that anything read, and had exactly one reference in the repository: its own declaration | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `JsValue`'s `System.IConvertible` implementation | nothing. It was an explicit implementation, so `jsValue.ToInt32(...)` never compiled; only `((IConvertible) jsValue)` did, and 9 of its 17 members threw `NotImplementedException`. Use `JsValue.ToObject()`, or the `AsNumber()` / `AsString()` / `AsBoolean()` extension helpers | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.Advanced.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+
+### 2.1 Sealed types
+
+`Options` and all nineteen of its nested option groups are now `sealed`. None had a virtual member, so a
+subclass overrode nothing — and `Options.Clone()` is `MemberwiseClone`-based, so it silently sliced one.
+
+```c#
+// 4.16.x — compiled, and Clone() returned an Options, not a MyOptions
+class MyOptions : Options { }
+
+// 5.x — configure through the options object instead of subclassing it
+var engine = new Engine(options => { options.Strict = true; /* … */ });
+```
+
+The sealed groups: `CacheOptions`, `ConsoleOptions`, `ConstraintOptions`, `CoverageOptions`,
+`DebuggerOptions`, `DiagnosticsOptions`, `FetchOptions`, `HostOptions`, `InteropOptions`, `IntlOptions`,
+`JsonOptions`, `MessagingOptions`, `ModuleOptions`, `ProfilingOptions`, `StorageOptions`, `TemporalOptions`,
+`TimerOptions`, `WebApiOptions`, `WorkerOptions` (`ParsingOptions` already was).
+
+### 2.2 The declared non-contracts now say so to the compiler
+
+`Jint/AGENTS.md` has always said that a few public types are diagnostics rather than contracts — what they
+report names an internal representation, so the answer may change in any release and the types may gain
+members. Nothing in the type system said so. They now carry
+`[Experimental("JINT0001")]`, which is a compiler **error** at the call site until it is acknowledged:
+
+| Marked | |
+| --- | --- |
+| `ObjectRepresentation`, `Engine.Advanced.GetObjectRepresentation` | to *assert* an object is shaped, use `Engine.Advanced.HasSharedShape`, which **is** a contract and is not marked |
+| `Engine.Advanced.GetMemoryReport` and the `Jint.Diagnostics` records (`EngineMemoryReport`, `HandlerTreeCacheReport`, `InteropCacheReport`, `PoolReport`, `ObjectCensusReport`) | |
+| `InteropConversionDiagnostics`, `Engine.Advanced.GetInteropConversionDiagnostics` | |
+
+```c#
+#pragma warning disable JINT0001 // Jint diagnostic API, deliberately outside the compatibility contract
+    var report = engine.Advanced.GetMemoryReport();
+#pragma warning restore JINT0001
+```
+
+or, for a host that logs one on every request, `<NoWarn>$(NoWarn);JINT0001</NoWarn>` once in the project
+file. The identifier is stable: a member marked `JINT0001` keeps that identifier for as long as it is marked,
+so the suppression does not have to be revisited.
+
+Two things this deliberately does *not* mark. `Engine.Advanced.ProcessTasks` is the canonical host loop —
+every host with timers, promises or workers must call it — so its stale "this API may break and change
+behavior!" line was corrected rather than promoted to an attribute. `Engine.Advanced.RegisterPromise` is a
+real capability rather than a report about an internal representation, so its equally stale
+"EXPERIMENTAL! Subject to change." banner was removed for the same reason: once the attribute exists, the
+word has to mean one thing.
+
+### 2.3 `UnwrapIfPromise()` honours the configured promise timeout
+
+`JsValueExtensions.UnwrapIfPromise()` — the overload with no arguments — hard-coded ten seconds instead of
+reading `Options.Constraints.PromiseTimeout`, whose default is also ten seconds. A host that configured a
+different value was silently ignored. It now reads the promise's own engine. Nothing changes for a host that
+left the default, and the `TimeSpan` and `CancellationToken` overloads are untouched.
 
 ## 3. Renamed and reshaped API
 

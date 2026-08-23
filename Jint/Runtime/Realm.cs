@@ -25,13 +25,15 @@ public sealed class Realm
 #if DEBUG
     private static int globalId = 1;
 
-    public Realm()
-    {
-        Id = globalId++;
-    }
-
     internal int Id;
 #endif
+
+    internal Realm()
+    {
+#if DEBUG
+        Id = globalId++;
+#endif
+    }
 
     /// <summary>
     /// The intrinsic values used by code associated with this realm.

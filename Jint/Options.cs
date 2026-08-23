@@ -17,7 +17,7 @@ using Jint.Runtime.Modules;
 
 namespace Jint;
 
-public partial class Options
+public sealed partial class Options
 {
     private static readonly CultureInfo _defaultCulture = CultureInfo.CurrentCulture;
     private static readonly TimeZoneInfo _defaultTimeZone = TimeZoneInfo.Local;
@@ -170,20 +170,6 @@ public partial class Options
     public ReferenceResolverInterests ReferenceResolverInterests { get; set; } = ReferenceResolverInterests.All;
 
     /// <summary>
-    /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
-    /// Defaults to true.
-    /// </summary>
-    /// <remarks>
-    /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
-    /// </remarks>
-    [Obsolete("Use Options.Host.StringCompilationAllowed")]
-    public bool StringCompilationAllowed
-    {
-        get => Host.StringCompilationAllowed;
-        set => Host.StringCompilationAllowed = value;
-    }
-
-    /// <summary>
     /// Options for the built-in JSON (de)serializer which
     /// gets used using <c>JSON.parse</c> or <c>JSON.stringify</c>
     /// </summary>
@@ -321,9 +307,6 @@ public partial class Options
         // eval and new Function. Without this one, building a second engine is an eval escape hatch from a
         // parent that turned it off.
         "Host.StringCompilationAllowed",
-
-        // The obsolete alias of the property above; it forwards, so copying that one copies this one.
-        "StringCompilationAllowed",
 
         // Whether Atomics.wait may block the thread. A second engine that can block a host thread its creator
         // could not is exactly the shape this rule exists to refuse.
@@ -600,7 +583,7 @@ public partial class Options
     }
 
 
-    public class DebuggerOptions
+    public sealed class DebuggerOptions
     {
         /// <summary>
         /// Whether debugger functionality is enabled, defaults to false.
@@ -628,7 +611,7 @@ public partial class Options
     /// Nothing here is engine-affine, so an <see cref="Options"/> instance carrying it stays shareable across
     /// engines — each engine gets its own counters, and reading one engine's report never sees another's.
     /// </remarks>
-    public class CoverageOptions
+    public sealed class CoverageOptions
     {
         /// <summary>
         /// Whether the engine counts what it executes, defaults to false. When set, the engine collects hit
@@ -650,7 +633,7 @@ public partial class Options
         public CoverageGranularity Granularity { get; set; } = CoverageGranularity.Statements;
     }
 
-    public class InteropOptions
+    public sealed class InteropOptions
     {
         /// <summary>
         /// Whether accessing CLR and it's types and methods is allowed from JS code, defaults to false.
@@ -1025,7 +1008,7 @@ public partial class Options
         }
     }
 
-    public class ConstraintOptions
+    public sealed class ConstraintOptions
     {
         /// <summary>
         /// Registered constraint instances.
@@ -1225,7 +1208,7 @@ public partial class Options
     /// <summary>
     /// Host related customization, still work in progress.
     /// </summary>
-    public class HostOptions
+    public sealed class HostOptions
     {
         internal static readonly Func<Engine, Host> _defaultFactory = static _ => new Host();
 
@@ -1264,7 +1247,7 @@ public partial class Options
     /// <summary>
     /// Module related customization
     /// </summary>
-    public class ModuleOptions
+    public sealed class ModuleOptions
     {
         /// <summary>
         /// Whether to register require function to engine which will delegate to module loader, defaults to false.
@@ -1338,7 +1321,7 @@ public partial class Options
     /// <summary>
     /// JSON.parse / JSON.stringify related customization
     /// </summary>
-    public class JsonOptions
+    public sealed class JsonOptions
     {
         /// <summary>
         /// The maximum depth allowed when parsing JSON files using "JSON.parse",
@@ -1350,7 +1333,7 @@ public partial class Options
     /// <summary>
     /// Internationalization (Intl) API related customization.
     /// </summary>
-    public class IntlOptions
+    public sealed class IntlOptions
     {
         /// <summary>
         /// CLDR provider for locale data. Defaults to DefaultCldrProvider
@@ -1366,7 +1349,7 @@ public partial class Options
     /// <summary>
     /// Temporal API related customization.
     /// </summary>
-    public class TemporalOptions
+    public sealed class TemporalOptions
     {
         /// <summary>
         /// Time zone provider for Temporal operations. Defaults to DefaultTimeZoneProvider
@@ -1437,14 +1420,12 @@ public enum ExperimentalFeature
     None = 0,
 
     /// <summary>
-    /// Generator support
-    /// </summary>
-    [Obsolete("This flag is no longer necessary as generators are fully supported.", error: true)]
-    Generators = 1,
-
-    /// <summary>
     /// Wrapping tasks to promises
     /// </summary>
+    /// <remarks>
+    /// Bit 1 is deliberately not reused: it was <c>Generators</c>, removed in v5 once generators
+    /// became unconditional. Keeping the layout stable keeps a persisted value meaning what it meant.
+    /// </remarks>
     TaskInterop = 2,
 
     /// <summary>
