@@ -101,7 +101,16 @@ public static class ConstraintsOptionsExtensions
 
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
         {
+#if NET8_0_OR_GREATER
+            // The group rather than a captured clock: the factory runs while the engine is being
+            // constructed, so a TimeProvider assigned after this call still reaches the constraint and
+            // configuration order does not matter. TimeProvider is a .NET 8 type, so the downlevel
+            // targets register the constraint exactly as they always did.
+            var constraints = options.Constraints;
+            options.Constraint(() => new TimeConstraint(timeoutInterval, constraints.TimeProvider));
+#else
             options.Constraint(() => new TimeConstraint(timeoutInterval));
+#endif
         }
         return options;
     }
