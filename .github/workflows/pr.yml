@@ -147,6 +147,8 @@ jobs:
         ./artifacts/publish/Jint.AotExample/release/Jint.AotExample | tee aot-run.log
         grep -q '^ALL PROBES PASSED' aot-run.log
 
+    # if: always() so the inventory is still written when the run step above went red, which is exactly when
+    # someone wants to read it. Every command here therefore has to survive a missing log.
     - name: Summarise the trim and AOT analysis warnings
       if: always()
       run: |
@@ -157,13 +159,13 @@ jobs:
           echo
           echo '| code | count |'
           echo '| --- | --- |'
-          grep -oE 'IL[0-9]{4}' aot-publish.log | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
+          grep -hoE 'IL[0-9]{4}' aot-publish.log 2>/dev/null | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
           echo
-          echo "total: $(grep -cE 'IL[0-9]{4}' aot-publish.log || true)"
+          echo "total: $(grep -hcE 'IL[0-9]{4}' aot-publish.log 2>/dev/null || echo 0)"
           echo
           echo '### Probe run'
           echo
           echo '```'
-          cat aot-run.log
+          cat aot-run.log 2>/dev/null || echo '(the binary produced no output)'
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"

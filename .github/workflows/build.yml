@@ -104,7 +104,7 @@ jobs:
           echo
           echo '| code | count |'
           echo '| --- | --- |'
-          grep -oE 'IL[0-9]{4}' aot-publish.log | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
+          grep -hoE 'IL[0-9]{4}' aot-publish.log 2>/dev/null | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
           echo
-          echo "total: $(grep -cE 'IL[0-9]{4}' aot-publish.log || true)"
+          echo "total: $(grep -hcE 'IL[0-9]{4}' aot-publish.log 2>/dev/null || echo 0)"
         } >> "$GITHUB_STEP_SUMMARY"
