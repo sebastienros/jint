@@ -26,9 +26,13 @@ public sealed class EvalFunction : Function
 
     private Dictionary<CacheKey, CacheEntry>? _evalCache;
 
-    // Memoized `with`-adjustment of the active parser options (stable instance in steady state).
+    // Memoized `with`-adjustment of the active parser options (stable instances in steady state).
+    // Two of them, because one of the adjustments is not constant: PerformEval admits a direct
+    // super() only when inDerivedConstructor is true, so that parser option is passed through per
+    // call rather than switched on for every eval.
     private ParserOptions? _lastBaseParserOptions;
     private ParserOptions? _lastAdjustedParserOptions;
+    private ParserOptions? _lastAdjustedParserOptionsInDerivedConstructor;
 
     // Two-touch promotion: a source enters the cache only when seen twice, so one-shot eval
     // workloads pay just a failed lookup + key compare instead of an insert per call.
@@ -128,24 +132,21 @@ public sealed class EvalFunction : Function
         }
 
         var parserOptions = _engine.GetActiveParserOptions();
-        ParserOptions adjustedParserOptions;
-        if (ReferenceEquals(parserOptions, _lastBaseParserOptions))
+        if (!ReferenceEquals(parserOptions, _lastBaseParserOptions))
         {
-            adjustedParserOptions = _lastAdjustedParserOptions!;
+            _lastBaseParserOptions = parserOptions;
+            _lastAdjustedParserOptions = null;
+            _lastAdjustedParserOptionsInDerivedConstructor = null;
+        }
+
+        ParserOptions adjustedParserOptions;
+        if (inDerivedConstructor)
+        {
+            adjustedParserOptions = _lastAdjustedParserOptionsInDerivedConstructor ??= AdjustParserOptions(parserOptions, inDerivedConstructor: true);
         }
         else
         {
-            adjustedParserOptions = parserOptions with
-            {
-                AllowReturnOutsideFunction = false,
-                AllowNewTargetOutsideFunction = true,
-                AllowSuperOutsideMethod = true,
-                // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
-                // TODO: implement a correct solution
-                CheckPrivateFields = false
-            };
-            _lastBaseParserOptions = parserOptions;
-            _lastAdjustedParserOptions = adjustedParserOptions;
+            adjustedParserOptions = _lastAdjustedParserOptions ??= AdjustParserOptions(parserOptions, inDerivedConstructor: false);
         }
 
         // For indirect eval, parse in non-strict mode (strictness only from "use strict" in code)
@@ -517,6 +518,26 @@ public sealed class EvalFunction : Function
     {
         templates.AsSpan().CopyTo(slots);
     }
+
+    /// <summary>
+    /// The parse-time half of PerformEval's early errors (https://tc39.es/ecma262/#sec-performeval).
+    /// Eval code is a Script, so the parser has to be told which of the surrounding context's
+    /// permissions carry into it. <paramref name="inDerivedConstructor"/> is the specification's own
+    /// parameter: a direct <c>super()</c> is admitted only for a direct eval inside a derived
+    /// constructor, never for the evals the specification forbids one in. The option follows the
+    /// eval'd unit's this binding, so it reaches arrow functions declared there but not ordinary
+    /// ones - exactly the places where the runtime's <c>super()</c> would find a home object.
+    /// </summary>
+    private static ParserOptions AdjustParserOptions(ParserOptions parserOptions, bool inDerivedConstructor) => parserOptions with
+    {
+        AllowReturnOutsideFunction = false,
+        AllowNewTargetOutsideFunction = true,
+        AllowSuperOutsideMethod = true,
+        AllowDirectSuperOutsideMethod = inDerivedConstructor,
+        // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
+        // TODO: implement a correct solution
+        CheckPrivateFields = false
+    };
 
     private sealed class EvalScriptAnalyzer : AstVisitor
     {
