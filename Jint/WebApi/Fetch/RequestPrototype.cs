@@ -178,8 +178,10 @@ internal sealed partial class RequestPrototype : Prototype
             Signal = JsAbortSignal.CreateDependent(_engine, _realm, [request.Signal]),
         };
 
-        // A streaming body is teed and a buffered one shares its bytes; only the used flag is the clone's
-        // own, which is the whole point of cloning before reading twice.
+        // A streaming body is teed — with the chunks structurally cloned for the second branch, which is
+        // what https://fetch.spec.whatwg.org/#concept-body-clone asks for — and a buffered one shares its
+        // bytes; only the used flag is the clone's own, which is the whole point of cloning before reading
+        // twice.
         FetchBody.CloneBody(request, clone);
         return clone;
     }

@@ -314,19 +314,52 @@ internal static class FetchBody
     /// the second to the clone".
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A body that has not materialized a stream is cloned by <i>sharing its source</i> instead, which is
     /// indistinguishable: neither object has a stream to tee, and each carries its own disturbance. Tee is
     /// used the moment a stream exists — for a network response, or for a body a script has already asked
     /// <c>body</c> for — because from then on the two objects' streams have to be different objects with
     /// independent queues.
+    /// </para>
     /// <para>
-    /// The tee goes through <see cref="ReadableStreamOperations.Tee"/> rather than straight to the default
-    /// algorithm, because https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the kind of
-    /// controller the stream has: a body's own stream is a byte stream, and its two branches have to be byte
-    /// streams too or a clone would quietly lose BYOB reading.
+    /// <b>The teeing here is the standard's "tee a <c>ReadableStream</c>"</b>
+    /// (https://streams.spec.whatwg.org/#readablestream-tee), which is <c>ReadableStreamTee(stream, true)</c>
+    /// — so every chunk the clone receives is a StructuredClone of the chunk the original receives, and the
+    /// two bodies can never be handed one buffer. That is the entire difference between this and
+    /// <see cref="ProxyBody"/>, and it is a property a script can observe directly:
+    /// <c>(await original.body.getReader().read()).value !== (await clone.body.getReader().read()).value</c>.
     /// </para>
     /// </remarks>
     internal static void CloneBody(FetchBodyObject source, FetchBodyObject target)
+        => TeeInto(source, target, cloneForBranch2: true);
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readablestream-create-a-proxy, as
+    /// https://fetch.spec.whatwg.org/#dom-request step 42 asks for it: the body a <c>Request</c> built from
+    /// another <c>Request</c> gets.
+    /// </summary>
+    /// <remarks>
+    /// The standard pipes the input's stream through an identity <c>TransformStream</c>, which passes each
+    /// chunk on <b>unchanged</b>; Jint reaches the same observable result with a tee whose
+    /// <i>cloneForBranch2</i> is unset. Sharing the flag's <see langword="false"/> with <c>tee()</c> is the
+    /// point of the split: a proxy that structured-cloned would diverge from the standard in the other
+    /// direction, and quietly refuse a chunk an identity transform is happy to forward.
+    /// </remarks>
+    internal static void ProxyBody(FetchBodyObject source, FetchBodyObject target)
+        => TeeInto(source, target, cloneForBranch2: false);
+
+    /// <summary>
+    /// The shared tail of the two: keep the first branch, hand the second to <paramref name="target"/>.
+    /// </summary>
+    /// <remarks>
+    /// The tee goes through <see cref="ReadableStreamOperations.Tee"/> rather than straight to the default
+    /// algorithm, because https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the kind of
+    /// controller the stream has: a body's own stream is a byte stream, and its two branches have to be byte
+    /// streams too or a clone would quietly lose BYOB reading. A byte stream's tee ignores
+    /// <paramref name="cloneForBranch2"/> and clones every chunk regardless, which is why a network
+    /// response's <c>clone()</c> never shared a buffer even before this flag existed.
+    /// </remarks>
+    private static void TeeInto(FetchBodyObject source, FetchBodyObject target, bool cloneForBranch2)
     {
         if (!source.HasBody)
         {
@@ -339,7 +372,7 @@ internal static class FetchBody
             return;
         }
 
-        var (branch1, branch2) = ReadableStreamOperations.Tee(stream);
+        var (branch1, branch2) = ReadableStreamOperations.Tee(stream, cloneForBranch2);
         source.ReplaceStream(branch1);
         target.SetStreamBody(branch2);
     }

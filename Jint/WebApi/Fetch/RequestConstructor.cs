@@ -204,14 +204,15 @@ internal sealed class RequestConstructor : Constructor
         }
         else if (hasInputBody)
         {
-            // Step 42: "create a proxy for inputBody", which is the clone-a-body algorithm — a tee when the
-            // input has a stream, and a shared source when it does not.
+            // Step 42: "create a proxy for inputBody" — a tee when the input has a stream, and a shared
+            // source when it does not. Pointedly NOT the clone-a-body algorithm: a proxy is an identity
+            // transform, so the chunks pass through unchanged rather than being structured-cloned.
             if (inputRequest!.IsUnusable)
             {
                 Throw.TypeError(_realm, "Failed to construct 'Request': Request body is already used");
             }
 
-            FetchBody.CloneBody(inputRequest, request);
+            FetchBody.ProxyBody(inputRequest, request);
         }
 
         return request;
