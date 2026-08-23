@@ -209,7 +209,15 @@ internal abstract class ReflectionAccessor
         engine.CheckAmortizedConstraintsAtHostBoundary();
     }
 
-    protected virtual object? ConvertValueToSet(Engine engine, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] object value)
+    /// <remarks>
+    /// <paramref name="value"/> carried a <c>[DynamicallyAccessedMembers]</c> annotation until it was
+    /// noticed that the attribute is honoured only on a <see cref="Type"/> or a <see cref="string"/>
+    /// parameter — on an <see cref="object"/> it is inert, which is what <c>IL2098</c> was reporting in
+    /// every embedder's Native AOT publish. The requirement it meant to express is not expressible from
+    /// here: the conversion target is <c>_memberType</c> when there is one and <c>value.GetType()</c>
+    /// otherwise, and neither is a parameter the caller could annotate.
+    /// </remarks>
+    protected virtual object? ConvertValueToSet(Engine engine, object value)
     {
         var memberType = _memberType ?? value.GetType();
         return engine.TypeConverter.Convert(value, memberType, CultureInfo.InvariantCulture);

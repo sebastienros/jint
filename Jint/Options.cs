@@ -1,4 +1,5 @@
-﻿using System.Dynamic;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -772,8 +773,25 @@ public sealed partial class Options
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
         /// </summary>
-        internal static readonly WrapObjectDelegate _defaultWrapObjectHandler =
-            static (engine, target, type) => ObjectWrapper.Create(engine, target, type);
+        internal static readonly WrapObjectDelegate _defaultWrapObjectHandler = DefaultWrapObject;
+
+        /// <summary>
+        /// The engine's own projection funnel: every host object that reaches script without a more
+        /// specific conversion arrives here.
+        /// </summary>
+        /// <remarks>
+        /// It cannot carry <c>[RequiresUnreferencedCode]</c> itself — it has to be assignable to the public
+        /// <see cref="WrapObjectDelegate"/>, and a host replacing the handler would then be unable to call
+        /// back into it. The requirement is declared where a host can act on it instead: on
+        /// <see cref="OptionsExtensions.AllowClr(Options)"/>, on <see cref="Engine.SetValue(string, object)"/>,
+        /// and on <see cref="ObjectWrapper.Create"/> itself, which is what a custom handler calls.
+        /// The suppression is <see cref="UnconditionalSuppressMessageAttribute"/> rather than a
+        /// <c>#pragma</c> because a pragma reaches Roslyn and not ILC, which re-derives every diagnostic
+        /// over the closed program.
+        /// </remarks>
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Declared on the public entry points a host object crosses to get here: OptionsExtensions.AllowClr, Engine.SetValue(string, object), ObjectWrapper.Create.")]
+        private static ObjectInstance DefaultWrapObject(Engine engine, object target, Type? type)
+            => ObjectWrapper.Create(engine, target, type);
 
         public WrapObjectDelegate WrapObjectHandler { get; set; } = _defaultWrapObjectHandler;
 

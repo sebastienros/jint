@@ -138,6 +138,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <summary>
     /// Creates a new object wrapper for given object instance and exposed type.
     /// </summary>
+    /// <remarks>
+    /// Everything this projects is resolved from <paramref name="target"/>'s runtime type by reflection.
+    /// Neither parameter can say so to the trimmer — <c>object</c> cannot carry
+    /// <c>[DynamicallyAccessedMembers]</c> at all, and the optional <c>type</c> is a hint about which type
+    /// to expose rather than a promise that its members survive.
+    /// </remarks>
+    [RequiresUnreferencedCode("Members are resolved from target's runtime type by reflection and cannot be preserved by the trimmer from this signature; a removed one reads as undefined rather than as an error. Root the type, or project it through Engine.SetValue<T> / TypeReference.CreateTypeReference<T>, which annotate what they reflect over.")]
     public static ObjectInstance Create(Engine engine, object target, Type? type = null)
     {
         if (target == null)
@@ -177,63 +184,15 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         // virtual call into the cached factory
         var factory = _arrayLikeWrapperResolution.GetOrAdd(type, static t =>
         {
-#pragma warning disable IL2055
-#pragma warning disable IL2070
-#pragma warning disable IL3050
-
-            Type? factoryType = null;
-
-            // single-rank zero-based CLR arrays (T[]) get a fixed-size live wrapper; T[] implements
-            // IList<T> and would otherwise flow into GenericListWrapper<T> below, whose growth paths
-            // call IList<T>.Add and would leak NotSupportedException from the underlying array.
-            // The MakeArrayType equality intentionally excludes multi-rank (T[,]) and non-zero-based
-            // (T[*]) arrays, which keep their previous handling.
-            if (t.IsArray && t.GetElementType() is { } elementType && t == elementType.MakeArrayType())
-            {
-                factoryType = typeof(ArrayWrapperFactory<>).MakeGenericType(elementType);
-            }
-            else
-            {
-                // check for generic interfaces
-                foreach (var i in t.GetInterfaces())
-                {
-                    if (!i.IsGenericType)
-                    {
-                        continue;
-                    }
-
-                    var arrayItemType = i.GenericTypeArguments[0];
-
-                    if (i.GetGenericTypeDefinition() == typeof(IList<>))
-                    {
-                        factoryType = typeof(GenericListWrapperFactory<>).MakeGenericType(arrayItemType);
-                        break;
-                    }
-
-                    if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
-                    {
-                        factoryType = typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
-                        break;
-                    }
-                }
-            }
-#pragma warning restore IL3050
-#pragma warning restore IL2070
-#pragma warning restore IL2055
-
-            if (factoryType is null)
-            {
-                return null;
-            }
-
-            // Activator.CreateInstance may fail in trimmed/AOT scenarios where the constructor
-            // was removed by the linker - fall back to the non-generic ListWrapper in that case
             try
             {
-                return (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+                var factoryType = ResolveArrayLikeWrapperFactoryType(t);
+                return factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
             }
-            catch (MissingMethodException)
+            catch (Exception e) when (IsMissingGenericInstantiation(e))
             {
+                // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
+                // or to a plain ObjectWrapper when the target is not even an IList
                 return null;
             }
         });
@@ -267,6 +226,84 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return result is not null;
     }
 
+    /// <summary>
+    /// The closed factory type for <paramref name="t"/>, or <see langword="null"/> when it is not array-like.
+    /// Split out of the resolution above so that the instantiation and the activation sit under one
+    /// <c>try</c>: both are ways of asking for a generic instantiation, and either can be the one a runtime
+    /// declines.
+    /// </summary>
+    private static Type? ResolveArrayLikeWrapperFactoryType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type t)
+    {
+#pragma warning disable IL2055
+#pragma warning disable IL2070
+#pragma warning disable IL3050
+
+        // single-rank zero-based CLR arrays (T[]) get a fixed-size live wrapper; T[] implements
+        // IList<T> and would otherwise flow into GenericListWrapper<T> below, whose growth paths
+        // call IList<T>.Add and would leak NotSupportedException from the underlying array.
+        // The MakeArrayType equality intentionally excludes multi-rank (T[,]) and non-zero-based
+        // (T[*]) arrays, which keep their previous handling.
+        if (t.IsArray && t.GetElementType() is { } elementType && t == elementType.MakeArrayType())
+        {
+            return typeof(ArrayWrapperFactory<>).MakeGenericType(elementType);
+        }
+
+        // check for generic interfaces
+        foreach (var i in t.GetInterfaces())
+        {
+            if (!i.IsGenericType)
+            {
+                continue;
+            }
+
+            var arrayItemType = i.GenericTypeArguments[0];
+
+            if (i.GetGenericTypeDefinition() == typeof(IList<>))
+            {
+                return typeof(GenericListWrapperFactory<>).MakeGenericType(arrayItemType);
+            }
+
+            if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+            {
+                return typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
+            }
+        }
+
+#pragma warning restore IL3050
+#pragma warning restore IL2070
+#pragma warning restore IL2055
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="e"/> is a runtime refusing to produce a generic instantiation it was not
+    /// built with, which is the one failure the typed-factory sites above are allowed to degrade from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="MissingMethodException"/> is the trimmed-assembly case the original <c>catch</c> was
+    /// written for: the closed factory survived but its constructor did not. It never fired on the runtime
+    /// that actually needs it. Native AOT shares one canonical body across every reference-type argument,
+    /// so <c>GenericListWrapperFactory&lt;string&gt;</c> works while <c>GenericListWrapperFactory&lt;int&gt;</c>
+    /// needs native code only a compile-time sighting would have produced — and asking for it raises
+    /// <see cref="NotSupportedException"/> ("is missing native code or metadata"), which walked straight past
+    /// a <c>catch (MissingMethodException)</c> and into script (#3299).
+    /// </para>
+    /// <para>
+    /// Neither exception can mean anything else at these two sites, which is what makes catching them safe:
+    /// the argument is a type that already crossed into the engine, the factories are Jint's own internal
+    /// sealed types, and each has a public parameterless constructor that does nothing. Anything a factory's
+    /// constructor could itself throw arrives wrapped in a <see cref="TargetInvocationException"/> and is not
+    /// caught here. This is deliberately not applied to <c>MethodInfoFunction.ResolveMethod</c> or to
+    /// <c>DefaultTypeConverter.GetFromResultMethod</c>, where there is no non-generic answer to degrade to
+    /// and swallowing the failure would produce a wrong result rather than a slower one.
+    /// </para>
+    /// </remarks>
+    private static bool IsMissingGenericInstantiation(Exception e)
+        => e is NotSupportedException or MissingMethodException;
+
     private static readonly ConcurrentDictionary<Type, EnumerableSnapshotFactory> _enumerableSnapshotResolution = new();
 
     private static EnumerableSnapshotFactory ResolveEnumerableSnapshotFactory(
@@ -286,9 +323,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                         var factoryType = typeof(EnumerableSnapshotFactory<>).MakeGenericType(i.GenericTypeArguments[0]);
                         return (EnumerableSnapshotFactory) Activator.CreateInstance(factoryType)!;
                     }
-                    catch (MissingMethodException)
+                    catch (Exception e) when (IsMissingGenericInstantiation(e))
                     {
-                        // trimmed/AOT: the closed factory was removed, snapshot as objects instead
+                        // trimmed, or Native AOT with no code for this instantiation: snapshot as
+                        // objects instead. See IsMissingGenericInstantiation for why both exceptions.
                         break;
                     }
                 }

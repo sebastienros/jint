@@ -12,7 +12,7 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 - [3. Renamed and reshaped API](#3-renamed-and-reshaped-api)
 - [4. Breaking without a signature change](#4-breaking-without-a-signature-change)
 - [5. New in v5](#5-new-in-v5)
-- [6. AOT](#6-aot)
+- [6. AOT and trimming](#6-aot-and-trimming)
 - [Keeping this document current](#keeping-this-document-current)
 
 ## 1. Target frameworks
@@ -377,13 +377,130 @@ changes an engine that does not.
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
 
-## 6. AOT
+## 6. AOT and trimming
 
-*Not yet written.* A separate task is measuring the current NativeAOT and trimming state; this
-section will record what works, what warns, and what a trimmed host has to configure.
+Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In
+v5 the claim is measured: a CI leg publishes `Jint.AotExample` with `PublishAot=true` and *runs* the
+native binary ([#3300](https://github.com/sebastienros/jint/pull/3300)), and this section is what that
+run says. `Jint.AotExample/Program.cs` is the worked example and the executable form of every claim
+below.
 
-`Jint.csproj` sets `IsAotCompatible` for net7.0+ targets, and `Jint.AotExample/` is the worked
-example.
+### 6.1 What works natively
+
+Everything a script does inside the engine - the language, `JSON`, `RegExp`, promises, `async`,
+modules - needs no reflection and works natively. So does the great majority of CLR interop, which is
+the part that was never certain:
+
+| | |
+| --- | --- |
+| properties, fields, indexers, methods on a host object | works |
+| `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `Dictionary<K,V>` | works |
+| delegates in both directions (`Func<int, int>` to and from script) | works |
+| extension methods, `TypeReference` construction from script | works |
+| generic host methods with a **reference-type** argument | works |
+| an engine with `options.Interop.Enabled = false` | works, and needs none of this section |
+
+### 6.2 The one thing that does not: a generic instantiation over a value type
+
+Native AOT shares one compiled body across every reference-type argument, so `Identity<string>` works.
+A value-type argument needs a specific instantiation the compiler had to have seen, and two places in
+Jint build one at run time:
+
+| shape | script that reaches it | what you get |
+| --- | --- | --- |
+| a JS function converted to `Func<double, Task<double>>` (any `Task<T>` / `ValueTask<T>` over a value type) | calling a host method that takes such a delegate | `NotSupportedException` |
+| a generic host method called with a number | `host.identity(7)` - `host.identity('hi')` is fine | `NotSupportedException` |
+
+Both throw rather than degrade, deliberately: there is no non-generic way to produce a `Task<double>`,
+and declining the generic method would report *no matching overload* for a method that plainly exists.
+A wrong answer is worse than a diagnosable throw. If you need either shape under Native AOT, give the
+host method a non-generic overload, or take `Task<object>` and box.
+
+Three shapes that used to throw here now degrade instead
+([#3299](https://github.com/sebastienros/jint/issues/3299)): `List<int>`, `IReadOnlyList<double>` and
+an `IEnumerable<int>` under `EnumerableConversionMode.Snapshot` fall back to an untyped wrapper and
+answer correctly. The only loss is that a collection reached through the last-resort fallback is not
+array-*like*: `IReadOnlyList<double>` keeps `ro[0]` but loses `ro.length` and the `Array.prototype`
+generics unless the type also implements `IList`.
+
+### 6.3 APIs that now warn
+
+Seven members carry `[RequiresUnreferencedCode]`, so a trimming or AOT host sees the diagnostic at their
+own call site rather than as a wrong answer at run time. Each message names what to do instead.
+
+| member | why | what to do |
+| --- | --- | --- |
+| `Options.AllowClr()` and `AllowClr(params Assembly[])` | script names CLR types and namespaces as strings; nothing statically references what they expose | root the assemblies you allow, or drop `AllowClr` and hand each type to script explicitly |
+| `Options.AddExtensionMethods(params Type[])` | the types are reflected over, and a `Type[]` parameter cannot carry `[DynamicallyAccessedMembers]` - only a `Type` or a `string` can | root the declaring types; a trimmed-away extension method fails as `not a function`, with no diagnostic |
+| `Engine.SetValue(string, object?)` | no type at the call site to annotate | prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
+| `ObjectWrapper.Create(Engine, object, Type?)` | same - and it is what a custom `WrapObjectHandler` calls | root the type, or project through `SetValue<T>` |
+
+(`ClrHelper.Unwrap` and `ClrHelper.Wrap`, reachable only from script through `clrHelper`, carry it too.)
+
+`Options.Interop.Enabled = true` is the unannotated equivalent of `AllowClr`; it is a property setter,
+and annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you
+are taking on what `AllowClr`'s message says.
+
+Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>`,
+`TypeReference.CreateTypeReference`, `ModuleBuilder.ExportType` and `JsValue.FromObject`. The first
+four carry `[DynamicallyAccessedMembers]`, which *preserves* what Jint reflects over instead of merely
+warning about it - they are the AOT-friendly way to expose a type, which is exactly why the messages
+above point at them. Nothing carries `[RequiresDynamicCode]`, because §6.1 is what the measurement
+says, and warning an AOT host away from an API that works would be worse than not warning at all.
+
+The attributes are on the `net8.0` and `net10.0` assets. The downlevel targets carry the same
+annotations as internal polyfills, so they are invisible to a consumer - which costs nothing, since
+Native AOT does not exist there either.
+
+### 6.4 What you owe your own project
+
+**Root the host types Jint reaches only by reflection.** A type nothing in your C# calls is trimmed,
+and Jint then reports it as `undefined` or *not a function* rather than as an error - silently. There
+is no diagnostic for this anywhere; it is the failure mode to plan for.
+
+```xml
+<ItemGroup>
+  <TrimmerRootAssembly Include="YourAssembly" />
+</ItemGroup>
+```
+
+**Cast a delegate registration.** `engine.SetValue("f", new Func<int, int>(x => x * 2))` binds to
+`SetValue<T>`, not to `SetValue(string, Delegate)`, and `SetValue<T>`'s `[DynamicallyAccessedMembers]`
+then demands every public method of `Func<int, int>` - including the inherited,
+`[RequiresUnreferencedCode]` `Delegate.CreateDelegate` overloads. That is three `IL2026` and three
+`IL2111` in *your* build, as errors under `TreatWarningsAsErrors`. Casting clears them:
+
+```csharp
+engine.SetValue("f", (Delegate) new Func<int, int>(x => x * 2));
+```
+
+This is not fixable inside Jint: an overload constrained `where T : Delegate` would have the same
+signature as `SetValue<T>` after substitution and make every delegate call site ambiguous.
+
+**Array registrations need nothing.** `engine.SetValue("a", new[] { 1, 2, 3 })` used to cost four
+`IL3050` through `Array.CreateInstance` for the same reason. A new `SetValue<T>(string, T[])` overload
+now wins for any array and infers `T = int` rather than `T = int[]`, which removes them. It also fixes
+a real trimming bug: `SetValue("items", companies)` used to preserve the public members of
+`System.Array`, never `Company`'s, so `companies[0].name` was the one thing not preserved. Nothing in
+your code changes; the overload is picked automatically.
+
+**Expect Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's compilation
+and reaches nothing downstream - ILC re-derives every diagnostic over the closed program - so an AOT
+publish reports the remaining trim-analysis warnings against Jint's files in *your* build. They are
+tracked in [#3299](https://github.com/sebastienros/jint/issues/3299); until they are paid down, set
+`<IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>` or `NoWarn` the codes, and treat the run
+as the evidence rather than the warning count.
+
+### 6.5 The AOT-safe subset
+
+An engine that never enables interop needs none of the above:
+
+```csharp
+var engine = new Engine(options => options.Interop.Enabled = false);
+```
+
+That is the floor Jint is prepared to promise. Everything above it is a matter of rooting what you
+expose.
 
 ## Keeping this document current
 

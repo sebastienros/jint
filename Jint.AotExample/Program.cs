@@ -15,7 +15,12 @@
 // Type.MakeGenericType + Activator.CreateInstance or MethodInfo.MakeGenericMethod. Reference-type
 // arguments share canonical code and work; value types need a specific instantiation the compiler
 // never saw. The sibling probe beside each gap pins that boundary rather than merely asserting it.
-// All five are https://github.com/sebastienros/jint/issues/3299.
+// All five were https://github.com/sebastienros/jint/issues/3299; three of them now degrade to an
+// untyped wrapper instead of throwing, and their rows below are Probes rather than gaps. The two
+// that remain are the two with no non-generic answer to degrade TO: there is no way to produce a
+// Task<double> without Task.FromResult<double>, and declining a generic host method would report
+// "no matching overload" for a method that plainly exists. Both would trade a diagnosable throw for
+// a wrong answer, so both stay gaps.
 
 using Jint;
 using Jint.Native;
@@ -52,6 +57,10 @@ Probe("member, field, indexer and method access", static () =>
     Expect("Hello Mary!", engine.Evaluate("company.sayHello('Mary')"));
 });
 
+// Binds to SetValue<T>(string, T[]), which infers T = int rather than T = int[]. That is what keeps
+// this registration free of the four IL3050 an embedder used to pay here: annotating an ARRAY type
+// preserves all public methods of System.Array, Array.CreateInstance among them, which is
+// [RequiresDynamicCode] and has nothing to do with reading an element.
 Probe("int[] crossing", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
@@ -68,10 +77,12 @@ Probe("List<string> crossing (GenericListWrapperFactory<string>)", static () =>
     Expect("b", engine.Evaluate("list[1]"));
 });
 
-// ObjectWrapper.TryBuildArrayLikeWrapper: typeof(GenericListWrapperFactory<>).MakeGenericType(int).
-// Its catch (MissingMethodException) fallback to the non-generic ListWrapper never engages, because
-// Native AOT raises NotSupportedException from Activator.CreateInstance, not MissingMethodException.
-KnownAotGap("List<int> crossing (GenericListWrapperFactory<int>)", static () =>
+// ObjectWrapper.TryBuildArrayLikeWrapper: typeof(GenericListWrapperFactory<>).MakeGenericType(int)
+// has no native code under AOT, and the site now degrades to the non-generic ListWrapper rather than
+// letting NotSupportedException reach script. This is a Probe, not a KnownAotGap, because the
+// degradation has to be correct and not merely quiet - a wrapper answering the wrong length would
+// satisfy a try/catch and fail here.
+Probe("List<int> crossing (ListWrapper fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("list", new List<int> { 1, 2, 3 });
@@ -86,8 +97,11 @@ Probe("IReadOnlyList<string> crossing (ReadOnlyListWrapperFactory<string>)", sta
     Expect("x", engine.Evaluate("ro[0]"));
 });
 
-// Same site as above, IReadOnlyList<> branch.
-KnownAotGap("IReadOnlyList<double> crossing (ReadOnlyListWrapperFactory<double>)", static () =>
+// Same site as above, IReadOnlyList<> branch. ReadOnlyDoubles is not an IList either, so the
+// degradation goes one step further than the row above: no array-like wrapper at all, and the read is
+// served by a plain ObjectWrapper resolving the type's own indexer. Array-likeness is what is lost -
+// ro.length and the Array.prototype generics go with the typed factory, ro[0] does not.
+Probe("IReadOnlyList<double> crossing (plain ObjectWrapper fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("ro", new ReadOnlyDoubles());
@@ -105,9 +119,9 @@ Probe("IEnumerable<string> snapshot (EnumerableSnapshotFactory<string>)", static
     Expect(2, engine.Evaluate("seq.length"));
 });
 
-// ObjectWrapper.ResolveEnumerableSnapshotFactory: same MakeGenericType + Activator shape, and the
-// same catch (MissingMethodException) that Native AOT walks straight past.
-KnownAotGap("IEnumerable<int> snapshot (EnumerableSnapshotFactory<int>)", static () =>
+// ObjectWrapper.ResolveEnumerableSnapshotFactory: same MakeGenericType + Activator shape, degrading
+// to ObjectEnumerableSnapshotFactory, which snapshots the sequence as objects rather than as int.
+Probe("IEnumerable<int> snapshot (object snapshot fallback under AOT)", static () =>
 {
     var engine = new Engine(static cfg =>
     {
@@ -116,6 +130,17 @@ KnownAotGap("IEnumerable<int> snapshot (EnumerableSnapshotFactory<int>)", static
     });
     engine.SetValue("seq", Numbers());
     Expect(3, engine.Evaluate("seq.length"));
+});
+
+// The other half of the same overload: T = Company, so [DynamicallyAccessedMembers] preserves the
+// members script actually reads. Inferring T = Company[] preserved System.Array's members instead and
+// left companies[0].name to be trimmed away - a wrong answer with no diagnostic, the same failure mode
+// the extension-method probe below exists for.
+Probe("Company[] crossing, reading a member of an element", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("companies", new[] { new Company() });
+    Expect("Jint", engine.Evaluate("companies[0].name"));
 });
 
 Probe("Dictionary<string, object> crossing", static () =>
@@ -163,7 +188,10 @@ Probe("delegate crossing: CLR Func<int, int> -> JS", static () =>
     // SetValue(string, Delegate), and SetValue<T>'s [DynamicallyAccessedMembers] then demands every
     // public method of Func<int, int> - including the inherited, [RequiresUnreferencedCode]
     // Delegate.CreateDelegate overloads. The embedder's own project gets six IL2026/IL2111
-    // diagnostics for a one-line registration; see the AOT section of Jint/Runtime/Interop/AGENTS.md.
+    // diagnostics for a one-line registration. The array half of this had the same cause and was
+    // fixable with an overload; this half is not, because a `where T : Delegate` overload would have
+    // the same signature as SetValue<T> after substitution and make every delegate call site
+    // ambiguous. See the AOT section of Jint/Runtime/Interop/AGENTS.md.
     engine.SetValue("twice", (Delegate) new Func<int, int>(static x => x * 2));
 
     Expect(8, engine.Evaluate("twice(4)"));
