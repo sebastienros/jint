@@ -1,4 +1,8 @@
 #if NET8_0_OR_GREATER
+
+// Reads a Jint diagnostic API declared outside the compatibility contract; see Jint/JintDiagnosticIds.cs.
+#pragma warning disable JINT0001
+
 #nullable enable
 
 namespace Jint.Tests.Runtime.WebApi;

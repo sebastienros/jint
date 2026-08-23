@@ -3,7 +3,7 @@ using Jint.WebApi;
 
 namespace Jint;
 
-public partial class Options
+public sealed partial class Options
 {
     /// <summary>
     /// Opt-in WHATWG web platform APIs (<c>console</c>, <c>DOMException</c>, …). Nothing here is installed
@@ -38,7 +38,7 @@ public partial class Options
     /// concurrent ones: nothing on it is engine-affine. The one obligation that carries is on
     /// <see cref="ConsoleOptions.Sink"/> — see its documentation.
     /// </remarks>
-    public class WebApiOptions
+    public sealed class WebApiOptions
     {
         /// <summary>
         /// Which web APIs this engine exposes. Defaults to <see cref="WebApiFeatures.None"/>, which installs
@@ -116,7 +116,7 @@ public partial class Options
     /// pair to be entangled with — it addresses a <i>name</i> — so which channels are in earshot of each other
     /// is the one thing about it a host has to be able to say.
     /// </remarks>
-    public class MessagingOptions
+    public sealed class MessagingOptions
     {
         /// <summary>
         /// Which <c>BroadcastChannel</c> objects can hear each other: one broker is one agent cluster and one
@@ -148,7 +148,7 @@ public partial class Options
     /// Sharing one <see cref="Provider"/> between them is the normal case — see <see cref="WorkerProvider"/>
     /// for how a provider serving a pool reaches per-request policy.
     /// </remarks>
-    public class WorkerOptions
+    public sealed class WorkerOptions
     {
         /// <summary>
         /// The host's answer to <c>new Worker(...)</c>. <see langword="null"/> — the default — leaves the
@@ -234,7 +234,7 @@ public partial class Options
     /// is occasionally what a host wants.
     /// </para>
     /// </remarks>
-    public class StorageOptions
+    public sealed class StorageOptions
     {
         /// <summary>
         /// Five mebibytes: the quota browsers converged on, and what a defaulted
@@ -288,7 +288,7 @@ public partial class Options
     /// Sharing one <see cref="Provider"/> between them is what makes them share a cache, and such a provider
     /// must be thread-safe — see <see cref="CacheStorageProvider"/>.
     /// </remarks>
-    public class CacheOptions
+    public sealed class CacheOptions
     {
         /// <summary>
         /// Where the caches live, or <see langword="null"/> to give each engine a private
@@ -353,7 +353,7 @@ public partial class Options
     /// mean something different for a stream than for a document, and that flag's documentation says which.
     /// </para>
     /// </remarks>
-    public class FetchOptions
+    public sealed class FetchOptions
     {
         /// <summary>
         /// The <see cref="System.Net.Http.HttpClient"/> every request goes through, or <see langword="null"/>
@@ -479,7 +479,7 @@ public partial class Options
     /// <summary>
     /// Settings for the <c>console</c> object. Requires .NET 8 or higher.
     /// </summary>
-    public class ConsoleOptions
+    public sealed class ConsoleOptions
     {
         /// <summary>
         /// Where <c>console</c> output goes. Defaults to <see cref="ConsoleSink.Null"/>, which discards
@@ -508,7 +508,7 @@ public partial class Options
     /// makes this safe in a request handler that returns as soon as the script does.
     /// </para>
     /// </remarks>
-    public class TimerOptions
+    public sealed class TimerOptions
     {
         /// <summary>
         /// The clock the timers are scheduled against. Defaults to <see cref="TimeProvider.System"/>; a fake
@@ -576,7 +576,7 @@ public partial class Options
     /// Settings for the engine's diagnostics channel — the script errors nobody caught. Requires .NET 8 or
     /// higher.
     /// </summary>
-    public class DiagnosticsOptions
+    public sealed class DiagnosticsOptions
     {
         /// <summary>
         /// Where an unhandled promise rejection, a value handed to <c>reportError</c>, and an exception that

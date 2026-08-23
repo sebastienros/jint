@@ -1135,9 +1135,6 @@ public static class TypeConverter
             .SetJavaScriptCallstack(engine, sourceNode.Location, overwriteExisting: true);
     }
 
-    [Obsolete("Use TypeConverter.RequireObjectCoercible")]
-    public static void CheckObjectCoercible(Engine engine, JsValue o) => RequireObjectCoercible(engine, o);
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-requireobjectcoercible
     /// </summary>

@@ -127,7 +127,7 @@ public partial class Engine
         /// <summary>Cumulative total UTF-8 source bytes of all registered modules.</summary>
         private long _totalModuleSourceBytes;
 
-        public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
+        internal ModuleOperations(Engine engine, IModuleLoader moduleLoader)
         {
             ModuleLoader = moduleLoader;
             AsyncModuleLoader = moduleLoader as IAsyncModuleLoader;

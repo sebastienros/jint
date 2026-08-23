@@ -9,7 +9,7 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
     private readonly Realm _realm;
     internal readonly KeyedCollectionData _data;
 
-    public JsMap(Engine engine, Realm realm) : base(engine)
+    internal JsMap(Engine engine, Realm realm) : base(engine)
     {
         _realm = realm;
         _data = new KeyedCollectionData();

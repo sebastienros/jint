@@ -1,5 +1,9 @@
 #nullable enable
 
+// Reads a Jint diagnostic API declared outside the compatibility contract. Acknowledged the way an embedder
+// acknowledges it; see Jint/JintDiagnosticIds.cs.
+#pragma warning disable JINT0001
+
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;

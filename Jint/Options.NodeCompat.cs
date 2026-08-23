@@ -2,7 +2,7 @@ using Jint.NodeCompat;
 
 namespace Jint;
 
-public partial class Options
+public sealed partial class Options
 {
     /// <summary>
     /// The <c>node:</c> builtin modules an engine built from these options provides, or null when the host

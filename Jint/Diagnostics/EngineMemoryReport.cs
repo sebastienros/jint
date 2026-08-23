@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Jint.Diagnostics;
 
 /// <summary>
@@ -27,7 +29,12 @@ namespace Jint.Diagnostics;
 /// built-in nobody has touched is reported as untouched, and calling this twice in a row on an idle engine
 /// produces two equal reports — which, since these are records, is directly assertable.
 /// </para>
+/// <para>
+/// That non-contract status is declared to the compiler as <c>JINT0001</c>; see
+/// <see cref="JintDiagnosticIds"/> for how a host acknowledges it.
+/// </para>
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public sealed record EngineMemoryReport
 {
     internal EngineMemoryReport(
@@ -209,6 +216,7 @@ public sealed record EngineMemoryReport
 /// per-site breakdown becomes a small addition on top of it.
 /// </para>
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public sealed record HandlerTreeCacheReport
 {
     internal HandlerTreeCacheReport(int functionDefinitions, int scriptStatementLists, int evaluatedScripts, int propertyKeyExpressions)
@@ -271,6 +279,7 @@ public sealed record HandlerTreeCacheReport
 /// and which by construction retains nothing whose CLR target is otherwise dead; it is absent for that
 /// reason rather than by oversight.
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public sealed record InteropCacheReport
 {
     internal InteropCacheReport(int typeNameCacheCount, int typeReferenceCount)
@@ -313,6 +322,7 @@ public sealed record InteropCacheReport
 /// values that passed through them.
 /// </para>
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public sealed record PoolReport
 {
     internal PoolReport(
@@ -382,6 +392,7 @@ public sealed record PoolReport
 /// profiler.
 /// </para>
 /// </remarks>
+[Experimental(JintDiagnosticIds.NonContractDiagnostic)]
 public sealed record ObjectCensusReport
 {
     internal ObjectCensusReport(

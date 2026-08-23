@@ -697,8 +697,13 @@ public static class JsValueExtensions
     ///     returns the value intact
     /// </summary>
     /// <param name="value">value to unwrap</param>
+    /// <remarks>
+    /// The wait is bounded by the promise's own engine — <c>Options.Constraints.PromiseTimeout</c>, which
+    /// defaults to ten seconds. Use the <see cref="UnwrapIfPromise(JsValue, TimeSpan)"/> overload for a
+    /// bound that differs from the one the engine is configured with.
+    /// </remarks>
     /// <returns>inner value if Promise the value itself otherwise</returns>
-    public static JsValue UnwrapIfPromise(this JsValue value) => UnwrapIfPromise(value, TimeSpan.FromSeconds(10));
+    public static JsValue UnwrapIfPromise(this JsValue value) => UnwrapIfPromiseCore(value, timeout: null, CancellationToken.None);
 
     /// <summary>
     /// If the value is a Promise
@@ -750,10 +755,15 @@ public static class JsValueExtensions
         return Task.FromResult(value);
     }
 
-    private static JsValue UnwrapIfPromiseCore(JsValue value, TimeSpan timeout, CancellationToken cancellationToken)
+    // A null timeout means "take the promise's own engine's configured Options.Constraints.PromiseTimeout";
+    // a caller that named a bound gets exactly that bound, including Timeout.InfiniteTimeSpan. The engine is
+    // only reachable once the value is known to be a promise, which is also the only case a bound applies to.
+    private static JsValue UnwrapIfPromiseCore(JsValue value, TimeSpan? timeout, CancellationToken cancellationToken)
     {
         if (value is JsPromise promise)
         {
+            var effectiveTimeout = timeout ?? promise.Engine.Options.Constraints.PromiseTimeout;
+
             // Delegate to the engine's own drain rather than polling here. This used to be a
             // near-duplicate of it that predated EventLoop's work-arrived signal: it woke only on the
             // promise's own completion event, which a settle enqueued from a background thread never
@@ -762,9 +772,9 @@ public static class JsValueExtensions
             // enqueue signal too - running that work on this thread is the only way the promise can
             // settle - and already carries the _waitingThreadId save/restore, its nesting, and the
             // engine's cancellation constraint.
-            if (!promise.Engine.DrainEventLoopUntilSettled(promise, timeout, cancellationToken))
+            if (!promise.Engine.DrainEventLoopUntilSettled(promise, effectiveTimeout, cancellationToken))
             {
-                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+                Throw.PromiseRejectedException($"Timeout of {effectiveTimeout} reached");
             }
 
             switch (promise.State)

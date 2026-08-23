@@ -1,3 +1,6 @@
+// Reads a Jint diagnostic API declared outside the compatibility contract; see Jint/JintDiagnosticIds.cs.
+#pragma warning disable JINT0001
+
 using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;

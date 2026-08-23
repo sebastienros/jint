@@ -2,7 +2,7 @@ using Jint.Runtime;
 
 namespace Jint;
 
-public partial class Options
+public sealed partial class Options
 {
     /// <summary>
     /// Opt-in evented script profiling. Nothing is recorded — and nothing can be started — unless
@@ -21,7 +21,7 @@ public partial class Options
     /// calls <see cref="Engine.AdvancedOperations.StartProfiling"/>, into the session it starts. Changing
     /// either afterwards does not reach a session already running.
     /// </remarks>
-    public class ProfilingOptions
+    public sealed class ProfilingOptions
     {
         /// <summary>
         /// The default value of <see cref="MaxEvents"/>.
