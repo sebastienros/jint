@@ -3,7 +3,7 @@
 /// <summary>
 /// Test262 covers <c>Uint8Array.prototype.toBase64</c> and <c>fromBase64</c> thoroughly, but it runs on
 /// net10.0 only — so the downlevel encoding path has never been executed by anything. <c>Jint.Tests</c> is
-/// the one suite that also runs on net472, where it binds Jint's net462 asset, which is why these live here.
+/// the one suite that also runs on net472, where it binds Jint's net472 asset, which is why these live here.
 /// <para>
 /// Every expectation is computed from <see cref="Convert"/> on the running framework rather than written out,
 /// so the assertions say "the built-in agrees with the BCL's own base64" instead of restating one particular

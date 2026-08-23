@@ -6,7 +6,7 @@
 
 # Jint
 
-Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and later).
+Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET Framework 4.7.2 targets (and later).
 
 ## Use cases and users
 
@@ -186,7 +186,7 @@ behaviour change. That is deliberate — an engine embedded in a workflow runner
 business exposing them, and outbound network access in particular is a decision a host has to make
 explicitly.
 
-**Requires .NET 8 or higher.** The whole surface is compiled only for `net8.0` and later; on `net462`,
+**Requires .NET 8 or higher.** The whole surface is compiled only for `net8.0` and later; on `net472`,
 `netstandard2.0` and `netstandard2.1` the options and types simply do not exist.
 
 ```csharp

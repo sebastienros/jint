@@ -95,7 +95,7 @@ internal static class UnicodeProperties
     {
         int cnt = pts.Count / 2;
         if (cnt <= 1) return;
-        // Use parallel arrays instead of tuples for net462 compatibility
+        // Parallel arrays sorted through an index array, so the payload never moves during the sort.
         var starts = new uint[cnt];
         var ends = new uint[cnt];
         var indices = new int[cnt];

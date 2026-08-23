@@ -828,7 +828,7 @@ internal static class NodeWin32Path
                 var code = resolvedPath[2];
                 if (code != '?' && code != '.')
                 {
-#pragma warning disable CA1845 // string.Concat(ReadOnlySpan<char>, ...) is netstandard2.1+, and net462 is a target
+#pragma warning disable CA1845 // string.Concat(ReadOnlySpan<char>, ...) is netstandard2.1+, and net472 is a target
                     return @"\\?\UNC\" + resolvedPath.Substring(2);
 #pragma warning restore CA1845
                 }

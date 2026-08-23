@@ -36,7 +36,7 @@ Three things about how it is wired are worth knowing before touching it:
 - **Five baselines, because the surface genuinely differs.** Everything under `Jint/WebApi/` is behind
   `#if NET8_0_OR_GREATER`, and `SUPPORTS_HALF` and its siblings add members downlevel targets lack, so the
   diff for a new member tells you *which consumers reach it*. As it stands the five collapse into two distinct
-  surfaces — `net462` = `netstandard2.0` = `netstandard2.1`, and `net8.0` = `net10.0` — and keeping them as
+  surfaces — `net472` = `netstandard2.0` = `netstandard2.1`, and `net8.0` = `net10.0` — and keeping them as
   five separate files is what makes a future divergence inside either group show up as a diff instead of as
   nothing.
 - **They are generated from `artifacts/bin/Jint/`, not from the loaded assembly.** A test project can only
@@ -50,10 +50,20 @@ Three things about how it is wired are worth knowing before touching it:
   so `[Experimental("JINT0001")]` — Jint's marker on its declared non-contracts — shows up only in the
   `net8.0` and `net10.0` baselines. Downlevel it is PolySharp's polyfill, which this repository deliberately
   generates `internal`. The diagnostic itself still fires for a downlevel consumer (the `net472` leg of this
-  very project proves it, against Jint's `net462` asset); only the snapshot is silent. Do not "fix" that by
+  very project proves it, against Jint's `net472` asset); only the snapshot is silent. Do not "fix" that by
   making the polyfills public — that would put a type whose members vary by target framework into the surface
   these files exist to pin.
 - **The rows come from `Jint.csproj`'s own `<TargetFrameworks>`.** Adding a target framework adds a failing row
-  that wants a baseline, rather than silently shipping an unsnapshotted surface. The test itself runs on the
-  `net10.0` leg only — `PublicApiGenerator` formats through CodeDom and nothing promises .NET Framework's lays
-  the same metadata out identically, so the `net472` leg would be verifying the host rather than Jint.
+  that wants a baseline, rather than silently shipping an unsnapshotted surface. The test itself runs on
+  **exactly one** leg, selected by the `RunsPublicApiBaselines` property in the `.csproj` — which also
+  defines the `PUBLIC_API_BASELINES` symbol the file is wrapped in and gates the build target, so the three
+  cannot drift apart. Two reasons, and only the first is obvious. `net472` is excluded because
+  `PublicApiGenerator` formats through CodeDom and nothing promises .NET Framework's lays the same metadata
+  out identically, so that leg would be verifying the host rather than Jint. Every *other* leg is excluded
+  because the snapshot is of five files on disk: which runtime reads them changes nothing, so a second leg
+  is redundancy — but it is a second process reading `artifacts/bin/Jint/` while the other leg's build is
+  still writing it, and a second `Jint.dll` beside a test binary that the outer Jint build never refreshes.
+  A stale copy trips `TheSnapshottedAssembliesAreTheOnesThisTestRunWasBuiltFrom`; a torn read faults inside
+  `MetadataLoadContext`, where xUnit cannot attribute it to a test, so the run dies part-way through with a
+  `TestPipelineException` and still prints `Passed!` for what it managed. If a future change wants the
+  baselines on a different runtime, move the property — do not add a second leg.

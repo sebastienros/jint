@@ -227,8 +227,10 @@ internal sealed partial class StringPrototype : StringInstance
         {
             s = StringInlHelper.LithuanianStringProcessor(s);
 #if NETFRAMEWORK
-            // Code specific to .NET Framework 4.6.2.
-            // For no good reason this verison does not upper case these characters correctly.
+            // .NET Framework's culture-aware ToUpper does not map GREEK LETTER YOT (U+03F3) or
+            // LATIN SMALL LETTER J WITH CROSSED-TAIL (U+029D) to their capitals, so patch the two up.
+            // Still true on the net472 floor: removing this block fails 36 of the
+            // StringTests.LithuanianToLocaleUpperCase cases on that leg.
             return new JsString(ToUpperCaseWithSpecialCasing(s, culture)
                 .Replace('ϳ', 'Ϳ')
                 .Replace('ʝ', 'Ʝ'));

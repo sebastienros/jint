@@ -320,7 +320,7 @@ internal sealed class ScriptProfiler
 
     /// <summary>
     /// Identity comparison for the frame-interning map. Hand-written because
-    /// <c>ReferenceEqualityComparer</c> is .NET 5+ and Jint still targets net462 and netstandard2.0, and
+    /// <c>ReferenceEqualityComparer</c> is .NET 5+ and Jint still targets net472 and netstandard2.0, and
     /// because the keys — a <see cref="JintFunctionDefinition"/> or a <see cref="Function"/> — must not be
     /// compared by any <c>Equals</c> override they may have.
     /// </summary>

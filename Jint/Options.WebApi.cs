@@ -11,7 +11,7 @@ public sealed partial class Options
     /// it was before these existed.
     /// <para>
     /// <b>Requires .NET 8 or higher.</b> The whole surface is compiled only for <c>net8.0</c> and later; on
-    /// <c>net462</c>, <c>netstandard2.0</c> and <c>netstandard2.1</c> the property does not exist at all.
+    /// <c>net472</c>, <c>netstandard2.0</c> and <c>netstandard2.1</c> the property does not exist at all.
     /// </para>
     /// </summary>
     /// <remarks>

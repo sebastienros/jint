@@ -19,15 +19,15 @@ withdrawn before it ships. Anything not listed here is intended to keep working 
 
 | Target | 4.16.x | 5.x |
 | --- | --- | --- |
-| `net462` | yes | **dropped** (planned) |
-| `net472` | — | **added** (planned) |
+| `net462` | yes | **dropped** |
+| `net472` | — | **added** |
 | `netstandard2.0` | yes | yes |
 | `netstandard2.1` | yes | yes |
 | `net8.0` | yes | yes |
 | `net10.0` | yes | yes |
 
-> **Status: planned, not yet on `main`.** `Jint/Jint.csproj` still lists
-> `net462;netstandard2.0;netstandard2.1;net8.0;net10.0`. Update this section when the change lands.
+> **Status: landed** ([#3296](https://github.com/sebastienros/jint/pull/3296)). `Jint/Jint.csproj`
+> targets `net472;netstandard2.0;netstandard2.1;net8.0;net10.0`.
 
 The `netstandard` and modern .NET targets are deliberately kept. `netstandard2.0` in particular is
 what game engines and other embedded runtimes resolve against, and it costs far more to drop than

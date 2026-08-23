@@ -26,7 +26,7 @@ internal static class NodePlatform
     /// <remarks>
     /// Not an API gap but a genuine three-way, and the same one <c>DefaultTimeZoneProvider</c> answers:
     /// <see cref="OperatingSystem"/>'s predicates arrived in .NET 5, netstandard has to ask the runtime, and
-    /// <c>net462</c> only ever runs on Windows.
+    /// <c>net472</c> only ever runs on Windows.
     /// </remarks>
     internal static string Default()
     {

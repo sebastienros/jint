@@ -845,7 +845,7 @@ a suite is not the change that moved the engine). Expect a large *permanent*-exc
 vendored, `WptDivergence.NeedsMessageChannel`'s wording is rewritten: its "Jint has no worker story" is already
 stale post-#3197.
 
-**Legs**: solution `dotnet build -c Release` (the net462/netstandard legs catch a leaked net8-only reference),
+**Legs**: solution `dotnet build -c Release` (the net472/netstandard legs catch a leaked net8-only reference),
 both test projects on both TFMs, and the `JINT_HOST_CONTRACT_VERIFICATION=1` leg. Everything under
 `Jint/WebApi/Workers/` and every test file touching it is wrapped end to end in `#if NET8_0_OR_GREATER`, BCL
 only.

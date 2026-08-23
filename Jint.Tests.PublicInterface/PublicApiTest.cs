@@ -1,4 +1,4 @@
-#if !NETFRAMEWORK
+#if PUBLIC_API_BASELINES
 #nullable enable
 
 using System.Reflection;
@@ -28,7 +28,7 @@ namespace Jint.Tests.PublicInterface;
 /// whole point: Jint ships five target frameworks whose public surfaces genuinely differ — everything under
 /// <c>Jint/WebApi/</c> is behind <c>#if NET8_0_OR_GREATER</c>, and <c>SUPPORTS_HALF</c> and its siblings add
 /// members downlevel targets do not have — while a test project can only ever <em>load</em> two of them
-/// (<c>net10.0</c>, and <c>net472</c> resolving Jint's <c>net462</c> asset). A single newest-target-framework
+/// (<c>net10.0</c>, and <c>net472</c> on Windows). A single newest-target-framework
 /// baseline would hide exactly what a downlevel consumer needs to know, and <c>netstandard2.0</c> and
 /// <c>netstandard2.1</c> — which no test project can execute at all — would never be covered.
 /// </para>
