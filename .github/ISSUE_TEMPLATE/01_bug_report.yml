@@ -137,7 +137,7 @@ body:
       description: Select all that apply — these toggle the code paths involved.
       options:
         - label: CLR interop enabled (`AllowClr()`)
-        - label: Modules enabled (`EnableModules`)
+        - label: Modules enabled (`UseModules`)
         - label: Strict mode
         - label: Debugger enabled (`DebugMode` / `DebuggerStatementHandling`)
         - label: Execution constraints set (`TimeoutInterval` / `LimitMemory` / `MaxStatements`)

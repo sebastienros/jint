@@ -235,7 +235,7 @@ The two pump shapes:
 sealed class ThreadPerWorker : WorkerProvider
 {
     public override Engine? CreateWorkerEngine(WorkerRequest request)
-        => new Engine(request.CreateDefaultOptions().EnableModules(_workerRoot));
+        => new Engine(request.CreateDefaultOptions().UseModules(_workerRoot));
 
     public override void OnWorkerStarted(WorkerConnection c)
         => new Thread(() =>
@@ -459,7 +459,7 @@ Options is shared"), so an implementation that copied instances here would fail 
 share a budget. A parent that registered an instance directly gets an **unbounded** worker — said in those
 words, with the one-line fix (register a factory instead; every built-in constraint extension already does).
 
-The token itself is registered first, through `options.CancellationToken(TerminationToken)`, which is also a
+The token itself is registered first, through `options.ObserveCancellation(TerminationToken)`, which is also a
 factory registration — so `Constraints.Find<CancellationConstraint>()` on the built engine answers with *this*
 token, and a cancellation constraint the parent registered is replayed beside it (a parent that cancels its own
 token stops its workers too, which is a restriction travelling and not a grant).

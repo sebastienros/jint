@@ -818,7 +818,7 @@ sealed class ThreadPerWorker(string root) : WorkerProvider
     // run script, do not block, and do not fetch the worker's script — that is the worker's own
     // IModuleLoader's job, on the worker's own pump. Return null to refuse (the script gets a SecurityError).
     public override Engine? CreateWorkerEngine(WorkerRequest request)
-        => new Engine(request.CreateDefaultOptions().EnableModules(root));
+        => new Engine(request.CreateDefaultOptions().UseModules(root));
 
     // Still the parent's thread, ports entangled and the start job queued. This is where you start pumping.
     public override void OnWorkerStarted(WorkerConnection c)
@@ -1757,9 +1757,9 @@ not thread-safe — and every one of them has had `SetFetchHandler` called on it
 ```csharp
 var scriptOptions = new Options()
     .UseWebApis(WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Timers)
-    .MaxStatements(100_000)
+    .LimitStatements(100_000)
     .LimitMemory(16 * 1024 * 1024)
-    .TimeoutInterval(TimeSpan.FromSeconds(2));
+    .LimitExecutionTime(TimeSpan.FromSeconds(2));
 
 app.Map("/{**path}", async (HttpContext context, EnginePool pool, ILogger<Program> logger) =>
 {
@@ -1974,7 +1974,7 @@ network, no clock — and nothing else.
 
 ```csharp
 var engine = new Engine(options => options
-    .EnableModules(new NodeStyleModuleLoader(@"C:\app"))
+    .UseModules(new NodeStyleModuleLoader(@"C:\app"))
     .UseNodeBuiltinModules());
 
 engine.Modules.Import("./main.js"); // main.js, and anything in node_modules, may import 'node:path'
@@ -2355,8 +2355,8 @@ limiting that target's graph.
 var engine = new Engine(options =>
 {
     options.ResultLimits = ResultLimits.Conservative;
-    options.TimeoutInterval(TimeSpan.FromSeconds(2));
-    options.MaxStatements(50_000);
+    options.LimitExecutionTime(TimeSpan.FromSeconds(2));
+    options.LimitStatements(50_000);
     options.LimitMemory(16_000_000);
 });
 
@@ -2516,7 +2516,7 @@ var p = new Person {
     Name = "Mickey Mouse"
 };
 
-var engine = new Engine(options => options.AllowClrWrite())
+var engine = new Engine(options => options.Interop.AllowWrite = true)
     .SetValue("p", p)
     .Execute("p.Name = 'Minnie'");
 
@@ -2699,8 +2699,8 @@ class LoggingHandler : ProxyHandler
 var engine = new Engine(options =>
 {
     // wrap every interop object in a logging proxy
-    options.SetWrapObjectHandler((e, obj, type) =>
-        e.Advanced.CreateProxy(ObjectWrapper.Create(e, obj, type), new LoggingHandler()));
+    options.Interop.WrapObjectHandler = (e, obj, type) =>
+        e.Advanced.CreateProxy(ObjectWrapper.Create(e, obj, type), new LoggingHandler());
 });
 ```
 
@@ -2711,7 +2711,7 @@ You can enforce what Time Zone or Culture the engine should use when locale Java
 This example forces the Time Zone to Pacific Standard Time.
 ```c#
 var PST = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
-var engine = new Engine(cfg => cfg.LocalTimeZone(PST));
+var engine = new Engine(cfg => cfg.TimeZone = PST);
     
 engine.Execute("new Date().toString()"); // Wed Dec 31 1969 16:00:00 GMT-08:00
 ```
@@ -2719,7 +2719,7 @@ engine.Execute("new Date().toString()"); // Wed Dec 31 1969 16:00:00 GMT-08:00
 This example is using French as the default culture.
 ```c#
 var FR = CultureInfo.GetCultureInfo("fr-FR");
-var engine = new Engine(cfg => cfg.Culture(FR));
+var engine = new Engine(cfg => cfg.Culture = FR);
     
 engine.Execute("new Number(1.23).toString()"); // 1.23
 engine.Execute("new Number(1.23).toLocaleString()"); // 1,23
@@ -2791,7 +2791,8 @@ var limits = new UntrustedCodeLimits(
 
 // Build once and share concurrently. ForUntrustedCode records an immutable profile declaration;
 // every Engine gets a private effective snapshot and construction never mutates sharedOptions.
-var sharedOptions = new Options().Strict().ForUntrustedCode(limits);
+var sharedOptions = new Options().ForUntrustedCode(limits);
+sharedOptions.Strict = true;
 using var engine = new Engine(sharedOptions);
 
 using (limits.BeginOperation(engine, cancellationToken))
@@ -2854,17 +2855,17 @@ explicitly:
 
 ```c#
 var options = new Options()
-    .MaxStatements(100_000)
+    .LimitStatements(100_000)
     .LimitMemory(4_000_000)
-    .TimeoutInterval(TimeSpan.FromSeconds(2))
-    .CancellationToken(requestAborted)
-    .Constraint(static () => new OperationDeadlineConstraint())
-    .LimitRecursion(64)
-    .DisableStringCompilation()
-    .AllowClrWrite(false)
-    .MaxArraySize(100_000)
-    .RegexTimeoutInterval(TimeSpan.FromSeconds(1));
+    .LimitExecutionTime(TimeSpan.FromSeconds(2))
+    .ObserveCancellation(requestAborted)
+    .AddConstraint(static () => new OperationDeadlineConstraint());
 
+options.Constraints.MaxRecursionDepth = 64;
+options.Constraints.MaxArraySize = 100_000;
+options.Constraints.RegexTimeout = TimeSpan.FromSeconds(1);
+options.Host.StringCompilationAllowed = false;
+options.Interop.AllowWrite = false;
 options.AgentCanSuspend = false;
 options.Constraints.StackOverflowGuard = true;
 options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
@@ -2937,13 +2938,13 @@ var engine = new Engine(options => {
     options.LimitMemory(4_000_000);
 
     // Set a timeout to 4 seconds.
-    options.TimeoutInterval(TimeSpan.FromSeconds(4));
+    options.LimitExecutionTime(TimeSpan.FromSeconds(4));
 
     // Set limit of 1000 executed statements.
-    options.MaxStatements(1000);
+    options.LimitStatements(1000);
 
     // Use a cancellation token.
-    options.CancellationToken(cancellationToken);
+    options.ObserveCancellation(cancellationToken);
 }
 ```
 
@@ -3027,7 +3028,7 @@ class MyCPUConstraint : Constraint
 
 var engine = new Engine(options =>
 {
-    options.Constraint(new MyCPUConstraint());
+    options.AddConstraint(new MyCPUConstraint());
 });
 ```
 
@@ -3045,7 +3046,7 @@ per-call reset leaves it alone:
 ```c#
 // one instance per engine, and you keep the reference
 var deadline = new OperationDeadlineConstraint();
-var engine = new Engine(options => options.Constraint(deadline));
+var engine = new Engine(options => options.AddConstraint(deadline));
 
 deadline.Begin(TimeSpan.FromSeconds(2), cancellationToken);
 try
@@ -3073,7 +3074,7 @@ When you reuse the engine and want to use cancellation tokens you have to reset 
 ```c#
 var engine = new Engine(options =>
 {
-    options.CancellationToken(new CancellationToken(true));
+    options.ObserveCancellation(new CancellationToken(true));
 });
 
 var constraint = engine.Constraints.Find<CancellationConstraint>();
@@ -3124,7 +3125,7 @@ recursion-heavy workloads (`Fib`, `DeepSum`, `Tak`) roughly 1.5–3% slower with
 calls stayed within run-to-run noise. Jint accepts that default cost because terminating the host process
 is worse. Set `StackOverflowGuard` to `false` only when every script is trusted and independently bounded.
 
-`options.LimitRecursion(n)` answers a different question and composes with it. The recursion limit counts
+`options.Constraints.MaxRecursionDepth` answers a different question and composes with it. The recursion limit counts
 frames and is checked before the callee is entered, so where it is configured it is what fires; the guard
 answers only when no limit was set, or when the limit was set higher than the thread's stack can actually
 hold — which is easy to do by accident, since how many frames a stack holds is not something a host can
@@ -3139,7 +3140,7 @@ You can use modules to `import` and `export` variables from multiple script file
 ```c#
 var engine = new Engine(options =>
 {
-    options.EnableModules(@"C:\Scripts");
+    options.UseModules(@"C:\Scripts");
 });
 
 var ns = engine.Modules.Import("./my-module.js");
@@ -3147,7 +3148,7 @@ var ns = engine.Modules.Import("./my-module.js");
 var value = ns.Get("value").AsString();
 ```
 
-By default, the module resolution algorithm will be restricted to the base path specified in `EnableModules`, and there is no package support. However you can provide your own packages in two ways.
+By default, the module resolution algorithm will be restricted to the base path specified in `UseModules`, and there is no package support. However you can provide your own packages in two ways.
 
 Defining modules using JavaScript source code:
 
@@ -3182,7 +3183,7 @@ var ns = engine.Modules.Import("custom");
 var id = ns.Get("result").AsInteger();
 ```
 
-Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
+Note that you don't need to `UseModules` if you only use modules created using `Engine.Modules.Add`.
 
 If you serve the same modules from a pool of engines, see **Sharing a module graph across pooled engines**
 under [Embedding performance](#embedding-performance): a loader that caches prepared modules keeps every
@@ -3243,7 +3244,7 @@ internal sealed class HttpModuleLoader : AsyncModuleLoader
         => _client.GetStringAsync(resolved.Uri);
 }
 
-var engine = new Engine(options => options.EnableModules(new HttpModuleLoader()));
+var engine = new Engine(options => options.UseModules(new HttpModuleLoader()));
 
 var ns = await engine.Modules.ImportAsync("./main.js");
 ```
@@ -3290,7 +3291,7 @@ When running untrusted or semi-trusted scripts, you can limit the size and shape
 ```csharp
 var engine = new Engine(options =>
 {
-    options.EnableModules("/scripts");
+    options.UseModules("/scripts");
 
     // Numeric limits — all default to unlimited (int.MaxValue / long.MaxValue).
     options.Modules.MaxModuleCount = 50;                   // distinct modules per engine lifetime
@@ -3535,9 +3536,11 @@ JavaScript ones. It is off by default because it puts host stack traces into wha
 treat it the way an ASP.NET application treats developer exception details.
 
 ```c#
-var engine = new Engine(options => options
-    .CatchClrExceptions()
-    .ChainClrExceptions());
+var engine = new Engine(options =>
+{
+    options.CatchClrExceptions();
+    options.Interop.ChainClrExceptionAsInnerException = true;
+});
 ```
 
 Two related accessors work the same way: `JintException.TryGetJavaScriptLocation` and
@@ -3555,7 +3558,7 @@ default because they commonly contain secrets, filesystem paths, URLs, CLR type 
 ```c#
 var engine = new Engine(options => options
     .CatchClrExceptions()
-    .EnableModules(loader)
+    .UseModules(loader)
     .ExposeDetailedErrors());
 ```
 
