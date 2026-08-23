@@ -49,8 +49,8 @@ public partial class Engine
     /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
     /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
     /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
-    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
+    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
     /// amortizable, so neither disarms the interpreter's tight-loop lane.
     /// </para>
     /// <para>
@@ -115,8 +115,8 @@ public partial class Engine
     /// promise settlement — that is, at event-loop continuation boundaries. A script that never yields
     /// (<c>while (true) { }</c>) is therefore not cancellable through this parameter. To bound the
     /// interpreter itself, register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> for token-driven cancellation or
-    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/> for a wall-clock bound. Both are
+    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> for token-driven cancellation or
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> for a wall-clock bound. Both are
     /// amortizable, so neither disarms the interpreter's tight-loop lane.
     /// </para>
     /// </remarks>
@@ -172,8 +172,8 @@ public partial class Engine
     /// code runs to completion first and the token is only observed afterwards, while awaiting promise
     /// settlement — that is, at event-loop continuation boundaries. To bound the interpreter itself,
     /// register an execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
-    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> or
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
     /// </para>
     /// <para>
     /// There is deliberately no <see cref="ScriptParsingOptions"/> parameter here: parse the source once
@@ -287,8 +287,8 @@ public partial class Engine
     /// to completion first and the token is only observed afterwards, while awaiting promise settlement —
     /// that is, at event-loop continuation boundaries. To bound the interpreter itself, register an
     /// execution constraint on the engine's <see cref="Options"/>:
-    /// <see cref="ConstraintsOptionsExtensions.CancellationToken"/> or
-    /// <see cref="ConstraintsOptionsExtensions.TimeoutInterval"/>.
+    /// <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/> or
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
     /// </para>
     /// <para>
     /// <paramref name="propertyName"/> resolves exactly as <see cref="Invoke(string, object, object[])"/>

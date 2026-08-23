@@ -50,7 +50,7 @@ public class ClrTypeResolutionSecurityTests
         var engine = new Engine(options =>
         {
             options.AllowClr(typeof(AllowedClrHost).Assembly);
-            options.SetTypeResolver(resolver);
+            options.Interop.TypeResolver = resolver;
         });
 
         engine.Evaluate("importNamespace('Jint.Tests.PublicInterface').AllowedClrHost")
@@ -226,7 +226,7 @@ public class ClrTypeResolutionSecurityTests
         var engine = new Engine(options =>
         {
             options.AllowClr(typeof(AllowedClrInstance).Assembly);
-            options.SetTypeResolver(resolver);
+            options.Interop.TypeResolver = resolver;
             options.Interop.ThrowOnUnresolvedMember = true;
         });
         engine.SetValue("host", new AllowedClrInstance());
@@ -248,7 +248,7 @@ public class ClrTypeResolutionSecurityTests
         var engine = new Engine(options =>
         {
             options.AllowClr(typeof(AllowedClrInstance).Assembly);
-            options.SetTypeResolver(resolver);
+            options.Interop.TypeResolver = resolver;
             options.Interop.ThrowOnUnresolvedMember = true;
             options.Interop.ExposeDetailedResolutionErrors = true;
         });

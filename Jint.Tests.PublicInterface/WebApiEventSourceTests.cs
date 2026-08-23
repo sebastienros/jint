@@ -392,7 +392,7 @@ public class WebApiEventSourceTests
         var handler = new StubHandler { Hang = true };
         using var cancellation = new CancellationTokenSource();
 
-        var (engine, clock, records) = SseEngine(handler, extra: options => options.CancellationToken(cancellation.Token));
+        var (engine, clock, records) = SseEngine(handler, extra: options => options.ObserveCancellation(cancellation.Token));
 
         Start(engine, "es", StreamUrl);
         Pump(engine, () => handler.RequestCount == 1, "the request to reach the transport");

@@ -70,7 +70,7 @@ public interface IReferenceResolver
 /// <summary>
 /// The situations in which an <see cref="IReferenceResolver"/> wants to be consulted, declared when the
 /// resolver is registered via
-/// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>.
+/// <see cref="OptionsExtensions.SetReferenceResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -87,7 +87,7 @@ public interface IReferenceResolver
 /// resolver declaring only <see cref="NullishPropertyBase"/> keeps every one of those lanes armed, since a
 /// lane recognizes a nullish base itself and detours through a <see cref="Reference"/> for that one case.
 /// A resolver registered through
-/// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver)"/> gets <see cref="All"/>,
+/// <see cref="OptionsExtensions.SetReferenceResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/> gets <see cref="All"/>,
 /// which behaves exactly as before this filter existed.
 /// </para>
 /// </remarks>

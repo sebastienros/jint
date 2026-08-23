@@ -28,7 +28,7 @@ public class AsyncModuleLoaderTests
     /// </summary>
     private static Engine CreateEngine(IModuleLoader loader) => new(options =>
     {
-        options.EnableModules(loader);
+        options.UseModules(loader);
         options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
     });
     /// <summary>
@@ -187,7 +187,7 @@ public class AsyncModuleLoaderTests
     public void DirectResultLimitFromLoaderRemainsFatal()
     {
         var failure = CreateResultLimitFailure();
-        var engine = new Engine(options => options.EnableModules(new ResultFailureLoader(failure, settle: false)));
+        var engine = new Engine(options => options.UseModules(new ResultFailureLoader(failure, settle: false)));
 
         Invoking(() => engine.Modules.Import("module"))
             .Should().ThrowExactly<ResultLimitExceededException>();
@@ -198,7 +198,7 @@ public class AsyncModuleLoaderTests
     public void SettledResultLimitFromLoaderRemainsFatal()
     {
         var failure = CreateResultLimitFailure();
-        var engine = new Engine(options => options.EnableModules(new ResultFailureLoader(failure, settle: true)));
+        var engine = new Engine(options => options.UseModules(new ResultFailureLoader(failure, settle: true)));
 
         Invoking(() => engine.Modules.Import("module"))
             .Should().ThrowExactly<ResultLimitExceededException>();
@@ -643,12 +643,12 @@ public class AsyncModuleLoaderTests
     [Fact]
     public void TheEnginesCancellationTokenReachesTheLoadersFetch()
     {
-        // A host that registered options.CancellationToken(token) means it for the loader's I/O too:
+        // A host that registered options.ObserveCancellation(token) means it for the loader's I/O too:
         // AsyncModuleLoader hands LoadModuleContentsAsync the same token the interpreter's cancellation
         // constraint observes, so one token stops both the script and the fetches it started.
         using var cts = new CancellationTokenSource();
         var loader = new TokenCapturingLoader();
-        var engine = new Engine(options => options.EnableModules(loader).CancellationToken(cts.Token));
+        var engine = new Engine(options => options.UseModules(loader).ObserveCancellation(cts.Token));
 
         engine.Modules.StartImport("./fetch.js");
 
@@ -841,7 +841,7 @@ public class AsyncModuleLoaderTests
 
         var engine = new Engine(options =>
         {
-            options.EnableModules(loader);
+            options.UseModules(loader);
             // Small so a regression fails the test in half a second rather than the default ten.
             options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500);
         });
@@ -1233,7 +1233,7 @@ public class AsyncModuleLoaderTests
         // error knows its file, line and column. The original exception must survive the crossing.
         var engine = new Engine(options =>
         {
-            options.EnableModules(new BackgroundDictionaryLoader(new Dictionary<string, string>
+            options.UseModules(new BackgroundDictionaryLoader(new Dictionary<string, string>
             {
                 ["./broken.js"] = "export const ok = 1;\nexport const = broken;",
             }));

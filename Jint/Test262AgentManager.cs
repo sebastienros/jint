@@ -196,7 +196,7 @@ internal sealed class Test262AgentManager : IDisposable
                 var engine = new Engine(cfg =>
                 {
                     cfg.ExperimentalFeatures = ExperimentalFeature.All;
-                    cfg.TimeoutInterval(TimeSpan.FromSeconds(30));
+                    cfg.LimitExecutionTime(TimeSpan.FromSeconds(30));
                     cfg.AgentCanSuspend = true;
                 });
 

@@ -26,7 +26,7 @@ public class FunctionDeclarationAllocBenchmark
     private IsolatedScript _declareMany;
     private IsolatedScript _constructEach;
 
-    private static Engine CreateEngine() => new(static options => options.Strict());
+    private static Engine CreateEngine() => new(static options => options.Strict = true);
 
     [GlobalSetup]
     public void Setup()

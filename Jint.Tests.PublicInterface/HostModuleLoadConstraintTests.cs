@@ -66,7 +66,7 @@ public class HostModuleLoadConstraintTests
         var engine = new Engine(options =>
         {
             options.Constraints.MaxRecursionDepth = 20;
-            options.EnableModules(new ScriptSourcedModuleLoader(e => e.Invoke("deep", 0)));
+            options.UseModules(new ScriptSourcedModuleLoader(e => e.Invoke("deep", 0)));
         });
 
         engine.Execute(DeepRecursion + "globalThis.caught = 'none';");
@@ -84,7 +84,7 @@ public class HostModuleLoadConstraintTests
         var engine = new Engine(options =>
         {
             options.Constraints.MaxRecursionDepth = 20;
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
         loader.Engine = engine;
 
@@ -99,7 +99,7 @@ public class HostModuleLoadConstraintTests
         var engine = new Engine(options =>
         {
             options.Constraints.MaxRecursionDepth = 20;
-            options.EnableModules(new ScriptSourcedModuleLoader(_ => throw new InvalidOperationException("the asset pipeline is down")));
+            options.UseModules(new ScriptSourcedModuleLoader(_ => throw new InvalidOperationException("the asset pipeline is down")));
         });
 
         var operation = engine.Modules.StartImport("m");

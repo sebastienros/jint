@@ -383,7 +383,7 @@ public class CodeCoverageTests
 
         var engine = new Engine(options =>
         {
-            options.MaxStatements(1000);
+            options.LimitStatements(1000);
             options.Coverage.Enabled = true;
         });
         engine.Execute(Code, Source);
@@ -407,7 +407,7 @@ public class CodeCoverageTests
         {
             var engine = new Engine(options =>
             {
-                options.MaxStatements(50);
+                options.LimitStatements(50);
                 options.Coverage.Enabled = coverage;
             });
 

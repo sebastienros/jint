@@ -23,7 +23,7 @@ public class HostStaticMemberAccessTests
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             configure?.Invoke(options);
         });
         engine.SetValue("Host", TypeReference.CreateTypeReference(engine, typeof(StaticHost)));

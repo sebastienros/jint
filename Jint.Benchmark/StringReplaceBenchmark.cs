@@ -33,7 +33,7 @@ public class StringReplaceBenchmark
     /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
     private static Engine CreateEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         // 8192 repetitions of "abcdefgh" (~64K chars) => exactly 8192 non-overlapping "ab" matches.
         engine.Execute("""
             var haystack = "";

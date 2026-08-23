@@ -393,7 +393,7 @@ public class JsonTests
     [Fact]
     public void MaxDepthGetsUsedFromEngineOptionsConstraints()
     {
-        var engine = new Engine(options => options.MaxJsonParseDepth(0));
+        var engine = new Engine(options => options.Json.MaxParseDepth = 0);
         var parser = new JsonParser(engine);
 
         Invoking(() => parser.Parse("[]")).Should().ThrowExactly<JavaScriptException>();

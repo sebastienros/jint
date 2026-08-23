@@ -21,10 +21,10 @@ namespace Jint
     }
     public static class ConstraintsOptionsExtensions
     {
-        public static Jint.Options CancellationToken(this Jint.Options options, System.Threading.CancellationToken cancellationToken) { }
+        public static Jint.Options LimitExecutionTime(this Jint.Options options, System.TimeSpan timeoutInterval) { }
         public static Jint.Options LimitMemory(this Jint.Options options, long memoryLimit) { }
-        public static Jint.Options MaxStatements(this Jint.Options options, int maxStatements = 0) { }
-        public static Jint.Options TimeoutInterval(this Jint.Options options, System.TimeSpan timeoutInterval) { }
+        public static Jint.Options LimitStatements(this Jint.Options options, int maxStatements) { }
+        public static Jint.Options ObserveCancellation(this Jint.Options options, System.Threading.CancellationToken cancellationToken) { }
     }
     [System.Diagnostics.DebuggerTypeProxy(typeof(Jint.Engine.EngineDebugView))]
     public sealed class Engine : System.IDisposable
@@ -306,12 +306,12 @@ namespace Jint
         public Jint.Options.HostOptions Host { get; }
         public Jint.Options.InteropOptions Interop { get; }
         public Jint.Options.IntlOptions Intl { get; }
-        public Jint.Options.JsonOptions Json { get; set; }
+        public Jint.Options.JsonOptions Json { get; }
         public Jint.Options.ModuleOptions Modules { get; }
         public Jint.Options.ParsingOptions Parsing { get; }
         public Jint.Options.ProfilingOptions Profiling { get; }
-        public Jint.Runtime.Interop.IReferenceResolver ReferenceResolver { get; set; }
-        public Jint.Runtime.Interop.ReferenceResolverInterests ReferenceResolverInterests { get; set; }
+        public Jint.Runtime.Interop.IReferenceResolver ReferenceResolver { get; }
+        public Jint.Runtime.Interop.ReferenceResolverInterests ReferenceResolverInterests { get; }
         public Jint.ResultLimits ResultLimits { get; set; }
         public bool RetainFunctionSourceText { get; set; }
         public bool Strict { get; set; }
@@ -510,6 +510,10 @@ namespace Jint
     }
     public static class OptionsExtensions
     {
+        public static Jint.Options AddConstraint(this Jint.Options options, Jint.Constraint constraint) { }
+        public static Jint.Options AddConstraint(this Jint.Options options, System.Func<Jint.Constraint> constraintFactory) { }
+        public static Jint.Options AddConstraint<TConstraint>(this Jint.Options options, System.Func<TConstraint> constraintFactory)
+            where TConstraint : Jint.Constraint { }
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"Extension methods are discovered by reflecting over the supplied types' public methods, which trimming can remove - and a removed one fails as 'not a function' rather than as an error. The parameter cannot carry DynamicallyAccessedMembers because it is an array, so root the declaring types yourself: <TrimmerRootAssembly Include=""YourAssembly"" /> or a [DynamicDependency] on each registered type.")]
         public static Jint.Options AddExtensionMethods(this Jint.Options options, params System.Type[] types) { }
         public static Jint.Options AddImmutableCrossing(this Jint.Options options, params System.Type[] types) { }
@@ -522,45 +526,17 @@ namespace Jint
         public static Jint.Options AllowClr(this Jint.Options options) { }
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=""YourAssembly"" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.")]
         public static Jint.Options AllowClr(this Jint.Options options, params System.Reflection.Assembly[] assemblies) { }
-        public static Jint.Options AllowClrWrite(this Jint.Options options, bool allow = true) { }
-        public static Jint.Options AllowOperatorOverloading(this Jint.Options options, bool allow = true) { }
         public static Jint.Options CatchClrExceptions(this Jint.Options options) { }
-        public static Jint.Options CatchClrExceptions(this Jint.Options options, Jint.Options.ExceptionHandlerDelegate handler) { }
-        public static Jint.Options ChainClrExceptions(this Jint.Options options, bool chain = true) { }
         public static Jint.Options Configure(this Jint.Options options, System.Action<Jint.Engine> configuration) { }
-        public static Jint.Options Constraint(this Jint.Options options, Jint.Constraint constraint) { }
-        public static Jint.Options Constraint(this Jint.Options options, System.Func<Jint.Constraint> constraintFactory) { }
-        public static Jint.Options Constraint<TConstraint>(this Jint.Options options, System.Func<TConstraint> constraintFactory)
-            where TConstraint : Jint.Constraint { }
-        public static Jint.Options Culture(this Jint.Options options, System.Globalization.CultureInfo cultureInfo) { }
-        public static Jint.Options DebugMode(this Jint.Options options, bool debugMode = true) { }
-        public static Jint.Options DebuggerStatementHandling(this Jint.Options options, Jint.Runtime.Debugger.DebuggerStatementHandling debuggerStatementHandling) { }
-        public static Jint.Options DecorateClrExceptionErrors(this Jint.Options options, Jint.Options.ClrExceptionErrorDecoratorDelegate decorator) { }
-        public static Jint.Options DecorateClrResolutionErrors(this Jint.Options options, Jint.Options.ClrResolutionErrorDecoratorDelegate decorator) { }
-        public static Jint.Options DisableStringCompilation(this Jint.Options options, bool disable = true) { }
-        public static Jint.Options EnableModules(this Jint.Options options, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
-        public static Jint.Options EnableModules(this Jint.Options options, string basePath, bool restrictToBasePath = true) { }
         public static Jint.Options ExposeDetailedErrors(this Jint.Options options, bool expose = true) { }
         public static Jint.Options ForUntrustedCode(this Jint.Options options, Jint.UntrustedCodeLimits limits) { }
-        public static Jint.Options InitialStepMode(this Jint.Options options, Jint.Runtime.Debugger.StepMode initialStepMode = 0) { }
-        public static Jint.Options LimitRecursion(this Jint.Options options, int maxRecursionDepth = 0) { }
-        public static Jint.Options LocalTimeZone(this Jint.Options options, System.TimeZoneInfo timeZoneInfo) { }
-        public static Jint.Options MaxArraySize(this Jint.Options options, uint maxSize) { }
-        public static Jint.Options MaxJsonParseDepth(this Jint.Options options, int maxDepth) { }
-        public static Jint.Options PreferJsPrototypeMethods(this Jint.Options options, bool prefer = true) { }
-        public static Jint.Options RegexTimeoutInterval(this Jint.Options options, System.TimeSpan regexTimeoutInterval) { }
-        public static Jint.Options RetainFunctionSourceText(this Jint.Options options, bool retain = true) { }
-        public static Jint.Options SetBuildCallStackHandler(this Jint.Options options, Jint.Options.BuildCallStackDelegate buildCallStackHandler) { }
-        public static Jint.Options SetMemberAccessor(this Jint.Options options, Jint.Options.MemberAccessorDelegate accessor) { }
-        public static Jint.Options SetReferencesResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver) { }
-        public static Jint.Options SetReferencesResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver, Jint.Runtime.Interop.ReferenceResolverInterests interests) { }
+        public static Jint.Options RemoveConstraints(this Jint.Options options, System.Predicate<Jint.Constraint> predicate) { }
+        public static Jint.Options SetReferenceResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver, Jint.Runtime.Interop.ReferenceResolverInterests interests = 31) { }
         public static Jint.Options SetTypeConverter(this Jint.Options options, System.Func<Jint.Engine, Jint.Runtime.Interop.ITypeConverter> typeConverterFactory) { }
-        public static Jint.Options SetTypeResolver(this Jint.Options options, Jint.Runtime.Interop.TypeResolver resolver) { }
-        public static Jint.Options SetWrapObjectHandler(this Jint.Options options, Jint.Options.WrapObjectDelegate wrapObjectHandler) { }
-        public static Jint.Options Strict(this Jint.Options options, bool strict = true) { }
         public static Jint.Options UseHostFactory<T>(this Jint.Options options, System.Func<Jint.Engine, T> factory)
             where T : Jint.Runtime.Host { }
-        public static Jint.Options WithoutConstraint(this Jint.Options options, System.Predicate<Jint.Constraint> predicate) { }
+        public static Jint.Options UseModules(this Jint.Options options, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
+        public static Jint.Options UseModules(this Jint.Options options, string basePath, bool restrictToBasePath = true) { }
     }
     public static class OptionsSecurityExtensions
     {

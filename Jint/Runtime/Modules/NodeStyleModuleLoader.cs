@@ -123,7 +123,7 @@ public sealed class NodeModuleLoaderOptions
 /// </remarks>
 /// <example>
 /// <code>
-/// var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(@"C:\app")));
+/// var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(@"C:\app")));
 /// var ns = engine.Modules.Import("./main.js"); // main.js may `import 'some-package'`
 /// </code>
 /// </example>

@@ -15,7 +15,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class InteropIntegerCoercionBoxingTests
 {
-    private static Engine CreateEngine() => new(options => options.AllowClrWrite());
+    private static Engine CreateEngine() => new(options => options.Interop.AllowWrite = true);
 
     #region hosts
 
@@ -188,7 +188,7 @@ public class InteropIntegerCoercionBoxingTests
         var host = new CollectionHost();
         var engine = new Engine(options =>
             {
-                options.AllowClrWrite();
+                options.Interop.AllowWrite = true;
                 options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             })
             .SetValue("host", host);
@@ -211,7 +211,7 @@ public class InteropIntegerCoercionBoxingTests
         var host = new Host();
         var engine = new Engine(options =>
             {
-                options.AllowClrWrite();
+                options.Interop.AllowWrite = true;
                 options.SetTypeConverter(e => new CustomTypeConverter(e));
             })
             .SetValue("host", host);

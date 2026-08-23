@@ -42,7 +42,7 @@ public class StringSliceBenchmarks
     /// <summary>Builds a fresh engine carrying the fixture every row needs, and nothing else.</summary>
     private static Engine CreateEngine()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         // Build the shared ~128K char base string once (dromaeo-style doubling) — once per row's
         // own engine, so no row ever observes another row's string representations.
         engine.Execute("""

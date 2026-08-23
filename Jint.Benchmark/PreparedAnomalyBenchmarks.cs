@@ -43,21 +43,21 @@ public class PreparedAnomalyBenchmarks
     public void Setup()
     {
         _prepared = Engine.PrepareScript(Source, strict: true);
-        _reusedEngine = new Engine(static options => options.Strict());
+        _reusedEngine = new Engine(static options => options.Strict = true);
         _reusedEngine.Execute(_prepared);
     }
 
     [Benchmark(Baseline = true)]
     public void SourcePerOp()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(Source);
     }
 
     [Benchmark]
     public void PreparedShared()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_prepared);
     }
 
@@ -67,7 +67,7 @@ public class PreparedAnomalyBenchmarks
     public void PreparedPerOp()
     {
         var prepared = Engine.PrepareScript(Source, strict: true);
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(prepared);
     }
 

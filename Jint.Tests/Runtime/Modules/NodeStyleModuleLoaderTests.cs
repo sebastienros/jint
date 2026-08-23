@@ -271,7 +271,7 @@ public class NodeStyleModuleLoaderTests
     public void AModuleRegisteredWithModulesAddIsStillImportable()
     {
         using var tree = new PackageTree();
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
         engine.Modules.Add("registered", "export const value = 'from the registry';");
 
         engine.Modules.Import("registered").Get("value").AsString().Should().Be("from the registry");
@@ -281,7 +281,7 @@ public class NodeStyleModuleLoaderTests
     public void AnImportOfANameThatIsNeitherAPackageNorRegisteredSaysSo()
     {
         using var tree = new PackageTree();
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         Invoking(() => engine.Modules.Import("nowhere"))
             .Should().Throw<NotSupportedException>()
@@ -809,7 +809,7 @@ public class NodeStyleModuleLoaderTests
             .Add("node_modules/upper/package.json", """{ "name": "upper", "main": "lib/upper.js" }""")
             .Add("node_modules/upper/lib/upper.js", "export function upper(text) { return text.toUpperCase(); }");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         var ns = engine.Modules.Import("./main.js");
 
@@ -824,7 +824,7 @@ public class NodeStyleModuleLoaderTests
             .Add("node_modules/pkg/index.js", "import data from './data.json' with { type: 'json' }; export const value = data.answer;")
             .Add("node_modules/pkg/data.json", """{ "answer": 42 }""");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         engine.Modules.Import("pkg").Get("value").AsNumber().Should().Be(42);
     }
@@ -839,7 +839,7 @@ public class NodeStyleModuleLoaderTests
             .Add("node_modules/shared/package.json", """{ "name": "shared", "exports": "./index.js" }""")
             .Add("node_modules/shared/index.js", "let n = 0; export const counter = { next() { return ++n; } };");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         // 1 + 2 rather than 1 + 1: both importers share one module record, which they only do if both
         // resolutions produced the same key.

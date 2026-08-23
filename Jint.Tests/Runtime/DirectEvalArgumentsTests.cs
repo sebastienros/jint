@@ -169,7 +169,7 @@ public class DirectEvalArgumentsTests
     [Fact]
     public void AStrictEngineIsNoDifferentFromAStrictFunction()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
 
         engine.Evaluate("function f(a) { a = 42; return eval('arguments[0]') + ',' + eval('arguments').length; } f(1, 2)")
             .ToString()

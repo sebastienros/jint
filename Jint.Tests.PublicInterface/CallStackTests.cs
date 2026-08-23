@@ -88,7 +88,7 @@ Trace
 
         var engine = new Engine(opt =>
         {
-            opt.SetBuildCallStackHandler(BuildCallStackHandler);
+            opt.Interop.BuildCallStackHandler = BuildCallStackHandler;
         });
 
         const string Script = @"function a(v) {

@@ -127,7 +127,7 @@ public class ModuleTests
         // https://github.com/sebastienros/jint/discussions/1472
         // Static import/export declarations only exist in modules, but the dynamic import()
         // expression is valid inside classic scripts run via Evaluate/Execute. It should
-        // resolve modules registered via Modules.Add without requiring EnableModules or
+        // resolve modules registered via Modules.Add without requiring UseModules or
         // a source location for the script.
         _engine.Modules.Add("imported-module", "export function add(a, b) { return a + b; }");
 
@@ -430,7 +430,7 @@ export const count = globals.counter;
     [Fact]
     public void ShouldSupportConstraints()
     {
-        var engine = new Engine(opts => opts.TimeoutInterval(TimeSpan.FromTicks(1)));
+        var engine = new Engine(opts => opts.LimitExecutionTime(TimeSpan.FromTicks(1)));
 
         engine.Modules.Add("sleep", builder => builder.ExportFunction("sleep", () => Thread.Sleep(100)));
         engine.Modules.Add("my-module", "import { sleep } from 'sleep'; for(var i = 0; i < 100; i++) { sleep(); } export const result = 'ok';");
@@ -440,7 +440,7 @@ export const count = globals.counter;
     [Fact]
     public void CanLoadModuleImportsFromFiles()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         engine.Modules.Add("my-module", "import { User } from './modules/user.js'; export const user = new User('John', 'Doe');");
         var ns = engine.Modules.Import("my-module");
 
@@ -450,7 +450,7 @@ export const count = globals.counter;
     [Fact]
     public void CanImportFromFile()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         var ns = engine.Modules.Import("./modules/format-name.js");
         var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
@@ -460,7 +460,7 @@ export const count = globals.counter;
     [Fact]
     public void CanImportFromFileWithSpacesInPath()
     {
-        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var engine = new Engine(options => options.UseModules(GetBasePath()));
         var ns = engine.Modules.Import("./dir with spaces/format name.js");
         var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
@@ -489,7 +489,7 @@ export const count = globals.counter;
         {
             ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
         });
-        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var engine = new Engine(options => options.UseModules(moduleLoader));
         var code = @"
 (async () => {
     const { value } = await import('./my-module.js');
@@ -513,7 +513,7 @@ export const count = globals.counter;
         {
             ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
         });
-        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var engine = new Engine(options => options.UseModules(moduleLoader));
         var code = @"
 (async () => {
     const { value } = await import('./my-module.js');
@@ -538,7 +538,7 @@ export const count = globals.counter;
         {
             ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
         });
-        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var engine = new Engine(options => options.UseModules(moduleLoader));
         var code = @"
 (async () => {
     const { value } = await import('./my-module.js');
@@ -562,7 +562,7 @@ export const count = globals.counter;
         {
             ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
         });
-        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var engine = new Engine(options => options.UseModules(moduleLoader));
         var code = @"
 (async () => {
     const { value } = await import('./my-module.js');
@@ -643,7 +643,7 @@ export const count = globals.counter;
     [Fact]
     public void ModuleBuilderWithCustomModuleLoaderLoadsModulesProperly()
     {
-        var engine = new Engine(o => o.EnableModules(new LocationResolveOnlyModuleLoader((_, moduleRequest) =>
+        var engine = new Engine(o => o.UseModules(new LocationResolveOnlyModuleLoader((_, moduleRequest) =>
         {
             var result = moduleRequest.Specifier;
             if (moduleRequest.Specifier == "../library1/builder_module.js")
@@ -670,7 +670,7 @@ export const count = globals.counter;
     [Fact]
     public void ModuleBuilderPassesReferencingModuleLocationToModuleLoader()
     {
-        var engine = new Engine(o => o.EnableModules(new LocationResolveOnlyModuleLoader((referencingModuleLocation, moduleRequest) =>
+        var engine = new Engine(o => o.UseModules(new LocationResolveOnlyModuleLoader((referencingModuleLocation, moduleRequest) =>
         {
             var result = moduleRequest.Specifier;
             if (moduleRequest.Specifier == "../library1/builder_module.js")
@@ -728,7 +728,7 @@ export const count = globals.counter;
     [Fact]
     public void EngineShouldTransmitSourceModuleForModuleLoader()
     {
-        var engine = new Engine(o => o.EnableModules(new ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest()));
+        var engine = new Engine(o => o.UseModules(new ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest()));
 
         var logs = new List<string>();
         engine.SetValue("log", logs.Add);
@@ -791,7 +791,7 @@ export const count = globals.counter;
             """;
 
         var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
-        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+        var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)));
 
         loaderModules.Add(JsonModuleSpecifier, (engine, resolved) => ModuleFactory.BuildJsonModule(engine, resolved, JsonModuleContent));
         if (importViaLoader)
@@ -829,7 +829,7 @@ export const count = globals.counter;
         var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
-        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)))
+        var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)))
             .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
 
         loaderModules.Add(JsonModuleSpecifier, (engine, resolved) => ModuleFactory.BuildJsonModule(engine, resolved, JsonModuleContent));
@@ -863,7 +863,7 @@ export const count = globals.counter;
             """;
 
         var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
-        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+        var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)));
 
         loaderModules.Add(TextModuleSpecifier, (engine, resolved) => ModuleFactory.BuildTextModule(engine, resolved, TextModuleContent));
         if (importViaLoader)
@@ -898,7 +898,7 @@ export const count = globals.counter;
         var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
-        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)))
+        var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)))
             .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
 
         loaderModules.Add(TextModuleSpecifier, (engine, resolved) => ModuleFactory.BuildTextModule(engine, resolved, TextModuleContent));
@@ -952,7 +952,7 @@ export const count = globals.counter;
             ["./has-linking-error"] = (e, r) => ModuleFactory.BuildSourceTextModule(e, r, "import { nonExistent } from './has-linking-error';"),
             // './does-not-exist' is NOT in the loader → will throw during loading
         };
-        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+        var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)));
 
         var ex = Invoking(() => engine.Modules.Import("main")).Should().Throw<Exception>().Which;
         // Should fail with a module loading error for './does-not-exist',

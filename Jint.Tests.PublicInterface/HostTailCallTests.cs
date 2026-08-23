@@ -7,9 +7,11 @@ public class HostTailCallTests
     [Fact]
     public void StrictTailRecursionHonorsRecursionLimit()
     {
-        var engine = new Engine(options => options
-            .LimitRecursion(8)
-            .TimeoutInterval(TimeSpan.FromSeconds(1)));
+        var engine = new Engine(options =>
+        {
+            options.Constraints.MaxRecursionDepth = 8;
+            options.LimitExecutionTime(TimeSpan.FromSeconds(1));
+        });
 
         Invoking(() => engine.Evaluate("""
             "use strict";
@@ -37,7 +39,7 @@ public class HostTailCallTests
     [Fact]
     public void DistinctTailDelegationDoesNotCountAsRecursion()
     {
-        var result = new Engine(options => options.LimitRecursion(0)).Evaluate("""
+        var result = new Engine(options => options.Constraints.MaxRecursionDepth = 0).Evaluate("""
             "use strict";
             function first() {
                 return second();
@@ -69,9 +71,11 @@ public class HostTailCallTests
     [Fact]
     public void RecursionLimitStillFiresWhenATailCallIsOnThePath()
     {
-        var engine = new Engine(options => options
-            .LimitRecursion(20)
-            .TimeoutInterval(TimeSpan.FromSeconds(10)));
+        var engine = new Engine(options =>
+        {
+            options.Constraints.MaxRecursionDepth = 20;
+            options.LimitExecutionTime(TimeSpan.FromSeconds(10));
+        });
 
         engine.SetValue("load", new Action(() => engine.Execute("function calc() { return entity.calc; }")));
         engine.Execute("""
@@ -96,7 +100,7 @@ public class HostTailCallTests
     [Fact]
     public void CompletedTailDelegationDoesNotAccumulateAgainstTheLimit()
     {
-        var result = new Engine(options => options.LimitRecursion(0)).Evaluate("""
+        var result = new Engine(options => options.Constraints.MaxRecursionDepth = 0).Evaluate("""
             "use strict";
             function leaf() {
                 return 1;

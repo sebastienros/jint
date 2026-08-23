@@ -400,7 +400,7 @@ public class WebApiFetchTests
         var engine = WebEngine(
             handler,
             extra: options => options
-                .CancellationToken(cancellation.Token)
+                .ObserveCancellation(cancellation.Token)
                 .Configure(e => e.SetValue("record", new Action(() => Interlocked.Increment(ref settled)))));
 
         engine.Execute("fetch('https://example.org/').then(record, record);");

@@ -872,7 +872,7 @@ public class GlobalSnapshotTests
     public void HostClrStateChangedThroughInteropSurvivesRestore()
     {
         var config = new Config();
-        var engine = new Engine(o => o.AllowClr().AllowClrWrite());
+        var engine = new Engine(o => o.AllowClr().Interop.AllowWrite = true);
         engine.SetValue("config", config);
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();

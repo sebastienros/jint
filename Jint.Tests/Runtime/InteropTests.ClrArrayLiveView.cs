@@ -19,7 +19,7 @@ public partial class InteropTests
     {
         return new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             additionalConfiguration?.Invoke(options);
         });
@@ -210,7 +210,7 @@ public partial class InteropTests
     [Fact]
     public void CopyModeKeepsClrSnapshotsOutsideTheJsArraySizeConstraint()
     {
-        var engine = CreateCopyEngine(options => options.MaxArraySize(2));
+        var engine = CreateCopyEngine(options => options.Constraints.MaxArraySize = 2);
 
         engine.SetValue("arr", new[] { 1, 2, 3 });
 
@@ -348,7 +348,7 @@ public partial class InteropTests
         var engine = CreateCopyEngine(options =>
         {
             options.Interop.TrackObjectWrapperIdentity = true;
-            options.Constraint(deadline);
+            options.AddConstraint(deadline);
             options.AddObjectConverter(converter);
         });
         var source = new object[] { new SlowCopyProbe() };

@@ -31,7 +31,7 @@ public class MethodCallBenchmark
     private IsolatedScript _methodCallCaptured;
     private IsolatedScript _freeFunctionCall;
 
-    private static Engine CreateEngine() => new(static options => options.Strict());
+    private static Engine CreateEngine() => new(static options => options.Strict = true);
 
     [GlobalSetup]
     public void Setup()

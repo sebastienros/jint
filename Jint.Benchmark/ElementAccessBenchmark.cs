@@ -30,7 +30,7 @@ public class ElementAccessBenchmark
     private IsolatedScript _chainedRead;
     private IsolatedScript _appendWrite;
 
-    private static Engine CreateEngine() => new(static options => options.Strict());
+    private static Engine CreateEngine() => new(static options => options.Strict = true);
 
     [GlobalSetup]
     public void Setup()

@@ -25,16 +25,16 @@ public class SecurityConfigurationInternalsTests
     private static Options CreateSafeOptions()
     {
         var options = new Options()
-            .MaxStatements(100_000)
+            .LimitStatements(100_000)
             .LimitMemory(4_000_000)
-            .TimeoutInterval(TimeSpan.FromSeconds(2))
-            .CancellationToken(new CancellationTokenSource().Token)
-            .Constraint(static () => new OperationDeadlineConstraint())
-            .LimitRecursion(64)
-            .MaxArraySize(100_000)
-            .RegexTimeoutInterval(TimeSpan.FromSeconds(1))
-            .DisableStringCompilation()
-            .AllowClrWrite(false);
+            .LimitExecutionTime(TimeSpan.FromSeconds(2))
+            .ObserveCancellation(new CancellationTokenSource().Token)
+            .AddConstraint(static () => new OperationDeadlineConstraint());
+        options.Constraints.MaxRecursionDepth = 64;
+        options.Constraints.MaxArraySize = 100_000;
+        options.Constraints.RegexTimeout = TimeSpan.FromSeconds(1);
+        options.Host.StringCompilationAllowed = false;
+        options.Interop.AllowWrite = false;
 
         options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
         options.Parsing.MaxSourceLength = 100_000;

@@ -15,8 +15,33 @@ using Jint.Runtime.Modules;
 namespace Jint;
 
 /// <summary>
-/// Compatibility layer to allow fluent syntax against options object.
+/// The configuration operations that are not a property assignment.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="Options"/> and its groups are the configuration surface: every setting is a property, and a
+/// property is the only place its value lives. A method exists here only when it does something an
+/// assignment cannot — install a subsystem, append to a registry, register a factory the engine invokes
+/// later, set two coupled values at once, or apply a named profile — and its verb says which of those it is:
+/// </para>
+/// <list type="table">
+/// <item><term><c>Use*</c></term><description>installs a subsystem the engine otherwise does not have.</description></item>
+/// <item><term><c>Add*</c> / <c>Remove*</c></term><description>appends to, or prunes, a registry that holds many.</description></item>
+/// <item><term><c>Allow*</c></term><description>grants script a capability that is denied by default.</description></item>
+/// <item><term><c>Limit*</c></term><description>registers a built-in budget constraint.</description></item>
+/// <item><term><c>Observe*</c></term><description>registers a built-in constraint that watches host state.</description></item>
+/// <item><term><c>Set*</c></term><description>replaces one host-supplied service whose registration a property assignment cannot express.</description></item>
+/// <item><term><c>For*</c></term><description>applies a named profile.</description></item>
+/// <item><term><c>Expose*</c></term><description>widens what script may see, across more than one group.</description></item>
+/// <item><term><c>Catch*</c></term><description>routes CLR exceptions into script.</description></item>
+/// <item><term><c>Configure</c></term><description>runs a callback against the engine being built.</description></item>
+/// <item><term><c>Validate*</c> / <c>Ensure*</c></term><description>inspects configuration; never changes it.</description></item>
+/// </list>
+/// <para>
+/// Through 4.16.x this was a "compatibility layer to allow fluent syntax", and about twenty of its members
+/// mirrored a property one for one. Those are gone; assign the property.
+/// </para>
+/// </remarks>
 public static class OptionsExtensions
 {
     /// <summary>
@@ -120,8 +145,7 @@ public static class OptionsExtensions
         options.Host.StringCompilationAllowed = false;
         options.Host.Factory = Options.HostOptions._defaultFactory;
         options.Host.FunctionToStringHandler = Options.HostOptions._defaultFunctionToStringHandler;
-        options.ReferenceResolver = DefaultReferenceResolver.Instance;
-        options.ReferenceResolverInterests = ReferenceResolverInterests.None;
+        options.SetReferenceResolverCore(DefaultReferenceResolver.Instance, ReferenceResolverInterests.None);
         options.Constraints.MaxExecutionStackCount = StackGuard.Disabled;
         options.Constraints.StackOverflowGuard = true;
         options.Constraints.CancellationConstraintRequested = true;
@@ -129,15 +153,15 @@ public static class OptionsExtensions
         options.Parsing.MaxNodeCount = limits.MaxNodeCount;
         options.ResultLimits = limits.ResultLimits;
 
-        options.LimitRecursion(limits.MaxRecursionDepth);
-        options.MaxArraySize(limits.MaxArraySize);
-        options.RegexTimeoutInterval(limits.RegexTimeout);
+        options.Constraints.MaxRecursionDepth = limits.MaxRecursionDepth;
+        options.Constraints.MaxArraySize = limits.MaxArraySize;
+        options.Constraints.RegexTimeout = limits.RegexTimeout;
         options.Constraints.PromiseTimeout = limits.PromiseTimeout;
 
-        options.TimeoutInterval(limits.TimeoutInterval);
-        options.MaxStatements(limits.MaxStatements);
+        options.LimitExecutionTime(limits.TimeoutInterval);
+        options.LimitStatements(limits.MaxStatements);
         options.LimitMemory(limits.MemoryLimit);
-        options.Constraint(static () => new OperationDeadlineConstraint());
+        options.AddConstraint(static () => new OperationDeadlineConstraint());
     }
 
     internal static void ReapplyUntrustedCodeOptions(
@@ -151,58 +175,6 @@ public static class OptionsExtensions
         engine.Constraints.Find<MemoryLimitConstraint>()!.End();
         engine.Constraints.Find<OperationDeadlineConstraint>()!.End();
         engine.Modules = new Engine.ModuleOperations(engine, FailFastModuleLoader.Instance);
-    }
-
-    /// <summary>
-    /// Run the script in strict mode.
-    /// </summary>
-    public static Options Strict(this Options options, bool strict = true)
-    {
-        options.Strict = strict;
-        return options;
-    }
-
-    /// <summary>
-    /// Whether the engine's default parser retains function source text so that
-    /// <c>Function.prototype.toString()</c> returns the original source. Defaults to <see langword="false"/>
-    /// (returns a <c>function name() { [native code] }</c> placeholder and avoids keeping the source in memory).
-    /// </summary>
-    public static Options RetainFunctionSourceText(this Options options, bool retain = true)
-    {
-        options.RetainFunctionSourceText = retain;
-        return options;
-    }
-
-    /// <summary>
-    /// Selects the handling for script <code>debugger</code> statements.
-    /// </summary>
-    /// <remarks>
-    /// The <c>debugger</c> statement can either be ignored (default) trigger debugging at CLR level (e.g. Visual Studio),
-    /// or trigger a break in Jint's DebugHandler.
-    /// </remarks>
-    public static Options DebuggerStatementHandling(this Options options,
-        DebuggerStatementHandling debuggerStatementHandling)
-    {
-        options.Debugger.StatementHandling = debuggerStatementHandling;
-        return options;
-    }
-
-    /// <summary>
-    /// Allow to run the script in debug mode.
-    /// </summary>
-    public static Options DebugMode(this Options options, bool debugMode = true)
-    {
-        options.Debugger.Enabled = debugMode;
-        return options;
-    }
-
-    /// <summary>
-    /// Set initial step mode.
-    /// </summary>
-    public static Options InitialStepMode(this Options options, StepMode initialStepMode = StepMode.None)
-    {
-        options.Debugger.InitialStepMode = initialStepMode;
-        return options;
     }
 
     /// <summary>
@@ -325,69 +297,6 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Sets maximum allowed depth of recursion.
-    /// </summary>
-    /// <param name="options">Options to modify</param>
-    /// <param name="maxRecursionDepth">
-    /// The allowed depth.
-    /// a) In case max depth is zero no recursion is allowed.
-    /// b) In case max depth is equal to n it means that in one scope function can be called no more than n times.
-    /// c) A negative depth (the default of <see cref="Options.ConstraintOptions.MaxRecursionDepth"/>)
-    /// disables the check, and with it the call-stack depth tracking that feeds it.
-    /// </param>
-    /// <remarks>
-    /// Proper tail calls do not consume native or interpreter call-stack frames, but repeated tail
-    /// transfers are still included in this limit so an infinite strict tail-recursive function
-    /// terminates with <see cref="RecursionDepthOverflowException"/>. A frame a tail call replaced goes
-    /// on counting for as long as the trampoline that replaced it is running, so a recursion that
-    /// leaves and re-enters that trampoline by a route which is not a tail call — a getter,
-    /// <c>new</c>, a coercion, a Proxy trap, a host callback — is bounded like any other.
-    /// <para>
-    /// What the limit counts is occurrences of one function <em>definition</em> on the call stack, per
-    /// point (b) above, and not the depth of the stack. So a recursion whose every level is a function
-    /// created for that level — through <c>eval</c>, <c>new Function</c>, or a host re-running a
-    /// script — repeats no definition and is outside this limit however deep it goes. Nothing before
-    /// or since has covered that shape; a host running script it did not write wants
-    /// <see cref="Options.ConstraintOptions.StackOverflowGuard"/>, which measures the remaining native
-    /// stack instead of counting calls.
-    /// </para>
-    /// <para>
-    /// Unlike the constraint helpers in <see cref="ConstraintsOptionsExtensions"/>, this one does not
-    /// treat a saturated value as "no limit": any non-negative depth — <see cref="int.MaxValue"/>
-    /// included — turns depth tracking on, so a limit chosen to be unreachable still costs what
-    /// enforcement costs while never failing. Pass a negative depth to mean unlimited.
-    /// </para>
-    /// </remarks>
-    /// <returns>Options instance for fluent syntax</returns>
-    public static Options LimitRecursion(this Options options, int maxRecursionDepth = 0)
-    {
-        options.Constraints.MaxRecursionDepth = maxRecursionDepth;
-        return options;
-    }
-
-    public static Options Culture(this Options options, CultureInfo cultureInfo)
-    {
-        options.Culture = cultureInfo;
-        return options;
-    }
-
-    public static Options LocalTimeZone(this Options options, TimeZoneInfo timeZoneInfo)
-    {
-        options.TimeZone = timeZoneInfo;
-        return options;
-    }
-
-    /// <summary>
-    /// Disables calling 'eval' with custom code and function constructors taking function code as string.
-    /// By default eval and function code parsing is allowed.
-    /// </summary>
-    public static Options DisableStringCompilation(this Options options, bool disable = true)
-    {
-        options.Host.StringCompilationAllowed = !disable;
-        return options;
-    }
-
-    /// <summary>
     /// Registers types whose public static methods are offered to script as extension methods on their
     /// first parameter's type.
     /// </summary>
@@ -407,27 +316,6 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// If no known type could be guessed, objects are normally wrapped as an
-    /// ObjectInstance using class ObjectWrapper. This function can be used to
-    /// register a handler for a customized handling.
-    /// </summary>
-    public static Options SetWrapObjectHandler(this Options options, Options.WrapObjectDelegate wrapObjectHandler)
-    {
-        options.Interop.WrapObjectHandler = wrapObjectHandler;
-        return options;
-    }
-
-    /// <summary>
-    /// Sets the handler used to build stack traces. This is useful if the code currently
-    /// running was transpiled (eg. TypeScript) and the source map of original code is available.
-    /// </summary>
-    public static Options SetBuildCallStackHandler(this Options options, Options.BuildCallStackDelegate buildCallStackHandler)
-    {
-        options.Interop.BuildCallStackHandler = buildCallStackHandler;
-        return options;
-    }
-
-    /// <summary>
     /// Sets the type converter to use.
     /// </summary>
     public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)
@@ -435,22 +323,6 @@ public static class OptionsExtensions
         options._configurations.Add(new EngineConfiguration(
             engine => engine.TypeConverter = typeConverterFactory(engine),
             EngineConfigurationProvenance.User));
-        return options;
-    }
-
-    /// <summary>
-    /// Registers a delegate that is called when CLR members are invoked. This allows
-    /// to change what values are returned for specific CLR objects, or if any value
-    /// is returned at all.
-    /// </summary>
-    /// <param name="options">Options to modify</param>
-    /// <param name="accessor">
-    /// The delegate to invoke for each CLR member. If the delegate
-    /// returns <c>null</c>, the standard evaluation is performed.
-    /// </param>
-    public static Options SetMemberAccessor(this Options options, Options.MemberAccessorDelegate accessor)
-    {
-        options.Interop.MemberAccessor = accessor;
         return options;
     }
 
@@ -492,56 +364,17 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Configures whether scripts can write directly through projected CLR objects. Direct CLR writes are
-    /// disabled by default.
+    /// Exceptions thrown from CLR code are converted to JavaScript errors and can be caught by a script's
+    /// <c>try</c>/<c>catch</c>. By default they bubble to the CLR host and interrupt execution.
     /// </summary>
     /// <remarks>
-    /// This controls writes to fields, properties, indexers, and collection entries. It does not prevent
-    /// scripts from calling CLR methods or extension methods whose implementations mutate host state.
+    /// The preset for the predicate every host writes — <c>options.Interop.ExceptionHandler = static _ =&gt;
+    /// true</c>. To convert only some exceptions, assign that property yourself; the overload that took a
+    /// predicate was exactly that assignment and is gone.
     /// </remarks>
-    public static Options AllowClrWrite(this Options options, bool allow = true)
-    {
-        options.Interop.AllowWrite = allow;
-        return options;
-    }
-
-    public static Options AllowOperatorOverloading(this Options options, bool allow = true)
-    {
-        options.Interop.AllowOperatorOverloading = allow;
-        return options;
-    }
-
-    /// <summary>
-    /// Exceptions thrown from CLR code are converted to JavaScript errors and
-    /// can be used in at try/catch statement. By default these exceptions are bubbled
-    /// to the CLR host and interrupt the script execution.
-    /// </summary>
     public static Options CatchClrExceptions(this Options options)
     {
-        CatchClrExceptions(options, _ => true);
-        return options;
-    }
-
-    /// <summary>
-    /// Exceptions that thrown from CLR code are converted to JavaScript errors and
-    /// can be used in at try/catch statement. By default these exceptions are bubbled
-    /// to the CLR host and interrupt the script execution.
-    /// </summary>
-    public static Options CatchClrExceptions(this Options options, Options.ExceptionHandlerDelegate handler)
-    {
-        options.Interop.ExceptionHandler = handler;
-        return options;
-    }
-
-    /// <summary>
-    /// Chains the CLR exception behind a caught interop error into the <see cref="Exception.InnerException"/> of
-    /// the <see cref="JavaScriptException"/> the host catches, so that logging which walks the inner-exception
-    /// chain surfaces it. Off by default, because it puts host .NET stack traces into whatever consumes the
-    /// exception's string form. Only meaningful together with <see cref="CatchClrExceptions(Options)"/>.
-    /// </summary>
-    public static Options ChainClrExceptions(this Options options, bool chain = true)
-    {
-        options.Interop.ChainClrExceptionAsInnerException = chain;
+        options.Interop.ExceptionHandler = static _ => true;
         return options;
     }
 
@@ -565,44 +398,15 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Sets a decorator function that is called after a JavaScript error object is created from a CLR exception.
-    /// The decorator can add custom properties, modify the error message, or enrich the error with additional context.
-    /// It is called when <see cref="CatchClrExceptions(Options)"/> converts a host exception and when a module
-    /// loader exception becomes an import error.
-    /// </summary>
-    /// <param name="options">The engine options.</param>
-    /// <param name="decorator">A function that receives the engine, the created error object, and the original CLR exception.</param>
-    /// <returns>The options instance for fluent configuration.</returns>
-    public static Options DecorateClrExceptionErrors(this Options options, Options.ClrExceptionErrorDecoratorDelegate decorator)
-    {
-        options.Interop.ClrExceptionErrorDecorator = decorator;
-        return options;
-    }
-
-    /// <summary>
-    /// Sets a decorator function that is called after the JavaScript error object for a failed CLR method
-    /// or constructor resolution is created, before it is thrown into the script. The decorator can overwrite
-    /// the script-visible message or add custom properties such as an error code.
-    /// </summary>
-    /// <param name="options">The engine options.</param>
-    /// <param name="decorator">A function that receives the engine, the created error object, and the structured resolution information.</param>
-    /// <returns>The options instance for fluent configuration.</returns>
-    public static Options DecorateClrResolutionErrors(this Options options, Options.ClrResolutionErrorDecoratorDelegate decorator)
-    {
-        options.Interop.ClrResolutionErrorDecorator = decorator;
-        return options;
-    }
-
-    /// <summary>
     /// Registers a single constraint instance.
     /// </summary>
     /// <remarks>
     /// The instance is shared by every engine built from these options. Constraints normally carry
     /// per-execution state, so this overload is only safe for options that build exactly one engine.
-    /// Use <see cref="Constraint(Options, Func{Constraint})"/> when the same options are reused for
+    /// Use <see cref="AddConstraint(Options, Func{Constraint})"/> when the same options are reused for
     /// several engines.
     /// </remarks>
-    public static Options Constraint(this Options options, Constraint constraint)
+    public static Options AddConstraint(this Options options, Constraint constraint)
     {
         if (constraint != null)
         {
@@ -623,11 +427,11 @@ public static class OptionsExtensions
     /// <param name="constraintFactory">
     /// Produces a fresh, unconfigured constraint instance on every invocation. It must not hand out the
     /// same instance twice, otherwise the isolation this overload exists for is lost, and it must have no
-    /// side effect beyond creating the constraint: <see cref="WithoutConstraint"/> invokes it once more to
+    /// side effect beyond creating the constraint: <see cref="RemoveConstraints"/> invokes it once more to
     /// classify the registration.
     /// </param>
     /// <returns>The options instance for fluent configuration.</returns>
-    public static Options Constraint(this Options options, Func<Constraint> constraintFactory)
+    public static Options AddConstraint(this Options options, Func<Constraint> constraintFactory)
     {
         if (constraintFactory != null)
         {
@@ -641,7 +445,7 @@ public static class OptionsExtensions
     /// Registers a typed constraint factory while preserving the declared constraint kind for configuration
     /// diagnostics. The factory is still invoked exactly once per engine and is never invoked by diagnostics.
     /// </summary>
-    public static Options Constraint<TConstraint>(this Options options, Func<TConstraint> constraintFactory)
+    public static Options AddConstraint<TConstraint>(this Options options, Func<TConstraint> constraintFactory)
         where TConstraint : Constraint
     {
         if (constraintFactory is not null)
@@ -665,7 +469,7 @@ public static class OptionsExtensions
     /// factory-based, which is what keeps the "replace the constraint of this kind" behaviour of
     /// <see cref="ConstraintsOptionsExtensions"/> intact.
     /// </remarks>
-    public static Options WithoutConstraint(this Options options, Predicate<Constraint> predicate)
+    public static Options RemoveConstraints(this Options options, Predicate<Constraint> predicate)
     {
         var removedMaxStatements = false;
         var removedMemoryLimit = false;
@@ -732,33 +536,6 @@ public static class OptionsExtensions
         return options;
     }
 
-    public static Options RegexTimeoutInterval(this Options options, TimeSpan regexTimeoutInterval)
-    {
-        options.Constraints.RegexTimeout = regexTimeoutInterval;
-        return options;
-    }
-
-
-    public static Options MaxArraySize(this Options options, uint maxSize)
-    {
-        options.Constraints.MaxArraySize = maxSize;
-        return options;
-    }
-
-    public static Options MaxJsonParseDepth(this Options options, int maxDepth)
-    {
-        options.Json.MaxParseDepth = maxDepth;
-        return options;
-    }
-
-    /// <summary>
-    /// Registers a reference resolver that is consulted in every situation
-    /// (<see cref="ReferenceResolverInterests.All"/>).
-    /// </summary>
-    public static Options SetReferencesResolver(this Options options, IReferenceResolver resolver)
-    {
-        return SetReferencesResolver(options, resolver, ReferenceResolverInterests.All);
-    }
 
     /// <summary>
     /// Registers a reference resolver together with the situations it wants to be consulted for. The engine
@@ -766,28 +543,31 @@ public static class OptionsExtensions
     /// interpreter fast paths those situations would otherwise disable — see
     /// <see cref="ReferenceResolverInterests"/>.
     /// </summary>
-    public static Options SetReferencesResolver(this Options options, IReferenceResolver resolver, ReferenceResolverInterests interests)
+    /// <remarks>
+    /// One call rather than two assignments, because the two values are one registration: an interest set
+    /// describes one particular resolver, so it must neither survive it nor be inherited by its replacement.
+    /// Through 4.16.x both were settable properties and assigning <see cref="Options.ReferenceResolver"/>
+    /// silently reset the interests to <see cref="ReferenceResolverInterests.All"/>, which made the result
+    /// depend on the order the two assignments happened to be written in.
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="resolver">The resolver to register.</param>
+    /// <param name="interests">
+    /// The situations the resolver wants to be consulted for. Defaults to
+    /// <see cref="ReferenceResolverInterests.All"/>, which is how every resolver behaved before the filter
+    /// existed.
+    /// </param>
+    public static Options SetReferenceResolver(
+        this Options options,
+        IReferenceResolver resolver,
+        ReferenceResolverInterests interests = ReferenceResolverInterests.All)
     {
-        options.ReferenceResolver = resolver;
-        options.ReferenceResolverInterests = interests;
-        return options;
-    }
+        if (resolver is null)
+        {
+            Throw.ArgumentNullException(nameof(resolver));
+        }
 
-    public static Options SetTypeResolver(this Options options, TypeResolver resolver)
-    {
-        options.Interop.TypeResolver = resolver;
-        return options;
-    }
-
-    /// <summary>
-    /// When enabled, JavaScript prototype methods take precedence over CLR methods of the same name on wrapped CLR objects
-    /// whose prototype is not the default Object prototype (e.g. <c>Array.prototype</c> attached to wrapped <see cref="System.Collections.Generic.IList{T}"/>).
-    /// Avoids semantic mismatches such as <c>List&lt;T&gt;.Reverse()</c> returning <c>void</c> while
-    /// <c>Array.prototype.reverse</c> returns the array.
-    /// </summary>
-    public static Options PreferJsPrototypeMethods(this Options options, bool prefer = true)
-    {
-        options.Interop.PreferJsPrototypeMethods = prefer;
+        options.SetReferenceResolverCore(resolver!, interests);
         return options;
     }
 
@@ -958,18 +738,24 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
-    /// you need to trust the script loading the modules not doing bad things.
+    /// Installs the file-system module loader rooted at <paramref name="basePath"/>. There is no sand-boxing
+    /// beyond <paramref name="restrictToBasePath"/>, so the script that names a specifier has to be trusted
+    /// not to name something it should not reach.
     /// </summary>
-    public static Options EnableModules(this Options options, string basePath, bool restrictToBasePath = true)
+    /// <remarks>
+    /// Named <c>EnableModules</c> through 4.16.x. The engine has no module loader until one is installed, so
+    /// this is <c>Use*</c> like every other subsystem installation; <c>Modules.RegisterRequire</c> is the
+    /// separate switch that additionally exposes CommonJS <c>require</c> to script.
+    /// </remarks>
+    public static Options UseModules(this Options options, string basePath, bool restrictToBasePath = true)
     {
-        return EnableModules(options, new DefaultModuleLoader(basePath, restrictToBasePath));
+        return UseModules(options, new DefaultModuleLoader(basePath, restrictToBasePath));
     }
 
     /// <summary>
-    /// Enables module loading using a custom loader implementation.
+    /// Installs a custom module loader. Named <c>EnableModules</c> through 4.16.x.
     /// </summary>
-    public static Options EnableModules(this Options options, IModuleLoader moduleLoader)
+    public static Options UseModules(this Options options, IModuleLoader moduleLoader)
     {
         options.Modules.ModuleLoader = moduleLoader;
         return options;

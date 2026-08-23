@@ -25,7 +25,7 @@ public class EvalCacheBenchmarks
     private IsolatedScript _newFunctionSameSource;
     private IsolatedScript _evalDistinctSources;
 
-    private static Engine CreateEngine() => new(static options => options.Strict());
+    private static Engine CreateEngine() => new(static options => options.Strict = true);
 
     [GlobalSetup]
     public void Setup()

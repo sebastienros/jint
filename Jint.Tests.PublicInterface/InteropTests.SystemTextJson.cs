@@ -168,7 +168,7 @@ public partial class InteropTests
     {
         var engine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
 #if !NET8_0_OR_GREATER
             // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
             options.AddObjectConverter(SystemTextJsonValueConverter.Instance);

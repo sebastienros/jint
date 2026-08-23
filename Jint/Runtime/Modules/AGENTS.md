@@ -10,7 +10,7 @@
 ## Modules
 
 ```csharp
-var engine = new Engine(options => options.EnableModules(@"C:\Scripts"));
+var engine = new Engine(options => options.UseModules(@"C:\Scripts"));
 var ns = engine.Modules.Import("./my-module.js");
 
 // or programmatically

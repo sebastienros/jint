@@ -82,7 +82,7 @@ public class ModuleLoadPhaseTests
             ["dep"] = "export const v = 3;",
         }, holdBack: "dep");
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var module = ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import { v } from 'dep'; export const value = v;", "root"));
 
         var loadPromise = (JsPromise) module.LoadRequestedModules();
@@ -103,7 +103,7 @@ public class ModuleLoadPhaseTests
             ["root"] = "import 'missing';",
         }, holdBack: "missing");
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var module = ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import 'missing';", "root"));
 
         var loadPromise = (JsPromise) module.LoadRequestedModules();
@@ -126,7 +126,7 @@ public class ModuleLoadPhaseTests
             ["second"] = "export const b = 2;",
         }, holdBack: "second");
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var module = (CyclicModule) ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import 'first'; import 'second';", "root"));
 
         module.Status.Should().Be(ModuleStatus.New);
@@ -153,7 +153,7 @@ public class ModuleLoadPhaseTests
             ["shared"] = "export const s = 'once';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
 
         var ns = engine.Modules.Import("root");
 
@@ -169,7 +169,7 @@ public class ModuleLoadPhaseTests
             ["lib"] = "export const value = 5;",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
 
         engine.Modules.Import("lib").Get("value").AsNumber().Should().Be(5);
         engine.Modules.Import("lib").Get("value").AsNumber().Should().Be(5);
@@ -188,7 +188,7 @@ public class ModuleLoadPhaseTests
             ["B"] = "import { a } from 'A'; export const b = 'b';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
 
         engine.Modules.Import("A").Get("a").AsString().Should().Be("a");
         loader.Asked.Should().BeEquivalentTo(["A", "B"]);
@@ -222,7 +222,7 @@ public class ModuleLoadPhaseTests
             ["./has-linking-error"] = "import { nonExistent } from './has-linking-error';",
         });
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
 
         var ex = Invoking(() => engine.Modules.Import("main")).Should().Throw<Exception>().Which;
 
@@ -241,7 +241,7 @@ public class ModuleLoadPhaseTests
             ["late"] = "export const value = 'second-cycle';",
         }, holdBack: "late");
 
-        var engine = new Engine(options => options.EnableModules(loader));
+        var engine = new Engine(options => options.UseModules(loader));
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         var abandoned = engine.Modules.StartImport("late");

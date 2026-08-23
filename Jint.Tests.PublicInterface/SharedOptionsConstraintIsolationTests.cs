@@ -27,7 +27,7 @@ public class SharedOptionsConstraintIsolationTests
     {
         // A budget just above what one run needs: a shared counter would blow it well before all
         // engines finished, an isolated one leaves every engine comfortably inside its own budget.
-        var options = new Options().MaxStatements(MeasureStatements(LoopScript) + 10);
+        var options = new Options().LimitStatements(MeasureStatements(LoopScript) + 10);
         var engines = new Engine[EngineCount];
         for (var i = 0; i < engines.Length; i++)
         {
@@ -56,7 +56,7 @@ public class SharedOptionsConstraintIsolationTests
     [Fact]
     public void EachEngineGetsItsOwnStatementConstraintInstance()
     {
-        var options = new Options().MaxStatements(100_000);
+        var options = new Options().LimitStatements(100_000);
         var first = new Engine(options);
         var second = new Engine(options);
 
@@ -71,7 +71,7 @@ public class SharedOptionsConstraintIsolationTests
     [Fact]
     public void FindReturnsALiveConstraintThatOnlyAffectsItsOwnEngine()
     {
-        var options = new Options().MaxStatements(100_000);
+        var options = new Options().LimitStatements(100_000);
         var restricted = new Engine(options);
         var unrestricted = new Engine(options);
 
@@ -87,7 +87,7 @@ public class SharedOptionsConstraintIsolationTests
     [Fact]
     public void EachEngineGetsItsOwnTimeoutDeadline()
     {
-        var options = new Options().TimeoutInterval(TimeSpan.FromMilliseconds(100));
+        var options = new Options().LimitExecutionTime(TimeSpan.FromMilliseconds(100));
         var engine = new Engine(options);
         var other = new Engine(options);
 
@@ -117,7 +117,7 @@ public class SharedOptionsConstraintIsolationTests
     {
         // the instance overload stays supported for the single-engine case
         var constraint = new CountingConstraint();
-        var engine = new Engine(new Options().Constraint(constraint));
+        var engine = new Engine(new Options().AddConstraint(constraint));
 
         engine.Evaluate(LoopScript).AsNumber().Should().Be(LoopScriptResult);
 
@@ -128,7 +128,7 @@ public class SharedOptionsConstraintIsolationTests
     public void ConstraintFactoryRegistrationProducesOneInstancePerEngine()
     {
         var created = new List<CountingConstraint>();
-        var options = new Options().Constraint(() =>
+        var options = new Options().AddConstraint(() =>
         {
             var constraint = new CountingConstraint();
             lock (created)
@@ -147,11 +147,11 @@ public class SharedOptionsConstraintIsolationTests
     }
 
     [Fact]
-    public void WithoutConstraintRemovesFactoryRegistrations()
+    public void RemoveConstraintsRemovesFactoryRegistrations()
     {
         var options = new Options()
-            .MaxStatements(5)
-            .WithoutConstraint(x => x is MaxStatementsConstraint);
+            .LimitStatements(5)
+            .RemoveConstraints(x => x is MaxStatementsConstraint);
 
         var engine = new Engine(options);
 
@@ -163,7 +163,7 @@ public class SharedOptionsConstraintIsolationTests
     public void ReconfiguringAConstraintReplacesTheEarlierRegistration()
     {
         // MaxStatements clears any previous registration before adding its own
-        var options = new Options().MaxStatements(5).MaxStatements(100_000);
+        var options = new Options().LimitStatements(5).LimitStatements(100_000);
 
         var engine = new Engine(options);
 
@@ -179,7 +179,7 @@ public class SharedOptionsConstraintIsolationTests
     private static int MeasureStatements(string script)
     {
         var constraint = new CountingConstraint();
-        var engine = new Engine(new Options().Constraint(constraint));
+        var engine = new Engine(new Options().AddConstraint(constraint));
         engine.Evaluate(script);
         return constraint.HighWaterMark;
     }

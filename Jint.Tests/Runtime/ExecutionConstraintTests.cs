@@ -10,7 +10,7 @@ public class ExecutionConstraintTests
     [Fact]
     public void ShouldThrowStatementCountOverflow()
     {
-        Invoking(() => new Engine(cfg => cfg.MaxStatements(100)).Evaluate("while(true);")).Should().ThrowExactly<StatementsCountOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.LimitStatements(100)).Evaluate("while(true);")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
     [Fact]
@@ -19,10 +19,10 @@ public class ExecutionConstraintTests
         var script = "var x = 0; x++; x + 5";
 
         // Should not throw if MaxStatements is not exceeded.
-        new Engine(cfg => cfg.MaxStatements(3)).Execute(script);
+        new Engine(cfg => cfg.LimitStatements(3)).Execute(script);
 
         // Should throw if MaxStatements is exceeded.
-        Invoking(() => new Engine(cfg => cfg.MaxStatements(2)).Evaluate(script)).Should().ThrowExactly<StatementsCountOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.LimitStatements(2)).Evaluate(script)).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class ExecutionConstraintTests
         // The function-local expression-body for loop is the shape that arms the interpreter's
         // tight for-body lane; MaxStatements counts statements (its call frequency IS its
         // semantics), so it must keep the loop on the per-statement path and trip precisely.
-        var engine = new Engine(cfg => cfg.MaxStatements(1_000));
+        var engine = new Engine(cfg => cfg.LimitStatements(1_000));
         Invoking(() => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } return x; } f();")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
@@ -44,7 +44,7 @@ public class ExecutionConstraintTests
         // itself does not check (JintStatementList only checks when it represents a function
         // body or block statement node).
         var constraint = new CountingConstraint();
-        var engine = new Engine(cfg => cfg.Constraint(constraint));
+        var engine = new Engine(cfg => cfg.AddConstraint(constraint));
 
         engine.Evaluate("var x = 0; x++; x + 5");
         constraint.CheckCount.Should().Be(3);
@@ -61,7 +61,7 @@ public class ExecutionConstraintTests
         // A user-derived constraint must also keep the tight for-body lane disarmed: every body
         // statement of every iteration goes through the per-statement checks.
         var constraint = new CountingConstraint();
-        var engine = new Engine(cfg => cfg.Constraint(constraint));
+        var engine = new Engine(cfg => cfg.AddConstraint(constraint));
 
         engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 1000; i++) { x += 1; } return x; } f();");
         constraint.CheckCount.Should().BeGreaterThanOrEqualTo(1000, $"expected at least one check per loop-body statement, got {constraint.CheckCount}");
@@ -107,7 +107,7 @@ public class ExecutionConstraintTests
         // This is why a Reset() has to be total. ExecuteWithConstraints resets the constraints from a
         // finally, so an exception raised there unwinds in place of the one the run was already carrying:
         // the script's error never reaches the host, and what does reach it names the reset instead.
-        var engine = new Engine(cfg => cfg.Constraint(new ThrowOnResetAfterCheckConstraint()));
+        var engine = new Engine(cfg => cfg.AddConstraint(new ThrowOnResetAfterCheckConstraint()));
 
         Invoking(() => engine.Evaluate("throw new Error('the script error');"))
             .Should().ThrowExactly<PlatformNotSupportedException>();
@@ -139,7 +139,7 @@ public class ExecutionConstraintTests
     [Fact]
     public void ShouldThrowTimeout()
     {
-        Invoking(() => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")).Should().ThrowExactly<TimeoutException>();
+        Invoking(() => new Engine(cfg => cfg.LimitExecutionTime(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")).Should().ThrowExactly<TimeoutException>();
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class ExecutionConstraintTests
     {
         // The constraint is armed by Reset, which runs when a top-level execution begins. Probing
         // it before that must not fail, however long the engine has been sitting idle.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(1)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromMilliseconds(1)));
         Thread.Sleep(50);
         Invoking(() => engine.Constraints.Check()).Should().NotThrow();
     }
@@ -157,7 +157,7 @@ public class ExecutionConstraintTests
     {
         // Each execution gets the full interval, so a sequence of short scripts separated by pauses
         // longer than the timeout must all succeed.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(200)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromMilliseconds(200)));
         for (var i = 0; i < 3; i++)
         {
             engine.Evaluate("var x = 1 + 1;");
@@ -173,7 +173,7 @@ public class ExecutionConstraintTests
         // The deadline is compared inline, so once the interval has elapsed the very next check
         // fails - detection does not wait on a thread-pool timer callback. The engine is kept out
         // of the picture between arming and checking so nothing but elapsed time can trip it.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(20)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromMilliseconds(20)));
         engine.Constraints.Reset();
         Thread.Sleep(60);
         Invoking(() => engine.Constraints.Check()).Should().ThrowExactly<TimeoutException>();
@@ -185,7 +185,7 @@ public class ExecutionConstraintTests
         // The function-local expression-body for loop is the shape that arms the interpreter's
         // tight for-body lane; a timeout is amortized (checked every N statements/iterations),
         // and must still fire inside the loop.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(new TimeSpan(0, 0, 0, 0, 500)));
         Invoking(() => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 1; i += 0) { x += 1; } return x; } f();")).Should().ThrowExactly<TimeoutException>();
     }
 
@@ -204,7 +204,7 @@ public class ExecutionConstraintTests
         // results must be identical to an unconstrained engine's.
         const string script = "function f() { var s = 0; for (var i = 0; i < 100000; i++) { s += 2; } return s; } f();";
         var unconstrained = new Engine().Evaluate(script).AsNumber();
-        var constrained = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromSeconds(30))).Evaluate(script).AsNumber();
+        var constrained = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromSeconds(30))).Evaluate(script).AsNumber();
         constrained.Should().Be(unconstrained);
         constrained.Should().Be(200_000);
     }
@@ -216,7 +216,7 @@ public class ExecutionConstraintTests
         // keep the reference, because only the host knows where its operation begins and ends. The engine
         // still resets it before and after every entry — and it declines, which is the point.
         var deadline = new OperationDeadlineConstraint();
-        var engine = new Engine(cfg => cfg.Constraint(deadline));
+        var engine = new Engine(cfg => cfg.AddConstraint(deadline));
 
         engine.Constraints.Find<OperationDeadlineConstraint>().Should().BeSameAs(deadline);
 
@@ -245,7 +245,7 @@ public class ExecutionConstraintTests
                 using (var waitHandle = new ManualResetEvent(false))
                 using (var cancellationTokenSet = new ManualResetEvent(initialState: false))
                 {
-                    var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+                    var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
 
                     /*
                      * To ensure that the action "threadPoolAction" has actually been called by the ThreadPool
@@ -309,7 +309,7 @@ public class ExecutionConstraintTests
             var result = factorial(500);
             ";
 
-        Invoking(() => new Engine(cfg => cfg.LimitRecursion()).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
     [Fact]
@@ -326,7 +326,7 @@ public class ExecutionConstraintTests
             });
             ";
 
-        Invoking(() => new Engine(cfg => cfg.LimitRecursion()).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
     [Fact]
@@ -357,7 +357,7 @@ public class ExecutionConstraintTests
             funcRoot();
             ";
 
-        Invoking(() => new Engine(cfg => cfg.LimitRecursion()).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public class ExecutionConstraintTests
 
         try
         {
-            new Engine(cfg => cfg.LimitRecursion()).Execute(script);
+            new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script);
         }
         catch (RecursionDepthOverflowException ex)
         {
@@ -416,7 +416,7 @@ public class ExecutionConstraintTests
             var result = factorial(8);
             ";
 
-        new Engine(cfg => cfg.LimitRecursion(20)).Execute(script);
+        new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 20).Execute(script);
     }
 
     [Fact]
@@ -431,7 +431,7 @@ public class ExecutionConstraintTests
             var result = factorial(38);
             ";
 
-        Invoking(() => new Engine(cfg => cfg.LimitRecursion(20)).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
+        Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 20).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
     [Fact]
@@ -448,7 +448,7 @@ public class ExecutionConstraintTests
             })();
             ";
 
-        var engine = new Engine(o => o.LimitRecursion(20));
+        var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 20);
         Invoking(() => engine.Execute(input)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
@@ -458,8 +458,8 @@ public class ExecutionConstraintTests
         var engine = new Engine(cfg =>
         {
             // Limit recursion to 5 invocations
-            cfg.LimitRecursion(5);
-            cfg.Strict();
+            cfg.Constraints.MaxRecursionDepth = 5;
+            cfg.Strict = true;
         });
 
         var ex = Invoking(() => engine.Evaluate(@"
@@ -478,7 +478,7 @@ myarr[0](0);
     public void ShouldLimitRecursionWithGetters()
     {
         const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
-        var engine = new Engine(cfg => cfg.LimitRecursion(10));
+        var engine = new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 10);
 
         Invoking(() => engine.Evaluate(code)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
@@ -499,7 +499,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.LimitRecursion(200));
+                var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 200);
                 Invoking(() => engine.Execute("function f() { return f(); } f();"))
                     .Should().ThrowExactly<RecursionDepthOverflowException>();
             },
@@ -514,7 +514,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.LimitRecursion(1000));
+                var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 1000);
                 Invoking(() => engine.Execute("function f() { return f(); } f();"))
                     .Should().ThrowExactly<RecursionDepthOverflowException>();
             },
@@ -527,7 +527,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.LimitRecursion(300));
+                var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 300);
                 engine.Execute("function f() { return f(); }");
                 engine.Execute("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }");
 
@@ -558,7 +558,7 @@ myarr[0](0);
             () =>
             {
                 using var cts = new CancellationTokenSource();
-                var engine = new Engine(o => o.CancellationToken(cts.Token));
+                var engine = new Engine(o => o.ObserveCancellation(cts.Token));
                 engine.SetValue("stop", new Action(() => cts.Cancel()));
                 engine.Execute("function f(n) { if (n <= 0) { stop(); var s = 0; for (var i = 0; i < 500; i++) { s += i; } return s; } return f(n - 1); }");
 
@@ -573,7 +573,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.MaxStatements(100_000));
+                var engine = new Engine(o => o.LimitStatements(100_000));
                 engine.Execute("function f(n) { if (n <= 0) { var s = 0; for (var i = 0; i < 200000; i++) { s += i; } return s; } return f(n - 1); }");
 
                 Invoking(() => engine.Evaluate("f(300)")).Should().ThrowExactly<StatementsCountOverflowException>();
@@ -639,7 +639,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.LimitRecursion(130));
+                var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 130);
                 engine.Execute(ForOfRecursion);
 
                 Invoking(() => engine.Evaluate("f()")).Should().ThrowExactly<RecursionDepthOverflowException>();
@@ -673,7 +673,7 @@ myarr[0](0);
         DedicatedThread.Run(
             () =>
             {
-                var engine = new Engine(o => o.LimitRecursion(130));
+                var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 130);
                 engine.Execute(ForOfRecursion);
                 engine.Execute("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }");
 
@@ -725,56 +725,56 @@ myarr[0](0);
     [Fact]
     public void ShouldLimitArraySizeForConcat()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).MaxArraySize(1_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("for (let a = [1, 2, 3];; a = a.concat(a)) ;")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitArraySizeForFill()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).MaxArraySize(1_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("var arr = Array(1000000000).fill(new Array(1000000000));")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitArraySizeForJoin()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).MaxArraySize(1_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("new Array(2147483647).join('*')")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitTypedArraySizeForFill()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.fill(255);")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitTypedArraySizeForCopyWithin()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr[0] = 1; arr.copyWithin(1, 0);")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitTypedArraySizeForReverse()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.reverse();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitTypedArraySizeForToReversed()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.toReversed();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
     public void ShouldLimitTypedArraySizeForWith()
     {
-        var engine = new Engine(o => o.MaxStatements(1_000).LimitMemory(4_000_000));
+        var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.with(0, 1);")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
@@ -818,7 +818,7 @@ myarr[0](0);
     public void ShouldLimitArraySizeForSort()
     {
         // The element-collection loop in sort is interruptible: a low statement budget aborts it.
-        var engine = new Engine(o => o.MaxStatements(1_000));
+        var engine = new Engine(o => o.LimitStatements(1_000));
         Invoking(() => engine.Evaluate("new Array(50000000).sort();")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
@@ -828,7 +828,7 @@ myarr[0](0);
         // forEach over a huge (sparse) array must be interruptible even though the callback never
         // runs for holes. A sparse array is used so the guard exercised is forEach's own loop, not
         // fill's (fill on a dense 50M array would trip the limit before forEach was ever reached).
-        var engine = new Engine(o => o.MaxStatements(1_000));
+        var engine = new Engine(o => o.LimitStatements(1_000));
         Invoking(() => engine.Evaluate("new Array(50000000).forEach(function () {});")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
@@ -867,7 +867,7 @@ myarr[0](0);
         // Regression: when a constraint interrupts a large join mid-loop, the array must not be left
         // on the engine's long-lived join stack — otherwise a later join of the same array would
         // wrongly return "" via false cyclic-reference detection.
-        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        var engine = new Engine(o => o.LimitStatements(10_000_000));
         engine.Evaluate("var a = []; for (var i = 0; i < 20000; i++) a[i] = i;");
 
         var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
@@ -886,7 +886,7 @@ myarr[0](0);
     {
         // Array.from over a native (statement-free) string iterator must be interruptible via the
         // shared iterator-protocol guard; the string iterator runs no JS statements per element.
-        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        var engine = new Engine(o => o.LimitStatements(10_000_000));
         engine.Evaluate("var s = 'x'; for (var i = 0; i < 17; i++) s += s;"); // 131072 chars
 
         var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
@@ -900,7 +900,7 @@ myarr[0](0);
     {
         // Object.keys is a pure native enumeration with no JS callback to self-throttle; it must be
         // interruptible by the constraint check in EnumerableOwnProperties.
-        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        var engine = new Engine(o => o.LimitStatements(10_000_000));
         engine.Evaluate("var a = []; for (var i = 0; i < 30000; i++) a[i] = i;");
 
         var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
@@ -914,7 +914,7 @@ myarr[0](0);
     {
         // A native (CLR) callback does not self-throttle via statement checks, so Map.prototype.forEach
         // must be interruptible by its own constraint check.
-        var engine = new Engine(o => o.MaxStatements(10_000_000));
+        var engine = new Engine(o => o.LimitStatements(10_000_000));
         engine.Evaluate("var m = new Map(); for (var i = 0; i < 30000; i++) m.set(i, i);");
 
         var maxStatements = engine.Constraints.Find<MaxStatementsConstraint>()!;
@@ -928,7 +928,7 @@ myarr[0](0);
     {
         var engine = new Engine(options =>
         {
-            options.TimeoutInterval(TimeSpan.FromMilliseconds(1000));
+            options.LimitExecutionTime(TimeSpan.FromMilliseconds(1000));
         });
         var myApi = new MyApi();
 
@@ -1000,8 +1000,8 @@ myarr[0](0);
     {
         using var cts = new CancellationTokenSource();
         var engine = new Engine(cfg => cfg
-            .CancellationToken(cts.Token)
-            .AllowClrWrite());
+            .ObserveCancellation(cts.Token)
+            .Interop.AllowWrite = true);
         var hostCallCount = setup(cts, engine);
 
         Invoking(() => engine.Execute(script)).Should().ThrowExactly<ExecutionCanceledException>();
@@ -1119,7 +1119,7 @@ myarr[0](0);
         // isolates the post-invoke check: no further host call or 64-statement countdown
         // follows, so only the check at the first call's own return can observe the cancellation
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
 
         var calls = 0;
         engine.SetValue("work", new Action(() => { calls++; cts.Cancel(); }));
@@ -1134,7 +1134,7 @@ myarr[0](0);
         // constraint state is only meaningful inside an Execute/Invoke window; cancelling the
         // token during normal teardown must not make later C#-side reads of wrapped objects throw
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
         engine.Execute("probe.value;");
@@ -1151,7 +1151,7 @@ myarr[0](0);
         // the time constraint's CTS is re-armed at the end of every run and keeps counting while
         // the engine is idle; an expired timer must not make later C#-side reads throw.
         // the executed script deliberately does no interop so the run itself cannot race the timer
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromMilliseconds(50)));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
         engine.Execute("42;");
@@ -1168,7 +1168,7 @@ myarr[0](0);
         // TimeConstraint coverage for the boundary mechanism. The host call waits until the
         // time budget has observably expired (polling the public constraint check), so the
         // return-side boundary check must fire — immune to CTS timer scheduling delays on CI.
-        var engine = new Engine(cfg => cfg.TimeoutInterval(TimeSpan.FromMilliseconds(50)));
+        var engine = new Engine(cfg => cfg.LimitExecutionTime(TimeSpan.FromMilliseconds(50)));
 
         var calls = 0;
         engine.SetValue("work", new Action(() =>
@@ -1201,7 +1201,7 @@ myarr[0](0);
         // the ambient evaluation context, so the boundary-check gate must key on the
         // execution-context stack depth, not the ambient field
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
 
         var calls = 0;
         engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
@@ -1247,7 +1247,7 @@ myarr[0](0);
         var accesses = 0;
         var engine = new Engine(cfg =>
         {
-            cfg.CancellationToken(cts.Token);
+            cfg.ObserveCancellation(cts.Token);
             cfg.Interop.MemberAccessor = (_, _, _) =>
             {
                 if (++accesses == 3)
@@ -1272,7 +1272,7 @@ myarr[0](0);
         // debug mode must not weaken constraint enforcement during normal full-speed execution;
         // only debugger expression evaluation is exempt
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token).DebugMode());
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token).Debugger.Enabled = true);
 
         var calls = 0;
         engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
@@ -1287,7 +1287,7 @@ myarr[0](0);
         // a watch-style evaluation with a pending cancellation must still be able to read
         // interop members; the boundary check fires once control returns to the script
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token).DebugMode());
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token).Debugger.Enabled = true);
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
 
@@ -1310,7 +1310,7 @@ myarr[0](0);
         // execution-context pop, permanently satisfying the depth-keyed host-boundary gate: every
         // later C#-side read of a wrapped object then re-observed the constraints while idle
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
         engine.SetValue("cancel", new Action(cts.Cancel));
@@ -1327,7 +1327,7 @@ myarr[0](0);
     public void ConstraintThrowInsideAsyncResumeDoesNotPoisonHostBoundaryGate()
     {
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
         engine.SetValue("cancel", new Action(cts.Cancel));
@@ -1346,7 +1346,7 @@ myarr[0](0);
     public void ConstraintThrowInsideAsyncGeneratorResumeDoesNotPoisonHostBoundaryGate()
     {
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
         engine.SetValue("cancel", new Action(cts.Cancel));
@@ -1364,7 +1364,7 @@ myarr[0](0);
         // module resolution failures surface as ModuleResolutionException (not JavaScriptException);
         // the ShadowRealm import lane must still pop the execution context it entered
         using var cts = new CancellationTokenSource();
-        var engine = new Engine(cfg => cfg.CancellationToken(cts.Token));
+        var engine = new Engine(cfg => cfg.ObserveCancellation(cts.Token));
         var probe = new HostBoundaryProbe();
         engine.SetValue("probe", probe);
 
@@ -1382,7 +1382,7 @@ myarr[0](0);
         // a host callback calling back into the engine re-enters ExecuteWithConstraints; the nested
         // run must not re-arm the outer script's budget — "while (true) reenter();" would otherwise
         // reset the statement counter (and timeout) on every iteration and run forever
-        var engine = new Engine(cfg => cfg.MaxStatements(5000));
+        var engine = new Engine(cfg => cfg.LimitStatements(5000));
 
         var calls = 0;
         engine.SetValue("reenter", new Action(() =>
@@ -1402,7 +1402,7 @@ myarr[0](0);
     public void SequentialTopLevelExecutionsStillResetConstraints()
     {
         // the nested-entry guard must not affect sequential top-level runs: each gets a fresh budget
-        var engine = new Engine(cfg => cfg.MaxStatements(100));
+        var engine = new Engine(cfg => cfg.LimitStatements(100));
         for (var i = 0; i < 5; i++)
         {
             engine.Evaluate("var x = 0; for (var j = 0; j < 30; j++) { x += 3; } x;").AsNumber().Should().Be(90);
@@ -1579,7 +1579,7 @@ myarr[0](0);
 
     private static Engine CreateEngine()
     {
-        Engine engine = new(options => options.LimitRecursion(5));
+        Engine engine = new(options => options.Constraints.MaxRecursionDepth = 5);
         return engine.Execute("""
                                   var num = 0;
                                   function recursion() {

@@ -130,7 +130,7 @@ public class ClrWriteConfigurationTests
     public void CachedAccessorsDoNotShareWriteAuthorityAcrossEngines()
     {
         var writableHost = new Host();
-        var writableEngine = new Engine(options => options.AllowClrWrite()).SetValue("host", writableHost);
+        var writableEngine = new Engine(options => options.Interop.AllowWrite = true).SetValue("host", writableHost);
         writableEngine.Execute("host.Property = 12;");
         writableHost.Property.Should().Be(12);
 
@@ -193,7 +193,7 @@ public class ClrWriteConfigurationTests
     [Fact]
     public void ClrWriteOptInDoesNotBypassJavaScriptObjectExtensibility()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
 
         var exception = Invoking(() => engine.Execute("const value = [0, , 2]; Object.preventExtensions(value); value.fill(9);"))
             .Should().Throw<JavaScriptException>().Which;
@@ -246,7 +246,7 @@ public class ClrWriteConfigurationTests
     public void ArrayGenericsCannotMutateFrozenClrListsWhenWritesAreEnabled(string script)
     {
         var list = new List<int> { 1, 2 };
-        var engine = new Engine(options => options.AllowClrWrite()).SetValue("list", list);
+        var engine = new Engine(options => options.Interop.AllowWrite = true).SetValue("list", list);
         engine.Execute("Object.freeze(list);");
 
         var exception = Invoking(() => engine.Execute(script))
@@ -312,7 +312,7 @@ public class ClrWriteConfigurationTests
             {
                 if (allowWrite)
                 {
-                    options.AllowClrWrite();
+                    options.Interop.AllowWrite = true;
                     options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
                 }
             })

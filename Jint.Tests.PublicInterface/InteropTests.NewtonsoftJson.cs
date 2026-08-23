@@ -119,7 +119,7 @@ public partial class InteropTests
     [Fact]
     public void ShouldBeAbleToChangePropertyWithNameValue()
     {
-        var engine = new Engine(options => options.AllowClrWrite());
+        var engine = new Engine(options => options.Interop.AllowWrite = true);
 
         var input = Newtonsoft.Json.JsonConvert.DeserializeObject(@"{ ""value"": ""ORIGINAL"" }");
         var result = engine

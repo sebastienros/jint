@@ -47,7 +47,7 @@ public class NullPropagation
     [Fact]
     public void CanCallFilterOnNull()
     {
-        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+        var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
 
         const string Script = @"
 var input = {};
@@ -65,7 +65,7 @@ var output = { Tags : input.Tags.filter(x=>x!=null) };
     [Fact]
     public void NullPropagationTest()
     {
-        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+        var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
 
         const string Script = @"
 var input = {
@@ -100,7 +100,7 @@ var output = {
     [Fact]
     public void NullPropagationFromArg()
     {
-        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+        var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
 
 
         const string Script = @"
@@ -129,7 +129,7 @@ function test2(arg) {
         // like a read is, rather than throwing. Regression: the unresolvable reference base is a
         // sentinel (not undefined), so the call path stopped consulting the resolver and cast the
         // sentinel to an Environment, throwing InvalidCastException.
-        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+        var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
 
         var act = () => engine.Execute("var read = missing; var called = missing();");
 
@@ -139,7 +139,7 @@ function test2(arg) {
     [Fact]
     public void NullPropagationShouldNotAffectOperators()
     {
-        var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+        var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
 
         var jsObject = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
         jsObject.Set("NullField", JsValue.Null);

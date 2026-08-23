@@ -86,7 +86,7 @@ internal static class TimeProbe
 
         static void Run(string scriptText, List<(string Name, double Ms)>? recordSink)
         {
-            var engine = new Engine(static options => options.Strict());
+            var engine = new Engine(static options => options.Strict = true);
             engine.SetValue("__probeNow", new Func<double>(static () => Stopwatch.GetTimestamp()));
             engine.SetValue("__probeRecord", new Action<string, double>((name, ticks) =>
             {

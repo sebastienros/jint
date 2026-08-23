@@ -402,7 +402,7 @@ public class WebApiFetchHandlerTests
     {
         var engine = Handler(
             "globalThis.handler = () => { let n = 0; for (let i = 0; i < 10000; i++) { n += i; } return new Response(String(n)); };",
-            configure: options => options.MaxStatements(50));
+            configure: options => options.LimitStatements(50));
 
         var operation = engine.Advanced.InvokeFetchHandler(Get());
 
@@ -784,7 +784,7 @@ public class WebApiFetchHandlerTests
     {
         var engine = Listener(
             "addEventListener('fetch', event => { let n = 0; for (let i = 0; i < 10000; i++) { n += i; } event.respondWith(new Response(String(n))); });",
-            options => options.MaxStatements(50));
+            options => options.LimitStatements(50));
 
         var operation = engine.Advanced.InvokeFetchHandler(Get());
 
@@ -859,7 +859,7 @@ public class WebApiFetchHandlerTests
     private static int StatementsOneDispatchCosts(string source, string expected = "ok")
     {
         var probe = new BudgetProbeConstraint([]);
-        var engine = Listener(source, options => options.Constraint(probe));
+        var engine = Listener(source, options => options.AddConstraint(probe));
 
         using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
         Text(response).Should().Be(expected);
@@ -880,7 +880,7 @@ public class WebApiFetchHandlerTests
             addEventListener('fetch', () => { mark('second'); });
             addEventListener('fetch', event => { mark('third'); event.respondWith(new Response('ok')); });
             """,
-            options => options.Constraint(new BudgetProbeConstraint(log)),
+            options => options.AddConstraint(new BudgetProbeConstraint(log)),
             prepare: e => e.SetValue("mark", new Action<string>(log.Add)));
 
         // Evaluating the source above was a host entry of its own and armed the constraints twice; the
@@ -906,14 +906,14 @@ public class WebApiFetchHandlerTests
         var alone = StatementsOneDispatchCosts(CountingResponder);
         var allowance = alone + alone / 2;
 
-        var single = Listener(CountingResponder, options => options.MaxStatements(allowance));
+        var single = Listener(CountingResponder, options => options.LimitStatements(allowance));
         using var served = Pump(single, single.Advanced.InvokeFetchHandler(Get()));
         Text(served).Should().Be("ok");
 
         // The same allowance, one more listener: the second listener runs out of what the first one spent.
         // Bracketing each listener separately would hand the second a fresh `allowance` — more than enough —
         // and this request would be served too.
-        var pair = Listener(CountingListener + "\n" + CountingResponder, options => options.MaxStatements(allowance));
+        var pair = Listener(CountingListener + "\n" + CountingResponder, options => options.LimitStatements(allowance));
         var operation = pair.Advanced.InvokeFetchHandler(Get());
 
         operation.IsCompleted.Should().BeTrue();
@@ -998,7 +998,7 @@ public class WebApiFetchHandlerTests
         // out of the bracket leaves behind.
         var allowance = synchronousHalf + synchronousHalf / 2;
 
-        var engine = Listener(CountingDeferredResponder, options => options.MaxStatements(allowance));
+        var engine = Listener(CountingDeferredResponder, options => options.LimitStatements(allowance));
         using var response = Pump(engine, engine.Advanced.InvokeFetchHandler(Get()));
 
         Text(response).Should().Be("late");
@@ -1091,7 +1091,7 @@ public class WebApiFetchHandlerTests
         // whatever the dispatch did.
         var engine = Listener(
             "addEventListener('fetch', event => { let n = 0; for (let i = 0; i < 500; i++) { n += i; } event.respondWith(new Response('answered')); });",
-            options => options.TimeoutInterval(TimeSpan.FromMilliseconds(200)));
+            options => options.LimitExecutionTime(TimeSpan.FromMilliseconds(200)));
 
         // Time the host spent between requests is the host's, not the script's. Entering the engine is what
         // arms the wall-clock budget — a TimeConstraint otherwise measures from the moment the previous entry

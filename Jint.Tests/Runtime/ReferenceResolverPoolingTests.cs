@@ -73,7 +73,7 @@ public class ReferenceResolverPoolingTests
     public void ClaimedNullishPropertyReadReturnsItsReferenceToThePool()
     {
         var resolver = new InstanceTrackingResolver();
-        var engine = new Engine(options => options.SetReferencesResolver(resolver, ReferenceResolverInterests.NullishPropertyBase));
+        var engine = new Engine(options => options.SetReferenceResolver(resolver, ReferenceResolverInterests.NullishPropertyBase));
 
         engine.Execute($"var o = {{}}; for (var i = 0; i < {Iterations}; i++) {{ var x = o.missing.value; }}");
 
@@ -85,7 +85,7 @@ public class ReferenceResolverPoolingTests
     public void ClaimedUnresolvableReadReturnsItsReferenceToThePool()
     {
         var resolver = new InstanceTrackingResolver();
-        var engine = new Engine(options => options.SetReferencesResolver(resolver, ReferenceResolverInterests.UnresolvableReference));
+        var engine = new Engine(options => options.SetReferenceResolver(resolver, ReferenceResolverInterests.UnresolvableReference));
 
         engine.Execute($"for (var i = 0; i < {Iterations}; i++) {{ var x = missingGlobal; }}");
 

@@ -296,11 +296,11 @@ public class HostClrExceptionTests
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.DecorateClrExceptionErrors((_, error, clrException) =>
+            options.Interop.ClrExceptionErrorDecorator = (_, error, clrException) =>
             {
                 seenByDecorator = clrException;
                 error.Set("code", "E_HOST");
-            });
+            };
         });
         engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
 
@@ -385,7 +385,7 @@ public class HostClrExceptionTests
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.ChainClrExceptions();
+            options.Interop.ChainClrExceptionAsInnerException = true;
         });
         engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up", new InvalidOperationException("root cause"))));
 
@@ -407,7 +407,7 @@ public class HostClrExceptionTests
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.ChainClrExceptions();
+            options.Interop.ChainClrExceptionAsInnerException = true;
         });
         engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up", new InvalidOperationException("root cause"))));
 
@@ -438,7 +438,7 @@ public class HostClrExceptionTests
             var engine = new Engine(options =>
             {
                 options.CatchClrExceptions();
-                options.ChainClrExceptions(chain);
+                options.Interop.ChainClrExceptionAsInnerException = chain;
             });
             engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
 
@@ -455,7 +455,7 @@ public class HostClrExceptionTests
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.ChainClrExceptions();
+            options.Interop.ChainClrExceptionAsInnerException = true;
         });
         engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
 
@@ -470,7 +470,7 @@ public class HostClrExceptionTests
         var engine = new Engine(options =>
         {
             options.CatchClrExceptions();
-            options.ChainClrExceptions();
+            options.Interop.ChainClrExceptionAsInnerException = true;
         });
         engine.SetValue("boom", new Action(() => throw new HostFailure("host blew up")));
 

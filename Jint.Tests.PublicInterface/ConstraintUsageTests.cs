@@ -6,7 +6,7 @@ public class ConstraintUsageTests
     [Fact]
     public void CanObserveConstraintsFromCustomCode()
     {
-        var engine = new Engine(o => o.TimeoutInterval(TimeSpan.FromMilliseconds(100)));
+        var engine = new Engine(o => o.LimitExecutionTime(TimeSpan.FromMilliseconds(100)));
         engine.SetValue("slowFunction", new Func<string>(() =>
         {
             for (var i = 0; i < 100; ++i)

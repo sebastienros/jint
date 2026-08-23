@@ -26,7 +26,7 @@ public class GeneratorTests
 
         // A regression here spins forever, and xUnit's Timeout cannot abort a synchronous test method on
         // its own. Handing the engine the test's cancellation token is what makes the timeout bite.
-        var engine = new Engine(options => options.CancellationToken(TestContext.Current.CancellationToken));
+        var engine = new Engine(options => options.ObserveCancellation(TestContext.Current.CancellationToken));
 
         engine.Evaluate(Script).Should().Be("01234");
     }

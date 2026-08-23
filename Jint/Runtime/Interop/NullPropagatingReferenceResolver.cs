@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interop;
 /// Register it with the interest it actually uses, which keeps every unrelated interpreter fast path armed:
 /// </para>
 /// <code>
-/// var engine = new Engine(options => options.SetReferencesResolver(
+/// var engine = new Engine(options => options.SetReferenceResolver(
 ///     NullPropagatingReferenceResolver.Instance,
 ///     ReferenceResolverInterests.NullishPropertyBase));
 /// </code>
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop;
 /// <b>This is a deviation from ECMAScript, owned by the host.</b> A conforming program's <c>a.b</c> on a
 /// nullish <c>a</c> is a <c>TypeError</c>; here it is a value. Jint offers no engine option that turns the
 /// deviation on — the host takes it on explicitly, by passing this resolver to
-/// <see cref="OptionsExtensions.SetReferencesResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>,
+/// <see cref="OptionsExtensions.SetReferenceResolver(Options, IReferenceResolver, ReferenceResolverInterests)"/>,
 /// the extension point that already exists for exactly this purpose. Engines that register no resolver are
 /// entirely unaffected.
 /// </para>

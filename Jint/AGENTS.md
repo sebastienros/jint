@@ -30,6 +30,47 @@
 - `Jint.Collections` — High-performance dictionaries (`HybridDictionary`, `StringDictionarySlim`, `DictionarySlim`). `PropertyDictionary` is a global-using alias for `HybridDictionary<PropertyDescriptor>`, which switches between list and hash storage by property count.
 - `Jint.Pooling` — Pools for hot allocations (`ReferencePool`, `ArgumentsInstancePool`, `JsValueArrayPool`, `JsValueListBuilder`).
 
+### Configuring an engine: properties first, one verb per intent
+
+`Options` and its nested groups are the configuration surface. **Every setting is a property, and the
+property is the only place its value lives.** Do not add an extension method that is one assignment to one
+property: through 4.16.x about twenty of those existed, the class holding them called itself a
+"compatibility layer to allow fluent syntax", and nothing told a host which of the two spellings to prefer.
+They were deleted in v5.
+
+An extension method on `Options` earns its place only by doing something an assignment cannot — install a
+subsystem, append to a registry, register a factory the engine invokes later, set two coupled values at
+once, or apply a named profile — and its verb says which of those it is:
+
+| verb | intent |
+| --- | --- |
+| `Use*` | installs a subsystem the engine otherwise does not have (`UseModules`, `UseWebApis`, `UseNodeProcess`, `UseHostFactory`, …) |
+| `Add*` / `Remove*` | appends to, or prunes, a registry that holds many (`AddObjectConverter`, `AddExtensionMethods`, `AddLazyGlobal`, `AddConstraint`, `RemoveConstraints`) |
+| `Allow*` | grants script a capability that is denied by default (`AllowClr`) |
+| `Limit*` | registers a built-in budget constraint (`LimitStatements`, `LimitMemory`, `LimitExecutionTime`) |
+| `Observe*` | registers a built-in constraint that watches host state (`ObserveCancellation`) |
+| `Set*` | replaces one host-supplied service whose registration an assignment cannot express (`SetReferenceResolver`, `SetTypeConverter`) |
+| `For*` | applies a named profile (`ForUntrustedCode`) |
+| `Expose*` | widens what script may see, across more than one group (`ExposeDetailedErrors`) |
+| `Catch*` | routes CLR exceptions into script (`CatchClrExceptions`) |
+| `Configure` | runs a callback against the engine being built |
+| `Validate*` / `Ensure*` | inspects configuration; never changes it |
+
+No synonyms. `Enable*`, `Max*`, `Decorate*`, `With*`, `Chain*`, `Disable*` and bare nouns each meant one of
+the intents above and are gone; a new method picks the verb whose intent it matches, or it is a property.
+`Disable*` in particular: a negated name across the property boundary (`DisableStringCompilation(true)`
+setting `Host.StringCompilationAllowed = false`) is how a host ends up writing the opposite of what it meant.
+
+**Every group is a read-only property materialized on first access**, through the one `Options.Materialize`
+helper — including the eight on `WebApiOptions`. Two things about that shape are load-bearing. A default
+`Options` allocates no group at all, so a host pays only for what it touches and `Options.Apply` can decide
+from a null backing field that a whole feature area was never configured. And the publication is
+interlocked rather than a plain `??=`, because `Options` is documented as safe to share between engines
+being constructed **concurrently** and every engine build reads several groups: two builds racing a plain
+`??=` would each get their own instance, and only one of them would see a later host mutation. A new group
+uses the same helper and adds a `Clone()` that `CreateEngineOptions` calls, which is what keeps the
+untrusted-code profile's private snapshot from sharing state with the host's options.
+
 ### Type co-location
 
 Keep small supporting types — enums, record structs, tiny helpers — **in the same file** as the type they serve, provided they share a namespace and the file stays readable (e.g. `ModuleImportPhase` lives in `ModuleRequest.cs`). Split them out when the type has several independent consumers, is `public` and needs its own XML-doc discoverability, or when the file would exceed ~500 lines or mix unrelated concepts.

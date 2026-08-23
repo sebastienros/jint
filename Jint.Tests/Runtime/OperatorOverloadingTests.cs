@@ -10,7 +10,7 @@ public class OperatorOverloadingTests
     public OperatorOverloadingTests()
     {
         _engine = new Engine(cfg => cfg
-                .AllowOperatorOverloading())
+                .Interop.AllowOperatorOverloading = true)
             .SetValue("log", new Action<object>(Console.WriteLine))
             .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
             .SetValue("assertFalse", new Action<bool>(static value => value.Should().BeFalse()))
@@ -361,7 +361,7 @@ public class OperatorOverloadingTests
     [Fact]
     public void ShouldAllowStringConcatenateForOverloaded()
     {
-        var engine = new Engine(cfg => cfg.AllowOperatorOverloading());
+        var engine = new Engine(cfg => cfg.Interop.AllowOperatorOverloading = true);
         engine.SetValue("Vector2D", TypeReference.CreateTypeReference<Vector2D>(engine));
         engine.SetValue("log", new Action<object>(Console.WriteLine));
 

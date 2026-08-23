@@ -203,7 +203,7 @@ public class StackOverflowGuardTests
         DedicatedThread.Run(
             () =>
             {
-                var engine = Guarded(options => options.LimitRecursion(20));
+                var engine = Guarded(options => options.Constraints.MaxRecursionDepth = 20);
                 Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute("function f() { return f(); } f();"));
             },
             maxStackSize: SmallStack);
@@ -220,7 +220,7 @@ public class StackOverflowGuardTests
         DedicatedThread.Run(
             () =>
             {
-                var engine = Guarded(options => options.LimitRecursion(1_000_000));
+                var engine = Guarded(options => options.Constraints.MaxRecursionDepth = 1_000_000);
                 var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { return f(); } f();"));
                 exception.Message.Should().Be("Maximum call stack size exceeded");
             },

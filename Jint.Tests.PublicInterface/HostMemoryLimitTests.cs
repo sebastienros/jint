@@ -391,7 +391,7 @@ public class HostMemoryLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(SingleAllocationBudget);
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
         engine.SetValue("allocate", new Action(() => allocations.Add(new byte[AllocationSize])));
 
@@ -412,13 +412,13 @@ public class HostMemoryLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(SingleAllocationBudget);
-            options.TimeoutInterval(TimeSpan.FromMilliseconds(200));
+            options.LimitExecutionTime(TimeSpan.FromMilliseconds(200));
 
             // A ceiling only a genuine hang can reach, rather than a budget racing the loader wait: the
             // wait resumes on a thread-pool worker, and on a saturated runner the pool's injection rate
             // would otherwise decide the outcome. Same treatment as #3123 and #3154.
             options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
 
         // The blocking Import waits for a completion that arrives from another thread, so it must not
@@ -502,7 +502,7 @@ public class HostMemoryLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(1_000_000);
-            options.MaxStatements(100_000);
+            options.LimitStatements(100_000);
         });
         var target = engine.Evaluate("""
             ({
@@ -524,8 +524,8 @@ public class HostMemoryLimitTests
     {
         var custom = new ThrowOnSecondCheckConstraint();
         var options = new Options()
-            .Constraint(custom)
-            .Constraint(new MemoryLimitConstraint(1_000_000));
+            .AddConstraint(custom)
+            .AddConstraint(new MemoryLimitConstraint(1_000_000));
         var engine = new Engine(options);
         var target = engine.Evaluate("""
             ({
@@ -688,7 +688,7 @@ public class HostMemoryLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(SingleAllocationBudget);
-            options.EnableModules(loader);
+            options.UseModules(loader);
 
             // What this asserts is that the memory operation travels with the import and is released by it,
             // never how long the import takes. The loader is completed from a thread-pool worker, so on the
@@ -725,7 +725,7 @@ public class HostMemoryLimitTests
         var engine = new Engine(options =>
         {
             options.LimitMemory(SingleAllocationBudget);
-            options.EnableModules(loader);
+            options.UseModules(loader);
         });
         engine.SetValue("block", new Action(() =>
         {
@@ -907,13 +907,13 @@ public class HostMemoryLimitTests
     {
         var first = new MemoryLimitConstraint(1_000_000);
         var duplicate = new MemoryLimitConstraint(2_000_000);
-        var options = new Options().Constraint(first).Constraint(duplicate);
+        var options = new Options().AddConstraint(first).AddConstraint(duplicate);
 
         Invoking(() => new Engine(options))
             .Should().Throw<InvalidOperationException>()
             .WithMessage("*Only one MemoryLimitConstraint*");
 
-        options.WithoutConstraint(constraint => ReferenceEquals(constraint, duplicate));
+        options.RemoveConstraints(constraint => ReferenceEquals(constraint, duplicate));
         new Engine(options).Constraints.Find<MemoryLimitConstraint>().Should().BeSameAs(first);
     }
 
@@ -921,7 +921,7 @@ public class HostMemoryLimitTests
     public void ADirectMemoryConstraintInstanceCannotBeSharedAcrossEngines()
     {
         var constraint = new MemoryLimitConstraint(SingleAllocationBudget);
-        var options = new Options().Constraint(constraint);
+        var options = new Options().AddConstraint(constraint);
         _ = new Engine(options);
 
         Invoking(() => new Engine(options))

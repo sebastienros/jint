@@ -6,9 +6,7 @@ public class StepFlowTests
 {
     private List<Node> CollectStepNodes(string script)
     {
-        var engine = new Engine(options => options
-            .DebugMode()
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         var nodes = new List<Node>();
         engine.Debugger.Step += (sender, info) =>
@@ -253,9 +251,7 @@ let res = c();
 
     private List<string> StepIntoScript(string script)
     {
-        var engine = new Engine(options => options
-            .DebugMode()
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         var stepStatements = new List<string>();
         var scriptLines = script.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');

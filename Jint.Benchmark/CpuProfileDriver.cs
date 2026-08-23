@@ -63,7 +63,7 @@ internal static class CpuProfileDriver
 
         void RunOnce()
         {
-            var engine = new Engine(static options => options.Strict());
+            var engine = new Engine(static options => options.Strict = true);
             if (isInterop)
             {
                 engine.SetValue("host", new EngineComparisonInteropBenchmark.InteropHost());

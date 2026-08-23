@@ -91,12 +91,12 @@ public class ConstrainedExecutionBenchmark
         {
             if (timeoutEnabled)
             {
-                options.TimeoutInterval(TimeSpan.FromSeconds(30));
+                options.LimitExecutionTime(TimeSpan.FromSeconds(30));
             }
 
             if (statementLimitEnabled)
             {
-                options.MaxStatements(StatementBudget);
+                options.LimitStatements(StatementBudget);
             }
 
             if (memoryLimitEnabled)

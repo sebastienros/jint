@@ -67,7 +67,7 @@ public class TailCallBenchmark
 
     private static Engine CreateEngine(string definitions)
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(definitions);
         return engine;
     }
@@ -89,8 +89,8 @@ public class TailCallDelegationBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        _engine = CreateEngine(static options => options.Strict());
-        _limitedEngine = CreateEngine(static options => options.Strict().LimitRecursion(100_000));
+        _engine = CreateEngine(static options => options.Strict = true);
+        _limitedEngine = CreateEngine(static options => { options.Strict = true; options.Constraints.MaxRecursionDepth = 100_000; });
         _call = Engine.PrepareScript("""
             var value = 0;
             for (var i = 0; i < 10000; i++) {

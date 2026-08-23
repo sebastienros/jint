@@ -20,14 +20,14 @@ public abstract class SingleScriptBenchmark
     [Benchmark]
     public void Execute()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_script);
     }
 
     [Benchmark]
     public void Execute_ParsedScript()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute(_parsedScript);
     }
 }

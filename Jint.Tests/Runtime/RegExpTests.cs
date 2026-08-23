@@ -146,7 +146,7 @@ public class RegExpTests
     [Fact]
     public void CanNotBreakEngineWithLongRunningMatch()
     {
-        var engine = new Engine(e => e.RegexTimeoutInterval(TimeSpan.FromSeconds(1)));
+        var engine = new Engine(e => e.Constraints.RegexTimeout = TimeSpan.FromSeconds(1));
 
         Invoking(() =>
         {
@@ -157,7 +157,7 @@ public class RegExpTests
     [Fact]
     public void CanNotBreakEngineWithLongRunningRegExp()
     {
-        var engine = new Engine(e => e.RegexTimeoutInterval(TimeSpan.FromSeconds(1)));
+        var engine = new Engine(e => e.Constraints.RegexTimeout = TimeSpan.FromSeconds(1));
 
         Invoking(() =>
         {
@@ -524,7 +524,7 @@ public class RegExpTests
         // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
         // the modest default — keeping a clear gap above the assertion threshold even
         // on slow Windows CI runners where cancellation lag can be several seconds.
-        var engine = new Engine(o => o.RegexTimeoutInterval(TimeSpan.FromSeconds(EngineRegexTimeoutSeconds)));
+        var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromSeconds(EngineRegexTimeoutSeconds));
         engine.Modules.Add("__main__", x => x.AddModule(preparedModule));
 
         var sw = Stopwatch.StartNew();
@@ -554,7 +554,7 @@ public class RegExpTests
         // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
         // the modest default — keeping a clear gap above the assertion threshold even
         // on slow Windows CI runners where cancellation lag can be several seconds.
-        var engine = new Engine(o => o.RegexTimeoutInterval(TimeSpan.FromSeconds(EngineRegexTimeoutSeconds)));
+        var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromSeconds(EngineRegexTimeoutSeconds));
 
         var sw = Stopwatch.StartNew();
         Invoking(() => engine.Execute(preparedScript)).Should().ThrowExactly<RegexMatchTimeoutException>();

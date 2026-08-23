@@ -75,11 +75,10 @@ function output(d) {
 
     private static void InitializeEngine(Options options)
     {
-        options
-            .LimitRecursion(64)
-            .MaxStatements(int.MaxValue)
-            .Strict()
-            .LocalTimeZone(TimeZoneInfo.Utc);
+        options.LimitStatements(int.MaxValue);
+        options.Constraints.MaxRecursionDepth = 64;
+        options.Strict = true;
+        options.TimeZone = TimeZoneInfo.Utc;
     }
 
     [Params(500)]

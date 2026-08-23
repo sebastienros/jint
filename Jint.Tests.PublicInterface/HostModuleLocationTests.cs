@@ -85,7 +85,7 @@ public class HostModuleLocationTests
 
     private static Engine EngineWith(ModuleLoader loader) => new Engine(options =>
     {
-        options.EnableModules(loader);
+        options.UseModules(loader);
         options.UseHostFactory(_ => new ImportMetaUrlHost());
     });
 
@@ -113,7 +113,7 @@ public class HostModuleLocationTests
     {
         // The referrer a module's own imports are resolved against is its location, so reducing that to a
         // path leaves './dep.js' nothing to resolve against.
-        var engine = new Engine(options => options.EnableModules(new UrlModuleLoader(new Dictionary<string, string>
+        var engine = new Engine(options => options.UseModules(new UrlModuleLoader(new Dictionary<string, string>
         {
             ["http://localhost/lib/entry.js"] = "export { value } from './dep.js';",
             ["http://localhost/lib/dep.js"] = "export const value = 'from the sibling';",
@@ -128,7 +128,7 @@ public class HostModuleLocationTests
     public void LoadedModuleNamesItselfByItsKeyInAStackTrace()
     {
         // The same string is the module's identity in error.stack, so a host parsing frames sees the url.
-        var engine = new Engine(options => options.EnableModules(new UrlModuleLoader(new Dictionary<string, string>
+        var engine = new Engine(options => options.UseModules(new UrlModuleLoader(new Dictionary<string, string>
         {
             ["http://localhost/lib/entry.js"] = "export function boom() { throw new Error('bang'); }\nboom();",
         })));
@@ -147,11 +147,11 @@ public class HostModuleLocationTests
         // stop every such breakpoint from hitting and the debugger would just look dead.
         var engine = new Engine(options =>
         {
-            options.EnableModules(new UrlModuleLoader(new Dictionary<string, string>
+            options.UseModules(new UrlModuleLoader(new Dictionary<string, string>
             {
                 ["http://localhost/lib/entry.js"] = "const a = 1;\nexport const value = a + 1;",
             }));
-            options.DebugMode();
+            options.Debugger.Enabled = true;
         });
 
         var hits = new List<string?>();
@@ -184,7 +184,7 @@ public class HostModuleLocationTests
 
             var engine = new Engine(options =>
             {
-                options.EnableModules(path);
+                options.UseModules(path);
                 options.UseHostFactory(_ => new ImportMetaUrlHost());
             });
             var url = engine.Modules.Import("./entry.js").Get("url").AsString();

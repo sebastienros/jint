@@ -10,7 +10,7 @@ public class RelationalComparisonTests
     [Fact]
     public void NanComparisonsAreFalseInTestAndValuePositions()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var x = NaN;
@@ -32,7 +32,7 @@ public class RelationalComparisonTests
     [Fact]
     public void ComparisonFallsBackWhenBindingTurnsNonNumeric()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var x = 10;
@@ -53,7 +53,7 @@ public class RelationalComparisonTests
     [Fact]
     public void ValuePositionsProduceBooleans()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var i = 5;
@@ -72,7 +72,7 @@ public class RelationalComparisonTests
     [Fact]
     public void ConstAndZeroEdgeCases()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 const c = 1;
@@ -94,7 +94,7 @@ public class RelationalComparisonTests
     [Fact]
     public void VariableBoundComparisons()
     {
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         var result = engine.Evaluate("""
             function f() {
                 var n = 5, x = NaN, i = 3;
@@ -119,7 +119,7 @@ public class RelationalComparisonTests
     {
         // the lane resolves through the shadow-aware slot-cache walk; a block-shadowed
         // binding must not compare against the outer variable's cached slot
-        var engine = new Engine(static options => options.Strict());
+        var engine = new Engine(static options => options.Strict = true);
         engine.Execute("""
             var log = [];
             function h() {

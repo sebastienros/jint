@@ -58,7 +58,7 @@ public class HostModuleImportOperationTests
         }
     }
 
-    private static Engine CreateEngine(HandOffModuleLoader loader) => new(options => options.EnableModules(loader));
+    private static Engine CreateEngine(HandOffModuleLoader loader) => new(options => options.UseModules(loader));
 
     private static HandOffModuleLoader Loader() => new(new Dictionary<string, string> { ["m"] = "export const v = 1;" });
 

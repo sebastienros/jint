@@ -34,7 +34,7 @@ public class ClosureCallBenchmarks
     private IsolatedScript _sloppyEmptyClosureCall;
     private IsolatedScript _sloppyCapturedVarReadWrite;
 
-    private static Engine CreateStrictEngine() => new(static options => options.Strict());
+    private static Engine CreateStrictEngine() => new(static options => options.Strict = true);
 
     private static Engine CreateSloppyEngine() => new();
 

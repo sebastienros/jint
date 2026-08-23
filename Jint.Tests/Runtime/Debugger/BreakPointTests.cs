@@ -53,7 +53,7 @@ public class BreakPointTests
     [Fact]
     public void BreakPointReplacesPreviousBreakPoint()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
         engine.Debugger.BreakPoints.Should().SatisfyRespectively(
@@ -77,7 +77,7 @@ public class BreakPointTests
     [Fact]
     public void BreakPointRemovesBasedOnLocationEquality()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
@@ -99,7 +99,7 @@ public class BreakPointTests
     [Fact]
     public void BreakPointContainsBasedOnLocationEquality()
     {
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
         engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
@@ -117,7 +117,7 @@ if (x === 1)
 x++; y *= 2;
 }";
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
@@ -142,7 +142,7 @@ if (x === 1)
 x++; y *= 2;
 }";
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
@@ -176,7 +176,7 @@ return x + 2;
         string script3 = @"const z = 3;
 test(z);";
 
-        var engine = new Engine(options => { options.DebugMode(); });
+        var engine = new Engine(options => { options.Debugger.Enabled = true; });
 
         engine.Debugger.BreakPoints.Set(new BreakPoint("script2", 3, 0));
 
@@ -206,7 +206,7 @@ test(z);";
         string script = @"let x = 1;
 x++;";
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
@@ -239,7 +239,7 @@ return x + 2;
         string script3 = @"const z = 3;
 test(z);";
 
-        var engine = new Engine(options => { options.DebugMode(); });
+        var engine = new Engine(options => { options.Debugger.Enabled = true; });
 
         engine.Debugger.BreakPoints.Set(new BreakPoint("script2", 3, 0));
 
@@ -274,9 +274,7 @@ test(z);";
 debugger;
 'dummy';";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
 
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>
@@ -298,10 +296,7 @@ debugger;
 debugger;
 'dummy';";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script)
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; options.Debugger.InitialStepMode = StepMode.Into; });
 
         bool didBreak = false;
         int stepCount = 0;
@@ -329,10 +324,7 @@ debugger;
 debugger;
 'dummy';";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script)
-            .InitialStepMode(StepMode.None));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; options.Debugger.InitialStepMode = StepMode.None; });
 
         int breakCount = 0;
 
@@ -357,9 +349,7 @@ debugger;
 'dummy';
 'second breakpoint';";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         bool didStep = true;
         bool didBreak = true;
@@ -400,9 +390,7 @@ debugger;
 debugger;
 'dummy';";
 
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(2, 0));
 
@@ -430,7 +418,7 @@ debugger;
 }
 test();";
 
-        var engine = new Engine(options => options.DebugMode());
+        var engine = new Engine(options => options.Debugger.Enabled = true);
 
         engine.Debugger.BreakPoints.Set(new BreakPoint(4, 0));
         engine.Debugger.BreakPoints.Set(new BreakPoint(6, 0));
@@ -470,7 +458,7 @@ let x = 0;
 
 foo();
 ";
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.Into; });
 
         int stepsReached = 0;
         int breakpointsReached = 0;
@@ -533,7 +521,7 @@ for (let i = 0; i < 10; i++)
     'breakpoint';
 }
 ";
-        var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.None));
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.InitialStepMode = StepMode.None; });
 
         engine.Debugger.BreakPoints.Set(
             new SimpleHitConditionBreakPoint(4, 4, condition: null, hitCondition: 5));

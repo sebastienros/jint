@@ -280,7 +280,7 @@ public class WebApiDiagnosticsTests
                 webApi.Timers.TimeProvider = clock;
                 webApi.Diagnostics.Sink = sink;
             });
-            options.LimitRecursion(8);
+            options.Constraints.MaxRecursionDepth = 8;
         });
 
         engine.Execute("function recurse() { return recurse(); } setTimeout(recurse, 5);");

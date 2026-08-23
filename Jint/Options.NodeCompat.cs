@@ -15,7 +15,7 @@ public sealed partial class Options
     /// mutation of <see cref="Modules"/>'s loader: the host's <see cref="ModuleOptions.ModuleLoader"/> keeps
     /// reading back exactly what the host set — the same posture <c>WebApiFeatures</c> takes about the feature
     /// closure fetch brings with it — and the order of <c>UseNodeBuiltinModules</c> and
-    /// <c>EnableModules</c> stops mattering.
+    /// <c>UseModules</c> stops mattering.
     /// </remarks>
     internal NodeBuiltinModuleConfiguration? _nodeBuiltinModules;
 }

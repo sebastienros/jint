@@ -27,10 +27,7 @@ public static class TestHelpers
     /// <param name="breakHandler">Handler for assertions</param>
     public static void TestAtBreak(Action<Engine> initialization, Action<Engine, DebugInformation> breakHandler)
     {
-        var engine = new Engine(options => options
-            .DebugMode()
-            .DebuggerStatementHandling(DebuggerStatementHandling.Script)
-        );
+        var engine = new Engine(options => { options.Debugger.Enabled = true; options.Debugger.StatementHandling = DebuggerStatementHandling.Script; });
 
         bool didBreak = false;
         engine.Debugger.Break += (sender, info) =>

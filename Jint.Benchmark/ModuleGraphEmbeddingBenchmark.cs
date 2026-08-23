@@ -89,7 +89,7 @@ namespace Jint.Benchmark;
 /// embedder has. Both loaders below are limited to exactly what a third-party pooled host composes:
 /// <see cref="IModuleLoader"/>, <see cref="ResolvedSpecifier"/>, <see cref="SpecifierType"/>, both
 /// <c>ModuleFactory.BuildSourceTextModule</c> overloads, <see cref="Engine.PrepareModule"/>,
-/// <c>Options.EnableModules(IModuleLoader)</c> and <c>engine.Modules.Import</c>. They implement
+/// <c>Options.UseModules(IModuleLoader)</c> and <c>engine.Modules.Import</c>. They implement
 /// <see cref="IModuleLoader"/> directly rather than deriving
 /// from <see cref="ModuleLoader"/>, because that base class funnels every load through
 /// <c>LoadModuleContents(...): string</c> and re-parses the returned source on every engine — there is no
@@ -248,14 +248,14 @@ public class ModuleGraphEmbeddingBenchmark
     public void GlobalSetup()
     {
         _sharedLoader = new SharedPreparedLoader();
-        _configureShared = options => options.EnableModules(_sharedLoader);
+        _configureShared = options => options.UseModules(_sharedLoader);
 
         _parseOnlySharedLoader = new SharedPreparedLoader(ParseOnlyOptions);
-        _configureParseOnlyShared = options => options.EnableModules(_parseOnlySharedLoader);
+        _configureParseOnlyShared = options => options.UseModules(_parseOnlySharedLoader);
 
         // Stateless, so one instance serves every engine — which is also what a host registers.
         var sourceLoader = new SourcePerEngineLoader();
-        _configureSourcePerEngine = options => options.EnableModules(sourceLoader);
+        _configureSourcePerEngine = options => options.UseModules(sourceLoader);
 
         // Prove the shared lane before it is measured. The first throwaway engine populates the cache;
         // the second must find all ten entries already there, which is the actual claim the two sharing
@@ -281,7 +281,7 @@ public class ModuleGraphEmbeddingBenchmark
         // other row's script would hand it that row's globals and handler-tree state (AGENTS.md, "Never warm
         // one engine with more than one row's workload").
         var warmLoader = new SharedPreparedLoader();
-        _warmEngine = new Engine(options => options.EnableModules(warmLoader));
+        _warmEngine = new Engine(options => options.UseModules(warmLoader));
         var warmNamespace = _warmEngine.Modules.Import(EntryKey);
         _warmRender = warmNamespace.Get("render");
         _warmData = _warmEngine.Evaluate(DataScript);
@@ -360,7 +360,7 @@ public class ModuleGraphEmbeddingBenchmark
     {
         var loader = new SharedPreparedLoader();
         loader.PrepareAll();
-        return ImportAndRender(new Engine(options => options.EnableModules(loader)));
+        return ImportAndRender(new Engine(options => options.UseModules(loader)));
     }
 
     /// <summary>

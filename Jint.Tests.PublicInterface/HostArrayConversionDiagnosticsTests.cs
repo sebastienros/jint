@@ -32,7 +32,7 @@ public class HostArrayConversionDiagnosticsTests
     private static Engine CreateEngine(ArrayConversionMode? mode = null) => new(options =>
     {
         options.AllowClr(typeof(HostWithArrays).Assembly);
-        options.AllowClrWrite();
+        options.Interop.AllowWrite = true;
         if (mode is not null)
         {
             options.Interop.ArrayConversion = mode.Value;
@@ -96,7 +96,7 @@ public class HostArrayConversionDiagnosticsTests
         var writableLive = new[] { 1, 2 };
         var writableEngine = new Engine(options =>
         {
-            options.AllowClrWrite();
+            options.Interop.AllowWrite = true;
             options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
         });
         writableEngine.SetValue("values", writableLive);
@@ -123,7 +123,7 @@ public class HostArrayConversionDiagnosticsTests
     public void FailedDeadlineBoundCopyPublishesNothingAndCanRetryAfterDisarm()
     {
         var deadline = new OperationDeadlineConstraint();
-        var engine = new Engine(options => options.Constraint(deadline));
+        var engine = new Engine(options => options.AddConstraint(deadline));
         deadline.Begin(TimeSpan.FromMilliseconds(1));
         Thread.Sleep(10);
 

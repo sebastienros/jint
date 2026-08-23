@@ -10,7 +10,9 @@ public sealed partial class Options
     /// before this existed.
     /// </summary>
     /// <seealso cref="Engine.AdvancedOperations.StartProfiling"/>
-    public ProfilingOptions Profiling { get; } = new();
+    public ProfilingOptions Profiling => Materialize(ref _profiling);
+
+    private ProfilingOptions? _profiling;
 
     /// <summary>
     /// Configuration for <see cref="Engine.AdvancedOperations.StartProfiling"/>.
@@ -69,5 +71,7 @@ public sealed partial class Options
                 _maxEvents = value;
             }
         }
+
+        internal ProfilingOptions Clone() => (ProfilingOptions) MemberwiseClone();
     }
 }

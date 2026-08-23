@@ -9,7 +9,7 @@
 /// </summary>
 public class InteropWrapperMemberCacheTests
 {
-    private static Engine CreateEngine() => new(options => options.AllowClrWrite());
+    private static Engine CreateEngine() => new(options => options.Interop.AllowWrite = true);
 
     public class CountingHost
     {

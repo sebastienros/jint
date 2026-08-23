@@ -6,7 +6,7 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// The npm-shaped module loader as a third party reaches it: constructed from outside the assembly, handed to
-/// <see cref="OptionsExtensions.EnableModules(Options,IModuleLoader)"/>, and asked questions through nothing but
+/// <see cref="OptionsExtensions.UseModules(Options,IModuleLoader)"/>, and asked questions through nothing but
 /// public API.
 /// </summary>
 public class NodeStyleModuleLoaderTests
@@ -20,7 +20,7 @@ public class NodeStyleModuleLoaderTests
             .Add("node_modules/greeter/cjs/index.js", "throw new Error('the require branch must not be taken');")
             .Add("main.js", "import { greet } from 'greeter'; export const message = greet('world');");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         engine.Modules.Import("./main.js").Get("message").AsString().Should().Be("hello world");
     }
@@ -84,7 +84,7 @@ public class NodeStyleModuleLoaderTests
 
         foreach (var _ in Enumerable.Range(0, 3))
         {
-            var engine = new Engine(options => options.EnableModules(loader));
+            var engine = new Engine(options => options.UseModules(loader));
             engine.Modules.Import("pkg").Get("value").AsString().Should().Be("shared");
         }
     }
@@ -116,7 +116,7 @@ public class NodeStyleModuleLoaderTests
         // The one documented deviation from PACKAGE_RESOLVE step 11, pinned from the embedder's side because
         // it is what keeps Engine.Modules.Add usable together with this loader.
         using var tree = new PackageTree();
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
         engine.Modules.Add("lib", builder => builder.ExportValue("version", 15));
 
         engine.Modules.Import("lib").Get("version").AsNumber().Should().Be(15);
@@ -146,7 +146,7 @@ public class NodeStyleModuleLoaderTests
             .Add("with-attribute.js", "import data from 'config/data.json' with { type: 'json' }; export const answer = data.answer;")
             .Add("without-attribute.js", "import data from 'config/data.json'; export const answer = data.answer;");
 
-        var engine = new Engine(options => options.EnableModules(new NodeStyleModuleLoader(tree.Root)));
+        var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
         engine.Modules.Import("./with-attribute.js").Get("answer").AsNumber().Should().Be(42);
 

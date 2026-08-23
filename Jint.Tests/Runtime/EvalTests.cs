@@ -9,7 +9,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class EvalTests
 {
-    private static Engine NewStrictEngine() => new(static options => options.Strict());
+    private static Engine NewStrictEngine() => new(static options => options.Strict = true);
 
     [Fact]
     public void RepeatedSameSourceEvalStartsFromFreshBindings()

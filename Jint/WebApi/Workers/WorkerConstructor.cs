@@ -226,7 +226,7 @@ internal sealed partial class WorkerConstructor : Constructor
         if (!ObservesTerminationToken(workerEngine, request.TerminationToken))
         {
             Throw.InvalidOperationException(
-                "WorkerProvider.CreateWorkerEngine returned an engine that does not observe request.TerminationToken, so terminate() could close its ports but never stop its script — a worker that is deaf and mute while still burning a thread. Register it with options.CancellationToken(request.TerminationToken), which request.CreateDefaultOptions() already does.");
+                "WorkerProvider.CreateWorkerEngine returned an engine that does not observe request.TerminationToken, so terminate() could close its ports but never stop its script — a worker that is deaf and mute while still burning a thread. Register it with options.ObserveCancellation(request.TerminationToken), which request.CreateDefaultOptions() already does.");
         }
     }
 

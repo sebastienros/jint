@@ -23,7 +23,7 @@ namespace Jint.Runtime.Modules;
 ///         => _client.GetStringAsync(resolved.Uri);
 /// }
 ///
-/// var engine = new Engine(options => options.EnableModules(new HttpModuleLoader()));
+/// var engine = new Engine(options => options.UseModules(new HttpModuleLoader()));
 /// var ns = await engine.Modules.ImportAsync("./main.js");
 /// </code>
 /// </example>
@@ -46,7 +46,7 @@ public abstract class AsyncModuleLoader : ModuleLoader, IAsyncModuleLoader
     /// <inheritdoc />
     public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
     {
-        // A host that registered options.CancellationToken(token) means it for its I/O too, so the fetch sees
+        // A host that registered options.ObserveCancellation(token) means it for its I/O too, so the fetch sees
         // the same token the interpreter's cancellation constraint observes.
         var cancellationToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
 

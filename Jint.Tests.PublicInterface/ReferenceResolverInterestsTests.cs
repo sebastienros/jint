@@ -90,11 +90,11 @@ public class ReferenceResolverInterestsTests
         {
             if (interests is null)
             {
-                options.SetReferencesResolver(resolver);
+                options.SetReferenceResolver(resolver);
             }
             else
             {
-                options.SetReferencesResolver(resolver, interests.Value);
+                options.SetReferenceResolver(resolver, interests.Value);
             }
         });
 
@@ -111,11 +111,11 @@ public class ReferenceResolverInterestsTests
     public void InterestFreeOverloadGetsEveryInterest()
     {
         var options = new Options();
-        options.SetReferencesResolver(new CountingResolver(), ReferenceResolverInterests.NullishPropertyBase);
+        options.SetReferenceResolver(new CountingResolver(), ReferenceResolverInterests.NullishPropertyBase);
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
 
         // re-registering through the interest-free overload must not silently inherit the narrow set
-        options.SetReferencesResolver(new CountingResolver());
+        options.SetReferenceResolver(new CountingResolver());
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.All);
     }
 

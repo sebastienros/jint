@@ -303,7 +303,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "export const y = 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 2);
 
         engine.Modules.Import("a.js");
@@ -319,7 +319,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "export const y = 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 1);
 
         engine.Modules.Import("a.js");
@@ -335,7 +335,7 @@ public sealed class HostModuleGraphSecurityTests
             ["a.js"] = "export const x = 1;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 1);
 
         engine.Modules.Import("a.js");
@@ -348,7 +348,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(new Dictionary<string, string>
+            o.UseModules(new DictLoader(new Dictionary<string, string>
             {
                 ["b.js"] = "import { v } from 'lib'; export const x = v;",
             }));
@@ -372,7 +372,7 @@ public sealed class HostModuleGraphSecurityTests
             ["d.js"] = "export default 4;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 4);
 
         engine.Modules.Import("a.js");
@@ -388,7 +388,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "import './a.js'; export const y = 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 2);
 
         engine.Modules.Import("a.js");
@@ -403,7 +403,7 @@ public sealed class HostModuleGraphSecurityTests
         var byteCount = Encoding.UTF8.GetByteCount(source);
         var modules = new Dictionary<string, string> { ["a.js"] = source };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxTotalModuleSourceBytes = byteCount);
 
         engine.Modules.Import("a.js");
@@ -416,7 +416,7 @@ public sealed class HostModuleGraphSecurityTests
         var byteCount = Encoding.UTF8.GetByteCount(source);
         var modules = new Dictionary<string, string> { ["a.js"] = source };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxTotalModuleSourceBytes = byteCount - 1);
 
         Invoking(() => engine.Modules.Import("a.js"))
@@ -428,7 +428,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(new Dictionary<string, string>()));
+            o.UseModules(new DictLoader(new Dictionary<string, string>()));
             o.Modules.MaxTotalModuleSourceBytes = 1; // only 1 byte allowed
             o.Modules.MaxModuleCount = 1;
         });
@@ -443,7 +443,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.EnableModules(new PreparedLoader());
+            o.UseModules(new PreparedLoader());
             o.Modules.MaxTotalModuleSourceBytes = 1;
         });
 
@@ -456,7 +456,7 @@ public sealed class HostModuleGraphSecurityTests
         var bytes = new byte[] { 1, 2, 3, 4 };
         var engine = new Engine(o =>
         {
-            o.EnableModules(new BytesLoader(bytes));
+            o.UseModules(new BytesLoader(bytes));
             o.Modules.MaxTotalModuleSourceBytes = bytes.Length - 1;
         });
 
@@ -471,7 +471,7 @@ public sealed class HostModuleGraphSecurityTests
             + Encoding.UTF8.GetByteCount(TextAndJsonLoader.Text);
         var engine = new Engine(o =>
         {
-            o.EnableModules(new TextAndJsonLoader());
+            o.UseModules(new TextAndJsonLoader());
             o.Modules.MaxTotalModuleSourceBytes = limit;
         });
 
@@ -498,7 +498,7 @@ public sealed class HostModuleGraphSecurityTests
         var loader = new DeferredLoader();
         var engine = new Engine(o =>
         {
-            o.EnableModules(loader);
+            o.UseModules(loader);
             o.Modules.MaxTotalModuleSourceBytes = 3;
         });
         var operation = engine.Modules.StartImport("bytes");
@@ -518,7 +518,7 @@ public sealed class HostModuleGraphSecurityTests
         var loader = new DeferredLoader();
         var engine = new Engine(o =>
         {
-            o.EnableModules(loader);
+            o.UseModules(loader);
             o.Modules.MaxTotalModuleSourceBytes =
                 Encoding.UTF8.GetByteCount(first) + Encoding.UTF8.GetByteCount(second) - 1;
         });
@@ -549,7 +549,7 @@ public sealed class HostModuleGraphSecurityTests
             ["c.js"] = "export default 3;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleGraphDepth = 3);
 
         engine.Modules.Import("a.js");
@@ -566,7 +566,7 @@ public sealed class HostModuleGraphSecurityTests
             ["c.js"] = "export default 3;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleGraphDepth = 2);
 
         Invoking(() => engine.Modules.Import("a.js"))
@@ -581,7 +581,7 @@ public sealed class HostModuleGraphSecurityTests
             ["a.js"] = "import './b.js'; export const a = 1;",
             ["b.js"] = "import './a.js'; export const b = 1;",
         };
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleGraphDepth = 1);
 
         Invoking(() => engine.Modules.Import("a.js"))
@@ -601,7 +601,7 @@ public sealed class HostModuleGraphSecurityTests
             ["shared.js"] = "import './leaf.js';",
             ["leaf.js"] = "export default 1;",
         };
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleGraphDepth = 4);
 
         Invoking(() => engine.Modules.Import("root.js"))
@@ -621,7 +621,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(modules));
+            o.UseModules(new DictLoader(modules));
             o.Modules.MaxModuleCount = count;
             o.Modules.MaxModuleGraphDepth = count;
         });
@@ -642,7 +642,7 @@ public sealed class HostModuleGraphSecurityTests
             ["c.js"] = "export default 3;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleResolutionHops = 3);
 
         engine.Modules.Import("a.js");
@@ -658,7 +658,7 @@ public sealed class HostModuleGraphSecurityTests
             ["c.js"] = "export default 3;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleResolutionHops = 2);
 
         Invoking(() => engine.Modules.Import("a.js"))
@@ -674,7 +674,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "export default 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleResolutionHops = 1);
 
         // Each import is its own operation with its own budget.
@@ -686,7 +686,7 @@ public sealed class HostModuleGraphSecurityTests
     public void ResolutionHops_AsyncGraphKeepsOneBudgetAfterRootSettles()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(o => o.EnableModules(loader)
+        var engine = new Engine(o => o.UseModules(loader)
             .Modules.MaxModuleResolutionHops = 2);
 
         engine.Modules.StartImport("a.js");
@@ -701,7 +701,7 @@ public sealed class HostModuleGraphSecurityTests
     [Fact]
     public void ResolutionHops_RegistrationIndexingDoesNotConsumeTheBudget()
     {
-        var engine = new Engine(o => o.EnableModules(new PrefixingLoader())
+        var engine = new Engine(o => o.UseModules(new PrefixingLoader())
             .Modules.MaxModuleResolutionHops = 1);
         for (var i = 0; i < 20; i++)
         {
@@ -715,7 +715,7 @@ public sealed class HostModuleGraphSecurityTests
     public void ResolutionHops_InFlightDuplicateRequestsEachConsumeAHop()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(o => o.EnableModules(loader)
+        var engine = new Engine(o => o.UseModules(loader)
             .Modules.MaxModuleResolutionHops = 2);
 
         engine.Modules.StartImport("root.js");
@@ -732,7 +732,7 @@ public sealed class HostModuleGraphSecurityTests
     public void GraphDepth_AsyncGraphFailsFromThePump()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(o => o.EnableModules(loader)
+        var engine = new Engine(o => o.UseModules(loader)
             .Modules.MaxModuleGraphDepth = 2);
 
         engine.Modules.StartImport("a.js");
@@ -750,7 +750,7 @@ public sealed class HostModuleGraphSecurityTests
     public void ModuleCount_AsyncDiamondCoalescesSharedLoad()
     {
         var loader = new DeferredLoader();
-        var engine = new Engine(o => o.EnableModules(loader)
+        var engine = new Engine(o => o.UseModules(loader)
             .Modules.MaxModuleCount = 4);
 
         var operation = engine.Modules.StartImport("root.js");
@@ -778,7 +778,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "export const y = 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 1);
 
         engine.Modules.Import("a.js");
@@ -804,7 +804,7 @@ public sealed class HostModuleGraphSecurityTests
             ["b.js"] = "export default 2;",
         };
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 1);
 
         engine.Modules.Import("a.js");
@@ -822,7 +822,7 @@ public sealed class HostModuleGraphSecurityTests
             ["a.js"] = "export default 1;",
             ["b.js"] = "export default 2;",
         };
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules))
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules))
             .Modules.MaxModuleCount = 1);
         engine.Modules.Import("a.js");
 
@@ -833,7 +833,7 @@ public sealed class HostModuleGraphSecurityTests
     [Fact]
     public void OrdinaryCancellationFromSynchronousLoaderIsALoadFailure()
     {
-        var engine = new Engine(o => o.EnableModules(
+        var engine = new Engine(o => o.UseModules(
             new ThrowingModuleLoader(new OperationCanceledException("transport canceled"))));
 
         Invoking(() => engine.Modules.Import("cancel"))
@@ -844,7 +844,7 @@ public sealed class HostModuleGraphSecurityTests
     [Fact]
     public void OrdinaryTimeoutFromSynchronousLoaderIsALoadFailure()
     {
-        var engine = new Engine(o => o.EnableModules(
+        var engine = new Engine(o => o.UseModules(
             new ThrowingModuleLoader(new TimeoutException("transport timed out"))));
 
         Invoking(() => engine.Modules.Import("timeout"))
@@ -855,7 +855,7 @@ public sealed class HostModuleGraphSecurityTests
     [Fact]
     public void OrdinaryTimeoutFromStartImportResolveIsALoadFailure()
     {
-        var engine = new Engine(o => o.EnableModules(
+        var engine = new Engine(o => o.UseModules(
             new ThrowingResolveLoader(new TimeoutException("transport timed out"))));
 
         var operation = engine.Modules.StartImport("timeout");
@@ -868,7 +868,7 @@ public sealed class HostModuleGraphSecurityTests
     [Fact]
     public void OrdinaryTimeoutFromAsyncLoaderIsALoadFailure()
     {
-        var engine = new Engine(o => o.EnableModules(
+        var engine = new Engine(o => o.UseModules(
             new FaultingAsyncModuleLoader(new TimeoutException("transport timed out"))));
 
         var operation = engine.Modules.StartImport("timeout");
@@ -885,8 +885,8 @@ public sealed class HostModuleGraphSecurityTests
         cancellation.Cancel();
         var engine = new Engine(o =>
         {
-            o.CancellationToken(cancellation.Token);
-            o.EnableModules(new ThrowingModuleLoader(
+            o.ObserveCancellation(cancellation.Token);
+            o.UseModules(new ThrowingModuleLoader(
                 new OperationCanceledException(cancellation.Token)));
         });
 
@@ -899,8 +899,8 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.TimeoutInterval(TimeSpan.FromMilliseconds(1));
-            o.EnableModules(new TimingOutEngineModuleLoader());
+            o.LimitExecutionTime(TimeSpan.FromMilliseconds(1));
+            o.UseModules(new TimingOutEngineModuleLoader());
         });
 
         Invoking(() => engine.Modules.Import("timeout"))
@@ -912,8 +912,8 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.TimeoutInterval(TimeSpan.FromMilliseconds(1));
-            o.EnableModules(new TimingOutAsyncModuleLoader());
+            o.LimitExecutionTime(TimeSpan.FromMilliseconds(1));
+            o.UseModules(new TimingOutAsyncModuleLoader());
         });
 
         Invoking(() => engine.Modules.StartImport("timeout"))
@@ -925,8 +925,8 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.RegexTimeoutInterval(TimeSpan.FromMilliseconds(1));
-            o.EnableModules(new RegexTimingOutEngineModuleLoader());
+            o.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(1);
+            o.UseModules(new RegexTimingOutEngineModuleLoader());
         });
 
         Invoking(() => engine.Modules.Import("timeout"))
@@ -940,8 +940,8 @@ public sealed class HostModuleGraphSecurityTests
         cancellation.Cancel();
         var engine = new Engine(o =>
         {
-            o.CancellationToken(cancellation.Token);
-            o.EnableModules(new CancelingAsyncModuleLoader());
+            o.ObserveCancellation(cancellation.Token);
+            o.UseModules(new CancelingAsyncModuleLoader());
         });
 
         Invoking(() => engine.Modules.StartImport("cancel"))
@@ -957,7 +957,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(modules));
+            o.UseModules(new DictLoader(modules));
             o.Modules.LoadPolicy = new DenyAllPolicy();
         });
 
@@ -972,7 +972,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(modules));
+            o.UseModules(new DictLoader(modules));
             o.Modules.LoadPolicy = new AllowAllPolicy();
         });
 
@@ -990,7 +990,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(modules));
+            o.UseModules(new DictLoader(modules));
             o.Modules.LoadPolicy = policy;
         });
 
@@ -1006,7 +1006,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(modules));
+            o.UseModules(new DictLoader(modules));
             o.Modules.LoadPolicy = policy;
         });
 
@@ -1024,7 +1024,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new BareLoader(modules));
+            o.UseModules(new BareLoader(modules));
             o.Modules.LoadPolicy = policy;
         });
 
@@ -1045,7 +1045,7 @@ public sealed class HostModuleGraphSecurityTests
 
         var engine = new Engine(o =>
         {
-            o.EnableModules(new BareLoader(modules));
+            o.UseModules(new BareLoader(modules));
             o.Modules.LoadPolicy = policy;
         });
 
@@ -1063,7 +1063,7 @@ public sealed class HostModuleGraphSecurityTests
         };
         var engine = new Engine(o =>
         {
-            o.EnableModules(new UriLoader());
+            o.UseModules(new UriLoader());
             o.Modules.LoadPolicy = policy;
         });
 
@@ -1080,14 +1080,14 @@ public sealed class HostModuleGraphSecurityTests
         var policy = new ModuleAllowlistPolicy { AllowedFileRoots = { "/allowed" } };
         var allowed = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(
+            o.UseModules(new DictLoader(
                 new Dictionary<string, string> { ["a.js"] = "export default 1;" },
                 "/allowed"));
             o.Modules.LoadPolicy = policy;
         });
         var sibling = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(
+            o.UseModules(new DictLoader(
                 new Dictionary<string, string> { ["a.js"] = "export default 1;" },
                 "/allowed-sibling"));
             o.Modules.LoadPolicy = policy;
@@ -1103,7 +1103,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.EnableModules(new UriLoader());
+            o.UseModules(new UriLoader());
             o.Modules.LoadPolicy = new ModuleAllowlistPolicy
             {
                 AllowedFileRoots = { "/allowed" },
@@ -1119,7 +1119,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         var engine = new Engine(o =>
         {
-            o.EnableModules(new DictLoader(
+            o.UseModules(new DictLoader(
                 new Dictionary<string, string> { ["a.js"] = "export default 1;" },
                 "/allowed"));
             o.Modules.LoadPolicy = new ModuleAllowlistPolicy
@@ -1141,7 +1141,7 @@ public sealed class HostModuleGraphSecurityTests
         {
             Directory.CreateDirectory(child);
             File.WriteAllText(Path.Combine(root, "outside.js"), "export default 1;");
-            var engine = new Engine(o => o.EnableModules(child));
+            var engine = new Engine(o => o.UseModules(child));
 
             Invoking(() => engine.Modules.Import("../outside.js"))
                 .Should().Throw<ModuleResolutionException>();
@@ -1162,7 +1162,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         Invoking(() => new Engine(o =>
         {
-            o.EnableModules(new DictLoader(new Dictionary<string, string>()));
+            o.UseModules(new DictLoader(new Dictionary<string, string>()));
             o.Modules.MaxModuleCount = 0;
         })).Should().Throw<ArgumentException>();
     }
@@ -1172,7 +1172,7 @@ public sealed class HostModuleGraphSecurityTests
     {
         Invoking(() => new Engine(o =>
         {
-            o.EnableModules(new DictLoader(new Dictionary<string, string>()));
+            o.UseModules(new DictLoader(new Dictionary<string, string>()));
             o.Modules.MaxModuleResolutionHops = -1;
         })).Should().Throw<ArgumentException>();
     }
@@ -1188,7 +1188,7 @@ public sealed class HostModuleGraphSecurityTests
             modules[$"m{i}.js"] = "export default " + i + ";";
         }
 
-        var engine = new Engine(o => o.EnableModules(new DictLoader(modules)));
+        var engine = new Engine(o => o.UseModules(new DictLoader(modules)));
 
         for (var i = 0; i < 50; i++)
         {

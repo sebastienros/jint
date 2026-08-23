@@ -132,7 +132,7 @@ public class ParserOptionsPropagationTests
             else if (sourceKind == SourceKind.ModuleViaFactory)
             {
                 var moduleScript = new ModuleScript(prepare, code, parsingOptions);
-                engine = new Engine(o => o.EnableModules(moduleScript));
+                engine = new Engine(o => o.UseModules(moduleScript));
             }
             else
             {

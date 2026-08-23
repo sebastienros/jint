@@ -55,7 +55,7 @@ public class InteropStaticMemberCacheTests
 
         static double ReadStaticMember(TypeResolver resolver)
         {
-            var engine = new Engine(options => options.SetTypeResolver(resolver));
+            var engine = new Engine(options => options.Interop.TypeResolver = resolver);
             engine.SetValue("Holder", TypeReference.CreateTypeReference<CachedMemberHolder>(engine));
             return engine.Evaluate("Holder.Value").AsNumber();
         }
@@ -65,11 +65,11 @@ public class InteropStaticMemberCacheTests
     public void StaticAllowGetTypePolicyPartitionsTheCache()
     {
         var resolver = new TypeResolver();
-        var restricted = new Engine(options => options.SetTypeResolver(resolver));
+        var restricted = new Engine(options => options.Interop.TypeResolver = resolver);
         restricted.SetValue("Holder", TypeReference.CreateTypeReference<StaticGetTypeHost>(restricted));
         var permissive = new Engine(options =>
         {
-            options.SetTypeResolver(resolver);
+            options.Interop.TypeResolver = resolver;
             options.Interop.AllowGetType = true;
         });
         permissive.SetValue("Holder", TypeReference.CreateTypeReference<StaticGetTypeHost>(permissive));
@@ -83,12 +83,12 @@ public class InteropStaticMemberCacheTests
     public void ConstructorCacheBelongsToTheResolver()
     {
         var denied = new TypeResolver { MemberFilter = static _ => false };
-        var deniedEngine = new Engine(options => options.SetTypeResolver(denied));
+        var deniedEngine = new Engine(options => options.Interop.TypeResolver = denied);
         deniedEngine.SetValue("Host", TypeReference.CreateTypeReference<ConstructorHost>(deniedEngine));
         Invoking(() => deniedEngine.Evaluate("new Host()")).Should().Throw<Jint.Runtime.JavaScriptException>();
 
         var allowed = new TypeResolver();
-        var allowedEngine = new Engine(options => options.SetTypeResolver(allowed));
+        var allowedEngine = new Engine(options => options.Interop.TypeResolver = allowed);
         allowedEngine.SetValue("Host", TypeReference.CreateTypeReference<ConstructorHost>(allowedEngine));
         allowedEngine.Evaluate("new Host().Value").Should().Be(42);
     }

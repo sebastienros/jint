@@ -20,13 +20,13 @@ public sealed partial class Options
     /// spelling most hosts want. The group is here for the settings those extensions do not name.
     /// </para>
     /// <para>
-    /// Unlike the other option groups this one is allocated on first touch rather than with the
-    /// <see cref="Options"/> instance, so a host that never asks for a web API pays nothing for the group
-    /// existing — <see cref="Apply"/> reads the backing field and never forces it. Touching the property is
-    /// therefore a host-thread act like any other option mutation; an engine build never does it.
+    /// Like every option group it is allocated on first touch, so a host that never asks for a web API pays
+    /// nothing for the group existing — <see cref="Apply"/> reads the backing field and never forces it.
+    /// Touching the property is therefore a host-thread act like any other option mutation; an engine build
+    /// never does it.
     /// </para>
     /// </remarks>
-    public WebApiOptions WebApi => _webApi ??= new WebApiOptions();
+    public WebApiOptions WebApi => Materialize(ref _webApi);
 
     private WebApiOptions? _webApi;
 
@@ -57,19 +57,25 @@ public sealed partial class Options
         /// Settings for the <c>console</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Console"/>.
         /// </summary>
-        public ConsoleOptions Console { get; } = new();
+        public ConsoleOptions Console => Materialize(ref _console);
+
+        private ConsoleOptions? _console;
 
         /// <summary>
         /// Settings for the timer functions, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Timers"/>.
         /// </summary>
-        public TimerOptions Timers { get; } = new();
+        public TimerOptions Timers => Materialize(ref _timers);
+
+        private TimerOptions? _timers;
 
         /// <summary>
         /// Settings for <c>fetch</c>, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Fetch"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public FetchOptions Fetch { get; } = new();
+        public FetchOptions Fetch => Materialize(ref _fetch);
+
+        private FetchOptions? _fetch;
 
         /// <summary>
         /// Where the engine reports script errors nobody caught. Unlike everything else in this group it is
@@ -77,32 +83,59 @@ public sealed partial class Options
         /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
         /// <c>reportError</c> function that feeds it.
         /// </summary>
-        public DiagnosticsOptions Diagnostics { get; } = new();
+        public DiagnosticsOptions Diagnostics => Materialize(ref _diagnostics);
+
+        private DiagnosticsOptions? _diagnostics;
 
         /// <summary>
         /// Settings for <c>localStorage</c> and <c>sessionStorage</c>, installed when <see cref="Features"/>
         /// contains <see cref="WebApiFeatures.Storage"/>.
         /// </summary>
-        public StorageOptions Storage { get; } = new();
+        public StorageOptions Storage => Materialize(ref _storage);
+
+        private StorageOptions? _storage;
 
         /// <summary>
         /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public CacheOptions Cache { get; } = new();
+        public CacheOptions Cache => Materialize(ref _cache);
+
+        private CacheOptions? _cache;
 
         /// <summary>
         /// Settings for channel messaging, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Messaging"/>.
         /// </summary>
-        public MessagingOptions Messaging { get; } = new();
+        public MessagingOptions Messaging => Materialize(ref _messaging);
+
+        private MessagingOptions? _messaging;
 
         /// <summary>
         /// Settings for <c>Worker</c>, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Workers"/> — which <see cref="WebApiFeatures.Default"/> never does — and
         /// <see cref="Options.WorkerOptions.Provider"/> names a provider.
         /// </summary>
-        public WorkerOptions Workers { get; } = new();
+        public WorkerOptions Workers => Materialize(ref _workers);
+
+        private WorkerOptions? _workers;
+
+        internal WebApiOptions Clone()
+        {
+            // MemberwiseClone would share the sub-groups with the original, which is exactly what the
+            // untrusted-code profile's private snapshot must not do. A sub-group nobody materialized stays
+            // unmaterialized in the copy.
+            var clone = (WebApiOptions) MemberwiseClone();
+            clone._console = _console?.Clone();
+            clone._timers = _timers?.Clone();
+            clone._fetch = _fetch?.Clone();
+            clone._diagnostics = _diagnostics?.Clone();
+            clone._storage = _storage?.Clone();
+            clone._cache = _cache?.Clone();
+            clone._messaging = _messaging?.Clone();
+            clone._workers = _workers?.Clone();
+            return clone;
+        }
     }
 
     /// <summary>
@@ -137,6 +170,8 @@ public sealed partial class Options
         /// </para>
         /// </remarks>
         public BroadcastChannelBroker? Broker { get; set; }
+
+        internal MessagingOptions Clone() => (MessagingOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -213,6 +248,8 @@ public sealed partial class Options
         /// </para>
         /// </remarks>
         public int MaxQueuedMessages { get; set; } = 16384;
+
+        internal WorkerOptions Clone() => (WorkerOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -277,6 +314,8 @@ public sealed partial class Options
         /// no "unlimited" sentinel — <see cref="long.MaxValue"/> is how that is spelled.
         /// </remarks>
         public long MaxTotalBytes { get; set; } = DefaultMaxTotalBytes;
+
+        internal StorageOptions Clone() => (StorageOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -314,6 +353,8 @@ public sealed partial class Options
         /// </para>
         /// </remarks>
         public CacheStorageProvider? Provider { get; set; }
+
+        internal CacheOptions Clone() => (CacheOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -474,6 +515,8 @@ public sealed partial class Options
         /// effectively unbounded; zero or less refuses every request.
         /// </remarks>
         public int MaxConcurrentRequests { get; set; } = 10;
+
+        internal FetchOptions Clone() => (FetchOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -493,6 +536,8 @@ public sealed partial class Options
         /// <see cref="ConsoleSink.Null"/>.
         /// </remarks>
         public ConsoleSink Sink { get; set; } = ConsoleSink.Null;
+
+        internal ConsoleOptions Clone() => (ConsoleOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -570,6 +615,8 @@ public sealed partial class Options
         /// </para>
         /// </remarks>
         public TimeSpan IdleBudget { get; set; } = TimeSpan.FromMilliseconds(50);
+
+        internal TimerOptions Clone() => (TimerOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -605,6 +652,8 @@ public sealed partial class Options
         /// </para>
         /// </remarks>
         public DiagnosticsSink? Sink { get; set; }
+
+        internal DiagnosticsOptions Clone() => (DiagnosticsOptions) MemberwiseClone();
     }
 }
 
