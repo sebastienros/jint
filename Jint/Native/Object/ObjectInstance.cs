@@ -1054,8 +1054,8 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// read up the prototype chain. A <c>false</c> returned merely because the value was awkward to produce
     /// therefore does not fall back: it makes the read resolve on the prototype, or evaluate to
     /// <c>undefined</c>, for a property that exists. This is the same obligation
-    /// <see cref="ProbeOwnProperty"/> carries, and a Debug build of Jint verifies both directions of it on
-    /// every read.
+    /// <see cref="ProbeOwnProperty"/> carries, and a build with host-contract verification on verifies both
+    /// directions of it on every read.
     /// </para>
     /// <para>
     /// <b>When you cannot answer,</b> call <c>base.TryGetOwnPropertyValue(property, receiver, out value)</c>.
