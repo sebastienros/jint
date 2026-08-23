@@ -30,6 +30,17 @@ namespace Jint.WebApi.Console;
 /// holds and two engines never share a counter.
 /// </para>
 /// <para>
+/// Its <c>[[Prototype]]</c> is a private empty object rather than <c>%Object.prototype%</c>, which
+/// https://console.spec.whatwg.org/#console-namespace requires of this namespace object and of no other:
+/// "For historical web-compatibility reasons, the namespace object for console must have as its
+/// <c>[[Prototype]]</c> an empty object, created as if by <c>ObjectCreate(%ObjectPrototype%)</c>, instead of
+/// <c>%ObjectPrototype%</c>." The rule exists because libraries decorate logging by patching
+/// <c>console.__proto__</c>, and it is a containment boundary as much as a conformance one: with
+/// <c>%ObjectPrototype%</c> there, <c>console.__proto__.foo = …</c> would define <c>foo</c> on every object
+/// in the realm. The members stay own properties of this object, exactly as they are in a browser and in
+/// Node, so the empty object above it is only ever a landing pad.
+/// </para>
+/// <para>
 /// Two documented simplifications against WebIDL. The methods are non-enumerable, where a WebIDL namespace
 /// object's operations are enumerable; and the object is installed as an ordinary enumerable data property
 /// of the global rather than through an accessor pair. Neither is observable except to code inspecting
@@ -69,7 +80,13 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     internal ConsoleInstance(Engine engine, Realm realm, ObjectPrototype objectPrototype) : base(engine)
     {
         _realm = realm;
-        _prototype = objectPrototype;
+
+        // https://console.spec.whatwg.org/#console-namespace — the namespace object's [[Prototype]] is an
+        // empty object created as if by ObjectCreate(%ObjectPrototype%), not %ObjectPrototype% itself. It is
+        // built here rather than in the intrinsics because it belongs to this object and to nothing else: an
+        // engine whose script never names `console` never reaches this constructor, so the extra object costs
+        // an engine that does not use the feature nothing at all.
+        _prototype = OrdinaryObjectCreate(engine, objectPrototype);
     }
 
     protected override void Initialize()

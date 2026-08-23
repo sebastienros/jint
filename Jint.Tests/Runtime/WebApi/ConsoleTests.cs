@@ -485,6 +485,117 @@ public class ConsoleTests
         engine.Evaluate("console[Symbol.toStringTag]").AsString().Should().Be("console");
     }
 
+    /// <summary>
+    /// https://console.spec.whatwg.org/#console-namespace — "For historical web-compatibility reasons, the
+    /// namespace object for console must have as its [[Prototype]] an empty object, created as if by
+    /// ObjectCreate(%ObjectPrototype%), instead of %ObjectPrototype%."
+    /// </summary>
+    /// <remarks>
+    /// The three columns are the three the rule constrains, and Node 24 answers <c>false</c>, <c>0</c> and
+    /// <c>true</c> to them. <c>idlharness.js</c> asserts exactly this, for <c>console</c> and for nothing
+    /// else.
+    /// </remarks>
+    [Fact]
+    public void SitsOnAPrivateEmptyPrototypeRatherThanOnObjectPrototype()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        engine.Evaluate("Object.getPrototypeOf(console) === Object.prototype").AsBoolean().Should().BeFalse();
+        engine.Evaluate("Reflect.ownKeys(Object.getPrototypeOf(console)).length").AsNumber().Should().Be(0);
+        engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(console)) === Object.prototype").AsBoolean().Should().BeTrue();
+
+        // "an empty object, created as if by ObjectCreate(%ObjectPrototype%)": an ordinary, extensible object
+        // and not a second exotic one, and the same object every time it is asked for.
+        engine.Evaluate("Object.getPrototypeOf(console) === Object.getPrototypeOf(console)").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.isExtensible(Object.getPrototypeOf(console))").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.prototype.toString.call(Object.getPrototypeOf(console))").AsString().Should().Be("[object Object]");
+
+        // The chain still ends at %Object.prototype%, so everything an ordinary object inherits is reachable
+        // through console exactly as before.
+        engine.Evaluate("typeof console.hasOwnProperty").AsString().Should().Be("function");
+        engine.Evaluate("console.hasOwnProperty('log')").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Where the members live is not what the rule changes: the operations stay own properties of the
+    /// namespace object, which is what a WebIDL namespace object carries
+    /// (https://webidl.spec.whatwg.org/#es-namespaces) and what Node 24 answers — its
+    /// <c>Object.getOwnPropertyNames(console)</c> lists every method, and the object above it lists nothing.
+    /// </summary>
+    [Fact]
+    public void KeepsItsMembersOnTheNamespaceObjectItself()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        var members = new[]
+        {
+            "log", "info", "warn", "error", "debug", "trace", "assert", "dir", "table", "timeStamp",
+            "group", "groupCollapsed", "groupEnd", "count", "countReset", "time", "timeLog", "timeEnd",
+        };
+
+        foreach (var member in members)
+        {
+            engine.Evaluate($"Object.prototype.hasOwnProperty.call(console, '{member}')").AsBoolean().Should().BeTrue(member);
+            engine.Evaluate($"Object.prototype.hasOwnProperty.call(Object.getPrototypeOf(console), '{member}')").AsBoolean().Should().BeFalse(member);
+        }
+
+        // The tag is an own symbol of the namespace object too, which is what keeps `[object console]` true.
+        engine.Evaluate("Object.getOwnPropertySymbols(console).indexOf(Symbol.toStringTag) >= 0").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.prototype.toString.call(console)").AsString().Should().Be("[object console]");
+    }
+
+    /// <summary>
+    /// The web-compatibility reason the rule exists, and the containment consequence of getting it wrong: a
+    /// library decorating logging through the object above <c>console</c> must reach a throwaway object, not
+    /// every object in the realm.
+    /// </summary>
+    [Fact]
+    public void PatchingConsolesPrototypeDoesNotReachObjectPrototype()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        // The idiom itself, verbatim: this is what the patching libraries the rule was written for do.
+        engine.Execute("console.__proto__.decorated = 42;");
+
+        // It still works on console, which is the whole point of allowing it.
+        engine.Evaluate("console.decorated").AsNumber().Should().Be(42);
+
+        // And it reaches nothing else.
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("'decorated' in {}").AsBoolean().Should().BeFalse();
+        engine.Evaluate("({}).decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("[].decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("(function () {}).decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("'s'.decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("JSON.stringify(Object.keys({ a: 1 }))").AsString().Should().Be("[\"a\"]");
+
+        // Object.setPrototypeOf(console, x) was always contained; assert it stays so, and that replacing the
+        // prototype leaves %Object.prototype% untouched as well.
+        engine.Execute("Object.setPrototypeOf(console, { replaced: 1 });");
+        engine.Evaluate("console.replaced").AsNumber().Should().Be(1);
+        engine.Evaluate("console.decorated").IsUndefined().Should().BeTrue();
+        engine.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'replaced')").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The prototype is per realm, like the namespace object it sits under, so one engine's patch is not
+    /// another's.
+    /// </summary>
+    [Fact]
+    public void GivesEachEngineItsOwnConsolePrototype()
+    {
+        var options = new Options().UseWebApis();
+
+        var first = new Engine(options);
+        var second = new Engine(options);
+
+        first.Execute("console.__proto__.decorated = 42;");
+
+        first.Evaluate("console.decorated").AsNumber().Should().Be(42);
+        second.Evaluate("console.decorated").IsUndefined().Should().BeTrue();
+        second.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
+    }
+
     [Fact]
     public void CountsAndTimersAreOwnedByTheEngine()
     {
