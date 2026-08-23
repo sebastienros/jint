@@ -872,6 +872,10 @@ citation and an argued decision, never a to-do — and the rule that age alone n
 
 ## The whole corpus, standard by standard
 
+**This table is generated, not maintained.** `Jint.Tests/Wpt/WptCensusTests.cs` derives every figure in it
+from the corpus and fails when the README disagrees — see [Taking the census](#taking-the-census) below for
+the two halves of that check and the one command that rewrites the table.
+
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
 the shim did not record `PASS`, which is exactly the set the table names. Re-measured in full for
 [#3212](https://github.com/sebastienros/jint/issues/3212), which is why five rows move at once: the Fetch row
@@ -899,8 +903,8 @@ Re-censused whole rather than adjusted row by row, because several rows had gone
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
 270 files / 40,631 assertions / 2,907 not passing, where this table read 269 / 40,617 / 2,980 — and Streams
 (16 against a real 11), Compression (84 against 22), User Timing (9 against 5) and DOM (2 against 0) were each
-carrying a number a later fix had already improved. Take the census again when a change moves any of them; it
-is one run of the driver with the results tallied per directory.
+carrying a number a later fix had already improved. That class of drift is what the census closes: those four
+rows were arithmetic the driver already did, and nothing checked the prose against it.
 
 Two of those rows are worth a caveat. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,
@@ -930,8 +934,69 @@ directories with no vendored file at all are `fetch/api/request/` (no API base U
 above, the `WebCryptoAPI` directories listed above, and `xhr/` (there is no `XMLHttpRequest` in the engine —
 the shim's is a vendored-corpus reader for the suites that need one, never an implementation).
 
+## Taking the census
+
+The table above is derived from the corpus by `Jint.Tests/Wpt/WptCensusTests.cs`, in two halves split by what
+each column costs to know.
+
+`TheInventoryTableNamesEveryStandardAndCountsItsFilesAndSuites` holds the **Standard**, **Suites** and
+**Files** columns. Those are read off the embedded corpus — a row's files are its directory's `.any.js` files,
+and its suites are the directories they sit in — so it needs no execution, runs on every platform and in every
+filtered run, and costs a few milliseconds. It is also what catches a corpus arriving with no row of its own:
+the census prefixes have to partition every vendored `.any.js`, so vendoring a new standard fails this test
+until the standard is named.
+
+`TheInventoryTableMatchesWhatTheCorpusMeasures` holds all five columns, which means running the suites. It is
+**opt-in**, because it is the only part that costs anything: it reuses every outcome the driver already
+produced — `WptHarness.Run` hands each file's results to `WptCensus` on the way back out — but a full
+`Jint.Tests` pass still measured 65 s → 85 s with it always on. The PR workflow's Windows leg sets the
+variable, so that is where the table is enforced; an ordinary run pays nothing. Windows only, in both modes,
+because assertion counts move per operating system — the Web Cryptography row most of all — and this table is
+measured on Windows.
+
+```bash
+# check the table (about a minute; it censuses the whole corpus)
+JINT_WPT_CENSUS=1 dotnet test -c Release Jint.Tests/Jint.Tests.csproj -f net10.0 \
+  --filter "FullyQualifiedName~Jint.Tests.Wpt.WptCensusTests"
+
+# rewrite the table from what the corpus measures, then commit the diff
+JINT_WPT_CENSUS=update dotnet test -c Release Jint.Tests/Jint.Tests.csproj -f net10.0 \
+  --filter "FullyQualifiedName~Jint.Tests.Wpt.WptCensusTests"
+```
+
+A failure prints the stated table and the measured one side by side, so the rows that moved are the rows that
+differ.
+
 ## Updating the pin
 
 Resolve `master` to a concrete commit, re-fetch every file in this directory at that commit, update the SHA
 above, and run the suites. Expect the exclusion table to need work in the same change: the driver fails on an
-entry that no longer applies, which is the point.
+entry that no longer applies, which is the point. Re-run the census afterwards — a bump moves nearly every row
+of the table above.
+
+### Verifying that nothing has drifted
+
+Vendored files are copied verbatim, and the failure mode is silent: a file that has quietly diverged from the
+pin still runs, still passes, and stops testing what upstream asserts. Checking is mechanical, and needs no
+downloads — a GitHub blob id *is* `git hash-object` of the content, and `.gitattributes` pins this whole
+directory to `text eol=lf` precisely so a Windows checkout cannot make the two disagree.
+
+```bash
+cd Jint.Tests/Wpt/Vendor
+SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
+
+# one call per directory that holds a vendored file (48 at this pin)
+for d in $(find . -type f \( -name '*.js' -o -name '*.json' \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
+  gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
+     --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
+done > /tmp/upstream.txt
+
+find . -type f \( -name '*.js' -o -name '*.json' \) | sort | while read -r f; do
+  rel="${f#./}"
+  up=$(grep -m1 " ${rel}$" /tmp/upstream.txt | cut -d' ' -f1)
+  [ -z "$up" ] && { echo "NOT-IN-UPSTREAM: $rel"; continue; }
+  [ "$(git hash-object "$f")" = "$up" ] || echo "DRIFT: $rel"
+done
+```
+
+Silence is a clean corpus. Verified at this pin: 359 files, no drift, no file absent upstream.

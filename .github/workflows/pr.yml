@@ -29,10 +29,17 @@ jobs:
         os:
           - { name: 'linux', image: 'ubuntu-latest' }
           - { name: 'linux - ARM', image: 'ubuntu-24.04-arm' }
-          - { name: 'windows', image: 'windows-latest' }
+          # The WPT corpus inventory in Jint.Tests/Wpt/Vendor/README.md is measured on Windows — assertion
+          # counts move per operating system — so this is the one leg entitled to check it. The census reuses
+          # the outcomes the suites produce anyway and cost 65 s -> 85 s of Jint.Tests when it was measured
+          # always-on, which is why it is opt-in everywhere else rather than part of an ordinary run.
+          - { name: 'windows', image: 'windows-latest', census: '1' }
           - { name: 'macos', image: 'macos-latest' }
 
     runs-on: ${{ matrix.os.image }}
+
+    env:
+      JINT_WPT_CENSUS: ${{ matrix.os.census }}
 
     steps:
 

@@ -142,9 +142,15 @@ internal static class WptHarness
     internal static WptRunOutcome Run(string testFilePath)
     {
         var directory = WptCorpus.DirectoryOf(testFilePath);
-        return RunsInAWorker(testFilePath)
+        var outcome = RunsInAWorker(testFilePath)
             ? RunInWorker(testFilePath, directory)
             : Execute(directory, MetaScripts(testFilePath, directory), WptCorpus.Read(testFilePath), testFilePath);
+
+        // The corpus inventory in Vendor/README.md is tallied from the run rather than maintained by hand, and
+        // this is the one place every vendored file's outcome comes back through. Recording it here rather
+        // than in the theory keeps the census out of the driver's own rules entirely — see WptCensus.
+        WptCensus.Record(testFilePath, outcome);
+        return outcome;
     }
 
     /// <summary>
