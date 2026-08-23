@@ -169,12 +169,16 @@ internal sealed partial class ReadableStreamPrototype : Prototype
     }
 
     /// <summary>
-    /// https://streams.spec.whatwg.org/#rs-tee
+    /// https://streams.spec.whatwg.org/#rs-tee — "return ? ReadableStreamTee(this, false)".
     /// </summary>
+    /// <remarks>
+    /// The <see langword="false"/> is the whole difference between this and the tee a <c>clone()</c> runs:
+    /// both branches of <c>tee()</c> are handed the very same chunk object, deliberately and normatively.
+    /// </remarks>
     [JsFunction(Name = "tee", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray Tee(JsValue thisObject)
     {
-        var (branch1, branch2) = ReadableStreamOperations.Tee(Brand(thisObject));
+        var (branch1, branch2) = ReadableStreamOperations.Tee(Brand(thisObject), cloneForBranch2: false);
         return new JsArray(_engine, [branch1, branch2]);
     }
 

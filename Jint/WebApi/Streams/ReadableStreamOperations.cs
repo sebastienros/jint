@@ -87,14 +87,26 @@ internal static class ReadableStreamOperations
     /// https://streams.spec.whatwg.org/#readable-stream-tee — which of the two tee algorithms applies is
     /// decided by the kind of controller the stream has, and only here.
     /// </summary>
-    internal static (JsReadableStream Branch1, JsReadableStream Branch2) Tee(JsReadableStream stream)
+    /// <param name="stream">The stream to tee.</param>
+    /// <param name="cloneForBranch2">
+    /// The specification's second argument: <see langword="false"/> for <c>tee()</c>, which is the only
+    /// caller that hands both branches the same chunk object, and <see langword="true"/> for every caller
+    /// that goes through https://streams.spec.whatwg.org/#readablestream-tee — the wrapper other standards
+    /// use, and the one https://fetch.spec.whatwg.org/#concept-body-clone reaches.
+    /// <para>
+    /// It has no effect on a byte stream, exactly as the specification writes it: step 3 dispatches to
+    /// ReadableByteStreamTee(<i>stream</i>) without passing the argument on, because that algorithm already
+    /// clones every chunk for its second branch unconditionally.
+    /// </para>
+    /// </param>
+    internal static (JsReadableStream Branch1, JsReadableStream Branch2) Tee(JsReadableStream stream, bool cloneForBranch2)
     {
         if (stream.Controller is JsReadableByteStreamController)
         {
             return ReadableByteStreamTee.Tee(stream);
         }
 
-        return ReadableStreamTee.Tee(stream);
+        return ReadableStreamTee.Tee(stream, cloneForBranch2);
     }
 
     /// <summary>

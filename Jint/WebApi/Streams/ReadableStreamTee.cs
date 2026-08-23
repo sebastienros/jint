@@ -2,20 +2,28 @@
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.WebApi.StructuredClone;
 
 namespace Jint.WebApi.Streams;
 
 /// <summary>
 /// https://streams.spec.whatwg.org/#readable-stream-default-tee — the algorithm behind
-/// <c>ReadableStream.prototype.tee()</c>.
+/// <c>ReadableStream.prototype.tee()</c>, and the one <c>clone</c> reaches through
+/// https://streams.spec.whatwg.org/#readablestream-tee.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The two branches read from one reader over the original stream, which is locked for as long as they
-/// exist. Each branch has its own queue and its own consumer, so one may run far ahead of the other; a chunk
-/// is handed to both branches <b>by reference</b> (this is the non-byte-stream tee, which never clones), so
-/// two consumers of a mutable chunk can interfere with each other. That is the standard's own caveat, not an
-/// implementation shortcut.
+/// exist. Each branch has its own queue and its own consumer, so one may run far ahead of the other.
+/// </para>
+/// <para>
+/// <b>Whether the second branch gets the chunk itself or a structured clone of it is the algorithm's
+/// <i>cloneForBranch2</i> parameter, and nothing else.</b> <c>tee()</c> passes <see langword="false"/> — the
+/// chunks seen in each branch are then the same object, so two consumers of a mutable chunk can interfere
+/// with each other, which is the standard's own caveat rather than an implementation shortcut. Every other
+/// specification reaches the tee through the "tee a <c>ReadableStream</c>" wrapper, which passes
+/// <see langword="true"/>; https://fetch.spec.whatwg.org/#concept-body-clone is the one that matters here,
+/// and it is what stops a <c>Response</c> and its <c>clone()</c> sharing a buffer.
 /// </para>
 /// <para>
 /// Cancelling one branch does not cancel the original: only when <i>both</i> have been cancelled is the
@@ -29,6 +37,7 @@ internal sealed class ReadableStreamTee
     private readonly JsReadableStream _stream;
     private readonly JsReadableStreamDefaultReader _reader;
     private readonly PromiseCapability _cancelCapability;
+    private readonly bool _cloneForBranch2;
 
     private bool _reading;
     private bool _readAgain;
@@ -39,21 +48,27 @@ internal sealed class ReadableStreamTee
     private JsReadableStream _branch1 = null!;
     private JsReadableStream _branch2 = null!;
 
-    private ReadableStreamTee(JsReadableStream stream)
+    private ReadableStreamTee(JsReadableStream stream, bool cloneForBranch2)
     {
         _engine = stream.Engine;
         _realm = stream.Realm;
         _stream = stream;
         _reader = ReadableStreamOperations.AcquireDefaultReader(stream);
         _cancelCapability = StreamPromises.NewPromise(_engine, _realm);
+        _cloneForBranch2 = cloneForBranch2;
     }
 
     /// <summary>
     /// Tees <paramref name="stream"/> and returns its two branches, in order.
     /// </summary>
-    internal static (JsReadableStream Branch1, JsReadableStream Branch2) Tee(JsReadableStream stream)
+    /// <param name="stream">The stream to tee, which is locked by the tee's own reader for good.</param>
+    /// <param name="cloneForBranch2">
+    /// The specification's <i>cloneForBranch2</i>: when set, every chunk the second branch is given is a
+    /// StructuredClone of the chunk the first branch is given.
+    /// </param>
+    internal static (JsReadableStream Branch1, JsReadableStream Branch2) Tee(JsReadableStream stream, bool cloneForBranch2)
     {
-        var tee = new ReadableStreamTee(stream);
+        var tee = new ReadableStreamTee(stream, cloneForBranch2);
 
         tee._branch1 = ReadableStreamOperations.CreateReadableStream(
             tee._engine, tee._realm, static () => JsValue.Undefined, tee.PullAlgorithm, tee.Cancel1Algorithm);
@@ -154,7 +169,30 @@ internal sealed class ReadableStreamTee
             {
                 _tee._readAgain = false;
 
-                // Both branches receive the very same chunk: this tee never clones.
+                // Step 3: "let chunk1 and chunk2 be chunk" — the two branches receive the very same object
+                // unless cloneForBranch2 asks for the second to get a StructuredClone of it.
+                var chunk2 = chunk;
+
+                if (!_tee._canceled2 && _tee._cloneForBranch2)
+                {
+                    try
+                    {
+                        chunk2 = StructuredCloner.Clone(_tee._engine, _tee._realm, chunk, transferList: null);
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        // Step 3.2: a chunk the serializer refuses — a function, a Symbol, a detached buffer —
+                        // errors BOTH branches with the DataCloneError and cancels the original with it. The
+                        // first branch is errored too even though its own chunk was fine, and `reading` is
+                        // deliberately left set: this read is the tee's last.
+                        var error = e.Error;
+                        ReadableStreamDefaultControllerOperations.Error(_tee._branch1.DefaultController, error);
+                        ReadableStreamDefaultControllerOperations.Error(_tee._branch2.DefaultController, error);
+                        _tee._cancelCapability.Resolve(ReadableStreamOperations.Cancel(_tee._stream, error));
+                        return;
+                    }
+                }
+
                 if (!_tee._canceled1)
                 {
                     ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch1.DefaultController, chunk);
@@ -162,7 +200,7 @@ internal sealed class ReadableStreamTee
 
                 if (!_tee._canceled2)
                 {
-                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch2.DefaultController, chunk);
+                    ReadableStreamDefaultControllerOperations.Enqueue(_tee._branch2.DefaultController, chunk2);
                 }
 
                 _tee._reading = false;

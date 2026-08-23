@@ -1079,8 +1079,6 @@ public class WptTestRunner
             "Response.body is null for responses with method=HEAD", WptDivergence.NeedsTriage),
         new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with GET", WptDivergence.NeedsTriage),
         new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with HEAD", WptDivergence.NeedsTriage),
-        new("fetch/api/response/response-clone.any.js",
-            "Check response clone use structureClone for teed ReadableStreams (*chunk)", WptDivergence.NeedsTriage),
 
         // The other half of accept-header.any.js, and not a defect: Accept-Language is a browser reporting
         // the user's language preferences, and there is no user here.

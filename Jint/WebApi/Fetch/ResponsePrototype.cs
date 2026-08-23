@@ -162,10 +162,11 @@ internal sealed partial class ResponsePrototype : Prototype
     /// body, because <c>clone</c> does not return a promise to reject.
     /// </summary>
     /// <remarks>
-    /// The body is cloned per https://fetch.spec.whatwg.org/#concept-body-clone: a streaming body is
-    /// <c>tee()</c>d, so each object gets its own branch with its own queue, and a body still held as bytes
-    /// simply shares them. Either way the used flag is the clone's own, which is what makes the
-    /// <c>const copy = response.clone(); await response.json(); await copy.text();</c> pattern work.
+    /// The body is cloned per https://fetch.spec.whatwg.org/#concept-body-clone: a streaming body is teed,
+    /// so each object gets its own branch with its own queue and its own structurally cloned chunks, and a
+    /// body still held as bytes simply shares them. Either way the used flag is the clone's own, which is
+    /// what makes the <c>const copy = response.clone(); await response.json(); await copy.text();</c>
+    /// pattern work.
     /// </remarks>
     [JsFunction(Name = "clone", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsResponse Clone(JsValue thisObject)
