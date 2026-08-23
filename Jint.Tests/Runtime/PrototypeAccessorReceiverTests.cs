@@ -51,7 +51,9 @@ public class PrototypeAccessorReceiverTests
     [Fact]
     public void ArrayPrototypeKeysPassesTheReceiverToAnInheritedLengthGetter()
     {
-        // Array.prototype.keys/values gate on the same IsArrayLike probe.
+        // Array.prototype.keys/values used to gate on the same IsArrayLike probe; the probe moved into
+        // the iterator's per-next LengthOfArrayLike (see ArrayIteratorReceiverTests), so the getter now
+        // runs from next() instead of from keys() — but it still has to run with the instance as `this`.
         var result = _engine.Evaluate("""
             class List {
                 constructor(items) { this._items = items; }

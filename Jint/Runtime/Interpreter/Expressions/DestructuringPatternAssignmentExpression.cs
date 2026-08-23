@@ -149,7 +149,10 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
             }
             else
             {
-                iterator = obj.GetIterator(realm);
+                // ArrayBindingPattern's step is GetIterator(value, sync) over the *value*, not over
+                // the object ToObject built from it (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization).
+                // The conversion above exists for the array fast path and for the null/undefined throw.
+                iterator = argument.GetIterator(realm);
 
                 // Save the iterator for potential yield inside this pattern
                 if (suspendable is not null && iterator is not null)
@@ -284,8 +287,29 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     JsArray array;
                     if (arrayOperations != null)
                     {
-                        var length = arrayOperations.GetLength();
-                        array = engine.Realm.Intrinsics.Array.ArrayCreate(length - i);
+                        // This lane is gated on HasOriginalIterator, so the receiver is a JsArray, an
+                        // ArrayLikeObject or an array-like ObjectWrapper, and all three count elements in
+                        // the array index range. Clamp rather than cast all the same: a wrapper's "length"
+                        // is whatever its CLR Count/Length property returns, and nothing constrains that
+                        // property's type.
+                        var length = (uint) System.Math.Min(arrayOperations.GetLongLength(), ArrayOperations.MaxArrayLength);
+
+                        // A pattern with more leading elements than the source has already drove the
+                        // notional iterator to done, so the "Repeat, while iteratorRecord.[[Done]] is
+                        // false" of BindingRestElement
+                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratorbindinginitialization)
+                        // and AssignmentRestElement
+                        // (https://tc39.es/ecma262/#sec-runtime-semantics-iteratordestructuringassignmentevaluation)
+                        // adds nothing, and the rest array is empty.
+                        // The subtraction is unsigned, so that case has to be clamped rather than left
+                        // to wrap: with i past length, an unclamped length - i produced a rest array
+                        // claiming close to 2^32 elements, which .length reported and which
+                        // JSON.stringify, a spread and concat all went on to consume. The clamp costs
+                        // the comparison the loop below already makes on its first iteration; the
+                        // subtraction inside that loop needs none, since j starts at i.
+                        var restLength = i < length ? length - i : 0;
+
+                        array = engine.Realm.Intrinsics.Array.ArrayCreate(restLength);
                         for (uint j = i; j < length; ++j)
                         {
                             arrayOperations.TryGetValue(j, out var indexValue);
@@ -505,7 +529,11 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                 var identifier = p.Key as Identifier;
                 if (identifier == null || p.Computed)
                 {
-                    var keyExpression = Build(p.Key);
+                    // Same per-node cache the object-literal and class-body key positions use: this
+                    // method is static and has no handler of its own to hang the key expression on, and a
+                    // freshly built one would lose the replay state a suspension inside the key parked
+                    // under it (`({ [f() + await g()]: v } = o)` called f twice).
+                    var keyExpression = context.Engine.GetOrBuildPropertyKeyExpression(p.Key);
                     var value = keyExpression.GetValue(context);
                     sourceKey = TypeConverter.ToPropertyKey(value);
                 }

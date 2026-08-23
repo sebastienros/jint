@@ -44,16 +44,39 @@ internal sealed class JintFunctionDefinition
     // (This might be different from the Function node, e.g., in the case of class methods.)
     public readonly INode SourceTextNode;
 
+    // Source text for a definition whose text does not live on its function node. That is the shape of a
+    // class with no explicit constructor: the engine borrows one synthesized constructor AST that every
+    // such class shares, and with it one State, so the text has to come from the class node and be
+    // memoized here — where the definition is per class — instead of in that shared State.
+    private SourceText _ownSourceText;
+
     public JintFunctionDefinition(IFunction function, INode sourceTextNode)
     {
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
         JsName = Name is not null ? new JsString(Name) : null;
         SourceTextNode = sourceTextNode;
+
+        if (!ReferenceEquals(sourceTextNode, function))
+        {
+            // Only a class node ever carries retained input of its own; for a method definition this is null
+            // and the function node's own State answers, exactly as it did before.
+            _ownSourceText = new SourceText(((Node) sourceTextNode).UserData as string);
+        }
     }
 
     public JintFunctionDefinition(IFunction function)
         : this(function, function) { }
+
+    /// <summary>
+    /// The source text matched by the production this function was defined by, or <see langword="null"/>
+    /// when the parse did not retain it. https://tc39.es/ecma262/#sec-function.prototype.tostring
+    /// </summary>
+    internal string? GetSourceText()
+    {
+        var sourceTextNode = (Node) SourceTextNode;
+        return Initialize().SourceText.GetValue(sourceTextNode) ?? _ownSourceText.GetValue(sourceTextNode);
+    }
 
     public bool Strict => Function.IsStrict();
 

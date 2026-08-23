@@ -140,7 +140,7 @@ internal sealed class HoistingScope
                                 {
                                     // Re-export of a source-phase import (import source x from "..."; export { x };).
                                     // ParseModule reclassifies this as an indirect export whose ImportName is ~source~.
-                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, "*source*", null));
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ImportName: null, LocalName: null, ModuleImportName.ModuleSource));
                                 }
                                 else if (ie.Phase == ModuleImportPhase.Defer)
                                 {
@@ -148,12 +148,12 @@ internal sealed class HoistingScope
                                     // so the deferred namespace object is returned from the environment binding
                                     localExportEntries.Add(ee);
                                 }
-                                else if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
+                                else if (ie.ImportNameKind == ModuleImportName.Namespace)
                                 {
                                     // Per ECMAScript 16.2.1.7.1 step 10.b.ii:
                                     // This is a re-export of an imported module namespace object.
-                                    // Create an indirect export entry with ImportName: all ("*")
-                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, "*", null));
+                                    // Create an indirect export entry with [[ImportName]]: all.
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ImportName: null, LocalName: null, ModuleImportName.Namespace));
                                 }
                                 else
                                 {
@@ -165,7 +165,7 @@ internal sealed class HoistingScope
                         }
                     }
                 }
-                else if (string.Equals(ee.ImportName, "*", StringComparison.Ordinal) && ee.ExportName is null)
+                else if (ee.ImportNameKind == ModuleImportName.Namespace && ee.ExportName is null)
                 {
                     starExportEntries.Add(ee);
                 }

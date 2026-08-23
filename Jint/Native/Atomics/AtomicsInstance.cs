@@ -64,7 +64,7 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
     /// a list nothing can find. The order is block lock → <see cref="Waiter.SyncRoot"/>, never the reverse: a
     /// suspended agent releases its own monitor before it asks for this one.
     /// </remarks>
-    private sealed class WaiterBlock
+    internal sealed class WaiterBlock
     {
         private readonly Lock _lock = new();
         private readonly Dictionary<int, WaiterList> _lists = new();
@@ -253,72 +253,95 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
     /// <summary>
     /// The waiters of one byte index. Both lists are guarded by the owning <see cref="WaiterBlock"/>'s lock.
     /// </summary>
-    private sealed class WaiterList(int byteIndex)
+    internal sealed class WaiterList(int byteIndex)
     {
         public int ByteIndex { get; } = byteIndex;
         public List<Waiter> SyncWaiters { get; } = [];
         public List<AsyncWaiter> AsyncWaiters { get; } = [];
     }
 
-    private sealed class Waiter
+    internal sealed class Waiter
     {
         public object SyncRoot { get; } = new();
         public bool Notified { get; set; }
     }
 
-    private sealed class AsyncWaiter
+    /// <summary>
+    /// One <c>Atomics.waitAsync</c> in progress: the promise capability to settle, and the single flag that
+    /// decides which of the two routes out of the wait — a wake from <c>Atomics.notify</c>, or its own
+    /// timeout — gets to settle it.
+    /// </summary>
+    internal sealed class AsyncWaiter
     {
         private readonly PromiseCapability _promiseCapability;
         private readonly Engine _engine;
 
         /// <summary>
-        /// The evaluation cycle the wait was registered in, read here on the engine thread. Neither of the
-        /// two ways a wait ends runs on that thread: the timeout fires on a timer thread, and a wake arrives
-        /// from whichever agent calls <c>Atomics.notify</c> on the shared buffer. Reading the generation at
-        /// settle time would therefore read whatever cycle the engine is in by then, and a wait registered
-        /// before a <c>RestoreGlobalSnapshot</c> would resolve its promise into the restored engine.
+        /// The evaluation cycle the wait was registered in, read here on the engine thread. One of the two
+        /// ways a wait ends does not run on that thread: a wake arrives from whichever agent calls
+        /// <c>Atomics.notify</c> on the shared buffer. Reading the generation at settle time would therefore
+        /// read whatever cycle the engine is in by then, and a wait registered before a
+        /// <c>RestoreGlobalSnapshot</c> would resolve its promise into the restored engine.
         /// </summary>
         private readonly int _generation;
 
         /// <summary>
-        /// Cancelled by whichever route settles this wait first, which is what stops the timeout timer.
-        /// Only a wait with a finite timeout has one — an infinite wait starts no timer, so there is
-        /// nothing to cancel.
+        /// The list this wait joined, so that the timeout route can leave it the way the wake route does.
+        /// Written once, on the engine thread, immediately after the wait was added.
         /// </summary>
-        /// <remarks>
-        /// Deliberately never disposed. Nothing here reaches the two things a <c>CancellationTokenSource</c>
-        /// needs disposing for — <c>CancelAfter</c>'s timer and <c>Token.WaitHandle</c>'s kernel event — so
-        /// the source is plain garbage once the wait has settled, and both ends drop it together. Disposing
-        /// it would have to happen on the timer task, which is the one thread that cannot know whether the
-        /// <c>Cancel</c> that woke it has finished running its registrations.
-        /// </remarks>
-        private readonly CancellationTokenSource? _timeoutCancellation;
+        private WaiterBlock? _block;
+        private WaiterList? _list;
 
+        /// <summary>
+        /// Nonzero once one of the two routes has claimed the wait. The compare-and-swap in
+        /// <see cref="Resolve"/> is the whole of the settle-once discipline: whichever route loses it
+        /// enqueues nothing, so the promise is settled exactly once however close the race was.
+        /// </summary>
         private int _resolved;
 
-        public AsyncWaiter(Engine engine, PromiseCapability promiseCapability, bool hasTimeout)
+        public AsyncWaiter(Engine engine, PromiseCapability promiseCapability)
         {
             _engine = engine;
             _promiseCapability = promiseCapability;
             _generation = engine.EventLoopGeneration;
-            _timeoutCancellation = hasTimeout ? new CancellationTokenSource() : null;
         }
 
         public bool Resolved => _resolved != 0;
 
-        public CancellationToken TimeoutToken => _timeoutCancellation?.Token ?? CancellationToken.None;
+        internal void AttachTo(WaiterBlock block, WaiterList list)
+        {
+            _block = block;
+            _list = list;
+        }
+
+        /// <summary>
+        /// The timeout route, run by the event-loop pump once the deadline this wait registered in
+        /// <see cref="Engine.RegisterAtomicsWaiterDeadline"/> has passed. Leaves the waiter list first and
+        /// settles second, which is the order the wake route uses too — so an <c>Atomics.notify</c> arriving
+        /// in between counts this wait as gone rather than waking a wait that is about to report timed-out.
+        /// </summary>
+        internal void SettleTimedOut()
+        {
+            if (Resolved)
+            {
+                // A wake got here first; it has already removed the wait from its list and settled it.
+                return;
+            }
+
+            var block = _block;
+            var list = _list;
+            if (block is not null && list is not null)
+            {
+                block.RemoveAsync(list, this);
+            }
+
+            Resolve("timed-out");
+        }
 
         public void Resolve(string result)
         {
             if (Interlocked.CompareExchange(ref _resolved, 1, 0) == 0)
             {
-                // Stop the timeout timer before anything else. A wake that arrives first would otherwise
-                // leave a thread-pool task sleeping out the rest of the interval with this waiter — and
-                // through it the engine, its realm and the promise capability — alive in its closure, long
-                // after the engine had finished with the wait. Cancelling here is what bounds the timer by
-                // the wait rather than by the clock, whichever of the two routes wins.
-                _timeoutCancellation?.Cancel();
-
                 // Queue microtask to resolve the promise
                 _engine.AddToEventLoop(() =>
                 {
@@ -767,59 +790,23 @@ internal sealed partial class AtomicsInstance : BuiltinShapeObject
         if (bufferData is not null)
         {
             var waiters = _blocks.GetValue(bufferData, _createWaiterBlock);
-            var hasTimeout = !double.IsPositiveInfinity(q);
-            var asyncWaiter = new AsyncWaiter(_engine, promiseCapability, hasTimeout);
+            var asyncWaiter = new AsyncWaiter(_engine, promiseCapability);
             var waiterList = waiters.AddAsync(byteIndexInBuffer, asyncWaiter);
+            asyncWaiter.AttachTo(waiters, waiterList);
 
-            // Handle timeout
-            if (hasTimeout)
+            // A finite timeout is a deadline on the engine's own registry, which the event-loop pump reads —
+            // no thread and no Task is involved in settling it, which is the point. The timeout used to be a
+            // Task.Run whose Task.Delay resumed on a second thread-pool dispatch, so on a saturated pool a
+            // wait of one millisecond could take hundreds to be noticed while the engine thread itself was
+            // perfectly free; test262's waitAsync tests, which give themselves a fixed wall-clock lifespan
+            // and poll for the outcome on that very thread, flaked on exactly that.
+            //
+            // A wait asking for no timeout registers nothing: only Atomics.notify can ever end it, and a
+            // deadline that never arrives would keep the wait — and through it this engine, its realm and
+            // the promise capability — in the registry for the engine's whole life.
+            if (!double.IsPositiveInfinity(q))
             {
-                var timeoutMs = (int) System.Math.Min(System.Math.Ceiling(q), int.MaxValue);
-                var capturedWaiters = waiters;
-                var capturedWaiterList = waiterList;
-                var capturedAsyncWaiter = asyncWaiter;
-                var timeoutToken = asyncWaiter.TimeoutToken;
-
-                // Use a timer to resolve with "timed-out" after the timeout. Task.Delay can
-                // complete slightly ahead of the requested interval (timer granularity /
-                // coalescing), and the wait must not report timed-out before the timeout has
-                // actually elapsed — script can observe the lapse (test262 asserts
-                // lapse >= timeout) — so re-delay until a monotonic clock agrees.
-                //
-                // The delay observes the waiter's own cancellation, which AsyncWaiter.Resolve
-                // triggers however the wait ends. Without it the task was unstoppable: an
-                // Atomics.notify that woke the wait after a millisecond still left a thread-pool
-                // task sleeping out the whole interval, holding the waiter — and through it the
-                // engine, its realm and the promise capability — alive in its closure, and then
-                // enqueueing onto an event loop whose engine the host had long finished with.
-                // The window is as long as the script asked for, so nothing bounds it but the
-                // script, and a host that builds an engine per request accumulated one such task
-                // per unfinished wait.
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-                        var remainingMs = timeoutMs;
-                        do
-                        {
-                            await Task.Delay(remainingMs, timeoutToken).ConfigureAwait(false);
-                            remainingMs = timeoutMs - (int) stopwatch.ElapsedMilliseconds;
-                        } while (remainingMs > 0);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // The wait was settled by another route; it has already been removed from
-                        // the list and its promise already resolved.
-                        return;
-                    }
-
-                    if (!capturedAsyncWaiter.Resolved)
-                    {
-                        capturedWaiters.RemoveAsync(capturedWaiterList, capturedAsyncWaiter);
-                        capturedAsyncWaiter.Resolve("timed-out");
-                    }
-                }, timeoutToken);
+                _engine.RegisterAtomicsWaiterDeadline(asyncWaiter, q);
             }
         }
         else

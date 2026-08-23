@@ -197,7 +197,12 @@ internal sealed class ClassDefinition
         ScriptFunction F;
         try
         {
-            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class);
+            // The definition is keyed on the class BODY, not on the constructor's function node and not on
+            // the class node. Not the function node, because a class with no explicit constructor borrows a
+            // synthesized one that every such class shares. Not the class node, because a class expression is
+            // also a field initializer's own value node, which the field-initializer cache already keys on
+            // (`B = class {}` would collide). A ClassBody is unique per class and is never a cache key elsewhere.
+            var constructorInfo = constructor.DefineMethod(proto, constructorParent, sourceTextNode: _class, definitionCacheKey: _body);
             F = constructorInfo.Closure;
 
             F.SetFunctionName(_className ?? classBinding ?? "");
@@ -825,6 +830,17 @@ internal sealed class ClassDefinition
         if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)
         {
             var methodDef = method.DefineMethod(obj, functionPrototype: null, sourceTextNode: method);
+
+            // A computed key that suspended (`{ [f() + await g()]() {} }`) produced no key at all —
+            // DefineMethod turned the placeholder undefined into the property key "undefined", and an
+            // object literal reuses the same target object across the resume, so defining it would leave
+            // a property the replay can never take back. IsSuspended rather than Suspended: the latter
+            // only sees a generator parked at a yield, and this shape suspends on an await too.
+            if (engine.ExecutionContext.IsSuspended)
+            {
+                return null;
+            }
+
             definedKey = methodDef.Key;
             methodDef.Closure.SetFunctionName(methodDef.Key);
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);

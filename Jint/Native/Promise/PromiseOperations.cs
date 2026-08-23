@@ -224,4 +224,25 @@ internal static class PromiseOperations
             engine._host.HostPromiseRejectionTracker(promise, PromiseRejectionOperation.Handle);
         }
     }
+
+    /// <summary>
+    /// "Upon fulfillment of <paramref name="promise"/>, do ..." / "upon rejection of <paramref name="promise"/>,
+    /// do ...", the shape most specification algorithms attach to a promise in: engine-internal handlers, no
+    /// result promise. <see cref="PerformPromiseThen(Engine, JsPromise, IPromiseContinuation)"/> with a
+    /// <see cref="VoidPromiseContinuation"/>, which is what an algorithm should reach for instead of building
+    /// a pair of JavaScript functions no script can ever see.
+    /// </summary>
+    /// <remarks>
+    /// A JavaScript exception raised by a handler has nowhere to go — there is no result capability to
+    /// reject — and is dropped by the reaction job, exactly as one from a JavaScript handler attached
+    /// without a capability is.
+    /// </remarks>
+    internal static void UponPromise(
+        Engine engine,
+        JsPromise promise,
+        Action<JsValue>? onFulfilled,
+        Action<JsValue>? onRejected)
+    {
+        PerformPromiseThen(engine, promise, new VoidPromiseContinuation(onFulfilled, onRejected));
+    }
 }

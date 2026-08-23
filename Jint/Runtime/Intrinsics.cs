@@ -320,10 +320,10 @@ public sealed partial class Intrinsics
         _shadowRealm ??= new ShadowRealmConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal GeneratorFunctionConstructor GeneratorFunction =>
-        _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
+        _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function, IteratorPrototype);
 
     internal AsyncGeneratorFunctionConstructor AsyncGeneratorFunction =>
-        _asyncGeneratorFunction ??= new AsyncGeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, AsyncIteratorPrototype);
+        _asyncGeneratorFunction ??= new AsyncGeneratorFunctionConstructor(_engine, _realm, Function, AsyncIteratorPrototype);
 
     public EvalFunction Eval =>
         _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);

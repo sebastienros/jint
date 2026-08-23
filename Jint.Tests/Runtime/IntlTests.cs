@@ -1,4 +1,6 @@
-﻿namespace Jint.Tests.Runtime;
+﻿using Jint.Runtime;
+
+namespace Jint.Tests.Runtime;
 
 public class IntlTests
 {
@@ -1308,5 +1310,60 @@ public class IntlTests
             .AsString().Should().Be("3/15/2024");
         _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'full' }).format(new Date(Date.UTC(2024, 2, 15)))")
             .AsString().Should().Be("Friday, March 15, 2024");
+    }
+
+    /// <summary>
+    /// <see href="https://tc39.es/ecma402/#sec-resolveoptions">ResolveOptions</see> step 3 reads the
+    /// <c>localeMatcher</c> option through <c>GetOption</c>, which admits only <c>"lookup"</c> and
+    /// <c>"best fit"</c> and raises a <c>RangeError</c> for anything else. <c>Intl.PluralRules</c> left the
+    /// read to <c>ResolveLocale</c>, which takes the raw string and never validates it, so a bad value was
+    /// accepted in silence — the one assertion in
+    /// <c>staging/sm/extensions/quote-string-for-nul-character.js</c> that Jint failed.
+    /// </summary>
+    [Theory]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'lookup\0cookie' })")]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'nonsense' })")]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'Lookup' })")]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: '' })")]
+    public void PluralRulesRejectsAnInvalidLocaleMatcher(string script)
+    {
+        Invoking(() => _engine.Evaluate(script))
+            .Should().Throw<JavaScriptException>()
+            .WithMessage("Invalid value*for option 'localeMatcher'");
+    }
+
+    /// <summary>
+    /// The control: both accepted values, and the absent option, still construct.
+    /// </summary>
+    [Theory]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'lookup' })")]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'best fit' })")]
+    [InlineData("new Intl.PluralRules('en', { localeMatcher: undefined })")]
+    [InlineData("new Intl.PluralRules('en')")]
+    public void PluralRulesAcceptsAValidLocaleMatcher(string script)
+    {
+        _engine.Evaluate($"typeof {script}").AsString().Should().Be("object");
+    }
+
+    /// <summary>
+    /// The option is read exactly once. It used to be read twice by <c>Intl.Collator</c> — once to validate
+    /// it and once inside <c>ResolveLocale</c> — which a user-supplied getter can see.
+    /// </summary>
+    [Theory]
+    [InlineData("Collator")]
+    [InlineData("PluralRules")]
+    [InlineData("DateTimeFormat")]
+    [InlineData("NumberFormat")]
+    [InlineData("RelativeTimeFormat")]
+    public void TheLocaleMatcherGetterRunsOnce(string constructor)
+    {
+        var script = $$"""
+            var reads = 0;
+            var options = { get localeMatcher() { reads++; return 'lookup'; } };
+            new Intl.{{constructor}}('en', options);
+            reads;
+            """;
+
+        _engine.Evaluate(script).AsNumber().Should().Be(1);
     }
 }

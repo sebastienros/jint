@@ -46,7 +46,9 @@ public abstract partial class TypedArrayConstructor : Constructor
     public JsTypedArray Construct(JsArrayBuffer buffer, int? byteOffset = null, int? length = null)
     {
         var o = AllocateTypedArray(this);
-        InitializeTypedArrayFromArrayBuffer(o, buffer, byteOffset, length);
+        var offset = byteOffset ?? 0;
+        ValidateByteOffsetAlignment(offset, o);
+        InitializeTypedArrayFromArrayBuffer(o, buffer, offset, length);
         return o;
     }
 
@@ -73,9 +75,7 @@ public abstract partial class TypedArrayConstructor : Constructor
             }
             else if (firstArgument is JsArrayBuffer arrayBuffer)
             {
-                int? byteOffset = !arguments.At(1).IsUndefined() ? (int) TypeConverter.ToIndex(_realm, arguments[1]) : null;
-                int? length = !arguments.At(2).IsUndefined() ? (int) TypeConverter.ToIndex(_realm, arguments[2]) : null;
-                InitializeTypedArrayFromArrayBuffer(o, arrayBuffer, byteOffset, length);
+                InitializeTypedArrayFromArrayBuffer(o, arrayBuffer, arguments.At(1), arguments.At(2));
             }
             else
             {
@@ -94,8 +94,16 @@ public abstract partial class TypedArrayConstructor : Constructor
             return o;
         }
 
-        var elementLength = TypeConverter.ToIndex(_realm, firstArgument);
-        return AllocateTypedArray(newTarget, elementLength);
+        var elementLength = TypeConverter.ToIndexLong(_realm, firstArgument);
+        if (elementLength > uint.MaxValue)
+        {
+            // AllocateTypedArrayBuffer would ask for elementLength * elementSize bytes, which cannot be
+            // allocated; CreateByteDataBlock reports that as a RangeError, so report it here too rather
+            // than truncating the length into something that happens to fit.
+            Throw.RangeError(_realm, "Invalid typed array length");
+        }
+
+        return AllocateTypedArray(newTarget, (uint) elementLength);
     }
 
     /// <summary>
@@ -171,30 +179,72 @@ public abstract partial class TypedArrayConstructor : Constructor
     }
 
     /// <summary>
+    /// Step 3 of https://tc39.es/ecma262/#sec-initializetypedarrayfromarraybuffer, split out because it
+    /// sits between the two ToIndex coercions and therefore cannot live with the rest of the algorithm.
+    /// </summary>
+    private void ValidateByteOffsetAlignment(long offset, JsTypedArray o)
+    {
+        if (offset % o._arrayElementType.GetElementSize() != 0)
+        {
+            Throw.RangeError(_realm, "Invalid offset");
+        }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-initializetypedarrayfromarraybuffer
+    /// </summary>
+    /// <remarks>
+    /// The two coercions and the alignment check between them are observable and their order is
+    /// normative: ToIndex(byteOffset) is step 2, the offset-modulo-elementSize RangeError is step 3, and
+    /// ToIndex(length) only comes at step 5. Running both coercions up front made a call such as
+    /// new Int32Array(buffer, 1, poisonedValue) report the poisoned value's own error where the spec
+    /// requires the RangeError.
+    /// </remarks>
+    private void InitializeTypedArrayFromArrayBuffer(
+        JsTypedArray o,
+        JsArrayBuffer buffer,
+        JsValue byteOffset,
+        JsValue length)
+    {
+        // 2. Let offset be ? ToIndex(byteOffset).
+        var offset = TypeConverter.ToIndexLong(_realm, byteOffset);
+
+        // 3. If offset modulo elementSize is not 0, throw a RangeError exception.
+        ValidateByteOffsetAlignment(offset, o);
+
+        // 5. If length is not undefined, let newLength be ? ToIndex(length).
+        long? newLength = length.IsUndefined() ? null : TypeConverter.ToIndexLong(_realm, length);
+
+        InitializeTypedArrayFromArrayBuffer(o, buffer, offset, newLength);
+    }
+
+    /// <summary>
+    /// Steps 4 and 6 onwards of https://tc39.es/ecma262/#sec-initializetypedarrayfromarraybuffer, for a
+    /// byteOffset and length that are already coerced and whose alignment has already been checked.
     /// </summary>
     private void InitializeTypedArrayFromArrayBuffer(
         JsTypedArray o,
         JsArrayBuffer buffer,
-        int? byteOffset,
-        int? length)
+        long offset,
+        long? length)
     {
+        // The arithmetic below stays in 64 bits. ToIndex admits anything up to 2^53-1, and narrowing an
+        // offset or a length to Int32 first wrapped it into a value that then passed the bounds checks:
+        // a byteOffset of 2^31+4 on an empty buffer produced a typed array with a negative byte offset
+        // and a length of 536870911.
         var elementSize = o._arrayElementType.GetElementSize();
-        var offset = byteOffset ?? 0;
-        if (offset % elementSize != 0)
-        {
-            Throw.RangeError(_realm, "Invalid offset");
-        }
 
-        int newByteLength;
-        var newLength = length ?? 0;
-
+        // 4. Let bufferIsFixedLength be IsFixedLengthArrayBuffer(buffer).
         var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
 
+        // 6. If IsDetachedBuffer(buffer) is true, throw a TypeError exception.
         buffer.AssertNotDetached();
 
-        var bufferByteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer, ArrayBufferOrder.SeqCst);
-        if (length == null && !bufferIsFixedLength)
+        // 7. Let bufferByteLength be ArrayBufferByteLength(buffer, seq-cst).
+        long bufferByteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer, ArrayBufferOrder.SeqCst);
+
+        // 8. If length is undefined and bufferIsFixedLength is false, then
+        if (length is null && !bufferIsFixedLength)
         {
             if (offset > bufferByteLength)
             {
@@ -206,7 +256,8 @@ public abstract partial class TypedArrayConstructor : Constructor
         }
         else
         {
-            if (length == null)
+            long newByteLength;
+            if (length is null)
             {
                 if (bufferByteLength % elementSize != 0)
                 {
@@ -221,7 +272,7 @@ public abstract partial class TypedArrayConstructor : Constructor
             }
             else
             {
-                newByteLength = newLength * elementSize;
+                newByteLength = length.Value * elementSize;
                 if (offset + newByteLength > bufferByteLength)
                 {
                     Throw.RangeError(_realm, "Invalid buffer byte length");
@@ -233,7 +284,7 @@ public abstract partial class TypedArrayConstructor : Constructor
         }
 
         o._viewedArrayBuffer = buffer;
-        o._byteOffset = offset;
+        o._byteOffset = (int) offset;
     }
 
     private static void InitializeTypedArrayFromList(JsTypedArray o, List<JsValue> values)

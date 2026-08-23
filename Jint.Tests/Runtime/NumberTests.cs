@@ -613,4 +613,68 @@ public class NumberTests
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
+
+    /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-number.prototype.tofixed">Number.prototype.toFixed</see> opens
+    /// with <c>ThisNumberValue(this value)</c>, which is a <c>TypeError</c> for any receiver that is neither a
+    /// Number nor a Number object. Jint coerced the receiver with <c>ToNumber</c> instead, so a null receiver
+    /// silently formatted 0 and an undefined one formatted NaN. test262 covers the whole family in
+    /// <c>staging/sm/misc/builtin-methods-reject-null-undefined-this.js</c>, where <c>toFixed</c> was the only
+    /// entry in a table of roughly a hundred built-ins that Jint got wrong.
+    /// </summary>
+    [Theory]
+    [InlineData("Number.prototype.toFixed.call(null)")]
+    [InlineData("Number.prototype.toFixed.call(undefined)")]
+    [InlineData("Number.prototype.toFixed.apply(null)")]
+    [InlineData("Number.prototype.toFixed.call(null, 2)")]
+    [InlineData("Number.prototype.toFixed.call('1')")]
+    [InlineData("Number.prototype.toFixed.call({})")]
+    [InlineData("Number.prototype.toFixed.call(Symbol())")]
+    [InlineData("Number.prototype.toFixed.call(1n)")]
+    [InlineData("(0, Number.prototype.toFixed)()")]
+    public void ToFixedRequiresANumberReceiver(string script)
+    {
+        Invoking(() => new Engine().Evaluate(script))
+            .Should().Throw<JavaScriptException>()
+            .WithMessage("Number.prototype.toFixed requires that 'this' be a Number");
+    }
+
+    /// <summary>
+    /// The receiver check is step 1 and the argument coercion is step 2, so a bad receiver is reported even
+    /// when the argument would also have thrown.
+    /// </summary>
+    [Fact]
+    public void ToFixedChecksItsReceiverBeforeCoercingItsArgument()
+    {
+        const string Script = """
+            var argumentWasCoerced = false;
+            var poisoned = { valueOf: function () { argumentWasCoerced = true; throw new Error('argument'); } };
+            var message;
+            try { Number.prototype.toFixed.call(null, poisoned); message = 'did not throw'; }
+            catch (e) { message = e.constructor.name; }
+            message + ' ' + argumentWasCoerced;
+            """;
+
+        new Engine().Evaluate(Script).AsString().Should().Be("TypeError false");
+    }
+
+    /// <summary>
+    /// The control: every receiver that is a Number still formats, and the digit range is still the one the
+    /// spec's steps 4 and 5 describe.
+    /// </summary>
+    [Fact]
+    public void ToFixedStillFormatsEveryNumberReceiver()
+    {
+        var engine = new Engine();
+
+        engine.Evaluate("(3).toFixed(2)").AsString().Should().Be("3.00");
+        engine.Evaluate("new Number(3).toFixed(2)").AsString().Should().Be("3.00");
+        engine.Evaluate("Number.prototype.toFixed()").AsString().Should().Be("0");
+        engine.Evaluate("(3).toFixed(-0)").AsString().Should().Be("3");
+        engine.Evaluate("(3).toFixed(100).length").AsNumber().Should().Be(102);
+
+        Invoking(() => engine.Evaluate("(3).toFixed(-1)")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("(3).toFixed(101)")).Should().Throw<JavaScriptException>();
+        Invoking(() => engine.Evaluate("(3).toFixed(Infinity)")).Should().Throw<JavaScriptException>();
+    }
 }

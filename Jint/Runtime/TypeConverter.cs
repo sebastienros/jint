@@ -833,6 +833,23 @@ public static class TypeConverter
     /// </summary>
     public static uint ToIndex(Realm realm, JsValue value)
     {
+        // Clamped rather than range-checked: every caller of this overload goes on to reject anything
+        // larger than the buffer or view it indexes, so a saturated value produces the same RangeError
+        // the real one would. A caller that instead computes with the result - the TypedArray-from-
+        // ArrayBuffer constructor does - must call ToIndexLong, or the saturation silently becomes a
+        // different, in-range offset.
+        return (uint) Math.Min(uint.MaxValue, ToIndexLong(realm, value));
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-toindex
+    /// </summary>
+    /// <remarks>
+    /// Returns the whole spec range, 0 to 2^53-1. Callers storing the result in a narrower field are
+    /// responsible for rejecting what does not fit.
+    /// </remarks>
+    internal static long ToIndexLong(Realm realm, JsValue value)
+    {
         if (value.IsUndefined())
         {
             return 0;
@@ -850,7 +867,7 @@ public static class TypeConverter
             Throw.RangeError(realm, "Invalid index");
         }
 
-        return (uint) Math.Min(uint.MaxValue, index);
+        return (long) index;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -161,6 +161,37 @@ public sealed partial class Engine : IDisposable
         return list;
     }
 
+    // Per-engine cache of the interpreter handler built for a property key expression that has to be
+    // evaluated — every computed key (`{ [k]: v }`, `class { [k]() {} }`, `({ [k]: v } = o)`) plus the
+    // literal keys of a destructuring pattern. Keyed on the stable AST node and engine-owned for the same
+    // lifetime reasons as _functionDefinitions above: a handler tree accumulates engine-affine per-node
+    // inline caches, so it must not be published to the AST's UserData and shared across engines.
+    //
+    // Identity is what makes this correct, not merely cheaper. Everything a suspension parks for its
+    // replay — LeftOperandSuspendData, AdditionChainSuspendData, the argument buffers — is keyed on the
+    // handler instance that parked it, so a key expression rebuilt on every evaluation can never find its
+    // own parked state. Building it afresh made `{ [f() + await g()]: 1 }` replay the whole key subtree
+    // and call f twice (issue #3142).
+    private Dictionary<Expression, JintExpression>? _propertyKeyExpressions;
+
+    internal JintExpression GetOrBuildPropertyKeyExpression(Expression expression)
+    {
+        var cache = _propertyKeyExpressions ??= new Dictionary<Expression, JintExpression>();
+        if (!cache.TryGetValue(expression, out var built))
+        {
+            // backstop mirroring CacheFunctionDefinition: bound growth for hosts streaming endless
+            // distinct sources through one long-lived engine.
+            if (cache.Count >= 2048)
+            {
+                cache.Clear();
+            }
+
+            cache[expression] = built = JintExpression.Build(expression);
+        }
+
+        return built;
+    }
+
     internal JintFunctionDefinition GetOrCreateFunctionDefinition(FunctionDeclaration declaration)
     {
         if (!TryGetFunctionDefinition(declaration, out var definition))
@@ -849,6 +880,13 @@ public sealed partial class Engine : IDisposable
             strict: _isStrict || scriptRecord.EcmaScriptCode.Strict);
 
         EnterExecutionContext(in scriptContext);
+
+        // Depth of the call stack when THIS evaluation began. A nested evaluation (a host callback
+        // inside a running script calling Execute/Evaluate) sits above live frames belonging to the
+        // outer run; an unhandled throw here must unwind only the frames this evaluation pushed,
+        // not clear the whole stack (which desynced the outer run's balanced pops and truncated its
+        // subsequently captured stack traces).
+        var callStackDepthOnEntry = CallStack.Count;
         try
         {
             var script = scriptRecord.EcmaScriptCode;
@@ -869,14 +907,14 @@ public sealed partial class Engine : IDisposable
             catch
             {
                 // unhandled exception
-                ResetCallStack();
+                CallStack.TrimTo(callStackDepthOnEntry);
                 throw;
             }
 
             if (result.Type == CompletionType.Throw)
             {
                 var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
-                ResetCallStack();
+                CallStack.TrimTo(callStackDepthOnEntry);
                 throw ex;
             }
 
@@ -1169,6 +1207,31 @@ public sealed partial class Engine : IDisposable
                     if (remaining < waitInterval)
                     {
                         waitInterval = remaining;
+                    }
+                }
+
+                // An Atomics.waitAsync timeout is work the engine scheduled for itself: it enqueues
+                // nothing, so nothing wakes this thread when it comes due and the wait has to end by
+                // itself. The 10ms poll above already made anything of 10ms and more correct; clamping to
+                // the next due time is what buys a 1ms deadline 1ms of latency instead of 10.
+                var untilNextWork = TimeUntilNextPumpScheduledWork();
+                if (untilNextWork is { } untilDue)
+                {
+                    if (untilDue <= TimeSpan.Zero)
+                    {
+                        // Already due. If this thread can pump, promoting it beats idling first, and the
+                        // timeout deadline checked immediately above stops the loop running past its bound.
+                        // Nested inside a job it cannot pump — the re-entrancy guard makes the queue
+                        // unrunnable from here — so fall through to the bounded wait rather than spinning on
+                        // work nobody present can promote.
+                        if (!_eventLoop.IsRunningJob)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (untilDue < waitInterval)
+                    {
+                        waitInterval = untilDue;
                     }
                 }
 

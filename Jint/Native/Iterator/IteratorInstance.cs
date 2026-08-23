@@ -134,6 +134,30 @@ internal abstract class IteratorInstance : ObjectInstance
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-asynciteratorclose
+    /// AsyncIteratorClose steps 3 and 4.a-4.c: read the iterator's <c>return</c> method and call it,
+    /// handing back the value whose Await — step 4.d — the caller still owes. Answers
+    /// <see langword="false"/> for step 4.b ("If return is undefined, return ? completion"), where
+    /// there is nothing to await and nothing to check.
+    /// <para>
+    /// Step 4.d is deliberately not performed here: awaiting suspends the surrounding async function
+    /// or async generator, which only the interpreter can do. The caller resumes on the settlement
+    /// and performs steps 5-8 itself, which is why this is split out of <see cref="Close"/> rather
+    /// than being another completion type <see cref="Close"/> understands.
+    /// </para>
+    /// <para>
+    /// An abrupt completion of either step propagates. Step 5 — the one that would swallow it —
+    /// applies only when the caller's own completion is a throw completion, and such a completion
+    /// never reaches this method.
+    /// </para>
+    /// </summary>
+    internal virtual bool TryStartAsyncClose(out JsValue innerResult)
+    {
+        innerResult = Undefined;
+        return false;
+    }
+
+    /// <summary>
     /// Gets the underlying iterator object instance.
     /// For object iterators, this is the wrapped object. For built-in iterators, this is self.
     /// Used by yield* to call methods like "return" and "throw" on the iterator.
@@ -248,6 +272,25 @@ internal abstract class IteratorInstance : ObjectInstance
             {
                 Throw.TypeError(_target.Engine.Realm, "Iterator returned non-object");
             }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-asynciteratorclose steps 3 and 4.a-4.c.
+        /// </summary>
+        internal override bool TryStartAsyncClose(out JsValue innerResult)
+        {
+            // Step 3: Let innerResult be Completion(GetMethod(iterator, "return")).
+            var callable = _target.GetMethod(CommonProperties.Return);
+            if (callable is null)
+            {
+                // Step 4.b: If return is undefined, return ? completion.
+                innerResult = Undefined;
+                return false;
+            }
+
+            // Step 4.c: Set innerResult to Completion(Call(return, iterator)).
+            innerResult = callable.Call(_target, Arguments.Empty);
+            return true;
         }
     }
 

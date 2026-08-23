@@ -194,7 +194,27 @@ public partial class Engine
 
                 // Truly async wait — releases the thread back to the pool.
                 // Zero threads consumed while waiting for IO to complete.
-                await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+                // A pending Atomics.waitAsync timeout is the one thing that can make this loop's condition
+                // advance without anything being enqueued, so the wait has to be bounded by its due time.
+                // One Task.Delay per idle wait, and only while such work pends; an engine with none takes
+                // the first branch and is byte-for-byte what it was.
+                var untilNextWork = TimeUntilNextPumpScheduledWork();
+                if (untilNextWork is not { } untilDue)
+                {
+                    await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+                }
+                else if (untilDue > TimeSpan.Zero)
+                {
+                    await eventLoop.WaitForEventAsync(untilDue, effectiveCt).ConfigureAwait(false);
+                }
+                else if (eventLoop.IsRunningJob)
+                {
+                    // Due now, but nested inside a job this thread cannot run the queue at all, so waiting is
+                    // what keeps the loop from spinning hot on work nobody present can promote.
+                    await eventLoop.WaitForEventAsync(effectiveCt).ConfigureAwait(false);
+                }
+
+                // Otherwise something is due and can be promoted: fall straight through to the pump.
 
                 // Woke up — take ownership of the event loop for this processing cycle.
                 // Setting _waitingThreadId prevents any other thread from processing

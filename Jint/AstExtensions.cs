@@ -100,8 +100,12 @@ public static class AstExtensions
         // allowlist of node types with a silent JsValue.Undefined fallback, which made keys like
         // `{ [(sideEffect(), "k")]: v }` (SequenceExpression) or `{ [new Key()]: v }` bind the
         // property "undefined" without running the key expression at all.
+        //
+        // The handler comes from the engine's per-node cache rather than being rebuilt here: a suspension
+        // inside the key expression parks its replay state under the handler instance that parked it, so a
+        // fresh instance per evaluation would lose it and re-run the whole key subtree on resume.
         var context = engine._evaluationContext;
-        var result = JintExpression.Build(expression).GetValue(context);
+        var result = engine.GetOrBuildPropertyKeyExpression(expression).GetValue(context);
 
         // If the expression suspended the generator (e.g., yield in computed property name),
         // return the value. The caller should check ExecutionContext.Suspended.
@@ -366,7 +370,14 @@ public static class AstExtensions
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
     /// </summary>
-    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype, INode sourceTextNode) where T : IProperty
+    /// <remarks>
+    /// <c>definitionCacheKey</c> is the node the interpreter definition is cached under, defaulting to the
+    /// method's own function node. A class constructor overrides it with the class body: a class without an
+    /// explicit constructor borrows one synthesized constructor AST that every such class shares, so keying on
+    /// the function node would make all of them share one definition — and with it one
+    /// <see cref="JintFunctionDefinition.SourceTextNode"/>, which is whichever class got there first.
+    /// </remarks>
+    internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype, INode sourceTextNode, Node? definitionCacheKey = null) where T : IProperty
     {
         var engine = obj.Engine;
         var propKey = TypeConverter.ToPropertyKey(m.GetKey(engine));
@@ -386,9 +397,10 @@ public static class AstExtensions
         // re-evaluating the same class (factory functions, re-run prepared scripts) reuses the
         // method's interpreter definition and its warm body handler tree; the closure, home object
         // and environments stay per-evaluation
-        if (!engine.TryGetFunctionDefinition((Node) function, out var definition))
+        var cacheKey = definitionCacheKey ?? (Node) function;
+        if (!engine.TryGetFunctionDefinition(cacheKey, out var definition))
         {
-            engine.CacheFunctionDefinition((Node) function, definition = new JintFunctionDefinition(function, sourceTextNode));
+            engine.CacheFunctionDefinition(cacheKey, definition = new JintFunctionDefinition(function, sourceTextNode));
         }
 
         var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);
@@ -418,7 +430,7 @@ public static class AstExtensions
             switch (specifier)
             {
                 case ImportNamespaceSpecifier namespaceSpecifier:
-                    importEntries.Add(new ImportEntry(moduleRequest, "*", namespaceSpecifier.Local.GetModuleKey(), phase));
+                    importEntries.Add(new ImportEntry(moduleRequest, ImportName: null, namespaceSpecifier.Local.GetModuleKey(), phase, ModuleImportName.Namespace));
                     break;
                 case ImportSpecifier importSpecifier:
                     importEntries.Add(new ImportEntry(moduleRequest, importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()!, phase));
@@ -457,7 +469,7 @@ public static class AstExtensions
             case ExportAllDeclaration allDeclaration:
                 //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
                 requestedModules.Add(new ModuleRequest(allDeclaration.Source.Value, []));
-                exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.Value, []), "*", null));
+                exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.Value, []), ImportName: null, LocalName: null, ModuleImportName.Namespace));
                 break;
             case ExportNamedDeclaration namedDeclaration:
                 ref readonly var specifiers = ref namedDeclaration.Specifiers;

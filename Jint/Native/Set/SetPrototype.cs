@@ -95,44 +95,52 @@ internal sealed partial class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.difference
+    /// </summary>
     [JsFunction]
     private JsSet Difference(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
         var otherRec = GetSetRecord(other);
-        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+
+        // "Let resultSetData be a copy of set.[[SetData]]", taken before anything else can run.
+        var resultData = set._data.Clone();
 
         if (set.Size <= otherRec.Size)
         {
+            // The copy is private to this call, so nothing can append to it; walking it with a cursor
+            // is the spec's `index < thisSize` walk, with the entries this loop empties left behind it.
+            var cursor = default(KeyedCollectionCursor);
+            int slot;
 
             if (other is JsSet otherSet)
             {
                 // fast path
-                var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
-                result.ExceptWith(otherSet._set._set);
-                return new JsSet(_engine, new OrderedSet<JsValue>(result));
-            }
-
-            var index = 0;
-            var args = new JsValue[1];
-            while (index < set.Size)
-            {
-                var e = resultSetData[index];
-                if (e is not null)
+                while ((slot = resultData.Next(ref cursor)) >= 0)
                 {
-                    args[0] = e;
+                    if (otherSet._data.ContainsKey(resultData.KeyAt(slot)!))
+                    {
+                        resultData.RemoveAt(slot);
+                    }
+                }
+            }
+            else
+            {
+                var args = new JsValue[1];
+                while ((slot = resultData.Next(ref cursor)) >= 0)
+                {
+                    args[0] = resultData.KeyAt(slot)!;
                     var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
                     if (inOther)
                     {
-                        resultSetData.Delete(e);
-                        index--;
+                        resultData.RemoveAt(slot);
                     }
                 }
-
-                index++;
             }
 
-            return resultSetData;
+            resultData.TrimTombstones();
+            return new JsSet(_engine, resultData);
         }
 
         var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
@@ -149,12 +157,16 @@ internal sealed partial class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            resultSetData.Delete(nextValue);
+            resultData.Remove(nextValue);
         }
 
-        return resultSetData;
+        resultData.TrimTombstones();
+        return new JsSet(_engine, resultData);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.isdisjointfrom
+    /// </summary>
     [JsFunction]
     private JsBoolean IsDisjointFrom(JsValue thisObject, JsValue other)
     {
@@ -165,24 +177,38 @@ internal sealed partial class SetPrototype : Prototype
         {
             if (other is JsSet otherSet)
             {
-                // fast path
-                return set._set._set.Overlaps(otherSet._set._set) ? JsBoolean.False : JsBoolean.True;
-            }
-
-            var index = 0;
-            var args = new JsValue[1];
-            while (index < set.Size)
-            {
-                var e = set[index];
-                index++;
-                if (e is not null)
+                // fast path: walk the smaller side, probing the larger
+                var smaller = set._data;
+                var larger = otherSet._data;
+                if (smaller.Count > larger.Count)
                 {
-                    args[0] = e;
-                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
-                    if (inOther)
+                    var swap = smaller;
+                    smaller = larger;
+                    larger = swap;
+                }
+
+                var enumerator = smaller.GetEnumerator();
+                while (enumerator.MoveNext())
+                {
+                    if (larger.ContainsKey(enumerator.Key))
                     {
                         return JsBoolean.False;
                     }
+                }
+
+                return JsBoolean.True;
+            }
+
+            var args = new JsValue[1];
+            var cursor = default(KeyedCollectionCursor);
+            int slot;
+            while ((slot = set._data.Next(ref cursor)) >= 0)
+            {
+                args[0] = set._data.KeyAt(slot)!;
+                var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                if (inOther)
+                {
+                    return JsBoolean.False;
                 }
             }
 
@@ -208,49 +234,53 @@ internal sealed partial class SetPrototype : Prototype
         return JsBoolean.True;
     }
 
-
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.intersection
+    /// </summary>
     [JsFunction]
     private JsSet Intersection(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
 
         var otherRec = GetSetRecord(other);
-        var resultSetData = new JsSet(_engine);
-        var thisSize = set.Size;
+        var resultData = new KeyedCollectionData();
 
-        if (thisSize <= otherRec.Size)
+        if (set.Size <= otherRec.Size)
         {
+            // The receiver's own [[SetData]] is walked by index, and otherRec.[[Has]] is free to add to
+            // it, delete from it, or both — the cursor over the tombstoned List is what keeps the walk
+            // on the entries the spec says it visits, in the order it says.
+            var cursor = default(KeyedCollectionCursor);
+            int slot;
+
             if (other is JsSet otherSet)
             {
                 // fast path
-                var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
-                result.IntersectWith(otherSet._set._set);
-                return new JsSet(_engine, new OrderedSet<JsValue>(result));
-            }
-
-            var index = 0;
-            var args = new JsValue[1];
-            while (index < thisSize)
-            {
-                var e = set[index];
-                index++;
-                if (e is not null)
+                while ((slot = set._data.Next(ref cursor)) >= 0)
                 {
-                    args[0] = e;
-                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
-                    if (inOther)
+                    var entry = set._data.KeyAt(slot)!;
+                    if (otherSet._data.ContainsKey(entry))
                     {
-                        var alreadyInResult = resultSetData.Has(e);
-                        if (!alreadyInResult)
-                        {
-                            resultSetData.Add(e);
-                        }
+                        resultData.Append(entry, null);
                     }
-                    thisSize = set.Size;
+                }
+            }
+            else
+            {
+                var args = new JsValue[1];
+                while ((slot = set._data.Next(ref cursor)) >= 0)
+                {
+                    var entry = set._data.KeyAt(slot)!;
+                    args[0] = entry;
+                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                    if (inOther && !resultData.ContainsKey(entry))
+                    {
+                        resultData.Append(entry, null);
+                    }
                 }
             }
 
-            return resultSetData;
+            return new JsSet(_engine, resultData);
         }
 
         var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
@@ -267,17 +297,18 @@ internal sealed partial class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            var alreadyInResult = resultSetData.Has(nextValue);
-            var inThis = set.Has(nextValue);
-            if (!alreadyInResult && inThis)
+            if (set.Has(nextValue) && !resultData.ContainsKey(nextValue))
             {
-                resultSetData.Add(nextValue);
+                resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
             }
         }
 
-        return resultSetData;
+        return new JsSet(_engine, resultData);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.symmetricdifference
+    /// </summary>
     [JsFunction]
     private JsSet SymmetricDifference(JsValue thisObject, JsValue other)
     {
@@ -286,14 +317,28 @@ internal sealed partial class SetPrototype : Prototype
         if (other is JsSet otherSet)
         {
             // fast path
-            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
-            result.SymmetricExceptWith(otherSet._set._set);
-            return new JsSet(_engine, new OrderedSet<JsValue>(result));
+            var fastResult = set._data.Clone();
+            var enumerator = otherSet._data.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                var key = enumerator.Key;
+                if (set._data.ContainsKey(key))
+                {
+                    fastResult.Remove(key);
+                }
+                else
+                {
+                    fastResult.Add(key);
+                }
+            }
+
+            fastResult.TrimTombstones();
+            return new JsSet(_engine, fastResult);
         }
 
         var otherRec = GetSetRecord(other);
         var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
-        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+        var resultData = set._data.Clone();
         while (true)
         {
             if (!keysIter.TryIteratorStep(out var next))
@@ -307,26 +352,30 @@ internal sealed partial class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            var inResult = resultSetData.Has(nextValue);
+            var alreadyInResult = resultData.ContainsKey(nextValue);
             if (set.Has(nextValue))
             {
-                if (inResult)
+                if (alreadyInResult)
                 {
-                    resultSetData.Delete(nextValue);
+                    resultData.Remove(nextValue);
                 }
             }
             else
             {
-                if (!inResult)
+                if (!alreadyInResult)
                 {
-                    resultSetData.Add(nextValue);
+                    resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
                 }
             }
         }
 
-        return resultSetData;
+        resultData.TrimTombstones();
+        return new JsSet(_engine, resultData);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.issubsetof
+    /// </summary>
     [JsFunction]
     private JsBoolean IsSubsetOf(JsValue thisObject, JsValue other)
     {
@@ -335,39 +384,49 @@ internal sealed partial class SetPrototype : Prototype
         if (other is JsSet otherSet)
         {
             // fast path
-            return set._set._set.IsSubsetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
-        }
-
-        var otherRec = GetSetRecord(other);
-        var thisSize = set.Size;
-
-        if (thisSize > otherRec.Size)
-        {
-            return JsBoolean.False;
-        }
-
-        var index = 0;
-        var args = new JsValue[1];
-        while (index < thisSize)
-        {
-            var e = set[index];
-            if (e is not null)
+            if (set.Size > otherSet.Size)
             {
-                args[0] = e;
-                var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
-                if (!inOther)
+                return JsBoolean.False;
+            }
+
+            var enumerator = set._data.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                if (!otherSet._data.ContainsKey(enumerator.Key))
                 {
                     return JsBoolean.False;
                 }
             }
 
-            thisSize = set.Size;
-            index++;
+            return JsBoolean.True;
+        }
+
+        var otherRec = GetSetRecord(other);
+
+        if (set.Size > otherRec.Size)
+        {
+            return JsBoolean.False;
+        }
+
+        var args = new JsValue[1];
+        var cursor = default(KeyedCollectionCursor);
+        int slot;
+        while ((slot = set._data.Next(ref cursor)) >= 0)
+        {
+            args[0] = set._data.KeyAt(slot)!;
+            var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+            if (!inOther)
+            {
+                return JsBoolean.False;
+            }
         }
 
         return JsBoolean.True;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.issupersetof
+    /// </summary>
     [JsFunction]
     private JsBoolean IsSupersetOf(JsValue thisObject, JsValue other)
     {
@@ -376,13 +435,29 @@ internal sealed partial class SetPrototype : Prototype
         if (other is JsSet otherSet)
         {
             // fast path
-            return set._set._set.IsSupersetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
+            if (set.Size < otherSet.Size)
+            {
+                return JsBoolean.False;
+            }
+
+            var enumerator = otherSet._data.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                if (!set._data.ContainsKey(enumerator.Key))
+                {
+                    return JsBoolean.False;
+                }
+            }
+
+            return JsBoolean.True;
         }
 
-        var thisSize = set.Size;
         var otherRec = GetSetRecord(other);
 
-        if (thisSize < otherRec.Size)
+        // Step 4 reads the receiver's size *after* GetSetRecord, and the difference is observable:
+        // reading it first meant a set-like whose `size`, `has` or `keys` getter adds to the receiver
+        // was compared against a size taken before its own getters had run.
+        if (set.Size < otherRec.Size)
         {
             return JsBoolean.False;
         }
@@ -439,13 +514,16 @@ internal sealed partial class SetPrototype : Prototype
         return Undefined;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set.prototype.union
+    /// </summary>
     [JsFunction]
     private JsSet Union(JsValue thisObject, JsValue other)
     {
         var set = AssertSetInstance(thisObject);
         var otherRec = GetSetRecord(other);
         var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
-        var resultSetData = set._set.Clone();
+        var resultData = set._data.Clone();
         while (keysIter.TryIteratorStep(out var next))
         {
             var nextValue = next.Get(CommonProperties.Value);
@@ -453,12 +531,16 @@ internal sealed partial class SetPrototype : Prototype
             {
                 nextValue = JsNumber.PositiveZero;
             }
-            // this is the one adder that reaches the ordering set directly rather than through
-            // JsSet.Add, so it has to flatten a concatenated key itself
-            resultSetData.Add(SameValueZeroComparer.ToStableKey(nextValue));
+
+            if (!resultData.ContainsKey(nextValue))
+            {
+                // this is the one adder that reaches the ordering set directly rather than through
+                // JsSet.Add, so it has to flatten a concatenated key itself
+                resultData.Append(SameValueZeroComparer.ToStableKey(nextValue), null);
+            }
         }
 
-        var result = new JsSet(_engine, resultSetData);
+        var result = new JsSet(_engine, resultData);
         return result;
     }
 

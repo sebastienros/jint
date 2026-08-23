@@ -217,15 +217,23 @@ internal sealed class TrySuspendData : SuspendData
 }
 
 /// <summary>
-/// Stores the resolved LHS Reference and pre-mutation value of a compound assignment
-/// (e.g. obj[++i] += await y) when evaluation suspends inside the right-hand side.
-/// Reused on resume so the LHS — which may have observable side effects in its index
-/// or property accessor — is not re-evaluated.
+/// Stores the resolved LHS Reference of an assignment (e.g. <c>obj[++i] = await y</c>) and, for a
+/// compound one (<c>obj[++i] += await y</c>), its pre-mutation value, when evaluation suspends
+/// inside the right-hand side. Reused on resume so the LHS — which may have observable side effects
+/// in its base or its computed key — is not re-evaluated.
+/// <para>
+/// The parked Reference is owned by the suspendable until the resume consumes it, so the
+/// suspension site deliberately does <em>not</em> return it to <c>Engine._referencePool</c>; the
+/// completing resume does, alongside clearing this entry.
+/// </para>
 /// </summary>
 internal sealed class AssignmentSuspendData : SuspendData
 {
     public Reference Lref { get; set; } = null!;
 
+    /// <summary>
+    /// Unused by the simple assignment form, which reads no value from its target.
+    /// </summary>
     public JsValue OriginalLeftValue { get; set; } = JsValue.Undefined;
 }
 
@@ -319,6 +327,19 @@ internal sealed class ObjectExpressionSuspendData : SuspendData
     public PropertyDictionary? FastProperties { get; set; }
 
     public int NextIndex { get; set; }
+
+    /// <summary>
+    /// The already-converted property key of the property at <see cref="NextIndex"/>, parked when
+    /// that property's <em>value</em> suspended (<c>{ [f()]: await x }</c>). Without it the resume
+    /// re-runs the computed key expression, doubling its side effects and — when the key differs
+    /// between calls — binding the value under the second call's name.
+    /// <para>
+    /// Null whenever the key of the property being resumed into has not been resolved yet: a static
+    /// key (re-derived for free from the node), or a computed key whose own expression is what
+    /// suspended.
+    /// </para>
+    /// </summary>
+    public JsValue? PendingKey { get; set; }
 }
 
 /// <summary>
@@ -413,6 +434,39 @@ internal sealed class ForAwaitSuspendData : SuspendData
     /// is resumed.
     /// </summary>
     public Completion DisposeResult { get; set; }
+
+    /// <summary>
+    /// True while AsyncIteratorClose's Await — step 4.d of
+    /// https://tc39.es/ecma262/#sec-asynciteratorclose — is in flight. On resume, the for-await-of
+    /// statement finishes steps 5-8 from <see cref="CloseCompletion"/> and the settled value below
+    /// instead of resuming the loop.
+    /// </summary>
+    public bool CloseInProgress { get; set; }
+
+    /// <summary>
+    /// The completion AsyncIteratorClose was called with: the loop's own completion, which steps 5
+    /// and 8 hand back when the close produces none of its own.
+    /// <para>
+    /// Parked whole rather than as a type and a value, for the reason
+    /// <see cref="TrySuspendData.PendingCompletion"/> documents: a Break or Continue keeps its
+    /// [[Target]] in the jump statement the record carries, so a type-and-value pair could not
+    /// express it.
+    /// </para>
+    /// </summary>
+    public Completion CloseCompletion { get; set; }
+
+    /// <summary>
+    /// The value AsyncIteratorClose's Await settled with, recorded by the close continuation.
+    /// </summary>
+    public JsValue? CloseSettledValue { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="CloseSettledValue"/> arrived as a rejection — step 6's "If innerResult is
+    /// a throw completion". It is deliberately not carried in the suspendable's own
+    /// <c>_resumeWithThrow</c>: a rejected close is not always a throw, since step 5 discards it
+    /// when the loop already has a throw completion of its own.
+    /// </summary>
+    public bool CloseSettledRejected { get; set; }
 }
 
 /// <summary>

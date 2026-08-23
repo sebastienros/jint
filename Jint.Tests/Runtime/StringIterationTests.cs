@@ -56,16 +56,18 @@ public class StringIterationTests
     }
 
     /// <summary>
-    /// Array destructuring reaches the same single read, but sees a wrapper rather than the primitive:
-    /// <c>HandleArrayPattern</c> performs <c>ToObject</c> on the value before asking for an iterator, so the
-    /// string lane is never entered at all. node reports <c>this</c> as "string" here. Pinned as it is — the
-    /// early boxing is a separate deviation from the read count this class is about.
+    /// Array destructuring reaches the same single read with the same receiver. It used to see a wrapper:
+    /// <c>HandleArrayPattern</c> performs <c>ToObject</c> for its array fast path and for the null/undefined
+    /// throw, and then asked <em>that</em> for an iterator, where ArrayBindingPattern's step is
+    /// <c>GetIterator(value, sync)</c> over the value itself
+    /// (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization). node reports <c>this</c> as
+    /// "string", and so does Jint now — which also means the string lane is entered here as it is everywhere else.
     /// </summary>
     [Fact]
-    public void DestructuringAPrimitiveStringReadsTheIteratorOnceThroughAWrapper()
+    public void DestructuringAPrimitiveStringReadsTheIteratorOnce()
     {
         Probe("String.prototype", "'hi'", "var [a, b] = v; return [a, b];")
-            .Should().Be("""reads=1 this=object result=["h","i"]""");
+            .Should().Be("""reads=1 this=string result=["h","i"]""");
     }
 
     [Theory]

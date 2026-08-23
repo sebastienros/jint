@@ -36,7 +36,7 @@ internal sealed class WeakRefConstructor : Constructor
 
         var target = arguments.At(0);
 
-        if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        if (!target.CanBeHeldWeakly())
         {
             Throw.TypeError(_realm, "WeakRef: target must be an object or symbol");
         }

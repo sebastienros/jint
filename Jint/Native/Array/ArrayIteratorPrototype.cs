@@ -1,4 +1,4 @@
-using Jint.Native.ArrayBuffer;
+﻿using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
@@ -153,12 +153,23 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
+            // https://tc39.es/ecma262/#sec-createarrayiterator - the abstract closure is a generator
+            // body, so once it has returned the generator is completed and a further `next` answers
+            // { value: undefined, done: true } without running a single step again. Nothing here may
+            // observe the array after that: no ValidateTypedArray (which would raise a TypeError for a
+            // buffer detached in the meantime) and no `length` read on an array-like.
+            if (_closed)
+            {
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
+                return false;
+            }
+
             uint len;
             if (_typedArray is not null)
             {
                 _typedArray._viewedArrayBuffer.AssertNotDetached();
                 var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(_typedArray, ArrayBufferOrder.SeqCst);
-                if (!_closed && taRecord.IsTypedArrayOutOfBounds)
+                if (taRecord.IsTypedArrayOutOfBounds)
                 {
                     Throw.TypeError(_typedArray.Engine.Realm, "TypedArray is out of bounds");
                 }
@@ -169,7 +180,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                 len = _operations!.GetLength();
             }
 
-            if (!_closed && _position < len)
+            if (_position < len)
             {
                 if (_typedArray is not null)
                 {
@@ -182,12 +193,14 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                 }
                 else
                 {
-                    _operations!.TryGetValue(_position, out var value);
+                    // Steps 10.d.v-vi of CreateArrayIterator: a key-kind step reads no element at all, and a
+                    // value/entry step is a bare Get -- never a HasProperty first, which on a Proxy or an
+                    // array-like host object is an extra observable trap the algorithm does not perform.
                     nextItem = _kind switch
                     {
                         ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(_position)),
-                        ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, value),
-                        _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), value)
+                        ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, _operations!.Get(_position)),
+                        _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), _operations!.Get(_position))
                     };
                 }
 
@@ -202,17 +215,23 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
 
         // Value-kind for-of over a non-typed-array array-like only needs the element, so skip the
         // per-step IteratorResult TryIteratorStep allocates. Mirrors the non-typed-array branch of
-        // that method exactly (live length each step, same done/closed transition, TryGetValue
-        // leaves holes as undefined). Typed arrays keep their detach/out-of-bounds guarded path,
-        // and Key/Entry kinds keep the wrapping path, both via base.
+        // that method exactly (live length each step, same done/closed transition, the same single
+        // Get per step). Typed arrays keep their detach/out-of-bounds guarded path, and Key/Entry
+        // kinds keep the wrapping path, both via base.
         internal override bool TryStepValue([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? value)
         {
             if (_kind == ArrayIteratorType.Value && _typedArray is null)
             {
-                var len = _operations!.GetLength();
-                if (!_closed && _position < len)
+                if (_closed)
                 {
-                    _operations!.TryGetValue(_position, out var stepped);
+                    value = null;
+                    return false;
+                }
+
+                var len = _operations!.GetLength();
+                if (_position < len)
+                {
+                    var stepped = _operations!.Get(_position);
                     _position++;
                     value = stepped;
                     return true;
