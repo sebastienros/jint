@@ -143,16 +143,27 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Return the first constraint that matches the predicate.
+        /// Returns the first registered constraint assignable to <typeparamref name="T"/>, or
+        /// <see langword="null"/> when this engine has none.
         /// </summary>
+        /// <remarks>
+        /// The match is <c>is T</c>. Through 4.16 it was <c>GetType() == typeof(T)</c>, an exact type
+        /// identity, so a host that put its own constraints behind a base class had to name every leaf, and
+        /// <c>Find&lt;Constraint&gt;()</c> answered <see langword="null"/> on an engine that had several.
+        /// Registration order decides which of several matches is returned; ask for the most derived type
+        /// you know when that matters. Note that an engine builds its constraint set once, from
+        /// <see cref="Options.Constraints"/>, and that a factory registration produces a fresh instance per
+        /// engine — so what comes back belongs to this engine.
+        /// </remarks>
+        /// <typeparam name="T">The constraint type to look for; base types match too.</typeparam>
         public T? Find<T>() where T : Constraint
         {
             using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
-                if (constraint.GetType() == typeof(T))
+                if (constraint is T match)
                 {
-                    return (T) constraint;
+                    return match;
                 }
             }
 

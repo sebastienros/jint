@@ -44,10 +44,10 @@ public class ParsingLimitTests
             SourceOffset = Position.From(3, 2),
         };
 
-        new Engine().Evaluate("0", options).Should().Be(0);
+        new Engine().Evaluate("0", parsingOptions: options).Should().Be(0);
 
         var exception = AssertSourceLimit(
-            () => new Engine().Evaluate("00", options),
+            () => new Engine().Evaluate("00", parsingOptions: options),
             5,
             6);
         exception.Kind.Should().Be(ParsingLimitKind.SourceLength);
@@ -59,7 +59,7 @@ public class ParsingLimitTests
         var engine = CreateEngine(maxSourceLength: 1);
         var parsingOptions = new ScriptParsingOptions { MaxSourceLength = 100 };
 
-        AssertSourceLimit(() => engine.Evaluate("00", parsingOptions), 1, 2);
+        AssertSourceLimit(() => engine.Evaluate("00", parsingOptions: parsingOptions), 1, 2);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class ParsingLimitTests
         var engine = CreateEngine(maxSourceLength: 100);
         var parsingOptions = new ScriptParsingOptions { MaxSourceLength = 1 };
 
-        AssertSourceLimit(() => engine.Evaluate("00", parsingOptions), 1, 2);
+        AssertSourceLimit(() => engine.Evaluate("00", parsingOptions: parsingOptions), 1, 2);
     }
 
     [Fact]
@@ -79,10 +79,10 @@ public class ParsingLimitTests
         var loose = new ScriptParsingOptions { MaxSourceLength = 100 };
         var tight = new ScriptParsingOptions { MaxSourceLength = 20 };
 
-        engine.Evaluate("eval(payload)", loose);
-        engine.Evaluate("eval(payload)", loose);
+        engine.Evaluate("eval(payload)", parsingOptions: loose);
+        engine.Evaluate("eval(payload)", parsingOptions: loose);
 
-        AssertSourceLimit(() => engine.Evaluate("eval(payload)", tight), 20, payload.Length);
+        AssertSourceLimit(() => engine.Evaluate("eval(payload)", parsingOptions: tight), 20, payload.Length);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class ParsingLimitTests
         var engine = new Engine().SetValue("payload", payload);
         var parsingOptions = new ScriptParsingOptions { MaxSourceLength = 25 };
 
-        Invoking(() => engine.Evaluate("new Function(payload)", parsingOptions))
+        Invoking(() => engine.Evaluate("new Function(payload)", parsingOptions: parsingOptions))
             .Should().ThrowExactly<ParsingLimitException>()
             .Which.Kind.Should().Be(ParsingLimitKind.SourceLength);
     }

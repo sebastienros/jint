@@ -234,15 +234,15 @@ assertEqual(booleanCount, 1);
         _engine.Evaluate("class TestClass { constructor(a, b) { this.a = a; this.b = b; }}");
         _engine.Evaluate("function TestFunction(a, b) { this.a = a; this.b = b; }");
 
-        var instanceFromClass = _engine.Construct("TestClass", "abc", 123).AsObject();
+        var instanceFromClass = _engine.Construct(_engine.Evaluate("TestClass"), "abc", 123).AsObject();
         instanceFromClass.Get("a").Should().Be("abc");
         instanceFromClass.Get("b").Should().Be(123);
 
-        var instanceFromFunction = _engine.Construct("TestFunction", "abc", 123).AsObject();
+        var instanceFromFunction = _engine.Construct(_engine.GetValue("TestFunction"), "abc", 123).AsObject();
         instanceFromFunction.Get("a").Should().Be("abc");
         instanceFromFunction.Get("b").Should().Be(123);
 
-        var arrayInstance = (JsArray) _engine.Construct("Array", "abc", 123).AsObject();
+        var arrayInstance = (JsArray) _engine.Construct(_engine.GetValue("Array"), "abc", 123).AsObject();
         arrayInstance.Length.Should().Be((uint) 2);
         arrayInstance[0].Should().Be("abc");
         arrayInstance[1].Should().Be(123);
@@ -401,7 +401,7 @@ assertEqual(booleanCount, 1);
         var function = _engine.Evaluate("function bar(a) { return a; }; bar;");
 
         _engine.Call(function, 123).Should().Be(123);
-        _engine.Call("bar", 123).Should().Be(123);
+        _engine.Invoke("bar", 123).Should().Be(123);
     }
 
     [Fact]
@@ -880,7 +880,7 @@ assertEqual(booleanCount, 1);
         var engine = new Engine();
         var parsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = true };
 
-        engine.Evaluate("function fn() { return 0; } fn.toString();", parsingOptions).AsString().Should().Be("function fn() { return 0; }");
+        engine.Evaluate("function fn() { return 0; } fn.toString();", parsingOptions: parsingOptions).AsString().Should().Be("function fn() { return 0; }");
 
         var prepared = Engine.PrepareScript(
             "function fn() { return 42; } fn.toString();",

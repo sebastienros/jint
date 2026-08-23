@@ -112,18 +112,87 @@ left the default, and the `TimeSpan` and `CancellationToken` overloads are untou
 
 ## 3. Renamed and reshaped API
 
-*Nothing recorded yet.* No public member has been renamed, and no public signature reshaped, since
-`v4.16.0`.
+### 3.1 The `string` overloads of `Engine.Call` and `Engine.Construct` are gone ([#3309](https://github.com/sebastienros/jint/pull/3309))
 
-Entries here are before/after code, not prose:
+`Engine.Call(string)` and `Engine.Construct(string)` passed their argument to `Evaluate`, so they compiled
+and ran it as JavaScript. Their XML docs said "the name of the callable" and "the name of the constructor to
+call", and the identically documented `Engine.Invoke(string)` beside them did a literal property lookup on
+the global object — so `engine.Call(name)` with a host-supplied `name` was an arbitrary-execution sink that
+nothing in the API said was one ([#3289](https://github.com/sebastienros/jint/issues/3289)).
+
+A `string` now names **one property of the global object** wherever it reaches an invocation entry, which is
+the same name `SetValue(string, …)` writes, and `Invoke` is the only entry that takes one.
+
+```c#
+// 4.16.x — the string was parsed and executed
+engine.Call("add", 1, 2);
+engine.Construct("MyCtor", arg);
+
+// 5.x — a property of the global object, by that name
+engine.Invoke("add", 1, 2);
+engine.Construct(engine.GetValue("MyCtor"), arg);
+```
+
+For a nested callable, read the value and call it — `Invoke("api.add")` looks for a global literally called
+`api.add`, in v5 as in 4.16:
+
+```c#
+// 4.16.x — worked, because the string was evaluated
+engine.Call("api.add", 1, 2);
+
+// 5.x
+var add = engine.GetValue(engine.GetValue("api"), "add");
+engine.Invoke(add, 1, 2);
+```
+
+A `class`, `let` or `const` declaration is a **lexical binding of the global environment**, not a property
+of the global object, so `GetValue` cannot read one — evaluate the identifier instead. `var` and `function`
+declarations, and anything `SetValue` installed, are properties and `GetValue` reads them:
 
 ```c#
 // 4.16.x
-// (before)
+engine.Construct("MyClass", arg);
 
 // 5.x
-// (after)
+engine.Construct(engine.Evaluate("MyClass"), arg);
 ```
+
+And if evaluating source really was the intent, say so:
+
+```c#
+// 5.x
+engine.Evaluate("api.add").Call(1, 2);
+```
+
+**A call site that is not updated is not necessarily a compile error.** `JsValue` has an implicit conversion
+from `string`, so `engine.Call("add", 1, 2)` still compiles and binds to
+`Call(JsValue, params JsValue[])` — where the callable is the *string* `"add"`, which is not callable, so it
+throws `ArgumentException` on the first execution instead of running anything. Grep for `.Call("` and
+`.Construct("` rather than relying on the compiler.
+
+### 3.2 `Evaluate` and `Execute` are one overload each, plus the prepared form ([#3309](https://github.com/sebastienros/jint/pull/3309))
+
+Each family had four overloads for what is one operation with two optional arguments. `source` and
+`parsingOptions` are now optional parameters of a single method, so eight public overloads become four.
+Only the call passing parsing options without a source name has to change:
+
+```c#
+// 4.16.x
+engine.Evaluate(code, parsingOptions);
+engine.Execute(code, parsingOptions);
+
+// 5.x
+engine.Evaluate(code, parsingOptions: parsingOptions);
+engine.Execute(code, parsingOptions: parsingOptions);
+```
+
+`Evaluate(code)`, `Evaluate(code, source)`, `Evaluate(code, source, parsingOptions)` and the
+`Prepared<Script>` overload are unchanged, and so are their `Execute` counterparts.
+
+`EvaluateAsync` and `ExecuteAsync` deliberately take no parsing options: prepare the source once with
+`Engine.PrepareScript` and pass the result to the `Prepared<Script>` overload, which is also the cheaper
+thing to do when the same source runs more than once. `ExecuteAsync(in Prepared<Script>, CancellationToken)`
+is new in v5 — `EvaluateAsync` already had it.
 
 ## 4. Breaking without a signature change
 
@@ -362,6 +431,26 @@ Two further additions in the same stack are entirely opt-in and change nothing o
 
 The supported boundaries and the residual risks are in the
 [threat model](../.github/THREAT_MODEL.md).
+
+### 4.13 `Engine.Constraints.Find<T>()` matches derived constraints ([#3309](https://github.com/sebastienros/jint/pull/3309))
+
+The match was `constraint.GetType() == typeof(T)` — an exact type identity, documented nowhere. It is
+`constraint is T` in v5, so a base type matches. Two shapes that used to answer `null` now answer:
+
+```c#
+// 4.16.x: null on an engine that has constraints, because Constraint is never the exact type
+// 5.x:    the first registered constraint
+engine.Constraints.Find<Constraint>();
+
+// 4.16.x: null, because the registered instance is MyDerivedBudget
+// 5.x:    the registered instance
+class MyBudget : Constraint { /* … */ }
+class MyDerivedBudget : MyBudget { /* … */ }
+engine.Constraints.Find<MyBudget>();
+```
+
+Asking for an exact type still answers the same instance it always did, and where several constraints match
+the one registered first is returned — ask for the most derived type you know when that matters.
 
 ## 5. New in v5
 
