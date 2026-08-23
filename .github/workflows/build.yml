@@ -58,3 +58,53 @@ jobs:
 
     - name: Push with dotnet
       run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package
+
+  # The mirror of the PR workflow's "linux - native aot" job, and there for the reason the Test step above is:
+  # a merge is not the commit CI ran on. Its own file documents what it verifies; the short version is that
+  # <IsAotCompatible> is a property, and the published binary is the only evidence.
+  aot:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Ensure the Native AOT toolchain is present
+      run: |
+        if command -v clang > /dev/null && dpkg -s zlib1g-dev > /dev/null 2>&1; then
+          echo "already present: $(clang --version | head -1)"
+        else
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+        fi
+
+    - name: Publish Jint.AotExample with Native AOT
+      run: |
+        set -o pipefail
+        dotnet publish Jint.AotExample/Jint.AotExample.csproj --configuration Release 2>&1 | tee aot-publish.log
+
+    - name: Run the native binary
+      run: |
+        set -o pipefail
+        ./artifacts/publish/Jint.AotExample/release/Jint.AotExample | tee aot-run.log
+        grep -q '^ALL PROBES PASSED' aot-run.log
+
+    - name: Summarise the trim and AOT analysis warnings
+      if: always()
+      run: |
+        {
+          echo '### Native AOT analysis diagnostics'
+          echo
+          echo '| code | count |'
+          echo '| --- | --- |'
+          grep -hoE 'IL[0-9]{4}' aot-publish.log 2>/dev/null | sort | uniq -c | sort -rn | awk '{ print "| " $2 " | " $1 " |" }'
+          echo
+          echo "total: $(grep -hcE 'IL[0-9]{4}' aot-publish.log 2>/dev/null || echo 0)"
+        } >> "$GITHUB_STEP_SUMMARY"
