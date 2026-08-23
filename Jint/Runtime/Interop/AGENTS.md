@@ -89,7 +89,7 @@ saying it is deliberately not `NotSupportedException`.
    where the lane is generic. A `KnownAotGap` is for a shape that must *keep* throwing; it is checked
    in both directions, so a gap that closes fails the leg.
 
-The six annotated members today are `OptionsExtensions.AllowClr` (both overloads),
+The seven annotated members today are `OptionsExtensions.AllowClr` (two overloads),
 `OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`, `ObjectWrapper.Create`, and
 `ClrHelper.Unwrap` / `Wrap`. `JsValue.FromObject` is deliberately not among them: it is the engine's own
 conversion funnel with ~60 call sites inside Jint, the interpreter's operator-overloading path among

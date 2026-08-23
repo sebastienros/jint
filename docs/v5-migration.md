@@ -425,7 +425,7 @@ generics unless the type also implements `IList`.
 
 ### 6.3 APIs that now warn
 
-Six members carry `[RequiresUnreferencedCode]`, so a trimming or AOT host sees the diagnostic at their
+Seven members carry `[RequiresUnreferencedCode]`, so a trimming or AOT host sees the diagnostic at their
 own call site rather than as a wrong answer at run time. Each message names what to do instead.
 
 | member | why | what to do |
