@@ -2418,11 +2418,13 @@ method returns at its first `await`, so its callback is normally invoked long af
 returned — the first window covers the rest of the evaluation that called it, and by the time that
 evaluation returns the script is awaiting the promise the method handed back, which is the third. The
 fourth is for the other shape entirely, a host loop that pumps one engine from one thread and idles on the
-pump in between. How narrowly a window admits depends on where it was opened: one opened inside a running
-operation admits only callbacks issued under that operation, while one opened at the top level — a blocking
-drain, or a park — is anonymous and admits any callback this engine ever authorized, including one whose
-operation ended long ago. A park reached from *inside* a running evaluation is not a window at all and goes
-on refusing. Outside every window — the engine thread is running script for an operation that was never
+pump in between. How narrowly a window admits is decided by whether an operation token is in force
+under it, not by where on the stack it was opened: one opened under a host call that was handed a callback
+admits only that operation's callbacks, while one opened where none is in force is anonymous and admits any
+callback this engine ever authorized, including one whose operation ended long ago. The third window in
+particular is open wherever a drain runs — nested inside a running evaluation, and inside a blocking
+`Modules.Import`, which claims the engine before its own drain begins. A park reached from *inside* a running
+evaluation is not a window at all and goes on refusing. Outside every window — the engine thread is running script for an operation that was never
 handed this callback, and has undertaken to yield to nobody — an authorized callback is refused exactly like
 an unrelated caller, because serializing it there would mean blocking on a thread that may itself be blocked
 on that callback. A host that dispatches callbacks asynchronously should therefore keep the engine inside one

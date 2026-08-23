@@ -423,6 +423,31 @@ public sealed partial class Engine : IDisposable
     /// Returns a no-op window when a reservation already exists - an outstanding async host operation, or an
     /// outer drain. That one is not ours to close, and the drain then behaves exactly as it did before.
     /// </para>
+    /// <para>
+    /// Opened by <em>every</em> drain, nested ones included: there is deliberately no guard on the scope
+    /// that claimed the engine. What would justify one is a frame that <em>runs no script</em> - a park on
+    /// <see cref="AdvancedOperations.WaitForScheduledWork"/>, whose <c>InspectScheduledWork</c> executes
+    /// nothing - because there an admitted callback would be the only script interleaved into somebody
+    /// else's evaluation. A drain is the opposite case: <see cref="RunAvailableContinuations"/> runs
+    /// arbitrary script on every iteration whether a callback is admitted or not, so refusing the callback
+    /// would remove the callback without removing the interleaving. Measured at a nested drain against the
+    /// same probes at a top-level one, three candidate hazards behave identically: a host method reached
+    /// from a drain continuation and blocking on a second authorized callback wedges either way, an
+    /// admitted callback blocking on host state the outer frame holds is stalled either way, and a turn
+    /// charged to the outer evaluation's statement budget can kill that evaluation either way - the last of
+    /// which the drain's own continuations already do, with no callback involved at all.
+    /// </para>
+    /// <para>
+    /// The claiming scope would in any case be the wrong question here, for a reason that has nothing to do
+    /// with script: <see cref="ModuleOperations.Import(string)"/> claims the engine before this drain
+    /// re-enters, so a blocking import <em>on an otherwise idle engine, from the host's own thread</em> is
+    /// not a claiming scope either. That drain is one of the windows README.md's Thread-safety section
+    /// enumerates, so keying the window on the claiming scope would close a documented top-level window
+    /// rather than a nested one. Nor is there a middle option: reserving under a fresh token instead would
+    /// admit only callbacks converted <em>inside</em> the drain, which is the "latent fourth" gap
+    /// sebastienros/jint#3206 removed by opening one window before any conversion can happen.
+    /// sebastienros/jint#3262.
+    /// </para>
     /// </remarks>
     internal HostCallbackAdmissionWindow OpenHostCallbackAdmissionWindow()
     {
@@ -502,9 +527,17 @@ public sealed partial class Engine : IDisposable
     /// keeps a stale callback from an <em>earlier</em> entry refused exactly as before.
     /// </para>
     /// </remarks>
-    internal HostCallSuspension SuspendHostCallForCallbacks(bool hasTransferredCallback)
+    /// <param name="yieldForCallbacks">
+    /// Whether to yield the thread at all; <see langword="false"/> makes this a no-op scope. It says what
+    /// the caller wants from the frame, deliberately not who handed a callback to whom: at the interop call
+    /// sites it is "this host call was passed a JavaScript callback", while
+    /// <see cref="DrainEventLoopUntil"/> passes a constant <see langword="true"/> for its idle wait, having
+    /// been handed nothing - the reservation it finds is one it opened itself, and all it wants here is the
+    /// thread released so a callback admitted through that window can take its turn.
+    /// </param>
+    internal HostCallSuspension SuspendHostCallForCallbacks(bool yieldForCallbacks)
     {
-        if (!hasTransferredCallback)
+        if (!yieldForCallbacks)
         {
             return default;
         }
@@ -2489,6 +2522,14 @@ public sealed partial class Engine : IDisposable
         // below. A drain is exactly the frame the thread-safety contract lets an authorized
         // cross-thread callback wait in, and dropping the reservation across RunAvailableContinuations
         // every iteration turned that promise into a scheduling coin flip (sebastienros/jint#3206).
+        // Unconditionally, including for a nested drain: see the window's own remarks for why the
+        // claiming-scope guard a park needs would be both unnecessary and, for a blocking import, wrong.
+        // Note also that guarding *this line* alone would not even narrow admission. The per-iteration
+        // suspension below would then own its reservation rather than finding this one, and a suspension
+        // that owns one hands it to the enclosing entry instead of dropping it (ResumeSuspendedHostCall) -
+        // so the window would survive the drain and stay open for the rest of that entry. Measured: a
+        // callback dispatched after a nested drain returned is refused as things stand and admitted with
+        // that guard in place. The guard is not a narrowing; it is a widening in duration.
         using var admission = OpenHostCallbackAdmissionWindow();
 
         // Claim this thread as the one draining the loop so background threads (Task completions)
@@ -2585,7 +2626,7 @@ public sealed partial class Engine : IDisposable
                     // settle arriving from a background thread only enqueues, and this thread is the one that
                     // has to run it — before the wake it idled out the rest of the poll slice first, which a
                     // chain of sequential asynchronous loads paid on every hop.
-                    using (SuspendHostCallForCallbacks(hasTransferredCallback: true))
+                    using (SuspendHostCallForCallbacks(yieldForCallbacks: true))
                     {
                         _eventLoop.WaitForWork(completedEvent, waitInterval, waitToken);
                     }
