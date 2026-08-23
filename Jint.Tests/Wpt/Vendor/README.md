@@ -1044,8 +1044,8 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×5 | 49 | 714 | 168 |
-| **total** | **38** | **293** | **40,983** | **2,982** |
+| Fetch | `fetch/api/` ×5 | 49 | 714 | 154 |
+| **total** | **38** | **293** | **40,983** | **2,968** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
