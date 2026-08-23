@@ -29,6 +29,36 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
+  <!--
+    The public API baselines (PublicApiTest.cs + Verify/PublicApiTest_*.verified.txt) are read out of the
+    built assemblies rather than out of the loaded one, so that the three target frameworks no test project
+    can execute - netstandard2.0, netstandard2.1 and net8.0 - get a baseline too. Only the .NET leg does the
+    reading: PublicApiGenerator formats through CodeDom, and nothing promises the .NET Framework CodeDom
+    lays the same metadata out identically, so the net472 leg would be verifying the host rather than Jint.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net472'">
+    <PackageReference Include="PublicApiGenerator" />
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
+    <PackageReference Include="Verify.DiffPlex" />
+    <PackageReference Include="Verify.XunitV3" />
+  </ItemGroup>
+
+  <!--
+    ...and reading them is only safe if they are all there and all current. A ProjectReference builds one
+    target framework of Jint - the one this project consumes - so `dotnet test Jint.Tests.PublicInterface`
+    would otherwise verify four fresh baselines against a fifth assembly left over from whenever the
+    solution was last built. Building the outer (cross-targeting) project puts every shipped target
+    framework into artifacts/bin/Jint/, and costs nothing when Jint has not changed: MSBuild's up-to-date
+    check skips each inner build, and a solution build has already produced them all anyway. RemoveProperties
+    is what makes it the outer build - without it this project's own TargetFramework leaks in as a global
+    property and MSBuild builds that one target framework again instead.
+  -->
+  <Target Name="BuildJintForEveryShippedTargetFramework" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\Jint\Jint.csproj"
+             Targets="Build"
+             RemoveProperties="TargetFramework;RuntimeIdentifier" />
+  </Target>
+
   <ItemGroup>
     <!-- Shared so that a JsValue can be compared against a CLR value in both test projects. -->
     <Compile Include="..\Jint.Tests\JsValueAssertions.cs" Link="JsValueAssertions.cs" />

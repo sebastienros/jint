@@ -1,0 +1,2011 @@
+﻿[assembly: System.Resources.NeutralResourcesLanguage("en-US")]
+namespace Jint
+{
+    public enum ArrayConversionMode
+    {
+        Copy = 0,
+        LiveView = 1,
+    }
+    public static class AstExtensions
+    {
+        public static Jint.Native.JsValue GetKey(this Acornima.Ast.Expression expression, Jint.Engine engine, bool resolveComputed = false) { }
+        public static Jint.Native.JsValue GetKey<T>(this T property, Jint.Engine engine)
+            where T : Acornima.Ast.IProperty { }
+    }
+    public abstract class Constraint
+    {
+        protected Constraint() { }
+        public virtual bool IsAmortizable { get; }
+        public abstract void Check();
+        public abstract void Reset();
+    }
+    public static class ConstraintsOptionsExtensions
+    {
+        public static Jint.Options CancellationToken(this Jint.Options options, System.Threading.CancellationToken cancellationToken) { }
+        public static Jint.Options LimitMemory(this Jint.Options options, long memoryLimit) { }
+        public static Jint.Options MaxStatements(this Jint.Options options, int maxStatements = 0) { }
+        public static Jint.Options TimeoutInterval(this Jint.Options options, System.TimeSpan timeoutInterval) { }
+    }
+    public enum DeclarationBindingType
+    {
+        GlobalCode = 0,
+        FunctionCode = 1,
+        EvalCode = 2,
+    }
+    [System.Diagnostics.DebuggerTypeProxy(typeof(Jint.Engine.EngineDebugView))]
+    public sealed class Engine : System.IDisposable
+    {
+        public Engine() { }
+        public Engine(Jint.Options options) { }
+        public Engine(System.Action<Jint.Options>? options) { }
+        public Engine(System.Action<Jint.Engine, Jint.Options> options) { }
+        public Jint.Engine.AdvancedOperations Advanced { get; }
+        public Jint.Engine.ConstraintOperations Constraints { get; }
+        public Jint.Runtime.Debugger.DebugHandler Debugger { get; }
+        public Jint.Native.Object.ObjectInstance Global { get; }
+        public Jint.Runtime.Intrinsics Intrinsics { get; }
+        public Jint.Engine.ModuleOperations Modules { get; }
+        public Jint.Runtime.Interop.ITypeConverter TypeConverter { get; }
+        public Jint.Native.JsValue Call(Jint.Native.JsValue callable, params Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.JsValue Call(string callableName, params Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.JsValue Call(Jint.Native.JsValue callable, Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue constructor, params Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.Object.ObjectInstance Construct(string constructorName, params Jint.Native.JsValue[] arguments) { }
+        public void Dispose() { }
+        public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
+        public Jint.Native.JsValue Evaluate(string code, Jint.ScriptParsingOptions parsingOptions) { }
+        public Jint.Native.JsValue Evaluate(string code, string? source = null) { }
+        public Jint.Native.JsValue Evaluate(string code, string source, Jint.ScriptParsingOptions parsingOptions) { }
+        public System.Threading.Tasks.Task<Jint.Native.JsValue> EvaluateAsync(in Jint.Prepared<Acornima.Ast.Script> preparedScript, System.Threading.CancellationToken cancellationToken = default) { }
+        public System.Threading.Tasks.Task<Jint.Native.JsValue> EvaluateAsync(string code, string? source = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.Engine Execute(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
+        public Jint.Engine Execute(string code, Jint.ScriptParsingOptions parsingOptions) { }
+        public Jint.Engine Execute(string code, string? source = null) { }
+        public Jint.Engine Execute(string code, string source, Jint.ScriptParsingOptions parsingOptions) { }
+        public System.Threading.Tasks.Task<Jint.Engine> ExecuteAsync(string code, string? source = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public Jint.Native.JsValue GetValue(string propertyName) { }
+        public Jint.Native.JsValue GetValue(Jint.Native.JsValue scope, Jint.Native.JsValue property) { }
+        public Jint.Native.JsValue Invoke(Jint.Native.JsValue value, params object?[] arguments) { }
+        public Jint.Native.JsValue Invoke(string propertyName, params object?[] arguments) { }
+        public Jint.Native.JsValue Invoke(Jint.Native.JsValue value, object? thisObj, object?[] arguments) { }
+        public Jint.Native.JsValue Invoke(string propertyName, object? thisObj, object?[] arguments) { }
+        public System.Threading.Tasks.Task<Jint.Native.JsValue> InvokeAsync(string propertyName, params object?[] arguments) { }
+        public System.Threading.Tasks.Task<Jint.Native.JsValue> InvokeAsync(string propertyName, System.Threading.CancellationToken cancellationToken, params object?[] arguments) { }
+        public Jint.Engine SetValue(string name, Jint.Native.JsValue value) { }
+        public Jint.Engine SetValue(string name, System.Delegate value) { }
+        public Jint.Engine SetValue(string name, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)] System.Type type) { }
+        public Jint.Engine SetValue(string name, bool value) { }
+        public Jint.Engine SetValue(string name, double value) { }
+        public Jint.Engine SetValue(string name, int value) { }
+        public Jint.Engine SetValue(string name, object? obj) { }
+        public Jint.Engine SetValue(string name, string? value) { }
+        public Jint.Engine SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name, T? obj) { }
+        public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(string code, string? source = null, Jint.ModulePreparationOptions? options = null) { }
+        public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
+        public class AdvancedOperations
+        {
+            public object? HostDefined { get; set; }
+            public string StackTrace { get; }
+            public event System.EventHandler<Jint.PromiseRejectionTrackerEventArgs>? PromiseRejectionTracker;
+            public void AddLazyGlobal(string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+            public void AddLazyGlobal<TState>(string name, TState state, System.Func<Jint.Engine, TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+            public Jint.GlobalSnapshot CaptureGlobalSnapshot() { }
+            public Jint.Native.Object.ObjectInstance CreateProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
+            public Jint.Runtime.Interop.RevocableProxy CreateRevocableProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
+            public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
+            public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
+            public Jint.Native.Object.PropertyAccessSemantics GetPropertyAccessSemantics(Jint.Native.Object.ObjectInstance value) { }
+            public bool HasSharedShape(Jint.Native.Object.ObjectInstance value) { }
+            public void ProcessTasks() { }
+            public Jint.Native.Promise.ManualPromise RegisterPromise() { }
+            public void ResetCallStack() { }
+            public void RestoreGlobalSnapshot(Jint.GlobalSnapshot snapshot) { }
+            public void WithRestoredGlobals(Jint.GlobalSnapshot snapshot, System.Action action) { }
+        }
+        public class ConstraintOperations
+        {
+            public void Check() { }
+            public T? Find<T>()
+                where T : Jint.Constraint { }
+            public void Reset() { }
+        }
+        public class ModuleOperations
+        {
+            public ModuleOperations(Jint.Engine engine, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
+            public void Add(string specifier, Jint.Runtime.Modules.ModuleBuilder moduleBuilder) { }
+            public void Add(string specifier, System.Action<Jint.Runtime.Modules.ModuleBuilder> buildModule) { }
+            public void Add(string specifier, string code) { }
+            public Jint.Native.Object.ObjectInstance Import(string specifier) { }
+            public System.Threading.Tasks.Task<Jint.Native.Object.ObjectInstance> ImportAsync(string specifier, System.Threading.CancellationToken cancellationToken = default) { }
+            public System.Threading.Tasks.Task<Jint.Native.Object.ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, System.Threading.CancellationToken cancellationToken = default) { }
+            public Jint.Runtime.Modules.ModuleImportOperation StartImport(string specifier) { }
+            public Jint.Runtime.Modules.ModuleImportOperation StartImport(string specifier, string? referencingModuleLocation) { }
+        }
+    }
+    public enum EnumConversionMode
+    {
+        Number = 0,
+        String = 1,
+    }
+    public enum EnumerableConversionMode
+    {
+        Lazy = 0,
+        Snapshot = 1,
+    }
+    [System.Flags]
+    public enum ExperimentalFeature
+    {
+        None = 0,
+        [System.Obsolete("This flag is no longer necessary as generators are fully supported.", true)]
+        Generators = 1,
+        TaskInterop = 2,
+        All = 2,
+    }
+    public sealed class GlobalSnapshot { }
+    public interface IParsingOptions
+    {
+        bool? CompileRegex { get; init; }
+        System.TimeSpan? RegexTimeout { get; init; }
+        bool RetainFunctionSourceText { get; init; }
+        bool Tolerant { get; init; }
+    }
+    public interface IPreparationOptions<out TParsingOptions>
+        where out TParsingOptions : Jint.IParsingOptions
+    {
+        bool FoldConstants { get; init; }
+        TParsingOptions ParsingOptions { get; }
+    }
+    public readonly struct InteropConversionDiagnostics : System.IEquatable<Jint.InteropConversionDiagnostics>
+    {
+        public long ArrayCopyConversions { get; }
+        public long ArrayLiveViewConversions { get; }
+    }
+    public abstract class JintException : System.Exception
+    {
+        public static bool TryGetClrException(System.Exception? exception, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out System.Exception? clrException) { }
+        public static bool TryGetClrMemberName(System.Exception? exception, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? memberName) { }
+        public static bool TryGetClrType(System.Exception? exception, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out System.Type? clrType) { }
+        public static bool TryGetJavaScriptCallStack(System.Exception? exception, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? callStack) { }
+        public static bool TryGetJavaScriptLocation(System.Exception? exception, out Acornima.SourceLocation location) { }
+    }
+    public static class JsValueExtensions
+    {
+        public static T? As<T>(this Jint.Native.JsValue value)
+            where T : Jint.Native.Object.ObjectInstance { }
+        public static Jint.Native.JsArray AsArray(this Jint.Native.JsValue value) { }
+        public static byte[]? AsArrayBuffer(this Jint.Native.JsValue value) { }
+        public static long[] AsBigInt64Array(this Jint.Native.JsValue value) { }
+        public static ulong[] AsBigUint64Array(this Jint.Native.JsValue value) { }
+        public static bool AsBoolean(this Jint.Native.JsValue value) { }
+        public static byte[]? AsDataView(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsDate AsDate(this Jint.Native.JsValue value) { }
+        public static System.Half[] AsFloat16Array(this Jint.Native.JsValue value) { }
+        public static float[] AsFloat32Array(this Jint.Native.JsValue value) { }
+        public static double[] AsFloat64Array(this Jint.Native.JsValue value) { }
+        public static Jint.Native.Function.Function AsFunctionInstance(this Jint.Native.JsValue value) { }
+        public static TInstance AsInstance<TInstance>(this Jint.Native.JsValue value)
+            where TInstance :  class { }
+        public static short[] AsInt16Array(this Jint.Native.JsValue value) { }
+        public static int[] AsInt32Array(this Jint.Native.JsValue value) { }
+        public static sbyte[] AsInt8Array(this Jint.Native.JsValue value) { }
+        public static double AsNumber(this Jint.Native.JsValue value) { }
+        public static Jint.Native.Object.ObjectInstance AsObject(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsRegExp AsRegExp(this Jint.Native.JsValue value) { }
+        public static string AsString(this Jint.Native.JsValue value) { }
+        public static ushort[] AsUint16Array(this Jint.Native.JsValue value) { }
+        public static uint[] AsUint32Array(this Jint.Native.JsValue value) { }
+        public static byte[] AsUint8Array(this Jint.Native.JsValue value) { }
+        public static byte[] AsUint8ClampedArray(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, params Jint.Native.JsValue[] arguments) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue thisObj, Jint.Native.JsValue[] arguments) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2, Jint.Native.JsValue arg3) { }
+        public static bool IsArray(this Jint.Native.JsValue value) { }
+        public static bool IsArrayBuffer(this Jint.Native.JsValue value) { }
+        public static bool IsBigInt(this Jint.Native.JsValue value) { }
+        public static bool IsBigInt64Array(this Jint.Native.JsValue value) { }
+        public static bool IsBigUint64Array(this Jint.Native.JsValue value) { }
+        public static bool IsBoolean(this Jint.Native.JsValue value) { }
+        public static bool IsCallable(this Jint.Native.JsValue value) { }
+        public static bool IsConstructor(this Jint.Native.JsValue value) { }
+        public static bool IsDataView(this Jint.Native.JsValue value) { }
+        public static bool IsDate(this Jint.Native.JsValue value) { }
+        public static bool IsFloat16Array(this Jint.Native.JsValue value) { }
+        public static bool IsFloat32Array(this Jint.Native.JsValue value) { }
+        public static bool IsFloat64Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt16Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt32Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt8Array(this Jint.Native.JsValue value) { }
+        public static bool IsNull(this Jint.Native.JsValue value) { }
+        public static bool IsNumber(this Jint.Native.JsValue value) { }
+        public static bool IsObject(this Jint.Native.JsValue value) { }
+        public static bool IsPrimitive(this Jint.Native.JsValue value) { }
+        public static bool IsPrivateName(this Jint.Native.JsValue value) { }
+        public static bool IsPromise(this Jint.Native.JsValue value) { }
+        public static bool IsRegExp(this Jint.Native.JsValue value) { }
+        public static bool IsString(this Jint.Native.JsValue value) { }
+        public static bool IsSymbol(this Jint.Native.JsValue value) { }
+        public static bool IsUint16Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint32Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint8Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint8ClampedArray(this Jint.Native.JsValue value) { }
+        public static bool IsUndefined(this Jint.Native.JsValue value) { }
+        public static T? TryCast<T>(this Jint.Native.JsValue value)
+            where T :  class { }
+        public static T? TryCast<T>(this Jint.Native.JsValue value, System.Action<Jint.Native.JsValue> fail)
+            where T :  class { }
+        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.Threading.CancellationToken cancellationToken) { }
+        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.TimeSpan timeout) { }
+        public static System.Threading.Tasks.Task<Jint.Native.JsValue> UnwrapIfPromiseAsync(this Jint.Native.JsValue value, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class ModuleParsingOptions : Jint.IParsingOptions, System.IEquatable<Jint.ModuleParsingOptions>
+    {
+        public static readonly Jint.ModuleParsingOptions Default;
+        public ModuleParsingOptions() { }
+        public bool? CompileRegex { get; init; }
+        public System.TimeSpan? RegexTimeout { get; init; }
+        public bool RetainFunctionSourceText { get; init; }
+        public bool Tolerant { get; init; }
+    }
+    public sealed class ModulePreparationOptions : Jint.IPreparationOptions<Jint.ModuleParsingOptions>, System.IEquatable<Jint.ModulePreparationOptions>
+    {
+        public static readonly Jint.ModulePreparationOptions Default;
+        public ModulePreparationOptions() { }
+        public bool CollectReferencedGlobals { get; init; }
+        public bool FoldConstants { get; init; }
+        public Jint.ModuleParsingOptions ParsingOptions { get; init; }
+        public bool StaticAnalysis { get; init; }
+    }
+    public enum ObjectRepresentation
+    {
+        Dictionary = 0,
+        HiddenClass = 1,
+        SharedBuiltinLayout = 2,
+        Specialized = 3,
+    }
+    public class Options
+    {
+        public Options() { }
+        public bool AgentCanSuspend { get; set; }
+        public Jint.Options.ConstraintOptions Constraints { get; }
+        public System.Globalization.CultureInfo Culture { get; set; }
+        public Jint.Options.DebuggerOptions Debugger { get; }
+        public Jint.ExperimentalFeature ExperimentalFeatures { get; set; }
+        public Jint.Options.HostOptions Host { get; }
+        public Jint.Options.InteropOptions Interop { get; }
+        public Jint.Options.IntlOptions Intl { get; }
+        public Jint.Options.JsonOptions Json { get; set; }
+        public Jint.Options.ModuleOptions Modules { get; }
+        public Jint.Runtime.Interop.IReferenceResolver ReferenceResolver { get; set; }
+        public Jint.Runtime.Interop.ReferenceResolverInterests ReferenceResolverInterests { get; set; }
+        public bool RetainFunctionSourceText { get; set; }
+        public bool Strict { get; set; }
+        [System.Obsolete("Use Options.Host.StringCompilationAllowed")]
+        public bool StringCompilationAllowed { get; set; }
+        public Jint.Options.TemporalOptions Temporal { get; }
+        public Jint.Runtime.ITimeSystem TimeSystem { get; set; }
+        public System.TimeZoneInfo TimeZone { get; set; }
+        public class ConstraintOptions
+        {
+            public ConstraintOptions() { }
+            public System.Collections.Generic.List<Jint.Constraint> Constraints { get; }
+            public uint MaxArraySize { get; set; }
+            public int MaxAtomicsPauseIterations { get; set; }
+            public int MaxExecutionStackCount { get; set; }
+            public int MaxRecursionDepth { get; set; }
+            public System.TimeSpan PromiseTimeout { get; set; }
+            public System.TimeSpan RegexTimeout { get; set; }
+            public bool StackOverflowGuard { get; set; }
+        }
+        public class DebuggerOptions
+        {
+            public DebuggerOptions() { }
+            public bool Enabled { get; set; }
+            public Jint.Runtime.Debugger.StepMode InitialStepMode { get; set; }
+            public Jint.Runtime.Debugger.DebuggerStatementHandling StatementHandling { get; set; }
+        }
+        public class HostOptions
+        {
+            public HostOptions() { }
+            public System.Func<Jint.Native.Function.Function, Acornima.Ast.Node, string?> FunctionToStringHandler { get; set; }
+            public bool StringCompilationAllowed { get; set; }
+        }
+        public class InteropOptions
+        {
+            public InteropOptions() { }
+            public bool AllowGetType { get; set; }
+            public bool AllowOperatorOverloading { get; set; }
+            public bool AllowSystemReflection { get; set; }
+            public bool AllowWrite { get; set; }
+            public System.Collections.Generic.List<System.Reflection.Assembly> AllowedAssemblies { get; set; }
+            public Jint.ArrayConversionMode ArrayConversion { get; set; }
+            public bool AttachArrayPrototype { get; set; }
+            public Jint.Options.BuildCallStackDelegate? BuildCallStackHandler { get; set; }
+            public bool CacheRecentObjectWrappers { get; set; }
+            public bool ChainClrExceptionAsInnerException { get; set; }
+            public Jint.Options.ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set; }
+            public Jint.Options.ClrResolutionErrorDecoratorDelegate? ClrResolutionErrorDecorator { get; set; }
+            public System.Func<Jint.Native.Object.ObjectInstance, System.Collections.Generic.IDictionary<string, object?>>? CreateClrObject { get; set; }
+            public System.Func<Jint.Engine, System.Type, Jint.Native.JsValue[], object?> CreateTypeReferenceObject { get; set; }
+            public System.DateTimeKind DateTimeKind { get; set; }
+            public bool Enabled { get; set; }
+            public Jint.EnumConversionMode EnumConversion { get; set; }
+            public Jint.EnumerableConversionMode EnumerableConversion { get; set; }
+            public Jint.Options.ExceptionHandlerDelegate ExceptionHandler { get; set; }
+            public bool ExposeDetailedResolutionErrors { get; set; }
+            public System.Collections.Generic.List<System.Type> ExtensionMethodTypes { get; }
+            public System.Collections.Generic.List<System.Type> ImmutableCrossingTypes { get; }
+            public Jint.Options.MemberAccessorDelegate MemberAccessor { get; set; }
+            public System.Collections.Generic.List<Jint.Runtime.Interop.IObjectConverter> ObjectConverters { get; }
+            public System.Reflection.BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; }
+            public System.Reflection.MemberTypes ObjectWrapperReportedMemberTypes { get; set; }
+            public System.Reflection.BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; }
+            public System.Reflection.BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set; }
+            public Jint.Options.ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; }
+            public bool PreferJsPrototypeMethods { get; set; }
+            public Jint.Options.SerializeToJsonDelegate? SerializeToJson { get; set; }
+            public bool ThrowOnUnresolvedMember { get; set; }
+            public bool TrackObjectWrapperIdentity { get; set; }
+            public Jint.Runtime.Interop.TypeResolver TypeResolver { get; set; }
+            public Jint.ValueCoercionType ValueCoercion { get; set; }
+            public Jint.Options.WrapObjectDelegate WrapObjectHandler { get; set; }
+        }
+        public class IntlOptions
+        {
+            public IntlOptions() { }
+            public Jint.Native.Intl.ICldrProvider CldrProvider { get; set; }
+        }
+        public class JsonOptions
+        {
+            public JsonOptions() { }
+            public int MaxParseDepth { get; set; }
+        }
+        public class ModuleOptions
+        {
+            public ModuleOptions() { }
+            public Jint.Runtime.Modules.IModuleLoader ModuleLoader { get; set; }
+            public bool RegisterRequire { get; set; }
+        }
+        public class TemporalOptions
+        {
+            public TemporalOptions() { }
+            public Jint.Native.Temporal.ICalendarProvider CalendarProvider { get; set; }
+            public Jint.Native.Temporal.ITimeZoneProvider TimeZoneProvider { get; set; }
+        }
+        public delegate string? BuildCallStackDelegate(string shortDescription, Acornima.SourceLocation location, string[]? arguments);
+        public delegate void ClrExceptionErrorDecoratorDelegate(Jint.Engine engine, Jint.Native.Object.ObjectInstance error, System.Exception exception);
+        public delegate void ClrResolutionErrorDecoratorDelegate(Jint.Engine engine, Jint.Native.Object.ObjectInstance error, Jint.Runtime.Interop.ClrResolutionErrorInfo info);
+        public delegate bool ExceptionHandlerDelegate(System.Exception exception);
+        public delegate Jint.Native.JsValue? MemberAccessorDelegate(Jint.Engine engine, object target, string member);
+        public delegate System.Collections.Generic.IEnumerable<Jint.Native.JsValue>? ReportedPropertyKeysDelegate(Jint.Engine engine, object target);
+        public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
+        public delegate Jint.Native.Object.ObjectInstance? WrapObjectDelegate(Jint.Engine engine, object target, System.Type? type);
+    }
+    public static class OptionsExtensions
+    {
+        public static Jint.Options AddExtensionMethods(this Jint.Options options, params System.Type[] types) { }
+        public static Jint.Options AddImmutableCrossing(this Jint.Options options, params System.Type[] types) { }
+        public static Jint.Options AddLazyGlobal(this Jint.Options options, string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.IObjectConverter objectConverter) { }
+        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.IObjectConverter objectConverter, params System.Type[] handledTypes) { }
+        public static Jint.Options AddObjectConverter<T>(this Jint.Options options)
+            where T : Jint.Runtime.Interop.IObjectConverter, new () { }
+        public static Jint.Options AllowClr(this Jint.Options options, params System.Reflection.Assembly[] assemblies) { }
+        public static Jint.Options AllowClrWrite(this Jint.Options options, bool allow = true) { }
+        public static Jint.Options AllowOperatorOverloading(this Jint.Options options, bool allow = true) { }
+        public static Jint.Options CatchClrExceptions(this Jint.Options options) { }
+        public static Jint.Options CatchClrExceptions(this Jint.Options options, Jint.Options.ExceptionHandlerDelegate handler) { }
+        public static Jint.Options ChainClrExceptions(this Jint.Options options, bool chain = true) { }
+        public static Jint.Options Configure(this Jint.Options options, System.Action<Jint.Engine> configuration) { }
+        public static Jint.Options Constraint(this Jint.Options options, Jint.Constraint constraint) { }
+        public static Jint.Options Constraint(this Jint.Options options, System.Func<Jint.Constraint> constraintFactory) { }
+        public static Jint.Options Culture(this Jint.Options options, System.Globalization.CultureInfo cultureInfo) { }
+        public static Jint.Options DebugMode(this Jint.Options options, bool debugMode = true) { }
+        public static Jint.Options DebuggerStatementHandling(this Jint.Options options, Jint.Runtime.Debugger.DebuggerStatementHandling debuggerStatementHandling) { }
+        public static Jint.Options DecorateClrExceptionErrors(this Jint.Options options, Jint.Options.ClrExceptionErrorDecoratorDelegate decorator) { }
+        public static Jint.Options DecorateClrResolutionErrors(this Jint.Options options, Jint.Options.ClrResolutionErrorDecoratorDelegate decorator) { }
+        public static Jint.Options DisableStringCompilation(this Jint.Options options, bool disable = true) { }
+        public static Jint.Options EnableModules(this Jint.Options options, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
+        public static Jint.Options EnableModules(this Jint.Options options, string basePath, bool restrictToBasePath = true) { }
+        public static Jint.Options InitialStepMode(this Jint.Options options, Jint.Runtime.Debugger.StepMode initialStepMode = 0) { }
+        public static Jint.Options LimitRecursion(this Jint.Options options, int maxRecursionDepth = 0) { }
+        public static Jint.Options LocalTimeZone(this Jint.Options options, System.TimeZoneInfo timeZoneInfo) { }
+        public static Jint.Options MaxArraySize(this Jint.Options options, uint maxSize) { }
+        public static Jint.Options MaxJsonParseDepth(this Jint.Options options, int maxDepth) { }
+        public static Jint.Options PreferJsPrototypeMethods(this Jint.Options options, bool prefer = true) { }
+        public static Jint.Options RegexTimeoutInterval(this Jint.Options options, System.TimeSpan regexTimeoutInterval) { }
+        public static Jint.Options RetainFunctionSourceText(this Jint.Options options, bool retain = true) { }
+        public static Jint.Options SetBuildCallStackHandler(this Jint.Options options, Jint.Options.BuildCallStackDelegate buildCallStackHandler) { }
+        public static Jint.Options SetMemberAccessor(this Jint.Options options, Jint.Options.MemberAccessorDelegate accessor) { }
+        public static Jint.Options SetReferencesResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver) { }
+        public static Jint.Options SetReferencesResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver, Jint.Runtime.Interop.ReferenceResolverInterests interests) { }
+        public static Jint.Options SetTypeConverter(this Jint.Options options, System.Func<Jint.Engine, Jint.Runtime.Interop.ITypeConverter> typeConverterFactory) { }
+        public static Jint.Options SetTypeResolver(this Jint.Options options, Jint.Runtime.Interop.TypeResolver resolver) { }
+        public static Jint.Options SetWrapObjectHandler(this Jint.Options options, Jint.Options.WrapObjectDelegate wrapObjectHandler) { }
+        public static Jint.Options Strict(this Jint.Options options, bool strict = true) { }
+        public static Jint.Options UseHostFactory<T>(this Jint.Options options, System.Func<Jint.Engine, T> factory)
+            where T : Jint.Runtime.Host { }
+        public static Jint.Options WithoutConstraint(this Jint.Options options, System.Predicate<Jint.Constraint> predicate) { }
+    }
+    public readonly struct Prepared<TProgram>
+        where TProgram : Acornima.Ast.Program
+    {
+        [System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "ParserOptions")]
+        [System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "Program")]
+        [get: System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "ParserOptions")]
+        [get: System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, "Program")]
+        public bool IsValid { get; }
+        public Acornima.ParserOptions? ParserOptions { get; }
+        public TProgram Program { get; }
+        public Jint.ReferencedGlobals? ReferencedGlobals { get; }
+    }
+    public sealed class PromiseRejectionTrackerEventArgs : System.EventArgs
+    {
+        public Jint.Native.Promise.PromiseRejectionOperation Operation { get; }
+        public Jint.Native.JsValue Promise { get; }
+        public Jint.Native.JsValue? Value { get; }
+    }
+    public sealed class ReferencedGlobals : System.Collections.Generic.IEnumerable<string>, System.Collections.Generic.IReadOnlyCollection<string>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public bool HasDirectEvalCall { get; }
+        public bool Contains(string name) { }
+        public System.Collections.Generic.IEnumerator<string> GetEnumerator() { }
+    }
+    public sealed class ScriptParsingOptions : Jint.IParsingOptions, System.IEquatable<Jint.ScriptParsingOptions>
+    {
+        public static readonly Jint.ScriptParsingOptions Default;
+        public ScriptParsingOptions() { }
+        public bool AllowReturnOutsideFunction { get; init; }
+        public bool? CompileRegex { get; init; }
+        public System.TimeSpan? RegexTimeout { get; init; }
+        public bool RetainFunctionSourceText { get; init; }
+        public Acornima.Position SourceOffset { get; init; }
+        public bool Tolerant { get; init; }
+    }
+    public sealed class ScriptPreparationException : Jint.JintException
+    {
+        public ScriptPreparationException(string? message, System.Exception? innerException) { }
+    }
+    public sealed class ScriptPreparationOptions : Jint.IPreparationOptions<Jint.ScriptParsingOptions>, System.IEquatable<Jint.ScriptPreparationOptions>
+    {
+        public static readonly Jint.ScriptPreparationOptions Default;
+        public ScriptPreparationOptions() { }
+        public bool CollectReferencedGlobals { get; init; }
+        public bool FoldConstants { get; init; }
+        public Jint.ScriptParsingOptions ParsingOptions { get; init; }
+        public bool StaticAnalysis { get; init; }
+    }
+    [System.Flags]
+    public enum ValueCoercionType
+    {
+        None = 0,
+        Boolean = 1,
+        Number = 2,
+        String = 4,
+        All = 7,
+    }
+}
+namespace Jint.Constraints
+{
+    public sealed class CancellationConstraint : Jint.Constraint
+    {
+        public override bool IsAmortizable { get; }
+        public override void Check() { }
+        public override void Reset() { }
+        public void Reset(System.Threading.CancellationToken cancellationToken) { }
+    }
+    public sealed class MaxStatementsConstraint : Jint.Constraint
+    {
+        public override bool IsAmortizable { get; }
+        public int MaxStatements { get; set; }
+        public override void Check() { }
+        public override void Reset() { }
+    }
+    public sealed class MemoryLimitConstraint : Jint.Constraint
+    {
+        public override bool IsAmortizable { get; }
+        public override void Check() { }
+        public override void Reset() { }
+    }
+    public sealed class OperationDeadlineConstraint : Jint.Constraint
+    {
+        public OperationDeadlineConstraint() { }
+        public override bool IsAmortizable { get; }
+        public void Begin(System.TimeSpan budget, System.Threading.CancellationToken cancellationToken = default) { }
+        public override void Check() { }
+        public void End() { }
+        public override void Reset() { }
+    }
+}
+namespace Jint.Native.Array
+{
+    public sealed class ArrayConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.Array.ArrayPrototype PrototypeObject { get; }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.JsArray Construct(Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.JsArray Construct(int capacity) { }
+        public Jint.Native.JsArray Construct(uint capacity) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public Jint.Native.JsArray Construct(Jint.Native.JsValue[] arguments, uint capacity) { }
+        public Jint.Native.JsArray ConstructFast(Jint.Native.JsValue[] contents) { }
+        protected override void Initialize() { }
+    }
+    public class ArrayInstance : Jint.Native.Object.ObjectInstance, System.Collections.Generic.IEnumerable<Jint.Native.JsValue>, System.Collections.IEnumerable
+    {
+        public new Jint.Native.JsValue this[uint index] { get; set; }
+        public new Jint.Native.JsValue this[int index] { get; set; }
+        public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Jint.Native.JsValue>> GetEntries(bool includeLength = false) { }
+        public System.Collections.Generic.IEnumerator<Jint.Native.JsValue> GetEnumerator() { }
+        public override sealed System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override sealed Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override sealed System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        public override sealed bool HasProperty(Jint.Native.JsValue property) { }
+        public Jint.Native.JsValue Pop() { }
+        protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public void Push(Jint.Native.JsValue value) { }
+        public uint Push(Jint.Native.JsValue[] values) { }
+        public override sealed void RemoveOwnProperty(Jint.Native.JsValue property) { }
+        public override sealed bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        protected override sealed void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public Jint.Native.JsValue[] ToArray() { }
+        public override sealed string ToString() { }
+        protected override sealed bool TryGetProperty(Jint.Native.JsValue property, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Runtime.Descriptors.PropertyDescriptor? descriptor) { }
+        public bool TryGetValue(uint index, out Jint.Native.JsValue value) { }
+    }
+    public sealed class ArrayPrototype : Jint.Native.Array.ArrayInstance
+    {
+        protected override void Initialize() { }
+        public Jint.Native.JsValue Pop(Jint.Native.JsValue thisObject) { }
+        public Jint.Native.JsValue Push(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+    }
+}
+namespace Jint.Native.ArrayBuffer
+{
+    public sealed class ArrayBufferConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.JsArrayBuffer Construct(byte[] data) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public Jint.Native.JsArrayBuffer Construct(ulong byteLength, uint? maxByteLength = default) { }
+        protected override void Initialize() { }
+    }
+}
+namespace Jint.Native
+{
+    public abstract class Constructor : Jint.Native.Function.Function
+    {
+        protected Constructor(Jint.Engine engine, string name) { }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public abstract Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget);
+    }
+    public interface IJsPrimitive
+    {
+        Jint.Native.JsValue PrimitiveValue { get; }
+        Jint.Runtime.Types Type { get; }
+    }
+    public sealed class JsArguments : Jint.Native.Object.ObjectInstance
+    {
+        public uint Length { get; }
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        protected override void Initialize() { }
+        protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+    }
+    [System.Diagnostics.DebuggerTypeProxy(typeof(Jint.Native.JsArray.JsArrayDebugView))]
+    public sealed class JsArray : Jint.Native.Array.ArrayInstance
+    {
+        public JsArray(Jint.Engine engine, Jint.Native.JsValue[] items) { }
+        public JsArray(Jint.Engine engine, uint capacity = 0, uint length = 0) { }
+        public uint Length { get; }
+    }
+    public class JsArrayBuffer : Jint.Native.Object.ObjectInstance { }
+    public sealed class JsBigInt : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsBigInt>
+    {
+        public static readonly Jint.Native.JsBigInt One;
+        public static readonly Jint.Native.JsBigInt Zero;
+        public JsBigInt(System.Numerics.BigInteger value) { }
+        public bool Equals(Jint.Native.JsBigInt? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override object ToObject() { }
+        public override string ToString() { }
+        public static bool operator !=(Jint.Native.JsBigInt a, double b) { }
+        public static bool operator ==(Jint.Native.JsBigInt a, double b) { }
+    }
+    public sealed class JsBoolean : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsBoolean>
+    {
+        public static readonly Jint.Native.JsBoolean False;
+        public static readonly Jint.Native.JsBoolean True;
+        public bool Equals(Jint.Native.JsBoolean? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override object ToObject() { }
+        public override string ToString() { }
+    }
+    public sealed class JsDate : Jint.Native.Object.ObjectInstance
+    {
+        public JsDate(Jint.Engine engine, System.DateTime value) { }
+        public JsDate(Jint.Engine engine, System.DateTimeOffset value) { }
+        public JsDate(Jint.Engine engine, long dateValue) { }
+        public double DateValue { get; }
+        public System.DateTime ToDateTime() { }
+        public override string ToString() { }
+    }
+    public sealed class JsError : Jint.Native.Error.ErrorInstance
+    {
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+    }
+    public sealed class JsMap : Jint.Native.Object.ObjectInstance, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>>, System.Collections.IEnumerable
+    {
+        public JsMap(Jint.Engine engine, Jint.Runtime.Realm realm) { }
+        public int Size { get; }
+        public void Clear() { }
+        public new Jint.Native.JsValue Get(Jint.Native.JsValue key) { }
+        public System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>> GetEnumerator() { }
+        public bool Has(Jint.Native.JsValue key) { }
+        public bool Remove(Jint.Native.JsValue key) { }
+        public new void Set(Jint.Native.JsValue key, Jint.Native.JsValue value) { }
+    }
+    public sealed class JsNull : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsNull>
+    {
+        public bool Equals(Jint.Native.JsNull? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override object? ToObject() { }
+        public override string ToString() { }
+    }
+    public sealed class JsNumber : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsNumber>
+    {
+        public JsNumber(double value) { }
+        public JsNumber(int value) { }
+        public JsNumber(long value) { }
+        public JsNumber(uint value) { }
+        public JsNumber(ulong value) { }
+        public bool Equals(Jint.Native.JsNumber? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override object ToObject() { }
+        public override string ToString() { }
+        public static Jint.Native.JsNumber Create(Jint.Native.JsValue jsValue) { }
+        public static Jint.Native.JsNumber Create(byte value) { }
+        public static Jint.Native.JsNumber Create(decimal value) { }
+        public static Jint.Native.JsNumber Create(double value) { }
+        public static Jint.Native.JsNumber Create(int value) { }
+        public static Jint.Native.JsNumber Create(long value) { }
+    }
+    public sealed class JsObject : Jint.Native.Object.ObjectInstance
+    {
+        public JsObject(Jint.Engine engine) { }
+        public static Jint.Native.JsObject Create(Jint.Engine engine, Jint.Native.JsObjectLayout layout, System.ReadOnlySpan<Jint.Native.JsValue?> values) { }
+        public static Jint.Native.JsObject Create(Jint.Engine engine, Jint.Native.JsObjectLayout layout, System.ReadOnlySpan<Jint.Native.JsValue?> values, object? lazySlotState) { }
+        public static Jint.Native.JsObject CreateFromEntries(Jint.Engine engine, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Jint.Native.JsValue>> entries) { }
+        public static Jint.Native.JsObject CreateFromEntries(Jint.Engine engine, System.ReadOnlySpan<System.Collections.Generic.KeyValuePair<string, Jint.Native.JsValue>> entries) { }
+    }
+    public sealed class JsObjectLayout
+    {
+        public JsObjectLayout(System.Collections.Generic.IReadOnlyList<string> propertyNames) { }
+        public JsObjectLayout(params string[] propertyNames) { }
+        public int Count { get; }
+        public int IndexOf(string name) { }
+        public static Jint.Native.JsObjectLayout.Builder CreateBuilder() { }
+        public sealed class Builder
+        {
+            public Builder() { }
+            public Jint.Native.JsObjectLayout.Builder Add(string propertyName) { }
+            public Jint.Native.JsObjectLayout.Builder AddLazy(string propertyName, Jint.Native.LazySlotFactory factory) { }
+            public Jint.Native.JsObjectLayout Build() { }
+        }
+    }
+    public sealed class JsObjectShape
+    {
+        public int Count { get; }
+        public Jint.Native.Object.ObjectInstance Instantiate(Jint.Engine engine) { }
+        public Jint.Native.Object.ObjectInstance Instantiate(Jint.Engine engine, Jint.Native.Object.ObjectInstance? prototype) { }
+        public static object? GetHostState(Jint.Native.Object.ObjectInstance? target) { }
+        public static void SetHostState(Jint.Native.Object.ObjectInstance target, object? hostState) { }
+        public sealed class Builder
+        {
+            public Builder() { }
+            public Jint.Native.JsObjectShape.Builder Accessor(string name, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? getter, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? setter = null, bool enumerable = true, bool configurable = true) { }
+            public Jint.Native.JsObjectShape Build() { }
+            public Jint.Native.JsObjectShape.Builder Constant(string name, Jint.Native.JsValue value, bool enumerable = true) { }
+            public Jint.Native.JsObjectShape.Builder Method(string name, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue> implementation, int length = 0, bool enumerable = true, bool writable = true, bool configurable = true) { }
+            public Jint.Native.JsObjectShape.Builder PerRealmSlot(string name, bool enumerable = false, bool writable = true, bool configurable = true) { }
+            public Jint.Native.JsObjectShape.Builder PerRealmSlot(string name, System.Func<Jint.Native.Object.ObjectInstance, Jint.Native.JsValue> factory, bool enumerable = false, bool writable = true, bool configurable = true) { }
+            public Jint.Native.JsObjectShape.Builder ToStringTag(string value) { }
+        }
+    }
+    public sealed class JsRegExp : Jint.Native.Object.ObjectInstance
+    {
+        public JsRegExp(Jint.Engine engine) { }
+        public bool DotAll { get; }
+        public string Flags { get; set; }
+        public bool FullUnicode { get; }
+        public bool Global { get; }
+        public bool IgnoreCase { get; }
+        public bool Indices { get; }
+        public bool Multiline { get; }
+        public Acornima.RegExpParseResult ParseResult { get; set; }
+        public string Source { get; set; }
+        public bool Sticky { get; }
+        public bool Unicode { get; }
+        public bool UnicodeSets { get; }
+        public System.Text.RegularExpressions.Regex Value { get; set; }
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+    }
+    public sealed class JsSet : Jint.Native.Object.ObjectInstance, System.Collections.Generic.IEnumerable<Jint.Native.JsValue>, System.Collections.IEnumerable
+    {
+        public int Size { get; }
+        public void Add(Jint.Native.JsValue value) { }
+        public void Clear() { }
+        public new bool Delete(Jint.Native.JsValue key) { }
+        public System.Collections.Generic.IEnumerator<Jint.Native.JsValue> GetEnumerator() { }
+        public bool Has(Jint.Native.JsValue key) { }
+    }
+    public class JsString : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsString>, System.IEquatable<string>
+    {
+        public static readonly Jint.Native.JsString Empty;
+        public JsString(char value) { }
+        public JsString(string value) { }
+        public virtual char this[int index] { get; }
+        public virtual int Length { get; }
+        public virtual bool Equals(Jint.Native.JsString? other) { }
+        public override sealed bool Equals(Jint.Native.JsValue? other) { }
+        public override sealed bool Equals(object? obj) { }
+        public virtual bool Equals(string? other) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override sealed object ToObject() { }
+        public override string ToString() { }
+        public static Jint.Native.JsString Create(string value) { }
+        public static bool operator !=(Jint.Native.JsString a, Jint.Native.JsString b) { }
+        public static bool operator !=(Jint.Native.JsString a, Jint.Native.JsValue b) { }
+        public static bool operator !=(Jint.Native.JsString? a, string? b) { }
+        public static bool operator !=(Jint.Native.JsValue a, Jint.Native.JsString b) { }
+        public static bool operator ==(Jint.Native.JsString? a, Jint.Native.JsString? b) { }
+        public static bool operator ==(Jint.Native.JsString? a, Jint.Native.JsValue? b) { }
+        public static bool operator ==(Jint.Native.JsString? a, string? b) { }
+        public static bool operator ==(Jint.Native.JsValue? a, Jint.Native.JsString? b) { }
+    }
+    public sealed class JsSymbol : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsSymbol>
+    {
+        public bool Equals(Jint.Native.JsSymbol? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override object ToObject() { }
+        public override string ToString() { }
+    }
+    public sealed class JsTypedArray : Jint.Native.Object.ObjectInstance
+    {
+        public new Jint.Native.JsValue this[int index] { get; set; }
+        public new Jint.Native.JsValue this[uint index] { get; set; }
+        public uint Length { get; }
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        public override bool HasProperty(Jint.Native.JsValue property) { }
+        public override bool PreventExtensions() { }
+        protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+    }
+    public sealed class JsUndefined : Jint.Native.JsValue, System.IEquatable<Jint.Native.JsUndefined>
+    {
+        public bool Equals(Jint.Native.JsUndefined? other) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        protected override bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public override object? ToObject() { }
+        public override string ToString() { }
+    }
+    public abstract class JsValue : System.IConvertible, System.IEquatable<Jint.Native.JsValue>
+    {
+        public static readonly Jint.Native.JsValue Null;
+        public static readonly Jint.Native.JsValue Undefined;
+        protected JsValue(Jint.Runtime.Types type) { }
+        [System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]
+        public Jint.Runtime.Types Type { get; }
+        public virtual bool Equals(Jint.Native.JsValue? other) { }
+        public override bool Equals(object? obj) { }
+        public Jint.Native.JsValue Get(Jint.Native.JsValue property) { }
+        public virtual Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override int GetHashCode() { }
+        protected virtual bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public virtual bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        public abstract object? ToObject();
+        public override string ToString() { }
+        public static Jint.Native.JsValue FromObject(Jint.Engine engine, object? value) { }
+        public static Jint.Native.JsValue FromObjectWithType(Jint.Engine engine, object? value, System.Type? type) { }
+        public static Jint.Native.JsValue op_Implicit(System.Numerics.BigInteger value) { }
+        public static Jint.Native.JsValue op_Implicit(bool value) { }
+        public static Jint.Native.JsValue op_Implicit(char value) { }
+        public static Jint.Native.JsValue op_Implicit(double value) { }
+        public static Jint.Native.JsValue op_Implicit(int value) { }
+        public static Jint.Native.JsValue op_Implicit(long value) { }
+        public static Jint.Native.JsValue op_Implicit(string? value) { }
+        public static Jint.Native.JsValue op_Implicit(uint value) { }
+        public static Jint.Native.JsValue op_Implicit(ulong value) { }
+        public static bool operator !=(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
+        public static bool operator ==(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
+    }
+    public delegate Jint.Native.JsValue LazySlotFactory(Jint.Native.JsObject instance, object? state);
+    public abstract class Prototype : Jint.Native.Object.ObjectInstance { }
+}
+namespace Jint.Native.Error
+{
+    public sealed class ErrorConstructor : Jint.Native.Constructor
+    {
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.Object.ObjectInstance Construct(string? message = null) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        protected override void Initialize() { }
+    }
+    public class ErrorInstance : Jint.Native.Object.ObjectInstance
+    {
+        public override string ToString() { }
+    }
+}
+namespace Jint.Native.Function
+{
+    public sealed class BindFunction : Jint.Native.Object.ObjectInstance
+    {
+        public BindFunction(Jint.Engine engine, Jint.Runtime.Realm realm, Jint.Native.Object.ObjectInstance? proto, Jint.Native.Object.ObjectInstance targetFunction, Jint.Native.JsValue boundThis, Jint.Native.JsValue[] boundArgs) { }
+        public Jint.Native.JsValue[] BoundArguments { get; }
+        public Jint.Native.JsValue BoundTargetFunction { get; }
+        public Jint.Native.JsValue BoundThis { get; }
+        public override string ToString() { }
+    }
+    public sealed class EvalFunction : Jint.Native.Function.Function
+    {
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+    }
+    public abstract class Function : Jint.Native.Object.ObjectInstance
+    {
+        protected Jint.Runtime.Descriptors.PropertyDescriptor? _length;
+        protected Jint.Runtime.Descriptors.PropertyDescriptor? _prototypeDescriptor;
+        protected Function(Jint.Engine engine, Jint.Runtime.Realm realm, Jint.Native.JsString? name) { }
+        public Acornima.Ast.IFunction? FunctionDeclaration { get; }
+        public bool Strict { get; }
+        protected abstract Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments);
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override void RemoveOwnProperty(Jint.Native.JsValue property) { }
+        protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override sealed object ToObject() { }
+        public override string ToString() { }
+    }
+    public sealed class FunctionConstructor : Jint.Native.Constructor
+    {
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+    }
+    public sealed class ScriptFunction : Jint.Native.Function.Function
+    {
+        public ScriptFunction(Jint.Engine engine, Acornima.Ast.IFunction functionDeclaration, bool strict, Jint.Native.Object.ObjectInstance? proto = null) { }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+    }
+}
+namespace Jint.Native.Global
+{
+    public sealed class GlobalObject : Jint.Native.Object.ObjectInstance
+    {
+        protected override void Initialize() { }
+    }
+}
+namespace Jint.Native.Intl
+{
+    public sealed class CompactPatterns
+    {
+        public CompactPatterns() { }
+        public required System.Collections.Generic.Dictionary<int, string> Patterns { get; init; }
+    }
+    public sealed class CurrencyData
+    {
+        public CurrencyData() { }
+        public required string DisplayName { get; init; }
+        public string? NarrowSymbol { get; init; }
+        public required string Symbol { get; init; }
+    }
+    public sealed class DateTimePatterns
+    {
+        public DateTimePatterns() { }
+        public string? DatePattern { get; init; }
+        public string? DateTimePattern { get; init; }
+        public string? TimePattern { get; init; }
+    }
+    public sealed class DefaultCldrProvider : Jint.Native.Intl.ICldrProvider
+    {
+        public static readonly Jint.Native.Intl.DefaultCldrProvider Instance;
+        public Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style) { }
+        public Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode) { }
+        public string? GetCurrencyDisplayName(string locale, string code) { }
+        public Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle) { }
+        public string[]? GetDayPeriods(string locale, string style, string? calendar) { }
+        public string? GetDefaultNumberingSystem(string locale) { }
+        public string[]? GetEraNames(string locale, string style, string? calendar) { }
+        public string? GetLikelySubtags(string locale) { }
+        public Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style) { }
+        public string[]? GetMonthNames(string locale, string style, string? calendar) { }
+        public string? GetNumberingSystemDigits(string numberingSystem) { }
+        public Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style) { }
+        public string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style) { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations() { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies() { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems() { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedTimeZones() { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedUnits() { }
+        public Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style) { }
+        public Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale) { }
+        public string[]? GetWeekdayNames(string locale, string style) { }
+        public string SelectPluralCategory(string locale, double value, string type) { }
+    }
+    public interface ICldrProvider
+    {
+        Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style);
+        Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode);
+        string? GetCurrencyDisplayName(string locale, string code);
+        Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle);
+        string[]? GetDayPeriods(string locale, string style, string? calendar);
+        string? GetDefaultNumberingSystem(string locale);
+        string[]? GetEraNames(string locale, string style, string? calendar);
+        string? GetLikelySubtags(string locale);
+        Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style);
+        string[]? GetMonthNames(string locale, string style, string? calendar);
+        string? GetNumberingSystemDigits(string numberingSystem);
+        Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style);
+        string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style);
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars();
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations();
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies();
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems();
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedTimeZones();
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedUnits();
+        Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style);
+        Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale);
+        string[]? GetWeekdayNames(string locale, string style);
+        string SelectPluralCategory(string locale, double value, string type);
+    }
+    public sealed class ListPatterns
+    {
+        public ListPatterns() { }
+        public required string End { get; init; }
+        public required string Middle { get; init; }
+        public required string Start { get; init; }
+        public required string Two { get; init; }
+    }
+    public sealed class RelativeTimePatterns
+    {
+        public RelativeTimePatterns() { }
+        public string Future { get; init; }
+        public System.Collections.Generic.Dictionary<string, string>? FuturePatterns { get; init; }
+        public string FuturePlural { get; init; }
+        public string Past { get; init; }
+        public System.Collections.Generic.Dictionary<string, string>? PastPatterns { get; init; }
+        public string PastPlural { get; init; }
+    }
+    public sealed class UnitPatterns
+    {
+        public UnitPatterns() { }
+        public required string DisplayName { get; init; }
+        public string? Few { get; init; }
+        public string? Many { get; init; }
+        public string? One { get; init; }
+        public required string Other { get; init; }
+        public string? Two { get; init; }
+        public string? Zero { get; init; }
+    }
+    public sealed class WeekInfo
+    {
+        public WeekInfo() { }
+        public required System.DayOfWeek FirstDay { get; init; }
+        public required int MinimalDays { get; init; }
+        public System.DayOfWeek[]? Weekend { get; init; }
+    }
+}
+namespace Jint.Native.Json
+{
+    public sealed class JsonParser
+    {
+        public JsonParser(Jint.Engine engine) { }
+        public JsonParser(Jint.Engine engine, int maxDepth) { }
+        public bool Match(char value) { }
+        public Jint.Native.JsValue Parse(System.ReadOnlySpan<byte> utf8Json) { }
+        public Jint.Native.JsValue Parse(System.ReadOnlySpan<char> code) { }
+        public Jint.Native.JsValue Parse(string code) { }
+    }
+    public sealed class JsonSerializer
+    {
+        public JsonSerializer(Jint.Engine engine) { }
+        public Jint.Native.JsValue Serialize(Jint.Native.JsValue value) { }
+        public bool Serialize(Jint.Native.JsValue value, System.Buffers.IBufferWriter<byte> writer) { }
+        public Jint.Native.JsValue Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space) { }
+        public bool Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space, System.Buffers.IBufferWriter<byte> writer) { }
+    }
+}
+namespace Jint.Native.Map
+{
+    public sealed class MapConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.JsMap Construct() { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        protected override void Initialize() { }
+    }
+}
+namespace Jint.Native.Object
+{
+    public abstract class ArrayLikeObject : Jint.Native.Object.ObjectInstance
+    {
+        protected ArrayLikeObject(Jint.Engine engine) { }
+        public abstract uint Length { get; }
+        public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override sealed bool Delete(Jint.Native.JsValue property) { }
+        public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        protected virtual bool HasIndex(uint index) { }
+        protected override sealed Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public abstract bool TryGetIndex(uint index, out Jint.Native.JsValue value);
+        protected override sealed bool TryGetOwnPropertyValue(Jint.Native.JsValue property, Jint.Native.JsValue receiver, out Jint.Native.JsValue value) { }
+    }
+    public sealed class ObjectConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.Object.ObjectPrototype PrototypeObject { get; }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public Jint.Native.JsValue GetPrototypeOf(Jint.Native.JsValue thisObject, Jint.Native.JsValue value) { }
+        protected override void Initialize() { }
+    }
+    [System.Diagnostics.DebuggerTypeProxy(typeof(Jint.Native.Object.ObjectInstance.ObjectInstanceDebugView))]
+    public class ObjectInstance : Jint.Native.JsValue, System.IEquatable<Jint.Native.Object.ObjectInstance>
+    {
+        protected readonly Jint.Engine _engine;
+        protected ObjectInstance(Jint.Engine engine) { }
+        public Jint.Engine Engine { get; }
+        public virtual bool Extensible { get; }
+        public Jint.Native.JsValue this[Jint.Native.JsValue property] { get; set; }
+        public Jint.Native.Object.ObjectInstance? Prototype { get; set; }
+        public bool CreateDataProperty(Jint.Native.JsValue p, Jint.Native.JsValue v) { }
+        public virtual bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public virtual bool Delete(Jint.Native.JsValue property) { }
+        protected void EnsureInitialized() { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public bool Equals(Jint.Native.Object.ObjectInstance? other) { }
+        public override bool Equals(object? obj) { }
+        public void FastSetDataProperty(string name, Jint.Native.JsValue value) { }
+        public void FastSetProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
+        public void FastSetProperty(string name, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override int GetHashCode() { }
+        public virtual System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public virtual Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public virtual System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        protected virtual Jint.Native.Object.ObjectInstance? GetPrototypeOf() { }
+        public bool HasOwnProperty(Jint.Native.JsValue property) { }
+        public virtual bool HasProperty(Jint.Native.JsValue property) { }
+        protected virtual void Initialize() { }
+        public virtual bool PreventExtensions() { }
+        protected virtual Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public virtual void RemoveOwnProperty(Jint.Native.JsValue property) { }
+        public bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value) { }
+        public bool Set(Jint.Native.JsValue p, Jint.Native.JsValue v, bool throwOnError) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        protected virtual void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        protected void SetPropertyAccessSemantics(Jint.Native.Object.PropertyAccessSemantics semantics) { }
+        public override object ToObject() { }
+        public override string ToString() { }
+        protected virtual bool TryGetOwnPropertyValue(Jint.Native.JsValue property, Jint.Native.JsValue receiver, out Jint.Native.JsValue value) { }
+        protected virtual bool TryGetProperty(Jint.Native.JsValue property, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Runtime.Descriptors.PropertyDescriptor? descriptor) { }
+        public bool TryGetValue(Jint.Native.JsValue property, out Jint.Native.JsValue value) { }
+        protected static bool ValidateAndApplyPropertyDescriptor(Jint.Native.Object.ObjectInstance? o, Jint.Native.JsValue property, bool extensible, Jint.Runtime.Descriptors.PropertyDescriptor desc, Jint.Runtime.Descriptors.PropertyDescriptor current) { }
+    }
+    public sealed class ObjectPrototype : Jint.Native.Prototype
+    {
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        protected override void Initialize() { }
+        protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+    }
+    public enum OwnPropertyProbe
+    {
+        Missing = 0,
+        NonEnumerable = 1,
+        Enumerable = 2,
+    }
+    public enum PropertyAccessSemantics
+    {
+        Ordinary = 0,
+        Exotic = 1,
+    }
+}
+namespace Jint.Native.Promise
+{
+    public sealed class ManualPromise : System.IEquatable<Jint.Native.Promise.ManualPromise>
+    {
+        public ManualPromise(Jint.Native.JsValue Promise, System.Action<Jint.Native.JsValue> Resolve, System.Action<Jint.Native.JsValue> Reject) { }
+        public Jint.Native.JsValue Promise { get; init; }
+        public System.Action<Jint.Native.JsValue> Reject { get; init; }
+        public System.Action<Jint.Native.JsValue> Resolve { get; init; }
+    }
+    public enum PromiseRejectionOperation
+    {
+        Reject = 0,
+        Handle = 1,
+    }
+}
+namespace Jint.Native.RegExp
+{
+    public sealed class RegExpConstructor : Jint.Native.Constructor
+    {
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public Jint.Native.JsRegExp Construct(System.Text.RegularExpressions.Regex regExp, string source = "?[native regex]", string flags = "") { }
+        protected override void Initialize() { }
+    }
+}
+namespace Jint.Native.Set
+{
+    public sealed class SetConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.JsSet Construct() { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        protected override void Initialize() { }
+    }
+}
+namespace Jint.Native.ShadowRealm
+{
+    public sealed class ShadowRealm : Jint.Native.Object.ObjectInstance
+    {
+        public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
+        public Jint.Native.JsValue Evaluate(string sourceText, Jint.ScriptParsingOptions? parsingOptions = null) { }
+        public Jint.Native.JsValue ImportValue(string specifier, string exportName) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, Jint.Native.JsValue value) { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("User supplied delegate")]
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, System.Delegate value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, bool value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, double value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, int value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, object obj) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, string value) { }
+    }
+    public sealed class ShadowRealmConstructor : Jint.Native.Constructor
+    {
+        public Jint.Native.ShadowRealm.ShadowRealm Construct() { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+    }
+}
+namespace Jint.Native.Symbol
+{
+    public sealed class GlobalSymbolRegistry
+    {
+        public static readonly Jint.Native.JsSymbol AsyncDispose;
+        public static readonly Jint.Native.JsSymbol AsyncIterator;
+        public static readonly Jint.Native.JsSymbol Dispose;
+        public static readonly Jint.Native.JsSymbol HasInstance;
+        public static readonly Jint.Native.JsSymbol IsConcatSpreadable;
+        public static readonly Jint.Native.JsSymbol Iterator;
+        public static readonly Jint.Native.JsSymbol Match;
+        public static readonly Jint.Native.JsSymbol MatchAll;
+        public static readonly Jint.Native.JsSymbol Replace;
+        public static readonly Jint.Native.JsSymbol Search;
+        public static readonly Jint.Native.JsSymbol Species;
+        public static readonly Jint.Native.JsSymbol Split;
+        public static readonly Jint.Native.JsSymbol ToPrimitive;
+        public static readonly Jint.Native.JsSymbol ToStringTag;
+        public static readonly Jint.Native.JsSymbol Unscopables;
+        public GlobalSymbolRegistry() { }
+    }
+}
+namespace Jint.Native.Temporal
+{
+    public readonly struct CalendarFields : System.IEquatable<Jint.Native.Temporal.CalendarFields>
+    {
+        public CalendarFields(int Year, int Month, string MonthCode, int Day, bool IsLeapMonth, int MonthsInYear, int DaysInMonth, int DaysInYear, bool InLeapYear) { }
+        public int Day { get; init; }
+        public int DaysInMonth { get; init; }
+        public int DaysInYear { get; init; }
+        public bool InLeapYear { get; init; }
+        public bool IsLeapMonth { get; init; }
+        public int Month { get; init; }
+        public string MonthCode { get; init; }
+        public int MonthsInYear { get; init; }
+        public int Year { get; init; }
+    }
+    public sealed class DefaultCalendarProvider : Jint.Native.Temporal.ICalendarProvider
+    {
+        public static readonly Jint.Native.Temporal.DefaultCalendarProvider Instance;
+        public Jint.Native.Temporal.IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow) { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
+        public bool IsSupported(string calendar) { }
+        public Jint.Native.Temporal.CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay) { }
+    }
+    public sealed class DefaultTimeZoneProvider : Jint.Native.Temporal.ITimeZoneProvider
+    {
+        public DefaultTimeZoneProvider() { }
+        public static Jint.Native.Temporal.DefaultTimeZoneProvider Instance { get; }
+        public string? CanonicalizeTimeZone(string timeZoneId) { }
+        public System.Collections.Generic.IReadOnlyCollection<string> GetAvailableTimeZones() { }
+        public string GetDefaultTimeZone() { }
+        public System.Numerics.BigInteger? GetNextTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public long GetOffsetNanosecondsFor(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public System.Numerics.BigInteger[] GetPossibleInstantsFor(string timeZoneId, int year, int month, int day, int hour, int minute, int second, int millisecond, int microsecond, int nanosecond) { }
+        public System.Numerics.BigInteger? GetPreviousTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public string? GetPrimaryTimeZoneIdentifier(string timeZoneId) { }
+        public bool IsValidTimeZone(string timeZoneId) { }
+    }
+    public interface ICalendarProvider
+    {
+        Jint.Native.Temporal.IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow);
+        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars();
+        bool IsSupported(string calendar);
+        Jint.Native.Temporal.CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay);
+    }
+    public interface ITimeZoneProvider
+    {
+        string? CanonicalizeTimeZone(string timeZoneId);
+        System.Collections.Generic.IReadOnlyCollection<string> GetAvailableTimeZones();
+        string GetDefaultTimeZone();
+        System.Numerics.BigInteger? GetNextTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds);
+        long GetOffsetNanosecondsFor(string timeZoneId, System.Numerics.BigInteger epochNanoseconds);
+        System.Numerics.BigInteger[] GetPossibleInstantsFor(string timeZoneId, int year, int month, int day, int hour, int minute, int second, int millisecond, int microsecond, int nanosecond);
+        System.Numerics.BigInteger? GetPreviousTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds);
+        string? GetPrimaryTimeZoneIdentifier(string timeZoneId);
+        bool IsValidTimeZone(string timeZoneId);
+    }
+    public readonly struct IsoDateFields : System.IEquatable<Jint.Native.Temporal.IsoDateFields>
+    {
+        public IsoDateFields(int Year, int Month, int Day) { }
+        public int Day { get; init; }
+        public int Month { get; init; }
+        public int Year { get; init; }
+    }
+}
+namespace Jint.Native.TypedArray
+{
+    public sealed class BigInt64ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<long> values) { }
+    }
+    public sealed class BigUint64ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<ulong> values) { }
+    }
+    public sealed class Float16ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<System.Half> values) { }
+    }
+    public sealed class Float32ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<float> values) { }
+    }
+    public sealed class Float64ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<double> values) { }
+    }
+    public sealed class Int16ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<short> values) { }
+    }
+    public sealed class Int32ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<int> values) { }
+    }
+    public sealed class Int8ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<sbyte> values) { }
+    }
+    public abstract class TypedArrayConstructor : Jint.Native.Constructor
+    {
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public Jint.Native.JsTypedArray Construct(Jint.Native.JsArrayBuffer buffer, int? byteOffset = default, int? length = default) { }
+        protected override void Initialize() { }
+    }
+    public sealed class Uint16ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<ushort> values) { }
+    }
+    public sealed class Uint32ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<uint> values) { }
+    }
+    public sealed class Uint8ArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<byte> values) { }
+        protected override void Initialize() { }
+    }
+    public sealed class Uint8ClampedArrayConstructor : Jint.Native.TypedArray.TypedArrayConstructor
+    {
+        public Jint.Native.JsTypedArray Construct(System.ReadOnlySpan<byte> values) { }
+    }
+}
+namespace Jint.Runtime
+{
+    public static class Arguments
+    {
+        public static Jint.Native.JsValue[] Empty { get; }
+        public static Jint.Native.JsValue At(this Jint.Native.JsValue[] args, int index) { }
+        public static Jint.Native.JsValue At(this Jint.Native.JsValue[] args, int index, Jint.Native.JsValue undefinedValue) { }
+        public static Jint.Native.JsValue[] From(params Jint.Native.JsValue[] o) { }
+        public static Jint.Native.JsValue[] Skip(this Jint.Native.JsValue[] args, int count) { }
+    }
+    public readonly struct Completion
+    {
+        public readonly Jint.Runtime.CompletionType Type;
+        public readonly Jint.Native.JsValue Value;
+        public Completion(Jint.Runtime.CompletionType type, Jint.Native.JsValue value, Acornima.Ast.Node source) { }
+        public Acornima.SourceLocation& Location { get; }
+        public Jint.Native.JsValue GetValueOrDefault() { }
+        public bool IsAbrupt() { }
+        public static Jint.Runtime.Completion& Empty() { }
+    }
+    public enum CompletionType : byte
+    {
+        Normal = 0,
+        Return = 1,
+        Throw = 2,
+        Break = 3,
+        Continue = 4,
+    }
+    public class DefaultTimeSystem : Jint.Runtime.ITimeSystem
+    {
+        public DefaultTimeSystem(System.TimeZoneInfo timeZoneInfo, System.Globalization.CultureInfo parsingCulture) { }
+        public System.TimeZoneInfo DefaultTimeZone { get; }
+        public virtual System.DateTimeOffset GetUtcNow() { }
+        public virtual System.TimeSpan GetUtcOffset(long epochMilliseconds) { }
+        public virtual bool TryParse(string date, out long epochMilliseconds) { }
+    }
+    public sealed class ExecutionCanceledException : Jint.JintException
+    {
+        public ExecutionCanceledException() { }
+    }
+    public class Host
+    {
+        public Host() { }
+        protected Jint.Engine Engine { get; }
+        protected virtual Jint.Native.Object.ObjectInstance CreateGlobalObject(Jint.Runtime.Realm realm) { }
+        protected virtual void CreateIntrinsics(Jint.Runtime.Realm realmRec) { }
+        protected virtual Jint.Runtime.Realm CreateRealm() { }
+        public virtual void EnsureCanCompileStrings(Jint.Runtime.Realm callerRealm, Jint.Runtime.Realm evalRealm) { }
+        public virtual void FinalizeImportMeta(Jint.Native.Object.ObjectInstance importMeta, Jint.Runtime.Modules.Module moduleRecord) { }
+        public virtual System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>> GetImportMetaProperties(Jint.Runtime.Modules.Module moduleRecord) { }
+        public void Initialize(Jint.Engine engine) { }
+        protected virtual void InitializeHostDefinedRealm() { }
+        public virtual void InitializeShadowRealm(Jint.Runtime.Realm realm) { }
+        protected virtual void PostInitialize() { }
+    }
+    public interface ITimeSystem
+    {
+        System.TimeZoneInfo DefaultTimeZone { get; }
+        System.DateTimeOffset GetUtcNow();
+        System.TimeSpan GetUtcOffset(long epochMilliseconds);
+        bool TryParse(string date, out long epochMilliseconds);
+    }
+    public sealed class Intrinsics
+    {
+        public Jint.Native.Array.ArrayConstructor Array { get; }
+        public Jint.Native.ArrayBuffer.ArrayBufferConstructor ArrayBuffer { get; }
+        public Jint.Native.TypedArray.BigInt64ArrayConstructor BigInt64Array { get; }
+        public Jint.Native.TypedArray.BigUint64ArrayConstructor BigUint64Array { get; }
+        public Jint.Native.Error.ErrorConstructor Error { get; }
+        public Jint.Native.Function.EvalFunction Eval { get; }
+        public Jint.Native.TypedArray.Float16ArrayConstructor Float16Array { get; }
+        public Jint.Native.TypedArray.Float32ArrayConstructor Float32Array { get; }
+        public Jint.Native.TypedArray.Float64ArrayConstructor Float64Array { get; }
+        public Jint.Native.Function.FunctionConstructor Function { get; }
+        public Jint.Native.TypedArray.Int16ArrayConstructor Int16Array { get; }
+        public Jint.Native.TypedArray.Int32ArrayConstructor Int32Array { get; }
+        public Jint.Native.TypedArray.Int8ArrayConstructor Int8Array { get; }
+        public Jint.Native.Map.MapConstructor Map { get; }
+        public Jint.Native.Object.ObjectConstructor Object { get; }
+        public Jint.Native.RegExp.RegExpConstructor RegExp { get; }
+        public Jint.Native.Set.SetConstructor Set { get; }
+        public Jint.Native.ShadowRealm.ShadowRealmConstructor ShadowRealm { get; }
+        public Jint.Native.Error.ErrorConstructor TypeError { get; }
+        public Jint.Native.TypedArray.Uint16ArrayConstructor Uint16Array { get; }
+        public Jint.Native.TypedArray.Uint32ArrayConstructor Uint32Array { get; }
+        public Jint.Native.TypedArray.Uint8ArrayConstructor Uint8Array { get; }
+        public Jint.Native.TypedArray.Uint8ClampedArrayConstructor Uint8ClampedArray { get; }
+    }
+    public class JavaScriptException : Jint.JintException
+    {
+        public JavaScriptException(Jint.Native.JsValue error) { }
+        public JavaScriptException(Jint.Native.Error.ErrorConstructor errorConstructor, string? message = null) { }
+        public JavaScriptException(Jint.Native.Error.ErrorConstructor errorConstructor, string? message, System.Exception clrException) { }
+        public Jint.Native.JsValue Error { get; }
+        public string? JavaScriptStackTrace { get; }
+        public Acornima.SourceLocation& Location { get; }
+        public override System.Exception GetBaseException() { }
+        public string GetJavaScriptErrorString() { }
+        public Jint.Runtime.JavaScriptException SetJavaScriptCallstack(Jint.Engine engine, in Acornima.SourceLocation location, bool overwriteExisting = false) { }
+        public Jint.Runtime.JavaScriptException SetJavaScriptLocation(in Acornima.SourceLocation location) { }
+    }
+    public sealed class MemoryLimitExceededException : Jint.JintException
+    {
+        public MemoryLimitExceededException(string message) { }
+    }
+    public sealed class PromiseRejectedException : Jint.JintException
+    {
+        public PromiseRejectedException(Jint.Native.JsValue value) { }
+        public Jint.Native.JsValue RejectedValue { get; }
+    }
+    public sealed class Realm
+    {
+        public Realm() { }
+        public Jint.Native.Object.ObjectInstance GlobalObject { get; }
+        public object? HostDefined { get; set; }
+        public Jint.Runtime.Intrinsics Intrinsics { get; }
+    }
+    public sealed class RecursionDepthOverflowException : Jint.JintException
+    {
+        public string CallChain { get; }
+        public string CallExpressionReference { get; }
+    }
+    public sealed class Reference
+    {
+        public Jint.Native.JsValue Base { get; }
+        public bool HasPrimitiveBase { get; }
+        public bool IsPrivateReference { get; }
+        public bool IsPropertyReference { get; }
+        public bool IsSuperReference { get; }
+        public bool IsUnresolvableReference { get; }
+        public Jint.Native.JsValue ReferencedName { get; }
+        public bool Strict { get; }
+        public Jint.Native.JsValue ThisValue { get; }
+    }
+    public sealed class StatementsCountOverflowException : Jint.JintException
+    {
+        public StatementsCountOverflowException() { }
+    }
+    public static class TypeConverter
+    {
+        [System.Obsolete("Use TypeConverter.RequireObjectCoercible")]
+        public static void CheckObjectCoercible(Jint.Engine engine, Jint.Native.JsValue o) { }
+        public static void RequireObjectCoercible(Jint.Engine engine, Jint.Native.JsValue o) { }
+        public static System.Numerics.BigInteger ToBigInt(Jint.Native.JsValue value) { }
+        public static bool ToBoolean(Jint.Native.JsValue o) { }
+        public static uint ToIndex(Jint.Runtime.Realm realm, Jint.Native.JsValue value) { }
+        public static int ToInt32(Jint.Native.JsValue o) { }
+        public static double ToInteger(Jint.Native.JsValue o) { }
+        public static double ToIntegerOrInfinity(Jint.Native.JsValue argument) { }
+        public static Jint.Native.JsBigInt ToJsBigInt(Jint.Native.JsValue value) { }
+        public static Jint.Native.JsNumber ToJsNumber(Jint.Native.JsValue o) { }
+        public static ulong ToLength(Jint.Native.JsValue o) { }
+        public static double ToNumber(Jint.Native.JsValue o) { }
+        public static Jint.Native.JsValue ToNumeric(Jint.Native.JsValue value) { }
+        public static Jint.Native.Object.ObjectInstance ToObject(Jint.Runtime.Realm realm, Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue ToPrimitive(Jint.Native.JsValue input, Jint.Runtime.Types preferredType = 0) { }
+        public static Jint.Native.JsValue ToPropertyKey(Jint.Native.JsValue o) { }
+        public static string ToString(Jint.Native.JsValue o) { }
+        public static ushort ToUint16(Jint.Native.JsValue o) { }
+        public static uint ToUint32(Jint.Native.JsValue o) { }
+    }
+    [System.Flags]
+    public enum Types
+    {
+        Empty = 0,
+        Undefined = 1,
+        Null = 2,
+        Boolean = 4,
+        String = 8,
+        Number = 16,
+        Symbol = 64,
+        BigInt = 128,
+        Object = 256,
+    }
+}
+namespace Jint.Runtime.Debugger
+{
+    public sealed class BreakLocation : System.IEquatable<Jint.Runtime.Debugger.BreakLocation>
+    {
+        public BreakLocation(int line, int column) { }
+        public BreakLocation(string? source, Acornima.Position position) { }
+        public BreakLocation(string? source, int line, int column) { }
+        public int Column { get; }
+        public int Line { get; }
+        public string? Source { get; }
+    }
+    public class BreakPoint
+    {
+        public BreakPoint(int line, int column, string? condition = null) { }
+        public BreakPoint(string? source, int line, int column, string? condition = null) { }
+        public string? Condition { get; }
+        public Jint.Runtime.Debugger.BreakLocation Location { get; }
+    }
+    public sealed class BreakPointCollection : System.Collections.Generic.IEnumerable<Jint.Runtime.Debugger.BreakPoint>, System.Collections.IEnumerable
+    {
+        public BreakPointCollection() { }
+        public bool Active { get; set; }
+        public int Count { get; }
+        public void Clear() { }
+        public bool Contains(Jint.Runtime.Debugger.BreakLocation location) { }
+        public System.Collections.Generic.IEnumerator<Jint.Runtime.Debugger.BreakPoint> GetEnumerator() { }
+        public bool RemoveAt(Jint.Runtime.Debugger.BreakLocation location) { }
+        public void Set(Jint.Runtime.Debugger.BreakPoint breakPoint) { }
+    }
+    public sealed class CallFrame
+    {
+        public Acornima.SourceLocation? FunctionLocation { get; }
+        public string FunctionName { get; }
+        public Acornima.SourceLocation& Location { get; }
+        public Jint.Native.JsValue? ReturnValue { get; }
+        public Jint.Runtime.Debugger.DebugScopes ScopeChain { get; }
+        public Jint.Native.JsValue This { get; }
+    }
+    public sealed class DebugCallStack : System.Collections.Generic.IEnumerable<Jint.Runtime.Debugger.CallFrame>, System.Collections.Generic.IReadOnlyCollection<Jint.Runtime.Debugger.CallFrame>, System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.CallFrame>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public Jint.Runtime.Debugger.CallFrame this[int index] { get; }
+        public System.Collections.Generic.IEnumerator<Jint.Runtime.Debugger.CallFrame> GetEnumerator() { }
+    }
+    public sealed class DebugEvaluationException : Jint.JintException
+    {
+        public DebugEvaluationException(string message) { }
+        public DebugEvaluationException(string message, System.Exception innerException) { }
+    }
+    public class DebugHandler
+    {
+        public Jint.Runtime.Debugger.BreakPointCollection BreakPoints { get; }
+        public Acornima.SourceLocation? CurrentLocation { get; }
+        public event Jint.Runtime.Debugger.DebugHandler.BeforeEvaluateEventHandler? BeforeEvaluate;
+        public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Break;
+        public event Jint.Runtime.Debugger.DebugHandler.ExceptionThrownEventHandler? ExceptionThrown;
+        public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Skip;
+        public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Step;
+        public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
+        public Jint.Native.JsValue Evaluate(string sourceText, Jint.ScriptParsingOptions? parsingOptions = null) { }
+        public delegate void BeforeEvaluateEventHandler(object sender, Acornima.Ast.Program ast);
+        public delegate Jint.Runtime.Debugger.StepMode DebugEventHandler(object sender, Jint.Runtime.Debugger.DebugInformation e);
+        public delegate void ExceptionThrownEventHandler(object sender, Jint.Runtime.Debugger.ExceptionThrownEventArgs e);
+    }
+    public sealed class DebugInformation : System.EventArgs
+    {
+        public Jint.Runtime.Debugger.BreakPoint? BreakPoint { get; }
+        public Jint.Runtime.Debugger.DebugCallStack CallStack { get; }
+        public Jint.Runtime.Debugger.CallFrame CurrentCallFrame { get; }
+        public long CurrentMemoryUsage { get; }
+        public Acornima.Ast.Node? CurrentNode { get; }
+        public Jint.Runtime.Debugger.DebugScopes CurrentScopeChain { get; }
+        public Acornima.SourceLocation&? Location { get; }
+        public Jint.Runtime.Debugger.PauseType PauseType { get; }
+        public Jint.Native.JsValue? ReturnValue { get; }
+    }
+    public sealed class DebugScope
+    {
+        public System.Collections.Generic.IReadOnlyList<string> BindingNames { get; }
+        public Jint.Native.Object.ObjectInstance? BindingObject { get; }
+        public bool IsTopLevel { get; }
+        public Jint.Runtime.Debugger.DebugScopeType ScopeType { get; }
+        public Jint.Native.JsValue? GetBindingValue(string name) { }
+        public void SetBindingValue(string name, Jint.Native.JsValue value) { }
+    }
+    public enum DebugScopeType
+    {
+        Global = 0,
+        Script = 1,
+        Local = 2,
+        Block = 3,
+        Catch = 4,
+        Closure = 5,
+        With = 6,
+        Eval = 7,
+        Module = 8,
+        WasmExpressionStack = 9,
+    }
+    public sealed class DebugScopes : System.Collections.Generic.IEnumerable<Jint.Runtime.Debugger.DebugScope>, System.Collections.Generic.IReadOnlyCollection<Jint.Runtime.Debugger.DebugScope>, System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.DebugScope>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public Jint.Runtime.Debugger.DebugScope this[int index] { get; }
+        public System.Collections.Generic.IEnumerator<Jint.Runtime.Debugger.DebugScope> GetEnumerator() { }
+    }
+    public enum DebuggerStatementHandling
+    {
+        Ignore = 0,
+        Clr = 1,
+        Script = 2,
+    }
+    public sealed class ExceptionThrownEventArgs : System.EventArgs
+    {
+        public Jint.Runtime.Debugger.DebugCallStack CallStack { get; }
+        public Acornima.SourceLocation& Location { get; }
+        public Jint.Native.JsValue ThrownValue { get; }
+    }
+    public enum PauseType
+    {
+        Skip = 0,
+        Step = 1,
+        Break = 2,
+        DebuggerStatement = 3,
+    }
+    public enum StepMode
+    {
+        None = 0,
+        Over = 1,
+        Into = 2,
+        Out = 3,
+    }
+}
+namespace Jint.Runtime.Descriptors
+{
+    public sealed class GetSetPropertyDescriptor : Jint.Runtime.Descriptors.PropertyDescriptor
+    {
+        public GetSetPropertyDescriptor(Jint.Runtime.Descriptors.PropertyDescriptor descriptor) { }
+        public GetSetPropertyDescriptor(Jint.Native.JsValue? get, Jint.Native.JsValue? set, bool? enumerable = default, bool? configurable = default) { }
+        public override Jint.Native.JsValue? Get { get; }
+        public override Jint.Native.JsValue? Set { get; }
+    }
+    public class PropertyDescriptor
+    {
+        public static readonly Jint.Runtime.Descriptors.PropertyDescriptor Undefined;
+        public PropertyDescriptor() { }
+        public PropertyDescriptor(Jint.Runtime.Descriptors.PropertyDescriptor descriptor) { }
+        protected PropertyDescriptor(Jint.Runtime.Descriptors.PropertyFlag flags) { }
+        public PropertyDescriptor(Jint.Native.JsValue? value, Jint.Runtime.Descriptors.PropertyFlag flags) { }
+        public PropertyDescriptor(Jint.Native.JsValue? value, bool? writable, bool? enumerable, bool? configurable) { }
+        public bool Configurable { get; set; }
+        public bool ConfigurableSet { get; }
+        protected virtual Jint.Native.JsValue? CustomValue { get; set; }
+        public bool Enumerable { get; set; }
+        public bool EnumerableSet { get; }
+        public virtual Jint.Native.JsValue? Get { get; }
+        public virtual Jint.Native.JsValue? Set { get; }
+        public Jint.Native.JsValue Value { get; set; }
+        public bool Writable { get; set; }
+        public bool WritableSet { get; }
+        public bool IsAccessorDescriptor() { }
+        public bool IsDataDescriptor() { }
+        public bool IsGenericDescriptor() { }
+        public static Jint.Runtime.Descriptors.PropertyDescriptor CreateLazy(System.Func<Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+        public static Jint.Runtime.Descriptors.PropertyDescriptor CreateLazy<TState>(TState state, System.Func<TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+        public static Jint.Native.JsValue FromPropertyDescriptor(Jint.Engine engine, Jint.Runtime.Descriptors.PropertyDescriptor desc, bool strictUndefined = false) { }
+        public static Jint.Runtime.Descriptors.PropertyDescriptor ToPropertyDescriptor(Jint.Runtime.Realm realm, Jint.Native.JsValue o) { }
+    }
+    [System.Flags]
+    public enum PropertyFlag
+    {
+        None = 0,
+        Enumerable = 1,
+        EnumerableSet = 2,
+        Writable = 4,
+        WritableSet = 8,
+        Configurable = 16,
+        ConfigurableSet = 32,
+        CustomJsValue = 256,
+        MutableBinding = 512,
+        NonData = 1024,
+        AllForbidden = 42,
+        ConfigurableEnumerableWritable = 21,
+        NonConfigurable = 37,
+        OnlyEnumerable = 41,
+        NonEnumerable = 22,
+        OnlyWritable = 38,
+        NonWritable = 25,
+        OnlyConfigurable = 26,
+    }
+}
+namespace Jint.Runtime.Interop
+{
+    public sealed class ClrFunction : Jint.Native.Function.Function, System.IEquatable<Jint.Runtime.Interop.ClrFunction>
+    {
+        public ClrFunction(Jint.Engine engine, string name, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue> func, int length = 0, Jint.Runtime.Descriptors.PropertyFlag lengthFlags = 42) { }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public bool Equals(Jint.Runtime.Interop.ClrFunction? other) { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+    }
+    public sealed class ClrResolutionErrorInfo
+    {
+        public System.Collections.Generic.IReadOnlyList<Jint.Native.JsValue> Arguments { get; }
+        public System.Collections.Generic.IReadOnlyList<string> CandidateSignatures { get; }
+        public System.Collections.Generic.IReadOnlyList<System.Reflection.MethodBase> Candidates { get; }
+        public string DetailedMessage { get; }
+        public bool IsConstructor { get; }
+        public string? MemberName { get; }
+        public System.Type Type { get; }
+    }
+    public class DefaultTypeConverter : Jint.Runtime.Interop.ITypeConverter
+    {
+        public DefaultTypeConverter(Jint.Engine engine) { }
+        public virtual object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider) { }
+        public virtual bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted) { }
+    }
+    public interface IObjectConverter
+    {
+        bool TryConvert(Jint.Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Native.JsValue? result);
+    }
+    public interface IObjectWrapper
+    {
+        object Target { get; }
+    }
+    public interface IReferenceResolver
+    {
+        bool CheckCoercible(Jint.Native.JsValue value);
+        bool TryGetCallable(Jint.Engine engine, object callee, out Jint.Native.JsValue value);
+        bool TryPropertyReference(Jint.Engine engine, Jint.Runtime.Reference reference, ref Jint.Native.JsValue value);
+        bool TryUnresolvableReference(Jint.Engine engine, Jint.Runtime.Reference reference, out Jint.Native.JsValue value);
+    }
+    public interface ITypeConverter
+    {
+        object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider);
+        bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted);
+    }
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Dynamic loading")]
+    public class NamespaceReference : Jint.Native.Object.ObjectInstance
+    {
+        public NamespaceReference(Jint.Engine engine, string? path) { }
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Dynamic loading")]
+        public Jint.Native.JsValue GetPath(string path) { }
+        public override string ToString() { }
+    }
+    public sealed class NullPropagatingReferenceResolver : Jint.Runtime.Interop.IReferenceResolver
+    {
+        public static readonly Jint.Runtime.Interop.NullPropagatingReferenceResolver Instance;
+        public bool CheckCoercible(Jint.Native.JsValue value) { }
+        public bool TryGetCallable(Jint.Engine engine, object callee, out Jint.Native.JsValue value) { }
+        public bool TryPropertyReference(Jint.Engine engine, Jint.Runtime.Reference reference, ref Jint.Native.JsValue value) { }
+        public bool TryUnresolvableReference(Jint.Engine engine, Jint.Runtime.Reference reference, out Jint.Native.JsValue value) { }
+    }
+    public class ObjectWrapper : Jint.Native.Object.ObjectInstance, Jint.Runtime.Interop.IObjectWrapper, System.IEquatable<Jint.Runtime.Interop.ObjectWrapper>
+    {
+        public System.Type ClrType { get; }
+        public object Target { get; }
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public bool Equals(Jint.Runtime.Interop.ObjectWrapper? other) { }
+        public override bool Equals(object? obj) { }
+        public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
+        public override bool HasProperty(Jint.Native.JsValue property) { }
+        protected override Jint.Native.Object.OwnPropertyProbe ProbeOwnProperty(Jint.Native.JsValue property) { }
+        public override void RemoveOwnProperty(Jint.Native.JsValue property) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override object ToObject() { }
+        public static Jint.Native.Object.ObjectInstance Create(Jint.Engine engine, object target, System.Type? type = null) { }
+        public static Jint.Runtime.Descriptors.PropertyDescriptor GetPropertyDescriptor(Jint.Engine engine, object target, System.Reflection.MemberInfo member) { }
+    }
+    public abstract class ProxyHandler
+    {
+        protected ProxyHandler() { }
+        public virtual Jint.Native.JsValue? Apply(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public virtual Jint.Native.Object.ObjectInstance? Construct(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public virtual bool? DefineProperty(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor descriptor) { }
+        public virtual bool? DeleteProperty(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property) { }
+        public virtual Jint.Native.JsValue? Get(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
+        public virtual Jint.Runtime.Descriptors.PropertyDescriptor? GetOwnPropertyDescriptor(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property) { }
+        public virtual Jint.Native.JsValue? GetPrototypeOf(Jint.Native.Object.ObjectInstance target) { }
+        public virtual bool? Has(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property) { }
+        public virtual bool? IsExtensible(Jint.Native.Object.ObjectInstance target) { }
+        public virtual System.Collections.Generic.IReadOnlyList<Jint.Native.JsValue>? OwnKeys(Jint.Native.Object.ObjectInstance target) { }
+        public virtual bool? PreventExtensions(Jint.Native.Object.ObjectInstance target) { }
+        public virtual bool? Set(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        public virtual bool? SetPrototypeOf(Jint.Native.Object.ObjectInstance target, Jint.Native.JsValue prototype) { }
+    }
+    [System.Flags]
+    public enum ReferenceResolverInterests
+    {
+        None = 0,
+        NullishPropertyBase = 1,
+        ObjectPropertyBase = 2,
+        PrimitivePropertyBase = 4,
+        UnresolvableReference = 8,
+        NonCallableCallee = 16,
+        All = 31,
+    }
+    public readonly struct RevocableProxy
+    {
+        public Jint.Native.Object.ObjectInstance Proxy { get; }
+        public void Revoke() { }
+    }
+    public sealed class TypeReference : Jint.Native.Constructor, Jint.Runtime.Interop.IObjectWrapper
+    {
+        public System.Type ReferenceType { get; }
+        public object Target { get; }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        public override Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget) { }
+        public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public override bool Delete(Jint.Native.JsValue property) { }
+        public override bool Equals(Jint.Native.JsValue? other) { }
+        public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
+        public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
+        public override string ToString() { }
+        public static Jint.Runtime.Interop.TypeReference CreateTypeReference(Jint.Engine engine, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)] System.Type type) { }
+        public static Jint.Runtime.Interop.TypeReference CreateTypeReference<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(Jint.Engine engine) { }
+    }
+    public sealed class TypeResolver
+    {
+        public static readonly Jint.Runtime.Interop.TypeResolver Default;
+        public TypeResolver() { }
+        public System.Predicate<System.Reflection.MemberInfo> MemberFilter { get; set; }
+        public System.StringComparer MemberNameComparer { get; set; }
+        public System.Func<System.Reflection.MemberInfo, System.Collections.Generic.IEnumerable<string>> MemberNameCreator { get; set; }
+    }
+}
+namespace Jint.Runtime.Modules
+{
+    public abstract class AsyncModuleLoader : Jint.Runtime.Modules.ModuleLoader, Jint.Runtime.Modules.IAsyncModuleLoader, Jint.Runtime.Modules.IModuleLoader
+    {
+        protected AsyncModuleLoader() { }
+        public void LoadModuleAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, Jint.Runtime.Modules.ModuleLoadCompletion completion) { }
+        protected override string LoadModuleContents(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        protected virtual System.Threading.Tasks.Task<byte[]> LoadModuleContentsAsBytesAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, System.Threading.CancellationToken cancellationToken) { }
+        protected abstract System.Threading.Tasks.Task<string> LoadModuleContentsAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, System.Threading.CancellationToken cancellationToken);
+    }
+    public abstract class CyclicModule : Jint.Runtime.Modules.Module
+    {
+        protected bool _hasTLA;
+        public override Jint.Native.JsValue Evaluate() { }
+        protected abstract void InitializeEnvironment();
+        protected override Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index, ref int asyncEvalOrder) { }
+        protected override int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index) { }
+        public override void Link() { }
+        public override Jint.Native.JsValue LoadRequestedModules() { }
+    }
+    public class DefaultModuleLoader : Jint.Runtime.Modules.ModuleLoader
+    {
+        public DefaultModuleLoader(string basePath, bool restrictToBasePath = true) { }
+        protected override string LoadModuleContents(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        protected override byte[] LoadModuleContentsAsBytes(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        public override Jint.Runtime.Modules.ResolvedSpecifier Resolve(string? referencingModuleLocation, Jint.Runtime.Modules.ModuleRequest moduleRequest) { }
+    }
+    public interface IAsyncModuleLoader : Jint.Runtime.Modules.IModuleLoader
+    {
+        void LoadModuleAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, Jint.Runtime.Modules.ModuleLoadCompletion completion);
+    }
+    public interface IModuleLoader
+    {
+        Jint.Runtime.Modules.Module LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved);
+        Jint.Runtime.Modules.ResolvedSpecifier Resolve(string? referencingModuleLocation, Jint.Runtime.Modules.ModuleRequest moduleRequest);
+    }
+    public abstract class Module : Jint.Native.JsValue
+    {
+        protected readonly Jint.Engine _engine;
+        protected readonly Jint.Runtime.Realm _realm;
+        public string Location { get; }
+        public abstract Jint.Native.JsValue Evaluate();
+        public abstract System.Collections.Generic.List<string> GetExportedNames(System.Collections.Generic.List<Jint.Runtime.Modules.CyclicModule> exportStarSet = null);
+        protected abstract Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index, ref int asyncEvalOrder);
+        protected abstract int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index);
+        public abstract void Link();
+        public virtual Jint.Native.JsValue LoadRequestedModules() { }
+        public override object ToObject() { }
+        public override string ToString() { }
+        public static Jint.Native.Object.ObjectInstance GetModuleNamespace(Jint.Runtime.Modules.Module module) { }
+    }
+    public sealed class ModuleBuilder
+    {
+        public Jint.Runtime.Modules.ModuleBuilder AddModule(in Jint.Prepared<Acornima.Ast.Module> preparedModule) { }
+        public Jint.Runtime.Modules.ModuleBuilder AddSource(string code) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportFunction(string name, System.Action fn) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportFunction(string name, System.Action<Jint.Native.JsValue[]> fn) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportFunction(string name, System.Func<Jint.Native.JsValue> fn) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportFunction(string name, System.Func<Jint.Native.JsValue[], Jint.Native.JsValue> fn) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportObject(string name, object value) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportType([System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)] System.Type type) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportType(string name, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)] System.Type type) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportType<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>() { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportType<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name) { }
+        public Jint.Runtime.Modules.ModuleBuilder ExportValue(string name, Jint.Native.JsValue value) { }
+        public Jint.Runtime.Modules.ModuleBuilder WithOptions(System.Func<Jint.ModuleParsingOptions, Jint.ModuleParsingOptions> configure) { }
+    }
+    public static class ModuleFactory
+    {
+        public static Jint.Runtime.Modules.Module BuildBytesModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, byte[] bytes) { }
+        public static Jint.Runtime.Modules.Module BuildJsonModule(Jint.Engine engine, Jint.Native.JsValue parsedJson, string? location) { }
+        public static Jint.Runtime.Modules.Module BuildJsonModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string jsonString) { }
+        public static Jint.Runtime.Modules.Module BuildSourceTextModule(Jint.Engine engine, in Jint.Prepared<Acornima.Ast.Module> preparedModule) { }
+        public static Jint.Runtime.Modules.Module BuildSourceTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string code, Jint.ModuleParsingOptions? parsingOptions = null) { }
+        public static Jint.Runtime.Modules.Module BuildTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string text) { }
+        public static string LocationOf(Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+    }
+    public readonly struct ModuleImportAttribute : System.IEquatable<Jint.Runtime.Modules.ModuleImportAttribute>
+    {
+        public ModuleImportAttribute(string Key, string Value) { }
+        public string Key { get; init; }
+        public string Value { get; init; }
+    }
+    public sealed class ModuleImportOperation
+    {
+        public Jint.Native.JsValue? Error { get; }
+        public bool IsCompleted { get; }
+        public bool IsFaulted { get; }
+        public Jint.Native.Object.ObjectInstance? Namespace { get; }
+        public Jint.Native.JsValue Promise { get; }
+        public Jint.Native.Object.ObjectInstance GetResult() { }
+    }
+    public sealed class ModuleLoadCompletion
+    {
+        public Jint.Engine Engine { get; }
+        public bool IsCompleted { get; }
+        public Jint.Runtime.Modules.ResolvedSpecifier Resolved { get; }
+        public void SetError(System.Exception exception) { }
+        public void SetError(string message) { }
+        public void SetModule(Jint.Runtime.Modules.Module module) { }
+        public void SetSource(byte[] bytes) { }
+        public void SetSource(string code) { }
+    }
+    public abstract class ModuleLoader : Jint.Runtime.Modules.IModuleLoader
+    {
+        protected ModuleLoader() { }
+        protected virtual Jint.Native.Object.ObjectInstance? GetModuleSource(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        public Jint.Runtime.Modules.Module LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        protected abstract string LoadModuleContents(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved);
+        protected virtual byte[] LoadModuleContentsAsBytes(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        public abstract Jint.Runtime.Modules.ResolvedSpecifier Resolve(string? referencingModuleLocation, Jint.Runtime.Modules.ModuleRequest moduleRequest);
+    }
+    public readonly struct ModuleRequest : System.IEquatable<Jint.Runtime.Modules.ModuleRequest>
+    {
+        public ModuleRequest(string Specifier, Jint.Runtime.Modules.ModuleImportAttribute[] Attributes) { }
+        public Jint.Runtime.Modules.ModuleImportAttribute[] Attributes { get; init; }
+        public string Specifier { get; init; }
+        public bool Equals(Jint.Runtime.Modules.ModuleRequest other) { }
+        public override int GetHashCode() { }
+    }
+    public static class ModuleRequestExtensions
+    {
+        public static bool IsBytesModule(this Jint.Runtime.Modules.ModuleRequest request) { }
+        public static bool IsJsonModule(this Jint.Runtime.Modules.ModuleRequest request) { }
+        public static bool IsTextModule(this Jint.Runtime.Modules.ModuleRequest request) { }
+    }
+    public sealed class ModuleResolutionException : Jint.JintException
+    {
+        public ModuleResolutionException(string resolverAlgorithmError, string specifier, string? parent, string? filePath) { }
+        public string? FilePath { get; }
+        public string ResolverAlgorithmError { get; }
+        public string Specifier { get; }
+    }
+    public class ResolvedSpecifier : System.IEquatable<Jint.Runtime.Modules.ResolvedSpecifier>
+    {
+        public ResolvedSpecifier(Jint.Runtime.Modules.ModuleRequest ModuleRequest, string Key, System.Uri? Uri, Jint.Runtime.Modules.SpecifierType Type) { }
+        public string Key { get; init; }
+        public Jint.Runtime.Modules.ModuleRequest ModuleRequest { get; init; }
+        public Jint.Runtime.Modules.SpecifierType Type { get; init; }
+        public System.Uri? Uri { get; init; }
+    }
+    public enum SpecifierType
+    {
+        Error = 0,
+        RelativeOrAbsolute = 1,
+        Bare = 2,
+    }
+}

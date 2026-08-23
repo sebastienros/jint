@@ -175,7 +175,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 - **`Jint.Tests`** — Main unit tests (xUnit v3, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. Use a 30-second timeout when invoking the runner.
 - **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit). `Test262Harness.settings.json` holds exclusions/inclusions and, in `SubDirectories`, which of test262's `test/` sub-directories are generated at all — `annexB`, `built-ins`, `intl402`, `language` and `staging` (see [Updating the test262 suite](#updating-the-test262-suite); `staging/` is an explicit opt-in, not the tool's default). Test sources live in `..\test262\test`, which you may always read, and the harness scripts a test `includes` in `..\test262\harness` — including `harness/sm/` for the staged SpiderMonkey ports. Failure output contains the failing script — strip the line numbers to reproduce. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
 - **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
-- **`Jint.Tests.PublicInterface`** — API contract tests (xUnit v3). See the integration-surface section below.
+- **`Jint.Tests.PublicInterface`** — API contract tests (xUnit v3), plus the public API snapshots in `Verify/`. See the integration-surface section below.
 - **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
 
 ## Third-party integration surface
@@ -324,6 +324,14 @@ Each of these cost a real integrator or a real bug.
 ### Where integrator-facing tests belong
 
 `Jint.Tests.PublicInterface` is the only test project **without** `InternalsVisibleTo` (the grant list is `Jint.Tests`, `Jint.Tests.Test262`, `Jint.Benchmark`, `Jint.Repl`), so a test there actually proves the surface is reachable by a third party. Put new integrator-facing tests there, in **generically named files** describing the capability rather than any particular integrator — the `Host*Tests.cs` family (`HostObjectSemanticsTests`, `HostObjectProbeCountTests`, `HostObjectEnumerationTests`, `HostDelegateTests`, …) is the established precedent. Remember that a `protected internal` member is seen as `protected` from outside the assembly, so an override is spelled `protected override`.
+
+### The public API baselines
+
+`Jint.Tests.PublicInterface/Verify/PublicApiTest_<tfm>.verified.txt` **is** Jint's public surface, written down — one file per target framework it ships, produced by `PublicApiTest.cs` from the assemblies in `artifacts/bin/Jint/` (read through a `MetadataLoadContext`, because a test project can only ever *load* two of the five). It is the only guard this repository has against an unintended public API change: there is no ApiCompat run and no shipped/unshipped API files.
+
+**A failure is a diff to review, not a bug report to act on blindly.** On this maintenance branch it is almost always a bug — `4.x` is a bug-fix line and a backport is not supposed to move the surface at all. When it genuinely is deliberate, accept the new baseline: Verify writes a `*.received.txt` beside the `*.verified.txt`, and accepting is replacing the one with the other. **Never hand-edit a baseline** — a hand-written line is a claim about the assembly that nothing checked, and it survives forever because the next run compares against it rather than against the compiler.
+
+These files are also what the v4 → v5 migration guide is written from: a `git diff` of one of them between `4.x` and `main` is the exhaustive, always-current API delta between the two lines, which no hand-maintained table stays. The rows come from `Jint.csproj`'s own `<TargetFrameworks>`, so adding a target framework adds a failing row that wants a baseline rather than silently shipping an unsnapshotted surface, and the `BuildJintForEveryShippedTargetFramework` target in the `.csproj` keeps all five present and current. The test runs on the `net10.0` leg only — `PublicApiGenerator` formats through CodeDom and nothing promises .NET Framework's lays the same metadata out identically.
 
 ### Benchmarking host-object shapes
 
