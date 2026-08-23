@@ -256,24 +256,84 @@ public class WptTestRunner
         // document. Most of them do it at file scope, so there is not even a test to exclude.
         ("fetch/api/request/*", "constructs a Request from a relative url; there is no API base URL here"),
 
-        // The rest of fetch/api/ is a client talking to wptserve: .py handlers that echo headers, trickle
-        // bytes, redirect, stall, or check CORS preflights. There is no server in this driver and the shim's
-        // `fetch` is a reader over the vendored tree, so none of it can run.
-        ("fetch/api/abort/*", "needs a wpt server"),
-        ("fetch/api/basic/*", "needs a wpt server"),
-        ("fetch/api/body/*", "needs a wpt server"),
-        ("fetch/api/cors/*", "needs a wpt server"),
-        ("fetch/api/credentials/*", "needs a wpt server"),
-        ("fetch/api/policies/*", "needs a wpt server"),
-        ("fetch/api/redirect/*", "needs a wpt server"),
+        // The rest of fetch/api/ used to be one sentence — "a client talking to wptserve" — over seven
+        // directory globs. WptServer is that client's server now (see its class remarks), so the sentence no
+        // longer covers what it did: every row below states the *engine* feature the file needs, and where a
+        // row still says "server" it names the handler shape nothing here reproduces. The census behind the
+        // split is in Vendor/README.md; what the server unlocked left this table for the suite arrays.
         ("fetch/api/crashtests/*", "a crashtest rather than an assertion"),
-        ("fetch/api/headers/header-values.any.js", "needs a wpt server"),
-        ("fetch/api/headers/header-values-normalize.any.js", "needs a wpt server"),
-        ("fetch/api/headers/headers-no-cors.any.js", "needs a wpt server"),
+
+        // ---- whole directories, none of which a server would have helped
+        // Every one of the 21 files in cors/ is about the CORS request mode: `mode: "cors"`, a preflight, the
+        // Access-Control-* response headers, an opaque filtered response, and a second origin to be
+        // cross-origin *to*. RequestConstructor documents that this implementation neither reads nor validates
+        // `mode`, `credentials`, `integrity`, `referrer` or `referrerPolicy` — "nothing here pretends to
+        // honour a same-origin policy that does not exist" — so there is no origin model for these files to
+        // assert against and a server would only let them fail more slowly.
+        ("fetch/api/cors/*", "the CORS request mode and a second origin, which this implementation has no model for"),
+
+        // A cookie jar (SocketsHttpHandler's UseCookies is deliberately off — a jar shared by every engine in
+        // the process would be a cross-tenant channel), HTTP authentication, and the `credentials` init member
+        // above.
+        ("fetch/api/credentials/*", "cookies, HTTP authentication and the credentials mode"),
+
+        // Not one .any.js file: the directory is .html documents, their .headers sidecars and the .js they
+        // load. It is Content-Security-Policy and Referrer-Policy applied to a *document*, so it is out for
+        // what the rest of the corpus's .html files are out for and would be even with a server.
+        ("fetch/api/policies/*", "CSP and Referrer-Policy on a document; the directory holds no .any.js at all"),
+
+        // ---- abort/
+        // general.any.js is 20 kB of `AbortSignal` against a server, and it opens by including
+        // /common/get-host-info.sub.js — wptserve's server-side substitution — and ../request/request-error.js
+        // out of the one fetch directory that is out for having no API base URL. Both are file-scope
+        // requirements, so it cannot even register a test here. request.any.js and cache.https.any.js
+        // construct their Requests from *relative* urls, which is the same NeedsApiBaseUrl story as request/.
+        ("fetch/api/abort/*", "a relative-url Request, and for general.any.js wptserve substitution at file scope"),
+
+        // ---- basic/, file by file, now that nine of its 31 files are vendored
+        // Server-shaped, but not this server: each needs a handler this one deliberately does not reproduce.
+        ("fetch/api/basic/conditional-get.any.js", "an HTTP cache: ETag revalidation through cache.py"),
+        ("fetch/api/basic/error-after-response.any.js", "bad-chunk-encoding.py: a deliberately malformed chunked body"),
+        ("fetch/api/basic/header-value-combining.any.js", "/xhr/resources/*.asis: raw responses served byte for byte"),
+        ("fetch/api/basic/header-value-null-byte.any.js", "/xhr/resources/parse-headers.py"),
+        ("fetch/api/basic/request-headers-case.any.js", "/xhr/resources/echo-headers.py"),
+        ("fetch/api/basic/http-response-code.any.js", "the connection-pool partition-key handler, and get-host-info substitution"),
+        ("fetch/api/basic/request-upload.any.js", "echo-content.py plus a streaming upload and a second origin"),
+
+        // Engine features rather than endpoints.
+        ("fetch/api/basic/gc.any.js", "/common/gc.js and a garbageCollect() the engine does not expose"),
+        ("fetch/api/basic/mode-same-origin.any.js", "the CORS request mode and a second origin"),
+        ("fetch/api/basic/referrer.any.js", "a Referer header, which an engine with no document never sends"),
+        ("fetch/api/basic/request-referrer.any.js", "a Referer header, which an engine with no document never sends"),
+        ("fetch/api/basic/request-forbidden-headers.any.js", "the forbidden-header names, which this implementation does not filter"),
+        ("fetch/api/basic/request-headers.any.js", "asserts the Accept and Accept-Language a browser adds; see NeedsBrowserRequestHeaders"),
+        ("fetch/api/basic/scheme-data.any.js", "a data: URL fetch"),
+
+        // ---- body/
+        // The other two files in the directory are vendored: they build their own Request and Response and
+        // never ask for a URL, which is why the old "needs a wpt server" glob was wrong about them.
+        ("fetch/api/body/textstream.any.js", "Response.prototype.textStream, a Fetch pull the standard has not merged"),
+
+        // ---- redirect/, file by file, now that four of its 15 files are vendored
+        ("fetch/api/redirect/redirect-back-to-original-origin.any.js", "the CORS request mode and a second origin"),
+        ("fetch/api/redirect/redirect-mode.any.js", "a second origin, and the opaqueredirect filtered response"),
+        ("fetch/api/redirect/redirect-origin.any.js", "a second origin"),
+        ("fetch/api/redirect/redirect-referrer.any.js", "a Referer header, which an engine with no document never sends"),
+        ("fetch/api/redirect/redirect-referrer-override.any.js", "a Referer header and a Referrer-Policy the redirect handler sets"),
+        ("fetch/api/redirect/redirect-schemes.any.js", "redirects to blob: and other schemes, and get-host-info substitution"),
+        ("fetch/api/redirect/redirect-to-dataurl.any.js", "a data: URL redirect target"),
+
+        // ---- what the ".sub." and ".h2." spellings mean, wherever they appear under fetch/
+        // `.sub.` is wptserve rewriting {{host}} and {{ports[…]}} into a real origin before serving the file;
+        // a vendored copy carries the placeholders verbatim. `.h2.` needs an HTTP/2 server, which this one is
+        // not — it speaks HTTP/1.1 on a raw socket, which is what lets it trickle a body.
+        ("fetch/api/*/*.sub.any.js", "wptserve substitutes a second origin into the file before serving it"),
+        ("fetch/api/*/*.h2.any.js", "needs an HTTP/2 server"),
+        ("fetch/api/*/*keepalive*", "the keepalive init member, and a window creating iframes"),
+
+        // ---- headers/ and response/, the rows the server did not reach
+        ("fetch/api/headers/headers-no-cors.any.js", "the \"no-cors\" request mode, which this implementation has no model for"),
         ("fetch/api/response/json.any.js", "fetches a data: url"),
-        ("fetch/api/response/response-cancel-stream.any.js", "needs a wpt server"),
-        ("fetch/api/response/response-clone.any.js", "needs a wpt server"),
-        ("fetch/api/response/response-headers-guard.any.js", "needs a wpt server"),
         ("fetch/api/response/response-blob-realm.any.js", "needs a document and a second realm"),
     ];
 
@@ -567,7 +627,27 @@ public class WptTestRunner
         ["dom/abort/event.any.js"] = 16,
         ["dom/abort/timeout.any.js"] = 3,
 
+        ["fetch/api/basic/accept-header.any.js"] = 4,
+        ["fetch/api/basic/historical.any.js"] = 3,
+        ["fetch/api/basic/request-head.any.js"] = 1,
+        ["fetch/api/basic/request-headers-nonascii.any.js"] = 1,
+        ["fetch/api/basic/response-null-body.any.js"] = 11,
+        ["fetch/api/basic/scheme-about.any.js"] = 7,
+        ["fetch/api/basic/stream-response.any.js"] = 2,
+        ["fetch/api/basic/stream-safe-creation.any.js"] = 63,
+        ["fetch/api/basic/text-utf8.any.js"] = 8,
+
+        ["fetch/api/body/formdata.any.js"] = 3,
+        ["fetch/api/body/mime-type.any.js"] = 12,
+
+        ["fetch/api/redirect/redirect-count.any.js"] = 10,
+        ["fetch/api/redirect/redirect-empty-location.any.js"] = 2,
+        ["fetch/api/redirect/redirect-location.any.js"] = 50,
+        ["fetch/api/redirect/redirect-method.any.js"] = 15,
+
         ["fetch/api/headers/header-setcookie.any.js"] = 24,
+        ["fetch/api/headers/header-values-normalize.any.js"] = 4,
+        ["fetch/api/headers/header-values.any.js"] = 8,
         ["fetch/api/headers/headers-basic.any.js"] = 23,
         ["fetch/api/headers/headers-casing.any.js"] = 4,
         ["fetch/api/headers/headers-combine.any.js"] = 6,
@@ -577,6 +657,9 @@ public class WptTestRunner
         ["fetch/api/headers/headers-record.any.js"] = 13,
         ["fetch/api/headers/headers-structure.any.js"] = 8,
 
+        ["fetch/api/response/response-cancel-stream.any.js"] = 4,
+        ["fetch/api/response/response-clone.any.js"] = 10,
+        ["fetch/api/response/response-headers-guard.any.js"] = 1,
         ["fetch/api/response/response-consume-empty.any.js"] = 14,
         ["fetch/api/response/response-consume-stream.any.js"] = 15,
         ["fetch/api/response/response-error-from-stream.any.js"] = 14,
@@ -980,6 +1063,58 @@ public class WptTestRunner
 
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
+        // ---- what the server lane found. WptServer (issue #3260) is what let these files make a real
+        // request for the first time; WptHarness._serverBackedFiles is the list of the files it runs.
+
+        // The five defects the lane turned up, each filed and deliberately not fixed here — see
+        // WptDivergence.NeedsTriage for the citation behind every one and why the change that first ran a
+        // suite must not also be the change that moves the engine.
+        //
+        // The first entry's stars are escaped because they are part of the test's *name* — its sibling row is
+        // "…with value 'custom/*'" and passes, so an unescaped pattern would cover a passing test. See
+        // WptExclusion.MatchesPattern.
+        new("fetch/api/basic/accept-header.any.js",
+            @"Request through fetch should have 'accept' header with value '\*/\*'", WptDivergence.NeedsTriage),
+        new("fetch/api/basic/response-null-body.any.js",
+            "Response.body is null for responses with method=HEAD", WptDivergence.NeedsTriage),
+        new("fetch/api/response/response-headers-guard.any.js",
+            "Ensure response headers are immutable", WptDivergence.NeedsTriage),
+        new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with GET", WptDivergence.NeedsTriage),
+        new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with HEAD", WptDivergence.NeedsTriage),
+        new("fetch/api/response/response-clone.any.js",
+            "Check response clone use structureClone for teed ReadableStreams (*chunk)", WptDivergence.NeedsTriage),
+
+        // The other half of accept-header.any.js, and not a defect: Accept-Language is a browser reporting
+        // the user's language preferences, and there is no user here.
+        new("fetch/api/basic/accept-header.any.js",
+            "Request through fetch should have a 'accept-language' header", WptDivergence.NeedsBrowserRequestHeaders),
+
+        // `redirect: "manual"` hands the script the redirect response rather than a browser's opaque filtered
+        // one, which FetchTransport documents as Node's reading of the algorithm — see
+        // WptDivergence.NeedsOpaqueRedirect. The "follow" and "error" rows of both files pass, which is what
+        // keeps the glob honest.
+        new("fetch/api/redirect/redirect-location.any.js", "Redirect 30* in \"manual\" mode *", WptDivergence.NeedsOpaqueRedirect),
+        new("fetch/api/redirect/redirect-empty-location.any.js",
+            "redirect response with empty Location, manual mode", WptDivergence.NeedsOpaqueRedirect),
+
+        // Both header-values files run their whole table twice, once through XMLHttpRequest and once through
+        // fetch. Only the fetch half is about anything Jint has; the driver's XHR is a corpus reader and says
+        // so — see WptDivergence.NeedsXmlHttpRequest.
+        new("fetch/api/headers/header-values.any.js", "XMLHttpRequest with *", WptDivergence.NeedsXmlHttpRequest),
+        new("fetch/api/headers/header-values-normalize.any.js", "XMLHttpRequest with *", WptDivergence.NeedsXmlHttpRequest),
+
+        // The two rows the .NET HTTP stack does not carry rather than the engine getting wrong: a header
+        // value with a byte above ASCII. WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack is
+        // the evidence, measured with no engine in the picture.
+        new("fetch/api/headers/header-values.any.js", "fetch() with all valid values", WptDivergence.NeedsPermissiveHeaderTransport),
+        new("fetch/api/basic/request-headers-nonascii.any.js",
+            "Non-ascii bytes in request headers", WptDivergence.NeedsPermissiveHeaderTransport),
+
+        // Ten rows of text-utf8.any.js build a Request from the empty string to get at Request.text(); the
+        // ten that go through fetch and read a real response pass.
+        new("fetch/api/basic/text-utf8.any.js", "* with Request.text()", WptDivergence.NeedsApiBaseUrl),
+        new("fetch/api/basic/text-utf8.any.js", "* (Request object)", WptDivergence.NeedsApiBaseUrl),
+
         // The one row this corpus still names, and it is not a defect: an empty FormData body is asked to
         // serialize to nothing, where HTML's encoding algorithm delegates the framing to RFC 7578 and RFC
         // 2046, whose grammar makes the close-delimiter mandatory — and where no browser passes the row
@@ -1144,14 +1279,19 @@ public class WptTestRunner
     ];
 
     /// <summary>
-    /// The network-free half of the Fetch corpus: the <c>Headers</c> suite and the <c>Response</c> files that
-    /// build their bodies themselves. <c>fetch/api/request</c> is not among them — see
-    /// <see cref="_notVendored"/> — because a <c>Request</c> needs a url and every file in it writes a
-    /// relative one.
+    /// The Fetch corpus, in five directories. Two of them — <c>headers</c> and <c>response</c> — were vendored
+    /// for the files that build their own <c>Headers</c> and their own body; the other three arrived with
+    /// <see cref="WptServer"/>, which is what a file asking for a URL now has to talk to.
+    /// <c>fetch/api/request</c> is still not among them — see <see cref="_notVendored"/> — because every file
+    /// in it builds a <c>Request</c> from a relative url, and there is no API base URL here to resolve one
+    /// against.
     /// </summary>
     private static readonly string[] _fetchSuites =
     [
+        "fetch/api/basic",
+        "fetch/api/body",
         "fetch/api/headers",
+        "fetch/api/redirect",
         "fetch/api/response",
     ];
 
@@ -1169,7 +1309,13 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> DomAbortSuiteFiles() => Cases("dom/abort");
 
+    public static IEnumerable<object[]> FetchBasicSuiteFiles() => Cases("fetch/api/basic");
+
+    public static IEnumerable<object[]> FetchBodySuiteFiles() => Cases("fetch/api/body");
+
     public static IEnumerable<object[]> FetchHeadersSuiteFiles() => Cases("fetch/api/headers");
+
+    public static IEnumerable<object[]> FetchRedirectSuiteFiles() => Cases("fetch/api/redirect");
 
     public static IEnumerable<object[]> FetchResponseSuiteFiles() => Cases("fetch/api/response");
 
@@ -1306,8 +1452,20 @@ public class WptTestRunner
     public void RunsTheDomAbortSuite(string file) => RunSuiteFile(file);
 
     [Theory]
+    [MemberData(nameof(FetchBasicSuiteFiles))]
+    public void RunsTheFetchBasicSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FetchBodySuiteFiles))]
+    public void RunsTheFetchBodySuite(string file) => RunSuiteFile(file);
+
+    [Theory]
     [MemberData(nameof(FetchHeadersSuiteFiles))]
     public void RunsTheFetchHeadersSuite(string file) => RunSuiteFile(file);
+
+    [Theory]
+    [MemberData(nameof(FetchRedirectSuiteFiles))]
+    public void RunsTheFetchRedirectSuite(string file) => RunSuiteFile(file);
 
     [Theory]
     [MemberData(nameof(FetchResponseSuiteFiles))]
@@ -1547,6 +1705,53 @@ public class WptTestRunner
         inTheWorkerLane.Should().BeGreaterThanOrEqualTo(10, "the workers/ corpus runs inside real workers");
     }
 
+    /// <summary>
+    /// The server lane holds exactly the files it says it holds, and every one of them is vendored.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>WptHarness._serverBackedFiles</c> is a list rather than a rule — see there for why — so it is the
+    /// one place in this driver where a file's <i>environment</i> is decided by a name that nothing else
+    /// checks. A typo in it would be silent in the worst way: the file would run on the ordinary engine, its
+    /// <c>fetch</c> would be the shim's corpus reader, and the suite would fail for a reason that looks like
+    /// an engine defect. So the names are held to the corpus.
+    /// </para>
+    /// <para>
+    /// The other direction matters just as much, and is what the second half asserts: the lane is the only
+    /// place in the driver that grants <see cref="WebApiFeatures.Fetch"/>, so it is the boundary of the
+    /// promise that no suite can open a socket. A file that drifted into it — or a rule that widened to a
+    /// directory — would move that boundary without anything saying so.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheServerLaneHoldsExactlyTheFilesItNames()
+    {
+        var named = WptHarness.ServerBackedFiles.ToArray();
+
+        named.Should().NotBeEmpty("the server lane is what every fetch file that asks for a URL runs in");
+
+        foreach (var file in named)
+        {
+            WptCorpus.Contains(file).Should().BeTrue($"{file} is in the server lane but is not vendored");
+            WptHarness.IsServerBacked(file).Should().BeTrue($"{file} must answer for itself");
+        }
+
+        // And nothing outside the list is in it, which is the half that keeps the socket boundary where it is.
+        foreach (var path in WptCorpus.Paths)
+        {
+            if (path.EndsWith(".any.js", StringComparison.Ordinal) && !Array.Exists(named, f => string.Equals(f, path, StringComparison.Ordinal)))
+            {
+                WptHarness.IsServerBacked(path).Should().BeFalse($"{path} is not one of the files the server lane names");
+            }
+        }
+
+        // Every server-backed file must be one a theory reaches, which for these is the fetch group.
+        foreach (var file in named)
+        {
+            file.Should().StartWith("fetch/api/", "the server lane exists for the fetch corpus");
+        }
+    }
+
     [Fact]
     public void TheHarnessShimAndItsHelpersAreEmbedded()
     {
@@ -1597,6 +1802,11 @@ public class WptTestRunner
                      "html/webappapis/structured-clone/structured-clone-battery-of-tests-harness.js",
                      "fetch/api/resources/utils.js",
                      "fetch/api/resources/data.json",
+                     // The server lane's two: `/common/utils.js` is the token generator redirect-count.any.js
+                     // names, and top.txt is the file half the redirect suite redirects *to* — served by
+                     // WptServer out of this same corpus, which is what keeps the bytes vendored.
+                     "common/utils.js",
+                     "fetch/api/resources/top.txt",
                      "fetch/api/response/response-stream-disturbed-util.js",
                      "encoding/resources/single-byte-decoder.js",
                  })

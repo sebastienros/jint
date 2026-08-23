@@ -19,8 +19,9 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 ## What runs this
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one xUnit theory case per `.any.js` file, on a fresh engine built with
-`UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and
-pointedly not `fetch`, so no suite gets outbound network access — and a `DiagnosticsSink`, which is what makes
+`UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and,
+for every file but the seventeen the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
+gets outbound network access — and a `DiagnosticsSink`, which is what makes
 an exception escaping a timer callback, an event listener or a `queueMicrotask` callback report-and-continue
 rather than erupt from the pump. `WptDiagnosticsSink` says why the driver needs one and why it records the
 reports instead of discarding them; the timers-and-microtask section below has the same account in prose.
@@ -31,21 +32,23 @@ engine supplies its own `setTimeout` — the shim's `step_timeout` is a forwarde
 suites' 45 timer sites are decided by the shipped `TimerQueue` — `// META: variant=` sharding is ignored
 because one unsharded run is the union of every variant, and why the object model is there at all
 (`url/urlencoded-parser.any.js` runs each of its 35 inputs through `URLSearchParams`, `Request.formData()`
-and `Response.formData()`, one algorithm reached three ways; and the two `fetch/api/` suites are about those
-three interfaces and nothing else, which is what let half of that corpus be vendored while the half that
-talks to a server could not).
+and `Response.formData()`, one algorithm reached three ways; and the `headers/` and `response/` suites are
+about those three interfaces and nothing else, which is what let that half of the corpus be vendored years
+before there was anything for the other half to talk to).
 
 Twelve standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/` and
 `user-timing/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`), `workers/` as
 **four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone), `dom/` as **two**
-(events, abort), `fetch/api/` as **two** (headers, response), `WebCryptoAPI/` as **eight** and `streams/` as
-**seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a
-directory's own files and never descends. That is 273 theory cases over 40,657 assertions, of which 2,889 do
-not pass and every one is named in the driver's table; the whole driver runs in about two minutes.
+(events, abort), `fetch/api/` as **five** (basic, body, headers, redirect, response), `WebCryptoAPI/` as
+**eight** and `streams/` as **seven** — their root files plus one suite per sub-directory, because
+`WptCorpus.TestFiles` lists a directory's own files and never descends. That is 293 theory cases over 40,983
+assertions, of which 2,983 do not pass and every one is named in the driver's table; the whole driver runs in
+about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
 change moves them; the counts before
-[#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure were 270 / 40,631 /
+[#3260](https://github.com/sebastienros/jint/issues/3260) stood a wpt server up were 273 / 40,657 / 2,889,
+before [#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure 270 / 40,631 /
 2,907, and the paragraph they replaced had been left at 269 / 40,617 / 2,980 by an earlier change.
 
 The corpora arrived a group at a time, most of them under
@@ -119,6 +122,75 @@ Tests that do not pass are named in the driver's exclusion table with the catego
 there must match at least one failing test and no passing one, so a fix, a rename or a corpus bump cannot
 leave a permanent exemption behind — the run fails until the table is brought back in line.
 
+## The server lane
+
+A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventeen files —
+`WptHarness._serverBackedFiles` names every one — run on an engine that has the shipped `fetch`, against
+`WptServer`: an in-process HTTP/1.1 origin on the loopback interface, started once per test run.
+
+**Why there is one.** Thirteen rows of the not-vendored table below used to read *"needs a wpt server"*. That
+was roughly a quarter of everything parked, and it understated itself twice over: a file needing a server
+usually cannot produce a test report at all, so it landed here rather than in the exclusion table, and the
+per-test `NeedsWptServer` category was a single row. What those files want turned out to be narrow — a static
+file, a header echo, a status code, a redirect, a trickled body. Not a browser, not a DOM.
+
+**Why it is not `wptserve`.** Deno's runner drives the real Python server against an upstream checkout. That
+would put a Python dependency in a .NET test suite's CI and give up the vendored-and-byte-verified model this
+file is about. `WptServer` serves the *vendored* corpus instead — `WptCorpus`, the same bytes every other
+suite reads — so nothing about provenance changes.
+
+**What is a divergence, and how it is checked.** The `.py` handlers cannot run, so six of them are
+reimplemented in C# and that is the one part of the corpus that is not vendored bytes. `WptServerTests` is
+what stops a reimplementation quietly answering something else: thirteen tests, each written from the
+upstream handler's source at the pin and named after it, so a corpus bump that changes one has something to
+fail. What is ported and what is not:
+
+| Upstream handler | What the C# does | What it deliberately does not |
+| --- | --- | --- |
+| `inspect-headers.py` | echoes the named request headers back as `x-request-<name>` | the `?cors` branch — Jint has no CORS model, so every file that passes it is parked for that instead |
+| `status.py` | the status code, reason phrase, content type and body all out of the query | — |
+| `method.py` | echoes the method, the four content headers (or `NO`) and the body | the `?cors` branch |
+| `redirect.py` | `redirect_status`, `location`, the `simple` flag, the query-preserving location rewrite with its `&count=` hop counter, and the `token`/`max_count` stash | the `Access-Control-*` headers, the `OPTIONS` preflight branch, `redirect_referrerpolicy`, `delay` (no vendored file passes one) |
+| `redirect-empty-location.py` | a 302 with an empty `Location` | — |
+| `clean-stash.py` | drops one token's stash entry | — |
+| `trickle.py` | `count` lines of `TEST_TRICKLE`, one every `ms` ms, with the same delay before the headers | — |
+
+Everything else is a file out of the vendored tree, served with a content type from its extension; a path the
+corpus does not hold is a 404 rather than a CLR exception, because unlike the shim's resource reader this one
+is answering a request the corpus itself composed.
+
+**Three things about the lane are load-bearing.**
+
+* **It is a list, not a rule.** Giving the whole `fetch/api/` corpus the lane would turn thirty already-green
+  rows into network-dependent ones for nothing: they build their own `Response` and never ask for a URL.
+  `TheServerLaneHoldsExactlyTheFilesItNames` holds the list to the corpus in both directions, because the
+  lane is the only place in the driver that grants `WebApiFeatures.Fetch` and is therefore the boundary of
+  the promise that no suite can open a socket. The engine's `Options.WebApi.Fetch.UrlFilter` is
+  `WptServer.Owns`, re-run on every redirect hop, so even inside the lane nothing can reach the network.
+* **The shim supplies the API base URL the engine deliberately has not got.** Every file in the fetch corpus
+  writes `fetch("../resources/status.py?…")`, and `RequestConstructor` documents declining to resolve a
+  relative URL — there is no document, and a host is told to "resolve it yourself with
+  `new URL(relative, base).href`". The shim does exactly that, against a `location.href` that is the URL the
+  server really serves the file at. It is the harness playing the part of the browsing environment, as it
+  already does by supplying `location` and `GLOBAL` at all. It pointedly does **not** wrap `Request`: a file
+  constructing one from a relative url is asserting about the constructor, and those rows stay excluded under
+  `NeedsApiBaseUrl` rather than being fixed up by the harness.
+* **The drive loop had to learn to wait for something with no due time.** Every other lane treats "nothing
+  queued and nothing scheduled" as proof that pumping cannot change the answer. A request in flight is
+  neither — it is a completion on a thread-pool thread, and `Advanced.TimeUntilNextScheduledWork` has nothing
+  to report about it, which is the case `Advanced.WaitForScheduledWork` documents as findable only by
+  polling. So the server lane polls, with an idle timer reset by *progress* (a test settling) rather than by
+  the wall clock, and a grace period deliberately longer than the lane's own `fetch` timeout so that a
+  request the server never answers becomes a failing test rather than a stalled file.
+
+**What it cost and what it bought.** The lane added 20 files and 326 assertions, and cost about **5 s**:
+medians of five `--filter Jint.Tests.Wpt` runs each side on one Windows machine, 68 s before and 73 s after,
+with the count identical on every run of both. Of those 326 assertions 232 pass; the 94 that do not are named
+in the exclusion table under six categories, five of which are engine defects filed separately (see
+`WptDivergence.NeedsTriage`) and the sixth of which is not an engine matter at all — the .NET HTTP stack does
+not carry a header value above ASCII, which
+`WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack` measures with no engine in the picture.
+
 ## Deliberately not vendored
 
 The driver enforces this list (`WptTestRunner._notVendored`): a re-vendor that brings one of these back
@@ -158,11 +230,30 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
-| `fetch/api/abort/*`, `fetch/api/basic/*`, `fetch/api/body/*`, `fetch/api/cors/*`, `fetch/api/credentials/*`, `fetch/api/policies/*`, `fetch/api/redirect/*` | A client talking to wptserve: `.py` handlers that echo headers, trickle bytes, redirect, stall, or check CORS preflights. There is no server here and the shim's `fetch` is a reader over the vendored tree. |
 | `fetch/api/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
-| `fetch/api/headers/header-values.any.js`, `header-values-normalize.any.js`, `headers-no-cors.any.js` | Needs a wpt server: each sends the values it built to `resources/inspect-headers.py` or loads a CORS corpus over HTTP. The pure-`Headers` half of the same directory is vendored. |
+| `fetch/api/cors/*` | All 21 files are about the CORS request mode: `mode: "cors"`, a preflight, the `Access-Control-*` response headers, an opaque filtered response, and a second origin to be cross-origin *to*. `RequestConstructor` documents that this implementation neither reads nor validates `mode`, `credentials`, `integrity`, `referrer` or `referrerPolicy` — "nothing here pretends to honour a same-origin policy that does not exist" — so there is no origin model for these files to assert against, and [the server](#the-server-lane) would only let them fail more slowly. |
+| `fetch/api/credentials/*` | A cookie jar (`SocketsHttpHandler`'s `UseCookies` is deliberately off — a jar shared by every engine in the process would be a cross-tenant channel), HTTP authentication, and the `credentials` init member above. |
+| `fetch/api/policies/*` | Not one `.any.js` file: the directory is `.html` documents, their `.headers` sidecars and the `.js` they load. It is Content-Security-Policy and Referrer-Policy applied to a *document*. This row is the clearest example of how much the old "needs a wpt server" glob overstated itself — it was parking nothing runnable at all. |
+| `fetch/api/abort/*` | `general.any.js` is 20 kB of `AbortSignal` against a server, and it opens by including `/common/get-host-info.sub.js` — wptserve's server-side substitution — and `../request/request-error.js`, out of the one fetch directory that has no API base URL. Both are file-scope requirements, so it cannot register a test here at all. `request.any.js` and `cache.https.any.js` construct their `Request`s from relative urls, which is that same story. |
+| `fetch/api/basic/conditional-get.any.js` | An HTTP cache: `ETag` revalidation through `cache.py`. |
+| `fetch/api/basic/error-after-response.any.js` | `bad-chunk-encoding.py`: a deliberately malformed chunked body, which needs a server writing bytes no framing layer would emit. |
+| `fetch/api/basic/header-value-combining.any.js`, `header-value-null-byte.any.js`, `request-headers-case.any.js` | `/xhr/resources/`: `.asis` files served byte for byte, and two `.py` handlers in a directory nothing else here reaches. |
+| `fetch/api/basic/http-response-code.any.js` | The connection-pool partition-key handler, and `get-host-info` substitution. |
+| `fetch/api/basic/request-upload.any.js` | `echo-content.py` plus a streaming upload and a second origin. |
+| `fetch/api/basic/gc.any.js` | `/common/gc.js` and a `garbageCollect()` the engine does not expose. |
+| `fetch/api/basic/mode-same-origin.any.js` | The CORS request mode and a second origin. |
+| `fetch/api/basic/referrer.any.js`, `request-referrer.any.js`, `fetch/api/redirect/redirect-referrer.any.js`, `redirect-referrer-override.any.js` | A `Referer` header, which an engine with no document never sends. |
+| `fetch/api/basic/request-forbidden-headers.any.js` | The forbidden-header names, which `HeadersGuard` documents declining — the same reason the `headers-forbidden-override` rows are excluded one by one. Here it is the whole file. |
+| `fetch/api/basic/request-headers.any.js` | Asserts the `Accept` and `Accept-Language` a browser adds, over most of its table. The `Accept` half is a real defect and is filed; see `NeedsBrowserRequestHeaders` for why the other half is not. |
+| `fetch/api/basic/scheme-data.any.js`, `fetch/api/redirect/redirect-to-dataurl.any.js` | A `data:` URL fetch, and a `data:` redirect target. |
+| `fetch/api/body/textstream.any.js` | `Response.prototype.textStream`, a Fetch pull the standard has not merged. The directory's other two files are vendored: they build their own `Request` and `Response` and never ask for a URL, which is what made the old glob wrong about them. |
+| `fetch/api/redirect/redirect-back-to-original-origin.any.js`, `redirect-mode.any.js`, `redirect-origin.any.js` | A second origin, and for `redirect-mode` the opaque filtered response as well. |
+| `fetch/api/redirect/redirect-schemes.any.js` | Redirects to `blob:` and other schemes, and `get-host-info` substitution. |
+| `fetch/api/*/*.sub.any.js` | `.sub.` is wptserve rewriting `{{host}}` and `{{ports[…]}}` into a real origin before serving the file, so a vendored copy carries the placeholders verbatim. |
+| `fetch/api/*/*.h2.any.js` | Needs an HTTP/2 server. `WptServer` speaks HTTP/1.1 on a raw socket, which is what lets it trickle a body. |
+| `fetch/api/*/*keepalive*` | The `keepalive` init member, and a window creating iframes. |
+| `fetch/api/headers/headers-no-cors.any.js` | The `"no-cors"` request mode. The rest of that directory is vendored. |
 | `fetch/api/response/json.any.js` | Fetches a `data:` url and `/xhr/resources/utf16-bom.json`. |
-| `fetch/api/response/response-cancel-stream.any.js`, `response-clone.any.js`, `response-headers-guard.any.js` | Needs a wpt server — `trickle.py`, `top.txt`, `data.json` over HTTP with real headers. |
 | `fetch/api/response/response-blob-realm.any.js` | Needs a document and a second realm: it builds an `iframe` to obtain one. |
 
 Every vendored file was timed at the pin; the slowest is
@@ -772,6 +863,10 @@ to read those steps should not have to rediscover.
 
 ## What the fetch object model says about this engine
 
+The figures below are the corpus as it stood before there was a server — 29 files, all of them about
+`Headers`, `Request` and `Response` as objects. What the twenty files behind
+[the server lane](#the-server-lane) added is the section after it.
+
 388 assertions across 29 files, of which **75 do not pass** — and every one of those is a decision rather
 than a defect. 73 are one documented decline: `HeadersGuard` refuses to enforce the *forbidden header name*
 and *forbidden response header name* lists, because they are a browser's protection of headers the user agent
@@ -870,6 +965,56 @@ citation and an argued decision, never a to-do — and the rule that age alone n
    already reached the walk through a proxy while `new Headers({ [Symbol.toStringTag]: 'x' })` on a plain
    object was silently accepted where a browser throws.
 
+## What the fetch *network* corpus says about this engine
+
+326 assertions across the twenty files [the server lane](#the-server-lane) added, of which **94 do not pass**.
+Unlike the object-model half above, most of these are not decisions — the corpus was making a real request for
+the first time, and it found five things. Each is filed as its own issue and deliberately **not** fixed here:
+the change that first runs a suite must not also be the change that moves the engine, or nobody can tell which
+of the two a number came from. They are the whole of `WptDivergence.NeedsTriage`, which was empty before.
+
+1. **No `Accept: */*` is appended** ([#3279](https://github.com/sebastienros/jint/issues/3279)). Step 8 of
+   [HTTP-network-or-cache fetch](https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch) says to
+   append it when the header list has no `Accept`, and nothing does. One row of `basic/accept-header.any.js`;
+   the row that sets `Accept` explicitly passes, which is what says the header list itself is fine.
+2. **A `HEAD` response carries a body stream** ([#3280](https://github.com/sebastienros/jint/issues/3280)).
+   [HTTP-network fetch](https://fetch.spec.whatwg.org/#concept-http-network-fetch) gives it a null body, and
+   `response.body` is a `ReadableStream` here. One row of `basic/response-null-body.any.js`; the nine
+   null-body-status rows (204, 205, 304) all pass, so it is the method half alone.
+3. **A fetched response's `Headers` are mutable**
+   ([#3281](https://github.com/sebastienros/jint/issues/3281)). The
+   [response header list](https://fetch.spec.whatwg.org/#concept-response-header-list) a `fetch` resolves with
+   carries the *immutable* guard, so `append` must throw; it does not. The whole of
+   `response/response-headers-guard.any.js`.
+4. **`Content-Encoding`, `Content-Language` and `Content-Location` never leave a bodiless request**
+   ([#3282](https://github.com/sebastienros/jint/issues/3282)). The BCL
+   files those three as *content* headers, so a GET or HEAD — which has no `HttpContent` to hang them on —
+   drops them silently, where Fetch has no such category and they are ordinary request headers. Eight rows of
+   `redirect/redirect-method.any.js`; its POST rows pass, which is what localises it.
+5. **`clone()` hands both bodies the same buffer** ([#3283](https://github.com/sebastienros/jint/issues/3283)).
+   [Body clone](https://fetch.spec.whatwg.org/#concept-body-clone) tees the stream, and the chunks the two
+   branches deliver must be structured clones of one another rather than the same object. Fourteen rows of
+   `response/response-clone.any.js`, one per typed-array kind.
+
+The other 69 are decisions or environment, in five groups that add up exactly: 35 + 21 + 10 + 2 + 1.
+
+* **35 `NeedsXmlHttpRequest`.** Both `header-values*` files run their whole table twice, once through
+  `XMLHttpRequest.setRequestHeader` and once through `fetch`, and the driver's XHR is a corpus reader that
+  refuses anything but a GET by name. Only the `fetch` half is about anything Jint has.
+* **21 `NeedsOpaqueRedirect`.** `redirect: "manual"` hands the script the redirect response rather than a
+  browser's opaque filtered one, which `FetchTransport` documents as Node's reading of
+  [HTTP fetch](https://fetch.spec.whatwg.org/#concept-http-fetch) step 6 — the filtered response exists to
+  hide a cross-origin redirect from a *page*, which an engine with no origin does not have. The `follow` and
+  `error` rows of both redirect files pass.
+* **10 `NeedsApiBaseUrl`.** `text-utf8.any.js` builds a `Request` from the empty string to get at
+  `Request.text()`; its other ten rows go through `fetch`, read a real response, and pass.
+* **2 `NeedsPermissiveHeaderTransport`.** A header value carrying a byte above ASCII does not survive the
+  .NET HTTP stack, in either direction —
+  `WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack` measures exactly where the line falls,
+  with no engine in the picture, which is what puts these rows here rather than in `NeedsTriage`.
+* **1 `NeedsBrowserRequestHeaders`.** `Accept-Language` is a browser reporting a user's language preferences,
+  and there is no user here to have any.
+
 ## The whole corpus, standard by standard
 
 **This table is generated, not maintained.** `Jint.Tests/Wpt/WptCensusTests.cs` derives every figure in it
@@ -877,10 +1022,13 @@ from the corpus and fails when the README disagrees — see [Taking the census](
 the two halves of that check and the one command that rewrites the table.
 
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
-the shim did not record `PASS`, which is exactly the set the table names. Re-measured in full for
-[#3212](https://github.com/sebastienros/jint/issues/3212), which is why five rows move at once: the Fetch row
-is that change's own, and Streams, Compression, User Timing and DOM had gone stale against fixes that
-removed their exclusions without revisiting this table. Every per-standard section above was already right.
+the shim did not record `PASS`, which is exactly the set the table names. The last change to move a row is
+[#3260](https://github.com/sebastienros/jint/issues/3260), and it moved exactly one: Fetch, from 29 files /
+388 assertions / 75 not passing to 49 / 714 / 169 — [the server lane](#the-server-lane)'s twenty files, 326
+assertions, 232 of them passing. Every other row was re-derived in the same run and had not moved. The census
+before that was taken by hand for [#3212](https://github.com/sebastienros/jint/issues/3212), which moved five
+rows at once because Streams, Compression, User Timing and DOM had each gone stale against a fix that removed
+their exclusions without revisiting this table.
 
 | Standard | Suites | Files | Assertions | Not passing |
 | --- | --- | --- | --- | --- |
@@ -896,8 +1044,8 @@ removed their exclusions without revisiting this table. Every per-standard secti
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×2 | 29 | 388 | 75 |
-| **total** | **35** | **273** | **40,657** | **2,889** |
+| Fetch | `fetch/api/` ×5 | 49 | 714 | 169 |
+| **total** | **38** | **293** | **40,983** | **2,983** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
@@ -906,7 +1054,11 @@ that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195
 carrying a number a later fix had already improved. That class of drift is what the census closes: those four
 rows were arithmetic the driver already did, and nothing checked the prose against it.
 
-Two of those rows are worth a caveat. The Encoding figure is dominated by
+Three of those rows are worth a caveat. The Fetch row is the only one whose files reach a socket at all — the
+seventeen [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
+process — so it is the only row whose figures could in principle depend on the machine. They do not: the
+suite was run five times over and reported the same 458 xUnit cases every time, and the driver's own idle rule
+is reset by a test settling rather than by a wall clock. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,
 168 are the `XMLHttpRequest` half of `single-byte-decoder.any.js` and the rest are the legacy multi-byte
 labels. And the Web Cryptography figure is the one that moves per platform — macOS has 216 more, for the
@@ -923,16 +1075,19 @@ of [#3185](https://github.com/sebastienros/jint/issues/3185) added `streams/`, t
 the one corpus that mostly does not run in the driver's own engine —
 `workers/modules/dedicated-worker-import.any.js`, which arrived with
 [#3195](https://github.com/sebastienros/jint/issues/3195), is the exception, because its subject is a page
-creating workers rather than the worker global itself. This file records what each of them says about
+creating workers rather than the worker global itself. The rest of `fetch/api/` — `basic/`, `body/` and
+`redirect/` — came last, with [the server](#the-server-lane)
+([#3260](https://github.com/sebastienros/jint/issues/3260)). This file records what each of them says about
 the engine.
 
 What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
 above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
 `.sub.html` are all for a browsing context or a classic worker. Of the WHATWG standards Jint implements, the
-directories with no vendored file at all are `fetch/api/request/` (no API base URL), `fetch/api/` minus
-`headers/` and `response/` (needs a server), the parts of the `workers/` tree listed
-above, the `WebCryptoAPI` directories listed above, and `xhr/` (there is no `XMLHttpRequest` in the engine —
-the shim's is a vendored-corpus reader for the suites that need one, never an implementation).
+directories with no vendored file at all are `fetch/api/request/` (no API base URL), `fetch/api/abort/`,
+`cors/`, `credentials/` and `policies/` (each for the reason its row gives, and none of them for want of a
+server), the parts of the `workers/` tree listed above, the `WebCryptoAPI` directories listed above, and
+`xhr/` (there is no `XMLHttpRequest` in the engine — the shim's is a vendored-corpus reader for the suites
+that need one, never an implementation).
 
 ## Taking the census
 
