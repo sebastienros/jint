@@ -74,7 +74,7 @@ internal sealed class StackGuard
     /// 1153 interpreter frames where a rethrown CLR exception manages 158.
     /// </para>
     /// <para>
-    /// On <c>net462</c>/<c>netstandard2.0</c> the probe is the throwing form wrapped in a try/catch (see
+    /// On <c>net472</c>/<c>netstandard2.0</c> the probe is the throwing form wrapped in a try/catch (see
     /// <c>RuntimeHelpersPolyfills</c>), i.e. one exception on the failing probe only. That is once per
     /// stack exhaustion, immediately before an exception is thrown anyway.
     /// </para>
@@ -126,21 +126,14 @@ internal sealed class StackGuard
 
     public static TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
     {
-#if NETFRAMEWORK
-        return RunOnEmptyStackCore(static s =>
-        {
-            var t = (Tuple<Func<T1, TR>, T1>) s;
-            return t.Item1(t.Item2);
-        }, Tuple.Create(action, arg1));
-#else
-        // Prefer ValueTuple when available to reduce dependencies on Tuple
+        // ValueTuple rather than Tuple, so the state box is one allocation of a struct rather than a
+        // reference type. Every target framework carries it: net472 has it in mscorlib (it arrived in
+        // .NET Framework 4.7), and the netstandard targets get it from the reference assemblies.
         return RunOnEmptyStackCore(static s =>
         {
             var t = ((Func<T1, TR>, T1)) s;
             return t.Item1(t.Item2);
         }, (action, arg1));
-#endif
-
     }
 
     private static R RunOnEmptyStackCore<R>(Func<object, R> action, object state)

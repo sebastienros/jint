@@ -29,14 +29,9 @@ internal static class Polyfills
     }
 #endif
 
-#if NETFRAMEWORK
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;
-#endif
-
 #if NETFRAMEWORK || NETSTANDARD2_0
     // The span overloads below arrived in .NET Core 2.1 / netstandard2.1. Each forwards to the
-    // pointer-based overload that net462 and netstandard2.0 do have, so none of them allocates -- the
+    // pointer-based overload that net472 and netstandard2.0 do have, so none of them allocates -- the
     // obvious `Append(value.ToString())` shape would, on paths that exist to avoid exactly that.
 
     // Dictionary<,>.TryAdd arrived in .NET Core 2.0 / netstandard2.1. Jint's own HybridDictionary and
@@ -217,7 +212,7 @@ internal static class MemoryMarshalPolyfills
         //
         // GetReference over the array's span is the same address by construction. It is not the same
         // cost everywhere: netstandard2.1 gets the runtime's span and so gets the bounds-check and
-        // covariance-check elision the real API is used for, while net462 and netstandard2.0 bind
+        // covariance-check elision the real API is used for, while net472 and netstandard2.0 bind
         // System.Memory's slower span and land roughly where the plain indexer did. Correct on all of
         // them, which is what lets the call sites drop their #if.
         //
@@ -380,7 +375,7 @@ internal static class MathPolyfills
         //
         // The bounds check is not decoration: the real Math.Clamp throws for min > max rather than
         // silently preferring one of them, and the message it throws with is reproduced verbatim. Without
-        // it, net462 and netstandard2.0 would answer an inverted-bounds call with a number while
+        // it, net472 and netstandard2.0 would answer an inverted-bounds call with a number while
         // netstandard2.1 and up threw -- and no target framework this repository executes tests on could
         // ever see the split, since netstandard2.1 binds the real member.
         public static int Clamp(int value, int min, int max)
@@ -413,7 +408,7 @@ internal static class GCPolyfills
     extension(GC)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
-        // GC.GetAllocatedBytesForCurrentThread is absent from the net462 and netstandard2.0 reference
+        // GC.GetAllocatedBytesForCurrentThread is absent from the net472 and netstandard2.0 reference
         // assemblies, so it cannot be called directly here. It is a *public* method of System.GC on
         // every runtime that has one -- .NET Framework since 4.6, .NET Core since 2.0 -- which is what
         // makes the lookup below work at all: it uses the default binding flags, and those see public
@@ -472,7 +467,7 @@ internal static class CharPolyfills
     extension(char)
     {
 #if !NET8_0_OR_GREATER
-        // The char.IsAscii* family arrived in .NET 7 and is not in netstandard2.1, so net462,
+        // The char.IsAscii* family arrived in .NET 7 and is not in netstandard2.1, so net472,
         // netstandard2.0 and netstandard2.1 all need it. Each body is the BCL's own shape: a single
         // unsigned-cast range test, and for the letter predicates an OR with 0x20 that folds the two
         // cases together before the one comparison.

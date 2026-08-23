@@ -1075,7 +1075,7 @@ public sealed class NodeStyleModuleLoader : ModuleLoader
         // ESM_RESOLVE step 7.1: a percent-encoded separator is refused rather than decoded, so that a specifier
         // cannot smuggle a path segment past the checks that read it.
         var specifier = context.Specifier;
-#pragma warning disable CA2249 // string.Contains(string, StringComparison) is netstandard2.1+, and net462 is a target
+#pragma warning disable CA2249 // string.Contains(string, StringComparison) is netstandard2.1+, and net472 is a target
         if (specifier.IndexOf("%2f", StringComparison.OrdinalIgnoreCase) >= 0
             || specifier.IndexOf("%5c", StringComparison.OrdinalIgnoreCase) >= 0)
 #pragma warning restore CA2249

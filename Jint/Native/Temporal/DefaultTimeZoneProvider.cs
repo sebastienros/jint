@@ -20,7 +20,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     private static bool IsWindowsPlatform()
     {
         // Not an API gap but a genuine three-way: OperatingSystem arrived in .NET 5, netstandard has
-        // to ask the runtime, and net462 only ever runs on Windows.
+        // to ask the runtime, and net472 only ever runs on Windows.
 #if NET8_0_OR_GREATER
         return OperatingSystem.IsWindows();
 #elif NETFRAMEWORK

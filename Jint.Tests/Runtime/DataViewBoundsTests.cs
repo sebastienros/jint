@@ -136,7 +136,7 @@ public class DataViewBoundsTests
     }
 
     /// <summary>
-    /// Decoding a Float16 needs <c>System.Half</c>, which the net462 asset this project binds on net472 does
+    /// Decoding a Float16 needs <c>System.Half</c>, which the net472 asset this project binds there does
     /// not have — a read there raises <c>NotImplementedException</c> from <c>JsArrayBuffer</c>. That gap is
     /// older than this file and unrelated to it, so the in-range half of the boundary test below skips
     /// Float16 where <c>Half</c> is missing. Its rejection half runs everywhere, because the range check

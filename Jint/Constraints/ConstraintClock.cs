@@ -22,7 +22,7 @@ namespace Jint.Constraints;
 /// The provider half is <c>net8.0</c>-and-later. <c>TimeProvider</c> arrived in .NET 8, and Jint's
 /// downlevel targets could only reach it through <c>Microsoft.Bcl.TimeProvider</c> — a second runtime
 /// dependency on a package that has exactly one, in exchange for a seam whose consumer is a test. The
-/// constraints therefore compile without any of it on <c>net462</c>, <c>netstandard2.0</c> and
+/// constraints therefore compile without any of it on <c>net472</c>, <c>netstandard2.0</c> and
 /// <c>netstandard2.1</c>: no field, no branch, the same instructions they emitted before.
 /// </para>
 /// </remarks>
