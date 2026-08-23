@@ -404,6 +404,39 @@ internal sealed record class ObjectDefinition(
         // accessors (which register in the symbol dictionary, orthogonal to the string shape),
         // and — via Factory slots — [JsIntrinsicReference]s and [JsThrowerAccessor]s.
 
+        // Every member list below is sorted by JS name, and the group order the two emission paths read them
+        // in — properties, functions, intrinsic references, accessors, throwers, aliases, instance slots — is
+        // the own-key creation order a script observes. For the WebIDL surface under Jint/WebApi/ that is a
+        // deliberate divergence rather than an oversight (#3271), and the argument for keeping it is the
+        // specification's own issue tracker. "Create an interface prototype object"
+        // (https://webidl.spec.whatwg.org/#interface-prototype-object) defines regular attributes, then
+        // regular operations, then iteration methods, then asynchronous iteration methods, then constants,
+        // then "constructor", each group in IDL declaration order — but whatwg/webidl#432, open since 2017,
+        // is the editors recording that nothing implements it: "I picked the ordering attributes, constants,
+        // operations arbitrarily. Gecko apparently does operations, attributes, constants and Chromium does
+        // attributes, constants, operations", with within-group order lexicographical in neither. Where that
+        // issue is heading is a lexicographical sort inside each type group, which is what this already
+        // emits; the group order here (constants and "constructor", then operations, then attributes) is
+        // Gecko-like in putting operations before attributes.
+        //
+        // Nothing holds an implementation to the order either: idlharness checks membership, attributes,
+        // length, name and the prototype chain and never order, and the two vendored web-platform-tests that
+        // do read a prototype's key list sort it before comparing
+        // (streams/readable-streams/general.any.js, .../async-iterator.any.js). Producing the specified order
+        // would additionally mean marking which [JsFunction]s are iteration methods, splitting "constructor"
+        // out of the constants, and holding every host file's C# layout to its interface's IDL order forever
+        // with nothing able to check it — to reach an order the spec's own editors call arbitrary.
+        //
+        // Nothing ECMAScript defines is affected either way: clause 18 says nothing about the order a
+        // built-in's properties are created in, and V8 does not use the clause order (Math is methods then
+        // constants; Reflect starts at defineProperty), so there is no order under Jint/Native/ to diverge
+        // from. What the sort does buy is that the emitted file — and the Verify snapshots over it, and the
+        // incremental generator's EquatableArray comparisons — is a function of the declarations rather than
+        // of how a host file happens to be laid out. It buys nothing at lookup time: both storage paths index
+        // by hash (BuiltinShape.Index and StringDictionarySlim), and nothing binary-searches
+        // BuiltinShape.Names. It does decide BuiltinShape slot indices, and CreateProperties_Generated
+        // derives SetBuiltinInstanceDescriptor's slot from a property's position in this list on the strength
+        // of properties preceding functions in the layout — so any regrouping has to move that in lock-step.
         functions.Sort(static (a, b) => string.CompareOrdinal(a.JsName, b.JsName));
 
         // [JsObject(PreserveDeclarationOrder = true)] leaves the properties in the order GetMembers() hands
