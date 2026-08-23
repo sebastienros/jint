@@ -20,8 +20,10 @@ namespace Jint.Tests.PublicInterface;
 /// </para>
 /// <para>
 /// Every handshake here is released by a thread the test owns. The one place a park is detected rather than
-/// signalled is <see cref="WaitUntilParked"/>: the pump runs no script, so the only thing it can announce
-/// itself with is the refusal it hands an unrelated public entry.
+/// signalled is <see cref="TopLevelPark"/>: the pump runs no script, so the only thing it can announce itself
+/// with is the refusal it hands an unrelated public entry — which is also why that detection and the park it
+/// detects have to be one object, since the probe is the only thing in a healthy run that can refuse the
+/// park's own entry.
 /// </para>
 /// </remarks>
 public class HostPumpAdmissionTests
@@ -32,7 +34,7 @@ public class HostPumpAdmissionTests
     /// <summary>
     /// Reached only by a genuine wedge — every wait below is released by a thread the test owns.
     /// </summary>
-    private static readonly TimeSpan WedgeCeiling = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan WedgeCeiling = TestBudgets.WedgeCeiling;
 
     /// <summary>
     /// How often a detection loop looks. It decides only when an observation is made, never what it has to be.
@@ -85,13 +87,13 @@ public class HostPumpAdmissionTests
         using var dispatcher = new CallbackDispatcher(() => callback());
         using var releasePark = new CancellationTokenSource();
 
-        var parked = StartPark(engine, WedgeCeiling, releasePark.Token);
-        await WaitUntilParked(engine, parked);
+        var park = TopLevelPark.Start(engine, WedgeCeiling, releasePark.Token);
+        park.WaitUntilOwningTheEngine();
 
         dispatcher.Release();
         await dispatcher.Attempted;
         releasePark.Cancel();
-        await parked;
+        await park.Completed;
 
         dispatcher.Failure.Should().BeNull("a top-level park is a window an authorized callback may wait in");
         dispatcher.Result.Should().Be(42);
@@ -106,8 +108,10 @@ public class HostPumpAdmissionTests
         using var dispatcher = new CallbackDispatcher(() => callback());
         using var releasePark = new CancellationTokenSource();
 
+        // Its reservation is taken synchronously by the call above, so — unlike the synchronous form — the
+        // detector's first probe cannot land before the park owns the engine.
         var parked = engine.Advanced.WaitForScheduledWorkAsync(WedgeCeiling, releasePark.Token);
-        await WaitUntilParked(engine, parked);
+        TopLevelPark.WaitUntilOwningTheEngine(engine, parked);
 
         dispatcher.Release();
         await dispatcher.Attempted;
@@ -137,7 +141,7 @@ public class HostPumpAdmissionTests
 
         var callback = AuthorizeStaleCallback(engine);
         var running = DedicatedThread.RunAsync(() => engine.Execute("block();"));
-        await WaitUntilSignalled(entered, running);
+        WaitUntilSignalled(entered, running);
         try
         {
             Invoking(() => callback())
@@ -163,8 +167,8 @@ public class HostPumpAdmissionTests
         using var engine = new Engine();
         using var releasePark = new CancellationTokenSource();
 
-        var parked = StartPark(engine, WedgeCeiling, releasePark.Token);
-        await WaitUntilParked(engine, parked);
+        var park = TopLevelPark.Start(engine, WedgeCeiling, releasePark.Token);
+        park.WaitUntilOwningTheEngine();
         try
         {
             Invoking(() => engine.Evaluate("1 + 1"))
@@ -176,7 +180,7 @@ public class HostPumpAdmissionTests
             releasePark.Cancel();
         }
 
-        await parked;
+        await park.Completed;
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
@@ -271,17 +275,16 @@ public class HostPumpAdmissionTests
         var callback = AuthorizeStaleCallback(engine, "(Promise.resolve().then(() => { globalThis.ran = true; }), 7)");
         using var dispatcher = new CallbackDispatcher(() => callback());
 
-        var reported = false;
-        var parked = DedicatedThread.RunAsync(() => reported = engine.Advanced.WaitForScheduledWork(AdmissionCeiling));
-        await WaitUntilParked(engine, parked);
+        var park = TopLevelPark.Start(engine, AdmissionCeiling);
+        park.WaitUntilOwningTheEngine();
 
         dispatcher.Release();
         await dispatcher.Attempted;
-        await parked;
+        await park.Completed;
 
         dispatcher.Failure.Should().BeNull();
         dispatcher.Result.Should().Be(7);
-        reported.Should().BeTrue("the reaction the callback queued is work the pump can run");
+        park.Reported.Should().BeTrue("the reaction the callback queued is work the pump can run");
 
         engine.Evaluate("ran").AsBoolean().Should().BeFalse("the wait does not pump");
         engine.Advanced.ProcessTasks();
@@ -308,15 +311,8 @@ public class HostPumpAdmissionTests
         var callback = AuthorizeStaleCallback(engine, "(hold(), 3)");
         using var dispatcher = new CallbackDispatcher(() => callback());
 
-        var reported = true;
-        var elapsed = new Stopwatch();
-        var parked = DedicatedThread.RunAsync(() =>
-        {
-            elapsed.Start();
-            reported = engine.Advanced.WaitForScheduledWork(ShortParkCeiling);
-            elapsed.Stop();
-        });
-        await WaitUntilParked(engine, parked);
+        var park = TopLevelPark.Start(engine, ShortParkCeiling);
+        park.WaitUntilOwningTheEngine();
 
         dispatcher.Release();
         holding.Wait(AdmissionCeiling).Should().BeTrue("the callback has to be admitted for this to mean anything");
@@ -324,77 +320,33 @@ public class HostPumpAdmissionTests
         // The ceiling has run out several times over by now, and the park is still not back: it is waiting for
         // the engine thread the admitted callback holds.
         Thread.Sleep(ShortParkCeiling + ShortParkCeiling + ShortParkCeiling);
-        parked.IsCompleted.Should().BeFalse("the ceiling bounds the idle wait, not the call");
+        park.Completed.IsCompleted.Should().BeFalse("the ceiling bounds the idle wait, not the call");
 
         releaseCallback.Set();
         await dispatcher.Attempted;
-        await parked;
+        await park.Completed;
 
         dispatcher.Failure.Should().BeNull();
         dispatcher.Result.Should().Be(3);
-        reported.Should().BeFalse("the callback queued nothing, so there is still no work to report");
-        elapsed.Elapsed.Should().BeGreaterThan(ShortParkCeiling + ShortParkCeiling);
+        park.Reported.Should().BeFalse("the callback queued nothing, so there is still no work to report");
+        park.Elapsed.Should().BeGreaterThan(ShortParkCeiling + ShortParkCeiling);
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    private static Task StartPark(Engine engine, TimeSpan ceiling, CancellationToken cancellationToken)
-        => DedicatedThread.RunAsync(() =>
-        {
-            try
-            {
-                engine.Advanced.WaitForScheduledWork(ceiling, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // How the test ends the park; what it asserts is what happened while it was parked.
-            }
-        });
-
-    /// <summary>
-    /// Polls a guarded entry until the engine refuses it, which is the only signal a parked wait can give: it
-    /// runs no script, so there is nothing for it to announce itself with. Ends on the refusal, on
-    /// <paramref name="parked"/> finishing without ever taking the engine — reporting whatever stopped it —
-    /// or on <see cref="WedgeCeiling"/>.
-    /// </summary>
-    private static async Task WaitUntilParked(Engine engine, Task parked)
-    {
-        var elapsed = Stopwatch.StartNew();
-        while (true)
-        {
-            try
-            {
-                // An engine with nothing queued, so a probe landing before the park costs an empty loop.
-                engine.Advanced.ProcessTasks();
-            }
-            catch (InvalidOperationException e) when (e.Message.Contains("already in use", StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (parked.IsCompleted)
-            {
-                await parked;
-                throw new XunitException("the park returned without ever owning the engine");
-            }
-
-            if (elapsed.Elapsed > WedgeCeiling)
-            {
-                throw new XunitException($"the park did not claim the engine within {WedgeCeiling}");
-            }
-
-            Thread.Sleep(ProbeInterval);
-        }
-    }
-
-    private static async Task WaitUntilSignalled(ManualResetEventSlim entered, Task running)
+    private static void WaitUntilSignalled(ManualResetEventSlim entered, Task running)
     {
         var elapsed = Stopwatch.StartNew();
         while (!entered.Wait(ProbeInterval))
         {
             if (running.IsCompleted)
             {
-                await running;
-                throw new XunitException("the owning call returned without ever entering block()");
+                // Deliberately not `await running`: that throws whatever stopped the call and loses the
+                // sentence saying what was being waited for, which is what a reader needs first.
+                var failure = running.Exception?.GetBaseException();
+                throw new XunitException(
+                    "the owning call returned without ever entering block(): "
+                    + (failure is null ? "it returned normally" : $"it failed with {failure.GetType().Name}: {failure.Message}"),
+                    failure);
             }
 
             if (elapsed.Elapsed > WedgeCeiling)
@@ -415,12 +367,21 @@ public class HostPumpAdmissionTests
         private readonly ManualResetEventSlim _release = new();
         private readonly TaskCompletionSource<bool> _attempted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Thread _thread;
+        private volatile bool _abandoned;
 
         internal CallbackDispatcher(Func<int> invoke)
         {
             _thread = new Thread(() =>
             {
                 _release.Wait(WedgeCeiling);
+                if (_abandoned)
+                {
+                    // The test failed before it got as far as releasing this dispatcher, so there is nothing
+                    // to dispatch and nothing to record. Leaving instead lets the failure be reported now
+                    // rather than after a two-minute join.
+                    return;
+                }
+
                 try
                 {
                     Result = invoke();
@@ -456,6 +417,10 @@ public class HostPumpAdmissionTests
 
         public void Dispose()
         {
+            // Abandoned rather than released: a test that failed before dispatching leaves this thread
+            // waiting out the wedge ceiling, and joining it would spend those two minutes reporting nothing.
+            _abandoned = !_release.IsSet;
+            _release.Set();
             _thread.Join(WedgeCeiling);
             _release.Dispose();
         }

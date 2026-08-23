@@ -50,6 +50,13 @@
       bounds a hang is not a budget a test asserts.
     -->
     <Compile Include="..\Jint.Tests\TestBudgets.cs" Link="TestBudgets.cs" />
+    <!--
+      Shared so that both suites park a thread on the pump the same way, and close the one race that shape
+      has the same way. See TopLevelPark for why the detector is the only thing that can refuse the park it
+      is looking for, and why a refused entry is retried only when that detector was provably holding the
+      engine.
+    -->
+    <Compile Include="..\Jint.Tests\TopLevelPark.cs" Link="TopLevelPark.cs" />
   </ItemGroup>
 
   <ItemGroup>
