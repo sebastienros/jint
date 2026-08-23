@@ -34,6 +34,10 @@
     <EmbeddedResource Include="Wpt\Prelude\*.js">
       <LogicalName>wpt-prelude/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <!-- The corpus inventory table lives in this README, and WptCensus holds it to what the run measured.
+         Embedding it means the check reads the bytes the build compiled rather than hunting for a source
+         tree; only rewriting the table with JINT_WPT_CENSUS=update goes looking for the file on disk. -->
+    <EmbeddedResource Include="Wpt\Vendor\README.md" LogicalName="wpt-vendor-readme.md" />
   </ItemGroup>
 
   <ItemGroup>
