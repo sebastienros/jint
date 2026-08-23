@@ -513,11 +513,6 @@ internal enum WptDivergence
     /// https://fetch.spec.whatwg.org/#concept-http-network-fetch gives it a null body.
     /// </description></item>
     /// <item><description>
-    /// https://github.com/sebastienros/jint/issues/3281 — <c>response/response-headers-guard.any.js</c>: a
-    /// fetched response's <c>Headers</c> are mutable where
-    /// https://fetch.spec.whatwg.org/#concept-response-header-list gives them the <i>immutable</i> guard.
-    /// </description></item>
-    /// <item><description>
     /// https://github.com/sebastienros/jint/issues/3282 — <c>redirect/redirect-method.any.js</c>:
     /// <c>Content-Encoding</c>, <c>Content-Language</c> and <c>Content-Location</c> set on a bodiless request
     /// never reach the wire, because the BCL files them as content headers and a GET has no content to hang

@@ -1077,8 +1077,6 @@ public class WptTestRunner
             @"Request through fetch should have 'accept' header with value '\*/\*'", WptDivergence.NeedsTriage),
         new("fetch/api/basic/response-null-body.any.js",
             "Response.body is null for responses with method=HEAD", WptDivergence.NeedsTriage),
-        new("fetch/api/response/response-headers-guard.any.js",
-            "Ensure response headers are immutable", WptDivergence.NeedsTriage),
         new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with GET", WptDivergence.NeedsTriage),
         new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with HEAD", WptDivergence.NeedsTriage),
         new("fetch/api/response/response-clone.any.js",
