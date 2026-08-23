@@ -735,7 +735,24 @@ public sealed partial class Engine : IDisposable
         }
     }
 
-    internal object ReserveAsyncHostOperation()
+    /// <summary>
+    /// Reserves the engine for an asynchronous host operation and returns the reservation's identity.
+    /// </summary>
+    /// <param name="reservationOwner">
+    /// The identity to reserve under, or <see langword="null"/> for a fresh token of this operation's own.
+    /// <para>
+    /// That identity is the whole of what <see cref="EnterTransferredHostCallback"/> matches an authorized
+    /// cross-thread callback against, so it decides <em>which</em> callbacks may wait for a turn here. The
+    /// rule is the one <see cref="OpenHostCallbackAdmissionWindow"/> and
+    /// <see cref="SuspendHostCallForCallbacks"/> apply: a frame under which an operation token is in force
+    /// keeps that token, so only a callback issued under it may wait; a frame with no token of its own
+    /// reserves under <see cref="OwnershipReleasedEvent"/>, the anonymous wildcard that means "any authorized
+    /// callback may take a turn here". A fresh token is right for a frame that <em>runs script</em> - every
+    /// <c>*Async</c> entry - because a callback converted during it carries that very token. It is wrong for
+    /// a frame that runs none, where nothing can ever carry it and the match is empty rather than narrow.
+    /// </para>
+    /// </param>
+    internal object ReserveAsyncHostOperation(object? reservationOwner = null)
     {
         var activeOwner = Volatile.Read(ref _ownerThreadId);
         if (activeOwner != 0)
@@ -743,7 +760,7 @@ public sealed partial class Engine : IDisposable
             Throw.InvalidOperationException(ConcurrentUseMessage);
         }
 
-        var owner = new object();
+        var owner = reservationOwner ?? new object();
         if (Interlocked.CompareExchange(ref _asyncOwner, owner, null) is not null)
         {
             Throw.InvalidOperationException(ConcurrentUseMessage);
@@ -809,6 +826,14 @@ public sealed partial class Engine : IDisposable
         /// reservation handed to the entry - see <see cref="ReleaseEntryReservationIfHeld"/>.
         /// </summary>
         private readonly bool _isEntryRoot;
+
+        /// <summary>
+        /// Whether this scope claimed the engine, rather than nesting inside a claim somebody else made. It
+        /// is the same claiming-scope rule <see cref="ReleaseEntryReservationIfHeld"/> is keyed on, and never
+        /// <see cref="_ownerDepth"/> reaching zero, for the reason recorded there. A frame that only opens an
+        /// admission window while it is the outermost one - <see cref="WaitForScheduledWork"/> - asks this.
+        /// </summary>
+        internal bool IsEntryRoot => _isEntryRoot;
 
         internal HostCallScope(Engine engine)
         {

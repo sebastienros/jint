@@ -2406,23 +2406,31 @@ An `Engine` is single-operation, not thread-safe. Public host entries fail fast 
 is still outstanding; callers are never silently serialized. Same-thread re-entry from a host callback is
 supported for synchronous APIs. A JavaScript callback converted to a CLR delegate may also be dispatched
 to another thread by the host, and Jint admits such a transfer whenever it holds an open callback-admission
-window. There are three: from the moment a host call is handed the callback until the engine operation that
+window. There are four: from the moment a host call is handed the callback until the engine operation that
 made that call — the `Evaluate`, `Execute`, `Invoke` or callback turn on the stack — returns; while one of
-the async engine APIs is outstanding; and while the engine is driving its event loop for a blocking
-`UnwrapIfPromise` or `Modules.Import`. Inside a window Jint reserves the engine against unrelated callers
-and transfers ownership to that callback one turn at a time. Such an authorized transfer may wait for the
-current callback turn; ordinary public callers still fail immediately rather than being serialized. The
-three hand over to one another in the usual shape: an `async` host method returns at its first `await`, so
-its callback is normally invoked long after that method's own call returned — the first window covers the
-rest of the evaluation that called it, and by the time that evaluation returns the script is awaiting the
-promise the method handed back, which is the third. Outside every window — the engine thread is running
-script for an operation that was never handed this callback, and has undertaken to yield to nobody — an
-authorized callback is refused exactly like an unrelated caller, because serializing it there would mean
-blocking on a thread that may itself be blocked on that callback. A host that dispatches callbacks
-asynchronously should therefore keep the engine inside one of the windows for as long as they may arrive:
-await the async API, or block on the promise. Starting an async engine API
-from inside an active engine call is rejected: the callback must return before ownership can transfer
-safely. A top-level awaited async operation may resume on a different thread after ownership transfers.
+the async engine APIs is outstanding; while the engine is driving its event loop for a blocking
+`UnwrapIfPromise` or `Modules.Import`; and while a host thread is parked on
+`Engine.Advanced.WaitForScheduledWork` or `WaitForScheduledWorkAsync`. Inside a window Jint reserves the
+engine against unrelated callers and transfers ownership to that callback one turn at a time. Such an
+authorized transfer may wait for the current callback turn; ordinary public callers still fail immediately
+rather than being serialized. The first three hand over to one another in the usual shape: an `async` host
+method returns at its first `await`, so its callback is normally invoked long after that method's own call
+returned — the first window covers the rest of the evaluation that called it, and by the time that
+evaluation returns the script is awaiting the promise the method handed back, which is the third. The
+fourth is for the other shape entirely, a host loop that pumps one engine from one thread and idles on the
+pump in between. How narrowly a window admits depends on where it was opened: one opened inside a running
+operation admits only callbacks issued under that operation, while one opened at the top level — a blocking
+drain, or a park — is anonymous and admits any callback this engine ever authorized, including one whose
+operation ended long ago. A park reached from *inside* a running evaluation is not a window at all and goes
+on refusing. Outside every window — the engine thread is running script for an operation that was never
+handed this callback, and has undertaken to yield to nobody — an authorized callback is refused exactly like
+an unrelated caller, because serializing it there would mean blocking on a thread that may itself be blocked
+on that callback. A host that dispatches callbacks asynchronously should therefore keep the engine inside one
+of the windows for as long as they may arrive: await the async API, block on the promise, or park on the
+pump. One consequence of the last: `WaitForScheduledWork`'s timeout bounds the idle wait, not the call, so an
+admitted callback can hand a frame-budgeted host control back well after its ceiling. Starting an async
+engine API from inside an active engine call is rejected: the callback must return before ownership can
+transfer safely. A top-level awaited async operation may resume on a different thread after ownership transfers.
 Background task and module completions may enqueue work safely, but they do not grant permission for other
 host calls while the owning async operation is pending.
 
