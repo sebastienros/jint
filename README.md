@@ -2090,7 +2090,7 @@ var engine = new Engine(options =>
 
 `LiveView` avoids the copy and its allocation, and exposes a fixed-size array-like wrapper. Reads stay connected
 to the CLR array, but selecting `LiveView` does not grant write authority: script mutations that would reach the
-backing array remain denied unless `AllowClrWrite()` is separately enabled. With both opt-ins, element writes
+backing array remain denied unless `options.Interop.AllowWrite` is also set. With both opt-ins, element writes
 change the CLR array. Repeated wrappers over the same CLR array compare equal by target identity even with caches
 disabled; the wrapper caches determine whether the same wrapper instance is reused. It is not a native JavaScript
 array (`Array.isArray` is `false`), and resizing operations throw. Multidimensional and non-zero-based CLR arrays
@@ -2508,8 +2508,8 @@ var square = new Engine()
 ```
 
 You can also directly pass POCOs or anonymous objects and use them from JavaScript. Direct writes through
-projected CLR objects are disabled by default. Opt in with `AllowClrWrite()` when scripts should be able to
-change CLR fields, properties, indexers, dictionaries, lists, or arrays:
+projected CLR objects are disabled by default. Opt in with `options.Interop.AllowWrite = true` when scripts
+should be able to change CLR fields, properties, indexers, dictionaries, lists, or arrays:
 
 ```c#
 var p = new Person {
@@ -2524,9 +2524,9 @@ Assert.AreEqual("Minnie", p.Name);
 ```
 
 This is a breaking default change. Applications upgrading from a version where CLR writes were enabled by
-default must add `AllowClrWrite()` to preserve that behavior. The option only controls direct writes through
-Jint's projected-object wrappers; it does not make a projected object immutable. CLR methods and registered
-extension methods remain callable and can mutate host state:
+default must set `options.Interop.AllowWrite = true` to preserve that behavior. The option only controls
+direct writes through Jint's projected-object wrappers; it does not make a projected object immutable. CLR
+methods and registered extension methods remain callable and can mutate host state:
 
 ```c#
 var engine = new Engine(options => options.AddExtensionMethods(typeof(MyExtensions)));
@@ -3473,9 +3473,9 @@ var engine = new Engine(options =>
 - Extensions methods
 
 Direct writes through projected CLR objects are disabled by default. Assignments to CLR fields, properties,
-indexers, dictionary/list entries, and live array elements require `AllowClrWrite()`. In sloppy JavaScript a
-blocked assignment is ignored; in strict JavaScript it throws a `TypeError`. Calls are outside this option's
-scope: instance, static, and extension methods can still mutate CLR state.
+indexers, dictionary/list entries, and live array elements require `options.Interop.AllowWrite`. In sloppy
+JavaScript a blocked assignment is ignored; in strict JavaScript it throws a `TypeError`. Calls are outside
+this option's scope: instance, static, and extension methods can still mutate CLR state.
 
 ## Error handling
 
@@ -3647,7 +3647,7 @@ a hardened deployment baseline.
 - Define memory limits, to prevent allocations from depleting the memory.
 - Enable/disable usage of BCL to prevent scripts from invoking .NET code.
 - Direct writes through projected CLR objects are disabled by default; enable them only with
-  `AllowClrWrite()`. This does not block side effects from callable CLR methods.
+  `options.Interop.AllowWrite = true`. This does not block side effects from callable CLR methods.
 - Limit number of statements to prevent infinite loops.
 - Limit depth of calls to prevent deep recursion calls.
 - Define a timeout, to prevent scripts from taking too long to finish.

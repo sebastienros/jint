@@ -18,7 +18,7 @@ namespace Jint;
 
 public partial class Engine
 {
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         /// <summary>
         /// The opt-in web APIs this engine carries, after the feature closure has been expanded. Requires

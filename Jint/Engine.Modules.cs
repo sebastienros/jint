@@ -72,7 +72,7 @@ public partial class Engine
         }
     }
 
-    public class ModuleOperations
+    public sealed class ModuleOperations
     {
         private readonly Engine _engine;
         private readonly Dictionary<ModuleCacheKey, Module> _modules = new();

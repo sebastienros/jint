@@ -499,7 +499,7 @@ public partial class Engine
         }
     }
 
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         /// <summary>
         /// How long this engine may be left alone before <see cref="ProcessTasks"/> has something to run, or

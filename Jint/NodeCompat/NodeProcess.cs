@@ -215,7 +215,7 @@ internal static class NodeProcess
 
         // Copied, because the caller's array belongs to the engine's argument pool and is reused as soon as
         // this call returns — the callback runs long after that.
-        var extraArguments = arguments.Skip(1);
+        var extraArguments = Arguments.Slice(arguments, 1);
 
         // The current generation, since registering and enqueuing happen in one act here: there is no window
         // in which the cycle could have ended in between.

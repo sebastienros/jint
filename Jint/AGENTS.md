@@ -102,7 +102,7 @@ being detailed. A compiler cannot find those, so the guide is the only place an 
 | `NullPropagatingReferenceResolver` — sealed, singleton `Instance`, the shipped null-propagation resolver the engine recognizes by identity and serves inline | `Jint/Runtime/Interop/NullPropagatingReferenceResolver.cs` |
 | `IObjectConverter`, `ITypeConverter` | `Jint/Runtime/Interop/` |
 | `JintException.TryGetClrException` + `Options.Interop.ChainClrExceptionAsInnerException` + `OptionsExtensions.ChainClrExceptions` + `JavaScriptException(ErrorConstructor, string?, Exception)` — the CLR exception behind an interop error the script was allowed to catch, held on the error **value** and readable by the host alone | `Jint/JintException.cs`, `Jint/Runtime/JavaScriptException.cs`, `Jint/Options.cs`, `Jint/Options.Extensions.cs` |
-| `Constraint` + `IsAmortizable` | `Jint/IConstraint.cs` |
+| `Constraint` + `IsAmortizable` | `Jint/Constraint.cs` |
 | `OperationDeadlineConstraint` — public sealed, host-armed `Begin`/`End` budget spanning a whole multi-entry host operation, which the per-entry constraint reset deliberately never rewinds | `Jint/Constraints/OperationDeadlineConstraint.cs` |
 | `MemoryLimitConstraint` + `MemoryLimitAccuracy` — per-operation managed-allocation accounting carried across async thread hops, with host-armed `Begin`/`End` for a multi-entry operation | `Jint/Constraints/MemoryLimitConstraint.cs` |
 | `ProxyHandler` — public abstract class, 13 virtual traps (the ECMAScript trap set), `null` meaning "forward to target" | `Jint/Runtime/Interop/ProxyHandler.cs` |

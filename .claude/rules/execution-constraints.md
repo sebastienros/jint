@@ -1,7 +1,7 @@
 ---
 paths:
   - "Jint/Constraints/**"
-  - "Jint/IConstraint.cs"
+  - "Jint/Constraint.cs"
 ---
 
 You are editing something that bounds execution. `Jint/Constraints/AGENTS.md` records what disarms the interpreter tight-loop lane, what an engine-driven fan-out brackets, why the cancellation cadence is engine state, how `MaxRecursionDepth` really counts, and that saturated sentinels register nothing.

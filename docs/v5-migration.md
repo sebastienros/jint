@@ -59,6 +59,11 @@ This table is filled by the pull request that removes the member. A member that 
 | `JsValueExtensions.As<T>(JsValue)` (`where T : ObjectInstance`) | `value as T`. The `IsObject()` test it ran first is implied by the constraint, so the two are the same question | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 | `JsValueExtensions.TryCast<T>(JsValue)` | `value as T` — the body was exactly that, and it is not the `Try` pattern: no `bool`, no `out` | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 | `JsValueExtensions.TryCast<T>(JsValue, Action<JsValue> fail)` | `value is T t`, with the failure written where it happens — see [2.4](#24-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| `Arguments.From(params JsValue[] o)` | nothing. It returned its own argument unchanged, so `Arguments.From(a, b)` and `new[] { a, b }` were the same array | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `Arguments.Skip(this JsValue[] args, int count)` | a slice copy — `args.AsSpan(count).ToArray()`, guarded for an argument list shorter than `count` — or `System.Linq.Enumerable.Skip`, which the same source text now binds to. See [2.5](#25-argumentsskip-no-longer-shadows-linqs-skip) | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `AstExtensions` (the whole class, with its two `GetKey` overloads) → `internal` | nothing. `GetKey` extracts a property key from an Acornima expression and needs a live execution context to do it for a computed one, so it was never callable from host code at a meaningful moment; it appeared in IntelliSense for every host with `using Jint;` and an `Expression` in scope | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `GlobalSymbolRegistry()` (public parameterless constructor) → `internal` | nothing. The well-known symbols on it are `static` and still readable — `GlobalSymbolRegistry.Iterator` and its fourteen siblings are unchanged. The *instance* half holds the symbols one engine's `Symbol.for` created, and `Engine.GlobalSymbolRegistry` is `internal`, so a host-constructed registry could never be installed | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `ManualPromise(JsValue, Action<JsValue>, Action<JsValue>)` → `internal` | `Engine.Advanced.RegisterPromise()`, the only thing that ever returned one. Settling requires the resolving functions the engine built for that particular promise, so a hand-constructed handle settled nothing. The properties, `with` and `var (promise, resolve, reject) = …` are unchanged | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 
 ### 2.1 Sealed types
 
@@ -77,6 +82,12 @@ The sealed groups: `CacheOptions`, `ConsoleOptions`, `ConstraintOptions`, `Cover
 `DebuggerOptions`, `DiagnosticsOptions`, `FetchOptions`, `HostOptions`, `InteropOptions`, `IntlOptions`,
 `JsonOptions`, `MessagingOptions`, `ModuleOptions`, `ProfilingOptions`, `StorageOptions`, `TemporalOptions`,
 `TimerOptions`, `WebApiOptions`, `WorkerOptions` (`ParsingOptions` already was).
+
+`Engine`'s three facets — `Engine.AdvancedOperations`, `Engine.ConstraintOperations` and
+`Engine.ModuleOperations`, the types behind `engine.Advanced`, `engine.Constraints` and `engine.Modules` — are
+`sealed` too ([#3320](https://github.com/sebastienros/jint/pull/3320)). Each one's only constructor is
+`internal` and each is handed out by an `Engine` that built it, so nothing outside the assembly could have
+derived from one; they were the last nested public classes left unsealed.
 
 ### 2.2 The declared non-contracts now say so to the compiler
 
@@ -167,6 +178,33 @@ private UuidInstance EnsureUuidInstance(JsValue thisObject)
 
 That is the actual before/after of a prototype in this repository's own test suite, which was the only caller
 of the overload anywhere in the tree.
+### 2.5 `Arguments.Skip` no longer shadows LINQ's `Skip`
+
+`Arguments.Skip(this JsValue[], int)` was an extension method on `JsValue[]`, and `JsValue[]` is a more
+specific receiver than `IEnumerable<TSource>`. So in any file with both `using System.Linq;` and
+`using Jint.Runtime;` — which is what a host function's file looks like — overload resolution preferred it,
+and `args.Skip(1)` meant Jint's eager, array-allocating copy rather than LINQ's lazy one. Same source text,
+different method, no diagnostic; the allocation was per host-function call.
+
+```c#
+// inside a host function, with both `using System.Linq;` and `using Jint.Runtime;` in scope
+
+// 4.16.x
+var rest = args.Skip(1);                                            // JsValue[], eagerly copied
+
+// 5.x — the same text, now Enumerable.Skip
+var rest = args.Skip(1);                                            // IEnumerable<JsValue>, deferred
+JsValue[] copy = args.Length > 1 ? args.AsSpan(1).ToArray() : [];   // what 4.16.x handed back
+```
+
+The length test in that last line is not decoration: a script may call a host function with fewer arguments
+than it reads, `Arguments.Skip` answered an empty array for that, and `AsSpan(start)` throws when `start`
+is past the end.
+
+A call site that needed the array is a compile error wherever an array is expected, which is most of them.
+Where the result flows straight into something taking an `IEnumerable<JsValue>` it keeps compiling and
+becomes lazy instead — so grep for `.Skip(` in code that also has `using Jint.Runtime;`. `Arguments.At`,
+the other extension on that class, is unaffected and stays: it has no LINQ counterpart to collide with.
 
 ## 3. Renamed and reshaped API
 

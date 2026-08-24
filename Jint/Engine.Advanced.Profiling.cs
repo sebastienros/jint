@@ -5,7 +5,7 @@ namespace Jint;
 
 public partial class Engine
 {
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         /// <summary>
         /// Whether a profiling session is currently recording on this engine.

@@ -58,7 +58,7 @@ internal sealed partial class FunctionPrototype : Function
         }
 
         var thisArg = arguments.At(0);
-        var f = BoundFunctionCreate(oi, thisArg, arguments.Skip(1));
+        var f = BoundFunctionCreate(oi, thisArg, Arguments.Slice(arguments, 1));
 
         JsNumber l;
         var targetHasLength = oi.HasOwnProperty(CommonProperties.Length);

@@ -15,7 +15,7 @@ public partial class Engine
 {
     public AdvancedOperations Advanced { get; }
 
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         private readonly Engine _engine;
 

@@ -110,7 +110,7 @@ public partial class Engine
         return new ConstraintPartition(exact.ToArray(), amortized.ToArray(), inlineStatementCounter);
     }
 
-    public class ConstraintOperations
+    public sealed class ConstraintOperations
     {
         private readonly Engine _engine;
 

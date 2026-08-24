@@ -40,11 +40,49 @@ internal sealed record ResolvingFunctions(
     Function.Function Reject
 );
 
-public sealed record ManualPromise(
-    JsValue Promise,
-    Action<JsValue> Resolve,
-    Action<JsValue> Reject
-);
+/// <summary>
+/// The handle <see cref="Engine.AdvancedOperations.RegisterPromise"/> returns: a JavaScript promise plus the
+/// two functions that settle it. Only the engine can hand one out — settling requires the resolving functions
+/// the engine built for that particular promise, so a host-constructed instance could never mean anything.
+/// </summary>
+// Written out longhand rather than declared positionally purely so the constructor can be internal: a
+// positional record takes no accessibility modifier on its primary constructor. The property, deconstruction
+// and `with` surface below is exactly what a positional record would have generated, so "simplifying" this
+// back to one silently re-exposes the public constructor.
+public sealed record ManualPromise
+{
+    internal ManualPromise(JsValue promise, Action<JsValue> resolve, Action<JsValue> reject)
+    {
+        Promise = promise;
+        Resolve = resolve;
+        Reject = reject;
+    }
+
+    /// <summary>
+    /// The promise handed to script.
+    /// </summary>
+    public JsValue Promise { get; init; }
+
+    /// <summary>
+    /// Fulfills <see cref="Promise"/> with the value passed to it.
+    /// </summary>
+    public Action<JsValue> Resolve { get; init; }
+
+    /// <summary>
+    /// Rejects <see cref="Promise"/> with the value passed to it.
+    /// </summary>
+    public Action<JsValue> Reject { get; init; }
+
+    /// <summary>
+    /// Deconstructs the handle into its three parts, as <c>var (promise, resolve, reject) = …</c>.
+    /// </summary>
+    public void Deconstruct(out JsValue Promise, out Action<JsValue> Resolve, out Action<JsValue> Reject)
+    {
+        Promise = this.Promise;
+        Resolve = this.Resolve;
+        Reject = this.Reject;
+    }
+}
 
 /// <summary>
 /// Internal version of ManualPromise that accepts CLR objects for thread-safe Task interop.

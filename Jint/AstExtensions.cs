@@ -12,7 +12,7 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint;
 
-public static class AstExtensions
+internal static class AstExtensions
 {
 #pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
     internal static readonly SourceLocation DefaultLocation;
@@ -20,9 +20,9 @@ public static class AstExtensions
 
     private static Tokenizer? s_cachedTokenizer;
 
-    public static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
+    internal static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
 
-    public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
+    internal static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
     {
         var key = TryGetKey(expression, engine, resolveComputed);
         if (key is not null)
