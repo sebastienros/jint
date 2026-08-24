@@ -6,10 +6,34 @@ using Jint.Native.Intl.Data;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// Default CLDR provider that uses embedded data files and hardcoded patterns.
-/// Supports basic en-US/en-GB with English fallback for other locales.
+/// The locale data an engine uses unless the host replaces it: embedded CLDR files, with an English fallback.
 /// </summary>
-public sealed class DefaultCldrProvider : ICldrProvider
+/// <remarks>
+/// <para>
+/// Every member is <c>virtual</c>, so changing one datum means deriving from this class and overriding
+/// that one member. The other twenty-two are inherited, and nothing has to be delegated by hand.
+/// </para>
+/// <para>
+/// Install the derived instance on <see cref="Options.IntlOptions.CldrProvider"/>; leaving that property
+/// alone keeps <see cref="Instance"/>, the shared singleton every unconfigured engine reads.
+/// </para>
+/// <para>
+/// Overriding a member is not the same as adding data the engine never asks for: ten of the twenty-three
+/// members have no caller inside Jint today, so overriding one of those changes nothing script can see.
+/// </para>
+/// </remarks>
+/// <example>
+/// <code>
+/// sealed class GermanLists : DefaultCldrProvider
+/// {
+///     public override ListPatterns? GetListPatterns(string locale, string type, string style)
+///         => new ListPatterns { Start = "{0}, {1}", Middle = "{0}, {1}", End = "{0} und {1}", Two = "{0} und {1}" };
+/// }
+///
+/// options.Intl.CldrProvider = new GermanLists();
+/// </code>
+/// </example>
+public class DefaultCldrProvider : ICldrProvider
 {
     /// <summary>
     /// Singleton instance of the default provider.
@@ -23,13 +47,16 @@ public sealed class DefaultCldrProvider : ICldrProvider
     private static readonly Lazy<string[]> _supportedCurrencies = new(BuildSupportedCurrencies);
     private static readonly Lazy<Dictionary<string, string>> _currencyDisplayNames = new(BuildCurrencyDisplayNames);
 
-    private DefaultCldrProvider()
+    /// <summary>
+    /// Initializes a new instance a derived provider builds on; hosts wanting the data itself read <see cref="Instance"/>.
+    /// </summary>
+    protected DefaultCldrProvider()
     {
     }
 
     // === List Patterns ===
 
-    public ListPatterns? GetListPatterns(string locale, string type, string style)
+    public virtual ListPatterns? GetListPatterns(string locale, string type, string style)
     {
         // Try embedded CLDR data first
         var localePatterns = ListPatternsData.GetPatternsForLocale(locale);
@@ -61,7 +88,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Relative Time Patterns ===
 
-    public RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style)
+    public virtual RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style)
     {
         // Try embedded CLDR data first
         var localeData = RelativeTimePatternsData.GetDataForLocale(locale);
@@ -119,7 +146,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         };
     }
 
-    public string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style)
+    public virtual string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style)
     {
         // Only provide English phrases
         if (!IsEnglish(locale))
@@ -173,18 +200,18 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Number Formatting ===
 
-    public string? GetNumberingSystemDigits(string numberingSystem)
+    public virtual string? GetNumberingSystemDigits(string numberingSystem)
     {
         return NumberingSystemData.Digits.TryGetValue(numberingSystem, out var digits) ? digits : null;
     }
 
-    public string? GetDefaultNumberingSystem(string locale)
+    public virtual string? GetDefaultNumberingSystem(string locale)
     {
         // Default provider has no per-locale CLDR data; caller falls back to "latn".
         return null;
     }
 
-    public CompactPatterns? GetCompactPatterns(string locale, string style)
+    public virtual CompactPatterns? GetCompactPatterns(string locale, string style)
     {
         // Use existing CompactPatterns data
         // The default provider returns English patterns only
@@ -224,7 +251,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return null;
     }
 
-    public CurrencyData? GetCurrencyData(string locale, string currencyCode)
+    public virtual CurrencyData? GetCurrencyData(string locale, string currencyCode)
     {
         // Default provider returns basic currency data from .NET
         try
@@ -260,7 +287,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         }
     }
 
-    public UnitPatterns? GetUnitPatterns(string locale, string unit, string style)
+    public virtual UnitPatterns? GetUnitPatterns(string locale, string unit, string style)
     {
         // Try embedded CLDR data first
         var localePatterns = UnitPatternsData.GetPatternsForLocale(locale);
@@ -329,13 +356,13 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Date/Time Formatting ===
 
-    public DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
+    public virtual DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
     {
         // Default provider delegates to .NET's DateTimeFormatInfo
         return null;
     }
 
-    public string[]? GetMonthNames(string locale, string style, string? calendar)
+    public virtual string[]? GetMonthNames(string locale, string style, string? calendar)
     {
         var cacheKey = string.Concat(locale, "_", style);
         return _monthNameCache.GetOrAdd(cacheKey, _ =>
@@ -356,7 +383,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         });
     }
 
-    public string[]? GetWeekdayNames(string locale, string style)
+    public virtual string[]? GetWeekdayNames(string locale, string style)
     {
         var cacheKey = string.Concat(locale, "_", style);
         return _weekdayNameCache.GetOrAdd(cacheKey, _ =>
@@ -377,7 +404,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         });
     }
 
-    public string[]? GetDayPeriods(string locale, string style, string? calendar)
+    public virtual string[]? GetDayPeriods(string locale, string style, string? calendar)
     {
         var cacheKey = string.Concat(locale, "_", style);
         return _dayPeriodCache.GetOrAdd(cacheKey, _ =>
@@ -392,7 +419,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         });
     }
 
-    public string[]? GetEraNames(string locale, string style, string? calendar)
+    public virtual string[]? GetEraNames(string locale, string style, string? calendar)
     {
         if (!IsEnglish(locale))
         {
@@ -410,7 +437,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Display Names ===
 
-    public string? GetCurrencyDisplayName(string locale, string code)
+    public virtual string? GetCurrencyDisplayName(string locale, string code)
     {
         if (!IsEnglish(locale))
         {
@@ -423,12 +450,12 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Locale Data ===
 
-    public string? GetLikelySubtags(string locale)
+    public virtual string? GetLikelySubtags(string locale)
     {
         return LikelySubtagsData.TryResolve(locale, out var result) ? result : null;
     }
 
-    public WeekInfo? GetWeekInfo(string locale)
+    public virtual WeekInfo? GetWeekInfo(string locale)
     {
         // Extract region from locale for week data lookup
         var region = ExtractRegion(locale);
@@ -459,7 +486,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Plural Rules ===
 
-    public string SelectPluralCategory(string locale, double value, string type)
+    public virtual string SelectPluralCategory(string locale, double value, string type)
     {
         // Basic English plural rules for cardinal numbers
         // English only has "one" and "other" categories
@@ -515,7 +542,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
 
     // === Supported Values ===
 
-    public IReadOnlyCollection<string> GetSupportedCalendars()
+    public virtual IReadOnlyCollection<string> GetSupportedCalendars()
     {
         // Only return calendars that are fully supported per ECMA-402 and Intl.Era-monthcode spec
         // Note: "islamic" and "islamic-rgsa" are excluded because they require specific
@@ -529,7 +556,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         };
     }
 
-    public IReadOnlyCollection<string> GetSupportedCollations()
+    public virtual IReadOnlyCollection<string> GetSupportedCollations()
     {
         // https://tc39.es/ecma402/#sec-availablecanonicalcollations wants the collations the
         // implementation provides Intl.Collator functionality for, which is the union of the one
@@ -537,23 +564,23 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return CollatorConstructor.AvailableCanonicalCollations;
     }
 
-    public IReadOnlyCollection<string> GetSupportedCurrencies()
+    public virtual IReadOnlyCollection<string> GetSupportedCurrencies()
     {
         return _supportedCurrencies.Value;
     }
 
-    public IReadOnlyCollection<string> GetSupportedNumberingSystems()
+    public virtual IReadOnlyCollection<string> GetSupportedNumberingSystems()
     {
         return NumberingSystemData.Digits.Keys.ToArray();
     }
 
-    public IReadOnlyCollection<string> GetSupportedTimeZones()
+    public virtual IReadOnlyCollection<string> GetSupportedTimeZones()
     {
         // Return only canonical (primary) timezone identifiers for supportedValuesOf
         return TimeZoneData.GetCanonicalTimeZones();
     }
 
-    public IReadOnlyCollection<string> GetSupportedUnits()
+    public virtual IReadOnlyCollection<string> GetSupportedUnits()
     {
         return new[]
         {
