@@ -536,7 +536,7 @@ internal sealed class MethodInfoFunction : Function
             return arguments;
         }
 
-        var argsToTransform = arguments.Skip(nonParamsArgumentsCount);
+        var argsToTransform = Arguments.Slice(arguments, nonParamsArgumentsCount);
 
         if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
         {

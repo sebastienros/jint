@@ -4,6 +4,16 @@ namespace Jint.Native.Symbol;
 
 public sealed class GlobalSymbolRegistry
 {
+    /// <summary>
+    /// The registry an <see cref="Engine"/> builds for itself. The well-known symbols below are
+    /// <see langword="static"/> and readable without one; the instance half — the symbols
+    /// <c>Symbol.for</c> created — belongs to one engine, and <see cref="Engine.GlobalSymbolRegistry"/>
+    /// is <see langword="internal"/>, so an instance a host constructed could never be installed.
+    /// </summary>
+    internal GlobalSymbolRegistry()
+    {
+    }
+
     public static readonly JsSymbol AsyncDispose = new("Symbol.asyncDispose");
     public static readonly JsSymbol AsyncIterator = new("Symbol.asyncIterator");
     public static readonly JsSymbol Dispose = new("Symbol.dispose");

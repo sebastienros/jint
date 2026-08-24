@@ -20,7 +20,7 @@ public partial class Engine
     /// </summary>
     internal readonly CoverageCollector? _coverage;
 
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         /// <summary>
         /// A snapshot of what this engine has executed since it was created, or since the last

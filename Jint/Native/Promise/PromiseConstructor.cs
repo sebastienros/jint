@@ -185,7 +185,7 @@ internal sealed partial class PromiseConstructor : Constructor
         {
             // The spec's Call() throws a TypeError for a non-callable callback, and that throw sits inside
             // the Completion, so it has to become a rejection rather than escape to the caller.
-            status = GetCallable(callbackfn).Call(Undefined, arguments.Skip(1));
+            status = GetCallable(callbackfn).Call(Undefined, Arguments.Slice(arguments, 1));
         }
         catch (JavaScriptException e)
         {

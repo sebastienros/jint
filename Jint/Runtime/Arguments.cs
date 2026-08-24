@@ -9,11 +9,6 @@ public static class Arguments
 {
     public static JsCallArguments Empty => [];
 
-    public static JsValue[] From(params JsValue[] o)
-    {
-        return o;
-    }
-
     /// <summary>
     /// Returns the arguments at the provided position or Undefined if not present
     /// </summary>
@@ -69,17 +64,27 @@ public static class Arguments
         Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(array), index) = value;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static JsCallArguments Skip(this JsValue[] args, int count)
+    /// <summary>
+    /// Copies the arguments from <paramref name="start"/> onward into a fresh array, or returns an empty one
+    /// when there are none. Deliberately <b>not</b> an extension method: as <c>args.Skip(1)</c> it was a more
+    /// specific overload than <see cref="System.Linq.Enumerable.Skip{TSource}"/>, so with
+    /// <c>using Jint.Runtime;</c> in scope the identical source text bound to this eager, array-allocating
+    /// copy instead of LINQ's lazy one, with nothing to warn either a caller or a reader.
+    /// </summary>
+    /// <remarks>
+    /// A copy rather than a slice because every caller needs an array that outlives the call: the arguments it
+    /// is handed are pooled and are recycled as soon as the host function returns.
+    /// </remarks>
+    internal static JsCallArguments Slice(JsCallArguments args, int start)
     {
-        var newLength = args.Length - count;
+        var newLength = args.Length - start;
         if (newLength <= 0)
         {
             return [];
         }
 
         var array = new JsValue[newLength];
-        Array.Copy(args, count, array, 0, newLength);
+        Array.Copy(args, start, array, 0, newLength);
         return array;
     }
 }

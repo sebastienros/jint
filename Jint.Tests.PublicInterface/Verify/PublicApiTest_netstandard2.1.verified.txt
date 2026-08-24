@@ -6,12 +6,6 @@ namespace Jint
         Copy = 0,
         LiveView = 1,
     }
-    public static class AstExtensions
-    {
-        public static Jint.Native.JsValue GetKey(this Acornima.Ast.Expression expression, Jint.Engine engine, bool resolveComputed = false) { }
-        public static Jint.Native.JsValue GetKey<T>(this T property, Jint.Engine engine)
-            where T : Acornima.Ast.IProperty { }
-    }
     public abstract class Constraint
     {
         protected Constraint() { }
@@ -72,7 +66,7 @@ namespace Jint
         public Jint.Engine SetValue<T>(string name, T[]? obj) { }
         public static Jint.Prepared<Acornima.Ast.Module> PrepareModule(string code, string? source = null, Jint.ModulePreparationOptions? options = null) { }
         public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
-        public class AdvancedOperations
+        public sealed class AdvancedOperations
         {
             public object? HostDefined { get; set; }
             public bool IsProfiling { get; }
@@ -103,14 +97,14 @@ namespace Jint
             public System.Threading.Tasks.Task<bool> WaitForScheduledWorkAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
             public void WithRestoredGlobals(Jint.GlobalSnapshot snapshot, System.Action action) { }
         }
-        public class ConstraintOperations
+        public sealed class ConstraintOperations
         {
             public void Check() { }
             public T? Find<T>()
                 where T : Jint.Constraint { }
             public void Reset() { }
         }
-        public class ModuleOperations
+        public sealed class ModuleOperations
         {
             public void Add(string specifier, Jint.Runtime.Modules.ModuleBuilder moduleBuilder) { }
             public void Add(string specifier, System.Action<Jint.Runtime.Modules.ModuleBuilder> buildModule) { }
@@ -1392,10 +1386,10 @@ namespace Jint.Native.Promise
 {
     public sealed class ManualPromise : System.IEquatable<Jint.Native.Promise.ManualPromise>
     {
-        public ManualPromise(Jint.Native.JsValue Promise, System.Action<Jint.Native.JsValue> Resolve, System.Action<Jint.Native.JsValue> Reject) { }
         public Jint.Native.JsValue Promise { get; init; }
         public System.Action<Jint.Native.JsValue> Reject { get; init; }
         public System.Action<Jint.Native.JsValue> Resolve { get; init; }
+        public void Deconstruct(out Jint.Native.JsValue Promise, out System.Action<Jint.Native.JsValue> Resolve, out System.Action<Jint.Native.JsValue> Reject) { }
     }
     public enum PromiseRejectionOperation
     {
@@ -1466,7 +1460,6 @@ namespace Jint.Native.Symbol
         public static readonly Jint.Native.JsSymbol ToPrimitive;
         public static readonly Jint.Native.JsSymbol ToStringTag;
         public static readonly Jint.Native.JsSymbol Unscopables;
-        public GlobalSymbolRegistry() { }
     }
 }
 namespace Jint.Native.Temporal
@@ -1647,8 +1640,6 @@ namespace Jint.Runtime
         public static Jint.Native.JsValue[] Empty { get; }
         public static Jint.Native.JsValue At(this Jint.Native.JsValue[] args, int index) { }
         public static Jint.Native.JsValue At(this Jint.Native.JsValue[] args, int index, Jint.Native.JsValue undefinedValue) { }
-        public static Jint.Native.JsValue[] From(params Jint.Native.JsValue[] o) { }
-        public static Jint.Native.JsValue[] Skip(this Jint.Native.JsValue[] args, int count) { }
     }
     public readonly struct Completion
     {

@@ -16,7 +16,7 @@ namespace Jint;
 
 public partial class Engine
 {
-    public partial class AdvancedOperations
+    public sealed partial class AdvancedOperations
     {
         /// <summary>
         /// Captures the engine's current global bindings — the global object's own properties (string and
