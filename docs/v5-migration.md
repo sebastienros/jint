@@ -570,7 +570,7 @@ enumeration including the CLR conversion, and reaches the probe lane it could no
 member genuinely needs to intercept reads that resolve on its *prototype* was never served by this class —
 `Get` has always been sealed — and stays on plain `ObjectInstance`.
 
-### 3.10 The two converters are abstract classes, and a registration says what it converts ([#3345](https://github.com/sebastienros/jint/pull/3345))
+### 3.10 The two converters are abstract classes, and a registration says what it converts ([#3346](https://github.com/sebastienros/jint/pull/3346))
 
 `IObjectConverter` is now `ObjectConverter` and `ITypeConverter` is now `ClrTypeConverter`, both public
 abstract classes. The rename of the second one avoids an ambiguity that an interface never had: `TypeConverter`
