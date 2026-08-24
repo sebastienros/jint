@@ -966,6 +966,23 @@ Three details worth knowing:
 - **`MakeReadOnly()` is public and idempotent**, so a host that builds a configured `Options` in one place
   and hands it around can freeze it itself, before any engine exists.
 
+### 4.17 `JsonParser.Parse` takes the engine's host-call reservation ([#3330](https://github.com/sebastienros/jint/issues/3330))
+
+All three `Parse` overloads now claim the engine for the duration of the parse, so a second thread reaching
+one while the engine is in use is rejected with `InvalidOperationException` instead of building objects and
+arrays into that engine's realm concurrently.
+
+It was the last conversion entry that did not. `JsonSerializer.Serialize` — its sibling, same namespace, same
+`(Engine)` constructor shape — has always been bracketed, and so is `JsValue.FromObject`, so a host had no way
+to guess that this one was different. It is also the wrong half to have left open: serializing walks a graph
+the host already holds, while parsing *creates* engine-owned state.
+
+Nothing changes for a host that parses on the engine's own thread, which includes every use from inside
+script (`JSON.parse`), from a JSON module, from `response.json()` and from a JWK import — the guard takes its
+re-entrant branch there. A host parsing while the engine is *idle* is unaffected too: the reservation claims
+an unowned engine rather than refusing it. What changes is a parse issued from a background thread while the
+engine is busy, which now fails loudly instead of corrupting quietly.
+
 ## 5. New in v5
 
 Everything here is opt-in: nothing below is installed unless the host asks for it, so none of it
