@@ -619,7 +619,7 @@ engine.Constraints.Find<MyBudget>();
 Asking for an exact type still answers the same instance it always did, and where several constraints match
 the one registered first is returned — ask for the most derived type you know when that matters.
 
-### 4.15 `ObjectInstance.Extensible` is no longer virtual ([#3311](https://github.com/sebastienros/jint/pull/3311))
+### 4.15 `ObjectInstance.Extensible` is no longer virtual ([#3322](https://github.com/sebastienros/jint/pull/3322))
 
 The getter was `virtual` over an `internal` setter, so a subclass could override it to a constant and keep a
 setter that no longer fed it. `Object.preventExtensions(host)` then returned the object,
