@@ -380,9 +380,19 @@ public class PropertyDescriptor
     }
 
     /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-topropertydescriptor">ToPropertyDescriptor</see> — reads a
+    /// descriptor out of the JavaScript object literal <c>Object.defineProperty</c> takes
+    /// (<c>{ value, writable, enumerable, configurable }</c> or <c>{ get, set, … }</c>), raising a
+    /// <c>TypeError</c> for anything that is not a valid descriptor object.
+    /// </summary>
+    /// <param name="engine">The engine whose running realm raises the <c>TypeError</c>.</param>
+    /// <param name="o">The descriptor object.</param>
+    public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o) => ToPropertyDescriptor(engine.Realm, o);
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-topropertydescriptor
     /// </summary>
-    public static PropertyDescriptor ToPropertyDescriptor(Realm realm, JsValue o)
+    internal static PropertyDescriptor ToPropertyDescriptor(Realm realm, JsValue o)
     {
         if (o is not ObjectInstance obj)
         {

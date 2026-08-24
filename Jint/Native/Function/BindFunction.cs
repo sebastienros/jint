@@ -10,7 +10,12 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 {
     private readonly Realm _realm;
 
-    public BindFunction(Engine engine,
+    /// <summary>
+    /// Internal because a <see cref="Realm"/> is not something a host can obtain, so nothing outside this
+    /// assembly could ever have called it. The way to bind a function is <c>Function.prototype.bind</c>; the
+    /// three properties below are what a host does with a bound function it is <i>handed</i>.
+    /// </summary>
+    internal BindFunction(Engine engine,
         Realm realm,
         ObjectInstance? proto,
         ObjectInstance targetFunction,

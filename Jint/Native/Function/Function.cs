@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -65,12 +66,33 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// </summary>
     private protected ICallable GetCallable(JsValue source) => source.GetCallable(_realm);
 
-    protected Function(
-        Engine engine,
-        Realm realm,
-        JsString? name)
-        : this(engine, realm, name, FunctionThisMode.Global)
+    /// <summary>
+    /// Whether a CLR exception escaping host code propagates untouched, which it does exactly when the
+    /// engine still carries the default interop exception handler. Resolved once per function object rather
+    /// than per call: <see cref="Options"/> is frozen the moment an engine reads it, so the answer cannot
+    /// change under a function that has already been built.
+    /// </summary>
+    private protected static bool ClrExceptionsBubble(Engine engine)
+        => engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
+
+    /// <summary>
+    /// Offers a CLR exception that escaped host code to the configured interop exception handler: converted
+    /// into a catchable JavaScript error when it accepts, rethrown with its original stack when it declines.
+    /// Never returns — the <see cref="JsValue"/> return type only lets a <c>catch</c> block be an expression.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private protected static JsValue TranslateClrException(Engine engine, Exception e)
     {
+        if (engine.Options.Interop.ExceptionHandler(e))
+        {
+            Throw.FromClrException(engine, e);
+        }
+        else
+        {
+            ExceptionDispatchInfo.Capture(e).Throw();
+        }
+
+        return Undefined;
     }
 
     internal Function(

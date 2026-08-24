@@ -2164,6 +2164,16 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   attributes and assignment is the write path. Symbols and names your projection does not carry stay
   completely ordinary, so `Symbol.toStringTag`, `Symbol.iterator` and expandos all work. Give it a
   `JsObjectShape` prototype, per the bullet above, for the record's own methods.
+- For a **host-defined function** — a callable with state, one member of a family sharing a base, anything
+  you would rather write as a class than close over in a lambda — derive from `HostFunction`. You implement
+  one member, `JsValue Invoke(JsValue thisObject, JsValue[] arguments)`, and pass the function's `name` and
+  `length` to the base constructor; script sees an ordinary built-in, with `Function.prototype` behind it so
+  `call` / `apply` / `bind` and `instanceof Function` all work, and `name` / `length` carrying the attributes
+  the specification gives a built-in. `Call` is sealed, so a CLR exception escaping your body is routed
+  through `Options.Interop.ExceptionHandler` for you, exactly as it is for a delegate-backed
+  `ClrFunction` — which stays the right choice when the body really is a lambda. A host function is not a
+  constructor: `new` raises a `TypeError`, and a callable that wants `new` derives from `Constructor` and
+  implements `Construct` instead.
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
