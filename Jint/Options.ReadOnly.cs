@@ -258,7 +258,7 @@ public sealed partial class Options
 
 #if NET8_0_OR_GREATER
     /// <summary>
-    /// Non-zero while <c>Engine.Advanced.EnableWebApis</c> is running a host's configuration callback on
+    /// The group <c>Engine.Advanced.EnableWebApis</c> is running a host's configuration callback against on
     /// this thread, which is the one sanctioned write to an engine's own options after construction.
     /// </summary>
     /// <remarks>
@@ -271,18 +271,44 @@ public sealed partial class Options
     /// the calling thread cannot be seen or disturbed by either.
     /// </para>
     /// <para>
-    /// Only the web-API groups consult it, which is exactly as wide as the callback: an
+    /// It holds the group being configured rather than a depth count, so the suspension is scoped to one
+    /// <see cref="Options"/> instance as well as to one thread: a callback that has got hold of some
+    /// <i>other</i> <see cref="Options"/> is writing to a frozen object and is refused there, exactly as it
+    /// would be outside the callback. <see cref="WebApiOptions.Owns"/> is the membership test, and it
+    /// reference-compares against the eight backing fields rather than putting a back-pointer on each
+    /// sub-group — so nothing has to be re-parented by <c>Clone</c>, and a sub-group materialized inside the
+    /// callback is covered the moment the accessor publishes it.
+    /// </para>
+    /// <para>
+    /// Two things it deliberately does not cover. The other option groups: an
     /// <c>Action&lt;WebApiOptions&gt;</c> cannot reach <c>Interop</c> or <c>Constraints</c> in the first place.
+    /// And the registries — a live enable may set a value, never grow an <see cref="OptionsList{T}"/>, because
+    /// a registry on a shared <see cref="Options"/> is read by every engine built from it and a value at least
+    /// replaces rather than accumulates.
     /// </para>
     /// </remarks>
     [ThreadStatic]
-    private static int _liveWebApiConfiguration;
+    private static WebApiOptions? _liveWebApiConfigurationTarget;
 
-    private static bool IsConfiguringWebApisLive => _liveWebApiConfiguration > 0;
+    private static bool IsConfiguringWebApisLive(IOptionsGroup group)
+        => _liveWebApiConfigurationTarget is { } target && target.Owns(group);
 
-    internal static void BeginLiveWebApiConfiguration() => _liveWebApiConfiguration++;
+    /// <summary>
+    /// Suspends the read-only guard for <paramref name="target"/>'s subtree on this thread.
+    /// </summary>
+    /// <returns>
+    /// The suspension this one replaced, so that a callback re-entering <c>EnableWebApis</c> restores it
+    /// rather than clearing it.
+    /// </returns>
+    internal static WebApiOptions? BeginLiveWebApiConfiguration(WebApiOptions target)
+    {
+        var previous = _liveWebApiConfigurationTarget;
+        _liveWebApiConfigurationTarget = target;
+        return previous;
+    }
 
-    internal static void EndLiveWebApiConfiguration() => _liveWebApiConfiguration--;
+    internal static void EndLiveWebApiConfiguration(WebApiOptions? previous)
+        => _liveWebApiConfigurationTarget = previous;
 
     public sealed partial class WebApiOptions : IOptionsGroup
     {
@@ -301,9 +327,23 @@ public sealed partial class Options
             Options.SetReadOnly(_workers, value);
         }
 
+        /// <summary>
+        /// Whether <paramref name="group"/> is this group or one of its eight sub-groups.
+        /// </summary>
+        internal bool Owns(IOptionsGroup group)
+            => ReferenceEquals(group, this)
+                || ReferenceEquals(group, _console)
+                || ReferenceEquals(group, _timers)
+                || ReferenceEquals(group, _fetch)
+                || ReferenceEquals(group, _diagnostics)
+                || ReferenceEquals(group, _storage)
+                || ReferenceEquals(group, _cache)
+                || ReferenceEquals(group, _messaging)
+                || ReferenceEquals(group, _workers);
+
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi." + setting);
             }
@@ -318,7 +358,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Messaging." + setting);
             }
@@ -333,7 +373,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Workers." + setting);
             }
@@ -348,7 +388,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Storage." + setting);
             }
@@ -363,7 +403,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Cache." + setting);
             }
@@ -382,7 +422,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Fetch." + setting);
             }
@@ -397,7 +437,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Console." + setting);
             }
@@ -412,7 +452,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Timers." + setting);
             }
@@ -427,7 +467,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive)
+            if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Diagnostics." + setting);
             }

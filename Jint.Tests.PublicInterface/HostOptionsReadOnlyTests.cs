@@ -269,6 +269,47 @@ public class HostOptionsReadOnlyTests
         second.Evaluate("typeof importNamespace").AsString().Should().Be("undefined");
     }
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// <c>Engine.Advanced.EnableWebApis</c> is the one door that writes to a frozen <see cref="Options"/>, and
+    /// the suspension it opens is scoped to the group it is configuring — not to web-API groups at large, and
+    /// not to the registries.
+    /// </summary>
+    [Fact]
+    public void TheLiveWebApiDoorSuspendsTheGuardForTheGroupItIsConfiguringAndNothingElse()
+    {
+        var other = new Options();
+        _ = new Engine(other);
+
+        var options = new Options();
+        var engine = new Engine(options);
+        var ran = false;
+
+        engine.Advanced.EnableWebApis(WebApiFeatures.Timers, webApi =>
+        {
+            ran = true;
+
+            // The group being configured: a value setting is writable for the duration of the callback.
+            webApi.Timers.MaxActiveTimers = 3;
+
+            // A different frozen Options is not opened by it, even on this thread.
+            Invoking(() => other.WebApi.Timers.MaxActiveTimers = 3)
+                .Should().Throw<InvalidOperationException>();
+
+            // Nor is a registry, on either instance: a live enable sets a value, it never grows a registry.
+            Invoking(() => webApi.Fetch.AllowedSchemes.Add("ftp"))
+                .Should().Throw<InvalidOperationException>();
+        });
+
+        ran.Should().BeTrue();
+        options.WebApi.Timers.MaxActiveTimers.Should().Be(3);
+
+        // ... and the suspension ends with the call.
+        Invoking(() => options.WebApi.Timers.MaxActiveTimers = 4)
+            .Should().Throw<InvalidOperationException>();
+    }
+#endif
+
     /// <summary>
     /// A configuration callback runs while the engine is being built, which is before the freeze — otherwise
     /// the documented way to finish configuring an engine would have stopped working.

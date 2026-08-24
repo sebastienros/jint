@@ -879,8 +879,12 @@ share the same `Options`, and a sink you own does not.
 Three details worth knowing:
 
 - **`Engine.Advanced.EnableWebApis(features, configure)` still works.** Its callback is the one sanctioned
-  write to an engine's own options after construction, and the guard is suspended for the web-API groups —
-  and for nothing else — while it runs.
+  write to an engine's own options after construction, and it is the only place the freeze is suspended. The
+  suspension covers that engine's own web-API group and its sub-groups, on the calling thread, for the
+  duration of the callback — no other `Options` instance, no other group, and not the registries: a live
+  enable sets a value, it never grows an `OptionsList<T>`. Note that the instance it writes to is shared with
+  every engine built from it, and for an engine built by `new Engine()` it is one Jint keeps process-wide, so
+  give an engine its own `Options` before configuring it there.
 - **A group is allocated on first touch, and one materialized after the freeze is born frozen.** So
   `options.Intl.CldrProvider = …` on an engine's options throws even though nothing had ever touched
   `Intl`.

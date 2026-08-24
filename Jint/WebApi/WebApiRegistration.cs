@@ -108,17 +108,18 @@ internal static class WebApiRegistration
         {
             // The engine froze its options when it was built, and this callback is documented to configure
             // the very group the engine reads its web-API settings from — the one sanctioned write to an
-            // engine's own options after construction. The suspension is scoped to the web-API groups and to
-            // this thread; see Options.BeginLiveWebApiConfiguration for why the group's own flag is the wrong
-            // thing to toggle when the Options may be shared with engines being built right now.
-            Options.BeginLiveWebApiConfiguration();
+            // engine's own options after construction. The suspension is scoped to this group's subtree and
+            // to this thread; see Options.BeginLiveWebApiConfiguration for why the group's own flag is the
+            // wrong thing to toggle when the Options may be shared with engines being built right now.
+            var webApi = options.WebApi;
+            var previous = Options.BeginLiveWebApiConfiguration(webApi);
             try
             {
-                configure(options.WebApi);
+                configure(webApi);
             }
             finally
             {
-                Options.EndLiveWebApiConfiguration();
+                Options.EndLiveWebApiConfiguration(previous);
             }
         }
 
