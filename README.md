@@ -3631,9 +3631,35 @@ same host-side decorator can attach a safe error code to interop and module fail
 
 ### Raising an error from host code
 
-To fail a host function in a way the script can catch, throw a `JavaScriptException`. The overload taking a
-CLR exception records it for `TryGetClrException`, so the script sees an ordinary `Error` while you keep the
-original:
+To fail a host function in a way the script can catch, throw a `JavaScriptException`, built from the error
+constructor the specification would use. All seven live on `engine.Intrinsics`, and the error a script
+catches is a real one — `instanceof` works, `e.constructor` is the global, `e.name` and `e.stack` are what
+they would be had script thrown it:
+
+| Host code | The script catches | Use it for |
+| --- | --- | --- |
+| `engine.Intrinsics.Error` | `Error` | a failure with no better-fitting kind |
+| `engine.Intrinsics.RangeError` | `RangeError` | an argument outside its allowed range |
+| `engine.Intrinsics.TypeError` | `TypeError` | an argument of the wrong type, or an operation the value does not support |
+| `engine.Intrinsics.ReferenceError` | `ReferenceError` | a name that does not resolve |
+| `engine.Intrinsics.SyntaxError` | `SyntaxError` | input your host function had to parse and could not |
+| `engine.Intrinsics.EvalError` | `EvalError` | reserved by the specification; rarely the right answer |
+| `engine.Intrinsics.UriError` | `URIError` | malformed URI-encoded input (note the CLR spelling) |
+
+```c#
+engine.SetValue("itemAt", new Func<int, string>(index =>
+{
+    if (index < 0 || index >= items.Count)
+    {
+        throw new JavaScriptException(engine.Intrinsics.RangeError, $"index {index} is out of range");
+    }
+
+    return items[index];
+}));
+```
+
+The overload taking a CLR exception records it for `TryGetClrException`, so the script sees an ordinary
+error while you keep the original:
 
 ```c#
 engine.SetValue("parse", new Action<string>(s =>
@@ -3644,10 +3670,13 @@ engine.SetValue("parse", new Action<string>(s =>
     }
     catch (XmlException e)
     {
-        throw new JavaScriptException(engine.Intrinsics.Error, "XML parsing failed", e);
+        throw new JavaScriptException(engine.Intrinsics.SyntaxError, "XML parsing failed", e);
     }
 }));
 ```
+
+To hand an error back as a *value* rather than throw it — a result object, a callback argument — build one
+with `engine.Intrinsics.RangeError.Construct("...")`, which returns the same kind of object.
 
 Do not throw the exception projected into the script instead
 (`new JavaScriptException(JsValue.FromObject(engine, e))`). That value is not an `Error` — it has no `stack`

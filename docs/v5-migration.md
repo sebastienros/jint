@@ -985,8 +985,8 @@ engine is busy, which now fails loudly instead of corrupting quietly.
 
 ## 5. New in v5
 
-Everything here is opt-in: nothing below is installed unless the host asks for it, so none of it
-changes an engine that does not.
+Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
+none of it changes an engine that does not.
 
 | Area | Enable with | Reference |
 | --- | --- | --- |
@@ -1121,6 +1121,30 @@ Four things worth knowing before writing one:
   true)`), as is a `TryDeleteName` that answered `true` for a name the projection still carries. Overriding
   `TryDeleteName` alone is *not* a mistake: deletion is governed by `configurable`, which a projected name
   always reports `true`, so a read-only-but-removable projection is an ordinary shape.
+
+### 5.1 Every error constructor is reachable from host code ([#3337](https://github.com/sebastienros/jint/pull/3337))
+
+`Engine.Intrinsics` exposed `Error` and `TypeError` and kept the other five `internal`, so a host
+function could not raise the error the specification would raise — a `RangeError` for an
+out-of-range argument being the common case. All seven are now `public`; nothing else changed and
+nothing was removed.
+
+```c#
+throw new JavaScriptException(engine.Intrinsics.RangeError, $"index {index} is out of range");
+```
+
+Additive, so no migration is required. If you reached one through the global instead, that keeps
+working and can now be written directly:
+
+```c#
+// before
+var rangeError = (ErrorConstructor) engine.GetValue("RangeError");
+// after
+var rangeError = engine.Intrinsics.RangeError;
+```
+
+The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
+error from host code](../README.md#raising-an-error-from-host-code).
 
 ## 6. AOT and trimming
 

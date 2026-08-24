@@ -25,4 +25,19 @@ Follow the specification as closely as practical, support both strict and sloppy
 
 Proposal-stage **TC39** built-ins are registered unconditionally — there is no per-feature option or ES-version gate for anything ECMAScript defines, however early its stage. `Options.ExperimentalFeatures` is about CLR interop and has nothing to do with which built-ins exist.
 
+## Which `Intrinsics` members are public
+
+A property on `Jint.Runtime.Intrinsics` is `public` when a host has a reason to **call** the object it
+returns from C#, not because the intrinsic exists. Today that is the seven `ErrorConstructor` properties —
+`new JavaScriptException(intrinsic, message)` takes one, so picking the error the specification would pick is
+a host operation — plus the handful of constructors a host builds instances with (`Array`, `Map`, `Set`, the
+typed arrays, `ArrayBuffer`, `RegExp`, `ShadowRealm`, `Object`, `Function`, `Eval`). Everything else stays
+`internal`, and the *type* is what enforces it: every remaining intrinsic's type is `internal` too, so its
+property could not be promoted without first widening a class. Widen the class only when a host must invoke
+it — an intrinsic a host would merely hand back to script is already reachable as `engine.GetValue("Name")`,
+which is not a reason to freeze a second spelling into the public surface. A new error constructor
+(`AggregateError`, `SuppressedError`) is the case that qualifies on the first test but fails on the second:
+both are `internal sealed` classes that do not derive from `ErrorConstructor`, so exposing them is a type
+promotion to argue on its own, not a modifier to flip.
+
 **That rule stops at the language.** The WHATWG web APIs under `Jint/WebApi/` are host APIs, not language features, and are deliberately **opt-in**: nothing is installed unless `Options.WebApi.Features` names it, and a default engine is byte-for-byte the engine it was before they existed. Do not "fix" that gating by registering them unconditionally — see [Web APIs](../WebApi/AGENTS.md#web-apis) for how it works and why.

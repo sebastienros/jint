@@ -1892,6 +1892,7 @@ namespace Jint.Runtime
         public Jint.Native.TypedArray.BigUint64ArrayConstructor BigUint64Array { get; }
         public Jint.Native.Error.ErrorConstructor Error { get; }
         public Jint.Native.Function.EvalFunction Eval { get; }
+        public Jint.Native.Error.ErrorConstructor EvalError { get; }
         public Jint.Native.TypedArray.Float16ArrayConstructor Float16Array { get; }
         public Jint.Native.TypedArray.Float32ArrayConstructor Float32Array { get; }
         public Jint.Native.TypedArray.Float64ArrayConstructor Float64Array { get; }
@@ -1901,14 +1902,18 @@ namespace Jint.Runtime
         public Jint.Native.TypedArray.Int8ArrayConstructor Int8Array { get; }
         public Jint.Native.Map.MapConstructor Map { get; }
         public Jint.Native.Object.ObjectConstructor Object { get; }
+        public Jint.Native.Error.ErrorConstructor RangeError { get; }
+        public Jint.Native.Error.ErrorConstructor ReferenceError { get; }
         public Jint.Native.RegExp.RegExpConstructor RegExp { get; }
         public Jint.Native.Set.SetConstructor Set { get; }
         public Jint.Native.ShadowRealm.ShadowRealmConstructor ShadowRealm { get; }
+        public Jint.Native.Error.ErrorConstructor SyntaxError { get; }
         public Jint.Native.Error.ErrorConstructor TypeError { get; }
         public Jint.Native.TypedArray.Uint16ArrayConstructor Uint16Array { get; }
         public Jint.Native.TypedArray.Uint32ArrayConstructor Uint32Array { get; }
         public Jint.Native.TypedArray.Uint8ArrayConstructor Uint8Array { get; }
         public Jint.Native.TypedArray.Uint8ClampedArrayConstructor Uint8ClampedArray { get; }
+        public Jint.Native.Error.ErrorConstructor UriError { get; }
     }
     public class JavaScriptException : Jint.JintException
     {
