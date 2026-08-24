@@ -1122,7 +1122,7 @@ Four things worth knowing before writing one:
   `TryDeleteName` alone is *not* a mistake: deletion is governed by `configurable`, which a projected name
   always reports `true`, so a read-only-but-removable projection is an ordinary shape.
 
-### 5.1 Every error constructor is reachable from host code ([#3337](https://github.com/sebastienros/jint/pull/3337))
+### 5.4 Every error constructor is reachable from host code ([#3337](https://github.com/sebastienros/jint/pull/3337))
 
 `Engine.Intrinsics` exposed `Error` and `TypeError` and kept the other five `internal`, so a host
 function could not raise the error the specification would raise — a `RangeError` for an
@@ -1296,3 +1296,10 @@ the section that matches the *shape* of the break, not the area of the code:
 
 Cite the pull request. Keep the entry to what an embedder has to do — the reasoning belongs in the
 pull request, and the reference material belongs in `README.md`.
+
+**Numbering is assigned at merge, not at authoring.** Several pull requests are usually in flight at
+once, each picking what looked like the next free subsection number when it was written, so the
+number is stale by the time it lands — and because two of them edit different parts of this file,
+git merges them cleanly and the duplicate only shows up in the rendered document. Whoever merges
+second renumbers, and repoints any `[§x.y](#xy-...)` link to the section. A collision that reaches
+`main` is a docs fix, not a rewrite of the section.
