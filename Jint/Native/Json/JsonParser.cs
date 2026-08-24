@@ -1119,6 +1119,16 @@ public sealed class JsonParser
     /// </remarks>
     public JsValue Parse(ReadOnlySpan<char> code)
     {
+        // The one choke point: both other overloads funnel here, so this is where the engine is claimed.
+        // A parse runs no user code, but it builds objects and arrays into the engine's realm for the whole
+        // document, which is engine-owned state — so it is a host entry in the sense the concurrency contract
+        // means, and a second thread reaching it while the engine is in use is refused rather than admitted.
+        // Its sibling JsonSerializer has always been bracketed (through ExecuteWithConstraints); this closes
+        // the half that was not. On the in-box callers — JSON.parse, a JSON module, response.json(), a JWK
+        // import — the engine is already claimed by this thread, so this is the re-entrant branch: a volatile
+        // read and a depth increment, once per document.
+        using var ownership = _engine.EnterHostCall();
+
         State state = Reset(code);
 
         Peek(ref state);

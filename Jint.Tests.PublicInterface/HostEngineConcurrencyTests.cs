@@ -1,7 +1,9 @@
 #nullable enable
 
 using System.Diagnostics;
+using System.Text;
 using Jint.Native;
+using Jint.Native.Json;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
@@ -806,6 +808,98 @@ public class HostEngineConcurrencyTests
             _thread.Join(HandoffCeiling);
             _release.Dispose();
         }
+    }
+
+    /// <summary>
+    /// A JSON parse builds objects and arrays into the engine's realm for the whole document, so it is a
+    /// host entry in the sense this contract means, and a second thread reaching it is refused.
+    /// </summary>
+    /// <remarks>
+    /// It was the one conversion entry that was not. <c>JsonSerializer.Serialize</c> — its sibling, same
+    /// namespace, same <c>(Engine)</c> constructor shape — has always been bracketed, so a host had no way to
+    /// guess that one of the pair fails fast and the other builds concurrently into a busy engine. That
+    /// asymmetry is what the next test pins from the other side.
+    /// </remarks>
+    [Fact]
+    public async Task ConcurrentJsonParseIsRejectedAndTheEngineRecovers()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var engine = CreateBlockingEngine(entered, release);
+        var running = StartOwningThread(() => engine.Execute("block()"));
+
+        await WaitUntilOwned(entered, running);
+        try
+        {
+            Invoking(() => new JsonParser(engine).Parse("""{"a":[1,2,3],"b":{"c":"d"}}"""))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await running;
+        new JsonParser(engine).Parse("""{"a":1}""").AsObject().Get("a").AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// The span overloads take the same door. Both funnel through <c>Parse(ReadOnlySpan&lt;char&gt;)</c>, so
+    /// one guard covers all three — which is worth pinning, because a host reaching for the allocation-free
+    /// overload is exactly the host most likely to be doing so from a network or storage callback.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentJsonParseIsRejectedForTheSpanOverloadsToo()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var engine = CreateBlockingEngine(entered, release);
+        var running = StartOwningThread(() => engine.Execute("block()"));
+
+        await WaitUntilOwned(entered, running);
+        try
+        {
+            Invoking(() => new JsonParser(engine).Parse("""{"a":1}""".AsSpan()))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
+
+            Invoking(() => new JsonParser(engine).Parse(Encoding.UTF8.GetBytes("""{"a":1}""").AsSpan()))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await running;
+    }
+
+    /// <summary>
+    /// The other half of the pair, so the two are pinned together and cannot drift apart again.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentJsonSerializeIsRejected()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var engine = CreateBlockingEngine(entered, release);
+        var running = StartOwningThread(() => engine.Execute("block()"));
+
+        await WaitUntilOwned(entered, running);
+        try
+        {
+            Invoking(() => new JsonSerializer(engine).Serialize(JsNumber.Create(1)))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await running;
     }
 
     private static Engine CreateBlockingEngine(ManualResetEventSlim entered, ManualResetEventSlim release)
