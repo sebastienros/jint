@@ -143,15 +143,15 @@ rangeError:
         var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
         var raw = cooked.Get(JintTaggedTemplateExpression.PropertyRaw);
         var operations = ArrayOperations.For(_realm, raw, forWrite: false);
-        var length = operations.GetLength();
+        var length = operations.GetLongLength();
 
-        if (length <= 0)
+        if (length == 0)
         {
             return JsString.Empty;
         }
 
         using var result = new ValueStringBuilder();
-        for (var i = 0; i < length; i++)
+        for (ulong i = 0; i < length; i++)
         {
             // Check constraints periodically so a huge raw.length cannot run uninterrupted.
             if (i > 0)
@@ -161,15 +161,15 @@ rangeError:
                     _engine.Constraints.Check();
                 }
 
-                if (i < arguments.Length && !arguments[i].IsUndefined())
+                if (i < (ulong) arguments.Length && !arguments[(int) i].IsUndefined())
                 {
-                    var substitution = TypeConverter.ToString(arguments[i]);
+                    var substitution = TypeConverter.ToString(arguments[(int) i]);
                     JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + substitution.Length);
                     result.Append(substitution);
                 }
             }
 
-            var segment = TypeConverter.ToString(operations.Get((ulong) i));
+            var segment = TypeConverter.ToString(operations.Get(i));
             JsString.ThrowIfLengthExceeded(_realm, (long) result.Length + segment.Length);
             result.Append(segment);
         }

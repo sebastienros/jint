@@ -618,7 +618,7 @@ public sealed partial class ArrayConstructor : Constructor
         ICallable? callable,
         JsValue thisArg)
     {
-        var length = source.GetLength();
+        var length = source.GetLongLength();
 
         ObjectInstance a;
         // Step 6.b: IsConstructor(C) -- see the note on the iterator branch above.
@@ -635,8 +635,7 @@ public sealed partial class ArrayConstructor : Constructor
         var invoker = callable is not null ? CallbackInvoker.Rent(_engine, callable, 2) : default;
 
         var target = ArrayOperations.For(a, forWrite: true);
-        uint n = 0;
-        for (uint i = 0; i < length; i++)
+        for (ulong i = 0; i < length; i++)
         {
             // Check constraints periodically so a huge array-like length cannot run uninterrupted.
             if (i > 0 && i % ConstraintCheckInterval == 0)
@@ -650,11 +649,10 @@ public sealed partial class ArrayConstructor : Constructor
                 value = invoker.Call(thisArg, value, i);
 
                 // function can alter data
-                length = source.GetLength();
+                length = source.GetLongLength();
             }
 
             target.CreateDataPropertyOrThrow(i, value);
-            n++;
         }
 
         invoker.Return();
