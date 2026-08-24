@@ -1440,11 +1440,14 @@ namespace Jint.Native.ShadowRealm
         public Jint.Native.JsValue ImportValue(string specifier, string exportName) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, Jint.Native.JsValue value) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, System.Delegate value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, System.Type type) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, bool value) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, double value) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, int value) { }
-        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, object obj) { }
-        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, string value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, object? obj) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, string? value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue<T>(string name, T? obj) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue<T>(string name, T[]? obj) { }
     }
     public sealed class ShadowRealmConstructor : Jint.Native.Constructor
     {

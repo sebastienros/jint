@@ -1588,13 +1588,16 @@ namespace Jint.Native.ShadowRealm
         public Jint.Native.JsValue Evaluate(string sourceText, Jint.ScriptParsingOptions? parsingOptions = null) { }
         public Jint.Native.JsValue ImportValue(string specifier, string exportName) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, Jint.Native.JsValue value) { }
-        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("User supplied delegate")]
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, System.Delegate value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)] System.Type type) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, bool value) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, double value) { }
         public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, int value) { }
-        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, object obj) { }
-        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, string value) { }
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"The runtime type of obj is not known at the call site, so the members Jint resolves by reflection cannot be preserved by the trimmer, and a removed one reads as undefined rather than as an error. Prefer SetValue<T>(string, T), whose type parameter carries [DynamicallyAccessedMembers]; pass an already-built JsValue; or root the type yourself.")]
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, object? obj) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue(string name, string? value) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name, T? obj) { }
+        public Jint.Native.ShadowRealm.ShadowRealm SetValue<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicEvents)]  T>(string name, T[]? obj) { }
     }
     public sealed class ShadowRealmConstructor : Jint.Native.Constructor
     {

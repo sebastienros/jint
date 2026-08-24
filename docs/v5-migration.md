@@ -340,6 +340,34 @@ Two things follow that are not visible in a signature. A default `Options` now a
 where it used to allocate ten eagerly; and `ForUntrustedCode`'s private snapshot copies every group rather
 than the six it happened to name, so a group added later cannot silently escape the profile.
 
+### 3.7 `ShadowRealm.SetValue` is `Engine.SetValue`, mirrored ([#3321](https://github.com/sebastienros/jint/pull/3321))
+
+The two are the same API pointed at different global objects, and they had drifted. `ShadowRealm` was
+missing three overloads, disagreed about `null`, and — the part that mattered — carried its trimming
+annotation on the wrong overload. All of it now matches, member for member:
+
+| | 4.16.x | 5.x |
+| --- | --- | --- |
+| `SetValue(string, Delegate)` | `[RequiresUnreferencedCode("User supplied delegate")]` | no annotation, as on the engine |
+| `SetValue(string, object)` | no annotation | `SetValue(string, object?)`, `[RequiresUnreferencedCode]` with the engine's message |
+| `SetValue(string, string)` | throws `ArgumentNullException` on `null` | `SetValue(string, string?)`; `null` registers as JavaScript `null` |
+| `SetValue(string, Type)` | — | added |
+| `SetValue<T>(string, T)` | — | added |
+| `SetValue<T>(string, T[])` | — | added |
+
+The annotation swap is the reason to read this section. A delegate registration reflects over nothing a
+trimmer can remove, so the warning was noise; the `object` overload is the one that resolves members from a
+runtime type, and it was silent. A trimming host projecting a host object into a shadow realm therefore got
+no diagnostic, and a trimmed-away member read as `undefined` at run time. See
+[§6.3](#63-apis-that-now-warn) for what the message says and what to do about it.
+
+Two consequences worth knowing. Passing a typed variable now picks `SetValue<T>` rather than
+`SetValue(string, object)`, which is an improvement — `[DynamicallyAccessedMembers]` preserves what Jint
+reflects over — but it also means a delegate registration wants the same cast the engine's does
+(`(Delegate) new Func<int, int>(…)`, see [§6.4](#64-what-you-owe-your-own-project)). And every overload now
+takes the engine's host-call reservation for the duration of the write, exactly as
+`ShadowRealm.Evaluate` already did, so registering a value from another thread while the engine is running
+is rejected with `InvalidOperationException` instead of racing the global object.
 
 ## 4. Breaking without a signature change
 
@@ -681,7 +709,7 @@ generics unless the type also implements `IList`.
 
 ### 6.3 APIs that now warn
 
-Seven members carry `[RequiresUnreferencedCode]`, so a trimming or AOT host sees the diagnostic at their
+Eight members carry `[RequiresUnreferencedCode]`, so a trimming or AOT host sees the diagnostic at their
 own call site rather than as a wrong answer at run time. Each message names what to do instead.
 
 | member | why | what to do |
@@ -689,9 +717,16 @@ own call site rather than as a wrong answer at run time. Each message names what
 | `Options.AllowClr()` and `AllowClr(params Assembly[])` | script names CLR types and namespaces as strings; nothing statically references what they expose | root the assemblies you allow, or drop `AllowClr` and hand each type to script explicitly |
 | `Options.AddExtensionMethods(params Type[])` | the types are reflected over, and a `Type[]` parameter cannot carry `[DynamicallyAccessedMembers]` - only a `Type` or a `string` can | root the declaring types; a trimmed-away extension method fails as `not a function`, with no diagnostic |
 | `Engine.SetValue(string, object?)` | no type at the call site to annotate | prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
+| `ShadowRealm.SetValue(string, object?)` | the same overload on the same API, pointed at a shadow realm's global object; it carried no annotation at all until v5, while the harmless `Delegate` overload beside it carried one ([§3.7](#37-shadowrealmsetvalue-is-enginesetvalue-mirrored)) | the same: prefer `SetValue<T>(string, T)`, or pass a `JsValue` |
 | `ObjectWrapper.Create(Engine, object, Type?)` | same - and it is what a custom `WrapObjectHandler` calls | root the type, or project through `SetValue<T>` |
 
 (`ClrHelper.Unwrap` and `ClrHelper.Wrap`, reachable only from script through `clrHelper`, carry it too.)
+
+One annotation was **removed** in the same change, and a removal is worth as much as an addition here:
+`ShadowRealm.SetValue(string, Delegate)` warned that it required unreferenced code, which it does not — a
+delegate is handed over as a delegate and nothing is resolved from its type by reflection. Over-annotating
+teaches an embedder to suppress the diagnostic on APIs that are fine, which is exactly how the one that
+mattered stayed unread.
 
 `Options.Interop.Enabled = true` opens the same door unannotated: it is a property setter, and
 annotating it would warn on `= false` as well, which would be absurd. If you set it directly, you are
@@ -700,11 +735,11 @@ the grant, so on its own it installs `System`, `importNamespace` and `clrHelper`
 `Interop.AllowedAssemblies` stays empty and every namespace script names is unresolvable. `AllowClr()`
 opens the gate *and* names assemblies.
 
-Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>`,
-`TypeReference.CreateTypeReference`, `ModuleBuilder.ExportType` and `JsValue.FromObject`. The first
-four carry `[DynamicallyAccessedMembers]`, which *preserves* what Jint reflects over instead of merely
-warning about it - they are the AOT-friendly way to expose a type, which is exactly why the messages
-above point at them. Nothing carries `[RequiresDynamicCode]`, because §6.1 is what the measurement
+Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>` — on `Engine` and on
+`ShadowRealm` alike — `TypeReference.CreateTypeReference`, `ModuleBuilder.ExportType` and
+`JsValue.FromObject`. The first four carry `[DynamicallyAccessedMembers]`, which *preserves* what Jint
+reflects over instead of merely warning about it - they are the AOT-friendly way to expose a type, which
+is exactly why the messages above point at them. Nothing carries `[RequiresDynamicCode]`, because §6.1 is what the measurement
 says, and warning an AOT host away from an API that works would be worse than not warning at all.
 
 The attributes are on the `net8.0` and `net10.0` assets. The downlevel targets carry the same

@@ -58,46 +58,118 @@ public sealed class ShadowRealm : ObjectInstance
         return value;
     }
 
-    [RequiresUnreferencedCode("User supplied delegate")]
+    /// <summary>
+    /// Registers a delegate with given name on this shadow realm's global object. Delegate becomes a
+    /// JavaScript function that can be called.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the one <c>SetValue</c> overload whose property attributes differ</b>, exactly as on
+    /// <see cref="Engine.SetValue(string, Delegate)"/>: a delegate is installed with
+    /// <see cref="PropertyFlag.NonEnumerable"/> — writable and configurable, but <em>not</em> enumerable —
+    /// while every other overload produces the ordinary configurable/enumerable/writable data property. So
+    /// a delegate registered here does not appear in <c>Object.keys(globalThis)</c> or a <c>for..in</c>
+    /// over the shadow realm's global object, and every other value does.
+    /// </remarks>
     public ShadowRealm SetValue(string name, Delegate value)
     {
-        _shadowRealm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(_engine, value), PropertyFlag.NonEnumerable));
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.RegisterDelegate(_engine, _shadowRealm.GlobalObject, name, value);
         return this;
     }
 
-    public ShadowRealm SetValue(string name, string value)
+    /// <summary>
+    /// Registers a string value as variable on this shadow realm's global object.
+    /// </summary>
+    public ShadowRealm SetValue(string name, string? value)
     {
-        return SetValue(name, JsString.Create(value));
+        return SetValue(name, value is null ? JsValue.Null : JsString.Create(value));
     }
 
+    /// <summary>
+    /// Registers a double value as variable on this shadow realm's global object.
+    /// </summary>
     public ShadowRealm SetValue(string name, double value)
     {
-        return SetValue(name, JsNumber.Create(value));
+        return SetValue(name, (JsValue) JsNumber.Create(value));
     }
 
+    /// <summary>
+    /// Registers an integer value as variable on this shadow realm's global object.
+    /// </summary>
     public ShadowRealm SetValue(string name, int value)
     {
-        return SetValue(name, JsNumber.Create(value));
+        return SetValue(name, (JsValue) JsNumber.Create(value));
     }
 
+    /// <summary>
+    /// Registers a boolean value as variable on this shadow realm's global object.
+    /// </summary>
     public ShadowRealm SetValue(string name, bool value)
     {
-        return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
+        return SetValue(name, (JsValue) (value ? JsBoolean.True : JsBoolean.False));
     }
 
+    /// <summary>
+    /// Registers a native JS value as variable on this shadow realm's global object.
+    /// </summary>
     public ShadowRealm SetValue(string name, JsValue value)
     {
-        _shadowRealm.GlobalObject.Set(name, value);
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.Register(_shadowRealm.GlobalObject, name, value);
         return this;
     }
 
-    public ShadowRealm SetValue(string name, object obj)
+    /// <summary>
+    /// Registers an object value as variable on this shadow realm's global object, creates an interop
+    /// wrapper when needed.
+    /// </summary>
+    /// <remarks>
+    /// This overload binds only where the argument's static type is <see cref="object"/> — a typed
+    /// variable picks <see cref="SetValue{T}(string, T)"/>, whose type parameter carries
+    /// <c>[DynamicallyAccessedMembers]</c> and therefore preserves what Jint reflects over. Here there is
+    /// no type to annotate, which is the whole of the difference.
+    /// </remarks>
+    [RequiresUnreferencedCode(GlobalValueRegistration.RequiresUnreferencedCodeMessage)]
+    public ShadowRealm SetValue(string name, object? obj)
     {
-        var value = obj is Type t
-            ? TypeReference.CreateTypeReference(_engine, t)
-            : JsValue.FromObject(_engine, obj);
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.RegisterObject(_engine, _shadowRealm.GlobalObject, name, obj);
+        return this;
+    }
 
-        return SetValue(name, value);
+    /// <summary>
+    /// Registers a CLR type as variable on this shadow realm's global object, creates an interop wrapper
+    /// when needed.
+    /// </summary>
+    public ShadowRealm SetValue(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
+    {
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.RegisterType(_engine, _shadowRealm.GlobalObject, name, type);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an object value as variable on this shadow realm's global object, creates an interop
+    /// wrapper when needed.
+    /// </summary>
+    public ShadowRealm SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T? obj)
+    {
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.RegisterTyped(_engine, _shadowRealm.GlobalObject, name, obj);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an array as variable on this shadow realm's global object, creates an interop wrapper
+    /// when needed. Behaves exactly like <see cref="SetValue{T}(string, T)"/>; it exists so that the
+    /// annotation lands on the <em>element</em> type, for the reasons
+    /// <see cref="Engine.SetValue{T}(string, T[])"/> spells out.
+    /// </summary>
+    public ShadowRealm SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T[]? obj)
+    {
+        using var ownership = _engine.EnterHostCall();
+        GlobalValueRegistration.RegisterArray(_engine, _shadowRealm.GlobalObject, name, obj);
+        return this;
     }
 
 
