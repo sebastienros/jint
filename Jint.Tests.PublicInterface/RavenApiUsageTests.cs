@@ -235,6 +235,14 @@ public class RavenApiUsageTests
     }
 }
 
+/// <summary>
+/// A lazy host string written the pre-<see cref="LazyJsString"/> way: derived straight from
+/// <see cref="JsString"/>, with <see langword="null"/> passed to a constructor whose parameter is typed
+/// <see cref="string"/>, and <c>ToString()</c>, <c>Length</c> and the indexer overridden by hand. This is the
+/// shape RavenDB has in its own tree, and it is kept exactly as it is on purpose: <see cref="LazyJsString"/>
+/// is the supported spelling now, but the old one has to keep working, and this is what proves it does.
+/// <see cref="LazyHostStringTests"/> covers the new one.
+/// </summary>
 file sealed class CustomString : JsString
 {
     private readonly string _value;

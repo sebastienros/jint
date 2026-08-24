@@ -1243,6 +1243,14 @@ namespace Jint.Native
         public static bool operator !=(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
         public static bool operator ==(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
     }
+    public abstract class LazyJsString : Jint.Native.JsString
+    {
+        protected LazyJsString(int length) { }
+        public override char this[int index] { get; }
+        public override int Length { get; }
+        protected abstract string Materialize();
+        public override sealed string ToString() { }
+    }
     public delegate Jint.Native.JsValue LazySlotFactory(Jint.Native.JsObject instance, object? state);
     public abstract class Prototype : Jint.Native.Object.ObjectInstance { }
 }

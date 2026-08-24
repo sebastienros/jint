@@ -2180,7 +2180,8 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, the
   named-projection hooks against each other — `HasName` and `NameAt` against `TryGetNamedValue`, a
   `writable: true` name against having a `TrySetNamedValue` override to accept it (and the reverse), and a
-  `TryDeleteName` that answered `true` for a name still readable — and an
+  `TryDeleteName` that answered `true` for a name still readable — a `LazyJsString`'s declared
+  length against the text it eventually produces, and an
   `IObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
   declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
   hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
@@ -2207,6 +2208,37 @@ That matters only because this registration is per engine: a capturing factory c
 delegate for every global on every engine you build, which on `FreshEngineGlobalsBenchmark`'s forty-global
 row is 32 bytes per global. There is deliberately no `Options` counterpart — a registration made there is
 recorded once for the process and replayed per engine, so its closure is already a one-off.
+
+**Lazy strings.** The same question one level down: a *string* whose text is expensive to produce — a
+database blob, a projected document field, a payload behind a native handle — should be a `LazyJsString`
+rather than a `JsString` built from text nothing may ever read. You declare its length and implement one
+method:
+
+```c#
+sealed class DocumentField : LazyJsString
+{
+    private readonly byte[] _utf8;
+
+    public DocumentField(byte[] utf8, int length) : base(length) => _utf8 = utf8;
+
+    protected override string Materialize() => Encoding.UTF8.GetString(_utf8);
+}
+```
+
+`Materialize()` runs at most once — the base class memoizes it, and `ToString()` is sealed so the
+memoization cannot be bypassed — and it never runs at all for anything the declared length can answer:
+`str.length`, truthiness, and the length comparison string equality performs first, so `field === 'yes'`
+against a 40 KB value costs nothing. Override `this[int index]` as well when your store can produce one
+character without decoding the whole value, and character access joins that list. Everything else does need
+the characters, including the one that surprises: a property key is a string plus its ordinal hash, so
+`obj[field]`, `field in obj` and a computed key all materialize, as do `JSON.stringify`, concatenation and
+the `String.prototype` methods.
+
+The length you declare is what all of those shortcuts answer from, so it has to be the length you produce;
+with **host-contract verification** on (above) a disagreement throws at the moment both answers exist,
+naming the type and both lengths. Deriving from `JsString` directly and passing `null` to its `string`
+constructor — the way this was written before `LazyJsString` existed, and which obliges you to override
+`ToString()`, `Length` and the indexer and to memoize by hand — still works and is still supported.
 
 **Per-request state behind an engine.** Every host-facing factory in this API receives the engine and nothing
 else, which is a problem when the value depends on the request rather than on process-wide configuration.

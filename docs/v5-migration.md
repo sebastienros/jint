@@ -997,6 +997,21 @@ none of it changes an engine that does not.
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
 | Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#51-source-generated-clr-interop) |
+| `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
+
+The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
+worth saying what happens to the old one. A lazy host string used to be written by deriving from `JsString`
+and passing **`null`** to a constructor whose parameter is typed `string` — a suppression against a contract
+that existed only in that class's `<remarks>` — and then overriding `ToString()`, `Length` and the indexer
+and memoizing by hand in each host. **That still compiles and still works**, and Jint's own sliced and
+concatenated strings are still built on it; nothing about `JsString(string)` changed. `LazyJsString` is the
+supported spelling from v5 on: the length goes to the constructor and one `Materialize()` method replaces
+the other three overrides, the base class memoizes it and seals `ToString()` so the memoization cannot be
+bypassed, a `null` result is refused with a message that names the type instead of surfacing as a
+`NullReferenceException` somewhere else, and host-contract verification checks the declared length against
+the text that is eventually produced. Overriding the indexer is still worth doing when the backing store can
+answer one character without decoding the whole value; overriding `Length` is not, since the constructor
+takes it.
 
 ### 5.1 Source-generated CLR interop
 
