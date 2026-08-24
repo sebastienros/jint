@@ -36,6 +36,7 @@ namespace Jint.Native.Object;
 public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 {
     private protected bool _initialized;
+    private bool _extensible;
     private readonly ObjectClass _class;
 
     internal PropertyDictionary? _properties;
@@ -83,9 +84,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         _class = objectClass;
         // if engine is ready, we can take default prototype for object
         _prototype = engine.Realm.Intrinsics?.Object?.PrototypeObject;
-#pragma warning disable MA0056
-        Extensible = true;
-#pragma warning restore MA0056
+        _extensible = true;
     }
 
     public Engine Engine
@@ -105,10 +104,35 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// If true, own properties may be added to the
-    /// object.
+    /// If true, own properties may be added to the object — <c>[[IsExtensible]]</c>, and the answer
+    /// <c>Object.isExtensible</c> and <c>Reflect.isExtensible</c> give for it.
     /// </summary>
-    public virtual bool Extensible { get; internal set; }
+    /// <remarks>
+    /// Deliberately <b>not</b> virtual. It used to be, over an <c>internal</c> setter, so a subclass could
+    /// override the getter to a constant and keep a setter that no longer fed it: <c>PreventExtensions()</c>
+    /// then reported success while <c>Object.isExtensible</c> went on answering <see langword="true"/>, and
+    /// <c>Object.seal</c> / <c>Object.freeze</c> became silent no-ops — a <c>[[PreventExtensions]]</c>
+    /// invariant violation a script cannot detect. A host that wants an object nothing can ever make
+    /// non-extensible overrides <see cref="PreventExtensions"/> and returns <see langword="false"/> instead,
+    /// which is the spec's own answer for that intent and makes <c>Object.preventExtensions</c> raise a
+    /// <c>TypeError</c> rather than lie.
+    /// </remarks>
+    public bool Extensible
+    {
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => IsExtensible();
+        internal set => _extensible = value;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinaryisextensible — the exotic <c>[[IsExtensible]]</c> hook, internal
+    /// because the only two objects that legitimately deviate are Jint's own: a Proxy, which has to run the
+    /// <c>isExtensible</c> trap on every read, and a module namespace, which is never extensible. A host
+    /// subclass expresses the same intent through <see cref="PreventExtensions"/>; see
+    /// <see cref="Extensible"/>.
+    /// </summary>
+    internal virtual bool IsExtensible() => _extensible;
 
     internal PropertyDictionary? Properties
     {
@@ -2569,11 +2593,90 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinarypreventextensions
     /// </summary>
+    /// <remarks>
+    /// This is the hook a host overrides to refuse ever becoming non-extensible: return
+    /// <see langword="false"/>, which is what <c>[[PreventExtensions]]</c> is allowed to answer and what a
+    /// WebIDL legacy platform object answers. <c>Object.preventExtensions</c> and
+    /// <c>Object.seal</c>/<c>freeze</c> then raise a <c>TypeError</c> instead of reporting a success that
+    /// did not happen. Returning <see langword="true"/> obliges the object to answer
+    /// <see cref="Extensible"/> with <see langword="false"/> afterwards — the base implementation does that
+    /// by writing the field, and an override that returns <see langword="true"/> without reaching it is
+    /// reported by <see cref="HostContractVerification">host-contract verification</see>.
+    /// </remarks>
     public virtual bool PreventExtensions()
     {
-        Extensible = false;
+        _extensible = false;
         return true;
     }
+
+    /// <summary>
+    /// Invokes <see cref="PreventExtensions"/> and, with host-contract verification on, checks the
+    /// <c>[[PreventExtensions]]</c> invariant the engine and every script trust without re-verifying: if it
+    /// returns <see langword="true"/>, <c>[[IsExtensible]]</c> must subsequently return <see langword="false"/>.
+    /// Every script-visible route into the hook — <c>Object.preventExtensions</c>, <c>Object.seal</c>,
+    /// <c>Object.freeze</c>, <c>Reflect.preventExtensions</c> — goes through here.
+    /// <para>
+    /// A pure pass-through when verification is off: <see cref="HostContractVerification.Enabled"/> is a JIT
+    /// constant.
+    /// </para>
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool PreventExtensionsChecked()
+    {
+        var prevented = PreventExtensions();
+        if (HostContractVerification.Enabled && prevented)
+        {
+            AssertPreventExtensionsTookEffect(this);
+        }
+
+        return prevented;
+    }
+
+    /// <summary>
+    /// Verifier for a host's <see cref="PreventExtensions"/> override. Only an override declared outside the
+    /// Jint assembly is checked: Jint's own two deviate legitimately (a module namespace is already
+    /// non-extensible, and reading a Proxy's extensibility would run a user <c>isExtensible</c> trap — an
+    /// observable side effect a verifier must never introduce).
+    /// </summary>
+    private static void AssertPreventExtensionsTookEffect(ObjectInstance target)
+    {
+        var type = target.GetType();
+        if (!HasHostDeclaredPreventExtensions(type) || !target.Extensible)
+        {
+            return;
+        }
+
+        HostContractVerification.Fail($"{type}.PreventExtensions() returned true but {type}.Extensible is still true. A [[PreventExtensions]] that succeeds must leave the object non-extensible; the engine and every script trust it without re-verifying, so Object.isExtensible goes on answering true and Object.seal/Object.freeze become silent no-ops. Call base.PreventExtensions() to make it take effect, or return false to refuse — which is what makes Object.preventExtensions raise a TypeError instead.");
+    }
+
+    /// <summary>
+    /// Whether a type's <see cref="PreventExtensions"/> override was declared outside the Jint assembly, which
+    /// is exactly when <see cref="PreventExtensionsChecked"/> has something to verify. Cached per
+    /// <see cref="Type"/> for the same reason <see cref="_hostDeclaredProbe"/> is.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, bool> _hostDeclaredPreventExtensions = new();
+
+    private static bool HasHostDeclaredPreventExtensions(Type type)
+        => _hostDeclaredPreventExtensions.TryGetValue(type, out var declared)
+            ? declared
+            : HasHostDeclaredPreventExtensionsUncached(type);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    [UnconditionalSuppressMessage("Trimming", "IL2070",
+        Justification = "Reads one well-known public virtual member of this very type's own hierarchy, which the trimmer keeps because the engine calls it virtually. If the metadata is unavailable the probe answers false, which only forgoes a verification that is itself opt-in.")]
+    private static bool HasHostDeclaredPreventExtensionsUncached(Type type)
+        => _hostDeclaredPreventExtensions.GetOrAdd(type, static t =>
+        {
+            var method = t.GetMethod(
+                nameof(PreventExtensions),
+                BindingFlags.Public | BindingFlags.Instance,
+                binder: null,
+                types: [],
+                modifiers: null);
+
+            return method?.DeclaringType is { } declaringType
+                && declaringType.Assembly != typeof(ObjectInstance).Assembly;
+        });
 
     protected internal virtual ObjectInstance? GetPrototypeOf()
     {
@@ -3011,7 +3114,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     internal bool SetIntegrityLevel(IntegrityLevel level)
     {
-        var status = PreventExtensions();
+        var status = PreventExtensionsChecked();
         if (!status)
         {
             return false;

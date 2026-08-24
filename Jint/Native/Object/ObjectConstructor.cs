@@ -456,7 +456,7 @@ public sealed partial class ObjectConstructor : Constructor
             return value;
         }
 
-        if (!o.PreventExtensions())
+        if (!o.PreventExtensionsChecked())
         {
             Throw.TypeError(_realm, "Cannot prevent extensions");
         }
