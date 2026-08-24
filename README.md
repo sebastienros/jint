@@ -2128,7 +2128,10 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   `Array.isArray` stays `false` by design, the same answer a browser gives for a `NodeList`. If your backing
   store can test containment more cheaply than it can produce an element, also override
   `protected virtual bool HasIndex(uint index)`, and `in` / `hasOwnProperty` / `Object.keys` / `delete` stop
-  projecting elements they only ever discard. Reach for it when the collection is live; when it is a snapshot,
+  projecting elements they only ever discard. If the collection also has *named* members beside its elements,
+  declare them with the named-projection hooks in the next bullet, which `ArrayLikeObject` publishes too — all
+  of them `virtual` with empty defaults, so a collection with no named state declares nothing and is never
+  asked. Reach for it when the collection is live; when it is a snapshot,
   copying into a `JsArray` once is cheaper still — and give it a `JsObjectShape` prototype, per the bullet
   above, for the collection's own methods.
 - For a **named record** — a settings bag, a row, a live view over a host struct, anything whose properties
@@ -2139,12 +2142,26 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   `GetOwnProperties`, which nothing script-visible enumerates through and which is the one embedders reach for
   by mistake, shipping an object invisible to `Object.keys`, `for..in`, spread, `Object.assign` and
   `JSON.stringify`. Because the base overrides `TryGetOwnPropertyValue` for you, reads cost **no descriptor
-  and no probe** without your having to know that lane exists. Two optional hooks refine it:
-  `protected virtual bool HasName(string name)` answers `in` / `hasOwnProperty` / `Object.keys` without
-  projecting a value to discard, and `protected virtual bool IsNameEnumerable(string name)` hides a name from
-  enumeration. A projected name is read-only —
-  `{ writable: false, enumerable: IsNameEnumerable(name), configurable: true }`, with `delete` and
-  `Object.defineProperty` against it refused — while symbols and names your projection does not carry stay
+  and no probe** without your having to know that lane exists. Five optional hooks refine it, each defaulting
+  to what a projection with no native support for that question answers, so adding one is pure opt-in and
+  adding none leaves a read-only record:
+
+  | hook | default | decides |
+  | --- | --- | --- |
+  | `bool HasName(string name)` | ask `TryGetNamedValue`, discard | `in` / `hasOwnProperty` / `Object.keys`, with no value produced |
+  | `bool IsNameEnumerable(string name)` | `true` | the `enumerable` attribute |
+  | `bool IsNameWritable(string name)` | `false` | the `writable` attribute **and** whether assignment routes to you |
+  | `bool TrySetNamedValue(string name, JsValue value)` | refuses | one assignment |
+  | `bool TryDeleteName(string name)` | refuses | one `delete` |
+
+  A projected name is therefore
+  `{ writable: IsNameWritable(name), enumerable: IsNameEnumerable(name), configurable: true }`. Returning
+  `false` from either write hook is a **refusal**, which produces exactly what an ordinary non-writable
+  property produces — a silent no-op in sloppy mode, a `TypeError` in strict mode — so refuse rather than
+  throw. `IsNameWritable` may answer `true` for a name you do not yet carry, in which case an assignment
+  *creates* it, ahead of the prototype chain and only when the receiver is your object;
+  `Object.defineProperty` against a projected name stays refused, because the projection owns all three
+  attributes and assignment is the write path. Symbols and names your projection does not carry stay
   completely ordinary, so `Symbol.toStringTag`, `Symbol.iterator` and expandos all work. Give it a
   `JsObjectShape` prototype, per the bullet above, for the record's own methods.
 - If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
@@ -2160,8 +2177,10 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   AppContext.SetSwitch("Jint.EnableHostContractVerification", true);
   ```
 
-  It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, a
-  `NamedPropertyObject`'s `HasName` and `NameAt`, and an
+  It also checks a declared `PropertyAccessSemantics.Ordinary`, an `ArrayLikeObject`'s `HasIndex`, the
+  named-projection hooks against each other — `HasName` and `NameAt` against `TryGetNamedValue`, a
+  `writable: true` name against having a `TrySetNamedValue` override to accept it (and the reverse), and a
+  `TryDeleteName` that answered `true` for a name still readable — and an
   `IObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
   declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
   hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.

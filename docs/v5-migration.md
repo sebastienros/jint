@@ -525,6 +525,50 @@ continuation holds a CLR value, and a `JsValue` belongs to the engine that built
 callback runs is a write into an engine another thread may be inside. Jint had the safe shape internally all
 along (`RegisterPromiseWithClrValue`, used by `ExperimentalFeature.TaskInterop` for exactly this reason);
 both registrations are now one.
+### 3.9 `ArrayLikeObject` seals the three members a named getter used to override ([#3338](https://github.com/sebastienros/jint/pull/3338))
+
+`ArrayLikeObject` derives a whole property model from `Length` and `TryGetIndex` and seals almost all of
+it, so a subclass cannot make the parts disagree. Three members were left open, and the type's own
+documentation told a host wanting a **named** member to override them:
+
+```c#
+// 4.16.x / early 5.0 previews — no longer compiles
+public override PropertyDescriptor GetOwnProperty(JsValue property) { /* answer "last", else base */ }
+public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol) { /* add "last" */ }
+public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties() { /* …and here too */ }
+```
+
+That was a trap with the same shape as the one `NamedPropertyObject` was created to close. The three had to
+be kept mutually consistent by hand, and `GetOwnProperties` is **not** the enumeration hook — the key
+enumerations go through `GetOwnPropertyKeys` — so the natural two-member version was visible to
+`Object.keys` and invisible to `GetOwnProperties`' real consumers. Measured against this repository's own
+worked example: `Object.keys(list)` answered `0,1,2,last` while `list.ToObject()` answered `0,1,2`. And
+`ProbeOwnProperty` was already sealed with nothing to answer a named key from, so every `in`,
+`hasOwnProperty` and `Object.keys` about `last` materialized a `PropertyDescriptor`.
+
+All three are `sealed override` in v5. Declare the named member instead — the same hooks
+`NamedPropertyObject` publishes, here with empty defaults so a collection with no named state declares
+nothing:
+
+```c#
+protected override int NameCount => _items.Count == 0 ? 0 : 1;
+
+protected override string NameAt(int index) => "last";
+
+protected override bool TryGetNamedValue(string name, out JsValue value)
+{
+    if (_items.Count > 0 && name == "last") { value = _items[^1]; return true; }
+    value = JsValue.Undefined;
+    return false;
+}
+```
+
+The base class derives `GetOwnProperty`, `TryGetOwnPropertyValue`, `ProbeOwnProperty`, both key
+enumerations, `Set`, `Delete` and `DefineOwnProperty` from those, so the named key is now visible to every
+enumeration including the CLR conversion, and reaches the probe lane it could not reach before. See
+[§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) for the whole hook set. A collection whose named
+member genuinely needs to intercept reads that resolve on its *prototype* was never served by this class —
+`Get` has always been sealed — and stays on plain `ObjectInstance`.
 
 ## 4. Breaking without a signature change
 
@@ -1003,6 +1047,63 @@ Consume the generator with an `Analyzer` project reference for now:
 
 Shipping it inside the `Jint` NuGet package, diagnostics for the declined shapes above, and routing the
 generated members through `MemberFilter` and the name policy are each their own follow-up.
+| Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
+
+### 5.3 Host objects: one hook set for named properties ([#3338](https://github.com/sebastienros/jint/pull/3338))
+
+`NamedPropertyObject` shipped read-only, which is not the shape the hosts it was designed for have: a
+document, a content item and a settings bag are all written to as well as read. Such a host fell back to
+raw `ObjectInstance` and six to nine hand-written overrides. It now declares writability the same way it
+declares enumerability — per name, as an attribute — and the base class routes `[[Set]]` and `[[Delete]]`
+to the host:
+
+| hook | default | decides |
+| --- | --- | --- |
+| `NameCount` / `NameAt(int)` | *(abstract here, `0` on `ArrayLikeObject`)* | which names exist, and the enumeration order |
+| `TryGetNamedValue(string, out JsValue)` | *(abstract here)* | the value; `false` is an authoritative own miss |
+| `HasName(string)` | ask `TryGetNamedValue`, discard | existence, with no value produced |
+| `IsNameEnumerable(string)` | `true` | the `enumerable` attribute |
+| `IsNameWritable(string)` | `false` | the `writable` attribute **and** whether assignment routes to the host |
+| `TrySetNamedValue(string, JsValue)` | refuses | one assignment |
+| `TryDeleteName(string)` | refuses | one `delete` |
+
+The last three are new, and their defaults are exactly the old behaviour, so **an existing subclass keeps
+compiling and behaving**. The same eight are now published by `ArrayLikeObject` too, all `virtual` with
+empty defaults ([§3.9](#39-arraylikeobject-seals-the-three-members-a-named-getter-used-to-override-3338)).
+
+```c#
+internal sealed class Document : NamedPropertyObject
+{
+    public override int NameCount => _names.Count;
+    public override string NameAt(int index) => _names[index];
+    public override bool TryGetNamedValue(string name, out JsValue value) => _values.TryGetValue(name, out value!);
+
+    protected override bool IsNameWritable(string name) => !_computed.Contains(name);
+    protected override bool TrySetNamedValue(string name, JsValue value) { Store(name, value); return true; }
+    protected override bool TryDeleteName(string name) => Remove(name);
+}
+```
+
+Four things worth knowing before writing one:
+
+- **A `false` from `TrySetNamedValue` or `TryDeleteName` is a refusal, not an error.** It produces exactly
+  what an ordinary non-writable or non-configurable property produces: a silent no-op (or `false` from
+  `delete`) in sloppy mode, a `TypeError` in strict mode. Refuse rather than throw — a CLR exception
+  crosses into script as a host error instead of the language's own.
+- **`IsNameWritable` may answer `true` for a name the projection does not yet carry**, in which case an
+  assignment *creates* it. That routing is WebIDL's named-property-setter shape: it runs ahead of the
+  prototype chain, and only when the assignment's receiver is the object itself, so
+  `Reflect.set(doc, k, v, other)` still defines on `other`.
+- **`Object.defineProperty` on a projected name stays refused**, whether or not the name is writable. The
+  projection owns all three attributes — `configurable: true` is forced by the `[[GetOwnProperty]]`
+  invariants for a projection that may lose a name — so assignment, not `defineProperty`, is the write
+  path.
+- **The two halves of the writability declaration are checked.** Declaring a name writable without a
+  `TrySetNamedValue` override, or overriding `TrySetNamedValue` without ever overriding `IsNameWritable`,
+  is reported by host-contract verification (`AppContext.SetSwitch("Jint.EnableHostContractVerification",
+  true)`), as is a `TryDeleteName` that answered `true` for a name the projection still carries. Overriding
+  `TryDeleteName` alone is *not* a mistake: deletion is governed by `configurable`, which a projected name
+  always reports `true`, so a read-only-but-removable projection is an ordinary shape.
 
 ## 6. AOT and trimming
 

@@ -1,39 +1,64 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object;
 
 /// <summary>
-/// Base class for a host-defined, read-only object whose <em>named</em> properties are projected from native
-/// state — a record, a settings bag, a live view over host data. The indexed counterpart is
-/// <see cref="ArrayLikeObject"/>.
+/// Base class for a host-defined object whose <em>named</em> properties are projected from native state — a
+/// record, a settings bag, a document, a live view over host data. The indexed counterpart is
+/// <see cref="ArrayLikeObject"/>, which publishes the same named hooks beside its indexed ones.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A subclass supplies three members — <see cref="NameCount"/>, <see cref="NameAt"/> and
 /// <see cref="TryGetNamedValue"/> — and this class derives the whole JS-visible property model from them,
 /// keeping <c>GetOwnProperty</c>, <c>TryGetOwnPropertyValue</c>, <c>ProbeOwnProperty</c>, both key
-/// enumerations, <c>HasProperty</c>, <c>Delete</c> and <c>DefineOwnProperty</c> mutually consistent. All three
-/// are re-consulted on every operation, so a projection that gains or loses names between reads is observed
-/// live. Two further members are optional: <see cref="HasName"/> answers existence without producing a value,
-/// and <see cref="IsNameEnumerable"/> hides a name from enumeration.
+/// enumerations, <c>HasProperty</c>, <c>Set</c>, <c>Delete</c> and <c>DefineOwnProperty</c> mutually
+/// consistent. All three are re-consulted on every operation, so a projection that gains or loses names
+/// between reads is observed live.
 /// </para>
 /// <para>
+/// <b>Five optional hooks refine it</b>, each defaulting to what a projection with no native support for that
+/// question answers, so adding one is pure opt-in and adding none leaves a read-only record:
+/// </para>
+/// <list type="table">
+/// <listheader><term>hook</term><description>what it decides, and its default</description></listheader>
+/// <item>
+///   <term><see cref="HasName"/></term>
+///   <description>existence without producing a value; defaults to asking
+///   <see cref="TryGetNamedValue"/> and discarding it.</description>
+/// </item>
+/// <item>
+///   <term><see cref="IsNameEnumerable"/></term>
+///   <description>whether the name is enumerable; defaults to <see langword="true"/>.</description>
+/// </item>
+/// <item>
+///   <term><see cref="IsNameWritable"/></term>
+///   <description>whether the name reports <c>writable: true</c> and therefore routes assignment to the host;
+///   defaults to <see langword="false"/>.</description>
+/// </item>
+/// <item>
+///   <term><see cref="TrySetNamedValue"/></term>
+///   <description>accepts one assignment; defaults to refusing.</description>
+/// </item>
+/// <item>
+///   <term><see cref="TryDeleteName"/></term>
+///   <description>accepts one <c>delete</c>; defaults to refusing.</description>
+/// </item>
+/// </list>
+/// <para>
 /// <b>The JS-visible model.</b> A projected name is an own data property
-/// <c>{ writable: false, enumerable: IsNameEnumerable(name), configurable: true }</c>. Writing one is ignored
-/// in sloppy mode and raises <c>TypeError</c> in strict mode, and <c>delete</c> and
-/// <c>Object.defineProperty</c> against one are refused. Every other key is ordinary: symbols, and names the
-/// projection does not carry, use the inherited property bag and the prototype chain as usual, so
-/// <c>Symbol.toStringTag</c>, <c>Symbol.iterator</c> and expandos all work. A projected name always wins over
-/// a bag entry of the same name.
+/// <c>{ writable: IsNameWritable(name), enumerable: IsNameEnumerable(name), configurable: true }</c>. Every
+/// other key is ordinary: symbols, and names the projection does not carry, use the inherited property bag and
+/// the prototype chain as usual, so <c>Symbol.toStringTag</c>, <c>Symbol.iterator</c> and expandos all work. A
+/// projected name always wins over a bag entry of the same name.
 /// </para>
 /// <para>
 /// <c>configurable: true</c> is not a choice: a live projection may stop carrying a name, and a
-/// non-configurable property may never afterwards report as absent. Nor is <c>writable: false</c>, because
-/// there is no write hook to route a write to — adding one later is additive.
+/// non-configurable property may never afterwards report as absent. That is also why
+/// <c>Object.defineProperty</c> against a projected name is refused whether or not the name is writable — the
+/// projection owns all three attributes, so there is nothing a redefinition could change that the hooks have
+/// not already decided. Assignment, not <c>defineProperty</c>, is the write path.
 /// </para>
 /// <para>
 /// <b>Enumeration order</b> is the ordinary one: projected names that are canonical array indices first,
@@ -49,14 +74,16 @@ namespace Jint.Native.Object;
 /// <see cref="ObjectInstance"/>. Every <em>own</em> read is already observed — that is
 /// <see cref="TryGetNamedValue"/>.
 /// </para>
+/// <para>
+/// <b>Turning verification on.</b> Every obligation below is trusted on the hot path and checked only when
+/// host-contract verification is enabled. A Debug build of Jint has it on; the shipped <em>Release</em>
+/// package needs the AppContext switch set before the first use of any Jint type:
+/// <c>AppContext.SetSwitch("Jint.EnableHostContractVerification", true)</c>. Running a host's own integration
+/// suite that way is how these contracts get checked.
+/// </para>
 /// </remarks>
-public abstract class NamedPropertyObject : ObjectInstance
+public abstract class NamedPropertyObject : ObjectInstance, INamedProjection
 {
-    // { writable: false, enumerable: true, configurable: true } and its non-enumerable twin. configurable:true
-    // is what keeps a projection that loses a name inside the [[GetOwnProperty]] invariants.
-    private const PropertyFlag EnumerableFlags = PropertyFlag.NonWritable;
-    private const PropertyFlag NonEnumerableFlags = PropertyFlag.OnlyConfigurable;
-
     /// <summary>
     /// Creates the object against <paramref name="engine"/>. Set <see cref="ObjectInstance.Prototype"/>
     /// afterwards to whatever the host wants inherited — nothing is attached automatically.
@@ -131,114 +158,79 @@ public abstract class NamedPropertyObject : ObjectInstance
     /// <c>Object.assign</c> and <c>JSON.stringify</c>.
     /// </summary>
     /// <remarks>
-    /// Enumerability is the only attribute a host may vary; see the type's remarks for why writability and
-    /// configurability are fixed. It is consulted only where a descriptor or a probe is actually built, never
-    /// on the value read path.
+    /// Consulted only where a descriptor or a probe is actually built, never on the value read path.
     /// </remarks>
     protected virtual bool IsNameEnumerable(string name) => true;
 
     /// <summary>
-    /// The single funnel every engine-side named read goes through, so the host contract is enforced in one
-    /// place: a <see langword="false"/> answer always leaves <paramref name="value"/> as <c>undefined</c>
-    /// rather than whatever the host left in the <c>out</c> slot.
+    /// Whether <paramref name="name"/> is assignable; the default is <see langword="false"/>, which is what
+    /// makes a projection read-only until the host says otherwise. It is the twin of
+    /// <see cref="IsNameEnumerable"/>: one attribute of the descriptor a projected name reports, declared
+    /// per name so a record with computed or read-only fields beside writable ones stays honest.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool ReadName(string name, out JsValue value)
-    {
-        if (TryGetNamedValue(name, out value))
-        {
-            if (HostContractVerification.Enabled && value is null)
-            {
-                HostContractVerification.Fail($"{GetType()}.TryGetNamedValue answered '{name}' with a CLR null; return a JsValue or answer false.");
-            }
-
-            return true;
-        }
-
-        value = Undefined;
-        return false;
-    }
+    /// <remarks>
+    /// <para>
+    /// A <see langword="true"/> answer does two things: the name reports <c>writable: true</c>, and an
+    /// assignment to it is routed to <see cref="TrySetNamedValue"/> instead of being refused. That routing is
+    /// the WebIDL named-property-setter shape and happens <em>before</em> the prototype chain is consulted, so
+    /// a name the projection does not yet carry can be answered <see langword="true"/> here to let an
+    /// assignment create it. A name answered <see langword="false"/> takes the ordinary path: the projection
+    /// refuses the write if it carries the name, and an unknown name falls through to the prototype chain and
+    /// then to an ordinary expando.
+    /// </para>
+    /// <para>
+    /// Declaring a name writable and then having no <see cref="TrySetNamedValue"/> override to accept the
+    /// write is a contract violation — the descriptor advertises an assignment that always fails — and a build
+    /// with host-contract verification on reports it. So is overriding <see cref="TrySetNamedValue"/> without
+    /// ever overriding this hook, which leaves it dead code. Overriding <see cref="TryDeleteName"/> alone is
+    /// not a mistake: deletion is governed by <c>configurable</c>, which a projected name always reports
+    /// <see langword="true"/>, so a read-only but removable projection is an ordinary shape.
+    /// </para>
+    /// </remarks>
+    protected virtual bool IsNameWritable(string name) => false;
 
     /// <summary>
-    /// The existence-only counterpart of <see cref="ReadName"/>, and the only way this class reaches
-    /// <see cref="HasName"/>, so the agreement check sits in one place.
+    /// Accepts an assignment to <paramref name="name"/>. Return <see langword="true"/> when the projection
+    /// took the value; return <see langword="false"/> to <b>refuse</b> the write. The default refuses
+    /// everything, so a projection that does not override it is read-only.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool ProbeName(string name)
-    {
-        var has = HasName(name);
-        if (HostContractVerification.Enabled)
-        {
-            AssertHasNameAgreesWithTryGetNamedValue(this, name, has);
-        }
-
-        return has;
-    }
+    /// <remarks>
+    /// <para>
+    /// A refusal is the same answer an ordinary non-writable data property gives: the assignment raises a
+    /// <c>TypeError</c> in strict mode and is a silent no-op in sloppy mode. Refuse — do not throw — for a
+    /// value the projection will not take; a thrown CLR exception crosses into script as a host error instead
+    /// of the language's own <c>TypeError</c>.
+    /// </para>
+    /// <para>
+    /// Only reached for a name <see cref="IsNameWritable"/> answered <see langword="true"/> for, and only when
+    /// the assignment's receiver is this object — <c>Reflect.set(obj, k, v, other)</c> defines on
+    /// <c>other</c>, exactly as it does for an ordinary object.
+    /// </para>
+    /// </remarks>
+    protected virtual bool TrySetNamedValue(string name, JsValue value) => false;
 
     /// <summary>
-    /// Verifier for the <see cref="HasName"/> contract, checking <b>both</b> directions against
-    /// <see cref="TryGetNamedValue"/> for the same name. Gated on
-    /// <see cref="HostContractVerification.Enabled"/>, so a host's own suite run with the switch on is the
-    /// checker and every other process pays nothing.
+    /// Accepts <c>delete obj[name]</c> for a name the projection carries. Return <see langword="true"/> when
+    /// the name is gone; return <see langword="false"/> to <b>refuse</b> the delete. The default refuses
+    /// everything, so a projection that does not override it keeps every name it advertises.
     /// </summary>
-    private static void AssertHasNameAgreesWithTryGetNamedValue(NamedPropertyObject target, string name, bool answered)
-    {
-        var produced = target.TryGetNamedValue(name, out _);
-        if (produced == answered)
-        {
-            return;
-        }
+    /// <remarks>
+    /// A refusal makes <c>delete</c> evaluate to <c>false</c> in sloppy mode and raise a <c>TypeError</c> in
+    /// strict mode — what a non-configurable property does, even though a projected name reports
+    /// <c>configurable: true</c> for the invariant reason in the type's remarks. Answering
+    /// <see langword="true"/> obliges the projection to stop carrying the name immediately: a build with
+    /// host-contract verification on re-reads it and fails if it is still there.
+    /// </remarks>
+    protected virtual bool TryDeleteName(string name) => false;
 
-        HostContractVerification.Fail(answered
-            ? $"{target.GetType()}.HasName answered true for '{name}' but its TryGetNamedValue answers false. The engine trusts HasName, so this advertises a key whose read yields undefined or resolves on the prototype."
-            : $"{target.GetType()}.HasName answered false for '{name}' but its TryGetNamedValue produces a value. The engine trusts HasName, so this silently drops the property from `in`, hasOwnProperty, Object.keys, spread and JSON.stringify while obj['{name}'] still reads it.");
-    }
-
-    /// <summary>
-    /// Verifier for the <see cref="NameAt"/> contract: every advertised name must be readable, and no name may
-    /// repeat.
-    /// </summary>
-    private static void AssertAdvertisedNamesExist(NamedPropertyObject target, List<JsValue> keys, int projected)
-    {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < projected; i++)
-        {
-            var name = keys[i].ToString();
-            if (!seen.Add(name))
-            {
-                HostContractVerification.Fail($"{target.GetType()}.NameAt reported '{name}' more than once. A duplicate key makes Object.keys and Object.getOwnPropertyNames report the property twice.");
-            }
-
-            if (!target.TryGetNamedValue(name, out _))
-            {
-                HostContractVerification.Fail($"{target.GetType()}.NameAt advertised '{name}' but its TryGetNamedValue answers false for it. Object.keys and Object.getOwnPropertyNames would list a key that reads as undefined or resolves on the prototype.");
-            }
-        }
-    }
-
-    /// <summary>
-    /// The key as a name, or <see langword="false"/> for a key the projection cannot own — a symbol, a private
-    /// name, or an object key that would need an observable <c>ToPrimitive</c>. Those fall through to the
-    /// ordinary property bag.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryGetName(JsValue property, [NotNullWhen(true)] out string? name)
-    {
-        if (property is JsString jsString)
-        {
-            name = jsString.ToString();
-            return true;
-        }
-
-        if (property is JsSymbol or PrivateName or ObjectInstance)
-        {
-            name = null;
-            return false;
-        }
-
-        name = TypeConverter.ToString(property);
-        return true;
-    }
+    int INamedProjection.NameCount => NameCount;
+    string INamedProjection.NameAt(int index) => NameAt(index);
+    bool INamedProjection.TryGetNamedValue(string name, out JsValue value) => TryGetNamedValue(name, out value);
+    bool INamedProjection.HasName(string name) => HasName(name);
+    bool INamedProjection.IsNameEnumerable(string name) => IsNameEnumerable(name);
+    bool INamedProjection.IsNameWritable(string name) => IsNameWritable(name);
+    bool INamedProjection.TrySetNamedValue(string name, JsValue value) => TrySetNamedValue(name, value);
+    bool INamedProjection.TryDeleteName(string name) => TryDeleteName(name);
 
     /// <summary>
     /// Sealed so no subclass can go exotic underneath the <see cref="PropertyAccessSemantics.Ordinary"/> claim
@@ -252,7 +244,7 @@ public abstract class NamedPropertyObject : ObjectInstance
     /// </summary>
     protected internal sealed override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
     {
-        if (TryGetName(property, out var name) && ReadName(name, out value))
+        if (NamedProjection.TryGetName(property, out var name) && NamedProjection.Read(this, name, out value))
         {
             return true;
         }
@@ -274,9 +266,9 @@ public abstract class NamedPropertyObject : ObjectInstance
     /// <inheritdoc />
     public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (TryGetName(property, out var name) && ReadName(name, out var value))
+        if (NamedProjection.TryGetName(property, out var name) && NamedProjection.Read(this, name, out var value))
         {
-            return new PropertyDescriptor(value, IsNameEnumerable(name) ? EnumerableFlags : NonEnumerableFlags);
+            return NamedProjection.DescriptorFor(this, name, value);
         }
 
         return base.GetOwnProperty(property);
@@ -288,9 +280,9 @@ public abstract class NamedPropertyObject : ObjectInstance
     /// </summary>
     protected internal sealed override OwnPropertyProbe ProbeOwnProperty(JsValue property)
     {
-        if (TryGetName(property, out var name) && ProbeName(name))
+        if (NamedProjection.TryGetName(property, out var name) && NamedProjection.Probe(this, name))
         {
-            return IsNameEnumerable(name) ? OwnPropertyProbe.Enumerable : OwnPropertyProbe.NonEnumerable;
+            return NamedProjection.ProbeResultFor(this, name);
         }
 
         // base.GetOwnProperty rather than base.ProbeOwnProperty, for the reason above: the base probe ends in
@@ -320,24 +312,16 @@ public abstract class NamedPropertyObject : ObjectInstance
             return base.GetOwnPropertyKeys(types);
         }
 
-        var keys = CollectNames();
+        var keys = NamedProjection.CollectNames(this, _engine, NamedProjection.NameOrder.IndexNamesFirst);
         var projected = keys.Count;
         foreach (var stored in base.GetOwnPropertyKeys(types))
         {
-            // A bag entry the projection has since started carrying is shadowed by it — an expando written
-            // before the name appeared. Listing both would put a duplicate into [[OwnPropertyKeys]]. Nothing
-            // is asked at all in the usual case, where the bag is empty.
-            if (projected > 0 && stored is JsString storedName && ProbeName(storedName.ToString()))
+            if (NamedProjection.ShadowsBagKey(this, stored, projected))
             {
                 continue;
             }
 
             keys.Add(stored);
-        }
-
-        if (HostContractVerification.Enabled)
-        {
-            AssertAdvertisedNamesExist(this, keys, projected);
         }
 
         return keys;
@@ -348,21 +332,20 @@ public abstract class NamedPropertyObject : ObjectInstance
     /// </summary>
     public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
-        var names = CollectNames();
+        var names = NamedProjection.CollectNames(this, _engine, NamedProjection.NameOrder.IndexNamesFirst);
         foreach (var key in names)
         {
             var name = key.ToString();
-            if (ReadName(name, out var value))
+            if (NamedProjection.Read(this, name, out var value))
             {
-                var flags = IsNameEnumerable(name) ? EnumerableFlags : NonEnumerableFlags;
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, new PropertyDescriptor(value, flags));
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, NamedProjection.DescriptorFor(this, name, value));
             }
         }
 
         foreach (var entry in base.GetOwnProperties())
         {
             // Shadowed bag entries are skipped, exactly as in GetOwnPropertyKeys.
-            if (names.Count > 0 && entry.Key is JsString storedName && ProbeName(storedName.ToString()))
+            if (NamedProjection.ShadowsBagKey(this, entry.Key, names.Count))
             {
                 continue;
             }
@@ -372,80 +355,54 @@ public abstract class NamedPropertyObject : ObjectInstance
     }
 
     /// <summary>
-    /// Refuses <c>delete</c> of a projected name (sloppy mode: the expression evaluates to <c>false</c>;
-    /// strict mode: <c>TypeError</c>). Every other key deletes ordinarily.
+    /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to
+    /// <see cref="TrySetNamedValue"/>, and leaves every other key entirely ordinary. A refused write raises a
+    /// <c>TypeError</c> in strict mode and is a silent no-op in sloppy mode, which is also what a name the
+    /// projection carries but does not declare writable gets.
+    /// </summary>
+    public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
+    {
+        // WebIDL's named property setter runs ahead of the prototype chain and only when the receiver is the
+        // object itself. `Reflect.set(obj, k, v, other)` therefore defines on `other`, exactly as it would for
+        // an ordinary object, and a non-writable name falls to base.Set, which finds the non-writable
+        // descriptor this class reports and refuses in the ordinary way.
+        if (ReferenceEquals(this, receiver)
+            && NamedProjection.TryGetName(property, out var name)
+            && IsNameWritable(name))
+        {
+            return NamedProjection.Write(this, name, value);
+        }
+
+        return base.Set(property, value, receiver);
+    }
+
+    /// <summary>
+    /// Routes <c>delete</c> of a projected name to <see cref="TryDeleteName"/>, whose default refuses (sloppy
+    /// mode: the expression evaluates to <c>false</c>; strict mode: <c>TypeError</c>). Every other key deletes
+    /// ordinarily.
     /// </summary>
     public sealed override bool Delete(JsValue property)
     {
-        if (TryGetName(property, out var name) && ProbeName(name))
+        if (NamedProjection.TryGetName(property, out var name) && NamedProjection.Probe(this, name))
         {
-            return false;
+            return NamedProjection.Remove(this, name);
         }
 
         return base.Delete(property);
     }
 
     /// <summary>
-    /// Refuses <c>[[DefineOwnProperty]]</c> on a projected name — the projection is read-only and would shadow
-    /// the definition anyway. Every other key defines ordinarily.
+    /// Refuses <c>[[DefineOwnProperty]]</c> on a projected name — the projection owns all three attributes, so
+    /// a redefinition has nothing to change, and assignment rather than <c>defineProperty</c> is the write
+    /// path. Every other key defines ordinarily.
     /// </summary>
     public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (TryGetName(property, out var name) && ProbeName(name))
+        if (NamedProjection.TryGetName(property, out var name) && NamedProjection.Probe(this, name))
         {
             return false;
         }
 
         return base.DefineOwnProperty(property, desc);
-    }
-
-    /// <summary>
-    /// The projected names as keys, in <c>[[OwnPropertyKeys]]</c> order. The index list is allocated only when
-    /// the projection actually carries a canonical-array-index name, which is the uncommon case.
-    /// </summary>
-    private List<JsValue> CollectNames()
-    {
-        var count = NameCount;
-        var keys = new List<JsValue>(count < 0 ? 0 : count);
-        List<uint>? indices = null;
-
-        for (var i = 0; i < count; i++)
-        {
-            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-
-            var name = NameAt(i);
-            if (name is null)
-            {
-                Throw.InvalidOperationException($"{GetType()}.NameAt({i}) returned null; every name below NameCount must be a string.");
-            }
-
-            var arrayIndex = ArrayInstance.ParseArrayIndex(name);
-            if (arrayIndex < ArrayOperations.MaxArrayLength)
-            {
-                (indices ??= new List<uint>()).Add(arrayIndex);
-            }
-            else
-            {
-                keys.Add(JsString.Create(name));
-            }
-        }
-
-        if (indices is null)
-        {
-            return keys;
-        }
-
-        indices.Sort();
-        var ordered = new List<JsValue>(indices.Count + keys.Count);
-        foreach (var arrayIndex in indices)
-        {
-            ordered.Add(JsString.Create(arrayIndex));
-        }
-
-        ordered.AddRange(keys);
-        return ordered;
     }
 }

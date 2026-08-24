@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native.Array;
 using Jint.Native.Symbol;
@@ -8,7 +8,7 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Native.Object;
 
 /// <summary>
-/// Base class for host-defined, read-only, array-like objects — live views over native indexed state (a DOM
+/// Base class for host-defined, array-like objects — live views over native indexed state (a DOM
 /// <c>NodeList</c>, a result window, a host list projection). Deriving from it gives the object array-like
 /// semantics the engine recognizes end to end: indexed reads without descriptor or key allocation (including
 /// the interpreter's computed-read lane), <c>Array.prototype</c> generics and the array iterator driven by a
@@ -19,7 +19,7 @@ namespace Jint.Native.Object;
 /// <para>
 /// A subclass supplies exactly two members — <see cref="Length"/> and <see cref="TryGetIndex"/> — and this class
 /// derives the whole JS-visible property model from them, keeping <c>GetOwnProperty</c>,
-/// <c>TryGetOwnPropertyValue</c>, <c>ProbeOwnProperty</c>, the key enumerations, <c>Delete</c> and
+/// <c>TryGetOwnPropertyValue</c>, <c>ProbeOwnProperty</c>, the key enumerations, <c>Set</c>, <c>Delete</c> and
 /// <c>DefineOwnProperty</c> mutually consistent. Both members are re-consulted on every operation, so a
 /// collection that grows or shrinks between reads is observed live, exactly like a DOM collection.
 /// </para>
@@ -36,12 +36,11 @@ namespace Jint.Native.Object;
 /// <c>{ writable: false, enumerable: true, configurable: true }</c>; <c>length</c> is
 /// <c>{ writable: false, enumerable: false, configurable: true }</c>. Writes to either are ignored in sloppy
 /// mode and raise <c>TypeError</c> in strict mode, and <c>delete</c> / <c>Object.defineProperty</c> against an
-/// index key or <c>length</c> are refused — the WebIDL platform-object shape. Named properties are ordinary:
-/// the inherited property bag and the prototype work as usual, and expandos may be added.
+/// index key or <c>length</c> are refused — the WebIDL platform-object shape.
 /// </para>
 /// <para>
 /// <b>Where <c>length</c> lives</b> is a known deviation. Here it is an <em>own</em> property, so
-/// <c>list.hasOwnProperty('length')</c> is <c>true</c> and <c>Object.getOwnPropertyNames(list)</c> ends with
+/// <c>list.hasOwnProperty('length')</c> is <c>true</c> and <c>Object.getOwnPropertyNames(list)</c> contains
 /// <c>"length"</c>; a browser puts it on <c>NodeList.prototype</c> as a WebIDL attribute and answers
 /// <c>false</c>. There is deliberately no opt-out in this version: the engine reads the length of an array-like
 /// through <c>[[Get]]("length")</c> in places that do not go through this type's operations
@@ -66,16 +65,27 @@ namespace Jint.Native.Object;
 /// the engine's array-like iterator against <see cref="TryGetIndex"/>.
 /// </para>
 /// <para>
-/// <b>Extending it.</b> <see cref="ObjectInstance.Get(JsValue, JsValue)"/> is sealed, so a collection needing to
-/// intercept every <i>named</i> read through <c>Get</c> cannot derive from this class and should stay on plain
-/// <see cref="ObjectInstance"/>. Live named getters are still available by overriding
-/// <see cref="ObjectInstance.GetOwnProperty"/> (and <see cref="GetOwnPropertyKeys"/> /
-/// <see cref="GetOwnProperties"/> to advertise them): such an override <b>must</b> delegate canonical array-index
-/// keys and <c>length</c> to <c>base</c>, which a build with host-contract verification on verifies on
-/// every read.
+/// <b>Named members.</b> A collection that also projects <em>named</em> state — WebIDL's named properties, a
+/// <c>NodeList</c>-shaped view with a live <c>last</c>, a result window with a <c>total</c> — declares them
+/// through the same hooks <see cref="NamedPropertyObject"/> publishes, and this class derives the named half of
+/// the model from them the same way it derives the indexed half: <see cref="NameCount"/>,
+/// <see cref="NameAt"/> and <see cref="TryGetNamedValue"/>, refined by <see cref="HasName"/>,
+/// <see cref="IsNameEnumerable"/>, <see cref="IsNameWritable"/>, <see cref="TrySetNamedValue"/> and
+/// <see cref="TryDeleteName"/>. All eight default to "the projection carries nothing", so a collection with no
+/// named state declares nothing and is not asked. The indexed collection owns every canonical array index and
+/// <c>length</c>, which are answered before the projection is ever consulted, so a projected name may not spell
+/// one of those.
 /// </para>
 /// <para>
-/// <b>Turning that verification on.</b> Every obligation below is trusted on the hot path and checked only
+/// <b>Extending it.</b> Every member this class derives is sealed, including
+/// <see cref="ObjectInstance.Get(JsValue, JsValue)"/>: a collection needing to intercept every <i>named</i>
+/// read through <c>Get</c> cannot derive from this class and should stay on plain
+/// <see cref="ObjectInstance"/>. Live named members are the hooks above, not a <c>GetOwnProperty</c> override —
+/// which is what the sealing is for, because that override had to be kept consistent with
+/// <c>GetOwnPropertyKeys</c> and <c>GetOwnProperties</c> by hand and could not reach the probe lane at all.
+/// </para>
+/// <para>
+/// <b>Turning verification on.</b> Every obligation below is trusted on the hot path and checked only
 /// when host-contract verification is enabled. A Debug build of Jint has it on; the shipped <em>Release</em>
 /// package — which is the only one on NuGet — needs the AppContext switch set before the first use of any
 /// Jint type: <c>AppContext.SetSwitch("Jint.EnableHostContractVerification", true)</c>. Running a host's own
@@ -83,14 +93,14 @@ namespace Jint.Native.Object;
 /// production, because each verifier redoes exactly the work the lane it guards exists to avoid.
 /// </para>
 /// <para>
-/// <b>Read-only by design.</b> There is no write hook in this version; every mutating <c>Array.prototype</c>
-/// generic (<c>sort</c>, <c>fill</c>, <c>reverse</c>, …) fails with the spec-shaped <c>TypeError</c> an ordinary
-/// non-writable property produces. If the collection is a static snapshot rather than a live view, copying it
-/// into a <see cref="JsArray"/> is cheaper and gives full array semantics; this class exists for the live case,
-/// which cannot be copied.
+/// <b>Read-only indices by design.</b> There is no write hook for an element; every mutating
+/// <c>Array.prototype</c> generic (<c>sort</c>, <c>fill</c>, <c>reverse</c>, …) fails with the spec-shaped
+/// <c>TypeError</c> an ordinary non-writable property produces. If the collection is a static snapshot rather
+/// than a live view, copying it into a <see cref="JsArray"/> is cheaper and gives full array semantics; this
+/// class exists for the live case, which cannot be copied.
 /// </para>
 /// </remarks>
-public abstract class ArrayLikeObject : ObjectInstance
+public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
 {
     // { writable: false, enumerable: true, configurable: true } — what browsers report for the indices of a
     // platform array-like. configurable:true (plus the [[Delete]]/[[DefineOwnProperty]] refusals below) is the
@@ -101,6 +111,12 @@ public abstract class ArrayLikeObject : ObjectInstance
     // { writable: false, enumerable: false, configurable: true } — configurable for the same invariant reason,
     // the value changing from call to call.
     private const PropertyFlag LengthFlags = PropertyFlag.OnlyConfigurable;
+
+    // Whether the runtime type declared any of the named hooks. Derived from the type once and cached
+    // process-wide, the way the access-semantics flags are: it is a pure *routing* decision — a collection that
+    // declares no named state must not pay a virtual call per named read to be told so — and an inconclusive
+    // derivation answers "yes", which costs those calls and never changes an answer.
+    private readonly bool _hasNamedProjection;
 
     /// <summary>
     /// Creates the object against <paramref name="engine"/>. Set <see cref="ObjectInstance.Prototype"/> afterwards
@@ -113,6 +129,8 @@ public abstract class ArrayLikeObject : ObjectInstance
         // SetPropertyAccessSemantics documents, and it leaves the OwnValueHook bit (derived from the
         // TryGetOwnPropertyValue override) untouched.
         SetPropertyAccessSemantics(PropertyAccessSemantics.Ordinary);
+
+        _hasNamedProjection = (NamedProjection.DeclaredHooks(GetType()) & NamedProjectionHooks.Any) != NamedProjectionHooks.None;
     }
 
     /// <summary>
@@ -172,6 +190,99 @@ public abstract class ArrayLikeObject : ObjectInstance
     /// </para>
     /// </remarks>
     protected virtual bool HasIndex(uint index) => TryGetIndex(index, out _);
+
+    /// <summary>
+    /// How many <em>named</em> members the collection projects beside its elements; the default is <c>0</c>, so
+    /// a collection with no named state declares nothing and is never asked for one. See the type's remarks for
+    /// the whole named hook set, which is the one <see cref="NamedPropertyObject"/> publishes.
+    /// </summary>
+    protected virtual int NameCount => 0;
+
+    /// <summary>
+    /// The name at <paramref name="index"/>, which is below <see cref="NameCount"/>. Overriding
+    /// <see cref="NameCount"/> without overriding this is the one way to get an exception out of the default
+    /// projection.
+    /// </summary>
+    /// <remarks>
+    /// Every name reported here must be one <see cref="TryGetNamedValue"/> answers at the same instant, no name
+    /// may repeat, and none may be a canonical array index or <c>length</c> — the indexed collection owns those
+    /// keys and answers them before the projection is consulted, so such a name would be advertised for a read
+    /// that never reaches it. The order is the enumeration order script sees, so it must be stable. A build
+    /// with host-contract verification on checks all three obligations on every enumeration.
+    /// </remarks>
+    protected virtual string NameAt(int index)
+    {
+        Throw.ArgumentOutOfRangeException(nameof(index), $"{GetType()} reports {NameCount} projected names but does not override NameAt.");
+        return null!;
+    }
+
+    /// <summary>
+    /// Reads the projected member called <paramref name="name"/>. Return <see langword="true"/> with the value;
+    /// return <see langword="false"/> exactly when the projection does not carry that name, which is
+    /// <b>authoritative</b> — the engine resolves the read on the property bag and then the prototype chain
+    /// without asking again. The default carries nothing.
+    /// </summary>
+    /// <remarks>
+    /// Never reached for a canonical array index or for <c>length</c>: those are answered from
+    /// <see cref="Length"/> and <see cref="TryGetIndex"/> first. Never hand back a CLR <see langword="null"/>
+    /// value.
+    /// </remarks>
+    protected virtual bool TryGetNamedValue(string name, out JsValue value)
+    {
+        value = Undefined;
+        return false;
+    }
+
+    /// <summary>
+    /// Whether the projection carries <paramref name="name"/> — the existence-only question, with no value
+    /// produced. The default asks <see cref="TryGetNamedValue"/> and discards the value; override it when the
+    /// backing store can answer containment more cheaply. The answer must equal what
+    /// <see cref="TryGetNamedValue"/> would return at the same instant, which a build with host-contract
+    /// verification on checks in both directions on every probe.
+    /// </summary>
+    protected virtual bool HasName(string name) => TryGetNamedValue(name, out _);
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is enumerable; the default is <see langword="true"/>. A non-enumerable
+    /// name still answers <c>in</c> and <c>hasOwnProperty</c> and still appears in
+    /// <c>Object.getOwnPropertyNames</c>, but is skipped by <c>Object.keys</c>, <c>for..in</c>, spread,
+    /// <c>Object.assign</c> and <c>JSON.stringify</c>.
+    /// </summary>
+    protected virtual bool IsNameEnumerable(string name) => true;
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is assignable; the default is <see langword="false"/>, which keeps the
+    /// named projection as read-only as the elements are. A <see langword="true"/> answer makes the name report
+    /// <c>writable: true</c> and routes an assignment to it to <see cref="TrySetNamedValue"/>, ahead of the
+    /// prototype chain and only when the assignment's receiver is this object — the WebIDL named-property-setter
+    /// shape. It applies to <em>names</em> only: an index and <c>length</c> stay non-writable whatever this
+    /// answers.
+    /// </summary>
+    protected virtual bool IsNameWritable(string name) => false;
+
+    /// <summary>
+    /// Accepts an assignment to a name <see cref="IsNameWritable"/> claims. <see langword="false"/> refuses the
+    /// write, which raises a <c>TypeError</c> in strict mode and is a silent no-op in sloppy mode; the default
+    /// refuses everything.
+    /// </summary>
+    protected virtual bool TrySetNamedValue(string name, JsValue value) => false;
+
+    /// <summary>
+    /// Accepts <c>delete</c> of a projected name. <see langword="false"/> refuses, which evaluates to
+    /// <c>false</c> in sloppy mode and raises a <c>TypeError</c> in strict mode; the default refuses
+    /// everything. Answering <see langword="true"/> obliges the projection to stop carrying the name
+    /// immediately, which a build with host-contract verification on re-reads and checks.
+    /// </summary>
+    protected virtual bool TryDeleteName(string name) => false;
+
+    int INamedProjection.NameCount => NameCount;
+    string INamedProjection.NameAt(int index) => NameAt(index);
+    bool INamedProjection.TryGetNamedValue(string name, out JsValue value) => TryGetNamedValue(name, out value);
+    bool INamedProjection.HasName(string name) => HasName(name);
+    bool INamedProjection.IsNameEnumerable(string name) => IsNameEnumerable(name);
+    bool INamedProjection.IsNameWritable(string name) => IsNameWritable(name);
+    bool INamedProjection.TrySetNamedValue(string name, JsValue value) => TrySetNamedValue(name, value);
+    bool INamedProjection.TryDeleteName(string name) => TryDeleteName(name);
 
     /// <summary>
     /// The single funnel every engine-side index read goes through, so the host contract is enforced in one
@@ -235,6 +346,22 @@ public abstract class ArrayLikeObject : ObjectInstance
     }
 
     /// <summary>
+    /// The key as a projected name, or <see langword="false"/> when the projection cannot own it — the type
+    /// declared none, the key is a symbol or an object key, or the key belongs to the indexed collection.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryGetProjectedName(JsValue property, [NotNullWhen(true)] out string? name)
+    {
+        if (!_hasNamedProjection)
+        {
+            name = null;
+            return false;
+        }
+
+        return NamedProjection.TryGetName(property, out name);
+    }
+
+    /// <summary>
     /// Sealed so no subclass can go exotic underneath the lanes that resolve an indexed read without calling
     /// <c>Get</c> at all (the <c>ArrayOperations</c> dispatcher and the interpreter's computed-read branch).
     /// The body is the ordinary implementation, which is what the constructor's
@@ -243,10 +370,8 @@ public abstract class ArrayLikeObject : ObjectInstance
     public sealed override JsValue Get(JsValue property, JsValue receiver) => base.Get(property, receiver);
 
     /// <summary>
-    /// Index and <c>length</c> reads resolve straight out of the host with no descriptor at all; every other key
-    /// falls through to the base implementation, which is the descriptor-driven answer through the (possibly
-    /// overridden) <see cref="ObjectInstance.GetOwnProperty"/> — so a named-getter subclass stays correct without
-    /// touching this hook.
+    /// Index, <c>length</c> and projected-name reads resolve straight out of the host with no descriptor at
+    /// all; every other key falls through to the ordinary property bag.
     /// </summary>
     protected internal sealed override bool TryGetOwnPropertyValue(JsValue property, JsValue receiver, out JsValue value)
     {
@@ -261,11 +386,16 @@ public abstract class ArrayLikeObject : ObjectInstance
             return true;
         }
 
+        if (TryGetProjectedName(property, out var name) && NamedProjection.Read(this, name, out value))
+        {
+            return true;
+        }
+
         return base.TryGetOwnPropertyValue(property, receiver, out value);
     }
 
     /// <inheritdoc />
-    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         if (ArrayInstance.IsArrayIndex(property, out var index))
         {
@@ -279,14 +409,20 @@ public abstract class ArrayLikeObject : ObjectInstance
             return new PropertyDescriptor(JsNumber.Create(Length), LengthFlags);
         }
 
+        if (TryGetProjectedName(property, out var name) && NamedProjection.Read(this, name, out var named))
+        {
+            return NamedProjection.DescriptorFor(this, name, named);
+        }
+
         return base.GetOwnProperty(property);
     }
 
     /// <summary>
     /// Existence and enumerability for <c>in</c>, <c>hasOwnProperty</c>, <c>propertyIsEnumerable</c>,
     /// <c>Object.keys</c>/<c>values</c>/<c>entries</c>, <c>Object.assign</c>, object spread and
-    /// <c>JSON.stringify</c> — answered from the same two primitives as <see cref="GetOwnProperty"/>, with no
-    /// descriptor materialized.
+    /// <c>JSON.stringify</c> — answered from the same primitives as <see cref="GetOwnProperty"/>, with no
+    /// descriptor materialized. This is the lane a hand-rolled named getter could never reach, because the
+    /// member was sealed before there was a hook to answer it from.
     /// </summary>
     protected internal sealed override OwnPropertyProbe ProbeOwnProperty(JsValue property)
     {
@@ -300,15 +436,20 @@ public abstract class ArrayLikeObject : ObjectInstance
             return OwnPropertyProbe.NonEnumerable;
         }
 
+        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
+        {
+            return NamedProjection.ProbeResultFor(this, name);
+        }
+
         return base.ProbeOwnProperty(property);
     }
 
     /// <summary>
     /// Ordinary <c>[[OwnPropertyKeys]]</c> order: the present indices ascending, then <c>length</c>, then the
-    /// property bag's string keys in insertion order, then symbols. Override only to add host-defined named keys
-    /// (paired with a <see cref="GetOwnProperty"/> override), and always append to <c>base</c>'s result.
+    /// projected names in <see cref="NameAt"/> order, then the property bag's string keys in insertion order,
+    /// then symbols.
     /// </summary>
-    public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+    public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         if ((types & Types.String) == Types.Empty)
         {
@@ -331,16 +472,27 @@ public abstract class ArrayLikeObject : ObjectInstance
         }
 
         keys.Add(CommonProperties.Length);
-        keys.AddRange(base.GetOwnPropertyKeys(types));
+
+        var names = CollectNames();
+        keys.AddRange(names);
+
+        foreach (var stored in base.GetOwnPropertyKeys(types))
+        {
+            if (NamedProjection.ShadowsBagKey(this, stored, names.Count))
+            {
+                continue;
+            }
+
+            keys.Add(stored);
+        }
 
         return keys;
     }
 
     /// <summary>
-    /// The same order as <see cref="GetOwnPropertyKeys"/>, with the descriptors materialized. See that member for
-    /// the override contract.
+    /// The same order as <see cref="GetOwnPropertyKeys"/>, with the descriptors materialized.
     /// </summary>
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         var length = CheckedLength();
         for (uint i = 0; i < length; i++)
@@ -358,16 +510,55 @@ public abstract class ArrayLikeObject : ObjectInstance
 
         yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, new PropertyDescriptor(JsNumber.Create(length), LengthFlags));
 
+        var names = CollectNames();
+        foreach (var key in names)
+        {
+            var name = key.ToString();
+            if (NamedProjection.Read(this, name, out var value))
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, NamedProjection.DescriptorFor(this, name, value));
+            }
+        }
+
         foreach (var entry in base.GetOwnProperties())
         {
+            if (NamedProjection.ShadowsBagKey(this, entry.Key, names.Count))
+            {
+                continue;
+            }
+
             yield return entry;
         }
     }
 
     /// <summary>
+    /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to <see cref="TrySetNamedValue"/>.
+    /// Indices and <c>length</c> never reach it — they are non-writable, so the ordinary path refuses them with
+    /// the spec-shaped answer (sloppy mode: ignored; strict mode: <c>TypeError</c>).
+    /// </summary>
+    public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
+    {
+        // The collection owns every index and `length`, and both are non-writable, so neither ever reaches the
+        // projection: base.Set finds the non-writable descriptor this class reports and refuses in the ordinary
+        // way. What is left is a name, offered to the projection ahead of the prototype chain and only when the
+        // receiver is this object — the WebIDL named-property-setter shape.
+        if (ReferenceEquals(this, receiver)
+            && !ArrayInstance.IsArrayIndex(property, out _)
+            && !CommonProperties.Length.Equals(property)
+            && TryGetProjectedName(property, out var name)
+            && IsNameWritable(name))
+        {
+            return NamedProjection.Write(this, name, value);
+        }
+
+        return base.Set(property, value, receiver);
+    }
+
+    /// <summary>
     /// Refuses <c>delete</c> of an index the collection currently has and of <c>length</c> (sloppy mode: the
     /// expression evaluates to <c>false</c>; strict mode: <c>TypeError</c>) — the WebIDL platform-object shape.
-    /// An index the collection does not have deletes vacuously, like any absent property.
+    /// An index the collection does not have deletes vacuously, like any absent property. A projected name is
+    /// offered to <see cref="TryDeleteName"/>, whose default refuses.
     /// </summary>
     public sealed override bool Delete(JsValue property)
     {
@@ -381,22 +572,33 @@ public abstract class ArrayLikeObject : ObjectInstance
             return false;
         }
 
+        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
+        {
+            return NamedProjection.Remove(this, name);
+        }
+
         return base.Delete(property);
     }
 
     /// <summary>
-    /// Refuses <c>[[DefineOwnProperty]]</c> on <c>length</c> and on <b>every</b> canonical array-index key,
-    /// in range or not.
+    /// Refuses <c>[[DefineOwnProperty]]</c> on <c>length</c>, on <b>every</b> canonical array-index key,
+    /// in range or not, and on a projected name.
     /// </summary>
     /// <remarks>
     /// Refusing out-of-range indices as well is stricter than WebIDL, which lets an ordinary expando live at an
     /// index at or beyond <c>length</c>. The strict form avoids the projection-versus-bag incoherence that would
-    /// appear the moment the live collection grew over such an expando. Named keys are unaffected and define
-    /// ordinarily.
+    /// appear the moment the live collection grew over such an expando. A projected name is refused for the
+    /// reason <see cref="NamedPropertyObject"/> gives: the projection owns all three attributes, so a
+    /// redefinition has nothing to change. Every other named key defines ordinarily.
     /// </remarks>
     public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         if (ArrayInstance.IsArrayIndex(property, out _) || CommonProperties.Length.Equals(property))
+        {
+            return false;
+        }
+
+        if (TryGetProjectedName(property, out var name) && NamedProjection.Probe(this, name))
         {
             return false;
         }
@@ -433,4 +635,9 @@ public abstract class ArrayLikeObject : ObjectInstance
 
         return length;
     }
+
+    private List<JsValue> CollectNames()
+        => _hasNamedProjection
+            ? NamedProjection.CollectNames(this, _engine, NamedProjection.NameOrder.BesideIndices)
+            : [];
 }
