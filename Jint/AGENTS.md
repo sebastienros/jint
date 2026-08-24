@@ -71,6 +71,17 @@ being constructed **concurrently** and every engine build reads several groups: 
 uses the same helper and adds a `Clone()` that `CreateEngineOptions` calls, which is what keeps the
 untrusted-code profile's private snapshot from sharing state with the host's options.
 
+**`Options` is configuration until an engine reads it, and frozen afterwards.** The `Engine` constructor ends
+with `MakeReadOnly()`, which cascades to every group and registry; a group materialized later is born frozen,
+which is why `Materialize` takes the owner's state. So a new setting needs `ThrowIfReadOnly()` in its setter
+(`[CallerMemberName]` names it), a new registry is an `OptionsList<T>` rather than a `List<T>`, and a new
+group implements `IOptionsGroup` and joins the two cascades in `Options.ReadOnly.cs`. Nothing Jint writes to
+`Options` may happen after that line — the profile re-expansion and the host's `Configure` callbacks both run
+inside `Options.Apply`, well before it. The one sanctioned post-construction write is
+`Engine.Advanced.EnableWebApis`'s callback, which suspends the guard for the web-API groups on the calling
+thread alone; toggling a group's flag instead would open it to every thread, since the `Options` may be one
+other engines are being built from right now.
+
 ### Type co-location
 
 Keep small supporting types — enums, record structs, tiny helpers — **in the same file** as the type they serve, provided they share a namespace and the file stays readable (e.g. `ModuleImportPhase` lives in `ModuleRequest.cs`). Split them out when the type has several independent consumers, is `public` and needs its own XML-doc discoverability, or when the file would exceed ~500 lines or mix unrelated concepts.

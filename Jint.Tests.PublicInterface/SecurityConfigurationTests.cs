@@ -124,8 +124,11 @@ public class SecurityConfigurationTests
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
         var engine = new Engine(options);
 
-        options.Interop.ObjectWrapperReportedPropertyBindingFlags =
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
+        // The options are read-only from here, so there is no longer a way to make the report and the
+        // engine disagree: the write that used to be the interesting half of this test is refused.
+        Invoking(() => options.Interop.ObjectWrapperReportedPropertyBindingFlags =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+            .Should().Throw<InvalidOperationException>();
 
         engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.NonPublicClrMembersEnabled);
@@ -312,11 +315,15 @@ public class SecurityConfigurationTests
         options.Interop.ExposeDetailedResolutionErrors = true;
         var engine = new Engine(options);
 
-        options.Interop.Enabled = false;
-        options.Interop.AllowGetType = false;
-        options.Interop.AllowSystemReflection = false;
-        options.Interop.ExposeDetailedResolutionErrors = false;
-        options.Interop.TypeResolver = new TypeResolver { MemberFilter = static _ => false };
+        // Every one of these used to be a silent no-op against this engine's report. They are now refused
+        // outright, which is the same guarantee said out loud.
+        Invoking(() => options.Interop.Enabled = false).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Interop.AllowGetType = false).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Interop.AllowSystemReflection = false).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Interop.ExposeDetailedResolutionErrors = false).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Interop.TypeResolver = new TypeResolver { MemberFilter = static _ => false })
+            .Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Interop.AllowedAssemblies.Clear()).Should().Throw<InvalidOperationException>();
 
         var report = engine.Advanced.ValidateSecurityConfiguration();
 
@@ -335,7 +342,8 @@ public class SecurityConfigurationTests
     {
         var options = CreateSafeModuleOptions();
         var engine = new Engine(options);
-        options.Modules.ModuleLoader = new Options().Modules.ModuleLoader;
+        Invoking(() => options.Modules.ModuleLoader = new Options().Modules.ModuleLoader)
+            .Should().Throw<InvalidOperationException>();
 
         engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ModuleLoadingEnabled);
@@ -353,12 +361,12 @@ public class SecurityConfigurationTests
         options.Constraints.StackOverflowGuard = false;
         var engine = new Engine(options);
 
-        options.Parsing.MaxSourceLength = 100_000;
-        options.Parsing.MaxNodeCount = 25_000;
-        options.RetainFunctionSourceText = false;
-        options.Constraints.RegexTimeout = TimeSpan.FromSeconds(1);
-        options.Constraints.MaxRecursionDepth = 64;
-        options.Constraints.StackOverflowGuard = true;
+        Invoking(() => options.Parsing.MaxSourceLength = 100_000).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Parsing.MaxNodeCount = 25_000).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.RetainFunctionSourceText = false).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Constraints.RegexTimeout = TimeSpan.FromSeconds(1)).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Constraints.MaxRecursionDepth = 64).Should().Throw<InvalidOperationException>();
+        Invoking(() => options.Constraints.StackOverflowGuard = true).Should().Throw<InvalidOperationException>();
 
         var codes = engine.Advanced.ValidateSecurityConfiguration().Diagnostics
             .Select(static diagnostic => diagnostic.Code);

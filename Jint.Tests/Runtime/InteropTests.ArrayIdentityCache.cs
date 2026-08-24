@@ -60,19 +60,22 @@ public partial class InteropTests
     {
         // the identity map may hold a wrapper for a different exposed view of the same array;
         // a type-guard miss must replace the entry (last view wins), not throw on Add
+        // The view the handler chooses is switched host-side rather than by replacing the handler on the
+        // engine's Options, which are read-only once the engine has been built from them.
+        var exposeAsList = true;
         var engine = new Engine(options =>
         {
             options.Interop.ArrayConversion = ArrayConversionMode.LiveView;
             options.Interop.TrackObjectWrapperIdentity = true;
-            options.Interop.WrapObjectHandler = static (e, target, type) =>
-                ObjectWrapper.Create(e, target, target is int[] ? typeof(System.Collections.IList) : type);
+            options.Interop.WrapObjectHandler = (e, target, type) =>
+                ObjectWrapper.Create(e, target, (exposeAsList && target is int[]) ? typeof(System.Collections.IList) : type);
         });
 
         var array = new[] { 1, 2, 3 };
         engine.SetValue("a", array);
         engine.Evaluate("a[0]").AsNumber().Should().Be(1);
 
-        engine.Options.Interop.WrapObjectHandler = static (e, target, type) => ObjectWrapper.Create(e, target, type);
+        exposeAsList = false;
         engine.SetValue("b", array);
         engine.Evaluate("b[0]").AsNumber().Should().Be(1);
     }

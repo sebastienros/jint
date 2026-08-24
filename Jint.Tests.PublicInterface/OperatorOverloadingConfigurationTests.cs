@@ -10,7 +10,7 @@ namespace Jint.Tests.PublicInterface;
 /// honoured, everything after it is not. The snapshot is taken after <c>Options.Apply</c>, which is
 /// what runs a host's <c>Configure</c> callbacks, so both documented ways of setting the option at
 /// construction time work. Mutating the <see cref="Options"/> instance <em>after</em> the engine
-/// exists deliberately does not — see the test that says so.
+/// exists is refused outright — see the test that says so.
 /// </para>
 /// </summary>
 public class OperatorOverloadingConfigurationTests
@@ -82,21 +82,24 @@ public class OperatorOverloadingConfigurationTests
     }
 
     [Fact]
-    public void MutatingTheOptionsAfterConstructionDoesNotReachTheEngine()
+    public void MutatingTheOptionsAfterConstructionIsRefused()
     {
-        // Deliberate: the reading belongs to the engine, not to the Options instance it was built
-        // from. One Options instance is meant to be shared by many engines, including concurrently
-        // running ones, so a live read would let one host thread change how another engine's already
-        // running script evaluates `+`. Every other option the engine cares about is snapshotted the
-        // same way. A host that wants the option has to ask for it before the engine exists.
+        // One Options instance is meant to be shared by many engines, including concurrently running
+        // ones, so a write after construction could change how another engine's already running script
+        // evaluates `+`. It used to be a silent no-op for this particular setting and a live change for
+        // roughly thirty others, discoverable only by reading each property's documentation. Now the
+        // whole instance is read-only once an engine has been built from it.
         var options = new Options();
         var engine = new Engine(options);
 
-        options.Interop.AllowOperatorOverloading = true;
+        options.IsReadOnly.Should().BeTrue();
+        Invoking(() => options.Interop.AllowOperatorOverloading = true)
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*Options.Interop.AllowOperatorOverloading*");
 
         Add(engine).Should().Be(JsValue.Undefined);
 
-        // ... and the same Options instance still configures the next engine built from it.
-        Add(new Engine(options)).Should().Be(3);
+        // ... and the same Options instance still builds the next engine, with the configuration it had.
+        Add(new Engine(options)).Should().Be(JsValue.Undefined);
     }
 }

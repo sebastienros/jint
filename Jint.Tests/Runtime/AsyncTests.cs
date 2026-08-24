@@ -2638,15 +2638,16 @@ public class AsyncTests
         // and the TCS in WaitForEventAsync gets cancelled (stale). The engine must
         // remain usable for subsequent calls — the stale TCS must be detected and
         // replaced on the next EvaluateAsync invocation.
+        //
+        // One budget for both halves, because the Options an engine was built from are read-only afterwards.
+        // It is generous enough that the recovery half asserts success rather than racing the machine, and
+        // the first half reaches it anyway because the slow IO never completes at all.
+        var neverCompletes = new TaskCompletionSource<int>();
         var engine = new Engine(options =>
         {
-            options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(50);
+            options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
         });
-        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
-        {
-            await Task.Delay(10_000);
-            return 999;
-        }));
+        engine.SetValue("slowIO", new Func<Task<int>>(() => neverCompletes.Task));
         engine.SetValue("fastIO", new Func<Task<int>>(async () =>
         {
             await Task.Delay(10);
@@ -2658,9 +2659,6 @@ public class AsyncTests
         {
             await engine.EvaluateAsync("(async () => await slowIO())()");
         }).Should().ThrowExactlyAsync<PromiseRejectedException>();
-
-        // Increase timeout for recovery (generous — the recovery half asserts success)
-        engine.Options.Constraints.PromiseTimeout = GenerousPromiseTimeout;
 
         // Engine should still work
         var result = await engine.EvaluateAsync("(async () => await fastIO())()");

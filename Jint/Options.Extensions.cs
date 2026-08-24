@@ -99,7 +99,7 @@ public static class OptionsExtensions
         options.Constraints.OperationDeadlineConstraintRequested = false;
 
         options.Interop.Enabled = false;
-        options.Interop.AllowedAssemblies = [];
+        options.Interop.AllowedAssemblies.Clear();
         options.Interop.AllowGetType = false;
         options.Interop.AllowSystemReflection = false;
         options.Interop.AllowWrite = false;
@@ -320,7 +320,7 @@ public static class OptionsExtensions
     /// </summary>
     public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)
     {
-        options._configurations.Add(new EngineConfiguration(
+        options.AddConfiguration(new EngineConfiguration(
             engine => engine.TypeConverter = typeConverterFactory(engine),
             EngineConfigurationProvenance.User));
         return options;
@@ -341,7 +341,7 @@ public static class OptionsExtensions
         options.Interop.Enabled = true;
         options.Interop.ClrAccessConfiguration = ClrAccessConfiguration.Compatibility;
         options.Interop.AllowedAssemblies.Add(typeof(object).Assembly);
-        options.Interop.AllowedAssemblies = options.Interop.AllowedAssemblies.Distinct().ToList();
+        RemoveDuplicateAssemblies(options.Interop.AllowedAssemblies);
         return options;
     }
 
@@ -359,8 +359,22 @@ public static class OptionsExtensions
         options.Interop.Enabled = true;
         options.Interop.ClrAccessConfiguration = ClrAccessConfiguration.Explicit;
         options.Interop.AllowedAssemblies.AddRange(assemblies);
-        options.Interop.AllowedAssemblies = options.Interop.AllowedAssemblies.Distinct().ToList();
+        RemoveDuplicateAssemblies(options.Interop.AllowedAssemblies);
         return options;
+    }
+
+    /// <summary>
+    /// De-duplicates the allow-list in place, keeping the first occurrence of each assembly.
+    /// </summary>
+    /// <remarks>
+    /// Both <c>AllowClr</c> overloads used to end with <c>AllowedAssemblies = AllowedAssemblies.Distinct().ToList()</c>.
+    /// Replacing the registry wholesale is exactly what a registry that has to refuse changes cannot allow, so
+    /// the de-duplication happens through the registry instead of around it.
+    /// </remarks>
+    private static void RemoveDuplicateAssemblies(OptionsList<Assembly> assemblies)
+    {
+        var seen = new HashSet<Assembly>();
+        assemblies.RemoveAll(assembly => !seen.Add(assembly));
     }
 
     /// <summary>
@@ -697,7 +711,7 @@ public static class OptionsExtensions
             Throw.ArgumentNullException(nameof(valueFactory));
         }
 
-        options._configurations.Add(new EngineConfiguration(
+        options.AddConfiguration(new EngineConfiguration(
             engine => engine.Realm.GlobalObject.SetProperty(
                 name,
                 new LazyPropertyDescriptor<Engine>(engine, valueFactory, flags)),
@@ -714,13 +728,13 @@ public static class OptionsExtensions
     /// <param name="configuration">The action to register.</param>
     public static Options Configure(this Options options, Action<Engine> configuration)
     {
-        options._configurations.Add(new EngineConfiguration(configuration, EngineConfigurationProvenance.User));
+        options.AddConfiguration(new EngineConfiguration(configuration, EngineConfigurationProvenance.User));
         return options;
     }
 
     internal static Options ConfigureFirstParty(this Options options, Action<Engine> configuration)
     {
-        options._configurations.Add(new EngineConfiguration(configuration, EngineConfigurationProvenance.FirstParty));
+        options.AddConfiguration(new EngineConfiguration(configuration, EngineConfigurationProvenance.FirstParty));
         return options;
     }
 

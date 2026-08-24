@@ -463,6 +463,37 @@ reflects over — but it also means a delegate registration wants the same cast 
 takes the engine's host-call reservation for the duration of the write, exactly as
 `ShadowRealm.Evaluate` already did, so registering a value from another thread while the engine is running
 is rejected with `InvalidOperationException` instead of racing the global object.
+### 3.8 The option registries are `OptionsList<T>` ([#3327](https://github.com/sebastienros/jint/pull/3327))
+
+Six registries changed type from `List<T>` to `OptionsList<T>`, so that they can refuse a change after an
+engine has read them — see [4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards),
+which is the reason. `OptionsList<T>` is an `IList<T>` and an `IReadOnlyList<T>` with `AddRange`, `RemoveAll`
+and `ToArray`, so the calls a host already writes compile unchanged:
+
+```c#
+// compiles in both
+options.Interop.ExtensionMethodTypes.Add(typeof(StringExtensions));
+options.Interop.AllowedAssemblies.AddRange(assemblies);
+foreach (var converter in options.Interop.ObjectConverters) { /* … */ }
+```
+
+What does not compile is **replacing** one wholesale. `Options.Interop.AllowedAssemblies` was the only one
+with a public setter, and lost it:
+
+```c#
+// 4.16.x
+options.Interop.AllowedAssemblies = new List<Assembly> { typeof(Foo).Assembly };
+
+// 5.x
+options.Interop.AllowedAssemblies.Clear();
+options.Interop.AllowedAssemblies.Add(typeof(Foo).Assembly);
+```
+
+The six are `Interop.ExtensionMethodTypes`, `Interop.ObjectConverters`, `Interop.ImmutableCrossingTypes`,
+`Interop.AllowedAssemblies`, `Constraints.Constraints` and `WebApi.Fetch.AllowedSchemes`. A variable or
+parameter declared `List<T>` and assigned from one needs its type changed; `IList<T>`, `IReadOnlyList<T>`,
+`IEnumerable<T>` and `var` are unaffected.
+
 
 ### 3.8 `ManualPromise` settles with a CLR value ([#3329](https://github.com/sebastienros/jint/issues/3329))
 
@@ -802,6 +833,94 @@ public sealed class ContentDataObject : ObjectInstance
 A host that overrode nothing needs no change. A host that overrides `PreventExtensions` and returns `true`
 now owes the object `Extensible == false` afterwards — call `base.PreventExtensions()`; host-contract
 verification reports an override that does not.
+### 4.16 `Options` is configuration until an engine reads it, and frozen afterwards ([#3327](https://github.com/sebastienros/jint/pull/3327))
+
+An `Engine` keeps the very `Options` instance it was handed — `CreateEngineOptions` returns `this` unless a
+hardened profile made a private clone — and reads about thirty of its settings **live**, on hot paths.
+So this compiled, and granted CLR writes to a running engine:
+
+```c#
+// 4.16.x: the engine reads Interop.AllowWrite on every projected write, so this reaches it
+var engine = new Engine(options);
+options.Interop.AllowWrite = true;
+engine.Execute("host.Balance = 0");   // writes through
+
+// 5.x
+options.Interop.AllowWrite = true;
+// InvalidOperationException: Options.Interop.AllowWrite cannot be changed: these options are read-only
+// because an engine has been built from them.
+```
+
+Six other properties did the opposite — read once at construction, and documented with *changing it
+afterwards has no effect*. Which of the two behaviours a given property had was discoverable only by reading
+its XML documentation. Now there is one rule: the `Engine` constructor calls `MakeReadOnly()` on the options
+when it has finished reading them, and every setter and every registry on the instance and on its groups
+throws an `InvalidOperationException` naming the setting from that point. Those six documentation paragraphs
+are gone; the exception says it instead. The model is `JsonSerializerOptions.MakeReadOnly()` / `IsReadOnly`,
+and the two members are spelled the same way.
+
+Nothing about *building* engines changes. Sharing one configured `Options` between engines — including
+concurrently constructed ones — is exactly as supported as before, because a second freeze is a no-op:
+
+```c#
+var options = new Options();
+options.Strict = true;
+var first = new Engine(options);
+var second = new Engine(options);   // still fine
+options.IsReadOnly;                 // true
+```
+
+A configuration callback still runs before the freeze, so both documented ways of configuring at construction
+time are unaffected:
+
+```c#
+options.Configure(engine => { /* runs during construction; may still write to options */ });
+new Engine(o => o.Interop.AllowWrite = true);
+```
+
+**What to change.** Configure the options fully before constructing the engine, or give the second engine its
+own `Options`. Three shapes need rewriting:
+
+```c#
+// 1. Reconfiguring between evaluations. Build a second engine from a second Options instead.
+var engine = new Engine(options);
+options.Modules.ExposeDetailedLoadErrors = true;   // now throws
+
+// 2. Swapping a handler mid-run. Put the mutable part in an object you own.
+options.Interop.WrapObjectHandler = SomeOtherHandler;   // now throws
+// instead:
+var mode = Mode.First;
+options.Interop.WrapObjectHandler = (e, target, type) => Wrap(mode, e, target, type);
+mode = Mode.Second;                                     // your field, not the engine's configuration
+
+// 3. Swapping the console sink. Same shape: a sink of your own that forwards.
+options.WebApi.Console.Sink = second;                   // now throws
+sealed class ForwardingSink : ConsoleSink
+{
+    public ConsoleSink Target { get; set; } = Null;
+    public override void Write(ConsoleLogLevel level, string message) => Target.Write(level, message);
+}
+```
+
+`Options.WebApi.Console.Sink` is the one member whose documentation used to *invite* the post-construction
+write ("read afresh on every emit, so a host may swap it between evaluations"). The forwarding sink above is
+its replacement, and it is strictly better: the option write reached every other engine that happened to
+share the same `Options`, and a sink you own does not.
+
+Three details worth knowing:
+
+- **`Engine.Advanced.EnableWebApis(features, configure)` still works.** Its callback is the one sanctioned
+  write to an engine's own options after construction, and it is the only place the freeze is suspended. The
+  suspension covers that engine's own web-API group and its sub-groups, on the calling thread, for the
+  duration of the callback — no other `Options` instance, no other group, and not the registries: a live
+  enable sets a value, it never grows an `OptionsList<T>`. Note that the instance it writes to is shared with
+  every engine built from it, and for an engine built by `new Engine()` it is one Jint keeps process-wide, so
+  give an engine its own `Options` before configuring it there.
+- **A group is allocated on first touch, and one materialized after the freeze is born frozen.** So
+  `options.Intl.CldrProvider = …` on an engine's options throws even though nothing had ever touched
+  `Intl`.
+- **`MakeReadOnly()` is public and idempotent**, so a host that builds a configured `Options` in one place
+  and hands it around can freeze it itself, before any engine exists.
 
 ## 5. New in v5
 

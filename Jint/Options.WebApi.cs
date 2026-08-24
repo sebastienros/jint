@@ -26,7 +26,7 @@ public sealed partial class Options
     /// never does it.
     /// </para>
     /// </remarks>
-    public WebApiOptions WebApi => Materialize(ref _webApi);
+    public WebApiOptions WebApi => Materialize(ref _webApi, _readOnly);
 
     private WebApiOptions? _webApi;
 
@@ -38,7 +38,7 @@ public sealed partial class Options
     /// concurrent ones: nothing on it is engine-affine. The one obligation that carries is on
     /// <see cref="ConsoleOptions.Sink"/> — see its documentation.
     /// </remarks>
-    public sealed class WebApiOptions
+    public sealed partial class WebApiOptions
     {
         /// <summary>
         /// Which web APIs this engine exposes. Defaults to <see cref="WebApiFeatures.None"/>, which installs
@@ -51,13 +51,13 @@ public sealed partial class Options
         /// <c>Engine.Advanced.EnableWebApis</c>. What a given engine actually has is
         /// <c>engine.Advanced.WebApiFeatures</c>.
         /// </remarks>
-        public WebApiFeatures Features { get; set; }
+        public WebApiFeatures Features { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Settings for the <c>console</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Console"/>.
         /// </summary>
-        public ConsoleOptions Console => Materialize(ref _console);
+        public ConsoleOptions Console => Materialize(ref _console, _readOnly);
 
         private ConsoleOptions? _console;
 
@@ -65,7 +65,7 @@ public sealed partial class Options
         /// Settings for the timer functions, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Timers"/>.
         /// </summary>
-        public TimerOptions Timers => Materialize(ref _timers);
+        public TimerOptions Timers => Materialize(ref _timers, _readOnly);
 
         private TimerOptions? _timers;
 
@@ -73,7 +73,7 @@ public sealed partial class Options
         /// Settings for <c>fetch</c>, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Fetch"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public FetchOptions Fetch => Materialize(ref _fetch);
+        public FetchOptions Fetch => Materialize(ref _fetch, _readOnly);
 
         private FetchOptions? _fetch;
 
@@ -83,7 +83,7 @@ public sealed partial class Options
         /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
         /// <c>reportError</c> function that feeds it.
         /// </summary>
-        public DiagnosticsOptions Diagnostics => Materialize(ref _diagnostics);
+        public DiagnosticsOptions Diagnostics => Materialize(ref _diagnostics, _readOnly);
 
         private DiagnosticsOptions? _diagnostics;
 
@@ -91,7 +91,7 @@ public sealed partial class Options
         /// Settings for <c>localStorage</c> and <c>sessionStorage</c>, installed when <see cref="Features"/>
         /// contains <see cref="WebApiFeatures.Storage"/>.
         /// </summary>
-        public StorageOptions Storage => Materialize(ref _storage);
+        public StorageOptions Storage => Materialize(ref _storage, _readOnly);
 
         private StorageOptions? _storage;
 
@@ -99,7 +99,7 @@ public sealed partial class Options
         /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public CacheOptions Cache => Materialize(ref _cache);
+        public CacheOptions Cache => Materialize(ref _cache, _readOnly);
 
         private CacheOptions? _cache;
 
@@ -107,7 +107,7 @@ public sealed partial class Options
         /// Settings for channel messaging, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Messaging"/>.
         /// </summary>
-        public MessagingOptions Messaging => Materialize(ref _messaging);
+        public MessagingOptions Messaging => Materialize(ref _messaging, _readOnly);
 
         private MessagingOptions? _messaging;
 
@@ -116,7 +116,7 @@ public sealed partial class Options
         /// <see cref="WebApiFeatures.Workers"/> — which <see cref="WebApiFeatures.Default"/> never does — and
         /// <see cref="Options.WorkerOptions.Provider"/> names a provider.
         /// </summary>
-        public WorkerOptions Workers => Materialize(ref _workers);
+        public WorkerOptions Workers => Materialize(ref _workers, _readOnly);
 
         private WorkerOptions? _workers;
 
@@ -149,7 +149,7 @@ public sealed partial class Options
     /// pair to be entangled with — it addresses a <i>name</i> — so which channels are in earshot of each other
     /// is the one thing about it a host has to be able to say.
     /// </remarks>
-    public sealed class MessagingOptions
+    public sealed partial class MessagingOptions
     {
         /// <summary>
         /// Which <c>BroadcastChannel</c> objects can hear each other: one broker is one agent cluster and one
@@ -165,11 +165,10 @@ public sealed partial class Options
         /// engine's own pump. See <see cref="BroadcastChannelBroker"/>, including what it keeps alive.
         /// </para>
         /// <para>
-        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists.
+        /// Read once, when the engine is built.
         /// </para>
         /// </remarks>
-        public BroadcastChannelBroker? Broker { get; set; }
+        public BroadcastChannelBroker? Broker { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal MessagingOptions Clone() => (MessagingOptions) MemberwiseClone();
     }
@@ -183,7 +182,7 @@ public sealed partial class Options
     /// Sharing one <see cref="Provider"/> between them is the normal case — see <see cref="WorkerProvider"/>
     /// for how a provider serving a pool reaches per-request policy.
     /// </remarks>
-    public sealed class WorkerOptions
+    public sealed partial class WorkerOptions
     {
         /// <summary>
         /// The host's answer to <c>new Worker(...)</c>. <see langword="null"/> — the default — leaves the
@@ -197,11 +196,10 @@ public sealed partial class Options
         /// pooled-host warning about setting this through the live <c>EnableWebApis</c> door.
         /// </para>
         /// <para>
-        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists.
+        /// Read once, when the engine is built.
         /// </para>
         /// </remarks>
-        public WorkerProvider? Provider { get; set; }
+        public WorkerProvider? Provider { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// How many live worker connections one engine may have at once. Defaults to 16. A
@@ -225,7 +223,7 @@ public sealed partial class Options
         /// effectively unbounded, and a value of zero or less refuses every worker.
         /// </para>
         /// </remarks>
-        public int MaxWorkers { get; set; } = 16;
+        public int MaxWorkers { get; set { ThrowIfReadOnly(); field = value; } } = 16;
 
         /// <summary>
         /// How many messages may sit undelivered in one direction of one worker connection. Defaults to
@@ -247,7 +245,7 @@ public sealed partial class Options
         /// value of zero or less refuses every message.
         /// </para>
         /// </remarks>
-        public int MaxQueuedMessages { get; set; } = 16384;
+        public int MaxQueuedMessages { get; set { ThrowIfReadOnly(); field = value; } } = 16384;
 
         internal WorkerOptions Clone() => (WorkerOptions) MemberwiseClone();
     }
@@ -271,7 +269,7 @@ public sealed partial class Options
     /// is occasionally what a host wants.
     /// </para>
     /// </remarks>
-    public sealed class StorageOptions
+    public sealed partial class StorageOptions
     {
         /// <summary>
         /// Five mebibytes: the quota browsers converged on, and what a defaulted
@@ -289,7 +287,7 @@ public sealed partial class Options
         /// instance to an <see cref="Options"/> object several engines share to give them one store, and
         /// remember that a provider reached from concurrently running engines must be thread-safe.
         /// </remarks>
-        public StorageProvider? LocalStorageProvider { get; set; }
+        public StorageProvider? LocalStorageProvider { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// The map behind <c>sessionStorage</c>. <see langword="null"/> — the default — gives each engine its
@@ -299,7 +297,7 @@ public sealed partial class Options
         /// With the in-box provider the two globals differ only in that they are two stores: the lifetime
         /// difference the names carry in a browser is something only a host-supplied provider can express.
         /// </remarks>
-        public StorageProvider? SessionStorageProvider { get; set; }
+        public StorageProvider? SessionStorageProvider { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// The quota a defaulted <see cref="InMemoryStorageProvider"/> enforces, in the UTF-16 bytes its
@@ -313,7 +311,7 @@ public sealed partial class Options
         /// host-supplied provider enforces whatever limit it likes and this value never reaches it. There is
         /// no "unlimited" sentinel — <see cref="long.MaxValue"/> is how that is spelled.
         /// </remarks>
-        public long MaxTotalBytes { get; set; } = DefaultMaxTotalBytes;
+        public long MaxTotalBytes { get; set { ThrowIfReadOnly(); field = value; } } = DefaultMaxTotalBytes;
 
         internal StorageOptions Clone() => (StorageOptions) MemberwiseClone();
     }
@@ -327,7 +325,7 @@ public sealed partial class Options
     /// Sharing one <see cref="Provider"/> between them is what makes them share a cache, and such a provider
     /// must be thread-safe — see <see cref="CacheStorageProvider"/>.
     /// </remarks>
-    public sealed class CacheOptions
+    public sealed partial class CacheOptions
     {
         /// <summary>
         /// Where the caches live, or <see langword="null"/> to give each engine a private
@@ -348,11 +346,10 @@ public sealed partial class Options
         /// host storage.
         /// </para>
         /// <para>
-        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists.
+        /// Read once, when the engine is built.
         /// </para>
         /// </remarks>
-        public CacheStorageProvider? Provider { get; set; }
+        public CacheStorageProvider? Provider { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal CacheOptions Clone() => (CacheOptions) MemberwiseClone();
     }
@@ -394,7 +391,7 @@ public sealed partial class Options
     /// mean something different for a stream than for a document, and that flag's documentation says which.
     /// </para>
     /// </remarks>
-    public sealed class FetchOptions
+    public sealed partial class FetchOptions
     {
         /// <summary>
         /// The <see cref="System.Net.Http.HttpClient"/> every request goes through, or <see langword="null"/>
@@ -412,7 +409,7 @@ public sealed partial class Options
         /// follow them underneath that check, so set it to <see langword="false"/> on a handler you supply.
         /// </para>
         /// </remarks>
-        public System.Net.Http.HttpClient? HttpClient { get; set; }
+        public System.Net.Http.HttpClient? HttpClient { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// A per-request source of <see cref="System.Net.Http.HttpClient"/>s, which wins over
@@ -424,7 +421,7 @@ public sealed partial class Options
         /// hands each tenant its own <c>IHttpClientFactory</c>-managed client. It must not return
         /// <see langword="null"/>, and it must not block: it runs while the calling script is suspended.
         /// </remarks>
-        public Func<Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
+        public Func<Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// The URL schemes a request may use. Defaults to <c>https</c> and <c>http</c>; a request to anything
@@ -435,7 +432,7 @@ public sealed partial class Options
         /// already lowercased. Emptying the list refuses every request. Read once per request, so a host may
         /// change it between evaluations; it is not read on a background thread.
         /// </remarks>
-        public List<string> AllowedSchemes { get; } = new() { "https", "http" };
+        public OptionsList<string> AllowedSchemes { get; private set; } = new("Options.WebApi.Fetch.AllowedSchemes") { "https", "http" };
 
         /// <summary>
         /// The last word on whether a request may be made. Defaults to allowing everything the scheme list
@@ -458,7 +455,7 @@ public sealed partial class Options
         /// message naming the rule would let a script map the host's internal network by probing it.
         /// </para>
         /// </remarks>
-        public Func<Uri, bool> UrlFilter { get; set; } = static _ => true;
+        public Func<Uri, bool> UrlFilter { get; set { ThrowIfReadOnly(); field = value; } } = static _ => true;
 
         /// <summary>
         /// The most bytes a response body may decompress to. Defaults to 32 MiB; a body that exceeds it is
@@ -482,13 +479,13 @@ public sealed partial class Options
         /// a cap that quietly meant "no cap" would be the more dangerous reading of the two.
         /// </para>
         /// </remarks>
-        public long MaxResponseBytes { get; set; } = 32 * 1024 * 1024;
+        public long MaxResponseBytes { get; set { ThrowIfReadOnly(); field = value; } } = 32 * 1024 * 1024;
 
         /// <summary>
         /// How many redirects one request may follow before the promise rejects with a <c>TypeError</c>.
         /// Defaults to 20, which is what browsers use.
         /// </summary>
-        public int MaxRedirects { get; set; } = 20;
+        public int MaxRedirects { get; set { ThrowIfReadOnly(); field = value; } } = 20;
 
         /// <summary>
         /// How long one <c>fetch</c> may take, from the call to the last byte of the body. Defaults to 30
@@ -501,7 +498,7 @@ public sealed partial class Options
         /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> and any non-positive value mean no timeout, which leaves the
         /// underlying <see cref="System.Net.Http.HttpClient"/>'s own timeout as the only bound.
         /// </remarks>
-        public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
+        public TimeSpan Timeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// How many requests one engine may have in flight at once. Defaults to 10; a <c>fetch</c> call that
@@ -514,28 +511,41 @@ public sealed partial class Options
         /// or when the engine's globals are restored. <see cref="int.MaxValue"/> is the way to spell
         /// effectively unbounded; zero or less refuses every request.
         /// </remarks>
-        public int MaxConcurrentRequests { get; set; } = 10;
+        public int MaxConcurrentRequests { get; set { ThrowIfReadOnly(); field = value; } } = 10;
 
-        internal FetchOptions Clone() => (FetchOptions) MemberwiseClone();
+        internal FetchOptions Clone()
+        {
+            var clone = (FetchOptions) MemberwiseClone();
+            clone.AllowedSchemes = AllowedSchemes.Clone();
+            return clone;
+        }
     }
 
     /// <summary>
     /// Settings for the <c>console</c> object. Requires .NET 8 or higher.
     /// </summary>
-    public sealed class ConsoleOptions
+    public sealed partial class ConsoleOptions
     {
         /// <summary>
         /// Where <c>console</c> output goes. Defaults to <see cref="ConsoleSink.Null"/>, which discards
         /// everything — enabling the feature never starts writing to the host's standard output by surprise.
         /// </summary>
         /// <remarks>
-        /// The sink is read afresh on every emit, so a host may swap it between evaluations. A sink assigned
-        /// to an <see cref="Options"/> instance shared by concurrently running engines is called from each of
-        /// their threads and must be thread-safe; one belonging to a single engine is only ever called on
-        /// that engine's thread. Assigning <see langword="null"/> is read back as
+        /// <para>
+        /// The sink is read afresh on every emit, but this property is not the place to swap it: like every
+        /// other setting it is read-only once an engine has been built from these options. A host that wants
+        /// to redirect output between evaluations gives the engine a sink of its own that forwards to a
+        /// target it holds, which is also the only form that cannot reach a second engine sharing the same
+        /// options by accident.
+        /// </para>
+        /// <para>
+        /// A sink assigned to an <see cref="Options"/> instance shared by concurrently running engines is
+        /// called from each of their threads and must be thread-safe; one belonging to a single engine is
+        /// only ever called on that engine's thread. Assigning <see langword="null"/> is read back as
         /// <see cref="ConsoleSink.Null"/>.
+        /// </para>
         /// </remarks>
-        public ConsoleSink Sink { get; set; } = ConsoleSink.Null;
+        public ConsoleSink Sink { get; set { ThrowIfReadOnly(); field = value; } } = ConsoleSink.Null;
 
         internal ConsoleOptions Clone() => (ConsoleOptions) MemberwiseClone();
     }
@@ -553,7 +563,7 @@ public sealed partial class Options
     /// makes this safe in a request handler that returns as soon as the script does.
     /// </para>
     /// </remarks>
-    public sealed class TimerOptions
+    public sealed partial class TimerOptions
     {
         /// <summary>
         /// The clock the timers are scheduled against. Defaults to <see cref="TimeProvider.System"/>; a fake
@@ -566,15 +576,14 @@ public sealed partial class Options
         /// <see cref="Options.TimeSystem"/>, which is what <c>Date</c> is built on: one is a monotonic clock
         /// for measuring durations, the other a wall clock for naming instants.
         /// </para>
-        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists. Only <see cref="TimeProvider.GetTimestamp"/>,
+        /// Read once, when the engine is built. Only <see cref="TimeProvider.GetTimestamp"/>,
         /// <see cref="TimeProvider.GetUtcNow"/> (once, for the time origin) and
         /// <see cref="TimeProvider.GetElapsedTime(long, long)"/> are ever called:
         /// <see cref="TimeProvider.CreateTimer"/> is deliberately not, because a background timer would run
         /// script off the engine's thread. Assigning <see langword="null"/> is read back as
         /// <see cref="TimeProvider.System"/>.
         /// </remarks>
-        public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+        public TimeProvider TimeProvider { get; set { ThrowIfReadOnly(); field = value; } } = TimeProvider.System;
 
         /// <summary>
         /// The most timers one engine may have registered at once. Defaults to 1000. A
@@ -589,7 +598,7 @@ public sealed partial class Options
         /// engine is built. There is no "unlimited" sentinel: <see cref="int.MaxValue"/> is the way to spell
         /// effectively unbounded, and a value of zero or less refuses every timer.
         /// </remarks>
-        public int MaxActiveTimers { get; set; } = 1000;
+        public int MaxActiveTimers { get; set { ThrowIfReadOnly(); field = value; } } = 1000;
 
         /// <summary>
         /// How much of a pump an engine may spend running <c>requestIdleCallback</c> callbacks. Defaults to
@@ -614,7 +623,7 @@ public sealed partial class Options
         /// hard deadline it does not want script to eat into. Read once, when the engine is built.
         /// </para>
         /// </remarks>
-        public TimeSpan IdleBudget { get; set; } = TimeSpan.FromMilliseconds(50);
+        public TimeSpan IdleBudget { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromMilliseconds(50);
 
         internal TimerOptions Clone() => (TimerOptions) MemberwiseClone();
     }
@@ -623,7 +632,7 @@ public sealed partial class Options
     /// Settings for the engine's diagnostics channel — the script errors nobody caught. Requires .NET 8 or
     /// higher.
     /// </summary>
-    public sealed class DiagnosticsOptions
+    public sealed partial class DiagnosticsOptions
     {
         /// <summary>
         /// Where an unhandled promise rejection, a value handed to <c>reportError</c>, and an exception that
@@ -643,15 +652,15 @@ public sealed partial class Options
         /// continue, and discard the report".
         /// </para>
         /// <para>
-        /// Read once, when the engine is built, so assigning it afterwards does not affect an engine that
-        /// already exists — unlike <see cref="ConsoleOptions.Sink"/>, because this one also decides whether a
+        /// Read once, when the engine is built — unlike <see cref="ConsoleOptions.Sink"/>, which is read on
+        /// every emit, because this one also decides whether a
         /// callback's exception erupts, and that contract has to hold still for an engine's lifetime. A sink
         /// on an <see cref="Options"/> instance shared by concurrently running engines is called from each of
         /// their threads and must be thread-safe; see <see cref="DiagnosticsSink"/> for that and for what may
         /// be done with the values a report carries.
         /// </para>
         /// </remarks>
-        public DiagnosticsSink? Sink { get; set; }
+        public DiagnosticsSink? Sink { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal DiagnosticsOptions Clone() => (DiagnosticsOptions) MemberwiseClone();
     }

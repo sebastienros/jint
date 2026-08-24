@@ -34,7 +34,7 @@ internal sealed class ImmutableCrossingTypeFilter
     /// Builds the filter for an engine's declared types, or <see langword="null"/> when the host declared
     /// none — in which case no wrapper ever asks and the whole mechanism costs a single null check.
     /// </summary>
-    internal static ImmutableCrossingTypeFilter? Create(List<Type> declaredTypes)
+    internal static ImmutableCrossingTypeFilter? Create(OptionsList<Type> declaredTypes)
     {
         if (declaredTypes.Count == 0)
         {

@@ -120,6 +120,12 @@ public partial class Engine
         /// is an ordinary mutation of the engine's global object. Calling it during an evaluation is not
         /// prevented, but a read already in flight may have resolved the old binding.
         /// </para>
+        /// <para>
+        /// <b><paramref name="configure"/> writes to the engine's own <see cref="Options"/> instance</b>, which
+        /// is read-only from construction onwards and is unfrozen here and nowhere else. That instance is
+        /// shared with every engine built from it, and for an engine built by <c>new Engine()</c> it is one
+        /// Jint keeps process-wide — so give an engine its own <see cref="Options"/> before configuring it here.
+        /// </para>
         /// </remarks>
         /// <example>
         /// A pooled engine that learns per request what the script needs:
