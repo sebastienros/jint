@@ -2228,16 +2228,29 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// EXPERIMENTAL! Subject to change.
-    ///
-    /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
-    /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
-    ///
-    /// Resolve and reject may be called from another thread. Settlement is enqueued safely and drains
-    /// inline only when that thread can claim exclusive engine ownership.
+    /// Builds a promise this engine hands to script, together with the two functions that settle it.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The settle functions take a CLR value and convert it inside the enqueued job — on the engine's
+    /// thread — so a host settling from a background thread never has to build an engine-affine value where
+    /// it stands. A <see cref="JsValue"/> passed in is returned by the conversion unchanged.
+    /// </para>
+    /// <para>
+    /// <paramref name="drainInline"/> decides what a settle does after enqueueing. The host-facing
+    /// registration drains when it can claim exclusive ownership, so a resolve from a host thread makes
+    /// progress without waiting for the next pump. The CLR-task registration behind
+    /// <see cref="ExperimentalFeature.TaskInterop"/> does not, because its continuation runs
+    /// <c>ExecuteSynchronously</c> and can therefore fire on the engine's own thread in the middle of a
+    /// running script — draining there would interleave queued jobs into the statement that started the
+    /// task. Whether the two should converge is a separate question from what value they accept.
+    /// </para>
+    /// </remarks>
+    /// <param name="drainInline">
+    /// Whether a settle attempts to drain the event loop after enqueueing, when it can claim the engine.
+    /// </param>
     /// <returns>a Promise instance and functions to either resolve or reject it</returns>
-    internal ManualPromise RegisterPromise()
+    internal ManualPromise RegisterPromise(bool drainInline = true)
     {
         var promise = new JsPromise(this)
         {
@@ -2249,17 +2262,19 @@ public sealed partial class Engine : IDisposable
         // The cycle this promise belongs to, read here on the engine thread. The settle below may run
         // arbitrarily later on a background thread, and stamping the job with the generation captured now
         // is what lets the drain tell "work this engine is still waiting for" from "work whose cycle a
-        // RestoreGlobalSnapshot has since ended".
+        // RestoreGlobalSnapshot has since ended". For the task path this is also what carries a
+        // fire-and-forget Task across a restore rather than settling it into the restored globals.
         var registration = CaptureEventLoopRegistration();
 
-        Action<JsValue> SettleWith(Function settle) => value =>
+        Action<object?> SettleWith(Function settle) => value =>
         {
-            // Enqueue to event loop to ensure thread safety - the settle operation
-            // may be called from a background thread (e.g., Task.ContinueWith callback)
-            // but JavaScript execution must happen on the thread that owns the Engine.
+            // Both halves go on the event loop: the conversion as much as the call. The settle may be
+            // invoked from a background thread (a Task.ContinueWith callback, an HTTP completion), and
+            // JsValue.FromObject builds into this engine's realm, so running it here would be the very
+            // race the enqueue exists to avoid.
             AddToEventLoop(() =>
             {
-                settle.Call(JsValue.Undefined, [value]);
+                settle.Call(JsValue.Undefined, [JsValue.FromObject(this, value)]);
             }, registration);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
@@ -2267,7 +2282,7 @@ public sealed partial class Engine : IDisposable
 
             // A completion may arrive on any thread. Drain inline only when this thread can claim
             // exclusive ownership; otherwise the next host turn or async waiter owns the drain.
-            if (TryEnterHostCall(out var ownership))
+            if (drainInline && TryEnterHostCall(out var ownership))
             {
                 using (ownership)
                 {
@@ -2277,47 +2292,6 @@ public sealed partial class Engine : IDisposable
         };
 
         return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
-    }
-
-    /// <summary>
-    /// Internal version of RegisterPromise that returns settle functions accepting CLR objects.
-    /// The CLR to JsValue conversion happens on the event loop thread, not the caller thread.
-    /// This is critical for thread safety when called from Task.ContinueWith callbacks.
-    /// </summary>
-    internal ManualPromiseWithClrValue RegisterPromiseWithClrValue()
-    {
-        var promise = new JsPromise(this)
-        {
-            _prototype = Realm.Intrinsics.Promise.PrototypeObject
-        };
-
-        var (resolve, reject) = promise.CreateResolvingFunctions();
-
-        // Registration-time generation; see RegisterPromise. This is the path a CLR Task awaited from script
-        // takes (JsValue.ConvertTaskToPromise), so it is the one that carries a fire-and-forget Task across a
-        // restore if nothing stamps it.
-        var registration = CaptureEventLoopRegistration();
-
-        Action<object?> SettleWithClr(Function settle) => clrValue =>
-        {
-            // Enqueue to event loop to ensure thread safety - both the FromObject conversion
-            // and the settle operation are performed on the main thread, not the background
-            // thread that completed the Task.
-            AddToEventLoop(() =>
-            {
-                var jsValue = JsValue.FromObject(this, clrValue);
-                settle.Call(JsValue.Undefined, [jsValue]);
-            }, registration);
-
-            // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
-            // NOTE: We do NOT call RunAvailableContinuations() here because this method is
-            // called from background threads (Task.ContinueWith callbacks) and the _waitingThreadId
-            // protection might not be active yet. The waiting thread in UnwrapIfPromise will
-            // process the event loop when it wakes up.
-            promise.CompletedEvent.Set();
-        };
-
-        return new ManualPromiseWithClrValue(promise, SettleWithClr(resolve), SettleWithClr(reject));
     }
 
     /// <summary>

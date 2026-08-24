@@ -199,9 +199,10 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
     {
-        // Use RegisterPromiseWithClrValue to ensure FromObject is called on the main thread,
-        // not on the background thread that completes the Task.
-        var (promise, resolveClr, rejectClr) = engine.RegisterPromiseWithClrValue();
+        // The settle functions convert on the engine's thread, not on the background thread that completes
+        // the Task. drainInline: false because this continuation runs ExecuteSynchronously and so can fire
+        // on the engine's own thread mid-script; the waiting host or the next pump owns the drain.
+        var (promise, resolveClr, rejectClr) = engine.RegisterPromise(drainInline: false);
         task = task.ContinueWith(continuationAction =>
             {
                 if (continuationAction.IsFaulted)

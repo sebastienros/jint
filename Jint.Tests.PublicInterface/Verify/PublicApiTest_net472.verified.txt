@@ -1387,9 +1387,9 @@ namespace Jint.Native.Promise
     public sealed class ManualPromise : System.IEquatable<Jint.Native.Promise.ManualPromise>
     {
         public Jint.Native.JsValue Promise { get; init; }
-        public System.Action<Jint.Native.JsValue> Reject { get; init; }
-        public System.Action<Jint.Native.JsValue> Resolve { get; init; }
-        public void Deconstruct(out Jint.Native.JsValue Promise, out System.Action<Jint.Native.JsValue> Resolve, out System.Action<Jint.Native.JsValue> Reject) { }
+        public System.Action<object?> Reject { get; init; }
+        public System.Action<object?> Resolve { get; init; }
+        public void Deconstruct(out Jint.Native.JsValue Promise, out System.Action<object?> Resolve, out System.Action<object?> Reject) { }
     }
     public enum PromiseRejectionOperation
     {

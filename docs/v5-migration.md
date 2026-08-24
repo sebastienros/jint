@@ -464,6 +464,37 @@ takes the engine's host-call reservation for the duration of the write, exactly 
 `ShadowRealm.Evaluate` already did, so registering a value from another thread while the engine is running
 is rejected with `InvalidOperationException` instead of racing the global object.
 
+### 3.8 `ManualPromise` settles with a CLR value ([#3329](https://github.com/sebastienros/jint/issues/3329))
+
+`Engine.Advanced.RegisterPromise()`'s resolve and reject callbacks took a `JsValue`. They now take an
+`object?`, and the conversion runs inside the enqueued settlement job — on the engine's thread — rather than
+wherever the callback was invoked.
+
+```c#
+var manual = engine.Advanced.RegisterPromise();
+
+// 4.16.x - the conversion is on whatever thread the completion landed on
+_ = Task.Run(async () => manual.Resolve(JsValue.FromObject(engine, await FetchAsync(url))));
+
+// 5.x - hand over the CLR value; the engine converts it on its own turn
+_ = Task.Run(async () => manual.Resolve(await FetchAsync(url)));
+```
+
+Most code needs no edit. `JsValue` converts to `object?` implicitly and `JsValue.FromObject` returns a
+`JsValue` unchanged, so every `resolve(someJsValue)` call site compiles and behaves as before, and
+`var (promise, resolve, reject) = engine.Advanced.RegisterPromise();` still deconstructs. What does need an
+edit is a callback stored in an explicitly typed `Action<JsValue>` local, field or parameter — change it to
+`Action<object?>`.
+
+One behaviour is newly defined rather than changed: `Resolve(null)` settles with `JsValue.Null`, where it
+used to put a null reference into a non-nullable `JsValue` parameter.
+
+The reason for the change is that the old signature had no safe call site. A host settling from a `Task`
+continuation holds a CLR value, and a `JsValue` belongs to the engine that built it — so converting where the
+callback runs is a write into an engine another thread may be inside. Jint had the safe shape internally all
+along (`RegisterPromiseWithClrValue`, used by `ExperimentalFeature.TaskInterop` for exactly this reason);
+both registrations are now one.
+
 ## 4. Breaking without a signature change
 
 This is the section that matters most, because a compiler cannot find any of it. Every row below
