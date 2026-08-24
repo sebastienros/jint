@@ -3,6 +3,7 @@ using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
@@ -26,11 +27,31 @@ public sealed partial class Options
 
     private ITimeSystem? _timeSystem;
     internal List<EngineConfiguration> _configurations { get; private set; } = new();
-    internal bool HasUserHostFactory { get; set; }
+
+    /// <summary>
+    /// The one door onto <see cref="_configurations"/>, so that <c>Configure</c>, <c>AddLazyGlobal</c> and
+    /// <c>SetTypeConverter</c> refuse after the freeze exactly as an assignment does.
+    /// </summary>
+    /// <param name="configuration">The callback to run against every engine built from these options.</param>
+    /// <param name="verb">
+    /// Filled in by the compiler with the extension method the host actually called, so that the refusal names
+    /// that rather than this private door.
+    /// </param>
+    internal void AddConfiguration(EngineConfiguration configuration, [CallerMemberName] string? verb = null)
+    {
+        if (_readOnly)
+        {
+            Throw.OptionsReadOnlyCall("Options." + verb);
+        }
+
+        _configurations.Add(configuration);
+    }
+
+    internal bool HasUserHostFactory { get; set { ThrowIfReadOnly(); field = value; } }
     internal bool HasUserEngineConstructionCallback =>
         HasUserHostFactory
         || _configurations.Exists(static configuration => configuration.Provenance == EngineConfigurationProvenance.User);
-    internal UntrustedCodeLimits? UntrustedCodeLimits { get; set; }
+    internal UntrustedCodeLimits? UntrustedCodeLimits { get; set { ThrowIfReadOnly(); field = value; } }
 
     public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
 
@@ -59,77 +80,98 @@ public sealed partial class Options
     /// groups, so a plain <c>??=</c> would let two builds each get their own instance and only one of them
     /// see a later host mutation. Groups are read while an engine is being built and never on an execution
     /// path, so the null check costs nothing that matters.
+    /// <para>
+    /// <paramref name="readOnly"/> is the owner's own frozen state, and a group materialized after the freeze
+    /// is born frozen. Without it the freeze would have a hole exactly where it matters least visibly: a group
+    /// the engine build never touched — <see cref="Intl"/>, <see cref="Temporal"/> — would be allocated fresh
+    /// and mutable by the very host write that was supposed to be refused, and the engine reads those groups
+    /// lazily, so the write would land.
+    /// </para>
     /// </remarks>
-    private static T Materialize<T>(ref T? field) where T : class, new()
-        => field ?? Interlocked.CompareExchange(ref field, new T(), null) ?? field;
+    private static T Materialize<T>(ref T? field, bool readOnly) where T : class, IOptionsGroup, new()
+    {
+        var existing = field;
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var created = new T();
+        if (readOnly)
+        {
+            created.SetReadOnly(true);
+        }
+
+        return Interlocked.CompareExchange(ref field, created, null) ?? created;
+    }
 
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
-    public ConstraintOptions Constraints => Materialize(ref _constraints);
+    public ConstraintOptions Constraints => Materialize(ref _constraints, _readOnly);
 
     private ConstraintOptions? _constraints;
 
     /// <summary>
     /// Resource limits applied while parsing scripts and modules.
     /// </summary>
-    public ParsingOptions Parsing => Materialize(ref _parsing);
+    public ParsingOptions Parsing => Materialize(ref _parsing, _readOnly);
 
     private ParsingOptions? _parsing;
 
     /// <summary>
     /// CLR interop related options.
     /// </summary>
-    public InteropOptions Interop => Materialize(ref _interop);
+    public InteropOptions Interop => Materialize(ref _interop, _readOnly);
 
     private InteropOptions? _interop;
 
     /// <summary>
     /// Debugger configuration.
     /// </summary>
-    public DebuggerOptions Debugger => Materialize(ref _debugger);
+    public DebuggerOptions Debugger => Materialize(ref _debugger, _readOnly);
 
     private DebuggerOptions? _debugger;
 
     /// <summary>
     /// Script code coverage configuration. Off by default.
     /// </summary>
-    public CoverageOptions Coverage => Materialize(ref _coverage);
+    public CoverageOptions Coverage => Materialize(ref _coverage, _readOnly);
 
     private CoverageOptions? _coverage;
 
     /// <summary>
     /// Host options.
     /// </summary>
-    public HostOptions Host => Materialize(ref _host);
+    public HostOptions Host => Materialize(ref _host, _readOnly);
 
     private HostOptions? _host;
 
     /// <summary>
     /// Module options
     /// </summary>
-    public ModuleOptions Modules => Materialize(ref _modules);
+    public ModuleOptions Modules => Materialize(ref _modules, _readOnly);
 
     private ModuleOptions? _modules;
 
     /// <summary>
     /// Internationalization (Intl) options.
     /// </summary>
-    public IntlOptions Intl => Materialize(ref _intl);
+    public IntlOptions Intl => Materialize(ref _intl, _readOnly);
 
     private IntlOptions? _intl;
 
     /// <summary>
     /// Temporal API options.
     /// </summary>
-    public TemporalOptions Temporal => Materialize(ref _temporal);
+    public TemporalOptions Temporal => Materialize(ref _temporal, _readOnly);
 
     private TemporalOptions? _temporal;
 
     /// <summary>
     /// Whether the code should be always considered to be in strict mode. Can improve performance.
     /// </summary>
-    public bool Strict { get; set; }
+    public bool Strict { get; set { ThrowIfReadOnly(); field = value; } }
 
     /// <summary>
     /// Whether the engine's default parser retains the full source text of parsed functions so that
@@ -142,12 +184,12 @@ public sealed partial class Options
     /// When parsing via an explicit <see cref="ScriptParsingOptions"/>/<see cref="ModuleParsingOptions"/> or a
     /// prepared script/module, the corresponding <see cref="IParsingOptions.RetainFunctionSourceText"/> setting applies.
     /// </remarks>
-    public bool RetainFunctionSourceText { get; set; }
+    public bool RetainFunctionSourceText { get; set { ThrowIfReadOnly(); field = value; } }
 
     /// <summary>
     /// The culture the engine runs on, defaults to current culture.
     /// </summary>
-    public CultureInfo Culture { get; set; } = _defaultCulture;
+    public CultureInfo Culture { get; set { ThrowIfReadOnly(); field = value; } } = _defaultCulture;
 
     /// <summary>
     /// Configures a time system to use. Defaults to DefaultTimeSystem using local time.
@@ -155,13 +197,17 @@ public sealed partial class Options
     public ITimeSystem TimeSystem
     {
         get => _timeSystem ??= new DefaultTimeSystem(TimeZone, Culture);
-        set => _timeSystem = value;
+        set
+        {
+            ThrowIfReadOnly();
+            _timeSystem = value;
+        }
     }
 
     /// <summary>
     /// The time zone the engine runs on, defaults to local. Same as setting DefaultTimeSystem with the time zone.
     /// </summary>
-    public TimeZoneInfo TimeZone { get; set; } = _defaultTimeZone;
+    public TimeZoneInfo TimeZone { get; set { ThrowIfReadOnly(); field = value; } } = _defaultTimeZone;
 
     /// <summary>
     /// Reference resolver allows customizing behavior for reference resolving. This can be useful in cases where
@@ -198,6 +244,7 @@ public sealed partial class Options
 
     internal void SetReferenceResolverCore(IReferenceResolver resolver, ReferenceResolverInterests interests)
     {
+        ThrowIfReadOnly(nameof(ReferenceResolver));
         _referenceResolver = resolver;
         _referenceResolverInterests = interests;
     }
@@ -206,7 +253,7 @@ public sealed partial class Options
     /// Options for the built-in JSON (de)serializer which
     /// gets used using <c>JSON.parse</c> or <c>JSON.stringify</c>
     /// </summary>
-    public JsonOptions Json => Materialize(ref _json);
+    public JsonOptions Json => Materialize(ref _json, _readOnly);
 
     private JsonOptions? _json;
 
@@ -224,6 +271,7 @@ public sealed partial class Options
         get => _resultLimits;
         set
         {
+            ThrowIfReadOnly();
             if (value is null)
             {
                 Throw.ArgumentNullException(nameof(value));
@@ -238,7 +286,7 @@ public sealed partial class Options
     /// <summary>
     /// What experimental features are allowed, functionality may lacking or even plain wrong. Defaults to having none.
     /// </summary>
-    public ExperimentalFeature ExperimentalFeatures { get; set; }
+    public ExperimentalFeature ExperimentalFeatures { get; set { ThrowIfReadOnly(); field = value; } }
 
     /// <summary>
     /// Whether the agent can suspend (block) via Atomics.wait().
@@ -248,7 +296,7 @@ public sealed partial class Options
     /// <remarks>
     /// https://tc39.es/ecma262/#sec-agentcansuspend
     /// </remarks>
-    public bool AgentCanSuspend { get; set; }
+    public bool AgentCanSuspend { get; set { ThrowIfReadOnly(); field = value; } }
 
     /// <summary>
     /// Copies the <b>restrictive</b> half of <paramref name="source"/>'s configuration onto
@@ -552,6 +600,10 @@ public sealed partial class Options
 #if NET8_0_OR_GREATER
         clone._webApi = _webApi?.Clone();
 #endif
+        // The clone inherits the source's frozen state through MemberwiseClone, and the profile below is a
+        // long sequence of writes. A host may legitimately hand a frozen Options to a second engine, so the
+        // private snapshot is thawed for the expansion; the engine freezes it again once it has read it.
+        clone.SetReadOnly(false);
         OptionsExtensions.ApplyUntrustedCodeOptions(clone, UntrustedCodeLimits);
         return clone;
     }
@@ -626,35 +678,34 @@ public sealed partial class Options
     }
 
 
-    public sealed class DebuggerOptions
+    public sealed partial class DebuggerOptions
     {
         /// <summary>
         /// Whether debugger functionality is enabled, defaults to false.
         /// </summary>
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Configures the statement handling strategy, defaults to Ignore.
         /// </summary>
-        public DebuggerStatementHandling StatementHandling { get; set; } = DebuggerStatementHandling.Ignore;
+        public DebuggerStatementHandling StatementHandling { get; set { ThrowIfReadOnly(); field = value; } } = DebuggerStatementHandling.Ignore;
 
         /// <summary>
         /// Configures the step mode used when entering the script.
         /// </summary>
-        public StepMode InitialStepMode { get; set; } = StepMode.None;
+        public StepMode InitialStepMode { get; set { ThrowIfReadOnly(); field = value; } } = StepMode.None;
 
         internal DebuggerOptions Clone() => (DebuggerOptions) MemberwiseClone();
     }
 
     /// <summary>
-    /// Script code coverage configuration. Read once, while the engine is being constructed; changing it
-    /// afterwards only reaches engines built later.
+    /// Script code coverage configuration.
     /// </summary>
     /// <remarks>
     /// Nothing here is engine-affine, so an <see cref="Options"/> instance carrying it stays shareable across
     /// engines — each engine gets its own counters, and reading one engine's report never sees another's.
     /// </remarks>
-    public sealed class CoverageOptions
+    public sealed partial class CoverageOptions
     {
         /// <summary>
         /// Whether the engine counts what it executes, defaults to false. When set, the engine collects hit
@@ -667,18 +718,18 @@ public sealed partial class Options
         /// exact execution constraint or enabling the debugger does, so measured code runs the instrumented
         /// path. See <see cref="Engine.AdvancedOperations.GetCoverage"/>.
         /// </remarks>
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// What is counted, defaults to <see cref="CoverageGranularity.Statements"/>. The granularity decides
         /// what the report contains, not how the engine executes: both values collect through the same lane.
         /// </summary>
-        public CoverageGranularity Granularity { get; set; } = CoverageGranularity.Statements;
+        public CoverageGranularity Granularity { get; set { ThrowIfReadOnly(); field = value; } } = CoverageGranularity.Statements;
 
         internal CoverageOptions Clone() => (CoverageOptions) MemberwiseClone();
     }
 
-    public sealed class InteropOptions
+    public sealed partial class InteropOptions
     {
         /// <summary>
         /// Whether the <c>System</c> namespace object, <c>importNamespace</c> and <c>clrHelper</c> are
@@ -700,9 +751,9 @@ public sealed partial class Options
         /// own diagnostic — so a host hardening an engine sees the difference rather than having to know it.
         /// </para>
         /// </remarks>
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }
 
-        internal ClrAccessConfiguration ClrAccessConfiguration { get; set; }
+        internal ClrAccessConfiguration ClrAccessConfiguration { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether to expose instance <see cref="object.GetType"/> members and the type-widening operations
@@ -716,13 +767,12 @@ public sealed partial class Options
         /// <see cref="TypeResolver.MemberFilter"/> policy. A <see cref="Jint.Runtime.Interop.TypeReference"/> converted
         /// to a <see cref="Type"/> object and back preserves that already-explicit capability.
         /// <para>
-        /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
-        /// engine that already exists: resolved members are cached under the value captured then, so a later
-        /// change could only be honoured by some reads and not others. Enabling it grants powerful reflection
-        /// capabilities and is not recommended for untrusted scripts.
+        /// Read once, while the engine is being constructed: resolved members are cached under the value
+        /// captured then. Enabling it grants powerful reflection capabilities and is not recommended for
+        /// untrusted scripts.
         /// </para>
         /// </remarks>
-        public bool AllowGetType { get; set; }
+        public bool AllowGetType { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether Jint should allow resolving or wrapping types from the <c>System.Reflection</c> namespace.
@@ -733,7 +783,7 @@ public sealed partial class Options
         /// Namespace resolution reads this once when the engine installs its CLR globals. Configure it before
         /// constructing the engine.
         /// </remarks>
-        public bool AllowSystemReflection { get; set; }
+        public bool AllowSystemReflection { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether direct writes through projected CLR objects are allowed, including fields, properties,
@@ -743,27 +793,26 @@ public sealed partial class Options
         /// This option controls the wrapper's write operations. It does not prevent scripts from calling CLR
         /// methods or extension methods whose implementations mutate host state.
         /// </remarks>
-        public bool AllowWrite { get; set; }
+        public bool AllowWrite { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether operator overloading resolution is allowed, defaults to false.
         /// </summary>
         /// <remarks>
         /// Read once per engine, at the end of construction and so after any callback registered with
-        /// <c>Options.Configure</c> has run. Setting it on an <see cref="Options"/> instance an engine
-        /// has already been built from does not reach that engine — only engines built afterwards.
+        /// <c>Options.Configure</c> has run.
         /// </remarks>
-        public bool AllowOperatorOverloading { get; set; }
+        public bool AllowOperatorOverloading { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Types holding extension methods that should be considered when resolving methods.
         /// </summary>
-        public List<Type> ExtensionMethodTypes { get; private set; } = new();
+        public OptionsList<Type> ExtensionMethodTypes { get; private set; } = new("Options.Interop.ExtensionMethodTypes");
 
         /// <summary>
         /// Object converters to try when build-in conversions.
         /// </summary>
-        public List<IObjectConverter> ObjectConverters { get; private set; } = new();
+        public OptionsList<IObjectConverter> ObjectConverters { get; private set; } = new("Options.Interop.ObjectConverters");
 
         /// <summary>
         /// CLR types whose instances the host promises are immutable while they are exposed to the engine —
@@ -779,7 +828,7 @@ public sealed partial class Options
         /// <see cref="TrackObjectWrapperIdentity"/> and a shared <see cref="TypeResolver"/> already describe,
         /// and owned by the host in exactly the same way. Read once, while the engine is being constructed.
         /// </remarks>
-        public List<Type> ImmutableCrossingTypes { get; private set; } = new();
+        public OptionsList<Type> ImmutableCrossingTypes { get; private set; } = new("Options.Interop.ImmutableCrossingTypes");
 
         /// <summary>
         /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
@@ -790,7 +839,7 @@ public sealed partial class Options
         /// under <see cref="ArrayConversionMode.LiveView"/> — instead of re-converting on every read.
         /// Defaults to false.
         /// </summary>
-        public bool TrackObjectWrapperIdentity { get; set; }
+        public bool TrackObjectWrapperIdentity { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether a small bounded cache of most recently wrapped CLR objects is kept so that the same
@@ -805,7 +854,7 @@ public sealed partial class Options
         /// stays cached (CLR-side mutations are not re-copied); set this to false for a fresh snapshot per
         /// crossing (the pre-4.14 behavior).
         /// </summary>
-        public bool CacheRecentObjectWrappers { get; set; } = true;
+        public bool CacheRecentObjectWrappers { get; set { ThrowIfReadOnly(); field = value; } } = true;
 
         /// <summary>
         /// How CLR arrays (<c>T[]</c>) are exposed to script code. Defaults to
@@ -817,7 +866,7 @@ public sealed partial class Options
         /// See the enum members for the exact semantic differences (write-through, identity, wrapper caches,
         /// <c>Array.isArray</c>, resizing and multidimensional arrays).
         /// </summary>
-        public ArrayConversionMode ArrayConversion { get; set; } = ArrayConversionMode.Copy;
+        public ArrayConversionMode ArrayConversion { get; set { ThrowIfReadOnly(); field = value; } } = ArrayConversionMode.Copy;
 
         /// <summary>
         /// How a CLR sequence that is <em>only</em> an <see cref="System.Collections.Generic.IEnumerable{T}"/> — a LINQ
@@ -827,7 +876,7 @@ public sealed partial class Options
         /// <see cref="System.Collections.Generic.IList{T}"/>, <c>T[]</c>) and dictionaries are unaffected by this
         /// option; they are exposed exactly as before. See the enum members.
         /// </summary>
-        public EnumerableConversionMode EnumerableConversion { get; set; } = EnumerableConversionMode.Lazy;
+        public EnumerableConversionMode EnumerableConversion { get; set { ThrowIfReadOnly(); field = value; } } = EnumerableConversionMode.Lazy;
 
         /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
@@ -854,14 +903,14 @@ public sealed partial class Options
         private static ObjectInstance DefaultWrapObject(Engine engine, object target, Type? type)
             => ObjectWrapper.Create(engine, target, type);
 
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = _defaultWrapObjectHandler;
+        public WrapObjectDelegate WrapObjectHandler { get; set { ThrowIfReadOnly(); field = value; } } = _defaultWrapObjectHandler;
 
         /// <summary>
         /// The handler used to build stack traces. Changing this enables mapping
         /// stack traces to code different from the code being executed, eg. when
         /// executing code transpiled from TypeScript.
         /// </summary>
-        public BuildCallStackDelegate? BuildCallStackHandler { get; set; }
+        public BuildCallStackDelegate? BuildCallStackHandler { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Named default so the interop member inline cache (see JintMemberExpression's wrapper lane) can
@@ -872,7 +921,7 @@ public sealed partial class Options
         /// <summary>
         ///
         /// </summary>
-        public MemberAccessorDelegate MemberAccessor { get; set; } = _defaultMemberAccessor;
+        public MemberAccessorDelegate MemberAccessor { get; set { ThrowIfReadOnly(); field = value; } } = _defaultMemberAccessor;
 
         /// <summary>
         /// Exceptions that thrown from CLR code are converted to JavaScript errors and
@@ -880,7 +929,7 @@ public sealed partial class Options
         /// to the CLR host and interrupt the script execution. If handler returns true these exceptions are converted
         /// to JS errors that can be caught by the script.
         /// </summary>
-        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
+        public ExceptionHandlerDelegate ExceptionHandler { get; set { ThrowIfReadOnly(); field = value; } } = _defaultExceptionHandler;
 
         /// <summary>
         /// Whether the CLR exception behind a caught interop error is also chained into the
@@ -900,7 +949,7 @@ public sealed partial class Options
         /// chain would put the host's .NET frames in front of the JavaScript ones there.
         /// </para>
         /// </summary>
-        public bool ChainClrExceptionAsInnerException { get; set; }
+        public bool ChainClrExceptionAsInnerException { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// When <c>true</c>, JavaScript errors created from CLR exceptions expose the original exception
@@ -912,7 +961,7 @@ public sealed partial class Options
         /// <see cref="JintException.TryGetClrException"/>. This setting only changes the script-visible
         /// message. Treat it as a development option.
         /// </remarks>
-        public bool ExposeDetailedExceptionMessages { get; set; }
+        public bool ExposeDetailedExceptionMessages { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Called after a JavaScript error object is created from a CLR exception, either because
@@ -920,7 +969,7 @@ public sealed partial class Options
         /// Allows decorating the error object with additional properties or modifying its state.
         /// The decorator receives the engine instance, the created error object, and the original CLR exception.
         /// </summary>
-        public ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set; }
+        public ClrExceptionErrorDecoratorDelegate? ClrExceptionErrorDecorator { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Called after the JavaScript error object for a failed CLR method or constructor resolution has been
@@ -929,7 +978,7 @@ public sealed partial class Options
         /// resolution information via <see cref="ClrResolutionErrorInfo"/> regardless of
         /// <see cref="ExposeDetailedResolutionErrors"/>, which only selects the default message.
         /// </summary>
-        public ClrResolutionErrorDecoratorDelegate? ClrResolutionErrorDecorator { get; set; }
+        public ClrResolutionErrorDecoratorDelegate? ClrResolutionErrorDecorator { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Assemblies from which <see cref="Jint.Runtime.Interop.NamespaceReference"/> may resolve CLR types.
@@ -945,7 +994,7 @@ public sealed partial class Options
         /// types whose complete declaring-type chain is public. Resolved types must also satisfy
         /// <see cref="TypeResolver.MemberFilter"/> and <see cref="AllowSystemReflection"/>.
         /// </remarks>
-        public List<Assembly> AllowedAssemblies { get; set; } = new();
+        public OptionsList<Assembly> AllowedAssemblies { get; private set; } = new("Options.Interop.AllowedAssemblies");
 
         /// <summary>
         /// Type and member resolving strategy, which allows filtering allowed members and configuring member
@@ -954,13 +1003,13 @@ public sealed partial class Options
         /// <remarks>
         /// As this object holds caching state same instance should be shared between engines, if possible.
         /// </remarks>
-        public TypeResolver TypeResolver { get; set; } = TypeResolver.Default;
+        public TypeResolver TypeResolver { get; set { ThrowIfReadOnly(); field = value; } } = TypeResolver.Default;
 
         /// <summary>
         /// When writing values to CLR objects, how should JS values be coerced to CLR types.
         /// Defaults to only coercing to string values when writing to string targets.
         /// </summary>
-        public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
+        public ValueCoercionType ValueCoercion { get; set { ThrowIfReadOnly(); field = value; } } = ValueCoercionType.String;
 
         /// <summary>
         /// How CLR enum values are exposed to script code when they cross into JavaScript, defaults to
@@ -968,7 +1017,7 @@ public sealed partial class Options
         /// the write direction is governed by <see cref="ValueCoercion"/> and always accepts both the member name
         /// and the numeric value.
         /// </summary>
-        public EnumConversionMode EnumConversion { get; set; } = EnumConversionMode.Number;
+        public EnumConversionMode EnumConversion { get; set { ThrowIfReadOnly(); field = value; } } = EnumConversionMode.Number;
 
         /// <summary>
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
@@ -976,7 +1025,7 @@ public sealed partial class Options
         internal static readonly Func<ObjectInstance, IDictionary<string, object?>> _defaultCreateClrObject =
             static _ => new ExpandoObject();
 
-        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set; } = _defaultCreateClrObject;
+        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set { ThrowIfReadOnly(); field = value; } } = _defaultCreateClrObject;
 
         /// <summary>
         /// Strategy to create a CLR object from TypeReference.
@@ -985,7 +1034,7 @@ public sealed partial class Options
         internal static readonly Func<Engine, Type, JsValue[], object?> _defaultCreateTypeReferenceObject =
             static (_, _, _) => null;
 
-        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject { get; set; } = _defaultCreateTypeReferenceObject;
+        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject { get; set { ThrowIfReadOnly(); field = value; } } = _defaultCreateTypeReferenceObject;
 
         internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
 
@@ -993,18 +1042,18 @@ public sealed partial class Options
         /// When not null, is used to serialize any CLR object in an
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
-        public SerializeToJsonDelegate? SerializeToJson { get; set; }
+        public SerializeToJsonDelegate? SerializeToJson { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.
         /// Defaults to <see cref="System.DateTimeKind.Utc"/>.
         /// </summary>
-        public DateTimeKind DateTimeKind { get; set; } = DateTimeKind.Utc;
+        public DateTimeKind DateTimeKind { get; set { ThrowIfReadOnly(); field = value; } } = DateTimeKind.Utc;
 
         /// <summary>
         /// Should the Array prototype be attached instead of Object prototype to the wrapped interop objects when type looks suitable. Defaults to true.
         /// </summary>
-        public bool AttachArrayPrototype { get; set; } = true;
+        public bool AttachArrayPrototype { get; set { ThrowIfReadOnly(); field = value; } } = true;
 
         /// <summary>
         /// When true, JavaScript prototype methods take precedence over CLR methods of the same name on wrapped CLR objects
@@ -1018,12 +1067,12 @@ public sealed partial class Options
         /// already defers to a same-named <c>Array.prototype</c> method on indexed array-like wrappers by default;
         /// this option additionally makes real CLR instance methods defer.
         /// </remarks>
-        public bool PreferJsPrototypeMethods { get; set; }
+        public bool PreferJsPrototypeMethods { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Whether the engine should throw an error when a member is not found on a CLR object. Defaults to false.
         /// </summary>
-        public bool ThrowOnUnresolvedMember { get; set; }
+        public bool ThrowOnUnresolvedMember { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// When <c>true</c>, the <see cref="Jint.Runtime.JavaScriptException"/> thrown when a CLR method or
@@ -1037,32 +1086,32 @@ public sealed partial class Options
         /// what the script sees (rewrite the message, attach an error code), use <see cref="ClrResolutionErrorDecorator"/>.
         /// </para>
         /// </summary>
-        public bool ExposeDetailedResolutionErrors { get; set; }
+        public bool ExposeDetailedResolutionErrors { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Types of CLR members reported by <see cref="ObjectWrapper"/> when enumerating properties/serializing <see cref="ObjectWrapper.ToObject"/>.
         /// Supported values are: <see cref="MemberTypes.Field"/>, <see cref="MemberTypes.Property"/>, <see cref="MemberTypes.Method"/>.
         /// All other values are ignored.
         /// </summary>
-        public MemberTypes ObjectWrapperReportedMemberTypes { get; set; } = MemberTypes.Field | MemberTypes.Property | MemberTypes.Method;
+        public MemberTypes ObjectWrapperReportedMemberTypes { get; set { ThrowIfReadOnly(); field = value; } } = MemberTypes.Field | MemberTypes.Property | MemberTypes.Method;
 
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
         /// </summary>
         /// <inheritdoc cref="AllowGetType" path="/remarks"/>
-        public BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
+        public BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set { ThrowIfReadOnly(); field = value; } } = BindingFlags.Instance | BindingFlags.Public;
 
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
         /// </summary>
         /// <inheritdoc cref="AllowGetType" path="/remarks"/>
-        public BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
+        public BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set { ThrowIfReadOnly(); field = value; } } = BindingFlags.Instance | BindingFlags.Public;
 
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" /> | <see cref="BindingFlags.Static" />.
         /// </summary>
         /// <inheritdoc cref="AllowGetType" path="/remarks"/>
-        public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
+        public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set { ThrowIfReadOnly(); field = value; } } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
 
         /// <summary>
         /// Customizes the property keys reported by <see cref="ObjectWrapper"/> when a wrapped CLR object is
@@ -1074,20 +1123,20 @@ public sealed partial class Options
         /// </summary>
         internal static readonly ReportedPropertyKeysDelegate _defaultReportedPropertyKeys = static (_, _) => null;
 
-        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set; } = _defaultReportedPropertyKeys;
+        public ReportedPropertyKeysDelegate ObjectWrapperReportedPropertyKeys { get; set { ThrowIfReadOnly(); field = value; } } = _defaultReportedPropertyKeys;
 
         internal InteropOptions Clone()
         {
             var clone = (InteropOptions) MemberwiseClone();
-            clone.ExtensionMethodTypes = new List<Type>(ExtensionMethodTypes);
-            clone.ObjectConverters = new List<IObjectConverter>(ObjectConverters);
-            clone.ImmutableCrossingTypes = new List<Type>(ImmutableCrossingTypes);
-            clone.AllowedAssemblies = new List<Assembly>(AllowedAssemblies);
+            clone.ExtensionMethodTypes = ExtensionMethodTypes.Clone();
+            clone.ObjectConverters = ObjectConverters.Clone();
+            clone.ImmutableCrossingTypes = ImmutableCrossingTypes.Clone();
+            clone.AllowedAssemblies = AllowedAssemblies.Clone();
             return clone;
         }
     }
 
-    public sealed class ConstraintOptions
+    public sealed partial class ConstraintOptions
     {
         /// <summary>
         /// Registered constraint instances.
@@ -1100,33 +1149,32 @@ public sealed partial class Options
         /// (<see cref="OptionsExtensions.AddConstraint(Options, Func{Constraint})"/>) so each engine gets
         /// its own instance; the built-in constraint extension methods already do that.
         /// </remarks>
-        public List<Constraint> Constraints { get; private set; } = new();
+        public OptionsList<Constraint> Constraints { get; private set; } = new("Options.Constraints.Constraints");
 
         /// <summary>
         /// Registered constraint factories. Each engine built from these options invokes every factory
         /// exactly once while constructing, so the constraints — and the per-execution state they carry —
         /// belong to that engine alone.
         /// </summary>
-        internal List<Func<Constraint>> ConstraintFactories { get; private set; } = new();
+        internal OptionsList<Func<Constraint>> ConstraintFactories { get; private set; } = new("Options.Constraints.Constraints");
 
-        internal int? RequestedMaxStatements { get; set; }
+        internal int? RequestedMaxStatements { get; set { ThrowIfReadOnly(); field = value; } }
 
-        internal long? RequestedMemoryLimit { get; set; }
+        internal long? RequestedMemoryLimit { get; set { ThrowIfReadOnly(); field = value; } }
 
-        internal TimeSpan? RequestedTimeoutInterval { get; set; }
+        internal TimeSpan? RequestedTimeoutInterval { get; set { ThrowIfReadOnly(); field = value; } }
 
-        internal bool CancellationConstraintRequested { get; set; }
+        internal bool CancellationConstraintRequested { get; set { ThrowIfReadOnly(); field = value; } }
 
-        internal bool OperationDeadlineConstraintRequested { get; set; }
+        internal bool OperationDeadlineConstraintRequested { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Maximum recursion depth allowed, defaults to -1 (no checks).
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Read once, while the engine is being constructed. Changing it afterwards has no effect on an
-        /// engine that already exists — the call stack decides from the same value whether to track depth at
-        /// all, so the limit could not be raised later even if every check re-read it.
+        /// Read once, while the engine is being constructed — the call stack decides from the same value
+        /// whether to track depth at all, so the limit could not be raised later even if every check re-read it.
         /// </para>
         /// <para>
         /// A limit that cannot be reached is not a limit, so <see cref="int.MaxValue"/> arms nothing and gives
@@ -1137,7 +1185,7 @@ public sealed partial class Options
         /// still distinguishes the two spellings — a host that meant to set a limit is told which mistake it made.
         /// </para>
         /// </remarks>
-        public int MaxRecursionDepth { get; set; } = -1;
+        public int MaxRecursionDepth { get; set { ThrowIfReadOnly(); field = value; } } = -1;
 
         /// <summary>
         /// <see cref="MaxRecursionDepth"/> reduced to the two states the engine can be in: a non-negative depth
@@ -1152,14 +1200,13 @@ public sealed partial class Options
         /// Chrome and V8 based engines (ClearScript) that can handle 13955.
         /// When set to a different value except -1, it can reduce slight performance/stack trace readability drawback. (after hitting the engine's own limit),
         /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
-        /// Read once, while the engine is being constructed; changing it afterwards has no effect on an
-        /// engine that already exists.
+        /// Read once, while the engine is being constructed.
         /// This lane is probed at the call expression only, so a recursion that reaches a function body by
         /// another route — <c>new</c>, an accessor, a coercion, a Proxy trap — still overflows the native
         /// stack; <see cref="StackOverflowGuard"/> is the one that covers those, and setting this property
         /// takes precedence over it.
         /// </remarks>
-        public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
+        public int MaxExecutionStackCount { get; set { ThrowIfReadOnly(); field = value; } } = StackGuard.Disabled;
 
         /// <summary>
         /// Whether every entry into an interpreted function probes the remaining native stack and throws a
@@ -1211,11 +1258,10 @@ public sealed partial class Options
         /// lane nothing to hop with.
         /// </para>
         /// <para>
-        /// Read once, while the engine is being constructed; changing it afterwards has no effect on an
-        /// engine that already exists.
+        /// Read once, while the engine is being constructed.
         /// </para>
         /// </remarks>
-        public bool StackOverflowGuard { get; set; } = true;
+        public bool StackOverflowGuard { get; set { ThrowIfReadOnly(); field = value; } } = true;
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
@@ -1231,7 +1277,7 @@ public sealed partial class Options
         /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
         /// reports an untimed engine as an error.
         /// </remarks>
-        public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
+        public TimeSpan RegexTimeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(10);
 
         /// <summary>
         /// The largest interval .NET's <see cref="System.Text.RegularExpressions.Regex"/> accepts as a match
@@ -1252,17 +1298,17 @@ public sealed partial class Options
         /// Maximum time allowed for unwrapping a Promise and getting its resolved/rejected value.
         /// Defaults to 10 seconds.
         /// </summary>
-        public TimeSpan PromiseTimeout { get; set; } = TimeSpan.FromSeconds(10);
+        public TimeSpan PromiseTimeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(10);
 
         /// <summary>
         /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
         /// </summary>
-        public uint MaxArraySize { get; set; } = uint.MaxValue;
+        public uint MaxArraySize { get; set { ThrowIfReadOnly(); field = value; } } = uint.MaxValue;
 
         /// <summary>
         /// How many iterations is Atomics.pause allowed to instruct to wait using <see cref="System.Threading.Thread.SpinWait"/>, defaults to 10 000.
         /// </summary>
-        public int MaxAtomicsPauseIterations { get; set; } = 10_000;
+        public int MaxAtomicsPauseIterations { get; set { ThrowIfReadOnly(); field = value; } } = 10_000;
 
 #if NET8_0_OR_GREATER
         /// <summary>
@@ -1279,8 +1325,8 @@ public sealed partial class Options
         /// </para>
         /// <para>
         /// Read when the engine builds its constraints, so it may be set in any order relative to
-        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>; assigning it afterwards only reaches
-        /// engines built later. Leaving it at <see cref="TimeProvider.System"/> costs exactly what it cost
+        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
+        /// Leaving it at <see cref="TimeProvider.System"/> costs exactly what it cost
         /// before this property existed — see <c>ConstraintClock</c> for the fold that makes that true.
         /// </para>
         /// <para>
@@ -1289,14 +1335,14 @@ public sealed partial class Options
         /// constructor instead.
         /// </para>
         /// </remarks>
-        public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+        public TimeProvider TimeProvider { get; set { ThrowIfReadOnly(); field = value; } } = TimeProvider.System;
 #endif
 
         internal ConstraintOptions Clone()
         {
             var clone = (ConstraintOptions) MemberwiseClone();
-            clone.Constraints = new List<Constraint>(Constraints);
-            clone.ConstraintFactories = new List<Func<Constraint>>(ConstraintFactories);
+            clone.Constraints = Constraints.Clone();
+            clone.ConstraintFactories = ConstraintFactories.Clone();
             return clone;
         }
     }
@@ -1305,7 +1351,7 @@ public sealed partial class Options
     /// Resource limits applied before and during parsing. These limits also apply to code compiled by
     /// <c>eval</c>, function constructors, ShadowRealm evaluation, and module loaders.
     /// </summary>
-    public sealed class ParsingOptions
+    public sealed partial class ParsingOptions
     {
         /// <summary>
         /// The maximum number of UTF-16 code units the parser may receive.
@@ -1315,13 +1361,13 @@ public sealed partial class Options
         /// This counts <see cref="string.Length"/>, not encoded bytes. Module loaders which decode bytes are
         /// checked after decoding. Generated source-offset padding and function-constructor wrappers also count.
         /// </remarks>
-        public int? MaxSourceLength { get; set; }
+        public int? MaxSourceLength { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// The maximum number of AST nodes the parser may produce.
         /// <see langword="null"/> (the default) means no limit.
         /// </summary>
-        public int? MaxNodeCount { get; set; }
+        public int? MaxNodeCount { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal ParsingOptions Clone() => (ParsingOptions) MemberwiseClone();
     }
@@ -1329,11 +1375,11 @@ public sealed partial class Options
     /// <summary>
     /// Host related customization, still work in progress.
     /// </summary>
-    public sealed class HostOptions
+    public sealed partial class HostOptions
     {
         internal static readonly Func<Engine, Host> _defaultFactory = static _ => new Host();
 
-        internal Func<Engine, Host> Factory { get; set; } = _defaultFactory;
+        internal Func<Engine, Host> Factory { get; set { ThrowIfReadOnly(); field = value; } } = _defaultFactory;
 
         /// <summary>
         /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
@@ -1342,7 +1388,7 @@ public sealed partial class Options
         /// <remarks>
         /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
         /// </remarks>
-        public bool StringCompilationAllowed { get; set; } = true;
+        public bool StringCompilationAllowed { get; set { ThrowIfReadOnly(); field = value; } } = true;
 
         /// <summary>
         /// Possibility to override Jint's default <c>Function.prototype.toString()</c> implementation.
@@ -1360,7 +1406,7 @@ public sealed partial class Options
         /// </remarks>
         internal static readonly Func<Function, Node, string?> _defaultFunctionToStringHandler = static (_, _) => null;
 
-        public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = _defaultFunctionToStringHandler;
+        public Func<Function, Node, string?> FunctionToStringHandler { get; set { ThrowIfReadOnly(); field = value; } } = _defaultFunctionToStringHandler;
 
         internal HostOptions Clone() => (HostOptions) MemberwiseClone();
     }
@@ -1368,17 +1414,17 @@ public sealed partial class Options
     /// <summary>
     /// Module related customization
     /// </summary>
-    public sealed class ModuleOptions
+    public sealed partial class ModuleOptions
     {
         /// <summary>
         /// Whether to register require function to engine which will delegate to module loader, defaults to false.
         /// </summary>
-        public bool RegisterRequire { get; set; }
+        public bool RegisterRequire { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
-        public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+        public IModuleLoader ModuleLoader { get; set { ThrowIfReadOnly(); field = value; } } = FailFastModuleLoader.Instance;
 
         /// <summary>
         /// Maximum number of distinct module records an engine may register over its lifetime. Charged once per
@@ -1387,7 +1433,7 @@ public sealed partial class Options
         /// <see cref="int.MaxValue"/> means unlimited (the default). A non-positive finite value throws at
         /// engine construction.
         /// </summary>
-        public int MaxModuleCount { get; set; } = int.MaxValue;
+        public int MaxModuleCount { get; set { ThrowIfReadOnly(); field = value; } } = int.MaxValue;
 
         /// <summary>
         /// Maximum cumulative UTF-8 encoded source bytes across all modules registered in an engine's lifetime.
@@ -1397,7 +1443,7 @@ public sealed partial class Options
         /// count. <see cref="long.MaxValue"/> means unlimited (the default). A non-positive finite value throws
         /// at engine construction.
         /// </summary>
-        public long MaxTotalModuleSourceBytes { get; set; } = long.MaxValue;
+        public long MaxTotalModuleSourceBytes { get; set { ThrowIfReadOnly(); field = value; } } = long.MaxValue;
 
         /// <summary>
         /// Maximum conservative import-chain depth in a module graph load. Root is depth 1. Strongly connected
@@ -1408,7 +1454,7 @@ public sealed partial class Options
         /// <see cref="int.MaxValue"/> means unlimited (the default). A non-positive finite value throws at
         /// engine construction.
         /// </summary>
-        public int MaxModuleGraphDepth { get; set; } = int.MaxValue;
+        public int MaxModuleGraphDepth { get; set { ThrowIfReadOnly(); field = value; } } = int.MaxValue;
 
         /// <summary>
         /// Maximum number of module-loader <see cref="IModuleLoader.Resolve"/> calls per top-level import or
@@ -1419,14 +1465,14 @@ public sealed partial class Options
         /// engines never fail from accumulated registrations. <see cref="int.MaxValue"/> means unlimited
         /// (the default). A non-positive finite value throws at engine construction.
         /// </summary>
-        public int MaxModuleResolutionHops { get; set; } = int.MaxValue;
+        public int MaxModuleResolutionHops { get; set { ThrowIfReadOnly(); field = value; } } = int.MaxValue;
 
         /// <summary>
         /// An optional policy consulted after resolution but before a module is loaded or fetched. A denial
         /// throws <see cref="ModuleResolutionException"/> and follows existing sync/rejection behaviour.
         /// <c>null</c> means no policy (the default — everything the loader resolves is allowed).
         /// </summary>
-        public IModuleLoadPolicy? LoadPolicy { get; set; }
+        public IModuleLoadPolicy? LoadPolicy { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// When <c>true</c>, module loading failures expose the original exception message to script code.
@@ -1434,7 +1480,7 @@ public sealed partial class Options
         /// with a generic message. The original exception remains available to the host through
         /// <see cref="JintException.TryGetClrException"/>.
         /// </summary>
-        public bool ExposeDetailedLoadErrors { get; set; }
+        public bool ExposeDetailedLoadErrors { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal ModuleOptions Clone() => (ModuleOptions) MemberwiseClone();
     }
@@ -1442,13 +1488,13 @@ public sealed partial class Options
     /// <summary>
     /// JSON.parse / JSON.stringify related customization
     /// </summary>
-    public sealed class JsonOptions
+    public sealed partial class JsonOptions
     {
         /// <summary>
         /// The maximum depth allowed when parsing JSON files using "JSON.parse",
         /// defaults to 64.
         /// </summary>
-        public int MaxParseDepth { get; set; } = 64;
+        public int MaxParseDepth { get; set { ThrowIfReadOnly(); field = value; } } = 64;
 
         internal JsonOptions Clone() => (JsonOptions) MemberwiseClone();
     }
@@ -1456,7 +1502,7 @@ public sealed partial class Options
     /// <summary>
     /// Internationalization (Intl) API related customization.
     /// </summary>
-    public sealed class IntlOptions
+    public sealed partial class IntlOptions
     {
         /// <summary>
         /// CLDR provider for locale data. Defaults to DefaultCldrProvider
@@ -1466,7 +1512,7 @@ public sealed partial class Options
         /// Set this to a custom ICldrProvider implementation (e.g., ICU-based provider)
         /// to enable full locale support for the Intl API.
         /// </remarks>
-        public ICldrProvider CldrProvider { get; set; } = DefaultCldrProvider.Instance;
+        public ICldrProvider CldrProvider { get; set { ThrowIfReadOnly(); field = value; } } = DefaultCldrProvider.Instance;
 
         internal IntlOptions Clone() => (IntlOptions) MemberwiseClone();
     }
@@ -1474,7 +1520,7 @@ public sealed partial class Options
     /// <summary>
     /// Temporal API related customization.
     /// </summary>
-    public sealed class TemporalOptions
+    public sealed partial class TemporalOptions
     {
         /// <summary>
         /// Time zone provider for Temporal operations. Defaults to DefaultTimeZoneProvider
@@ -1484,7 +1530,7 @@ public sealed partial class Options
         /// Set this to a custom ITimeZoneProvider implementation (e.g., using TimeZoneConverter or NodaTime)
         /// for full IANA time zone support and better Windows compatibility.
         /// </remarks>
-        public ITimeZoneProvider TimeZoneProvider { get; set; } = DefaultTimeZoneProvider.Instance;
+        public ITimeZoneProvider TimeZoneProvider { get; set { ThrowIfReadOnly(); field = value; } } = DefaultTimeZoneProvider.Instance;
 
         /// <summary>
         /// Calendar provider for non-ISO calendar arithmetic and field conversion.
@@ -1496,7 +1542,7 @@ public sealed partial class Options
         /// (e.g. backed by ICU4N or NodaTime) for richer support of islamic-umalqura,
         /// Persian astronomical, or Chinese/Dangi calendars at extreme dates.
         /// </remarks>
-        public ICalendarProvider CalendarProvider { get; set; } = DefaultCalendarProvider.Instance;
+        public ICalendarProvider CalendarProvider { get; set { ThrowIfReadOnly(); field = value; } } = DefaultCalendarProvider.Instance;
 
         internal TemporalOptions Clone() => (TemporalOptions) MemberwiseClone();
     }

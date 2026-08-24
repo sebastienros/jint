@@ -271,6 +271,7 @@ namespace Jint
         public Jint.Options.HostOptions Host { get; }
         public Jint.Options.InteropOptions Interop { get; }
         public Jint.Options.IntlOptions Intl { get; }
+        public bool IsReadOnly { get; }
         public Jint.Options.JsonOptions Json { get; }
         public Jint.Options.ModuleOptions Modules { get; }
         public Jint.Options.ParsingOptions Parsing { get; }
@@ -283,10 +284,11 @@ namespace Jint
         public Jint.Options.TemporalOptions Temporal { get; }
         public Jint.Runtime.ITimeSystem TimeSystem { get; set; }
         public System.TimeZoneInfo TimeZone { get; set; }
+        public void MakeReadOnly() { }
         public sealed class ConstraintOptions
         {
             public ConstraintOptions() { }
-            public System.Collections.Generic.List<Jint.Constraint> Constraints { get; }
+            public Jint.OptionsList<Jint.Constraint> Constraints { get; }
             public uint MaxArraySize { get; set; }
             public int MaxAtomicsPauseIterations { get; set; }
             public int MaxExecutionStackCount { get; set; }
@@ -321,7 +323,7 @@ namespace Jint
             public bool AllowOperatorOverloading { get; set; }
             public bool AllowSystemReflection { get; set; }
             public bool AllowWrite { get; set; }
-            public System.Collections.Generic.List<System.Reflection.Assembly> AllowedAssemblies { get; set; }
+            public Jint.OptionsList<System.Reflection.Assembly> AllowedAssemblies { get; }
             public Jint.ArrayConversionMode ArrayConversion { get; set; }
             public bool AttachArrayPrototype { get; set; }
             public Jint.Options.BuildCallStackDelegate? BuildCallStackHandler { get; set; }
@@ -338,10 +340,10 @@ namespace Jint
             public Jint.Options.ExceptionHandlerDelegate ExceptionHandler { get; set; }
             public bool ExposeDetailedExceptionMessages { get; set; }
             public bool ExposeDetailedResolutionErrors { get; set; }
-            public System.Collections.Generic.List<System.Type> ExtensionMethodTypes { get; }
-            public System.Collections.Generic.List<System.Type> ImmutableCrossingTypes { get; }
+            public Jint.OptionsList<System.Type> ExtensionMethodTypes { get; }
+            public Jint.OptionsList<System.Type> ImmutableCrossingTypes { get; }
             public Jint.Options.MemberAccessorDelegate MemberAccessor { get; set; }
-            public System.Collections.Generic.List<Jint.Runtime.Interop.IObjectConverter> ObjectConverters { get; }
+            public Jint.OptionsList<Jint.Runtime.Interop.IObjectConverter> ObjectConverters { get; }
             public System.Reflection.BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; }
             public System.Reflection.MemberTypes ObjectWrapperReportedMemberTypes { get; set; }
             public System.Reflection.BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; }
@@ -431,6 +433,24 @@ namespace Jint
             where T : Jint.Runtime.Host { }
         public static Jint.Options UseModules(this Jint.Options options, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
         public static Jint.Options UseModules(this Jint.Options options, string basePath, bool restrictToBasePath = true) { }
+    }
+    public sealed class OptionsList<T> : System.Collections.Generic.ICollection<T>, System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IList<T>, System.Collections.Generic.IReadOnlyCollection<T>, System.Collections.Generic.IReadOnlyList<T>, System.Collections.IEnumerable
+    {
+        public int Count { get; }
+        public bool IsReadOnly { get; }
+        public T this[int index] { get; set; }
+        public void Add(T item) { }
+        public void AddRange(System.Collections.Generic.IEnumerable<T> items) { }
+        public void Clear() { }
+        public bool Contains(T item) { }
+        public void CopyTo(T[] array, int arrayIndex) { }
+        public System.Collections.Generic.List<T>.Enumerator GetEnumerator() { }
+        public int IndexOf(T item) { }
+        public void Insert(int index, T item) { }
+        public bool Remove(T item) { }
+        public int RemoveAll(System.Predicate<T> match) { }
+        public void RemoveAt(int index) { }
+        public T[] ToArray() { }
     }
     public static class OptionsSecurityExtensions
     {

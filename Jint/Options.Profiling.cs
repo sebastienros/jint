@@ -10,7 +10,7 @@ public sealed partial class Options
     /// before this existed.
     /// </summary>
     /// <seealso cref="Engine.AdvancedOperations.StartProfiling"/>
-    public ProfilingOptions Profiling => Materialize(ref _profiling);
+    public ProfilingOptions Profiling => Materialize(ref _profiling, _readOnly);
 
     private ProfilingOptions? _profiling;
 
@@ -20,10 +20,9 @@ public sealed partial class Options
     /// <remarks>
     /// Like every other <see cref="Options"/> group this may be shared by any number of engines, including
     /// concurrent ones: nothing on it is engine-affine, and both members are read once, on the thread that
-    /// calls <see cref="Engine.AdvancedOperations.StartProfiling"/>, into the session it starts. Changing
-    /// either afterwards does not reach a session already running.
+    /// calls <see cref="Engine.AdvancedOperations.StartProfiling"/>, into the session it starts.
     /// </remarks>
-    public sealed class ProfilingOptions
+    public sealed partial class ProfilingOptions
     {
         /// <summary>
         /// The default value of <see cref="MaxEvents"/>.
@@ -44,7 +43,7 @@ public sealed partial class Options
         /// reference per distinct function seen (see <see cref="Engine.AdvancedOperations.StartProfiling"/>),
         /// so an engine that runs untrusted script can refuse profiling outright by leaving this false.
         /// </remarks>
-        public bool Enabled { get; set; }
+        public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
         /// Upper bound on the number of events one profiling session records, defaults to
@@ -63,6 +62,7 @@ public sealed partial class Options
             get => _maxEvents;
             set
             {
+                ThrowIfReadOnly();
                 if (value <= 0)
                 {
                     Throw.ArgumentOutOfRangeException(nameof(value), "MaxEvents must be positive.");

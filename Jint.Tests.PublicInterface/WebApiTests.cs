@@ -26,6 +26,17 @@ public class WebApiTests
         }
     }
 
+    /// <summary>
+    /// The shape a host uses to keep swapping where console output goes: the mutable part is the host's own
+    /// object, and the engine's configuration never changes.
+    /// </summary>
+    private sealed class ForwardingSink : ConsoleSink
+    {
+        internal ConsoleSink Target { get; set; } = Null;
+
+        public override void Write(ConsoleLogLevel level, string message) => Target.Write(level, message);
+    }
+
     [Fact]
     public void ADefaultEngineHasNoWebGlobals()
     {
@@ -145,21 +156,39 @@ public class WebApiTests
         sink.Records.ConvertAll(r => r.Message).Should().Equal("x: 1", "g", "  deep", "x: 1", "flat");
     }
 
+    /// <summary>
+    /// A sink is still swappable between evaluations — but through a sink the host owns, not by writing to
+    /// the <see cref="Options"/> instance the engine was built from, which is read-only from that moment.
+    /// The forwarding sink is two lines, and unlike the option write it cannot reach a second engine that
+    /// happens to share the same options.
+    /// </summary>
     [Fact]
     public void ASwappedSinkTakesEffectOnTheNextRecord()
     {
         var first = new RecordingSink();
         var second = new RecordingSink();
-        var options = new Options().UseConsole(first);
+        var forwarding = new ForwardingSink { Target = first };
+        var options = new Options().UseConsole(forwarding);
         var engine = new Engine(options);
 
         engine.Execute("console.log('one')");
-        options.WebApi.Console.Sink = second;
+        forwarding.Target = second;
         engine.Execute("console.log('two')");
 
         first.Records.Should().HaveCount(1);
         second.Records.Should().HaveCount(1);
         second.Records[0].Message.Should().Be("two");
+    }
+
+    [Fact]
+    public void WritingTheSinkOnAnEnginesOptionsIsRefused()
+    {
+        var options = new Options().UseConsole(new RecordingSink());
+        _ = new Engine(options);
+
+        Invoking(() => options.WebApi.Console.Sink = new RecordingSink())
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*Options.WebApi.Console.Sink*");
     }
 
     [Fact]

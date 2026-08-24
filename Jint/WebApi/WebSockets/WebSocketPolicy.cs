@@ -54,7 +54,7 @@ internal static class WebSocketPolicy
         return filter is null || filter(uri);
     }
 
-    private static bool IsSchemeAllowed(List<string> allowed, string scheme)
+    private static bool IsSchemeAllowed(OptionsList<string> allowed, string scheme)
     {
         // The parser has already lowercased the scheme and the constructor has already refused everything
         // that is not one of these two.

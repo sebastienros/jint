@@ -386,18 +386,21 @@ public class HostErrorDisclosureTests
         safeImport.Error.Get("message").AsString().Should().NotContain(Secret);
         safeDecoratorCalls.Should().Be(1);
 
-        var changingLoader = new DeferredLoader();
-        var changingOptions = new Options()
-            .UseModules(changingLoader)
-            .ExposeDetailedErrors();
-        var changing = new Engine(changingOptions);
-        var detailedImport = changing.Modules.StartImport("./detailed.js");
-        changingLoader.Completion!.SetError(new HostFailure());
-        changing.Advanced.ProcessTasks();
-        changingOptions.Modules.ExposeDetailedLoadErrors = false;
-        var redactedImport = changing.Modules.StartImport("./redacted.js");
-        changingLoader.Completion!.SetError(new JavaScriptException(detailedImport.Error!));
-        changing.Advanced.ProcessTasks();
+        // The third engine is the configuration half: an error value a detailed engine produced, handed to
+        // an engine configured to redact, is redacted. It is a second engine rather than the same one
+        // reconfigured, because an engine's Options are read-only once it has been built from them.
+        var detailedLoader = new DeferredLoader();
+        var detailed = new Engine(new Options().UseModules(detailedLoader).ExposeDetailedErrors());
+        var detailedImport = detailed.Modules.StartImport("./detailed.js");
+        detailedLoader.Completion!.SetError(new HostFailure());
+        detailed.Advanced.ProcessTasks();
+        detailedImport.Error!.Get("message").AsString().Should().Be(Secret);
+
+        var redactingLoader = new DeferredLoader();
+        var redacting = new Engine(new Options().UseModules(redactingLoader));
+        var redactedImport = redacting.Modules.StartImport("./redacted.js");
+        redactingLoader.Completion!.SetError(new JavaScriptException(detailedImport.Error!));
+        redacting.Advanced.ProcessTasks();
 
         redactedImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
         redactedImport.Error.Get("message").AsString().Should().NotContain(Secret);

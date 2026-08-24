@@ -44,7 +44,7 @@ internal sealed class ExtensionMethodCache
         _allExtensionMethods = extensionMethods;
     }
 
-    internal static ExtensionMethodCache Build(List<Type> extensionMethodContainerTypes)
+    internal static ExtensionMethodCache Build(OptionsList<Type> extensionMethodContainerTypes)
     {
         if (extensionMethodContainerTypes.Count == 0)
         {

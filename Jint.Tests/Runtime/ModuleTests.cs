@@ -222,11 +222,13 @@ public class ModuleTests
     [Fact]
     public void ShouldPropagateParseError()
     {
-        _engine.Options.Modules.ExposeDetailedLoadErrors = true;
-        _engine.Modules.Add("imported", "export const invalid;");
-        _engine.Modules.Add("my-module", "import { invalid } from 'imported';");
+        // Its own engine: Options are read-only once an engine has been built from them, and the shared
+        // default this class's _engine uses would have carried the exposure into every other test besides.
+        var engine = new Engine(options => options.Modules.ExposeDetailedLoadErrors = true);
+        engine.Modules.Add("imported", "export const invalid;");
+        engine.Modules.Add("my-module", "import { invalid } from 'imported';");
 
-        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        var exc = Invoking(() =>  engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
         exc.Message.Should().Be("Error while loading module: error in module 'imported': Missing initializer in const declaration (imported:1:21)");
         exc.Location.SourceFile.Should().Be("imported");
     }
@@ -234,11 +236,11 @@ public class ModuleTests
     [Fact]
     public void ShouldPropagateLinkError()
     {
-        _engine.Options.Modules.ExposeDetailedLoadErrors = true;
-        _engine.Modules.Add("imported", "export invalid;");
-        _engine.Modules.Add("my-module", "import { value } from 'imported';");
+        var engine = new Engine(options => options.Modules.ExposeDetailedLoadErrors = true);
+        engine.Modules.Add("imported", "export invalid;");
+        engine.Modules.Add("my-module", "import { value } from 'imported';");
 
-        var exc = Invoking(() =>  _engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
+        var exc = Invoking(() =>  engine.Modules.Import("my-module")).Should().ThrowExactly<JavaScriptException>().Which;
         exc.Message.Should().Be("Error while loading module: error in module 'imported': Unexpected identifier 'invalid' (imported:1:8)");
         exc.Location.SourceFile.Should().Be("imported");
     }

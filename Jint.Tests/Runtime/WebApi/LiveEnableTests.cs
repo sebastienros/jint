@@ -131,10 +131,15 @@ public class LiveEnableTests
     }
 
     /// <summary>
-    /// The clock a state was built on is the engine's forever: a <c>TimeProvider</c> assigned to the options
-    /// after construction must not reach an engine that already exists, or the timers and
+    /// The clock a state was built on is the engine's forever: a <c>TimeProvider</c> named by the live door's
+    /// own configuration callback must not reach an engine that already has a state, or the timers and
     /// <c>performance.now()</c> would be reading two different clocks.
     /// </summary>
+    /// <remarks>
+    /// The callback is the only way to say it at all now — an engine's <see cref="Options"/> are read-only
+    /// once it has been built from them — and it is deliberately the strongest form of the question: even the
+    /// sanctioned post-construction door cannot move a clock an engine is already running on.
+    /// </remarks>
     [Fact]
     public void ExtendingAnExistingStateDoesNotAdoptALaterClock()
     {
@@ -142,8 +147,9 @@ public class LiveEnableTests
         var engine = new Engine(options);
         var original = engine._webApi!.TimeProvider;
 
-        options.WebApi.Timers.TimeProvider = new FakeTimeProvider();
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers);
+        engine.Advanced.EnableWebApis(
+            WebApiFeatures.Timers,
+            webApi => webApi.Timers.TimeProvider = new FakeTimeProvider());
 
         engine._webApi!.TimeProvider.Should().BeSameAs(original);
         engine._webApi.Timers.Should().NotBeNull();

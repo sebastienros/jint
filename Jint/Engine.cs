@@ -1525,6 +1525,24 @@ public sealed partial class Engine : IDisposable
         _defaultParserOptions = scriptParsingDefaults.GetParserOptions(Options);
         _defaultParser = JintParser.Create(_defaultParserOptions, in _parsingConstraints);
         _securityConfigurationSnapshot = EngineSecurityConfigurationSnapshot.Capture(this);
+
+        // Last, and after everything Jint itself writes: Options.Apply has run the host's configuration
+        // callbacks and the untrusted-code profile's re-expansion, and every field derived above has been
+        // taken. From here the engine reads these options live — Interop.AllowWrite on every projected write,
+        // Interop.ExceptionHandler on every CLR call, Intl.CldrProvider when a locale is first needed — so a
+        // host write after this point would reach an engine that already exists. It cannot any more.
+        //
+        // The instance is usually the caller's own: CreateEngineOptions returns `this` unless a hardened
+        // profile made a private clone, and cloning instead would cost every engine build. Freezing is what
+        // makes the aliasing safe. Idempotent, so a second engine built from the same Options is unaffected.
+        //
+        // Both, and not only the one this engine kept: with a hardened profile they are different objects,
+        // and a host that got `Options is read-only after you build an engine from it` for the ordinary case
+        // and not for the profiled one would have to know which case it was in to know what its own object
+        // does. The clone the engine kept is the one that must not move; the source is frozen so that the
+        // rule can be stated without an exception.
+        Options.MakeReadOnly();
+        sourceOptions.MakeReadOnly();
     }
 
     private static void ValidateModuleOptions(Options.ModuleOptions modules)

@@ -104,7 +104,23 @@ internal static class WebApiRegistration
         // code ever does it. That is exactly what this call is: the host asking, on the engine's own thread,
         // for something the options never said.
         var options = engine.Options;
-        configure?.Invoke(options.WebApi);
+        if (configure is not null)
+        {
+            // The engine froze its options when it was built, and this callback is documented to configure
+            // the very group the engine reads its web-API settings from — the one sanctioned write to an
+            // engine's own options after construction. The suspension is scoped to the web-API groups and to
+            // this thread; see Options.BeginLiveWebApiConfiguration for why the group's own flag is the wrong
+            // thing to toggle when the Options may be shared with engines being built right now.
+            Options.BeginLiveWebApiConfiguration();
+            try
+            {
+                configure(options.WebApi);
+            }
+            finally
+            {
+                Options.EndLiveWebApiConfiguration();
+            }
+        }
 
         var combined = existing | added;
         engine._webApiFeatures = combined;

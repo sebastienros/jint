@@ -276,6 +276,34 @@ internal static class Throw
         throw new InvalidOperationException(message, exception);
     }
 
+    /// <summary>
+    /// Shared by the two <see cref="Options"/> read-only refusals, so they cannot drift.
+    /// </summary>
+    private const string OptionsReadOnlyExplanation =
+        ": these options are read-only because an engine has been built from them. "
+        + "Most settings are read off Engine.Options while the engine runs, so a later change would reach an engine that already exists. "
+        + "Configure the options fully before constructing the engine, or build the second engine from its own Options instance.";
+
+    /// <summary>
+    /// A write to an <see cref="Options"/> setting or registry after an engine has been built from it.
+    /// </summary>
+    /// <param name="setting">The full path of the setting, e.g. <c>Options.Interop.AllowWrite</c>.</param>
+    [DoesNotReturn]
+    public static void OptionsReadOnly(string setting)
+    {
+        throw new InvalidOperationException(setting + " cannot be changed" + OptionsReadOnlyExplanation);
+    }
+
+    /// <summary>
+    /// A configuration method called on an <see cref="Options"/> an engine has already been built from.
+    /// </summary>
+    /// <param name="method">The method the host called, e.g. <c>Options.AddLazyGlobal</c>.</param>
+    [DoesNotReturn]
+    public static void OptionsReadOnlyCall(string method)
+    {
+        throw new InvalidOperationException(method + " cannot be called" + OptionsReadOnlyExplanation);
+    }
+
     [DoesNotReturn]
     public static void PromiseRejectedException(JsValue error)
     {
