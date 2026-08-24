@@ -55,6 +55,10 @@ This table is filled by the pull request that removes the member. A member that 
 | `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
+| `JsValueExtensions.AsInstance<TInstance>(JsValue)` | `value as TInstance` for the answer that may be absent, `(TInstance) value` for the one that must not be — see [2.4](#24-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| `JsValueExtensions.As<T>(JsValue)` (`where T : ObjectInstance`) | `value as T`. The `IsObject()` test it ran first is implied by the constraint, so the two are the same question | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| `JsValueExtensions.TryCast<T>(JsValue)` | `value as T` — the body was exactly that, and it is not the `Try` pattern: no `bool`, no `out` | [#3319](https://github.com/sebastienros/jint/pull/3319) |
+| `JsValueExtensions.TryCast<T>(JsValue, Action<JsValue> fail)` | `value is T t`, with the failure written where it happens — see [2.4](#24-the-four-spellings-of-as-are-gone) | [#3319](https://github.com/sebastienros/jint/pull/3319) |
 
 ### 2.1 Sealed types
 
@@ -110,6 +114,59 @@ word has to mean one thing.
 reading `Options.Constraints.PromiseTimeout`, whose default is also ten seconds. A host that configured a
 different value was silently ignored. It now reads the promise's own engine. Nothing changes for a host that
 left the default, and the `TimeSpan` and `CancellationToken` overloads are untouched.
+
+### 2.4 The four spellings of `as` are gone
+
+`JsValueExtensions` carried four ways to narrow a `JsValue` to a concrete runtime type — `As<T>()`,
+`AsInstance<TInstance>()` and two `TryCast<T>()` overloads — and each was C#'s own `as` with a method name
+around it. Narrowing goes back to the language: `value as JsArray` for the answer that may be absent,
+`value is JsArray array` for the checked binding, `(JsArray) value` for the one that must not be absent.
+
+One of the four was also wrong. `AsInstance<TInstance>()` was declared to return a **non-nullable**
+`TInstance` and returned `null` whenever the value was not one, so the caller's nullable flow analysis was
+told the result could not be null, no check was written, and the `NullReferenceException` surfaced somewhere
+else entirely:
+
+```c#
+// 4.16.x — compiled with no warning, and threw at the second line, not the first
+JsArray array = engine.Evaluate("({ a: 1 })").AsInstance<JsArray>();
+var first = array.Get(0);
+
+// 5.x — the compiler types the answer JsArray? and will not let the second line past a check
+var array = engine.Evaluate("({ a: 1 })") as JsArray;
+var first = array?.Get(0);
+```
+
+Note that the two failure modes it had are now one. `AsInstance<TInstance>()` threw `ArgumentException` for a
+non-object and returned `null` for an object of the wrong type; `(TInstance) value` throws
+`InvalidCastException` for both, and `value as TInstance` answers `null` for both.
+
+The `Action<JsValue> fail` overload of `TryCast<T>()` is the least obvious replacement, because it was a
+"Try" that invoked a failure **callback** and then returned `null` — a control-flow idiom with no precedent
+in the BCL. Write the failure where it happens:
+
+```c#
+// 4.16.x
+private UuidInstance EnsureUuidInstance(JsValue thisObject)
+{
+    return thisObject.TryCast<UuidInstance>(
+        value => throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid"));
+}
+
+// 5.x
+private UuidInstance EnsureUuidInstance(JsValue thisObject)
+{
+    if (thisObject is not UuidInstance instance)
+    {
+        throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
+    }
+
+    return instance;
+}
+```
+
+That is the actual before/after of a prototype in this repository's own test suite, which was the only caller
+of the overload anywhere in the tree.
 
 ## 3. Renamed and reshaped API
 

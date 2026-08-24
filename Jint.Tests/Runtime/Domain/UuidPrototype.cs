@@ -13,7 +13,12 @@ internal sealed class UuidPrototype : UuidInstance
 
     private UuidInstance EnsureUuidInstance(JsValue thisObject)
     {
-        return thisObject.TryCast<UuidInstance>(value => throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid"));
+        if (thisObject is not UuidInstance instance)
+        {
+            throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
+        }
+
+        return instance;
     }
 
     private JsValue ToGuidString(JsValue thisObject, JsValue[] arguments) => EnsureUuidInstance(thisObject).PrimitiveValue.ToString();

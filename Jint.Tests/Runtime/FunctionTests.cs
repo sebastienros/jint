@@ -364,20 +364,18 @@ assertEqual(booleanCount, 1);
     [Fact]
     public void CanInvokeCallForFunctionInstance()
     {
-        _engine.Evaluate(@"
+        ((Function) _engine.Evaluate(@"
                 (function () {
                     function foo(a = 123) { return a; }
                     foo()
-                })")
-            .As<Function>().Call();
+                })")).Call();
 
-        var result = _engine.Evaluate(@"
+        var result = ((Function) _engine.Evaluate(@"
                 (function () {
                     class Foo { test() { return 123 } }
                     let f = new Foo()
                     return f.test()
-                })")
-            .As<Function>().Call();
+                })")).Call();
 
         result.IsInteger().Should().BeTrue();
         result.AsInteger().Should().Be(123);

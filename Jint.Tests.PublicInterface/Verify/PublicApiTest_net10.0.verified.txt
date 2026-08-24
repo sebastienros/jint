@@ -187,8 +187,6 @@ namespace Jint
     }
     public static class JsValueExtensions
     {
-        public static T? As<T>(this Jint.Native.JsValue value)
-            where T : Jint.Native.Object.ObjectInstance { }
         public static Jint.Native.JsArray AsArray(this Jint.Native.JsValue value) { }
         public static byte[]? AsArrayBuffer(this Jint.Native.JsValue value) { }
         public static long[] AsBigInt64Array(this Jint.Native.JsValue value) { }
@@ -200,8 +198,6 @@ namespace Jint
         public static float[] AsFloat32Array(this Jint.Native.JsValue value) { }
         public static double[] AsFloat64Array(this Jint.Native.JsValue value) { }
         public static Jint.Native.Function.Function AsFunctionInstance(this Jint.Native.JsValue value) { }
-        public static TInstance AsInstance<TInstance>(this Jint.Native.JsValue value)
-            where TInstance :  class { }
         public static short[] AsInt16Array(this Jint.Native.JsValue value) { }
         public static int[] AsInt32Array(this Jint.Native.JsValue value) { }
         public static sbyte[] AsInt8Array(this Jint.Native.JsValue value) { }
@@ -249,10 +245,6 @@ namespace Jint
         public static bool IsUint8Array(this Jint.Native.JsValue value) { }
         public static bool IsUint8ClampedArray(this Jint.Native.JsValue value) { }
         public static bool IsUndefined(this Jint.Native.JsValue value) { }
-        public static T? TryCast<T>(this Jint.Native.JsValue value)
-            where T :  class { }
-        public static T? TryCast<T>(this Jint.Native.JsValue value, System.Action<Jint.Native.JsValue> fail)
-            where T :  class { }
         public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value) { }
         public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.Threading.CancellationToken cancellationToken) { }
         public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.TimeSpan timeout) { }

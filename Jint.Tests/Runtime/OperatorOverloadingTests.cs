@@ -366,7 +366,7 @@ public class OperatorOverloadingTests
         engine.SetValue("log", new Action<object>(Console.WriteLine));
 
         engine.Evaluate("let v1 = new Vector2D(1, 2);");
-        engine.Evaluate("new String(v1)").As<StringInstance>().StringData.ToString().Should().Be("(1, 2)");
+        ((StringInstance) engine.Evaluate("new String(v1)")).StringData.ToString().Should().Be("(1, 2)");
         engine.Evaluate("'### ' + v1 + ' ###'").Should().Be("### (1, 2) ###");
     }
 
@@ -389,7 +389,7 @@ public class OperatorOverloadingTests
         // (once in EvaluateOperatorOverloading, once in the operator switch).
         sideEffectCount.Should().Be(1);
 
-        var arr = result.As<Native.JsArray>();
+        var arr = (Native.JsArray) result;
         arr.Get(0).AsNumber().Should().Be(2.0);   // v.X = 1 + 1 = 2
         arr.Get(1).AsNumber().Should().Be(12.0);  // v.Y = 2 + 10 = 12
     }

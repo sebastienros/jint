@@ -155,7 +155,7 @@ internal sealed partial class ErrorPrototype : ErrorInstance
     [JsFunction]
     public JsValue ToString(JsValue thisObject)
     {
-        var o = thisObject.TryCast<ObjectInstance>();
+        var o = thisObject as ObjectInstance;
         if (o is null)
         {
             Throw.TypeError(_realm, $"Method Error.prototype.toString called on incompatible receiver {thisObject}");

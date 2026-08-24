@@ -90,7 +90,7 @@ function output(d) {
     [Benchmark]
     public void Benchmark()
     {
-        var call = engine.GetValue("output").TryCast<ICallable>();
+        var call = (ICallable) engine.GetValue("output");
         for (int i = 0; i < N; ++i)
         {
             call.Call(JsValue.Undefined, targetJsObject);
