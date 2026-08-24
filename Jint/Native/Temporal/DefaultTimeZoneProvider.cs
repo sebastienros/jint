@@ -8,14 +8,33 @@ using System.Runtime.InteropServices;
 namespace Jint.Native.Temporal;
 
 /// <summary>
-/// Default time zone provider using .NET TimeZoneInfo.
+/// The time zone data an engine uses unless the host replaces it, read from .NET's <see cref="TimeZoneInfo"/>.
 /// </summary>
 /// <remarks>
-/// This provides basic IANA time zone support via .NET's built-in TimeZoneInfo class.
-/// On Windows, Windows time zone IDs are mapped to IANA identifiers where possible.
-/// For full IANA support, consider using TimeZoneConverter package with a custom provider.
+/// <para>
+/// Every member is <c>virtual</c>, so changing one answer — the default zone, one alias, one offset —
+/// means deriving from this class and overriding that one member. The other eight are inherited.
+/// </para>
+/// <para>
+/// Install the derived instance on <see cref="Options.TemporalOptions.TimeZoneProvider"/>; leaving that
+/// property alone keeps <see cref="Instance"/>, the shared singleton every unconfigured engine reads.
+/// </para>
+/// <para>
+/// On Windows, Windows time zone IDs are mapped to IANA identifiers where possible. Full IANA coverage
+/// is what a derived provider backed by TimeZoneConverter or NodaTime buys.
+/// </para>
 /// </remarks>
-public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
+/// <example>
+/// <code>
+/// sealed class FixedZone : DefaultTimeZoneProvider
+/// {
+///     public override string GetDefaultTimeZone() => "Europe/Helsinki";
+/// }
+///
+/// options.Temporal.TimeZoneProvider = new FixedZone();
+/// </code>
+/// </example>
+public class DefaultTimeZoneProvider : ITimeZoneProvider
 {
     private static bool IsWindowsPlatform()
     {
@@ -137,7 +156,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     public static DefaultTimeZoneProvider Instance { get; } = new();
 
     /// <inheritdoc />
-    public long GetOffsetNanosecondsFor(string timeZoneId, BigInteger epochNanoseconds)
+    public virtual long GetOffsetNanosecondsFor(string timeZoneId, BigInteger epochNanoseconds)
     {
         if (string.Equals(timeZoneId, "UTC", StringComparison.Ordinal) ||
             string.Equals(timeZoneId, "Etc/UTC", StringComparison.Ordinal))
@@ -177,7 +196,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public BigInteger[] GetPossibleInstantsFor(
+    public virtual BigInteger[] GetPossibleInstantsFor(
         string timeZoneId,
         int year, int month, int day,
         int hour, int minute, int second,
@@ -257,7 +276,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public BigInteger? GetNextTransition(string timeZoneId, BigInteger epochNanoseconds)
+    public virtual BigInteger? GetNextTransition(string timeZoneId, BigInteger epochNanoseconds)
     {
         if (string.Equals(timeZoneId, "UTC", StringComparison.Ordinal) ||
             string.Equals(timeZoneId, "Etc/UTC", StringComparison.Ordinal))
@@ -327,7 +346,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public BigInteger? GetPreviousTransition(string timeZoneId, BigInteger epochNanoseconds)
+    public virtual BigInteger? GetPreviousTransition(string timeZoneId, BigInteger epochNanoseconds)
     {
         if (string.Equals(timeZoneId, "UTC", StringComparison.Ordinal) ||
             string.Equals(timeZoneId, "Etc/UTC", StringComparison.Ordinal))
@@ -392,7 +411,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public bool IsValidTimeZone(string timeZoneId)
+    public virtual bool IsValidTimeZone(string timeZoneId)
     {
         if (string.IsNullOrEmpty(timeZoneId))
             return false;
@@ -441,7 +460,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public string? CanonicalizeTimeZone(string timeZoneId)
+    public virtual string? CanonicalizeTimeZone(string timeZoneId)
     {
         if (string.IsNullOrEmpty(timeZoneId))
             return null;
@@ -576,13 +595,13 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<string> GetAvailableTimeZones()
+    public virtual IReadOnlyCollection<string> GetAvailableTimeZones()
     {
         return CachedAvailableTimeZones.Value;
     }
 
     /// <inheritdoc />
-    public string GetDefaultTimeZone()
+    public virtual string GetDefaultTimeZone()
     {
         var local = TimeZoneInfo.Local;
 
@@ -604,7 +623,7 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     /// Gets the primary IANA identifier for a timezone, resolving aliases.
     /// E.g., "Asia/Calcutta" → "Asia/Kolkata", "America/Atka" → "America/Adak".
     /// </summary>
-    public string? GetPrimaryTimeZoneIdentifier(string timeZoneId)
+    public virtual string? GetPrimaryTimeZoneIdentifier(string timeZoneId)
     {
         if (string.IsNullOrEmpty(timeZoneId))
         {

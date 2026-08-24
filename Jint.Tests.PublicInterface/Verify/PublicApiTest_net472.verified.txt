@@ -1179,32 +1179,33 @@ namespace Jint.Native.Intl
         public string? DateTimePattern { get; init; }
         public string? TimePattern { get; init; }
     }
-    public sealed class DefaultCldrProvider : Jint.Native.Intl.ICldrProvider
+    public class DefaultCldrProvider : Jint.Native.Intl.ICldrProvider
     {
         public static readonly Jint.Native.Intl.DefaultCldrProvider Instance;
-        public Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style) { }
-        public Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode) { }
-        public string? GetCurrencyDisplayName(string locale, string code) { }
-        public Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle) { }
-        public string[]? GetDayPeriods(string locale, string style, string? calendar) { }
-        public string? GetDefaultNumberingSystem(string locale) { }
-        public string[]? GetEraNames(string locale, string style, string? calendar) { }
-        public string? GetLikelySubtags(string locale) { }
-        public Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style) { }
-        public string[]? GetMonthNames(string locale, string style, string? calendar) { }
-        public string? GetNumberingSystemDigits(string numberingSystem) { }
-        public Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style) { }
-        public string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style) { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations() { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies() { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems() { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedTimeZones() { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedUnits() { }
-        public Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style) { }
-        public Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale) { }
-        public string[]? GetWeekdayNames(string locale, string style) { }
-        public string SelectPluralCategory(string locale, double value, string type) { }
+        protected DefaultCldrProvider() { }
+        public virtual Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style) { }
+        public virtual Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode) { }
+        public virtual string? GetCurrencyDisplayName(string locale, string code) { }
+        public virtual Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle) { }
+        public virtual string[]? GetDayPeriods(string locale, string style, string? calendar) { }
+        public virtual string? GetDefaultNumberingSystem(string locale) { }
+        public virtual string[]? GetEraNames(string locale, string style, string? calendar) { }
+        public virtual string? GetLikelySubtags(string locale) { }
+        public virtual Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style) { }
+        public virtual string[]? GetMonthNames(string locale, string style, string? calendar) { }
+        public virtual string? GetNumberingSystemDigits(string numberingSystem) { }
+        public virtual Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style) { }
+        public virtual string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style) { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations() { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies() { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems() { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedTimeZones() { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedUnits() { }
+        public virtual Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style) { }
+        public virtual Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale) { }
+        public virtual string[]? GetWeekdayNames(string locale, string style) { }
+        public virtual string SelectPluralCategory(string locale, double value, string type) { }
     }
     public interface ICldrProvider
     {
@@ -1515,27 +1516,28 @@ namespace Jint.Native.Temporal
         public int MonthsInYear { get; init; }
         public int Year { get; init; }
     }
-    public sealed class DefaultCalendarProvider : Jint.Native.Temporal.ICalendarProvider
+    public class DefaultCalendarProvider : Jint.Native.Temporal.ICalendarProvider
     {
         public static readonly Jint.Native.Temporal.DefaultCalendarProvider Instance;
-        public Jint.Native.Temporal.IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow) { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
-        public bool IsSupported(string calendar) { }
-        public Jint.Native.Temporal.CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay) { }
+        protected DefaultCalendarProvider() { }
+        public virtual Jint.Native.Temporal.IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow) { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
+        public virtual bool IsSupported(string calendar) { }
+        public virtual Jint.Native.Temporal.CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay) { }
     }
-    public sealed class DefaultTimeZoneProvider : Jint.Native.Temporal.ITimeZoneProvider
+    public class DefaultTimeZoneProvider : Jint.Native.Temporal.ITimeZoneProvider
     {
         public DefaultTimeZoneProvider() { }
         public static Jint.Native.Temporal.DefaultTimeZoneProvider Instance { get; }
-        public string? CanonicalizeTimeZone(string timeZoneId) { }
-        public System.Collections.Generic.IReadOnlyCollection<string> GetAvailableTimeZones() { }
-        public string GetDefaultTimeZone() { }
-        public System.Numerics.BigInteger? GetNextTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
-        public long GetOffsetNanosecondsFor(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
-        public System.Numerics.BigInteger[] GetPossibleInstantsFor(string timeZoneId, int year, int month, int day, int hour, int minute, int second, int millisecond, int microsecond, int nanosecond) { }
-        public System.Numerics.BigInteger? GetPreviousTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
-        public string? GetPrimaryTimeZoneIdentifier(string timeZoneId) { }
-        public bool IsValidTimeZone(string timeZoneId) { }
+        public virtual string? CanonicalizeTimeZone(string timeZoneId) { }
+        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetAvailableTimeZones() { }
+        public virtual string GetDefaultTimeZone() { }
+        public virtual System.Numerics.BigInteger? GetNextTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public virtual long GetOffsetNanosecondsFor(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public virtual System.Numerics.BigInteger[] GetPossibleInstantsFor(string timeZoneId, int year, int month, int day, int hour, int minute, int second, int millisecond, int microsecond, int nanosecond) { }
+        public virtual System.Numerics.BigInteger? GetPreviousTransition(string timeZoneId, System.Numerics.BigInteger epochNanoseconds) { }
+        public virtual string? GetPrimaryTimeZoneIdentifier(string timeZoneId) { }
+        public virtual bool IsValidTimeZone(string timeZoneId) { }
     }
     public interface ICalendarProvider
     {
