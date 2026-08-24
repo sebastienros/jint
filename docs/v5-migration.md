@@ -1066,6 +1066,37 @@ Shipping it inside the `Jint` NuGet package, diagnostics for the declined shapes
 generated members through `MemberFilter` and the name policy are each their own follow-up.
 | Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
 
+### 5.2 Changing one locale datum is one override ([#3335](https://github.com/sebastienros/jint/pull/3335))
+
+`DefaultCldrProvider`, `DefaultTimeZoneProvider` and `DefaultCalendarProvider` were `sealed`, so a host that
+disagreed with one currency name, one time zone alias or one calendar had to implement the whole interface —
+23, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
+engine silently loses a datum it used to have.
+
+All three are now unsealed with `virtual` members, matching `DefaultTimeSystem`, which has always had that
+shape. Nothing about an unconfigured engine changed: the `Options` properties still default to the same
+`Instance` singletons, and `Options.Temporal.CalendarProvider` still recognizes that singleton by identity
+and answers inline rather than going through the interface.
+
+```c#
+// 5.x — the other twenty-two members are inherited
+sealed class MyCldr : DefaultCldrProvider
+{
+    public override string? GetCurrencyDisplayName(string locale, string code)
+        => code == "EUR" ? "Space Credits" : base.GetCurrencyDisplayName(locale, code);
+}
+
+var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
+```
+
+Two limits are worth knowing before reaching for this. Ten of `ICldrProvider`'s twenty-three members have no
+caller inside Jint today — `GetCurrencyData`, `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods`,
+`GetDateTimePatterns`, `GetCompactPatterns`, `GetNumberingSystemDigits`, `GetLikelySubtags`, `GetWeekInfo`
+and `SelectPluralCategory` — so overriding one of those changes nothing script can observe until the engine
+starts consulting it. And on the calendar side, *correcting* a calendar Jint already
+knows is one override, while *adding* one it does not know is four: `IsSupported`, `GetSupportedCalendars` and
+both conversions all have to answer for the new identifier.
+
 ### 5.3 Host objects: one hook set for named properties ([#3338](https://github.com/sebastienros/jint/pull/3338))
 
 `NamedPropertyObject` shipped read-only, which is not the shape the hosts it was designed for have: a
@@ -1146,37 +1177,6 @@ var rangeError = engine.Intrinsics.RangeError;
 The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
 error from host code](../README.md#raising-an-error-from-host-code).
 | The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override) |
-
-### 5.2 Changing one locale datum is one override ([#3322](https://github.com/sebastienros/jint/pull/3322))
-
-`DefaultCldrProvider`, `DefaultTimeZoneProvider` and `DefaultCalendarProvider` were `sealed`, so a host that
-disagreed with one currency name, one time zone alias or one calendar had to implement the whole interface —
-23, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
-engine silently loses a datum it used to have.
-
-All three are now unsealed with `virtual` members, matching `DefaultTimeSystem`, which has always had that
-shape. Nothing about an unconfigured engine changed: the `Options` properties still default to the same
-`Instance` singletons, and `Options.Temporal.CalendarProvider` still recognizes that singleton by identity
-and answers inline rather than going through the interface.
-
-```c#
-// 5.x — the other twenty-two members are inherited
-sealed class MyCldr : DefaultCldrProvider
-{
-    public override string? GetCurrencyDisplayName(string locale, string code)
-        => code == "EUR" ? "Space Credits" : base.GetCurrencyDisplayName(locale, code);
-}
-
-var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
-```
-
-Two limits are worth knowing before reaching for this. Ten of `ICldrProvider`'s twenty-three members have no
-caller inside Jint today — `GetCurrencyData`, `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods`,
-`GetDateTimePatterns`, `GetCompactPatterns`, `GetNumberingSystemDigits`, `GetLikelySubtags`, `GetWeekInfo`
-and `SelectPluralCategory` — so overriding one of those changes nothing script can observe until the engine
-starts consulting it. And on the calendar side, *correcting* a calendar Jint already
-knows is one override, while *adding* one it does not know is four: `IsSupported`, `GetSupportedCalendars` and
-both conversions all have to answer for the new identifier.
 
 ## 6. AOT and trimming
 
