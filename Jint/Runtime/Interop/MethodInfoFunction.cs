@@ -290,7 +290,14 @@ internal sealed class MethodInfoFunction : Function
     /// ExpandoObject), so the method operates on the instance it was resolved from, exactly as
     /// <see cref="Descriptors.Specialized.ReflectionDescriptor"/> ignores the JS receiver for property reads.
     /// </summary>
-    private object? ResolveThisObject(JsValue thisObject)
+    private object? ResolveThisObject(JsValue thisObject) => ResolveClrReceiver(_engine, thisObject, _target, _name);
+
+    /// <inheritdoc cref="ResolveThisObject" />
+    /// <remarks>
+    /// Shared with <see cref="Reflection.GeneratedMethodAccessor"/> so a <c>[JsAccessible]</c> method and the
+    /// reflected one it replaces derive their receiver from one rule rather than from two copies of it.
+    /// </remarks>
+    internal static object? ResolveClrReceiver(Engine engine, JsValue thisObject, object? owningTarget, string name)
     {
         // hot path: a member call on the wrapper itself
         if (thisObject is ObjectWrapper wrapper)
@@ -303,7 +310,7 @@ internal sealed class MethodInfoFunction : Function
         {
             if (proxy.IsRevoked)
             {
-                Throw.TypeError(_engine.Realm, $"Cannot perform '{_name}' on a proxy that has been revoked");
+                Throw.TypeError(engine.Realm, $"Cannot perform '{name}' on a proxy that has been revoked");
             }
 
             receiver = proxy._target;
@@ -316,11 +323,11 @@ internal sealed class MethodInfoFunction : Function
                 return hostWrapper.Target;
             }
 
-            return _target ?? objectInstance.ToObject();
+            return owningTarget ?? objectInstance.ToObject();
         }
 
         // undefined/null unwrap to null and fall back to the owning instance; primitives keep converting
-        return receiver.ToObject() ?? _target;
+        return receiver.ToObject() ?? owningTarget;
     }
 
     [DoesNotReturn]

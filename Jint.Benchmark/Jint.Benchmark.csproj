@@ -28,6 +28,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <!-- For InteropGeneratedAccessorBenchmarks. No <NoWarn>CS0436</NoWarn> accompanies it and none is
+         needed: this analyzer emits no post-initialization source, so nothing it produces collides with the
+         Jint internals this assembly can already see. -->
+    <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />

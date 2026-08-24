@@ -5,21 +5,15 @@ using Jint.Native;
 namespace Jint.Benchmark;
 
 /// <summary>
-/// CLR interop bench. Gates [JsAccessible] (Phase 3 of the source-gen plan), which will replace
-/// the reflection-based PropertyAccessor / FieldAccessor / MethodDescriptor paths with directly-
-/// generated typed accessors and a pre-built TypeDescriptor seeded via [ModuleInitializer].
+/// CLR interop bench for the reflection path: a parse plus a member access, per row.
 ///
-/// Pre-Phase-3 baseline cost (per the runtime survey in plans/we-have-created-source-wise-falcon.md):
-///   - Property get/set: 2-5µs (PropertyInfo.GetValue/SetValue + boxing)
-///   - Method invocation (1-arg): 5-10µs (MethodInfo.Invoke + arg boxing)
-///   - Cold first-touch on a new CLR type: 50-200µs (TypeDescriptor reflection scan)
+/// <para>It is deliberately <b>not</b> the [JsAccessible] comparison. Annotating Player here would change
+/// what three of these rows measure while leaving the two method rows reflected — the generator declines an
+/// int-parameter method — so the class would stop being a baseline for anything. The paired comparison lives
+/// in <see cref="InteropGeneratedAccessorBenchmarks"/>, where the two model types differ only in the
+/// attribute and every row has a sibling.</para>
 ///
-/// Phase 3 target: 30-80ns / 100-200ns / 0 respectively. This file establishes the baseline so
-/// PR9-10 can demonstrate the win.
-///
-/// The benchmark types live inside this class — same pattern as InteropBenchmark.Person —
-/// so when [JsAccessible] lands the same source files can grow `[JsAccessible]` on Player and
-/// the bench runs both paths.
+/// The benchmark types live inside this class — same pattern as InteropBenchmark.Person.
 ///
 /// <para><b>Engine isolation.</b> Every row gets its own engine, warmed with that row's own script and
 /// nothing else. It used to be four engines for seven rows: the three property-get rows shared one

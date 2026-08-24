@@ -632,6 +632,74 @@ changes an engine that does not.
 | Script profiling | `options.Profiling.Enabled = true` | [Profiling scripts (opt-in)](../README.md#profiling-scripts-opt-in) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
+| Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#51-source-generated-clr-interop) |
+
+### 5.1 Source-generated CLR interop
+
+Annotate a CLR type with `[JsAccessible]` and reference Jint's interop source generator, and its public
+instance properties, fields and methods are reached through generated C# in your own assembly instead of
+through reflection:
+
+```csharp
+[JsAccessible]
+public sealed class Player
+{
+    public int Score { get; set; }
+    public string Name { get; set; } = "";
+
+    public JsValue Describe(JsValue prefix) => prefix + Name;
+}
+
+// once, during startup, before the first engine resolves a member of an annotated type
+MyApp.JsAccessibleRegistration.RegisterAll();
+```
+
+`RegisterAll()` is generated into your assembly's root namespace, one per assembly, and is idempotent.
+**Registration is explicit on purpose.** The generator does not use `[ModuleInitializer]`: that attribute
+does not exist on `net472` or `netstandard2.0` without a polyfill you have no other reason to carry, and a
+registration that happens because an assembly loaded is one you can neither see in a stack trace nor turn
+off in a test.
+
+**What it claims.** Two things, both narrow. The annotated members need no metadata a trimmer could remove,
+and reading, writing or invoking one runs no reflection — on every target framework, including the ones
+where Jint's run-time compiled lanes decline outright (`net472`, `netstandard2.0`, and anything without
+dynamic code). **It is not an AOT claim**; section 6 is still the whole story there, and this changes
+nothing in it.
+
+**What it does not change.** Everything else. A generated member goes through the same property descriptor,
+the same conversion, the same `Options.Interop.AllowWrite` check and the same execution-constraint boundary
+as the reflected one it replaces, and behaves identically — which is asserted differentially, member shape by
+member shape, in `Jint.Tests.PublicInterface/HostGeneratedInteropTests.cs`. One observable differs, and in
+the generated form's favour: a generated method is a function object with its own `length`, where a reflected
+one reports the arity it inherits from `Function.prototype`.
+
+**What the generator declines**, leaving the member to resolve through reflection exactly as it did before
+you annotated the type:
+
+| shape | why |
+| --- | --- |
+| an overloaded method name | overload resolution is what the reflected path exists for |
+| a method parameter not typed `JsValue` | its reflected binding is a conversion chain steered by engine options; reproducing it in emitted code is where a generated accessor stops being equivalent |
+| an optional, `params`, `ref`/`out` parameter, or a generic method | same |
+| a property with a non-public or `init` accessor | reflection writes those and emitted C# cannot, so half a member would be worse than none |
+| a `static` member, an indexer, a `const` field | resolved by a different lane |
+| an `abstract`, `static`, generic or nested-private type, and any value type | never the runtime type of a receiver, or unreachable from emitted code — and a value type's instance member would be written through a boxed copy |
+
+The generated lane is also skipped **entirely, for every annotated type**, when the host has installed a
+`TypeResolver.MemberFilter`, `MemberNameCreator` or `MemberNameComparer`, or binding flags that no longer
+report public instance members. Those four steer which members exist and under what names; the generated
+lanes do not run through them yet, and declining is the difference between "not yet supported" and "quietly
+bypasses the filter you installed".
+
+Consume the generator with an `Analyzer` project reference for now:
+
+```xml
+<ProjectReference Include="path\to\Jint.SourceGenerators.Interop.csproj"
+                  OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+```
+
+Shipping it inside the `Jint` NuGet package, diagnostics for the declined shapes above, and routing the
+generated members through `MemberFilter` and the name policy are each their own follow-up.
 
 ## 6. AOT and trimming
 

@@ -185,6 +185,11 @@ namespace Jint
         public static bool TryGetJavaScriptCallStack(System.Exception? exception, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? callStack) { }
         public static bool TryGetJavaScriptLocation(System.Exception? exception, out Acornima.SourceLocation location) { }
     }
+    [System.AttributeUsage(System.AttributeTargets.Class, AllowMultiple=false, Inherited=false)]
+    public sealed class JsAccessibleAttribute : System.Attribute
+    {
+        public JsAccessibleAttribute() { }
+    }
     public static class JsValueExtensions
     {
         public static T? As<T>(this Jint.Native.JsValue value)
@@ -2248,6 +2253,15 @@ namespace Jint.Runtime.Interop
     {
         object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider);
         bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted);
+    }
+    public static class JsAccessibleRegistry
+    {
+        public static void Register(System.Type type, System.Action<Jint.Runtime.Interop.JsAccessibleTypeBuilder> members) { }
+    }
+    public sealed class JsAccessibleTypeBuilder
+    {
+        public void AddMember(string name, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type memberType, System.Func<object, Jint.Native.JsValue>? read, System.Func<object, object?>? readBoxed, System.Func<object, Jint.Native.JsValue, bool>? write, System.Action<object, object?>? writeBoxed) { }
+        public void AddMethod(string name, int length, System.Func<Jint.Engine, object, Jint.Native.JsValue[], Jint.Native.JsValue> invoke) { }
     }
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Dynamic loading")]
     public class NamespaceReference : Jint.Native.Object.ObjectInstance

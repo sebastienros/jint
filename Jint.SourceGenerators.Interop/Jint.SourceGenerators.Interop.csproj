@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The [JsAccessible] generator is a SEPARATE analyzer assembly from Jint.SourceGenerators on purpose, and
+    the reason is not organisational. Jint.SourceGenerators emits its attribute set through
+    RegisterPostInitializationOutput, unconditionally, into whichever compilation references it - and that
+    source declares members typed `Jint.Native.Function.FastCallGuard`, which is internal to Jint. Any
+    assembly outside Jint's InternalsVisibleTo grant list that referenced that analyzer would therefore fail
+    to compile before reaching a single line of its own code. This generator is the one a third party
+    references, so it has no post-initialization output at all: its attribute, [Jint.JsAccessible], is a
+    public type shipped in Jint.dll.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <NoWarn>$(NoWarn);RS1041</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Shared with the other generator rather than copied: the incremental pipeline's value equality
+       depends on this type behaving identically in both. -->
+  <ItemGroup>
+    <Compile Include="..\Jint.SourceGenerators\EquatableArray.cs" Link="EquatableArray.cs" />
+  </ItemGroup>
+
+  <!-- Inherited usings from the root Directory.Build.props target Jint runtime types we don't reference. -->
+  <ItemGroup>
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+    <Using Remove="Acornima.Ast.Module" />
+  </ItemGroup>
+
+</Project>
