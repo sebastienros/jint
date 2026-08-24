@@ -199,18 +199,6 @@ public static class JsValueExtensions
 
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static TInstance AsInstance<TInstance>(this JsValue value) where TInstance : class
-    {
-        if (!value.IsObject())
-        {
-            Throw.ArgumentException("The value is not an object");
-        }
-
-        return (value as TInstance)!;
-    }
-
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static JsArray AsArray(this JsValue value)
     {
         if (!value.IsArray())
@@ -545,39 +533,6 @@ public static class JsValueExtensions
         }
 
         return ((JsTypedArray) value).ToNativeArray<double>();
-    }
-
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? TryCast<T>(this JsValue value) where T : class
-    {
-        return value as T;
-    }
-
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? TryCast<T>(this JsValue value, Action<JsValue> fail) where T : class
-    {
-        if (value is T o)
-        {
-            return o;
-        }
-
-        fail.Invoke(value);
-
-        return null;
-    }
-
-    [Pure]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? As<T>(this JsValue value) where T : ObjectInstance
-    {
-        if (value.IsObject())
-        {
-            return value as T;
-        }
-
-        return null;
     }
 
     [Pure]

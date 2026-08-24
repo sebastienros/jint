@@ -71,7 +71,7 @@ public class NamespaceReference : ObjectInstance, ICallable
             genericTypes[i] = tr.ReferenceType;
         }
 
-        var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
+        var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)) as TypeReference;
 
         if (typeReference is null)
         {
