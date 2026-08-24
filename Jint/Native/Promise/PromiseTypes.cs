@@ -45,13 +45,22 @@ internal sealed record ResolvingFunctions(
 /// two functions that settle it. Only the engine can hand one out — settling requires the resolving functions
 /// the engine built for that particular promise, so a host-constructed instance could never mean anything.
 /// </summary>
+/// <remarks>
+/// <see cref="Resolve"/> and <see cref="Reject"/> take a <b>CLR</b> value, and the conversion to a
+/// <see cref="JsValue"/> runs on the engine's thread as part of the settlement job rather than on the thread
+/// that called them. That is what the parameter type is for: a host settling from a
+/// <see cref="System.Threading.Tasks.Task"/> continuation holds a CLR value and has no safe place to convert
+/// it, because a <see cref="JsValue"/> belongs to the engine that built it and that engine may be busy.
+/// Passing a <see cref="JsValue"/> is still correct and costs nothing extra — conversion returns it
+/// unchanged — and <see langword="null"/> settles with <see cref="JsValue.Null"/>.
+/// </remarks>
 // Written out longhand rather than declared positionally purely so the constructor can be internal: a
 // positional record takes no accessibility modifier on its primary constructor. The property, deconstruction
 // and `with` surface below is exactly what a positional record would have generated, so "simplifying" this
 // back to one silently re-exposes the public constructor.
 public sealed record ManualPromise
 {
-    internal ManualPromise(JsValue promise, Action<JsValue> resolve, Action<JsValue> reject)
+    internal ManualPromise(JsValue promise, Action<object?> resolve, Action<object?> reject)
     {
         Promise = promise;
         Resolve = resolve;
@@ -64,34 +73,27 @@ public sealed record ManualPromise
     public JsValue Promise { get; init; }
 
     /// <summary>
-    /// Fulfills <see cref="Promise"/> with the value passed to it.
+    /// Fulfills <see cref="Promise"/> with the value passed to it, converted on the engine's thread.
+    /// May be called from any thread.
     /// </summary>
-    public Action<JsValue> Resolve { get; init; }
+    public Action<object?> Resolve { get; init; }
 
     /// <summary>
-    /// Rejects <see cref="Promise"/> with the value passed to it.
+    /// Rejects <see cref="Promise"/> with the value passed to it, converted on the engine's thread.
+    /// May be called from any thread.
     /// </summary>
-    public Action<JsValue> Reject { get; init; }
+    public Action<object?> Reject { get; init; }
 
     /// <summary>
     /// Deconstructs the handle into its three parts, as <c>var (promise, resolve, reject) = …</c>.
     /// </summary>
-    public void Deconstruct(out JsValue Promise, out Action<JsValue> Resolve, out Action<JsValue> Reject)
+    public void Deconstruct(out JsValue Promise, out Action<object?> Resolve, out Action<object?> Reject)
     {
         Promise = this.Promise;
         Resolve = this.Resolve;
         Reject = this.Reject;
     }
 }
-
-/// <summary>
-/// Internal version of ManualPromise that accepts CLR objects for thread-safe Task interop.
-/// </summary>
-internal sealed record ManualPromiseWithClrValue(
-    JsValue Promise,
-    Action<object?> Resolve,
-    Action<object?> Reject
-);
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-hostpromiserejectiontracker

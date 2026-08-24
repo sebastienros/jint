@@ -3418,6 +3418,45 @@ If `jsValue` is not a Promise it is returned immediately. If it is a rejected Pr
 
 The synchronous `UnwrapIfPromise` is still available for scenarios where blocking is acceptable (e.g., CPU-bound scripts with no I/O), but `UnwrapIfPromiseAsync` should be preferred in any `async` call chain.
 
+### Handing script a promise your host settles
+
+When the asynchronous thing is yours rather than a `Task` the engine can see — an HTTP call, a queue read, a
+callback-shaped API — `engine.Advanced.RegisterPromise()` hands script a promise and hands you the two
+functions that settle it.
+
+```c#
+engine.SetValue("getJSON", new Func<string, JsValue>(url =>
+{
+    var (promise, resolve, reject) = engine.Advanced.RegisterPromise();
+
+    _ = Task.Run(async () =>
+    {
+        try   { resolve(await httpClient.GetStringAsync(url)); }
+        catch (Exception ex) { reject(ex.Message); }
+    });
+
+    return promise;
+}));
+
+var body = await engine.EvaluateAsync("getJSON('https://example.org/api')");
+```
+
+**Resolve and reject may be called from any thread, and they take a CLR value.** Both halves matter. The
+settlement is *enqueued* rather than run where you called it, and the conversion of the value happens in that
+job, on the engine's thread — so you never have to build a `JsValue` on a thread that does not own the
+engine, which is a write into an engine another thread may be inside. Passing a `JsValue` you already built
+on the engine's thread is equally fine and costs nothing extra; `null` settles with `null`.
+
+The settlement runs the moment a thread that can claim the engine drains the loop: the resolving thread
+itself if the engine is idle, otherwise the host turn or `ProcessTasks()` call that comes next. So the same
+registration works whether you await the promise, block on `UnwrapIfPromise`, or drive your own pump.
+
+Two boundaries worth knowing. A promise registered before a `RestoreGlobalSnapshot` is dropped when it
+settles rather than resuming against the restored globals — register one that must outlive a restore *after*
+it. And an unsettled promise bounds nothing by itself: pair it with `Options.Constraints.PromiseTimeout`, a
+`CancellationToken`, or an `OperationDeadlineConstraint`, or a host that never calls `resolve` leaves the
+script waiting.
+
 ### Task/ValueTask to Promise Interop (Experimental)
 
 When the `TaskInterop` experimental feature is enabled, .NET `Task` and `ValueTask` return values are automatically converted to JavaScript Promises. This allows JavaScript code to `await` or `.then()` the results of .NET async methods without any manual wrapping:

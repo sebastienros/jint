@@ -131,20 +131,33 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
-        /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
-        ///
-        /// Resolve and reject may be called from another thread. Settlement is enqueued safely and drains
-        /// inline only when that thread can claim exclusive engine ownership; otherwise the owning host turn
-        /// or a later <see cref="ProcessTasks"/> call drains it.
+        /// Hands script a promise this host settles itself, returning the promise together with its resolve
+        /// and reject functions.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// <b>Resolve and reject may be called from another thread, and take a CLR value.</b> Settlement is
+        /// enqueued safely and drains inline only when the calling thread can claim exclusive engine
+        /// ownership; otherwise the owning host turn or a later <see cref="ProcessTasks"/> call drains it.
+        /// The conversion of the value happens in that enqueued job — on the engine's thread — which is the
+        /// reason the parameter is <see cref="object"/> and not <see cref="JsValue"/>: a host settling from a
+        /// <see cref="System.Threading.Tasks.Task"/> continuation holds a CLR value and has nowhere safe to
+        /// convert it, because a <see cref="JsValue"/> belongs to the engine that made it and that engine may
+        /// be busy. Passing a <see cref="JsValue"/> is still correct and costs nothing extra, and passing
+        /// <see langword="null"/> settles with <see cref="JsValue.Null"/>.
+        /// </para>
+        /// <para>
+        /// A promise registered before a <see cref="RestoreGlobalSnapshot"/> is dropped when it settles
+        /// rather than resuming into the restored globals; register one that must outlive a restore after it.
+        /// </para>
+        /// <para>
         /// This is a low-level primitive — the supported way for host code to hand script a promise it
         /// settles itself — and it is an ordinary part of the public surface: unlike the diagnostics marked
         /// <c>JINT0001</c> (see <see cref="JintDiagnosticIds"/>), what it returns is a real capability rather
         /// than a report about an internal representation, so a change to it is a migration-guide row like
         /// any other. It carried an "EXPERIMENTAL! Subject to change" banner from before that distinction
         /// existed; the banner was removed rather than promoted, so that the word means one thing here.
+        /// </para>
         /// </remarks>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
