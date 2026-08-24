@@ -15,15 +15,27 @@ namespace Jint.Native;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This type is designed to be subclassed so that a host can expose its own string representation
-/// (a native handle, an encoded buffer, a view over a larger buffer) without eagerly producing a
-/// .NET <see cref="string"/>. Jint's own sliced and concatenated string representations use the same
-/// mechanism.
+/// Construct one with <see cref="Create(string)"/> — or with the <see cref="JsString(string)"/>
+/// constructor — whenever the text already exists. Both are for a string a host <em>has</em>; the
+/// value is flat from the start and none of the rest of this applies.
 /// </para>
 /// <para>
-/// <b>Subclassing contract.</b> Passing a <see langword="null"/> backing value to the constructor is
-/// supported and is the intended way to express "not materialized yet". A subclass that does so
-/// <b>must</b> override every member that would otherwise observe the backing value:
+/// <b>When the text is expensive to produce, derive from <see cref="LazyJsString"/> instead of from
+/// this class.</b> That is the supported way to expose a host string representation — a native handle,
+/// an encoded buffer, a projected document field — without eagerly producing a .NET
+/// <see cref="string"/>. A subclass supplies its length and one <c>Materialize()</c> method, and the
+/// base class does the rest: it memoizes, it answers <see cref="Length"/> and truthiness without ever
+/// asking for the text, and it refuses a <see langword="null"/> result with a message that names the
+/// type.
+/// </para>
+/// <para>
+/// <b>Subclassing this class directly.</b> Passing a <see langword="null"/> backing value to
+/// <see cref="JsString(string)"/> still works and is how a lazy host string was written before
+/// <see cref="LazyJsString"/> existed; Jint's own sliced and concatenated representations are built on
+/// the same mechanism. It is the harder path — the parameter is typed <see cref="string"/>, so the
+/// <see langword="null"/> is a suppression against a contract that lives only in prose, and the
+/// subclass owns its own memoization. A subclass that does it <b>must</b> override every member that
+/// would otherwise observe the backing value:
 /// <list type="bullet">
 /// <item><see cref="ToString()"/> — produces (and normally caches) the flat value. Every other
 /// member of this class that needs the text routes through it, so overriding it alone is enough for
@@ -141,6 +153,15 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         CommaString = CachedCreate(",");
     }
 
+    /// <summary>
+    /// Creates a string for text the host already has. <see cref="Create(string)"/> is the preferred
+    /// spelling — it hands back a shared instance for the empty string and for single ASCII characters.
+    /// </summary>
+    /// <param name="value">
+    /// The text. A subclass may pass <see langword="null"/> to mean "not materialized yet" and take on
+    /// the overriding obligations listed on this class, but <see cref="LazyJsString"/> is the supported
+    /// way to write such a string and requires none of them.
+    /// </param>
     public JsString(string value) : this(value, InternalTypes.String)
     {
     }
