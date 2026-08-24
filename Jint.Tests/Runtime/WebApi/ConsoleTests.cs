@@ -292,7 +292,148 @@ public class ConsoleTests
         Run("console.log(Symbol('s'))").Should().Equal("Symbol(s)");
         Run("console.log(10n)").Should().Equal("10n");
         Run("console.log(new TypeError('bad'))").Should().Equal("TypeError: bad");
-        Run("console.log(function foo() {})").Should().Equal("function foo() { [native code] }");
+    }
+
+    /// <summary>
+    /// https://github.com/sebastienros/jint/issues/3316. A promise owns no enumerable property, so walking
+    /// it as an ordinary object rendered the empty one every other engine renders as its state.
+    /// </summary>
+    [Fact]
+    public void RendersAPromiseInEachOfItsThreeStates()
+    {
+        Run("console.log(new Promise(() => {}))").Should().Equal("Promise { <pending> }");
+        Run("console.log(Promise.resolve(42))").Should().Equal("Promise { 42 }");
+        Run("var p = Promise.reject(new TypeError('bad')); p.catch(() => {}); console.log(p)")
+            .Should().Equal("Promise { <rejected> TypeError: bad }");
+
+        // The issue's own shape: the promise reached through an array.
+        Run("console.log([new Promise(() => {})])").Should().Equal("[ Promise { <pending> } ]");
+
+        // What the specification decides was never wrong and does not move. Only the rendering the Console
+        // Standard leaves to the implementation changed.
+        Run("console.log(String(Promise.resolve()))").Should().Equal("[object Promise]");
+        Run("console.log(Object.prototype.toString.call(Promise.resolve()))").Should().Equal("[object Promise]");
+    }
+
+    /// <summary>
+    /// The rest of the family the promise belongs to. Each rendering is read from the object's internal
+    /// slots, never through the prototype accessor of the same name — <c>source</c>, <c>flags</c>,
+    /// <c>byteLength</c> and <c>toISOString</c> are configurable on every one of these.
+    /// </summary>
+    [Fact]
+    public void RendersTheWellKnownExoticObjects()
+    {
+        Run("console.log(new Map())").Should().Equal("Map(0) {}");
+        Run("console.log(new Map([['a', 1], [2, 'b']]))").Should().Equal("Map(2) { 'a' => 1, 2 => 'b' }");
+        Run("console.log(new Set())").Should().Equal("Set(0) {}");
+        Run("console.log(new Set([1, 'two']))").Should().Equal("Set(2) { 1, 'two' }");
+
+        // Nothing enumerates a weak collection, and a WeakRef is not dereferenced: reaching its target is
+        // what WeakRef.prototype.deref exists to gate.
+        Run("console.log(new WeakMap())").Should().Equal("WeakMap { <items unknown> }");
+        Run("console.log(new WeakSet())").Should().Equal("WeakSet { <items unknown> }");
+        Run("console.log(new WeakRef({}))").Should().Equal("WeakRef { <target unknown> }");
+
+        Run("console.log(new Date(Date.UTC(2020, 0, 1)))").Should().Equal("2020-01-01T00:00:00.000Z");
+        Run("console.log(new Date(NaN))").Should().Equal("Invalid Date");
+        Run("console.log(/ab+c/gi)").Should().Equal("/ab+c/gi");
+
+        Run("console.log(new Uint8Array([1, 2, 3]))").Should().Equal("Uint8Array(3) [ 1, 2, 3 ]");
+        Run("console.log(new BigInt64Array([1n, 2n]))").Should().Equal("BigInt64Array(2) [ 1n, 2n ]");
+        Run("console.log(new Uint8Array(0))").Should().Equal("Uint8Array(0) []");
+        Run("console.log(new ArrayBuffer(8))").Should().Equal("ArrayBuffer { byteLength: 8 }");
+        Run("console.log(new DataView(new ArrayBuffer(8), 2, 4))")
+            .Should().Equal("DataView { byteLength: 4, byteOffset: 2, buffer: ArrayBuffer { byteLength: 8 } }");
+
+        // A detached buffer has no length to read, which is what keeps the walk off bytes that are gone.
+        Run("var b = new ArrayBuffer(8); var v = new Uint8Array(b); b.transfer(); console.log(v); console.log(b)")
+            .Should().Equal("Uint8Array(0) []", "ArrayBuffer { (detached), byteLength: 0 }");
+
+        Run("console.log(new String('x'))").Should().Equal("[String: 'x']");
+        Run("console.log(new Number(5))").Should().Equal("[Number: 5]");
+        Run("console.log(new Boolean(true))").Should().Equal("[Boolean: true]");
+        Run("console.log(Object(Symbol('s')))").Should().Equal("[Symbol: Symbol(s)]");
+        Run("console.log(Object(10n))").Should().Equal("[BigInt: 10n]");
+
+        Run("(function () { console.log(arguments); })(1, 'a')").Should().Equal("[Arguments] { '0': 1, '1': 'a' }");
+
+        // Object.create(null) inherits no toString, so it is labelled rather than left to read as a literal.
+        Run("console.log(Object.create(null))").Should().Equal("[Object: null prototype] {}");
+        Run("var o = Object.create(null); o.a = 1; console.log(o)").Should().Equal("[Object: null prototype] { a: 1 }");
+    }
+
+    /// <summary>
+    /// A function is named, not printed: <c>Function.prototype.toString</c> answers the whole source text
+    /// once the engine retains it, and one console record carrying a function body is exactly the unbounded
+    /// output the rest of the renderer is written to avoid.
+    /// </summary>
+    [Fact]
+    public void NamesAFunctionInsteadOfPrintingIt()
+    {
+        Run("console.log(function foo() {})").Should().Equal("[Function: foo]");
+        Run("console.log(function () {})").Should().Equal("[Function (anonymous)]");
+        Run("console.log(() => {})").Should().Equal("[Function (anonymous)]");
+        Run("console.log(async function bar() {})").Should().Equal("[AsyncFunction: bar]");
+        Run("console.log(function* gen() {})").Should().Equal("[GeneratorFunction: gen]");
+        Run("console.log(async function* agen() {})").Should().Equal("[AsyncGeneratorFunction: agen]");
+        Run("console.log(class Foo {})").Should().Equal("[class Foo]");
+        Run("console.log(class {})").Should().Equal("[class (anonymous)]");
+        Run("console.log(Math.max)").Should().Equal("[Function: max]");
+
+        // `name` is configurable on every function, so a script can make reading it observable. Such a
+        // function reports as anonymous rather than turning the console into a way to run the accessor.
+        Run("var f = function foo() {}; Object.defineProperty(f, 'name', { get() { throw new Error('name ran'); } }); console.log(f)")
+            .Should().Equal("[Function (anonymous)]");
+
+        var sink = new RecordingSink();
+        var engine = new Engine(options =>
+        {
+            options.RetainFunctionSourceText = true;
+            options.UseConsole(sink);
+        });
+
+        engine.Execute("function withABody() { return 'a body nobody asked the console for'; } console.log(withABody)");
+        sink.Messages.Should().Equal("[Function: withABody]");
+    }
+
+    /// <summary>
+    /// The class promises it is not a way to run script. A proxy is where that promise was untrue: walking
+    /// one calls its <c>ownKeys</c> and <c>getOwnPropertyDescriptor</c> traps, so it renders as its target.
+    /// </summary>
+    [Fact]
+    public void NeverRunsScriptWhileInspecting()
+    {
+        Run(@"var p = new Proxy({ a: 1 }, {
+                  ownKeys() { throw new Error('ownKeys ran'); },
+                  getOwnPropertyDescriptor() { throw new Error('getOwnPropertyDescriptor ran'); },
+                  get() { throw new Error('get ran'); },
+              });
+              console.log(p)").Should().Equal("{ a: 1 }");
+
+        // A revoked proxy has no target at all, and every trap on it throws.
+        Run("var r = Proxy.revocable({ a: 1 }, {}); r.revoke(); console.log(r.proxy)").Should().Equal("<Revoked Proxy>");
+
+        // Symbol.toStringTag is an ordinary accessor a script may install, and nothing consults it.
+        Run("console.log({ get [Symbol.toStringTag]() { throw new Error('tag ran'); }, a: 1 })")
+            .Should().Equal("{ a: 1 }");
+    }
+
+    [Fact]
+    public void AnExoticContainerIsDepthCappedAndCycleSafe()
+    {
+        Run("var m = new Map(); m.set('self', m); console.log(m)").Should().Equal("Map(1) { 'self' => [Circular] }");
+        Run("var s = new Set(); s.add(s); console.log(s)").Should().Equal("Set(1) { [Circular] }");
+
+        Run("console.log({ a: { b: { c: new Map([[1, 2]]) } } })").Should().Equal("{ a: { b: { c: [Map] } } }");
+        Run("console.log({ a: { b: { c: new Set([1]) } } })").Should().Equal("{ a: { b: { c: [Set] } } }");
+        Run("console.log({ a: { b: { c: Promise.resolve(1) } } })").Should().Equal("{ a: { b: { c: [Promise] } } }");
+        Run("console.log({ a: { b: { c: new Uint8Array(1) } } })").Should().Equal("{ a: { b: { c: [Uint8Array] } } }");
+
+        Run("var s = new Set(); for (var i = 0; i < 105; i++) s.add(i); console.log(s)")
+            .Should().ContainSingle().Which.Should().EndWith("99, ... 5 more items }");
+
+        Run("var m = new Map(); for (var i = 0; i < 105; i++) m.set(i, i); console.log(m)")
+            .Should().ContainSingle().Which.Should().EndWith("99 => 99, ... 5 more items }");
     }
 
     [Fact]
@@ -412,7 +553,7 @@ public class ConsoleTests
         Run("console.table(42)").Should().Equal("42");
         Run("console.table(null)").Should().Equal("null");
         Run("console.table()").Should().Equal("undefined");
-        Run("console.table(function foo() {})").Should().Equal("function foo() { [native code] }");
+        Run("console.table(function foo() {})").Should().Equal("[Function: foo]");
     }
 
     [Fact]

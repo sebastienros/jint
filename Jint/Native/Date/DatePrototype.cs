@@ -980,8 +980,7 @@ internal sealed partial class DatePrototype : Prototype
     [JsFunction]
     private JsValue ToISOString(JsValue thisObject)
     {
-        var thisTime = ThisTimeValue(thisObject);
-        var t = thisTime;
+        var t = ThisTimeValue(thisObject);
 
         // Step 4 is "If tv is NaN, throw a RangeError exception", and in the spec that is the whole of
         // "not a finite time value": a [[DateValue]] is either NaN or an integral Number inside the
@@ -993,10 +992,23 @@ internal sealed partial class DatePrototype : Prototype
             Throw.RangeError(_realm, "Invalid time value");
         }
 
-        if (((JsDate) thisObject).DateTimeRangeValid)
+        return FormatIsoString((JsDate) thisObject);
+    }
+
+    /// <summary>
+    /// Steps 5 to 7 of <c>toISOString</c> on their own, over a date whose time value the caller has already
+    /// established is finite. Split out so a diagnostic renderer — the console's inspection of a
+    /// <see cref="JsDate"/> — reaches the same characters this method emits without calling
+    /// <c>toISOString</c>, which is configurable and so may be a script's own function by then.
+    /// </summary>
+    internal static string FormatIsoString(JsDate date)
+    {
+        var t = date._dateValue;
+
+        if (date.DateTimeRangeValid)
         {
             // shortcut
-            var dt = thisTime.ToDateTime();
+            var dt = t.ToDateTime();
             return $"{dt.Year:0000}-{dt.Month:00}-{dt.Day:00}T{dt.Hour:00}:{dt.Minute:00}:{dt.Second:00}.{dt.Millisecond:000}Z";
         }
 
