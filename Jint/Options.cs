@@ -48,6 +48,13 @@ public sealed partial class Options
     }
 
     internal bool HasUserHostFactory { get; set { ThrowIfReadOnly(); field = value; } }
+
+    /// <summary>
+    /// Whether <c>SetTypeConverter</c> was called on these options. The converter itself is installed by a
+    /// configuration callback and so is only knowable from a built engine; this is what lets a report taken
+    /// from <see cref="Options"/> alone say the same thing.
+    /// </summary>
+    internal bool HasUserTypeConverter { get; set { ThrowIfReadOnly(); field = value; } }
     internal bool HasUserEngineConstructionCallback =>
         HasUserHostFactory
         || _configurations.Exists(static configuration => configuration.Provenance == EngineConfigurationProvenance.User);
@@ -812,7 +819,7 @@ public sealed partial class Options
         /// <summary>
         /// Object converters to try when build-in conversions.
         /// </summary>
-        public OptionsList<IObjectConverter> ObjectConverters { get; private set; } = new("Options.Interop.ObjectConverters");
+        public OptionsList<ObjectConverter> ObjectConverters { get; private set; } = new("Options.Interop.ObjectConverters");
 
         /// <summary>
         /// CLR types whose instances the host promises are immutable while they are exposed to the engine —

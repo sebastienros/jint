@@ -3,9 +3,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Converters;
 
-public class NegateBoolConverter : IObjectConverter
+public class NegateBoolConverter : ObjectConverter
 {
-    public bool TryConvert(Engine engine, object value, out JsValue result)
+    public override bool TryConvert(Engine engine, object value, out JsValue result)
     {
         if (value is bool b)
         {

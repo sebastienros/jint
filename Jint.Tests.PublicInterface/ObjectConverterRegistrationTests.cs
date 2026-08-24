@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// Covers declaring the CLR types an <see cref="IObjectConverter"/> handles, which lets the engine keep the
+/// Covers declaring the CLR types an <see cref="ObjectConverter"/> handles, which lets the engine keep the
 /// compiled member-read fast lanes for members no registered converter can ever be handed. These live in the
 /// public-interface suite on purpose: the project references Jint without any internals access, so the
 /// registration overload and every observable consequence of it are proven reachable by a third-party host.
@@ -104,9 +104,9 @@ public class ObjectConverterRegistrationTests
     }
 
     /// <summary>Turns every bool it sees into its negation, and every enum into its name.</summary>
-    private sealed class MeddlingConverter : IObjectConverter
+    private sealed class MeddlingConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             if (value is bool b)
             {
@@ -130,11 +130,11 @@ public class ObjectConverterRegistrationTests
     /// asserted directly — without the converter having to step outside its own declaration to make the answer
     /// visible.
     /// </summary>
-    private sealed class RecordingConverter : IObjectConverter
+    private sealed class RecordingConverter : ObjectConverter
     {
         public readonly List<object> Seen = new();
 
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             Seen.Add(value);
             result = null;
@@ -142,9 +142,9 @@ public class ObjectConverterRegistrationTests
         }
     }
 
-    private sealed class NeverConverter : IObjectConverter
+    private sealed class NeverConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             result = null;
             return false;

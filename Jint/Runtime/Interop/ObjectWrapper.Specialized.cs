@@ -446,7 +446,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             converted = value.ToObject();
             if (converted != null && converted.GetType() != ItemType)
             {
-                converted = Engine.TypeConverter.Convert(converted, ItemType, CultureInfo.InvariantCulture);
+                converted = Engine._typeConverter.Convert(converted, ItemType, CultureInfo.InvariantCulture);
             }
         }
 

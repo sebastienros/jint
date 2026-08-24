@@ -720,9 +720,9 @@ public partial class InteropTests
     {
     }
 
-    private sealed class ReentrantArrayConverter(Array source) : IObjectConverter
+    private sealed class ReentrantArrayConverter(Array source) : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is not ReentrantArrayProbe)
             {
@@ -735,9 +735,9 @@ public partial class InteropTests
         }
     }
 
-    private sealed class MultidimensionalArrayConverter : IObjectConverter
+    private sealed class MultidimensionalArrayConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is not Array { Rank: > 1 })
             {
@@ -754,9 +754,9 @@ public partial class InteropTests
     {
     }
 
-    private sealed class ConverterCycleConverter(Array source) : IObjectConverter
+    private sealed class ConverterCycleConverter(Array source) : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is not ConverterCycleProbe)
             {
@@ -773,11 +773,11 @@ public partial class InteropTests
     {
     }
 
-    private sealed class OneTimeSlowConverter : IObjectConverter
+    private sealed class OneTimeSlowConverter : ObjectConverter
     {
         private bool _delayed;
 
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is not SlowCopyProbe)
             {
@@ -796,9 +796,9 @@ public partial class InteropTests
         }
     }
 
-    private sealed class CaughtArrayFailureConverter(object[] failedRoot) : IObjectConverter
+    private sealed class CaughtArrayFailureConverter(object[] failedRoot) : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is not ReentrantCopyProbe)
             {

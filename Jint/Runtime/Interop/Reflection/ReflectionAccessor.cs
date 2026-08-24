@@ -220,7 +220,7 @@ internal abstract class ReflectionAccessor
     protected virtual object? ConvertValueToSet(Engine engine, object value)
     {
         var memberType = _memberType ?? value.GetType();
-        return engine.TypeConverter.Convert(value, memberType, CultureInfo.InvariantCulture);
+        return engine._typeConverter.Convert(value, memberType, CultureInfo.InvariantCulture);
     }
 
     public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)

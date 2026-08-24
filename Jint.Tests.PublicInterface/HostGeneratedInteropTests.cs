@@ -290,7 +290,7 @@ public class HostGeneratedInteropTests
     }
 
     /// <summary>
-    /// A registered <see cref="IObjectConverter"/> has to see every CLR value before it becomes a
+    /// A registered <see cref="ObjectConverter"/> has to see every CLR value before it becomes a
     /// <see cref="JsValue"/>, and the typed read lane produces the JsValue itself. The generated accessor
     /// applies the same test the run-time compiled lane does — the converter's declared type set — so a
     /// converter that claims <see cref="string"/> is consulted for the string member and for nothing else.
@@ -317,7 +317,7 @@ public class HostGeneratedInteropTests
     }
 
     /// <summary>
-    /// A host-installed <see cref="ITypeConverter"/> is consulted by the fallback conversion for some member
+    /// A host-installed <see cref="ClrTypeConverter"/> is consulted by the fallback conversion for some member
     /// types, so the typed write lane declines outright while one is present — on both paths.
     /// </summary>
     [Fact]
@@ -337,9 +337,9 @@ public class HostGeneratedInteropTests
         Write(new GeneratedModel()).Should().Be(Write(new ReflectedModel()));
     }
 
-    private sealed class UppercasingStringConverter : IObjectConverter
+    private sealed class UppercasingStringConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is string text)
             {
@@ -353,12 +353,12 @@ public class HostGeneratedInteropTests
     }
 
     /// <summary>Not <c>DefaultTypeConverter</c>, which is the only thing this test needs of it.</summary>
-    private sealed class PassthroughTypeConverter : ITypeConverter
+    private sealed class PassthroughTypeConverter : ClrTypeConverter
     {
-        public object? Convert(object? value, Type type, IFormatProvider formatProvider)
+        public override object? Convert(object? value, Type type, IFormatProvider formatProvider)
             => System.Convert.ChangeType(value, type, formatProvider);
 
-        public bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted)
+        public override bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted)
         {
             try
             {

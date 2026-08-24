@@ -5,7 +5,7 @@ using Jint.Native;
 namespace Jint.Runtime.Interop;
 
 /// <summary>
-/// Answers "could any of this engine's registered <see cref="IObjectConverter"/>s be handed a value read
+/// Answers "could any of this engine's registered <see cref="ObjectConverter"/>s be handed a value read
 /// from a member — or returned by a method — of this declared type?" for the interop fast lanes, which have
 /// to decline whenever the answer is yes: on the paths those lanes short-circuit, a converter is otherwise
 /// offered every CLR value on its way to a <see cref="JsValue"/>, and the lanes produce the
@@ -61,7 +61,7 @@ internal sealed class ObjectConverterTypeFilter
     /// Builds the filter for an engine's converter set, or <see langword="null"/> when no converters are
     /// registered at all (in which case no fast lane ever has to consider them).
     /// </summary>
-    internal static ObjectConverterTypeFilter? Create(IObjectConverter[]? converters)
+    internal static ObjectConverterTypeFilter? Create(ObjectConverter[]? converters)
     {
         if (converters is null || converters.Length == 0)
         {
@@ -71,15 +71,15 @@ internal sealed class ObjectConverterTypeFilter
         List<Type>? declaredTypes = null;
         foreach (var converter in converters)
         {
-            if (converter is not TypedObjectConverter typed)
+            if (converter.HandledTypes is not { } handledTypes)
             {
                 return _unrestricted;
             }
 
             declaredTypes ??= new List<Type>();
-            foreach (var handledType in typed.HandledTypes)
+            foreach (var handledType in handledTypes)
             {
-                if (!declaredTypes.Contains(handledType))
+                if (handledType is not null && !declaredTypes.Contains(handledType))
                 {
                     declaredTypes.Add(handledType);
                 }
@@ -171,13 +171,14 @@ internal sealed class ObjectConverterTypeFilter
 }
 
 /// <summary>
-/// An <see cref="IObjectConverter"/> registered together with the CLR types it handles. The declaration is
-/// carried by this wrapper rather than by an interface member because <see cref="IObjectConverter"/> is a
-/// shipped public interface and the target frameworks include ones without default interface methods.
+/// An <see cref="ObjectConverter"/> registered together with the CLR types it handles, for a converter that
+/// does not declare them itself through <see cref="ObjectConverter.HandledTypes"/>. Declaring in both places
+/// claims the union: a registration may widen a converter's own declaration, never narrow it, since narrowing
+/// would silently bypass the converter on exactly the types it knows it converts.
 /// </summary>
-internal sealed class TypedObjectConverter : IObjectConverter
+internal sealed class TypedObjectConverter : ObjectConverter
 {
-    private readonly IObjectConverter _converter;
+    private readonly ObjectConverter _converter;
 
     /// <summary>
     /// This converter's own declaration as a filter, so a converted value can be asked the very question the
@@ -186,9 +187,24 @@ internal sealed class TypedObjectConverter : IObjectConverter
     /// </summary>
     private readonly ObjectConverterTypeFilter? _declared;
 
-    internal TypedObjectConverter(IObjectConverter converter, Type[] handledTypes)
+    internal TypedObjectConverter(ObjectConverter converter, Type[] handledTypes)
     {
         _converter = converter;
+
+        if (converter.HandledTypes is { Length: > 0 } declaredByConverter)
+        {
+            var union = new List<Type>(handledTypes);
+            foreach (var type in declaredByConverter)
+            {
+                if (type is not null && !union.Contains(type))
+                {
+                    union.Add(type);
+                }
+            }
+
+            handledTypes = union.ToArray();
+        }
+
         HandledTypes = handledTypes;
 
         if (HostContractVerification.Enabled)
@@ -197,9 +213,9 @@ internal sealed class TypedObjectConverter : IObjectConverter
         }
     }
 
-    internal Type[] HandledTypes { get; }
+    protected internal override Type[] HandledTypes { get; }
 
-    public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+    public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
     {
         var converted = _converter.TryConvert(engine, value, out result);
         if (HostContractVerification.Enabled && converted)
@@ -212,7 +228,7 @@ internal sealed class TypedObjectConverter : IObjectConverter
 
     /// <summary>
     /// A declaration is a promise about the whole converter, and nothing links it to the <c>switch</c> inside
-    /// <see cref="IObjectConverter.TryConvert"/>: a case added there and not added to the registration is
+    /// <see cref="ObjectConverter.TryConvert"/>: a case added there and not added to the registration is
     /// silently skipped on exactly the members whose declared type the registration excluded, and honoured
     /// everywhere else. That inconsistency is invisible from script, so it is worth a check when a host asks
     /// for one.

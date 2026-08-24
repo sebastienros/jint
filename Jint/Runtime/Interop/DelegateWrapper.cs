@@ -159,7 +159,7 @@ internal sealed class DelegateWrapper : Function
             return Invoke([]);
         }
 
-        var converter = Engine.TypeConverter;
+        var converter = Engine._typeConverter;
         var valueCoercionType = Engine.Options.Interop.ValueCoercion;
 
         // GetFastCallShape only offers this lane for one or two parameters, so element 0 always exists:
@@ -209,7 +209,7 @@ internal sealed class DelegateWrapper : Function
         var jsArgumentsCount = arguments.Length;
         var jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
 
-        var converter = Engine.TypeConverter;
+        var converter = Engine._typeConverter;
         var valueCoercionType = Engine.Options.Interop.ValueCoercion;
         var parameters = new object?[delegateArgumentsCount];
 
@@ -281,7 +281,7 @@ internal sealed class DelegateWrapper : Function
     private static object? Convert(
         in ParameterMetadata parameter,
         JsValue value,
-        ITypeConverter converter,
+        ClrTypeConverter converter,
         ValueCoercionType valueCoercionType)
     {
         if (parameter.IsJsValue)
@@ -521,7 +521,7 @@ internal sealed class DelegateMetadata
     /// <remarks>
     /// Everything the built-in conversion path produces satisfies that — it boxes as the declared
     /// member type — but two things reach here that it does not control: the path ends in an
-    /// <see cref="ITypeConverter"/> a host may replace with one that returns whatever it likes, and a
+    /// <see cref="ClrTypeConverter"/> a host may replace with one that returns whatever it likes, and a
     /// <see cref="JsValue"/>-typed parameter takes its argument straight through unconverted, so a
     /// parameter narrower than <see cref="JsValue"/> can be handed a value it does not accept. Both
     /// keep the reflection path, whose <see cref="ArgumentException"/> is the outcome they already

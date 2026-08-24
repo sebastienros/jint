@@ -2182,7 +2182,7 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   `writable: true` name against having a `TrySetNamedValue` override to accept it (and the reverse), and a
   `TryDeleteName` that answered `true` for a name still readable — a `LazyJsString`'s declared
   length against the text it eventually produces, and an
-  `IObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
+  `ObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
   declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
   hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
 

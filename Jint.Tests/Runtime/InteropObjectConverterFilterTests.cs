@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// Unit-tests the assignability rules <see cref="ObjectConverterTypeFilter"/> derives from the CLR types an
-/// <see cref="IObjectConverter"/> declares it handles — "could a value of this member's static type ever be
+/// <see cref="ObjectConverter"/> declares it handles — "could a value of this member's static type ever be
 /// one of the declared types?". Both the filter and the typed-converter wrapper are internal, which is why
 /// this file lives here rather than in the public-interface suite.
 /// <para>
@@ -36,9 +36,9 @@ public class InteropObjectConverterFilterTests
 
     public class UnrelatedOpen;
 
-    private sealed class NeverConverter : IObjectConverter
+    private sealed class NeverConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             result = null;
             return false;

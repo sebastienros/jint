@@ -597,7 +597,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             key = raw;
             return true;
         }
-        return _engine.TypeConverter.TryConvert(raw, keyType, CultureInfo.InvariantCulture, out key);
+        return _engine._typeConverter.TryConvert(raw, keyType, CultureInfo.InvariantCulture, out key);
     }
 
     private bool TryConvertJsValueToDictionaryValue(JsValue value, Type valueType, out object? converted)
@@ -628,7 +628,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return true;
         }
 
-        return _engine.TypeConverter.TryConvert(raw, valueType, CultureInfo.InvariantCulture, out converted);
+        return _engine._typeConverter.TryConvert(raw, valueType, CultureInfo.InvariantCulture, out converted);
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)
@@ -771,7 +771,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 _engine.CheckAmortizedConstraintsAtHostBoundary();
                 object? stringKey = key as string;
                 if (stringKey is not null
-                    || _engine.TypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
+                    || _engine._typeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
                 {
                     yield return JsString.Create((string) stringKey!);
                 }

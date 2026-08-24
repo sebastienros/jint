@@ -34,6 +34,9 @@ internal sealed class GeneratedMemberAccessor : ReflectionAccessor
     /// <inheritdoc cref="CompilableMemberAccessor" />
     private ObjectConverterTypeFilter? _unclaimedBy;
 
+    /// <inheritdoc cref="CompilableMemberAccessor" />
+    private TypeConverterTargetFilter? _unclaimedAsTargetBy;
+
     internal GeneratedMemberAccessor(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type memberType,
         Func<object, JsValue>? jsValueGetter,
@@ -87,9 +90,12 @@ internal sealed class GeneratedMemberAccessor : ReflectionAccessor
 
     public override bool TrySetJsValue(Engine engine, object target, JsValue value)
     {
-        // The fallback conversion consults the engine's ITypeConverter for some member types, so a
-        // host-installed one must keep seeing them.
-        if (!engine._typeConverterIsDefault)
+        // The fallback conversion consults the engine's ClrTypeConverter for some member types, so a
+        // host-installed one must keep seeing them — for the target types it declared, and for every target
+        // type when it declared none. The same rule, and the same memoized probe, CompilableMemberAccessor
+        // applies on this lane.
+        var converterTargetFilter = engine._typeConverterTargetFilter;
+        if (converterTargetFilter is not null && Claims(converterTargetFilter))
         {
             return false;
         }
@@ -189,6 +195,23 @@ internal sealed class GeneratedMemberAccessor : ReflectionAccessor
         }
 
         _unclaimedBy = filter;
+        return false;
+    }
+
+    /// <inheritdoc cref="CompilableMemberAccessor" />
+    private bool Claims(TypeConverterTargetFilter filter)
+    {
+        if (ReferenceEquals(_unclaimedAsTargetBy, filter))
+        {
+            return false;
+        }
+
+        if (filter.Claims(MemberType))
+        {
+            return true;
+        }
+
+        _unclaimedAsTargetBy = filter;
         return false;
     }
 

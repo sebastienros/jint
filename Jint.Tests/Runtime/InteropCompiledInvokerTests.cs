@@ -237,9 +237,9 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(6);
     }
 
-    private sealed class PlusOneIntConverter : Jint.Runtime.Interop.IObjectConverter
+    private sealed class PlusOneIntConverter : Jint.Runtime.Interop.ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? result)
         {
             if (value is int i)
             {
@@ -256,11 +256,11 @@ public class InteropCompiledInvokerTests
     /// Records every CLR value handed to it and never converts, so a test can assert exactly which
     /// return values reached the converter chain.
     /// </summary>
-    private sealed class RecordingConverter : Jint.Runtime.Interop.IObjectConverter
+    private sealed class RecordingConverter : Jint.Runtime.Interop.ObjectConverter
     {
         public List<object> Seen { get; } = [];
 
-        public bool TryConvert(Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out JsValue? result)
         {
             Seen.Add(value);
             result = null;
@@ -418,7 +418,7 @@ public class InteropCompiledInvokerTests
     [Fact]
     public void CustomTypeConverterStillIntercepts()
     {
-        // a user-installed ITypeConverter participates in some exact-type argument conversions on
+        // a user-installed ClrTypeConverter participates in some exact-type argument conversions on
         // the slow path (e.g. bool); the fast lane must decline so it keeps being consulted
         var engine = new Engine(options => options.SetTypeConverter(e => new BoolVetoingTypeConverter(e)));
         engine.SetValue("host", new Host());
@@ -480,7 +480,7 @@ public class InteropCompiledInvokerTests
     // static dictionaries, shared by every Engine, because MethodDescriptor instances themselves live
     // on the accessors cached by a TypeResolver and so are only shared as far as the resolver is.
     // These tests prove that sharing carries no
-    // Engine-specific state - above all that one Engine's interop policy (a custom ITypeConverter or
+    // Engine-specific state - above all that one Engine's interop policy (a custom ClrTypeConverter or
     // registered object converters, both of which must decline the compiled lane) never leaks into
     // another Engine through the shared cache, in either order.
     // -----------------------------------------------------------------------------------------
@@ -803,16 +803,16 @@ public class InteropCompiledInvokerTests
     [Fact]
     public void CustomTypeConverterInstalledAfterConstructionDisablesFastLane()
     {
-        // the fast lane gates on a cached "is the stock converter" flag; swapping the converter after
-        // construction has to keep that flag in sync, otherwise the custom converter is skipped
+        // the fast lane gates on the filter derived from the installed converter; swapping the converter
+        // after construction has to keep that in sync, otherwise the custom converter is skipped
         var engine = new Engine();
         engine.SetValue("host", new Host());
 
-        engine._typeConverterIsDefault.Should().BeTrue();
+        engine._typeConverterTargetFilter.Should().BeNull();
         engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
 
         engine.TypeConverter = new BoolVetoingTypeConverter(engine);
-        engine._typeConverterIsDefault.Should().BeFalse();
+        engine._typeConverterTargetFilter.Should().NotBeNull();
 
         var ex = Invoking(() => engine.Evaluate("host.And(true, true)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>().Which;
         ex.Message.Should().Contain("No public methods");
@@ -821,7 +821,7 @@ public class InteropCompiledInvokerTests
 
         // swapping the stock converter back re-enables the fast lane
         engine.TypeConverter = new Jint.Runtime.Interop.DefaultTypeConverter(engine);
-        engine._typeConverterIsDefault.Should().BeTrue();
+        engine._typeConverterTargetFilter.Should().BeNull();
         engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
     }
 
@@ -829,7 +829,7 @@ public class InteropCompiledInvokerTests
     public void DefaultEngineUsesTheStockTypeConverterFastLane()
     {
         var engine = CreateEngine();
-        engine._typeConverterIsDefault.Should().BeTrue();
+        engine._typeConverterTargetFilter.Should().BeNull();
         engine.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
         engine.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
     }

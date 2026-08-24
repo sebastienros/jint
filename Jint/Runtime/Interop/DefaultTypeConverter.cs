@@ -21,7 +21,7 @@ using Expression = System.Linq.Expressions.Expression;
 
 namespace Jint.Runtime.Interop;
 
-public class DefaultTypeConverter : ITypeConverter
+public class DefaultTypeConverter : ClrTypeConverter
 {
     private readonly Engine _engine;
 
@@ -64,7 +64,7 @@ public class DefaultTypeConverter : ITypeConverter
     /// then falls back to the built-in conversion pipeline to produce a detailed error message and to honor
     /// exception propagation semantics (<see cref="Options.InteropOptions.ExceptionHandler"/>).
     /// </summary>
-    public virtual object? Convert(
+    public override object? Convert(
         object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
         IFormatProvider formatProvider)
@@ -87,7 +87,7 @@ public class DefaultTypeConverter : ITypeConverter
     /// interop paths dispatch through it. Overrides should call <c>base.TryConvert</c> as the fallback;
     /// do not call <see cref="Convert"/> from an override as that would cause infinite recursion.
     /// </summary>
-    public virtual bool TryConvert(
+    public override bool TryConvert(
         object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
         IFormatProvider formatProvider,

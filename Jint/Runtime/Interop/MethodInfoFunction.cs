@@ -126,7 +126,7 @@ internal sealed class MethodInfoFunction : Function
         var genericArgTypes = new Type[methodGenericArgs.Length];
 
         // A bare "T item" parameter only *hints* at its type argument: that argument still goes through
-        // ITypeConverter on the way in, so it can widen, while a pin cannot - which is why a hint must never
+        // ClrTypeConverter on the way in, so it can widen, while a pin cannot - which is why a hint must never
         // overrule a pin (#2987: "includes<T>(this IEnumerable<T>, T item)" on an IEnumerable<object> used to
         // be re-inferred as includes<string> from its argument and then failed to bind its own receiver).
         // Collected separately, and allocated only for the methods that actually have such a parameter.
@@ -193,7 +193,7 @@ internal sealed class MethodInfoFunction : Function
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
-        var converter = Engine.TypeConverter;
+        var converter = Engine._typeConverter;
         var thisObj = ResolveThisObject(thisObject);
         var state = new MethodResolverState(_engine, thisObject, jsArguments);
 
@@ -217,15 +217,18 @@ internal sealed class MethodInfoFunction : Function
                 // declared the CLR types it handles (see OptionsExtensions.AddObjectConverter), a
                 // return type none of them claims keeps it too - the same filter, asked the same
                 // question, as the compiled member-read lane in CompilableMemberAccessor. Also skipped
-                // when a custom ITypeConverter is installed because the slow path consults it for some
-                // exact-type conversions (e.g. bool) that the compiled lane performs directly. A
-                // wrong-typed receiver (extracted method invoked via .call on a foreign this) also
-                // declines so the reflection path can surface the receiver mismatch as a TypeError.
+                // when a custom ClrTypeConverter could answer for one of the parameter types, because the
+                // slow path consults it for some exact-type conversions (e.g. bool) that the compiled lane
+                // performs directly - and, symmetrically, a converter that declared its target types keeps
+                // the lane for every method none of them can be the target of. A wrong-typed receiver
+                // (extracted method invoked via .call on a foreign this) also declines so the reflection
+                // path can surface the receiver mismatch as a TypeError.
                 var converterTypeFilter = _engine._objectConverterTypeFilter;
+                var converterTargetFilter = _engine._typeConverterTargetFilter;
                 if ((converterTypeFilter is null
                         || method.ReturnValueIsInvisibleToObjectConverters
                         || !method.ReturnTypeClaimedBy(converterTypeFilter))
-                    && _engine._typeConverterIsDefault
+                    && (converterTargetFilter is null || !method.ParameterTypesClaimedBy(converterTargetFilter))
                     && method.GetCompiledInvoker() is { } compiledInvoker
                     && (method.IsStatic || method.DeclaringType?.IsInstanceOfType(thisObj) == true))
                 {
@@ -379,7 +382,7 @@ internal sealed class MethodInfoFunction : Function
         MethodDescriptor method,
         JsCallArguments arguments,
         object? thisObj,
-        ITypeConverter converter,
+        ClrTypeConverter converter,
         [NotNullWhen(true)] out JsValue? callResult)
     {
         callResult = null;

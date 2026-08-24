@@ -39,11 +39,11 @@ public partial class InteropTests
     }
 
     /// <summary>Converts a <see cref="Uri"/> to its string form, and counts how often it is asked to.</summary>
-    private sealed class CountingUriConverter : IObjectConverter
+    private sealed class CountingUriConverter : ObjectConverter
     {
         public int Conversions { get; private set; }
 
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue result)
         {
             if (value is Uri uri)
             {

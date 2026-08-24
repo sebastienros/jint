@@ -892,9 +892,9 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.DoubleProp").Should().Be(1.5);
     }
 
-    private sealed class PlusOneIntConverter : IObjectConverter
+    private sealed class PlusOneIntConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             if (value is int i)
             {

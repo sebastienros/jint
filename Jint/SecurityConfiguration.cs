@@ -38,6 +38,7 @@ internal readonly record struct EngineSecurityConfigurationSnapshot(
     bool ExtensionMethodsConfigured,
     bool OperatorOverloadingAllowed,
     bool NonPublicBindingFlags,
+    bool CustomTypeConverter,
     bool UntrustedProfileApplied)
 {
     internal static EngineSecurityConfigurationSnapshot Capture(Engine engine)
@@ -67,6 +68,9 @@ internal readonly record struct EngineSecurityConfigurationSnapshot(
             (interop.ObjectWrapperReportedFieldBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
                 || (interop.ObjectWrapperReportedPropertyBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default
                 || (interop.ObjectWrapperReportedMethodBindingFlags & BindingFlags.NonPublic) != BindingFlags.Default,
+            // Read from the engine rather than from the options: the converter is installed by a configuration
+            // callback, and a Configure callback can install one without going through SetTypeConverter at all.
+            engine._typeConverterTargetFilter is not null,
             engine._untrustedCodeLimits is not null);
     }
 }
@@ -681,6 +685,7 @@ public static class OptionsSecurityExtensions
             || !ReferenceEquals(interop.CreateTypeReferenceObject, Options.InteropOptions._defaultCreateTypeReferenceObject)
             || !ReferenceEquals(interop.ObjectWrapperReportedPropertyKeys, Options.InteropOptions._defaultReportedPropertyKeys)
             || !ReferenceEquals(options.Host.FunctionToStringHandler, Options.HostOptions._defaultFunctionToStringHandler)
+            || (engineSnapshot?.CustomTypeConverter ?? options.HasUserTypeConverter)
             || !ReferenceEquals(options.ReferenceResolver, DefaultReferenceResolver.Instance))
         {
             Warning(diagnostics, SecurityDiagnosticCodes.ClrCallbackConfigured,

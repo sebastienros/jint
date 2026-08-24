@@ -255,15 +255,17 @@ public sealed class TypeResolver
         if (!profile.IsCaptured)
         {
             // The engine is still running its configuration callbacks and has not captured the profile that
-            // partitions the cache yet — a host-installed ITypeConverter, for one, is only in place once they
-            // have all run. Resolve without touching the cache rather than risk mislabeling an entry.
+            // partitions the cache yet — the extension method lookup, for one, is only final once they have
+            // all run. Resolve without touching the cache rather than risk mislabeling an entry. This also
+            // covers the converter's own window: a callback installs it, so anything resolved before that
+            // point neither enters the cache nor is answered from it.
             return ResolvePropertyDescriptorFactory(engine, type, member, requirement, throwOnError);
         }
 
         var key = new AccessorCacheKey(type, member, requirement, profile);
 
         var factories = _reflectionAccessors;
-        if (factories.TryGetValue(key, out var accessor))
+        if (factories.TryGetValue(key, out var accessor) && IsConverterNeutral(engine, accessor))
         {
             if (throwOnError
                 && ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor)
@@ -304,7 +306,7 @@ public sealed class TypeResolver
         }
 
         var key = new StaticAccessorCacheKey(type, member, profile);
-        if (_staticAccessors.TryGetValue(key, out var accessor))
+        if (_staticAccessors.TryGetValue(key, out var accessor) && IsConverterNeutral(engine, accessor))
         {
             return accessor;
         }
@@ -360,15 +362,35 @@ public sealed class TypeResolver
             return false;
         }
 
-        // An indexer accessor bakes in the index key that the engine's ITypeConverter produced from the member
-        // name. The stock converter only ever yields a plain CLR value, but a host-installed one may return
-        // anything at all, including something bound to its engine.
-        if (accessor is IndexerAccessor && !engine._typeConverterIsDefault)
+        return IsConverterNeutral(engine, accessor);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="accessor"/> would have resolved identically under the stock
+    /// <see cref="ClrTypeConverter"/>, and may therefore be both stored in and served from the cache this
+    /// resolver shares between engines whose converters differ.
+    /// </summary>
+    /// <remarks>
+    /// An <see cref="IndexerAccessor"/> bakes in the index key that the engine's converter produced from the
+    /// member name, and the stock converter only ever yields a plain CLR value while a host-installed one may
+    /// return anything at all, including something bound to its engine. That is the whole of the converter's
+    /// influence on resolution, which is why it is answered here rather than by partitioning the cache — and
+    /// why the answer has to be given on the <b>read</b> side too: a stock engine stores a stock-keyed indexer
+    /// accessor, and an engine whose converter would have keyed it differently must not be served that entry.
+    /// A converter that declared its target types is asked about the indexer's own index type, so declaring
+    /// (say) <c>TimeSpan</c> costs nothing on a <c>string</c>-keyed dictionary.
+    /// </remarks>
+    private static bool IsConverterNeutral(Engine engine, ReflectionAccessor accessor)
+    {
+        var filter = engine._typeConverterTargetFilter;
+        if (filter is null || accessor is not IndexerAccessor indexer)
         {
-            return false;
+            return true;
         }
 
-        return true;
+        // an int-keyed indexer never consults the converter at all, see IndexerAccessor.TryFindIndexer
+        var indexType = indexer.FirstIndexParameter.ParameterType;
+        return indexType == typeof(int) || !filter.Claims(indexType);
     }
 
     /// <summary>
@@ -989,10 +1011,15 @@ internal readonly record struct StaticAccessorCacheKey(
 /// </summary>
 /// <remarks>
 /// <para>
-/// Nothing here is affine to an engine or a realm — the flags are values, the extension method lookup holds
-/// only <see cref="MethodInfo"/>s and is itself meant to be shared, and a host-installed
-/// <see cref="ITypeConverter"/> is reduced to "is it the stock one", never captured, because those are
-/// routinely constructed per engine.
+/// Nothing here is affine to an engine or a realm — the flags are values and the extension method lookup holds
+/// only <see cref="MethodInfo"/>s and is itself meant to be shared.
+/// </para>
+/// <para>
+/// A host-installed <see cref="ClrTypeConverter"/> is deliberately <b>not</b> here. It was, as "is it the stock
+/// one", which gave every engine with a converter a partition of its own and so cost it the whole shared cache
+/// — for one artefact: an <see cref="Reflection.IndexerAccessor"/>'s baked-in key, the only thing the converter
+/// steers during resolution. <see cref="TypeResolver.IsConverterNeutral"/> excludes exactly those, on the way
+/// in and on the way out, so an engine with a converter shares everything else with its stock siblings.
 /// </para>
 /// <para>
 /// Hand-written rather than a positional record struct so the hash is computed once, when an engine captures
@@ -1007,7 +1034,6 @@ internal readonly struct InteropResolutionProfile : IEquatable<InteropResolution
     private readonly BindingFlags _methodBindingFlags;
     private readonly ExtensionMethodCache? _extensionMethods;
     private readonly bool _allowGetType;
-    private readonly bool _stockTypeConverter;
     private readonly int _hashCode;
 
     internal InteropResolutionProfile(
@@ -1015,23 +1041,20 @@ internal readonly struct InteropResolutionProfile : IEquatable<InteropResolution
         BindingFlags fieldBindingFlags,
         BindingFlags propertyBindingFlags,
         BindingFlags methodBindingFlags,
-        ExtensionMethodCache extensionMethods,
-        bool stockTypeConverter)
+        ExtensionMethodCache extensionMethods)
     {
         _allowGetType = allowGetType;
         _fieldBindingFlags = fieldBindingFlags;
         _propertyBindingFlags = propertyBindingFlags;
         _methodBindingFlags = methodBindingFlags;
         _extensionMethods = extensionMethods;
-        _stockTypeConverter = stockTypeConverter;
 
         var hashCode = allowGetType ? 1 : 0;
         hashCode = (hashCode * 397) ^ (int) fieldBindingFlags;
         hashCode = (hashCode * 397) ^ (int) propertyBindingFlags;
         hashCode = (hashCode * 397) ^ (int) methodBindingFlags;
         // ExtensionMethodCache does not override GetHashCode, this is its reference identity
-        hashCode = (hashCode * 397) ^ extensionMethods.GetHashCode();
-        _hashCode = (hashCode * 397) ^ (stockTypeConverter ? 1 : 0);
+        _hashCode = (hashCode * 397) ^ extensionMethods.GetHashCode();
     }
 
     /// <summary>
@@ -1053,7 +1076,6 @@ internal readonly struct InteropResolutionProfile : IEquatable<InteropResolution
     {
         return _hashCode == other._hashCode
                && _allowGetType == other._allowGetType
-               && _stockTypeConverter == other._stockTypeConverter
                && _fieldBindingFlags == other._fieldBindingFlags
                && _propertyBindingFlags == other._propertyBindingFlags
                && _methodBindingFlags == other._methodBindingFlags

@@ -3,13 +3,13 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain;
 
-public class UuidConverter : IObjectConverter
+public class UuidConverter : ObjectConverter
 {
     internal UuidConverter()
     {
     }
 
-    public bool TryConvert(Engine engine, object value, out JsValue result)
+    public override bool TryConvert(Engine engine, object value, out JsValue result)
     {
         switch (value)
         {

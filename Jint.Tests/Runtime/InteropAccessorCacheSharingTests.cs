@@ -286,15 +286,54 @@ public class InteropAccessorCacheSharingTests
         engine3._extensionMethods.Should().BeSameAs(engine1._extensionMethods);
     }
 
+    /// <summary>
+    /// The only resolution artefact a host <see cref="ClrTypeConverter"/> steers is an indexer accessor's
+    /// baked-in key, so that is the only thing it costs: an engine with a converter shares every other member
+    /// with its stock siblings, and a string-keyed indexer is re-resolved only by an engine whose converter
+    /// could have produced a different key.
+    /// </summary>
     [Fact]
-    public void CustomTypeConvertersPartitionTheCache()
+    public void ACustomTypeConverterOnlyCostsTheIndexerAccessorsItCouldHaveKeyedDifferently()
     {
-        var resolver = new TypeResolver();
-        var stock = CreateEngine(resolver, new StringIndexed());
-        var custom = CreateEngine(resolver, new StringIndexed(), options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine)));
+        var counting = new CountingResolver();
+        var stock = CreateEngine(counting.Resolver, new StringIndexed());
+        var claiming = CreateEngine(counting.Resolver, new StringIndexed(),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine), typeof(string)));
+        var unrelated = CreateEngine(counting.Resolver, new StringIndexed(),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine), typeof(TimeSpan)));
+        counting.Reset();
 
         stock.Evaluate("host.key").Should().Be("key!");
-        custom.Evaluate("host.key").Should().Be("key!");
+        counting.Reset().Should().BeGreaterThan(0, "the first engine has to resolve the indexer");
+
+        unrelated.Evaluate("host.key").Should().Be("key!");
+        counting.Reset().Should().Be(0, "a converter that cannot produce a string key leaves the entry usable");
+
+        claiming.Evaluate("host.key").Should().Be("key!");
+        counting.Reset().Should().BeGreaterThan(0, "this converter may key the indexer differently, so it must resolve its own");
+    }
+
+    [Fact]
+    public void AnEngineWithACustomTypeConverterStillSharesOrdinaryMembers()
+    {
+        // The converter used to partition the whole cache through InteropResolutionProfile, so an engine with
+        // one re-resolved every CLR member it touched. It no longer takes part in the key at all.
+        var counting = new CountingResolver();
+        var stock = CreateEngine(counting.Resolver, new Host(1));
+        var declared = CreateEngine(counting.Resolver, new Host(2),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine), typeof(TimeSpan)));
+        var undeclared = CreateEngine(counting.Resolver, new Host(3),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine)));
+        counting.Reset();
+
+        stock.Evaluate("host.Value").Should().Be(1);
+        counting.Reset().Should().BeGreaterThan(0, "the first engine has to resolve the member");
+
+        declared.Evaluate("host.Value").Should().Be(2);
+        counting.Reset().Should().Be(0, "a declared converter shares the stock engine's resolution");
+
+        undeclared.Evaluate("host.Value").Should().Be(3);
+        counting.Reset().Should().Be(0, "and so does an undeclared one - only indexer accessors are at stake");
     }
 
     #endregion
@@ -324,18 +363,18 @@ public class InteropAccessorCacheSharingTests
 
     /// <summary>
     /// Behaves exactly like the stock converter but is not it, so the engine counts as having a
-    /// host-installed <see cref="ITypeConverter"/>.
+    /// host-installed <see cref="ClrTypeConverter"/>.
     /// </summary>
-    private sealed class WrappingTypeConverter : ITypeConverter
+    private sealed class WrappingTypeConverter : ClrTypeConverter
     {
-        private readonly ITypeConverter _inner;
+        private readonly ClrTypeConverter _inner;
 
         public WrappingTypeConverter(Engine engine) => _inner = new DefaultTypeConverter(engine);
 
-        public object? Convert(object? value, Type type, IFormatProvider formatProvider)
+        public override object? Convert(object? value, Type type, IFormatProvider formatProvider)
             => _inner.Convert(value, type, formatProvider);
 
-        public bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted)
+        public override bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted)
             => _inner.TryConvert(value, type, formatProvider, out converted);
     }
 }

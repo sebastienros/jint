@@ -24,7 +24,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     // Whether the compiled lanes may cast the baked-in key straight to the parameter type each member
     // declares. The key was produced for the indexer's index type, and ContainsKey/Contains is looked up by
     // that same type or by object, so both hold in practice - but the key also comes from a host-installed
-    // ITypeConverter, so it is verified rather than assumed. Anything else keeps the reflection path, whose
+    // ClrTypeConverter, so it is verified rather than assumed. Anything else keeps the reflection path, whose
     // ArgumentException for a mismatched argument is the established behaviour.
     private readonly bool _keyFitsAccessors;
     private readonly bool _keyFitsContainsKey;
@@ -171,7 +171,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         }
         else
         {
-            engine.TypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
+            engine._typeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
         }
 
         if (key is not null)
