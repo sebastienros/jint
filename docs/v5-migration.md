@@ -619,6 +619,36 @@ engine.Constraints.Find<MyBudget>();
 Asking for an exact type still answers the same instance it always did, and where several constraints match
 the one registered first is returned — ask for the most derived type you know when that matters.
 
+### 4.15 `ObjectInstance.Extensible` is no longer virtual ([#3311](https://github.com/sebastienros/jint/pull/3311))
+
+The getter was `virtual` over an `internal` setter, so a subclass could override it to a constant and keep a
+setter that no longer fed it. `Object.preventExtensions(host)` then returned the object,
+`Object.isExtensible(host)` went on answering `true` — in strict mode too, with nothing thrown — and
+`Object.seal` / `Object.freeze` became no-ops on it. Reading `Extensible` is unchanged for every caller;
+only an override of it stops compiling.
+
+Say the same thing through `PreventExtensions`, which is still `virtual`. Returning `false` is an answer
+`[[PreventExtensions]]` is allowed to give, and it makes `Object.preventExtensions` raise a `TypeError`
+rather than report a success that did not happen:
+
+```c#
+// 4.16.x — compiled, and made Object.preventExtensions a silent no-op
+public sealed class ContentDataObject : ObjectInstance
+{
+    public override bool Extensible => true;
+}
+
+// 5.x — the same intent, said where the spec puts it
+public sealed class ContentDataObject : ObjectInstance
+{
+    public override bool PreventExtensions() => false;
+}
+```
+
+A host that overrode nothing needs no change. A host that overrides `PreventExtensions` and returns `true`
+now owes the object `Extensible == false` afterwards — call `base.PreventExtensions()`; host-contract
+verification reports an override that does not.
+
 ## 5. New in v5
 
 Everything here is opt-in: nothing below is installed unless the host asks for it, so none of it

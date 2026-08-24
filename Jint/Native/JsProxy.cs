@@ -817,45 +817,42 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-isextensible
     /// </summary>
-    public override bool Extensible
+    internal override bool IsExtensible()
     {
-        get
+        AssertNotRevoked(TrapIsExtensible);
+        var target = _target;
+
+        bool booleanTrapResult;
+        var clrHandler = _clrHandler;
+        if (clrHandler is not null)
         {
-            AssertNotRevoked(TrapIsExtensible);
-            var target = _target;
-
-            bool booleanTrapResult;
-            var clrHandler = _clrHandler;
-            if (clrHandler is not null)
+            var clrResult = InvokeClrIsExtensible(clrHandler, target);
+            if (clrResult is null)
             {
-                var clrResult = InvokeClrIsExtensible(clrHandler, target);
-                if (clrResult is null)
-                {
-                    return target.Extensible;
-                }
-
-                booleanTrapResult = clrResult.Value;
-            }
-            else
-            {
-                var handler = _handler!;
-                var trap = GetTrap(handler, TrapIsExtensible);
-                if (trap is null)
-                {
-                    return target.Extensible;
-                }
-
-                booleanTrapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
+                return target.Extensible;
             }
 
-            var targetResult = target.Extensible;
-            if (booleanTrapResult != targetResult)
-            {
-                Throw.TypeError(_engine.Realm, $"'isExtensible' on proxy: trap result does not reflect extensibility of proxy target (which is '{(targetResult ? "true" : "false")}')");
-            }
-
-            return booleanTrapResult;
+            booleanTrapResult = clrResult.Value;
         }
+        else
+        {
+            var handler = _handler!;
+            var trap = GetTrap(handler, TrapIsExtensible);
+            if (trap is null)
+            {
+                return target.Extensible;
+            }
+
+            booleanTrapResult = TypeConverter.ToBoolean(CallTrap(handler, trap, target));
+        }
+
+        var targetResult = target.Extensible;
+        if (booleanTrapResult != targetResult)
+        {
+            Throw.TypeError(_engine.Realm, $"'isExtensible' on proxy: trap result does not reflect extensibility of proxy target (which is '{(targetResult ? "true" : "false")}')");
+        }
+
+        return booleanTrapResult;
     }
 
     /// <summary>

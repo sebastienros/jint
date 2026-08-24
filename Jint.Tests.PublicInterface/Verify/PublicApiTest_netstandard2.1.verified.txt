@@ -1341,7 +1341,7 @@ namespace Jint.Native.Object
         protected readonly Jint.Engine _engine;
         protected ObjectInstance(Jint.Engine engine) { }
         public Jint.Engine Engine { get; }
-        public virtual bool Extensible { get; }
+        public bool Extensible { get; }
         public Jint.Native.JsValue this[Jint.Native.JsValue property] { get; set; }
         public Jint.Native.Object.ObjectInstance? Prototype { get; set; }
         public bool CreateDataProperty(Jint.Native.JsValue p, Jint.Native.JsValue v) { }

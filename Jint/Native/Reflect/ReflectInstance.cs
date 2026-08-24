@@ -193,7 +193,7 @@ internal sealed partial class ReflectInstance : BuiltinShapeObject
             Throw.TypeError(_realm, "Reflect.preventExtensions called on non-object");
         }
 
-        return o.PreventExtensions();
+        return o.PreventExtensionsChecked();
     }
 
     [JsFunction]

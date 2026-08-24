@@ -99,7 +99,7 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-isextensible
     /// </summary>
-    public override bool Extensible => false;
+    internal override bool IsExtensible() => false;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-preventextensions
