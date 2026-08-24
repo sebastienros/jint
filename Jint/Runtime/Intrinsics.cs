@@ -340,25 +340,37 @@ public sealed partial class Intrinsics
     internal NumberParseFunction ParseFloat =>
         _parseFloat ??= new NumberParseFunction(_engine, _realm, Function.PrototypeObject, isParseInt: false);
 
+    /// <summary>
+    /// %Error%. This and the six <c>NativeError</c> constructors below are public because a host raises a
+    /// script-catchable error by handing one to <see cref="JavaScriptException"/>,
+    /// so choosing the error the specification would choose — a <see cref="RangeError"/> for an out-of-range
+    /// argument, a <see cref="TypeError"/> for a wrong type — is a host operation, not an engine-internal one.
+    /// </summary>
     public ErrorConstructor Error =>
         _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName, static intrinsics => intrinsics.Error.PrototypeObject);
 
-    internal ErrorConstructor EvalError =>
+    /// <summary>%EvalError%. See <see cref="Error"/> for why this is public.</summary>
+    public ErrorConstructor EvalError =>
         _evalError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _evalErrorFunctionName, static intrinsics => intrinsics.EvalError.PrototypeObject);
 
-    internal ErrorConstructor SyntaxError =>
+    /// <summary>%SyntaxError%. See <see cref="Error"/> for why this is public.</summary>
+    public ErrorConstructor SyntaxError =>
         _syntaxError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _syntaxErrorFunctionName, static intrinsics => intrinsics.SyntaxError.PrototypeObject);
 
+    /// <summary>%TypeError%. See <see cref="Error"/> for why this is public.</summary>
     public ErrorConstructor TypeError =>
         _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName, static intrinsics => intrinsics.TypeError.PrototypeObject);
 
-    internal ErrorConstructor RangeError =>
+    /// <summary>%RangeError%. See <see cref="Error"/> for why this is public.</summary>
+    public ErrorConstructor RangeError =>
         _rangeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName, static intrinsics => intrinsics.RangeError.PrototypeObject);
 
-    internal ErrorConstructor ReferenceError =>
+    /// <summary>%ReferenceError%. See <see cref="Error"/> for why this is public.</summary>
+    public ErrorConstructor ReferenceError =>
         _referenceError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _referenceErrorFunctionName, static intrinsics => intrinsics.ReferenceError.PrototypeObject);
 
-    internal ErrorConstructor UriError =>
+    /// <summary>%URIError%, spelled <c>URIError</c> in script. See <see cref="Error"/> for why this is public.</summary>
+    public ErrorConstructor UriError =>
         _uriError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _uriErrorFunctionName, static intrinsics => intrinsics.UriError.PrototypeObject);
 
     internal ThrowTypeError ThrowTypeError =>

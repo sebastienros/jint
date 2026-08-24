@@ -774,8 +774,8 @@ verification reports an override that does not.
 
 ## 5. New in v5
 
-Everything here is opt-in: nothing below is installed unless the host asks for it, so none of it
-changes an engine that does not.
+Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
+none of it changes an engine that does not.
 
 | Area | Enable with | Reference |
 | --- | --- | --- |
@@ -785,6 +785,30 @@ changes an engine that does not.
 | Script profiling | `options.Profiling.Enabled = true` | [Profiling scripts (opt-in)](../README.md#profiling-scripts-opt-in) |
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
+
+### 5.1 Every error constructor is reachable from host code ([#3324](https://github.com/sebastienros/jint/pull/3324))
+
+`Engine.Intrinsics` exposed `Error` and `TypeError` and kept the other five `internal`, so a host
+function could not raise the error the specification would raise — a `RangeError` for an
+out-of-range argument being the common case. All seven are now `public`; nothing else changed and
+nothing was removed.
+
+```c#
+throw new JavaScriptException(engine.Intrinsics.RangeError, $"index {index} is out of range");
+```
+
+Additive, so no migration is required. If you reached one through the global instead, that keeps
+working and can now be written directly:
+
+```c#
+// before
+var rangeError = (ErrorConstructor) engine.GetValue("RangeError");
+// after
+var rangeError = engine.Intrinsics.RangeError;
+```
+
+The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
+error from host code](../README.md#raising-an-error-from-host-code).
 
 ## 6. AOT and trimming
 
