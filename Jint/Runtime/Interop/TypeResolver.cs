@@ -40,8 +40,21 @@ public sealed class TypeResolver
     internal int ResolvedAccessorCount => _reflectionAccessors.Count + _staticAccessors.Count;
 
     private Predicate<MemberInfo> _memberFilter = static _ => true;
+    private bool _memberFilterIsDefault = true;
     private Func<MemberInfo, IEnumerable<string>> _memberNameCreator = NameCreator;
     private StringComparer _memberNameComparer = DefaultMemberNameComparer.Instance;
+    private bool _memberNameCreatorIsDefault = true;
+
+    /// <summary>
+    /// The last <see cref="JsAccessibleRegistry"/> generation this resolver's cache was known to be consistent
+    /// with. A registration landing after a member of the same type was already resolved would otherwise keep
+    /// being answered from the cache with the reflected accessor, which is the shape of bug a host cannot
+    /// diagnose: the generated lane is simply never taken and nothing says so.
+    /// </summary>
+    private int _generatedMembersGeneration = JsAccessibleRegistry.Generation;
+
+    /// <summary>The default member-name comparer, which is also how the generated member tables are keyed.</summary>
+    internal static StringComparer DefaultNameComparer => DefaultMemberNameComparer.Instance;
 
     /// <summary>
     /// Registers a filter that determines whether a type or member is exposed to interop or returned as undefined.
@@ -67,6 +80,7 @@ public sealed class TypeResolver
             if (!ReferenceEquals(_memberFilter, value))
             {
                 _memberFilter = value;
+                _memberFilterIsDefault = false;
                 InvalidateResolvedAccessors();
             }
         }
@@ -145,6 +159,7 @@ public sealed class TypeResolver
             if (!ReferenceEquals(_memberNameCreator, value))
             {
                 _memberNameCreator = value;
+                _memberNameCreatorIsDefault = false;
                 InvalidateResolvedAccessors();
             }
         }
@@ -233,6 +248,8 @@ public sealed class TypeResolver
                 return supplied;
             }
         }
+
+        SyncGeneratedMembers();
 
         var profile = engine._interopResolutionProfile;
         if (!profile.IsCaptured)
@@ -354,6 +371,47 @@ public sealed class TypeResolver
         return true;
     }
 
+    /// <summary>
+    /// Drops the accessor cache when something has been registered with <see cref="JsAccessibleRegistry"/>
+    /// since the last resolution. Costs one volatile read per resolution and nothing else while no host has
+    /// registered anything.
+    /// </summary>
+    private void SyncGeneratedMembers()
+    {
+        var generation = JsAccessibleRegistry.Generation;
+        if (_generatedMembersGeneration != generation)
+        {
+            _generatedMembersGeneration = generation;
+            InvalidateResolvedAccessors();
+        }
+    }
+
+    /// <summary>
+    /// Whether a generated member may stand in for the reflected one. The generated lanes reach a type's
+    /// public instance members under their CLR names, which is what the four settings below decide for every
+    /// other type - so a host that has changed any of them gets the reflection path for annotated types too,
+    /// rather than a lane that silently ignores the filter it installed. Routing the generated members
+    /// through those settings instead is a separate change; until it lands, this is the difference between
+    /// "not yet supported" and "quietly bypassed".
+    /// </summary>
+    internal bool GeneratedMembersAreConsultable(Engine engine)
+    {
+        // A filter can only ever hide members, so one installed at all has to be honoured; the default
+        // predicate hides nothing. AllowGetType folds in the same way - it is a filter over a single name,
+        // and a member called GetType is never registered.
+        if (!_memberFilterIsDefault
+            || !_memberNameCreatorIsDefault
+            || !ReferenceEquals(_memberNameComparer, DefaultMemberNameComparer.Instance))
+        {
+            return false;
+        }
+
+        const BindingFlags PublicInstance = BindingFlags.Public | BindingFlags.Instance;
+        return (PropertyBindingFlags(engine) & PublicInstance) == PublicInstance
+               && (FieldBindingFlags(engine) & PublicInstance) == PublicInstance
+               && (MethodBindingFlags(engine) & PublicInstance) == PublicInstance;
+    }
+
     private ReflectionAccessor ResolvePropertyDescriptorFactory(
         Engine engine,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
@@ -365,6 +423,20 @@ public sealed class TypeResolver
 
         // we can always check indexer if there's one, and then fall back to properties if indexer returns null
         IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
+
+        // A [JsAccessible] type's registered members stand in for exactly the step below - the declared
+        // property/field/method lookup - and for nothing else, which is why they are consulted here rather
+        // than ahead of the indexer probe: an annotated type carrying a string indexer must still resolve
+        // names the way an un-annotated one does.
+        if (!isInteger
+            && indexer is null
+            && !JsAccessibleRegistry.IsEmpty
+            && GeneratedMembersAreConsultable(engine)
+            && JsAccessibleRegistry.TryGetAccessor(type, memberName, out var generated)
+            && requirement.IsSatisfiedBy(generated))
+        {
+            return generated;
+        }
 
         // properties and fields cannot be numbers
         if (!isInteger
@@ -863,9 +935,26 @@ public sealed class TypeResolver
             return equals;
         }
 
+        /// <summary>
+        /// Consistent with <see cref="Equals(string, string)"/>: two names that differ only in the casing of
+        /// their first character hash the same, because that is exactly the difference this comparer ignores.
+        /// It threw <see cref="NotImplementedException"/> for as long as the comparer was used only for linear
+        /// scans; the generated member tables key a dictionary with it, so it has to answer.
+        /// </summary>
         public override int GetHashCode(string obj)
         {
-            throw new NotImplementedException();
+            if (obj is null || obj.Length == 0)
+            {
+                return 0;
+            }
+
+            var hash = 17 * 31 + char.ToLowerInvariant(obj[0]);
+            for (var i = 1; i < obj.Length; i++)
+            {
+                hash = hash * 31 + obj[i];
+            }
+
+            return hash;
         }
     }
 }

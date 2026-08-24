@@ -16,6 +16,46 @@ rest of the list is split across the files indexed from the repository-root [`AG
 - **Dictionary-valued reads re-wrap on every access, and only a host promise can stop them.** `record.value.customer.country` over a wrapped `JsonObject`/`IDictionary` resolves each level through the dictionary lane, which probes the target and converts the value afresh every time — the read itself is compiled, but its *result* was never cached, and the bounded recent-wrapper ring (8 slots) cannot hold a nested walk's nodes. The engine cannot fix this alone: a value-identity change inside the host's dictionary is invisible to it. `Options.AddImmutableCrossing(params Type[])` supplies the missing fact — instances of the declared types, while exposed to this engine, are immutable — and in exchange an `ObjectWrapper` over such a target memoizes each key's resolved descriptor, so a repeated read touches neither reflection nor the indexer and each child node is wrapped once per wrapper lifetime. Assignability is the rule (an interface covers its implementations), and unlike `ObjectConverterTypeFilter` this one never guesses in the permissive direction — a wrong claim here would serve stale reads rather than merely cost a fast lane, so an open generic declaration claims nothing. Three things to know before relying on it. The memo lives in a **store of its own**, not in `_properties`: enumeration stays live from the target (a key added CLR-side afterwards still enumerates), no `_propertiesVersion` is bumped, and anything a script actually defines — `Object.freeze`, `Object.defineProperty`, a host `SetOwnProperty` — outranks it and drops it. A **write** through the wrapper evicts that key's memo, which is insurance for the host that was wrong and not a licence to be; write behaviour itself is unchanged. And the memo is **per wrapper**, so it only pays while the wrapper is alive — a stable root (anything reached through `Engine.SetValue`) memoizes its whole subtree, but a node reached through a transient wrapper, such as an element of a wrapped list, still re-resolves on each crossing; that lane is the ring's job, or `TrackObjectWrapperIdentity`'s. The same promise also reaches reflected members, where `ReflectionDescriptor` stops invoking the CLR getter entirely after the first read, superseding both `CacheRecentObjectWrappers` and `TrackObjectWrapperIdentity` for a declared type. No promise is needed for questions *about* the keys rather than their values: `ObjectWrapper.ProbeOwnProperty` answers a string-keyed generic dictionary from the target's own `ContainsKey`, so `in`, `hasOwnProperty`, `propertyIsEnumerable`, `Object.keys`/`values`/`entries`, `for..in`, `Object.assign`, spread and `JSON.stringify` stop converting a value and building a descriptor per key only to discard both. That lane never decides a key is *missing* — a `false` falls through to the descriptor path, because a dictionary wrapper still resolves CLR members for names the dictionary does not carry — so the only way it can disagree with `GetOwnProperty` is a target whose own `ContainsKey` and `TryGetValue` disagree with each other.
 - **A non-default `IReferenceResolver` used to disable the member and call inline caches engine-wide.** It can now declare `ReferenceResolverInterests` at registration or via `Options.ReferenceResolverInterests`. The scope was always the non-computed member-read caches, the dense-array indexed-read lane and the member-call callee lane; identifier caches were never affected.
 
+### `[JsAccessible]`: the generated lane, and why it is equivalent rather than merely fast
+
+A `[JsAccessible]`-annotated type registers typed member lanes with `JsAccessibleRegistry`, and
+`TypeResolver.ResolvePropertyDescriptorFactory` consults it in place of — and only in place of — the
+declared property/field/method lookup. **The design rule is that the generated lanes are the four
+delegates `CompiledMemberAccessor` builds at run time, emitted at compile time instead**: same shapes,
+same decline rules, same bounds, and the surrounding `ReflectionAccessor` / `ReflectionDescriptor`
+machinery untouched. That is what makes a generated member behave identically to the reflected one
+rather than approximately like it, and it is why `GeneratedMemberAccessor` reads as a copy of
+`CompilableMemberAccessor`. **Change one and change the other**; `Jint.Tests.PublicInterface/HostGeneratedInteropTests.cs`
+runs every case against both an annotated type and an un-annotated twin and compares the results, so a
+drift shows up as a failure naming the script that diverged.
+
+Four consequences worth knowing before touching any of it.
+
+- **Anything the two paths cannot agree on is not generated at all.** A method parameter not typed
+  `JsValue` goes through a conversion chain steered by `Options.Interop.ValueCoercion` and the installed
+  `ITypeConverter`; a property with a non-public or `init` accessor is writable by reflection and not by
+  emitted C#. Both stay reflected. The MVP this replaced generated them, and acquired two behavioural
+  divergences doing it — `p.Name = null` storing the string `"null"`, and a hard cast to a `JsValue`
+  subtype throwing `InvalidCastException` out of `Evaluate` where the reflected path raises a catchable
+  `TypeError`. **Widening the supported set means proving the new shape's reflected binding first.**
+- **The generated lane is skipped for every annotated type when the host has installed a `MemberFilter`,
+  a `MemberNameCreator`, a `MemberNameComparer`, or binding flags that no longer report public instance
+  members** (`TypeResolver.GeneratedMembersAreConsultable`). Those four decide which members exist and
+  under what names, and the generated lanes do not run through them. Not being able to honour a filter
+  and honouring it anyway are the same bug; declining is the difference.
+- **The registry is process-wide and bumps a generation counter, which every `TypeResolver` compares
+  against before answering from its cache.** Without that, a `RegisterAll()` landing after an engine had
+  already resolved a member of the same type would go on being answered with the reflected accessor and
+  nothing would say so.
+- **The generator lives in its own analyzer assembly, `Jint.SourceGenerators.Interop`, and that is not
+  organisational.** `Jint.SourceGenerators` emits its attribute set through
+  `RegisterPostInitializationOutput` unconditionally, and that source declares members typed
+  `Jint.Native.Function.FastCallGuard`, which is `internal`. Any assembly outside Jint's
+  `InternalsVisibleTo` list that referenced *that* analyzer would fail to compile before reaching a line
+  of its own code — which is exactly why nobody had noticed that the MVP's emitted code could not compile
+  in a consumer assembly either. Do not move the `[JsAccessible]` generator into that project, and do not
+  give it post-initialization output.
+
 ### Native AOT: what is measured, what is annotated, and what is still suppressed
 
 `Jint.csproj` sets `<IsAotCompatible>` for net7.0+ and, in the same property group, suppresses eight IL

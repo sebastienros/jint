@@ -22,6 +22,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <!--
+      The [JsAccessible] generator is consumed here the way a third party consumes it, which is the whole
+      reason the fixture is in this project and not in Jint.Tests: this is the only suite without
+      InternalsVisibleTo, so code the generator emits either compiles against Jint's public surface alone or
+      does not compile at all. Packing the analyzer into the NuGet package is a separate change; until then a
+      ProjectReference stands in for the package reference a consumer would write.
+    -->
+    <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

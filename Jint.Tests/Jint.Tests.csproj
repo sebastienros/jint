@@ -42,6 +42,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <!--
+      Only for JsAccessibleAccessorSelectionTests, which asserts from inside the assembly the thing
+      Jint.Tests.PublicInterface cannot see: that the accessor a member of an annotated type resolves to is
+      the generated one. Note there is no <NoWarn>CS0436</NoWarn> here and none is needed - unlike
+      Jint.SourceGenerators, this analyzer emits no post-initialization source, so nothing it produces
+      collides with the Jint internals this project can already see.
+    -->
+    <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint.SourceGenerators\Jint.SourceGenerators.csproj" />
+    <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" />
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
 
