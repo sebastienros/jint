@@ -133,7 +133,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
         private readonly ArrayIteratorType _kind;
         private readonly JsTypedArray? _typedArray;
         private readonly ArrayOperations? _operations;
-        private uint _position;
+        private ulong _position;
         private bool _closed;
 
         public ArrayLikeIterator(Engine engine, ObjectInstance objectInstance, ArrayIteratorType kind) : base(engine)
@@ -164,7 +164,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                 return false;
             }
 
-            uint len;
+            ulong len;
             if (_typedArray is not null)
             {
                 _typedArray._viewedArrayBuffer.AssertNotDetached();
@@ -177,7 +177,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
             }
             else
             {
-                len = _operations!.GetLength();
+                len = _operations!.GetLongLength();
             }
 
             if (_position < len)
@@ -228,7 +228,7 @@ internal sealed partial class ArrayIteratorPrototype : IteratorPrototype
                     return false;
                 }
 
-                var len = _operations!.GetLength();
+                var len = _operations!.GetLongLength();
                 if (_position < len)
                 {
                     var stepped = _operations!.Get(_position);

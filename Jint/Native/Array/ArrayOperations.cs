@@ -88,8 +88,21 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
     public abstract ulong GetSmallestIndex(ulong length);
 
-    public abstract uint GetLength();
-
+    /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-lengthofarraylike">LengthOfArrayLike</see>, which is
+    /// <c>ToLength(Get(O, "length"))</c> and therefore lands in <c>[0, 2^53-1]</c>
+    /// (<see href="https://tc39.es/ecma262/#sec-tolength">ToLength</see>).
+    /// <para>
+    /// There is deliberately no narrower overload. One used to exist -- a <c>uint</c> sibling every generic
+    /// below reached for by name -- and it could not express the specified range at all: it cast the
+    /// <c>double</c> across unclamped, which <em>saturates</em> on .NET and is <em>unspecified</em> on .NET
+    /// Framework (there it keeps the low 32 bits), so a <c>length</c> of 2^53 was read as 4294967295 on one
+    /// target framework and as 0 on the other. That is the same hazard
+    /// <see cref="TypeConverter.ToIntegerOrInfinity"/> carries its own note about. Narrow at the call site,
+    /// inside a guard that proves the value fits, the way
+    /// <see href="https://tc39.es/ecma262/#sec-array.prototype.map">Array.prototype.map</see> does.
+    /// </para>
+    /// </summary>
     public abstract ulong GetLongLength();
 
     public abstract void SetLength(ulong length);
@@ -154,12 +167,12 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         private readonly ArrayOperations _obj;
         private ulong _current;
         private bool _initialized;
-        private readonly uint _length;
+        private readonly ulong _length;
 
         public ArrayLikeIterator(ArrayOperations obj)
         {
             _obj = obj;
-            _length = obj.GetLength();
+            _length = obj.GetLongLength();
 
             Reset();
         }
@@ -225,12 +238,11 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             return _target.GetSmallestIndex(length);
         }
 
-        public override uint GetLength()
-        {
-            var integerLength = GetIntegerLength();
-            return (uint) (integerLength >= 0 ? integerLength : 0);
-        }
-
+        /// <summary>
+        /// The only <see cref="ArrayOperations"/> whose length is not bounded by the array index range: an
+        /// arbitrary array-like carries whatever <c>ToLength</c> made of its own <c>"length"</c>, so the clamp
+        /// at <see cref="MaxArrayLikeLength"/> is what keeps the conversion in range on every target framework.
+        /// </summary>
         public override ulong GetLongLength()
         {
             var integerLength = GetIntegerLength();
@@ -280,9 +292,6 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length)
             => _target.GetSmallestIndex();
-
-        public override uint GetLength()
-            => _target.GetLength();
 
         public override ulong GetLongLength()
             => _target.GetLongLength();
@@ -389,8 +398,10 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         // Object.defineProperty(ta, "length", ...) installs an ordinary own property that shadows the
         // accessor, and Array.prototype.sort.call(ta) must then sort only that many elements.
         // %TypedArray%.prototype's own methods do not come through here -- they read the intrinsic length
-        // directly -- so nothing that must ignore an own "length" is affected.
-        public override uint GetLength()
+        // directly -- so nothing that must ignore an own "length" is affected. The clamp is ToLength's own
+        // 2^53-1, not the array index range: a shadowing own "length" is an ordinary property and nothing
+        // narrows what LengthOfArrayLike makes of it.
+        public override ulong GetLongLength()
         {
             if (_useIntrinsicLength)
             {
@@ -406,13 +417,11 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
                     return 0;
                 }
 
-                return (uint) System.Math.Min(length, MaxArrayLength);
+                return (ulong) System.Math.Min(length, MaxArrayLikeLength);
             }
 
             return 0;
         }
-
-        public override ulong GetLongLength() => GetLength();
 
         // Every caller of this is a spec step spelled "Perform ? Set(O, "length", len, true)" -- Array.from,
         // Array.fromAsync and the Array.prototype generics that a typed array can be the receiver of. A typed
@@ -472,9 +481,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
-        public override uint GetLength() => (uint) _target.Length;
-
-        public override ulong GetLongLength() => GetLength();
+        public override ulong GetLongLength() => (ulong) _target.Length;
 
         public override void SetLength(ulong length) => throw new NotSupportedException();
 
@@ -533,8 +540,6 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public override ObjectInstance Target => _target;
 
         public override ulong GetSmallestIndex(ulong length) => 0;
-
-        public override uint GetLength() => _length;
 
         public override ulong GetLongLength() => _length;
 
@@ -607,9 +612,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
-        public override uint GetLength() => (uint) _collection.Count;
-
-        public override ulong GetLongLength() => GetLength();
+        public override ulong GetLongLength() => (ulong) _collection.Count;
 
         public override void SetLength(ulong length)
         {
@@ -697,8 +700,6 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
-        public override uint GetLength() => _target.Length;
-
         public override ulong GetLongLength() => _target.Length;
 
         public override void SetLength(ulong length) => _target.Set(CommonProperties.Length, length, true);
@@ -758,9 +759,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override ulong GetSmallestIndex(ulong length) => 0;
 
-        public override uint GetLength() => (uint) _target.Length;
-
-        public override ulong GetLongLength() => GetLength();
+        public override ulong GetLongLength() => (ulong) _target.Length;
 
         public override void SetLength(ulong length)
         {
