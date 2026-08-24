@@ -786,7 +786,7 @@ none of it changes an engine that does not.
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
 
-### 5.1 Every error constructor is reachable from host code ([#3324](https://github.com/sebastienros/jint/pull/3324))
+### 5.1 Every error constructor is reachable from host code ([#3337](https://github.com/sebastienros/jint/pull/3337))
 
 `Engine.Intrinsics` exposed `Error` and `TypeError` and kept the other five `internal`, so a host
 function could not raise the error the specification would raise — a `RangeError` for an
