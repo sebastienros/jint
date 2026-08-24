@@ -93,10 +93,20 @@ public class HostArrayLikeObjectTests
     }
 
     /// <summary>
-    /// The documented extension point: a subclass adding a <b>live named getter</b> by overriding
-    /// <see cref="ObjectInstance.GetOwnProperty"/> and delegating everything it does not own — crucially every
-    /// array-index key and <c>length</c> — to <c>base</c>. Its named key is advertised by extending
-    /// <see cref="ArrayLikeObject.GetOwnPropertyKeys"/> the same way.
+    /// The extension point for a <b>live named member</b> beside the elements: the same three hooks
+    /// <see cref="NamedPropertyObject"/> publishes, declared here on <see cref="ArrayLikeObject"/>. The base
+    /// class derives everything else — <c>GetOwnProperty</c>, <c>TryGetOwnPropertyValue</c>,
+    /// <c>ProbeOwnProperty</c>, both key enumerations, <c>Set</c>, <c>Delete</c> and
+    /// <c>DefineOwnProperty</c> — so the named key and the elements cannot disagree.
+    ///
+    /// <para>
+    /// This class used to override <c>GetOwnProperty</c> and <c>GetOwnPropertyKeys</c> and delegate the rest to
+    /// <c>base</c>, which is the shape the type's documentation used to prescribe. It shipped two defects
+    /// nothing in this suite caught: <c>last</c> was invisible to <c>GetOwnProperties</c>' real consumers (the
+    /// CLR conversion path, <c>GetSmallestIndex</c>, the debugger's binding names), and every existence
+    /// question about it cost a materialized descriptor, because <c>ProbeOwnProperty</c> was sealed with no
+    /// hook to answer a named key from.
+    /// </para>
     /// </summary>
     private sealed class NamedGetterHostList : ArrayLikeObject
     {
@@ -124,27 +134,21 @@ public class HostArrayLikeObjectTests
             return false;
         }
 
-        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        // outside the Jint assembly a `protected internal` member is visible as `protected`
+        protected override int NameCount => _items.Count == 0 ? 0 : 1;
+
+        protected override string NameAt(int index) => "last";
+
+        protected override bool TryGetNamedValue(string name, out JsValue value)
         {
-            if (property is JsString name && string.Equals(name.ToString(), "last", StringComparison.Ordinal))
+            if (_items.Count > 0 && string.Equals(name, "last", StringComparison.Ordinal))
             {
-                return _items.Count == 0
-                    ? PropertyDescriptor.Undefined
-                    : new PropertyDescriptor(_items[_items.Count - 1], writable: false, enumerable: true, configurable: true);
+                value = _items[_items.Count - 1];
+                return true;
             }
 
-            return base.GetOwnProperty(property);
-        }
-
-        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
-        {
-            var keys = base.GetOwnPropertyKeys(types);
-            if ((types & Types.String) != Types.Empty && _items.Count > 0)
-            {
-                keys.Add("last");
-            }
-
-            return keys;
+            value = JsValue.Undefined;
+            return false;
         }
     }
 
@@ -627,7 +631,7 @@ public class HostArrayLikeObjectTests
     // ---------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void ASubclassMayAddALiveNamedGetterByDelegatingToBase()
+    public void ASubclassMayAddALiveNamedMemberWithTheNamedHooks()
     {
         var engine = new Engine();
         var list = new NamedGetterHostList(engine, "a", "b", "c");
@@ -635,7 +639,9 @@ public class HostArrayLikeObjectTests
 
         engine.Evaluate("list.last").Should().Be("c");
         engine.Evaluate("list.hasOwnProperty('last')").Should().Be(true);
+        engine.Evaluate("'last' in list").Should().Be(true);
         engine.Evaluate("Object.keys(list).join(',')").Should().Be("0,1,2,last");
+        engine.Evaluate("Object.getOwnPropertyNames(list).join(',')").Should().Be("0,1,2,length,last");
 
         // the index and length answers still come from the base class
         engine.Evaluate("list[1]").Should().Be("b");
@@ -646,5 +652,115 @@ public class HostArrayLikeObjectTests
         list.Items.Add("d");
         engine.Evaluate("list.last").Should().Be("d");
         engine.Evaluate("list.length").Should().Be(4);
+    }
+
+    /// <summary>
+    /// The regression this PR exists for. <c>GetOwnProperties</c> is not the enumeration hook — the key
+    /// enumerations go through <c>GetOwnPropertyKeys</c> — so a subclass that advertised a named key by
+    /// overriding <c>GetOwnPropertyKeys</c> alone was visible to <c>Object.keys</c> and invisible to
+    /// <c>GetOwnProperties</c>' actual consumers, of which the CLR conversion path is the one an embedder
+    /// meets. Measured against this file's previous <c>NamedGetterHostList</c>: <c>Object.keys</c> answered
+    /// <c>0,1,2,last</c> while <c>ToObject()</c> answered <c>0,1,2</c>.
+    /// </summary>
+    [Fact]
+    public void ANamedMemberIsVisibleToEveryEnumerationIncludingTheClrConversion()
+    {
+        var engine = new Engine();
+        var list = new NamedGetterHostList(engine, "a", "b", "c");
+        engine.SetValue("list", list);
+
+        // the three script-visible enumerations
+        engine.Evaluate("Object.keys(list).join(',')").Should().Be("0,1,2,last");
+        engine.Evaluate("JSON.stringify({...list})").Should().Be("""{"0":"a","1":"b","2":"c","last":"c"}""");
+        engine.Evaluate("JSON.stringify(Object.assign({}, list))").Should().Be("""{"0":"a","1":"b","2":"c","last":"c"}""");
+
+        // and GetOwnProperties' own consumer, the CLR conversion under Options.Interop.CreateClrObject
+        var converted = list.ToObject() as IDictionary<string, object?>;
+        converted.Should().NotBeNull();
+        converted!.Keys.Should().Contain("last");
+        converted["last"].Should().Be("c");
+    }
+
+    /// <summary>
+    /// The other half: a named key now reaches the probe lane. Every question below is an existence or
+    /// enumerability question, and the base class answers all of them from <c>HasName</c> /
+    /// <c>IsNameEnumerable</c> without materializing a <c>PropertyDescriptor</c>. Against the previous
+    /// hand-rolled shape each of these cost exactly one descriptor, because <c>ProbeOwnProperty</c> was sealed
+    /// with no hook to answer a named key from.
+    /// </summary>
+    [Fact]
+    public void ANamedMemberAnswersExistenceQuestionsWithoutADescriptor()
+    {
+        var engine = new Engine();
+        var list = new NamedGetterHostList(engine, "a", "b", "c");
+        engine.SetValue("list", list);
+
+        engine.Evaluate("'last' in list").Should().Be(true);
+        engine.Evaluate("list.hasOwnProperty('last')").Should().Be(true);
+        engine.Evaluate("list.propertyIsEnumerable('last')").Should().Be(true);
+        engine.Evaluate("'missing' in list").Should().Be(false);
+
+        // the descriptor form still agrees with all of it
+        engine.Evaluate("JSON.stringify(Object.getOwnPropertyDescriptor(list, 'last'))")
+            .Should().Be("""{"value":"c","writable":false,"enumerable":true,"configurable":true}""");
+    }
+
+    /// <summary>
+    /// The named projection is refused the keys the collection owns: an index and <c>length</c> are answered
+    /// from <see cref="ArrayLikeObject.Length"/> and <see cref="ArrayLikeObject.TryGetIndex"/> before the
+    /// projection is consulted, so a projected name spelling one of them would advertise a key its own read
+    /// never reaches.
+    /// </summary>
+    [Fact]
+    public void TheCollectionOwnsIndicesAndLengthAheadOfTheNamedProjection()
+    {
+        var engine = new Engine();
+        var list = new CollidingNameHostList(engine);
+        engine.SetValue("list", list);
+
+        if (HostContractVerificationSwitch.Enabled)
+        {
+            // the verifier names the mistake rather than letting the key go quietly missing
+            var act = () => engine.Evaluate("Object.keys(list)");
+            act.Should().Throw<InvalidOperationException>().WithMessage("*belongs to the indexed collection*");
+            return;
+        }
+
+        // without verification the colliding names are simply dropped: the read path could never route to them
+        engine.Evaluate("Object.keys(list).join(',')").Should().Be("0,1");
+        engine.Evaluate("list[0]").Should().Be("a");
+        engine.Evaluate("list.length").Should().Be(2);
+    }
+
+    /// <summary>A projection that wrongly claims an index name and <c>length</c>.</summary>
+    private sealed class CollidingNameHostList : ArrayLikeObject
+    {
+        public CollidingNameHostList(Engine engine) : base(engine)
+        {
+        }
+
+        public override uint Length => 2;
+
+        public override bool TryGetIndex(uint index, out JsValue value)
+        {
+            if (index < 2)
+            {
+                value = index == 0 ? "a" : "b";
+                return true;
+            }
+
+            value = JsValue.Undefined;
+            return false;
+        }
+
+        protected override int NameCount => 2;
+
+        protected override string NameAt(int index) => index == 0 ? "0" : "length";
+
+        protected override bool TryGetNamedValue(string name, out JsValue value)
+        {
+            value = "from-projection";
+            return string.Equals(name, "0", StringComparison.Ordinal) || string.Equals(name, "length", StringComparison.Ordinal);
+        }
     }
 }
