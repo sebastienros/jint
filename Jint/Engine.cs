@@ -1797,7 +1797,7 @@ public sealed partial class Engine : IDisposable
     public Engine SetValue(string name, Delegate value)
     {
         using var ownership = EnterHostCall();
-        Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), PropertyFlag.NonEnumerable));
+        GlobalValueRegistration.RegisterDelegate(this, Realm.GlobalObject, name, value);
         return this;
     }
 
@@ -1839,7 +1839,7 @@ public sealed partial class Engine : IDisposable
     public Engine SetValue(string name, JsValue value)
     {
         using var ownership = EnterHostCall();
-        Realm.GlobalObject.Set(name, value);
+        GlobalValueRegistration.Register(Realm.GlobalObject, name, value);
         return this;
     }
 
@@ -1852,15 +1852,12 @@ public sealed partial class Engine : IDisposable
     /// <c>[DynamicallyAccessedMembers]</c> and therefore preserves what Jint reflects over. Here there is
     /// no type to annotate, which is the whole of the difference.
     /// </remarks>
-    [RequiresUnreferencedCode("The runtime type of obj is not known at the call site, so the members Jint resolves by reflection cannot be preserved by the trimmer, and a removed one reads as undefined rather than as an error. Prefer SetValue<T>(string, T), whose type parameter carries [DynamicallyAccessedMembers]; pass an already-built JsValue; or root the type yourself.")]
+    [RequiresUnreferencedCode(GlobalValueRegistration.RequiresUnreferencedCodeMessage)]
     public Engine SetValue(string name, object? obj)
     {
         using var ownership = EnterHostCall();
-        var value = obj is Type t
-            ? TypeReference.CreateTypeReference(this, t)
-            : JsValue.FromObject(this, obj);
-
-        return SetValue(name, value);
+        GlobalValueRegistration.RegisterObject(this, Realm.GlobalObject, name, obj);
+        return this;
     }
 
     /// <summary>
@@ -1869,9 +1866,8 @@ public sealed partial class Engine : IDisposable
     public Engine SetValue(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
     {
         using var ownership = EnterHostCall();
-#pragma warning disable IL2111
-        return SetValue(name, TypeReference.CreateTypeReference(this, type));
-#pragma warning restore IL2111
+        GlobalValueRegistration.RegisterType(this, Realm.GlobalObject, name, type);
+        return this;
     }
 
     /// <summary>
@@ -1880,9 +1876,8 @@ public sealed partial class Engine : IDisposable
     public Engine SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T? obj)
     {
         using var ownership = EnterHostCall();
-        return obj is Type t
-            ? SetValue(name, t)
-            : SetValue(name, JsValue.FromObject(this, obj));
+        GlobalValueRegistration.RegisterTyped(this, Realm.GlobalObject, name, obj);
+        return this;
     }
 
     /// <summary>
@@ -1910,7 +1905,8 @@ public sealed partial class Engine : IDisposable
     public Engine SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T[]? obj)
     {
         using var ownership = EnterHostCall();
-        return SetValue(name, JsValue.FromObject(this, obj));
+        GlobalValueRegistration.RegisterArray(this, Realm.GlobalObject, name, obj);
+        return this;
     }
 
     internal void LeaveExecutionContext()

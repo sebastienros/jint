@@ -89,9 +89,14 @@ saying it is deliberately not `NotSupportedException`.
    where the lane is generic. A `KnownAotGap` is for a shape that must *keep* throwing; it is checked
    in both directions, so a gap that closes fails the leg.
 
-The seven annotated members today are `OptionsExtensions.AllowClr` (two overloads),
-`OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`, `ObjectWrapper.Create`, and
-`ClrHelper.Unwrap` / `Wrap`. `JsValue.FromObject` is deliberately not among them: it is the engine's own
+The eight annotated members today are `OptionsExtensions.AllowClr` (two overloads),
+`OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`,
+`ShadowRealm.SetValue(string, object?)`, `ObjectWrapper.Create`, and `ClrHelper.Unwrap` / `Wrap`. The two
+`SetValue` families are one API pointed at two global objects and share one implementation
+(`Jint/GlobalValueRegistration.cs`) and one message constant, precisely so a fifth rule is not needed:
+they had drifted, and the drift put the annotation on `ShadowRealm`'s harmless `Delegate` overload while
+leaving its reflective one silent. **Annotate the pair, not the member** — and if you are about to write
+the same annotation twice, share the implementation instead. `JsValue.FromObject` is deliberately not among them: it is the engine's own
 conversion funnel with ~60 call sites inside Jint, the interpreter's operator-overloading path among
 them, so annotating it would either cascade `[RequiresUnreferencedCode]` across the interpreter or need
 a suppression per site. `Options.InteropOptions._defaultWrapObjectHandler` carries the one
