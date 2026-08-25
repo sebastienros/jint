@@ -160,14 +160,37 @@ internal static class WptHarness
     /// it as a stall for the whole file instead.
     /// </para>
     /// </remarks>
-    private static readonly TimeSpan _offThreadGrace = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan _offThreadGrace = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// The bound on one request to the driver's own loopback server. It has to be well inside
-    /// <see cref="_offThreadGrace"/> — see there — and a request to a server in this process is either
-    /// answered at once or not at all.
+    /// The bound on one <c>fetch()</c> against the driver's own loopback server — which is the whole call,
+    /// <b>redirects included</b>, and not one hop.
     /// </summary>
-    private static readonly TimeSpan _fetchTimeout = TimeSpan.FromSeconds(10);
+    /// <remarks>
+    /// <para>
+    /// The distinction is the whole reason this number is what it is. <c>Options.WebApi.Fetch.Timeout</c>
+    /// bounds the call "from the call to the last byte of the body" (see <c>FetchOperation</c>), so
+    /// <c>fetch/api/redirect/redirect-count.any.js</c> spends one budget on <b>twenty-one sequential
+    /// round trips</b> plus every microtask checkpoint the engine pumps between them. This used to read ten
+    /// seconds, justified by the observation that "a request to a server in this process is either answered
+    /// at once or not at all" — true of one hop, and not true of the chain the option actually bounds. On a
+    /// contended CI runner that chain outran ten seconds and the row failed with a <c>TimeoutError</c>, which
+    /// then moved the corpus totals and reddened <c>WptCensusTests</c> alongside it (#3314).
+    /// </para>
+    /// <para>
+    /// So the budget is the engine's own default rather than a lowered one: the harness had no reason to be
+    /// stricter than the shipped configuration, and a lane whose slowest file makes twenty-one loopback round
+    /// trips is the last place to be. It still has to sit well inside <see cref="_offThreadGrace"/> — see
+    /// there — so that grace moves with it and a request the server never answers still becomes a failing
+    /// test rather than a stalled file.
+    /// </para>
+    /// <para>
+    /// Neither number costs a passing run anything. A timeout elapses only where a request is not answered
+    /// and the grace only where a file stops making progress, so raising both changes how long a genuine
+    /// failure takes to report and nothing else.
+    /// </para>
+    /// </remarks>
+    private static readonly TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// The files that run against <see cref="WptServer"/> — a real <c>fetch</c>, over a real socket, to the
