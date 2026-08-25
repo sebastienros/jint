@@ -1414,6 +1414,38 @@ takes its re-entrant branch in the first case and claims an unowned engine in th
 import issued while the engine is busy elsewhere, which now fails with `InvalidOperationException` instead
 of running concurrently.
 
+### 4.25 A host-issued `JsonParser.Parse` is one run, with its own budget ([#3342](https://github.com/sebastienros/jint/issues/3342))
+
+`JsonParser`'s scanner observes execution constraints, so a long document is interruptible. But `Parse` was
+not itself a bracketed entry, and `ExecuteWithConstraints` re-arms a time limit as a run *ends* — so a
+direct `Parse` was measured against a deadline belonging to whatever ran last, however long ago:
+
+```csharp
+var engine = new Engine(o => o.LimitExecutionTime(TimeSpan.FromMilliseconds(200)));
+var json = "{\"a\":\"" + new string('x', 60_000) + "\"}";
+
+new JsonParser(engine).Parse(json);          // 4.16.x: fine, on a never-used engine
+engine.Evaluate("1 + 1"); Thread.Sleep(1000);
+new JsonParser(engine).Parse(json);          // 4.16.x: TimeoutException
+engine.Evaluate("JSON.parse(doc).a.length"); // 4.16.x: fine — the Evaluate is the bracket
+```
+
+The same document, the same engine, the same limit, and the answer depended on what the engine had done
+earlier and how long ago. A `MemoryLimitConstraint` had the mirror-image hole: with no entry to attach to, a
+host-issued parse was accounted against no operation at all, so `LimitMemory` did not bound it.
+
+All three overloads now take the bracket their sibling `JsonSerializer.Serialize` has always taken. A parse
+issued by the host is one run: this engine's constraints are armed on the way in and rewound on the way out,
+and its allocations are charged.
+
+**What could break:** a parse reached from *inside* script — `JSON.parse`, a JSON module, `response.json()`,
+a JWK import — is unchanged, and deliberately so. It takes the nested branch, arms nothing, and goes on
+spending the surrounding evaluation's budget, which is what bounds a large document a script hands to
+`JSON.parse`. What changes is a parse the host issues itself: it now gets a budget instead of an arbitrary
+one, and a `LimitMemory` that had never applied to it now does. A host relying on `Parse` being
+unaccounted — parsing a document larger than its own `LimitMemory` between evaluations — has to raise the
+limit or bracket the parse in a `MemoryLimitConstraint.Begin`/`End` window of its own.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

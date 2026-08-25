@@ -3283,7 +3283,33 @@ public sealed partial class Engine : IDisposable
         return ExecuteWithConstraints(Options.Strict, DoInvoke);
     }
 
+    /// <summary>
+    /// The body of a bracketed host entry, taking whatever it needs as parameters instead of closing over
+    /// it — which is what lets an entry over source text the caller holds as a
+    /// <see cref="ReadOnlySpan{T}"/> share one bracket with an entry over a closure.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="ReadOnlySpan{T}"/> cannot be captured by a <see cref="Func{T}"/>, and that is the whole
+    /// reason this delegate exists rather than a second copy of the bracket for span-taking entries. Two
+    /// implementations of a bracket this subtle — the nesting rule, the reset pair, the memory segment —
+    /// would drift, and the half that drifted would be the half nobody looks at.
+    /// <see cref="ExecuteWithConstraints{T}(bool, Func{T})"/> is expressed in terms of this one and costs a
+    /// single extra delegate invocation per host entry to be certain there is only one.
+    /// </remarks>
+    internal delegate TResult HostEntryCallback<TState, TResult>(ReadOnlySpan<char> source, TState state);
+
     internal T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
+        => ExecuteWithConstraints(strict, default, callback, static (_, c) => c());
+
+    /// <summary>
+    /// Runs <paramref name="callback"/> as one host entry into this engine: claims the engine, arms this
+    /// run's execution constraints if it is not nested inside another, and accounts its allocations.
+    /// </summary>
+    internal TResult ExecuteWithConstraints<TState, TResult>(
+        bool strict,
+        ReadOnlySpan<char> source,
+        TState state,
+        HostEntryCallback<TState, TResult> callback)
     {
         using var ownership = EnterHostCall();
 
@@ -3296,7 +3322,7 @@ public sealed partial class Engine : IDisposable
         var isNested = _hostEntryDepth > 0 || _executionContexts.Count > 1;
         if (_memoryLimitConstraint is not null)
         {
-            return ExecuteWithMemoryLimit(strict, callback, isNested);
+            return ExecuteWithMemoryLimit(strict, source, state, callback, isNested);
         }
 
         if (!isNested)
@@ -3316,7 +3342,7 @@ public sealed partial class Engine : IDisposable
         var previousStrict = strict && ReplaceTopStrict(true);
         try
         {
-            return callback();
+            return callback(source, state);
         }
         finally
         {
@@ -3334,7 +3360,12 @@ public sealed partial class Engine : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private T ExecuteWithMemoryLimit<T>(bool strict, Func<T> callback, bool isNested)
+    private TResult ExecuteWithMemoryLimit<TState, TResult>(
+        bool strict,
+        ReadOnlySpan<char> source,
+        TState state,
+        HostEntryCallback<TState, TResult> callback,
+        bool isNested)
     {
         var memoryLimit = _memoryLimitConstraint!;
         if (!isNested)
@@ -3350,7 +3381,7 @@ public sealed partial class Engine : IDisposable
         try
         {
             memoryLimit.Check();
-            var result = callback();
+            var result = callback(source, state);
             memoryLimit.Check();
             return result;
         }
