@@ -769,7 +769,7 @@ internal sealed class StructuredSerializer
     private void ThrowUncloneable(ObjectInstance value)
     {
         // Step 21.
-        if (value.IsCallable)
+        if (value.HasCall)
         {
             ThrowDataCloneError("A function could not be cloned");
         }

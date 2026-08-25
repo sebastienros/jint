@@ -115,7 +115,7 @@ internal static class NodeQueryStringModule
             var value = obj.Get(key);
             var encodedKey = Convert(JsString.Create(key), encode, builtinEncoder) + eq;
 
-            if (value.IsArray())
+            if (value.IsSpecArray())
             {
                 var array = ArrayOperations.For(value.AsObject(), forWrite: false);
                 var count = array.GetLongLength();

@@ -567,7 +567,7 @@ internal sealed partial class SetPrototype : Prototype
         }
 
         var has = obj.Get(CommonProperties.Has);
-        if (!has.IsCallable)
+        if (!has.HasCall)
         {
             // Deliberately not interpolating obj: ObjectInstance.ToString() is the full JavaScript
             // ToString algorithm, so rendering the receiver here would run user code while the error
@@ -577,7 +577,7 @@ internal sealed partial class SetPrototype : Prototype
         }
 
         var keys = obj.Get(CommonProperties.Keys);
-        if (!keys.IsCallable)
+        if (!keys.HasCall)
         {
             Throw.TypeError(_realm, "The .keys property of the object is not a function");
         }

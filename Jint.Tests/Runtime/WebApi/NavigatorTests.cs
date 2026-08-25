@@ -57,7 +57,7 @@ public class NavigatorTests
         // A WebIDL readonly attribute is an accessor with no setter, so a script cannot assign a different
         // user agent and fool the next reader.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')").AsObject();
-        descriptor.Get("get").IsCallable.Should().BeTrue();
+        descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();

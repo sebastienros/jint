@@ -3793,7 +3793,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("var f = () => true;");
 
         var result = engine.GetValue("f");
-        result.IsCallable.Should().BeTrue();
+        result.IsCallable().Should().BeTrue();
 
         result.Call([]).AsBoolean().Should().BeTrue();
         result.Call().AsBoolean().Should().BeTrue();

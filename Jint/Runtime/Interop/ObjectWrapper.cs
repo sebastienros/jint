@@ -1005,7 +1005,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             && _prototype is not null
             && !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Object.PrototypeObject)
             && _prototype.Get(property, this) is { } protoValue
-            && protoValue.IsCallable)
+            && protoValue.HasCall)
         {
             // Let outer Get fall through to the attached prototype (Array.prototype, etc.)
             // rather than dispatching to a same-named CLR method whose semantics may differ.
@@ -1057,7 +1057,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             var protoDesc = arrayPrototype.GetOwnProperty(property);
             if (!ReferenceEquals(protoDesc, PropertyDescriptor.Undefined)
-                && protoDesc.Value is { IsCallable: true })
+                && protoDesc.Value is { HasCall: true })
             {
                 return PropertyDescriptor.Undefined;
             }

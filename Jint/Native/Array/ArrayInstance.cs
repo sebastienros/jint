@@ -140,7 +140,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     internal sealed override bool IsArrayLike => true;
 
-    internal sealed override bool IsArray() => true;
+    internal sealed override bool IsSpecArray() => true;
 
     internal sealed override bool HasOriginalIterator
         => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);

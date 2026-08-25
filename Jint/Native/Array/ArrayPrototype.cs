@@ -713,7 +713,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
 
         var sourceLen = O.GetLongLength();
 
-        if (!mapperFunction.IsCallable)
+        if (!mapperFunction.HasCall)
         {
             Throw.TypeError(_realm, "mapperFunction is not a function");
         }
@@ -776,7 +776,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                 var shouldFlatten = false;
                 if (depth > 0)
                 {
-                    shouldFlatten = element.IsArray();
+                    shouldFlatten = element.IsSpecArray();
                 }
 
                 if (shouldFlatten)
@@ -851,7 +851,7 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     var shouldFlatten = false;
                     if (depth > 0)
                     {
-                        shouldFlatten = element.IsArray();
+                        shouldFlatten = element.IsSpecArray();
                     }
 
                     if (shouldFlatten)

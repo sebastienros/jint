@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;

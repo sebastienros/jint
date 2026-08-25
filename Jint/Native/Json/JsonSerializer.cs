@@ -366,7 +366,7 @@ public sealed class JsonSerializer
 
         // for JSON.stringify(), any function passed as the first argument will return undefined
         // if the replacer is not defined. The function is not called either.
-        if (value.IsCallable && ReferenceEquals(replacer, JsValue.Undefined))
+        if (value.HasCall && ReferenceEquals(replacer, JsValue.Undefined))
         {
             wrapper = null!;
             return false;
@@ -523,7 +523,7 @@ public sealed class JsonSerializer
             return;
         }
 
-        if (oi.IsCallable)
+        if (oi.HasCall)
         {
             // Built once here rather than per key: the replacer is invoked for every key of the whole
             // graph, and how it must be invoked depends only on the callback — which no key, and no
@@ -538,7 +538,7 @@ public sealed class JsonSerializer
         }
         else
         {
-            if (oi.IsArray())
+            if (oi.IsSpecArray())
             {
                 _propertyList = new List<JsValue>();
                 var len = oi.GetLength();
@@ -692,7 +692,7 @@ public sealed class JsonSerializer
             Throw.TypeError(_engine.Realm, "Do not know how to serialize a BigInt");
         }
 
-        if (value is ObjectInstance { IsCallable: false } objectInstance)
+        if (value is ObjectInstance { HasCall: false } objectInstance)
         {
             // Handle RawJSON objects - output rawJSON property directly
             if (objectInstance is JsRawJson rawJson)

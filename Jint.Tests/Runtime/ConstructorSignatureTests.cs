@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;

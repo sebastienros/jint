@@ -1,4 +1,6 @@
-﻿namespace Jint.Tests.Runtime;
+﻿using Jint.Native;
+
+namespace Jint.Tests.Runtime;
 
 public class DestructuringTests
 {

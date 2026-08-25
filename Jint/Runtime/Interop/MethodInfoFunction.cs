@@ -440,7 +440,7 @@ internal sealed class MethodInfoFunction : Function
                 // ToObject() detour is skipped entirely for plain parameter types
                 parameters[i] = argumentObject;
             }
-            else if ((flags & InteropParameterFlags.JsValueArray) != InteropParameterFlags.None && argument.IsArray())
+            else if ((flags & InteropParameterFlags.JsValueArray) != InteropParameterFlags.None && argument.IsSpecArray())
             {
                 // Handle specific case of F(params JsValue[])
                 var arrayInstance = argument.AsArray();
@@ -548,7 +548,7 @@ internal sealed class MethodInfoFunction : Function
 
         var argsToTransform = Arguments.Slice(arguments, nonParamsArgumentsCount);
 
-        if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
+        if (argsToTransform.Length == 1 && argsToTransform[0].IsSpecArray())
         {
             return arguments;
         }

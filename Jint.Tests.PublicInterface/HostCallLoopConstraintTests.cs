@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;

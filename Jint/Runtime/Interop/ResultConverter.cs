@@ -50,7 +50,7 @@ internal static class ResultConverter
                 return wrapper.Target;
             }
 
-            if (instance.IsArray())
+            if (instance.IsSpecArray())
             {
                 return ConvertArray(instance);
             }

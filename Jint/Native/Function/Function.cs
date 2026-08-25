@@ -153,7 +153,7 @@ public abstract partial class Function : ObjectInstance, ICallable
         }
     }
 
-    internal override bool IsCallable => true;
+    internal override bool HasCall => true;
 
     JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments) => Call(thisObject, arguments);
 

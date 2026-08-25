@@ -2521,7 +2521,7 @@ public sealed partial class Engine : IDisposable
     /// <remarks>
     /// A tight spin loop gives up in microseconds and never observes a Task that only completes
     /// milliseconds later on a ThreadPool thread (issue #2663). This mirrors the polling in
-    /// <see cref="JsValueExtensions.UnwrapIfPromise(Native.JsValue, TimeSpan)"/>. A non-positive
+    /// <see cref="Native.JsValue.UnwrapIfPromise(TimeSpan)"/>. A non-positive
     /// <paramref name="timeout"/> means wait indefinitely. A registered
     /// <see cref="Constraints.CancellationConstraint"/> is observed during the idle waits so that a
     /// cancelled engine breaks out promptly (throwing <see cref="ExecutionCanceledException"/>, the
@@ -4333,7 +4333,7 @@ public sealed partial class Engine : IDisposable
     {
         JsValue Callback()
         {
-            if (!callable.IsCallable)
+            if (!callable.HasCall)
             {
                 Throw.ArgumentException($"{callable.Type} is not callable");
             }

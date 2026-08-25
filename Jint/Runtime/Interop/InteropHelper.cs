@@ -210,7 +210,7 @@ internal sealed class InteropHelper
             return 1;
         }
 
-        if (parameterValue.IsArray() && (paramType.IsArray || IsGenericCollectionType(paramType)))
+        if (parameterValue.IsSpecArray() && (paramType.IsArray || IsGenericCollectionType(paramType)))
         {
             // we have potential, TODO if we'd know JS array's internal type we could have exact match
             return 2;

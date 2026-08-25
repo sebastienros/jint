@@ -479,7 +479,7 @@ public class SubtleCryptoTests
         // attributes https://webidl.spec.whatwg.org/#es-attributes gives an attribute: enumerable and
         // configurable, with no setter. Node 24 reports the same triple for Crypto.prototype.subtle.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle')").AsObject();
-        descriptor.Get("get").IsCallable.Should().BeTrue();
+        descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();

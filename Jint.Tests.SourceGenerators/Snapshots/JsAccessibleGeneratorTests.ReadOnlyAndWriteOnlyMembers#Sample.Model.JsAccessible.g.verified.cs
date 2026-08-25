@@ -57,7 +57,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            var d = global::Jint.JsValueExtensions.AsNumber(value);
+            var d = value.AsNumber();
             if (double.IsNaN(d) || double.IsInfinity(d) || global::System.Math.Floor(d) != d || d < -2147483648D || d > 2147483647D)
             {
                 return false;
@@ -83,7 +83,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            var d = global::Jint.JsValueExtensions.AsNumber(value);
+            var d = value.AsNumber();
             if (double.IsNaN(d) || double.IsInfinity(d) || global::System.Math.Floor(d) != d || d < -2147483648D || d > 2147483647D)
             {
                 return false;

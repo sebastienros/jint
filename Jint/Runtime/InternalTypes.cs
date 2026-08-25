@@ -59,7 +59,7 @@ internal enum InternalTypes
     // already-loaded _type plus an Unsafe.As, instead of an `is ICallable` interface-map scan —
     // measured at 1.2% of dromaeo-object-string-modern, all of it from JintCallExpression, which
     // tests it twice per call. Note this is strictly "implements ICallable", NOT "is callable":
-    // a JsProxy over a non-callable target carries the flag and reports IsCallable == false,
+    // a JsProxy over a non-callable target carries the flag and reports HasCall == false,
     // matching what `is ICallable` answers today.
     Callable = 1048576,
     // the value is a Function. Implies Callable, and narrows it: the other ICallable roots

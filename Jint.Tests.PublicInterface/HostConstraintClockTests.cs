@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 
 using Jint.Constraints;
+using Jint.Native;
 
 namespace Jint.Tests.PublicInterface;
 

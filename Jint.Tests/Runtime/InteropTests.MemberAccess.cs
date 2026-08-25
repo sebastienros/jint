@@ -103,7 +103,7 @@ public partial class InteropTests
             options.Interop.AllowSystemReflection = true;
         });
         engine.SetValue("m", new HiddenMembers());
-        engine.Evaluate("m.GetType").IsCallable.Should().BeTrue();
+        engine.Evaluate("m.GetType").IsCallable().Should().BeTrue();
 
         // reflection could bypass some safeguards
         engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString().Should().Be("Method1");

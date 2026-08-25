@@ -50,7 +50,7 @@ internal sealed partial class FunctionPrototype : Function
     private JsValue Bind(ICallable thisObject, JsCallArguments arguments)
     {
         // BoundFunctionCreate needs ObjectInstance for the prototype walk — separate from the
-        // generator-emitted IsCallable check that already ran on entry.
+        // generator-emitted HasCall check that already ran on entry.
         if (thisObject is not ObjectInstance oi)
         {
             Throw.TypeError(_realm, "Bind must be called on a function");
@@ -122,7 +122,7 @@ internal sealed partial class FunctionPrototype : Function
     [JsFunction]
     private JsValue ToString(JsValue thisObject)
     {
-        if (thisObject.IsObject() && thisObject.IsCallable)
+        if (thisObject.IsObject() && thisObject.HasCall)
         {
             return thisObject.ToString();
         }

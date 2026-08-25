@@ -68,7 +68,7 @@ internal sealed class FetchHandler
 
     private static FetchHandler? TryResolve(JsValue handler, bool allowDefault)
     {
-        if (handler.IsCallable)
+        if (handler.HasCall)
         {
             return new FetchHandler(handler, JsValue.Undefined);
         }
@@ -79,7 +79,7 @@ internal sealed class FetchHandler
         }
 
         var member = holder.Get("fetch");
-        if (member.IsCallable)
+        if (member.HasCall)
         {
             return new FetchHandler(member, holder);
         }

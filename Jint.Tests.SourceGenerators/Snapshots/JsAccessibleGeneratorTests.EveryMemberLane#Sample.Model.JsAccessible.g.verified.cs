@@ -85,7 +85,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            var d = global::Jint.JsValueExtensions.AsNumber(value);
+            var d = value.AsNumber();
             if (double.IsNaN(d) || double.IsInfinity(d) || global::System.Math.Floor(d) != d || d < -2147483648D || d > 2147483647D)
             {
                 return false;
@@ -111,7 +111,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            var d = global::Jint.JsValueExtensions.AsNumber(value);
+            var d = value.AsNumber();
             if (double.IsNaN(d) || double.IsInfinity(d) || global::System.Math.Floor(d) != d || d < -9223372036854775808D || d >= 9223372036854775808D)
             {
                 return false;
@@ -137,7 +137,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            var d = global::Jint.JsValueExtensions.AsNumber(value);
+            var d = value.AsNumber();
             ((global::Sample.Model) target).Ratio = d;
             return true;
         }
@@ -158,7 +158,7 @@ namespace Jint.Generated
                 return false;
             }
 
-            ((global::Sample.Model) target).Active = global::Jint.JsValueExtensions.AsBoolean(value);
+            ((global::Sample.Model) target).Active = value.AsBoolean();
             return true;
         }
 
