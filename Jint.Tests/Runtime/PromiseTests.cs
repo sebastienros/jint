@@ -704,10 +704,17 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         var engine = new Engine();
         var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        // The IO ends when this test says so, never on an interval. `await Task.Delay(100)` used to stand in
+        // for it, which made the "still pending" assertion below a race the test could lose: on a loaded
+        // runner the hundred milliseconds can be gone before this thread is scheduled again, and a completed
+        // unwrap then reads as the defect this test exists to catch. A gate the test holds cannot complete
+        // early, so "in flight" is a fact rather than a hope.
+        var releaseIO = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
         engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
         {
             ioStarted.TrySetResult(true);
-            await Task.Delay(100);
+            await releaseIO.Task.ConfigureAwait(false);
             return 99;
         }));
 
@@ -721,6 +728,8 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
 
         // The unwrap task should still be pending while IO is in flight
         unwrapTask.IsCompleted.Should().BeFalse("UnwrapIfPromiseAsync should not block; task should still be pending during IO");
+
+        releaseIO.SetResult(true);
 
         var result = await unwrapTask;
         result.AsInteger().Should().Be(99);

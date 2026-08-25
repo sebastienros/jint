@@ -22,6 +22,16 @@ namespace Jint.Tests.Runtime;
 /// the far smaller bound an early return has to beat, and a failure means the wake did not happen at all
 /// rather than that it happened slowly.
 /// </para>
+/// <para>
+/// Two rules keep that true on a runner that is not idle, and both matter because #3301 was a healthy wake
+/// missing its discriminator by eleven milliseconds. First, a stopwatch is started by <em>the thread that
+/// releases the wait, immediately before it releases it</em>, so what is measured is the wake latency alone
+/// and never the scheduling of the releasing thread, its settle sleep, or the script that got the waiter
+/// there. Second, nothing here is released by a thread-pool timer: <c>CancellationTokenSource.CancelAfter</c>
+/// runs its callback on the pool, and a saturated pool grows at roughly one worker per 500 ms, so a timer is
+/// the one release whose latency the test cannot bound. Every release below comes from a
+/// <see cref="DedicatedThread"/> the test owns.
+/// </para>
 /// </remarks>
 public class WaitForScheduledWorkTests
 {
@@ -31,18 +41,26 @@ public class WaitForScheduledWorkTests
     /// <summary>
     /// What a wait under test is given. Nothing should ever spend it: it is the bound a broken wake runs into.
     /// </summary>
-    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(10);
+    /// <remarks>
+    /// A minute rather than the ten seconds this was through #3301. The absolute number is what a loaded
+    /// runner crosses — a healthy 250 ms wake was measured at 5.011 s against a 5 s midpoint — while the
+    /// <em>ratio</em> is what the assertion is about, so moving both together is what widens the margin
+    /// without weakening anything. The cost is paid only by a genuine regression, which now takes a minute to
+    /// be reported instead of ten seconds.
+    /// </remarks>
+    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// The margin an early return has to beat. Half the ceiling, so the assertion separates "woke" from "ran
-    /// out the ceiling" and says nothing at all about latency.
+    /// The margin an early return has to beat. Half the ceiling — derived from it rather than written out
+    /// again, so the two cannot drift — which is what makes the assertion separate "woke" from "ran out the
+    /// ceiling" while saying nothing at all about latency.
     /// </summary>
-    private static readonly TimeSpan EarlyReturnMargin = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan EarlyReturnMargin = TimeSpan.FromTicks(Ceiling.Ticks / 2);
 
     /// <summary>
     /// Reached only by a genuine wedge — every handshake below is released by a thread the test owns.
     /// </summary>
-    private static readonly TimeSpan WedgeCeiling = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan WedgeCeiling = TestBudgets.WedgeCeiling;
 
     /// <summary>
     /// An engine with nothing queued and nothing scheduled has nothing to report, so the wait spends its whole
@@ -88,14 +106,18 @@ public class WaitForScheduledWorkTests
         using var engine = new Engine();
         using var waiterAboutToPark = new ManualResetEventSlim();
 
+        // Started by the producer immediately before the enqueue, so it measures the wake and nothing else —
+        // not this thread reaching the wait, not the producer being scheduled, not the settle sleep.
+        var elapsed = new Stopwatch();
+
         var producer = DedicatedThread.RunAsync(() =>
         {
             waiterAboutToPark.Wait(WedgeCeiling);
-            SettleBeforeEnqueueing();
+            SettleBeforeReleasingTheWait();
+            elapsed.Start();
             engine.AddToEventLoop(static () => { });
         });
 
-        var elapsed = Stopwatch.StartNew();
         waiterAboutToPark.Set();
         engine.Tasks.WaitForScheduledWork(Ceiling).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
@@ -107,8 +129,23 @@ public class WaitForScheduledWorkTests
     /// The token ends the wait, whether it was already cancelled when the wait started or fired while it was
     /// parked, and either way the engine is handed back usable.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The elapsed assertion is <b>not</b> redundant beside the <see cref="OperationCanceledException"/>, and
+    /// #3301 exists because deleting it is the tempting simplification: a wait that never looked at the token
+    /// and ran out its whole ceiling still ends up throwing on the way out, since the token is cancelled by
+    /// then. Separating "observed the token" from "noticed it at the end" is the whole claim, and only a clock
+    /// can make it.
+    /// </para>
+    /// <para>
+    /// So the clock stays and the two things it used to conflate are pulled apart instead. The cancel comes
+    /// from a thread the test owns rather than from <c>CancelAfter</c>, whose callback a saturated thread pool
+    /// delivers whenever it gets round to it; and the stopwatch starts on that thread immediately before the
+    /// cancel, so the only interval measured is the one being asserted about.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void ThrowsOperationCanceledOnTheToken()
+    public async Task ThrowsOperationCanceledOnTheToken()
     {
         using var engine = new Engine();
 
@@ -118,12 +155,23 @@ public class WaitForScheduledWorkTests
             .Should().Throw<OperationCanceledException>();
 
         using var cancelledWhileParked = new CancellationTokenSource();
-        cancelledWhileParked.CancelAfter(SettleInterval);
+        using var waiterAboutToPark = new ManualResetEventSlim();
+        var elapsed = new Stopwatch();
 
-        var elapsed = Stopwatch.StartNew();
+        var canceller = DedicatedThread.RunAsync(() =>
+        {
+            waiterAboutToPark.Wait(WedgeCeiling);
+            SettleBeforeReleasingTheWait();
+            elapsed.Start();
+            cancelledWhileParked.Cancel();
+        });
+
+        waiterAboutToPark.Set();
         Invoking(() => engine.Tasks.WaitForScheduledWork(Ceiling, cancelledWhileParked.Token))
             .Should().Throw<OperationCanceledException>();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
+
+        await canceller;
 
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
@@ -248,14 +296,15 @@ public class WaitForScheduledWorkTests
         using var engine = new Engine();
 
         using var waiterAboutToPark = new ManualResetEventSlim();
+        var elapsed = new Stopwatch();
         var producer = DedicatedThread.RunAsync(() =>
         {
             waiterAboutToPark.Wait(WedgeCeiling);
-            SettleBeforeEnqueueing();
+            SettleBeforeReleasingTheWait();
+            elapsed.Start();
             engine.AddToEventLoop(static () => { });
         });
 
-        var elapsed = Stopwatch.StartNew();
         waiterAboutToPark.Set();
         (await engine.Tasks.WaitForScheduledWorkAsync(Ceiling)).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
@@ -264,24 +313,25 @@ public class WaitForScheduledWorkTests
     }
 
     /// <summary>
-    /// How long a producer lets the waiter settle after being told it is about to park.
+    /// How long a releasing thread lets the waiter settle after being told it is about to park.
     /// </summary>
     private static readonly TimeSpan SettleInterval = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
-    /// Lets the waiter reach its park before the enqueue lands.
+    /// Lets the waiter reach its park before the release — an enqueue, or a cancel — lands.
     /// </summary>
     /// <remarks>
-    /// Not a poll, and not something an assertion rides on: <b>both</b> interleavings pass — an enqueue that
+    /// Not a poll, and not something an assertion rides on: <b>both</b> interleavings pass — a release that
     /// beats the wait is seen by the pre-check, and one that does not exercises the wake — so this only decides
     /// which of the two mechanisms the run measures. The waiter's next instruction after the signal is the
     /// interlocked claim inside the wait, so a quarter of a second is not a race anything can realistically
     /// lose; and if it did, the run would still be green, merely testing the weaker of the two paths. The
     /// engine cannot offer a signal here — it does not run script while it waits — and probing its ownership
     /// from this thread would have to <em>take</em> ownership, which is the one thing that could make the
-    /// waiter fail.
+    /// waiter fail. It is also why nothing measures this interval: the stopwatch each caller starts is started
+    /// <em>after</em> the sleep, immediately before the release it is timing.
     /// </remarks>
-    private static void SettleBeforeEnqueueing() => Thread.Sleep(SettleInterval);
+    private static void SettleBeforeReleasingTheWait() => Thread.Sleep(SettleInterval);
 
     /// <summary>
     /// Waits until <paramref name="running"/> is provably parked inside <c>block()</c>. Ends on the signal, on

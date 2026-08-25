@@ -18,11 +18,20 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class HostPumpWaitTests
 {
-    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// What the wait under test is given. Nothing should ever spend it, so its only job is to bound a wake
+    /// that never comes — which is why it is a minute rather than the ten seconds it was through #3301: the
+    /// ratio below is the assertion, and raising both together widens the margin without weakening it.
+    /// </summary>
+    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(60);
 
-    private static readonly TimeSpan EarlyReturnMargin = TimeSpan.FromSeconds(5);
+    /// <summary>
+    /// The margin the wake has to beat, derived from the ceiling rather than written out again so the two
+    /// cannot drift. Half of it, which is what separates "woke on the post" from "ran out the ceiling".
+    /// </summary>
+    private static readonly TimeSpan EarlyReturnMargin = TimeSpan.FromTicks(Ceiling.Ticks / 2);
 
-    private static readonly TimeSpan WedgeCeiling = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan WedgeCeiling = TestBudgets.WedgeCeiling;
 
     /// <summary>
     /// The shape the wait exists for: one thread parked on this engine, another handing it work. A settled
@@ -50,11 +59,7 @@ public class HostPumpWaitTests
         var elapsed = new Stopwatch();
 
         engine.SetValue("hostWork", manual.Promise);
-        engine.SetValue("armProducer", new Action(() =>
-        {
-            elapsed.Start();
-            producerArmed.Set();
-        }));
+        engine.SetValue("armProducer", new Action(producerArmed.Set));
         engine.SetValue("park", new Func<bool>(() => engine.Tasks.WaitForScheduledWork(Ceiling)));
 
         var producer = DedicatedThread.RunAsync(() =>
@@ -64,6 +69,12 @@ public class HostPumpWaitTests
             // Lets the wait be reached before the settle lands, so the wake rather than the pre-check is what
             // ends it. Both are correct and both pass — see the remarks above.
             Thread.Sleep(TimeSpan.FromMilliseconds(250));
+
+            // Started here, on the producer, immediately before the post: what the margin below is about is
+            // the wake, and starting the clock back in armProducer() also charged it for this thread being
+            // scheduled and for the settle above. That is what produced the 12 s reading in #3358 on a wake
+            // that was not slow at all.
+            elapsed.Start();
             manual.Resolve(JsValue.Undefined);
         });
 
