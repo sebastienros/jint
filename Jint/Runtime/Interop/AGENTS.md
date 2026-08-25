@@ -38,6 +38,23 @@ part of `InteropResolutionProfile`: the only resolution artefact it steers is an
 key, so `TypeResolver.IsConverterNeutral` excludes exactly those on the way in *and* on the way out, rather
 than giving every engine with a converter a cache partition of its own.
 
+### What counts as a public contract
+
+These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it
+is a row in [`docs/v5-migration.md`](../../../docs/v5-migration.md), written in the same pull request**, even
+when it breaks nothing at compile time — and the engine-wide rows are in
+[`Jint/AGENTS.md`](../../AGENTS.md#what-counts-as-a-public-contract).
+
+| Surface | Location |
+| --- | --- |
+| `IReferenceResolver` + `ReferenceResolverInterests` | `Jint/Runtime/Interop/IReferenceResolver.cs` |
+| `NullPropagatingReferenceResolver` — sealed, singleton `Instance`, the shipped null-propagation resolver the engine recognizes by identity and serves inline | `Jint/Runtime/Interop/NullPropagatingReferenceResolver.cs` |
+| `ObjectConverter`, `ClrTypeConverter` — public abstract classes | `Jint/Runtime/Interop/` |
+| `JintException.TryGetClrException` + `Options.Interop.ChainClrExceptionAsInnerException` + `JavaScriptException(ErrorConstructor, string?, Exception)` — the CLR exception behind an interop error the script was allowed to catch, held on the error **value** and readable by the host alone | `Jint/JintException.cs`, `Jint/Runtime/JavaScriptException.cs`, `Jint/Options.cs` |
+| `ProxyHandler` — public abstract class, 13 virtual traps (the ECMAScript trap set), `null` meaning "forward to target" | `Jint/Runtime/Interop/ProxyHandler.cs` |
+| `ObjectWrapper.GetPropertyDescriptor(Engine, object, MemberInfo)` — public **static** | `Jint/Runtime/Interop/ObjectWrapper.cs` |
+| `Options.Interop.ImmutableCrossingTypes` + `Options.AddImmutableCrossing` — extension method on `OptionsExtensions` | `Jint/Options.cs`, `Jint/Options.Extensions.cs` |
+
 ### Gotchas
 
 Each of these cost a real integrator or a real bug. These are the ones that bite in this area; the

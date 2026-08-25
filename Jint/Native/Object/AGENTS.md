@@ -75,6 +75,28 @@ Several of Jint's fastest lanes are keyed on `internal` type flags or `internal 
 
 The prototype-method cache's **holder** gate is the second worked example, and it resolved the other way. `VersionWitnessesOwnProperty` refuses a holder carrying `OrdinaryGet`, because for a host subclass that flag stands in for "this object's own-property set lives outside the engine, so no version describes it" — which is why the row above says a host prototype cannot hold an entry. An object in `BuiltinShapeMode` carries the flag too when it reached the protected constructor, but keeps its whole own-property set in engine storage and bumps its version on every change to that set, so it is carved out. A host cannot enter that mode by subclassing — `InitializeBuiltinShape` is `private protected` and `IBuiltinShaped` is internal — but it can *obtain* an object that is in it, from `JsObjectShape.Instantiate`. That is deliberate: the capability is reachable through a factory without the storage protocol being exposed, the same resolution shape as `PropertyAccessSemantics`.
 
+### What counts as a public contract
+
+These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it
+is a row in [`docs/v5-migration.md`](../../../docs/v5-migration.md), written in the same pull request**, even
+when it breaks nothing at compile time — and the engine-wide rows are in
+[`Jint/AGENTS.md`](../../AGENTS.md#what-counts-as-a-public-contract).
+
+| Surface | Location |
+| --- | --- |
+| `ObjectInstance` overridable virtuals — `GetOwnProperty`, `HasProperty`, `Delete`, `DefineOwnProperty`, `GetOwnPropertyKeys`, `GetOwnProperties`, `RemoveOwnProperty`, `PreventExtensions`, `TryGetProperty`, `Initialize`, plus the `protected internal` `TryGetOwnPropertyValue`, `ProbeOwnProperty`, `SetOwnProperty`, `GetPrototypeOf` | `Jint/Native/Object/ObjectInstance.cs` |
+| `ProbeOwnProperty` / `OwnPropertyProbe` | `Jint/Native/Object/` |
+| `PropertyAccessSemantics` + `ObjectInstance.SetPropertyAccessSemantics` | `Jint/Native/Object/PropertyAccessSemantics.cs` |
+| `ArrayLikeObject` — public abstract class, exactly two abstract members (`Length`, `TryGetIndex`) | `Jint/Native/Object/ArrayLikeObject.cs` |
+| `JsObjectLayout` + `JsObjectLayout.CreateBuilder`/`Builder.Add`/`Builder.AddLazy` + `LazySlotFactory`, `JsObject.Create`, `JsObject.CreateFromEntries`, and `Engine.Advanced.HasSharedShape` — the stable predicate that asserts they shaped | `Jint/Native/`, `Jint/Engine.Advanced.cs` |
+| `JsObjectShape` + `JsObjectShape.Builder` + `JsObjectShape.Set/GetHostState` | `Jint/Native/JsObjectShape.cs` |
+
+`Get` and `Set` are overridable too, but they are `public override` of `JsValue` virtuals rather than declared on `ObjectInstance`.
+
+### Lazy values: which mechanism owns which storage world
+
+The three lazy mechanisms each own one storage world and are not interchangeable: `JsObjectLayout.Builder.AddLazy` for a member of a fixed-shape **record**, `JsObjectShape` for a member of a **prototype**, [`PropertyDescriptor.CreateLazy`](../../Runtime/Descriptors/AGENTS.md#lazy-values) for a **descriptor** a host stores or returns itself (`SetOwnProperty`/`GetOwnProperty` on a subclass, `FastSetProperty` on a dictionary-mode object, a hand-rolled global install). The factory does not change the `FastSetProperty` rule in the repository-root [`AGENTS.md`](../../../AGENTS.md) — a string-keyed `FastSetProperty` of any raw descriptor still deopts a shape-mode receiver to dictionary — so reaching for it inside a shaped world buys laziness at the cost of the shape.
+
 ### Gotchas
 
 Each of these cost a real integrator or a real bug. These are the ones that bite in this area; the
