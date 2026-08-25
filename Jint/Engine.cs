@@ -344,6 +344,117 @@ public sealed partial class Engine : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// The engine state that has to travel with <see cref="Runtime.CallStack.StackGuard"/>'s thread hop:
+    /// which thread owns the engine, and where the memory-limit segment currently being charged left off.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    internal readonly record struct StackGuardHandoff(
+        int OwnerThreadId,
+        MemoryLimitConstraint.OperationState? MemoryState,
+        MemoryLimitConstraint.SegmentToken SuspendedSegment,
+        bool HasSuspendedSegment);
+
+    /// <summary>
+    /// Hands this evaluation over to the thread <see cref="Runtime.CallStack.StackGuard"/> is about to
+    /// continue it on, and is called on the thread that will then block for the whole of that hop.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is a transfer rather than a release: <see cref="_ownerThreadId"/> is never written back to zero,
+    /// so a third thread reaching a public entry during the hop is refused exactly as it was before the hop
+    /// started. The operation is still in progress; only the thread running it changed.
+    /// </para>
+    /// <para>
+    /// <see cref="_ownerDepth"/>, <see cref="_ownerToken"/> and <see cref="_hostEntryDepth"/> deliberately do
+    /// not travel, because they do not change: the hop continues one entry rather than starting another, so
+    /// a callback authorized under the outer frame still matches and the outer run's constraints still apply.
+    /// </para>
+    /// <para>
+    /// The memory-limit segment does travel, and has to: it is charged from the runtime's per-thread
+    /// allocation counter, so a segment opened here and accumulated over there would either mis-bill one
+    /// thread's allocations to another or trip the constraint's own changed-thread guard.
+    /// </para>
+    /// </remarks>
+    internal StackGuardHandoff BeginStackGuardHandoff()
+    {
+        MemoryLimitConstraint.OperationState? memoryState = null;
+        MemoryLimitConstraint.SegmentToken suspendedSegment = default;
+        var hasSuspendedSegment = _memoryLimitConstraint?.TrySuspendActiveSegment(
+            out memoryState,
+            out suspendedSegment) == true;
+
+        return new StackGuardHandoff(
+            Volatile.Read(ref _ownerThreadId),
+            memoryState,
+            suspendedSegment,
+            hasSuspendedSegment);
+    }
+
+    /// <summary>
+    /// Claims the engine on the thread <see cref="Runtime.CallStack.StackGuard"/> continued the evaluation
+    /// on, for as long as the returned scope is alive.
+    /// </summary>
+    internal StackGuardClaim ClaimStackGuardHandoff(in StackGuardHandoff handoff)
+    {
+        Volatile.Write(ref _ownerThreadId, System.Environment.CurrentManagedThreadId);
+        if (!handoff.HasSuspendedSegment)
+        {
+            return new StackGuardClaim(this, default, hasMemorySegment: false);
+        }
+
+        var segment = _memoryLimitConstraint!.BeginSegment(handoff.MemoryState);
+        return new StackGuardClaim(this, segment, hasMemorySegment: true);
+    }
+
+    /// <summary>
+    /// Takes the evaluation back once <see cref="Runtime.CallStack.StackGuard"/>'s hop has finished, on the
+    /// thread that blocked for it.
+    /// </summary>
+    /// <remarks>
+    /// Ownership is restored here rather than in <see cref="StackGuardClaim"/>'s disposal so that a hop which
+    /// failed before it could claim, or after it claimed and before it released, still leaves
+    /// <see cref="_ownerThreadId"/> naming the thread that is about to resume. Nothing can observe the gap:
+    /// the only other thread that could is this one, and it is inside this call.
+    /// </remarks>
+    internal void EndStackGuardHandoff(in StackGuardHandoff handoff)
+    {
+        Volatile.Write(ref _ownerThreadId, handoff.OwnerThreadId);
+        if (handoff.HasSuspendedSegment)
+        {
+            var suspendedSegment = handoff.SuspendedSegment;
+            _memoryLimitConstraint!.EndSegment(in suspendedSegment);
+        }
+    }
+
+    /// <summary>
+    /// One thread's turn at a <see cref="StackGuardHandoff"/>, released when the hop's continuation returns.
+    /// </summary>
+    internal readonly struct StackGuardClaim : IDisposable
+    {
+        private readonly Engine _engine;
+        private readonly MemoryLimitConstraint.SegmentToken _memorySegment;
+        private readonly bool _hasMemorySegment;
+
+        internal StackGuardClaim(
+            Engine engine,
+            MemoryLimitConstraint.SegmentToken memorySegment,
+            bool hasMemorySegment)
+        {
+            _engine = engine;
+            _memorySegment = memorySegment;
+            _hasMemorySegment = hasMemorySegment;
+        }
+
+        public void Dispose()
+        {
+            if (_hasMemorySegment)
+            {
+                _engine._memoryLimitConstraint!.EndSegment(in _memorySegment);
+            }
+        }
+    }
+
     private void AcquireHostCall(int threadId)
     {
         var spinWait = new SpinWait();
