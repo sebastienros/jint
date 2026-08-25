@@ -59,7 +59,7 @@ rather than approximately like it, and it is why `GeneratedMemberAccessor` reads
 runs every case against both an annotated type and an un-annotated twin and compares the results, so a
 drift shows up as a failure naming the script that diverged.
 
-Four consequences worth knowing before touching any of it.
+Five consequences worth knowing before touching any of it.
 
 - **Anything the two paths cannot agree on is not generated at all.** A method parameter not typed
   `JsValue` goes through a conversion chain steered by `Options.Interop.ValueCoercion` and the installed
@@ -68,11 +68,30 @@ Four consequences worth knowing before touching any of it.
   divergences doing it — `p.Name = null` storing the string `"null"`, and a hard cast to a `JsValue`
   subtype throwing `InvalidCastException` out of `Evaluate` where the reflected path raises a catchable
   `TypeError`. **Widening the supported set means proving the new shape's reflected binding first.**
-- **The generated lane is skipped for every annotated type when the host has installed a `MemberFilter`,
-  a `MemberNameCreator`, a `MemberNameComparer`, or binding flags that no longer report public instance
-  members** (`TypeResolver.GeneratedMembersAreConsultable`). Those four decide which members exist and
-  under what names, and the generated lanes do not run through them. Not being able to honour a filter
-  and honouring it anyway are the same bug; declining is the difference.
+- **A generated member is filtered and named the way a reflected one is, and there are two lanes that
+  reach it — only one of which is free.** While the resolver's `MemberFilter`, `MemberNameCreator` and
+  `MemberNameComparer` are all still the defaults *and* the engine's reported binding flags still include
+  public instance members, `ResolvePropertyDescriptorFactory` answers straight out of the registry's
+  name-keyed table (`TypeResolver.GeneratedNameLookupIsEquivalent`), reflecting over the type not at all,
+  which is what the feature is for. Change any of them and that shortcut stops being equivalent — the
+  table is keyed by CLR name under the default comparer and holds public instance members only — so
+  resolution falls through to the ordinary reflected selection in `TryFindMemberAccessor` and the
+  generated accessor is **substituted for the member that selection landed on**
+  (`TrySubstituteGeneratedAccessor`). Containment is then honoured by construction, because reflection
+  has already applied the filter, the name policy and the flags; the host keeps the generated read,
+  write and invoke lanes and pays one reflected selection per `(type, member, requirement, profile)`,
+  cached like every other. **Do not simplify the substitution into a name lookup.**
+  `JsAccessibleRegistry.TryGetAccessorForDeclaredMember` matches on *identity* — `DeclaringType == type`,
+  an ordinal name match, a non-static member of the matching kind, and for a method the registered
+  parameter count — precisely because a host name policy can route a *different* member to the name the
+  registry holds. The `Readable`/`Writable` parity check beside it is load-bearing in the other
+  direction: resolution is filtered by `MemberResolutionRequirement` further up, so a generated accessor
+  disagreeing with the reflected one there would turn a resolved member into an unresolved one.
+- **What neither lane covers is an annotated type carrying an indexer.** An indexer is probed before the
+  member itself (`ReflectionAccessor.GetValue`) and a generated accessor has no such probe, so such a
+  type keeps the reflection path for its properties and fields. That is also why the registry consult
+  sits *after* `IndexerAccessor.TryFindIndexer` rather than before it, and must stay there: an annotated
+  type must resolve names the way an un-annotated one does.
 - **The registry is process-wide and bumps a generation counter, which every `TypeResolver` compares
   against before answering from its cache.** Without that, a `RegisterAll()` landing after an engine had
   already resolved a member of the same type would go on being answered with the reflected accessor and

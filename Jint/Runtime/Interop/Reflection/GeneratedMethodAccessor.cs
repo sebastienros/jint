@@ -33,6 +33,12 @@ internal sealed class GeneratedMethodAccessor : ReflectionAccessor
         _invoke = invoke;
     }
 
+    /// <summary>
+    /// The registered parameter count, which is what a reflected <see cref="System.Reflection.MethodInfo"/>
+    /// has to agree with before it can be recognised as the method this accessor was registered for.
+    /// </summary>
+    internal int Length => _length;
+
     public override bool Writable => false;
 
     protected override object? DoGetValue(object target, string memberName) => null;

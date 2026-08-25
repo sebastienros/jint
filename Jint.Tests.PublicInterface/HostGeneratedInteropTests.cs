@@ -247,29 +247,234 @@ public class HostGeneratedInteropTests
     }
 
     /// <summary>
-    /// A host that has installed one of the four settings steering member resolution keeps the reflection
-    /// path even for an annotated type, because the generated lanes do not run through them yet. Not being
-    /// able to honour a filter and honouring it anyway are the same bug; declining is the difference.
+    /// A member a host filter hides is hidden in both lanes, and the members it allows keep theirs. The
+    /// second half is what a blanket "any filter turns the feature off" answer got wrong: honouring a filter
+    /// by abandoning the feature is safe, and is still not what the host asked for.
     /// </summary>
     [Fact]
-    public void AHostMemberFilterTurnsTheGeneratedLaneOff()
+    public void AHostMemberFilterHidesAMemberInBothLanes()
     {
-        var resolver = new TypeResolver { MemberFilter = static member => !string.Equals(member.Name, "Score", StringComparison.Ordinal) };
-        var engine = new Engine(options => options.Interop.TypeResolver = resolver);
-        engine.SetValue("model", new GeneratedModel { Score = 3, Ticks = 9 });
+        var generated = Contained(new GeneratedModel { Score = 3, Ticks = 9 }, resolver => resolver.MemberFilter = HidesScore);
+        var reflected = Contained(new ReflectedModel { Score = 3, Ticks = 9 }, resolver => resolver.MemberFilter = HidesScore);
 
-        engine.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
-        engine.Evaluate("model.Ticks").AsNumber().Should().Be(9);
+        generated.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+        reflected.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+        generated.Evaluate("model.Ticks").AsNumber().Should().Be(9);
+        reflected.Evaluate("model.Ticks").AsNumber().Should().Be(9);
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.Describe.length");
     }
 
-    [Fact]
-    public void AHostNameCreatorTurnsTheGeneratedLaneOff()
-    {
-        var resolver = new TypeResolver { MemberNameCreator = static member => [member.Name.ToUpperInvariant()] };
-        var engine = new Engine(options => options.Interop.TypeResolver = resolver);
-        engine.SetValue("model", new GeneratedModel { Score = 3 });
+    private static readonly Predicate<System.Reflection.MemberInfo> HidesScore =
+        static member => !string.Equals(member.Name, "Score", StringComparison.Ordinal);
 
-        engine.Evaluate("model.SCORE").AsNumber().Should().Be(3);
+    /// <summary>
+    /// A host name creator renames a generated member exactly as it renames a reflected one — the old name
+    /// stops resolving, the new one starts, and the lane behind it is still the generated one.
+    /// </summary>
+    [Fact]
+    public void AHostNameCreatorRenamesAMemberInBothLanes()
+    {
+        var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameCreator = Prefixes);
+        var reflected = Contained(new ReflectedModel { Score = 3 }, resolver => resolver.MemberNameCreator = Prefixes);
+
+        generated.Evaluate("model.js_Score").AsNumber().Should().Be(3);
+        reflected.Evaluate("model.js_Score").AsNumber().Should().Be(3);
+        generated.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+        reflected.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.js_Describe.length");
+    }
+
+    private static readonly Func<System.Reflection.MemberInfo, IEnumerable<string>> Prefixes =
+        static member => ["js_" + member.Name];
+
+    /// <summary>
+    /// The camelCase name policy an embedder actually writes. Its effect on the members whose CLR name only
+    /// differs in the first character is nil — that is what the default comparer already does — so what this
+    /// says is that the whole feature survives installing it, which is what the blanket skip cost.
+    /// </summary>
+    [Fact]
+    public void ACamelCaseNameCreatorKeepsTheGeneratedLane()
+    {
+        var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameCreator = CamelCases);
+        var reflected = Contained(new ReflectedModel { Score = 3 }, resolver => resolver.MemberNameCreator = CamelCases);
+
+        generated.Evaluate("model.score").AsNumber().Should().Be(3);
+        reflected.Evaluate("model.score").AsNumber().Should().Be(3);
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.describe.length");
+    }
+
+    private static readonly Func<System.Reflection.MemberInfo, IEnumerable<string>> CamelCases =
+        static member => [char.ToLowerInvariant(member.Name[0]) + member.Name.Substring(1)];
+
+    /// <summary>
+    /// A host name comparer decides which names reach a member, generated or reflected. The default one
+    /// ignores the first character's casing; an ordinal one does not, and both lanes have to say so.
+    /// </summary>
+    [Fact]
+    public void AHostNameComparerDecidesWhichNamesReachAMemberInBothLanes()
+    {
+        var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameComparer = StringComparer.Ordinal);
+        var reflected = Contained(new ReflectedModel { Score = 3 }, resolver => resolver.MemberNameComparer = StringComparer.Ordinal);
+
+        generated.Evaluate("model.Score").AsNumber().Should().Be(3);
+        reflected.Evaluate("model.Score").AsNumber().Should().Be(3);
+        generated.Evaluate("typeof model.score").AsString().Should().Be("undefined");
+        reflected.Evaluate("typeof model.score").AsString().Should().Be("undefined");
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.Describe.length");
+    }
+
+    /// <summary>
+    /// Binding flags that no longer report a member hide it from both lanes — and leave the lanes they do
+    /// not narrow alone, which one setting taking the whole feature off could not express.
+    /// </summary>
+    [Fact]
+    public void NarrowedPropertyBindingFlagsHideThePropertiesInBothLanes()
+    {
+        static Engine Host(object model)
+        {
+            var engine = new Engine(options =>
+            {
+                options.Interop.TypeResolver = new TypeResolver();
+                options.Interop.ObjectWrapperReportedPropertyBindingFlags =
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            });
+            engine.SetValue("model", model);
+            return engine;
+        }
+
+        var generated = Host(new GeneratedModel { Score = 3, Counter = 6 });
+        var reflected = Host(new ReflectedModel { Score = 3, Counter = 6 });
+
+        generated.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+        reflected.Evaluate("typeof model.Score").AsString().Should().Be("undefined");
+
+        // the field lane was not narrowed, so it keeps both its member and its generated accessor
+        generated.Evaluate("model.Counter").AsNumber().Should().Be(6);
+        reflected.Evaluate("model.Counter").AsNumber().Should().Be(6);
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.Describe.length");
+    }
+
+    /// <summary>
+    /// Annotating a type is not a way around the hardened profile. An engine configured for untrusted code
+    /// denies an annotated type exactly what it denies an un-annotated one — <c>GetType</c>, writes, the
+    /// namespace globals — and allows it exactly what it allows one, through the generated lanes.
+    /// </summary>
+    [Fact]
+    public void AHardenedEngineContainsAnAnnotatedTypeTheWayItContainsAnyOther()
+    {
+        static Engine Host(object model)
+        {
+            var engine = new Engine(options => options.ForUntrustedCode(new UntrustedCodeLimits(
+                timeoutInterval: TimeSpan.FromSeconds(5),
+                maxStatements: 100_000,
+                memoryLimit: 16_000_000,
+                maxRecursionDepth: 64,
+                maxArraySize: 10_000,
+                regexTimeout: TimeSpan.FromMilliseconds(100),
+                promiseTimeout: TimeSpan.FromMilliseconds(100),
+                maxOperationDuration: TimeSpan.FromSeconds(10))));
+            engine.SetValue("model", model);
+            return engine;
+        }
+
+        var generated = Host(new GeneratedModel { Score = 3 });
+        var reflected = Host(new ReflectedModel { Score = 3 });
+
+        foreach (var script in new[]
+                 {
+                     "typeof model.GetType",
+                     "typeof System",
+                     "model.Score = 9; model.Score",
+                     "String(model.Score)",
+                     "String(model.Describe('a', 'b'))",
+                 })
+        {
+            generated.Evaluate(script).ToString().Should().Be(reflected.Evaluate(script).ToString(), "`{0}` must answer the same on both lanes", script);
+        }
+
+        generated.Evaluate("typeof model.GetType").AsString().Should().Be("undefined");
+        generated.Evaluate("model.Score = 9; model.Score").AsNumber().Should().Be(3);
+
+        GeneratedLaneIsEngaged(generated, reflected, "model.Describe.length");
+    }
+
+    /// <summary>
+    /// The suite's own differential matrix, re-run against a host name policy. Every read, write and call
+    /// has to come out identical there too — which is the whole claim, made where it used to be untestable
+    /// because the feature turned itself off rather than run through the policy.
+    /// </summary>
+    [Theory]
+    [InlineData("model.score")]
+    [InlineData("typeof model.missing")]
+    [InlineData("model.name = 'set'; model.name")]
+    [InlineData("model.name = null; String(model.name) + '|' + (model.name === null)")]
+    [InlineData("model.score = 5.5; model.score")]
+    [InlineData("model.counter = 3; model.counter")]
+    [InlineData("model.tags = ['a','b']; model.tags[0]")]
+    [InlineData("model.doubled")]
+    [InlineData("model.stamped")]
+    [InlineData("String(model.tag)")]
+    [InlineData("String(model.echo('a'))")]
+    [InlineData("model.describe('a', 'b')")]
+    [InlineData("model.describe('a')")]
+    [InlineData("model.add(1, 2)")]
+    [InlineData("model.shout('quiet')")]
+    [InlineData("model.setHidden(4); model.hidden")]
+    [InlineData("Object.keys(model).length")]
+    public void TheWholeMatrixIsStillIndistinguishableUnderAHostNamePolicy(string script)
+    {
+        AssertSame(script, configureResolver: static resolver => resolver.MemberNameCreator = CamelCases);
+    }
+
+    /// <summary>
+    /// An indexer is probed before the member itself, so a type carrying one resolves its names the way an
+    /// un-annotated one does: the indexer wins where it answers, the declared member wins where it does not,
+    /// and the generated lanes never reorder the two.
+    /// </summary>
+    [Theory]
+    [InlineData("model.Name = 'declared'; model.Name")]
+    [InlineData("model.Put('Name', 'from-indexer'); model.Name")]
+    [InlineData("model.Name = 'declared'; model.Put('Name', 'from-indexer'); model.Name")]
+    [InlineData("model.Put('other', 'value'); model.other")]
+    [InlineData("String(model.missing)")]
+    [InlineData("String(model.Put('k', 'v'))")]
+    public void AnIndexerAndASameNamedMemberResolveIdentically(string script)
+    {
+        var generated = Probe(new GeneratedIndexed(), script);
+        var reflected = Probe(new ReflectedIndexed(), script);
+
+        generated.Should().Be(reflected, "an annotated type carrying an indexer must resolve names the way an un-annotated one does for `{0}`", script);
+    }
+
+    /// <summary>
+    /// An engine whose resolver the host has configured, and whose model is projected into it. The resolver
+    /// is fresh per engine because assigning one of these settings drops everything the resolver has already
+    /// resolved, and the shared default resolver is used by every other test in the process.
+    /// </summary>
+    private static Engine Contained(object model, Action<TypeResolver> configure)
+    {
+        var resolver = new TypeResolver();
+        configure(resolver);
+
+        var engine = new Engine(options => options.Interop.TypeResolver = resolver);
+        engine.SetValue("model", model);
+        return engine;
+    }
+
+    /// <summary>
+    /// Says the generated lane actually answered, using the one observable that differs between the two: a
+    /// generated method is a function object with its own <c>length</c>, a reflected one is not. Without it
+    /// every assertion above would also pass against a lane that had quietly turned itself off.
+    /// </summary>
+    private static void GeneratedLaneIsEngaged(Engine generated, Engine reflected, string arity)
+    {
+        generated.Evaluate(arity).AsNumber().Should().Be(2, "the generated lane must still answer for `{0}`", arity);
+        reflected.Evaluate(arity).AsNumber().Should().Be(0);
     }
 
     /// <summary>
@@ -373,10 +578,10 @@ public class HostGeneratedInteropTests
         }
     }
 
-    private static void AssertSame(string script, bool allowWrite = true)
+    private static void AssertSame(string script, bool allowWrite = true, Action<TypeResolver>? configureResolver = null)
     {
-        var generated = Probe(new GeneratedModel { Score = 3, Ticks = 4, Ratio = 0.5, Active = true, Name = "n", Tag = new JsString("t"), Tags = ["a", "b"], Counter = 6 }, script, allowWrite);
-        var reflected = Probe(new ReflectedModel { Score = 3, Ticks = 4, Ratio = 0.5, Active = true, Name = "n", Tag = new JsString("t"), Tags = ["a", "b"], Counter = 6 }, script, allowWrite);
+        var generated = Probe(new GeneratedModel { Score = 3, Ticks = 4, Ratio = 0.5, Active = true, Name = "n", Tag = new JsString("t"), Tags = ["a", "b"], Counter = 6 }, script, allowWrite, configureResolver);
+        var reflected = Probe(new ReflectedModel { Score = 3, Ticks = 4, Ratio = 0.5, Active = true, Name = "n", Tag = new JsString("t"), Tags = ["a", "b"], Counter = 6 }, script, allowWrite, configureResolver);
 
         generated.Should().Be(reflected, "the generated lane must be indistinguishable from the reflected one for `{0}`", script);
     }
@@ -386,12 +591,24 @@ public class HostGeneratedInteropTests
     /// value, a JavaScript throw, a CLR throw — to one comparable string. The two fixture type names are
     /// normalized out, since they are the only thing that legitimately differs.
     /// </summary>
-    private static string Probe(object model, string script, bool allowWrite = true)
+    private static string Probe(object model, string script, bool allowWrite = true, Action<TypeResolver>? configureResolver = null)
     {
         // Projected CLR writes are off by default in v5, and a write to a descriptor whose Set is null is a
         // silent no-op outside strict mode - so a write matrix run on a default engine would compare two
         // sets of nothing and pass whatever the accessors did. AllowWriteIsHonoured covers the default.
-        var engine = new Engine(options => options.Interop.AllowWrite = allowWrite);
+        var engine = new Engine(options =>
+        {
+            options.Interop.AllowWrite = allowWrite;
+
+            if (configureResolver is not null)
+            {
+                // a fresh one: assigning any of these settings drops everything the resolver has resolved,
+                // and the default resolver is shared with every other test in the process
+                var resolver = new TypeResolver();
+                configureResolver(resolver);
+                options.Interop.TypeResolver = resolver;
+            }
+        });
         engine.SetValue("model", model);
 
         try
