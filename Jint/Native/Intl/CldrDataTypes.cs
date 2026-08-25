@@ -76,18 +76,23 @@ public sealed class RelativeTimePatterns
 public sealed class CurrencyData
 {
     /// <summary>
-    /// Currency symbol. E.g., "$".
+    /// Gets the symbol <c>currencyDisplay: "symbol"</c> writes, which may name the country. E.g., "US$".
     /// </summary>
     public required string Symbol { get; init; }
 
     /// <summary>
-    /// Narrow currency symbol. E.g., "$" instead of "US$".
+    /// Gets the symbol <c>currencyDisplay: "narrowSymbol"</c> writes. E.g., "$" instead of "US$".
     /// </summary>
+    /// <remarks>Null falls back to <see cref="Symbol"/>.</remarks>
     public string? NarrowSymbol { get; init; }
 
     /// <summary>
-    /// Display name for the currency. E.g., "US Dollar".
+    /// Gets the name <c>currencyDisplay: "name"</c> writes beside an amount. E.g., "US dollars".
     /// </summary>
+    /// <remarks>
+    /// This is not the name <c>Intl.DisplayNames</c> shows — CLDR spells that one "US Dollar" and
+    /// <see cref="ICldrProvider.GetCurrencyDisplayName"/> answers for it.
+    /// </remarks>
     public required string DisplayName { get; init; }
 }
 
@@ -172,17 +177,13 @@ public sealed class DateTimePatterns
 public sealed class WeekInfo
 {
     /// <summary>
-    /// First day of the week.
+    /// Gets the day a week starts on.
     /// </summary>
     public required DayOfWeek FirstDay { get; init; }
 
     /// <summary>
-    /// Minimal days in first week of year.
+    /// Gets the days that are weekend, which <c>getWeekInfo</c> reports sorted with Sunday last.
     /// </summary>
-    public required int MinimalDays { get; init; }
-
-    /// <summary>
-    /// Weekend days.
-    /// </summary>
+    /// <remarks>Null and empty both report an empty <c>weekend</c> array.</remarks>
     public DayOfWeek[]? Weekend { get; init; }
 }

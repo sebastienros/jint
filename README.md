@@ -2794,7 +2794,7 @@ data and full IANA timezone DST history are reachable via two pluggable provider
 | Extension point | Default | What it covers | Reusable example |
 | --- | --- | --- | --- |
 | `Options.Temporal.TimeZoneProvider` (`ITimeZoneProvider`) | `DefaultTimeZoneProvider` (BCL `TimeZoneInfo` + Windows↔IANA mapping) | UTC offsets, DST transitions, IANA canonicalization | [`NodaTimeZoneProvider.cs`](Jint.Tests.Test262/NodaTimeZoneProvider.cs) — uses NodaTime TZDB for full historical accuracy |
-| `Options.Intl.CldrProvider` (`ICldrProvider`) | `DefaultCldrProvider` (English + .NET `CultureInfo`) | locale names, currencies, units, plural rules, calendar month/era names | [`IcuCldrProvider.cs`](Jint.Tests.Test262/IcuCldrProvider.cs) — uses ICU4N for full CLDR coverage |
+| `Options.Intl.CldrProvider` (`ICldrProvider`) | `DefaultCldrProvider` (English + .NET `CultureInfo`) | currency symbols and names, unit patterns, list and relative-time patterns, era names, week info, and the `Intl.supportedValuesOf` lists | [`IcuCldrProvider.cs`](Jint.Tests.Test262/IcuCldrProvider.cs) — uses ICU4N for full CLDR coverage |
 
 The provider files in `Jint.Tests.Test262/` are **MIT-licensed copy-and-modify templates**,
 not a stable API contract. They are also exactly how the test suite reaches its current
@@ -2811,10 +2811,11 @@ var engine = new Engine(options =>
 });
 ```
 
-A separate `ICalendarProvider` for non-ISO calendar arithmetic (Islamic UmAlQura, Persian
-astronomical, Chinese/Dangi at extreme dates) is on the roadmap; until then non-ISO
-calendars use `System.Globalization.Calendar` subclasses, which constrains some date
-ranges (see [`Jint/Native/Temporal/NonIsoCalendars.cs`](Jint/Native/Temporal/NonIsoCalendars.cs)).
+`Options.Temporal.CalendarProvider` (`ICalendarProvider`) is the third of these, for non-ISO
+calendar arithmetic. Its default, `DefaultCalendarProvider`, is backed by
+`System.Globalization.Calendar` subclasses, which constrains some date ranges — derive from it and
+override one conversion to correct a calendar (see
+[`Jint/Native/Temporal/NonIsoCalendars.cs`](Jint/Native/Temporal/NonIsoCalendars.cs)).
 
 ## Running untrusted code
 

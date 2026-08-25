@@ -1216,7 +1216,6 @@ namespace Jint.Native.Intl
         public virtual string[]? GetDayPeriods(string locale, string style, string? calendar) { }
         public virtual string? GetDefaultNumberingSystem(string locale) { }
         public virtual string[]? GetEraNames(string locale, string style, string? calendar) { }
-        public virtual string? GetLikelySubtags(string locale) { }
         public virtual Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style) { }
         public virtual string[]? GetMonthNames(string locale, string style, string? calendar) { }
         public virtual string? GetNumberingSystemDigits(string numberingSystem) { }
@@ -1231,7 +1230,6 @@ namespace Jint.Native.Intl
         public virtual Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style) { }
         public virtual Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale) { }
         public virtual string[]? GetWeekdayNames(string locale, string style) { }
-        public virtual string SelectPluralCategory(string locale, double value, string type) { }
     }
     public interface ICldrProvider
     {
@@ -1242,7 +1240,6 @@ namespace Jint.Native.Intl
         string[]? GetDayPeriods(string locale, string style, string? calendar);
         string? GetDefaultNumberingSystem(string locale);
         string[]? GetEraNames(string locale, string style, string? calendar);
-        string? GetLikelySubtags(string locale);
         Jint.Native.Intl.ListPatterns? GetListPatterns(string locale, string type, string style);
         string[]? GetMonthNames(string locale, string style, string? calendar);
         string? GetNumberingSystemDigits(string numberingSystem);
@@ -1257,7 +1254,6 @@ namespace Jint.Native.Intl
         Jint.Native.Intl.UnitPatterns? GetUnitPatterns(string locale, string unit, string style);
         Jint.Native.Intl.WeekInfo? GetWeekInfo(string locale);
         string[]? GetWeekdayNames(string locale, string style);
-        string SelectPluralCategory(string locale, double value, string type);
     }
     public sealed class ListPatterns
     {
@@ -1292,7 +1288,6 @@ namespace Jint.Native.Intl
     {
         public WeekInfo() { }
         public required System.DayOfWeek FirstDay { get; init; }
-        public required int MinimalDays { get; init; }
         public System.DayOfWeek[]? Weekend { get; init; }
     }
 }

@@ -65,11 +65,16 @@ public interface ICldrProvider
     CompactPatterns? GetCompactPatterns(string locale, string style);
 
     /// <summary>
-    /// Gets currency data for a locale and currency code.
+    /// Gets the symbols and name <c>Intl.NumberFormat</c> writes beside an amount in this currency.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
     /// <param name="currencyCode">ISO 4217 currency code (e.g., "USD").</param>
-    /// <returns>Currency data or null if not available.</returns>
+    /// <returns>Currency data, or null to fall back to the currency code itself.</returns>
+    /// <remarks>
+    /// Read once per <c>Intl.NumberFormat</c> construction, not per <c>format()</c> call, and only when
+    /// <c>style</c> is <c>"currency"</c>. <c>currencyDisplay: "code"</c> never reads it: the specification
+    /// fixes that display to the currency code.
+    /// </remarks>
     CurrencyData? GetCurrencyData(string locale, string currencyCode);
 
     /// <summary>
@@ -140,29 +145,15 @@ public interface ICldrProvider
     // === Locale Data ===
 
     /// <summary>
-    /// Gets the likely subtags expansion for a locale.
-    /// </summary>
-    /// <param name="locale">The locale to expand.</param>
-    /// <returns>Expanded locale or null if not available.</returns>
-    string? GetLikelySubtags(string locale);
-
-    /// <summary>
-    /// Gets week information for a locale.
+    /// Gets the day a week starts on and the days that are weekend, for a locale.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
-    /// <returns>Week info or null if not available.</returns>
+    /// <returns>Week info, or null to fall back to the embedded CLDR week data.</returns>
+    /// <remarks>
+    /// Read by <c>Intl.Locale.prototype.getWeekInfo</c>, once per call. A <c>-u-fw-</c> extension on the
+    /// locale takes precedence over <see cref="WeekInfo.FirstDay"/>, as the specification requires.
+    /// </remarks>
     WeekInfo? GetWeekInfo(string locale);
-
-    // === Plural Rules ===
-
-    /// <summary>
-    /// Selects the plural category for a numeric value in a locale.
-    /// </summary>
-    /// <param name="locale">The locale identifier.</param>
-    /// <param name="value">The numeric value to categorize.</param>
-    /// <param name="type">Plural type: "cardinal" or "ordinal".</param>
-    /// <returns>Plural category: "zero", "one", "two", "few", "many", or "other".</returns>
-    string SelectPluralCategory(string locale, double value, string type);
 
     // === Supported Values ===
 

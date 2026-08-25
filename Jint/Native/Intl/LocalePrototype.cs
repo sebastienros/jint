@@ -330,25 +330,47 @@ internal sealed partial class LocalePrototype : Prototype
     private JsObject GetWeekInfo(JsValue thisObject)
     {
         var locale = ValidateLocale(thisObject);
-        var region = locale.Region;
+        var weekInfo = Engine.Options.Intl.CldrProvider.GetWeekInfo(locale.Locale);
 
         var result = OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
 
-        // First day of week (1=Monday, 7=Sunday)
-        // Use fw extension if present, otherwise from CLDR data
+        // First day of week (1=Monday, 7=Sunday). The fw extension wins over the provider; without one,
+        // a provider with no opinion falls back to the embedded CLDR data.
         int firstDayNum;
         if (locale.FirstDayOfWeek != null)
         {
             firstDayNum = ConvertDayNameToNumber(locale.FirstDayOfWeek);
         }
+        else if (weekInfo != null)
+        {
+            firstDayNum = IntlUtilities.DayOfWeekToCldrDayNumber(weekInfo.FirstDay);
+        }
         else
         {
-            firstDayNum = WeekData.GetFirstDayOfWeek(region);
+            firstDayNum = WeekData.GetFirstDayOfWeek(locale.Region);
         }
         result.CreateDataPropertyOrThrow("firstDay", firstDayNum);
 
-        // Weekend days from CLDR data
-        var weekendDays = WeekData.GetWeekend(region);
+        // [[Weekend]] is a list of day numbers in ascending order, so sort whatever the provider gave.
+        int[] weekendDays;
+        if (weekInfo?.Weekend is { } providerWeekend)
+        {
+            weekendDays = new int[providerWeekend.Length];
+            for (var i = 0; i < providerWeekend.Length; i++)
+            {
+                weekendDays[i] = IntlUtilities.DayOfWeekToCldrDayNumber(providerWeekend[i]);
+            }
+            System.Array.Sort(weekendDays);
+        }
+        else if (weekInfo != null)
+        {
+            weekendDays = [];
+        }
+        else
+        {
+            weekendDays = WeekData.GetWeekend(locale.Region);
+        }
+
         var weekend = new JsArray(Engine, (uint) weekendDays.Length);
         for (var i = 0; i < weekendDays.Length; i++)
         {

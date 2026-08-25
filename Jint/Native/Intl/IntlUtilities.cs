@@ -27,6 +27,28 @@ internal static class IntlUtilities
     }
 
     /// <summary>
+    /// Converts a CLDR week day number (1 = Monday through 7 = Sunday) to its <see cref="DayOfWeek"/>,
+    /// which numbers the same seven days from Sunday. Anything out of range reads as Monday.
+    /// </summary>
+    internal static DayOfWeek CldrDayNumberToDayOfWeek(int day) => day switch
+    {
+        1 => DayOfWeek.Monday,
+        2 => DayOfWeek.Tuesday,
+        3 => DayOfWeek.Wednesday,
+        4 => DayOfWeek.Thursday,
+        5 => DayOfWeek.Friday,
+        6 => DayOfWeek.Saturday,
+        7 => DayOfWeek.Sunday,
+        _ => DayOfWeek.Monday
+    };
+
+    /// <summary>
+    /// The inverse of <see cref="CldrDayNumberToDayOfWeek"/>: Sunday is 7 rather than 0, which is the
+    /// numbering both CLDR and <c>Intl.Locale.prototype.getWeekInfo</c> use.
+    /// </summary>
+    internal static int DayOfWeekToCldrDayNumber(DayOfWeek day) => day == DayOfWeek.Sunday ? 7 : (int) day;
+
+    /// <summary>
     /// Implements the normative-optional legacy-constructor chaining behaviour shared by
     /// Intl.Collator, Intl.DateTimeFormat and Intl.NumberFormat (ChainCollator / ChainDateTimeFormat /
     /// ChainNumberFormat). When the constructor is invoked as a plain function (NewTarget is undefined)
