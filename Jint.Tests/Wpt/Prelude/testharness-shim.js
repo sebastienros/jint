@@ -15,6 +15,9 @@
 //   __wpt.allowUncaughtException — whether the file declared `setup({allow_uncaught_exception: true})`, which
 //                       is what tells the driver that a failure escaping an engine-invoked callback is the
 //                       point of the file rather than a defect. See `setup` below.
+//   __wpt.fileTestComplete — whether a `setup({single_test: true})` file's one test has a result, which is
+//                       upstream's `tests.tests[0].phase >= HAS_RESULT` guard and is the boundary after which
+//                       a callback that throws is no longer this file's business. See `Test.prototype.done`.
 // The driver supplies `__wptReadResource(path)` before this file runs; nothing else crosses the boundary.
 //
 // Deliberate divergences from upstream testharness.js, all of them recorded in Jint.Tests/Wpt/Vendor/README.md:
@@ -733,6 +736,19 @@
         if (this.isAsync) {
             stopWaitingFor(this);
         }
+        // The completion boundary, published for the driver to read. Upstream's global error handler opens
+        // with `if (tests.file_is_test) { var test = tests.tests[0]; if (test.phase >= test.phases.HAS_RESULT)
+        // return; }` — a browser lets a `single_test` file's late timer fire and reach `window.onerror`, and
+        // the harness ignores it because the file's one test already has a result. Upstream reaches
+        // HAS_RESULT through this very method (`done()` -> `cleanup()` sets CLEANING, which is greater), and
+        // this shim's `phase === 'complete'` is the same state under its own two-phase vocabulary.
+        //
+        // `done()` rather than `complete()` because it is the only route the file's one test takes, and it
+        // takes it whichever way the test finished: the file calling `done()`, or a step throwing, which is
+        // `fail()` followed by `done()`. See WptHarness.WptDiagnosticsSink for the half that reads this.
+        if (this === fileTest) {
+            global.__wpt.fileTestComplete = true;
+        }
     };
 
     function test(func, name) {
@@ -1106,6 +1122,7 @@
     global.__wpt = {
         results: results,
         outstanding: outstanding,
-        allowUncaughtException: false
+        allowUncaughtException: false,
+        fileTestComplete: false
     };
 })(globalThis);

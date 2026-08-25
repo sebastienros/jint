@@ -702,6 +702,29 @@ callback error the file did not declare itself ready for into the same harness e
 Nothing else in the corpus moved: the sink changed no assertion's outcome anywhere, which the exclusion table
 proves for itself, since a row that stopped matching a failing test would fail its suite.
 
+**The rule needed its other half, and that took a second change.** Upstream's global error handler does not
+record everything it is told about: it opens with `if (tests.file_is_test) { var test = tests.tests[0]; if
+(test.phase >= test.phases.HAS_RESULT) return; }`, so once a `setup({single_test: true})` file's one test has
+a result, a callback that throws afterwards is ignored. That matters here because three of the four such
+files arm a guard timer they expect never to matter — `setTimeout(assert_unreached, 10)` in
+`negative-settimeout.any.js`, `100` in the two `type-long-` files, `1000` in `negative-setinterval.any.js` —
+and a browser lets those fire. The driver had no such boundary and kept reaching the engine after `done()`,
+because `Engine.Execute` drains the event loop on its way out and `ReadResults` used to add a whole
+`engine.Evaluate` behind it. A guard timer that came due inside that window was recorded as an uncaught
+callback error and became a harness error for a file that had already passed — a green test reported red, at
+whatever rate the machine's scheduler happened to produce it
+([#3366](https://github.com/sebastienros/jint/issues/3366)). The shim now publishes
+`__wpt.fileTestComplete` when the file's one test reaches a result, `WptDiagnosticsSink` asks each engine it
+watches for that flag at report time — upstream's guard, evaluated where upstream evaluates it — and
+`ReadResults` reads `__wpt.results` through the object model like everything else the driver reads, which
+closes the widest of the windows outright. Nothing is weakened: a callback that throws *before* the file's
+test has a result is still a harness error, a file with no `single_test` declaration has no file test and is
+forgiven nothing, and `WptHarnessTests` pins all three directions. Measured on a saturated 32-core box, 500
+runs of each of the four files: `negative-settimeout` 498/500 before and 500/500 after, the other three
+500/500 in both — and with the post-`done()` window widened deliberately past every guard margin, 0/40 before
+and 40/40 after, which is what makes this latent in all four rather than specific to the one with the
+thinnest margin.
+
 ## Encoding, the single-byte half
 
 The two files that used to sit in the not-vendored table for

@@ -112,6 +112,13 @@ internal sealed class WptWorkerProvider : WorkerProvider
         WptHarness.InstallResourceReader(engine, _directory);
         engine.SetValue("__wptTestFile", request.Specifier);
 
+        // A worker-scoped file is where `setup({single_test: true})` would be declared in this lane, so the
+        // sink has to be able to ask *this* engine whether the file's one test has a result — see
+        // WptDiagnosticsSink.Watch. Registered now, before the worker's module has evaluated and therefore
+        // before the shim it installs exists, which is exactly why the sink watches the engine and not its
+        // `__wpt`.
+        _sink.Watch(engine);
+
         return engine;
     }
 

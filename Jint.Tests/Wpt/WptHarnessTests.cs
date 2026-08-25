@@ -989,6 +989,63 @@ public class WptHarnessTests
     }
 
     [Fact]
+    public void ACallbackThatThrowsAfterASingleTestFileIsDoneIsNotAHarnessError()
+    {
+        // Upstream's completion boundary, and the reason the four `single_test` timer files are deterministic:
+        // `testharness.js`'s global error handler returns without recording anything once the file's one test
+        // has a result (`tests.tests[0].phase >= HAS_RESULT`). Three of those four arm a guard timer —
+        // `setTimeout(assert_unreached, 10)` in negative-settimeout.any.js — that a browser lets fire and
+        // ignores, and that the driver used to turn into a harness error for a file that had passed.
+        //
+        // Deterministic by ordering rather than by timing, which is the rule this whole class is written to:
+        // `done()` runs at file scope, so the file's one test has its result before the timer is even armed,
+        // and a zero delay is due the moment it is — so the drain on the way out of `Engine.Execute` runs it
+        // every time, which is window 1 of the three the driver used to leave open.
+        var outcome = Run("""
+            setup({ single_test: true });
+            done();
+            setTimeout(() => { throw new Error('late'); }, 0);
+            """);
+
+        outcome.HarnessError.Should().BeNull();
+        outcome.Results.Should().HaveCount(1);
+        outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
+    }
+
+    [Fact]
+    public void ACallbackThatThrowsBeforeASingleTestFileIsDoneStillIsAHarnessError()
+    {
+        // The other half, and what stops the boundary above from being a way to go quiet. The predicate is
+        // upstream's "the file's one test has a result" and never "nothing is outstanding" — the latter would
+        // also silence AnExceptionEscapingACallbackIsAHarnessErrorForTheWholeFile above, whose file has an
+        // empty outstanding list from its first line.
+        var outcome = Run("""
+            setup({ single_test: true });
+            setTimeout(() => { throw new Error('early'); }, 0);
+            setTimeout(done, 0);
+            """);
+
+        outcome.HarnessError.Should().NotBeNull();
+        outcome.HarnessError.Should().Contain("allow_uncaught_exception");
+        outcome.HarnessError.Should().Contain("early");
+    }
+
+    [Fact]
+    public void TheCompletionBoundaryIsPerFileRatherThanPerRun()
+    {
+        // A file that never declared `single_test` has no file test to have a result, so nothing about it is
+        // forgiven however finished it looks. This is the same rule as the test above stated from the other
+        // end, and it is what a flag reset per run rather than per report would get wrong.
+        var outcome = Run("""
+            test(() => {}, 'row');
+            setTimeout(() => { throw new Error('late'); }, 0);
+            """);
+
+        outcome.HarnessError.Should().NotBeNull();
+        outcome.HarnessError.Should().Contain("late");
+    }
+
+    [Fact]
     public void ASynchronousXmlHttpRequestReadsAVendoredResource()
     {
         var outcome = WptHarness.RunInline("""

@@ -61,7 +61,12 @@ rather than erupt from the pump — the environment the corpus was written for, 
 `DiagnosticsSink.Null` on purpose: before it existed such an exception erupted and the driver reported a
 harness error for the whole file, so `WptHarness` turns any recorded uncaught callback error into that same
 harness error unless the file declared `setup({allow_uncaught_exception: true})` — which is upstream's own
-rule, and the second and last member of the properties bag the shim acts on.
+rule, and the second and last member of the properties bag the shim acts on. That rule stops at the file's
+own completion boundary, which is upstream's too: once a `setup({single_test: true})` file's one test has a
+result (`tests.tests[0].phase >= HAS_RESULT` upstream, `__wpt.fileTestComplete` here) a callback that throws
+afterwards is ignored, because the four such files arm a guard timer a browser lets fire. The predicate is
+"the file's one test has a result" and never "nothing is outstanding" — the latter would silence a file whose
+tests are all synchronous, which has an empty outstanding list from its first line.
 
 A seventh thing is worth knowing because it decides *where* a divergence gets recorded. The driver's unit of
 report is a test, so a file that cannot produce one — a throw at file scope, a run that **stalls**, or a file

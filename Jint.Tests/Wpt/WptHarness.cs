@@ -65,6 +65,18 @@ internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, strin
 /// <see cref="DiagnosticEventKind.UncaughtCallbackError"/> this sink has already been told about directly.
 /// </para>
 /// <para>
+/// <b>And what it must not do is keep counting after the file is over.</b> A
+/// <c>setup({single_test: true})</c> file is one test finished by <c>done()</c>, and three of the four in the
+/// corpus arm a guard timer — <c>setTimeout(assert_unreached, 10)</c> — that a browser lets fire. Upstream's
+/// own handler opens by ignoring it: <c>if (tests.file_is_test) { var test = tests.tests[0]; if (test.phase >=
+/// test.phases.HAS_RESULT) return; }</c>, because the file's one test already has a result and there is
+/// nothing left for a failure to be attributed to. Without that boundary the driver kept reaching the engine
+/// after <c>done()</c> — <c>Engine.Execute</c> drains the event loop on its way out — and a guard timer that
+/// came due inside that window became a harness error for a file that had passed. So
+/// <see cref="Report"/> asks the same question upstream asks, at the same moment: see
+/// <see cref="Watch"/>.
+/// </para>
+/// <para>
 /// It needs no synchronization even though the worker lane shares one instance between two engines:
 /// <see cref="WptWorkerProvider"/> is the cooperative provider, so the parent and every worker are pumped in
 /// turn on the test's own thread and nothing here is ever reached from a second one.
@@ -73,16 +85,62 @@ internal sealed record WptRunOutcome(IReadOnlyList<WptTestResult> Results, strin
 internal sealed class WptDiagnosticsSink : DiagnosticsSink
 {
     private readonly List<string> _uncaught = [];
+    private readonly List<Engine> _watched = [];
 
     /// <summary>What escaped a callback the engine invoked, as text, in report order.</summary>
     internal IReadOnlyList<string> UncaughtCallbackErrors => _uncaught;
 
+    /// <summary>
+    /// Watches an engine for the shim's completion boundary, so that a report arriving after the file is over
+    /// is ignored the way a browser ignores it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The engine rather than its <c>__wpt</c>, so that the question is asked when the answer is wanted.</b>
+    /// A <see cref="DiagnosticEvent"/> says nothing about which engine raised it, and this sink is shared —
+    /// the worker lane hands the same instance to the parent and to every worker. Holding one flag set from
+    /// whichever shim published last would be a guess; holding the engines and reading each one's own
+    /// <c>__wpt.fileTestComplete</c> at report time is upstream's guard, evaluated where upstream evaluates
+    /// it. Registering the engine at the moment it is built also removes every ordering question: the worker
+    /// lane's shim does not run until the worker's module evaluates, long after this.
+    /// </para>
+    /// <para>
+    /// <b>At most one watched engine can ever answer yes</b>, so scanning them is exact rather than a
+    /// widening. A run installs the shim in exactly one engine: the top-level lane's own, or — for a
+    /// <c>// META: global=worker</c> file — the worker's, whose parent runs nothing but
+    /// <c>new Worker(…)</c>. The one lane with several engines is
+    /// <c>workers/modules/dedicated-worker-import.any.js</c>, whose workers run vendored corpus modules and
+    /// never see this file at all.
+    /// </para>
+    /// </remarks>
+    internal void Watch(Engine engine) => _watched.Add(engine);
+
     public override void Report(DiagnosticEvent report)
     {
-        if (report.Kind == DiagnosticEventKind.UncaughtCallbackError)
+        if (report.Kind == DiagnosticEventKind.UncaughtCallbackError && !FileTestComplete())
         {
             _uncaught.Add($"{report.CallbackSource}: {report.Exception?.Message}");
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>tests.tests[0].phase &gt;= HAS_RESULT</c>, read off the shim. False for every file that
+    /// did not declare <c>setup({single_test: true})</c>, which is what keeps this from becoming
+    /// "<c>outstanding</c> is empty" — a file whose tests are all synchronous has an empty outstanding list
+    /// from its first line, and a callback throwing there is still a harness error.
+    /// </summary>
+    private bool FileTestComplete()
+    {
+        foreach (var engine in _watched)
+        {
+            if (engine.GetValue("__wpt") is ObjectInstance wpt
+                && TypeConverter.ToBoolean(wpt.Get("fileTestComplete")))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -681,6 +739,10 @@ internal static class WptHarness
         WebApiRegistration.InstallFetchModel(engine);
         InstallResourceReader(engine, directory);
 
+        // Before anything can report, so the sink never has to reason about when the shim arrived — see
+        // WptDiagnosticsSink.Watch.
+        sink.Watch(engine);
+
         return engine;
     }
 
@@ -834,6 +896,7 @@ internal static class WptHarness
     /// <c>JSON.stringify</c>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// JSON is the obvious way to move a list of records across and it is the wrong one here: the URL corpus
     /// names tests after their input, several of those inputs are lone surrogates, and a well-formed
     /// <c>JSON.stringify</c> escapes those as <c>\udXXX</c> — which
@@ -841,12 +904,23 @@ internal static class WptHarness
     /// JSON text as string with missing low surrogate"). A .NET string holds an unpaired surrogate perfectly
     /// well, so reading the values straight off the objects loses nothing and needs no encoding both sides
     /// have to agree on.
+    /// </para>
+    /// <para>
+    /// <b>Through the object model, never by evaluating a script</b>, which is the same rule
+    /// <see cref="Pump"/> is written to and for the same reason: <c>Engine.Evaluate</c> ends in
+    /// <c>ScriptEvaluation</c>, which drains the event loop on its way out and promotes a further due timer
+    /// while doing it. This used to read <c>engine.Evaluate("typeof __wpt === 'object' ? __wpt.results :
+    /// null")</c>, and that one line was the widest of the windows in which a finished
+    /// <c>setup({single_test: true})</c> file's guard timer could still fire — parsing and running a script,
+    /// after the run was already over. The completion boundary above makes the late timer harmless; this
+    /// stops the driver opening the window in the first place.
+    /// </para>
     /// </remarks>
     private static List<WptTestResult> ReadResults(Engine engine)
     {
         var results = new List<WptTestResult>();
 
-        if (engine.Evaluate("typeof __wpt === 'object' ? __wpt.results : null") is not ObjectInstance array)
+        if (engine.GetValue("__wpt") is not ObjectInstance wpt || wpt.Get("results") is not ObjectInstance array)
         {
             return results;
         }
