@@ -124,16 +124,46 @@ internal sealed class StackGuard
         return false;
     }
 
-    public static TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
+    /// <summary>
+    /// Continues the evaluation on a fresh thread-pool thread, with the calling thread blocked for the whole
+    /// of it, and hands engine ownership over for the duration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The hand-over is what makes the hop invisible to a host. Without it <c>Engine._ownerThreadId</c> goes
+    /// on naming the thread parked below, so every public entry made from the continuation — a host callback
+    /// calling <c>Evaluate</c>, <c>JsValue.FromObject</c>, <c>JsonParser.Parse</c>, or the memory
+    /// constraint's own <c>Check</c> — took the wrong-owner path and threw
+    /// <see cref="InvalidOperationException"/> on a single-threaded host running single-threaded script
+    /// (sebastienros/jint#3343).
+    /// </para>
+    /// <para>
+    /// It is a transfer and not a release: ownership is never handed back to nobody, so a genuinely
+    /// unrelated thread reaching a public entry mid-hop is refused exactly as it was before the hop started.
+    /// </para>
+    /// </remarks>
+    public TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
     {
-        // ValueTuple rather than Tuple, so the state box is one allocation of a struct rather than a
-        // reference type. Every target framework carries it: net472 has it in mscorlib (it arrived in
-        // .NET Framework 4.7), and the netstandard targets get it from the reference assemblies.
-        return RunOnEmptyStackCore(static s =>
+        var engine = _engine;
+        var handoff = engine.BeginStackGuardHandoff();
+        try
         {
-            var t = ((Func<T1, TR>, T1)) s;
-            return t.Item1(t.Item2);
-        }, (action, arg1));
+            // ValueTuple rather than Tuple, so the state box is one allocation of a struct rather than a
+            // reference type. Every target framework carries it: net472 has it in mscorlib (it arrived in
+            // .NET Framework 4.7), and the netstandard targets get it from the reference assemblies.
+            return RunOnEmptyStackCore(static s =>
+            {
+                var t = ((Engine, Engine.StackGuardHandoff, Func<T1, TR>, T1)) s;
+                using (t.Item1.ClaimStackGuardHandoff(in t.Item2))
+                {
+                    return t.Item3(t.Item4);
+                }
+            }, (engine, handoff, action, arg1));
+        }
+        finally
+        {
+            engine.EndStackGuardHandoff(in handoff);
+        }
     }
 
     private static R RunOnEmptyStackCore<R>(Func<object, R> action, object state)

@@ -121,7 +121,7 @@ internal sealed class JintCallExpression : JintExpression
 
         if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
         {
-            return StackGuard.RunOnEmptyStack(EvaluateInternal, context);
+            return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
         }
 
         if (_calleeIsSuper)

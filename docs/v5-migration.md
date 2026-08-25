@@ -1511,6 +1511,37 @@ one, and a `LimitMemory` that had never applied to it now does. A host relying o
 unaccounted — parsing a document larger than its own `LimitMemory` between evaluations — has to raise the
 limit or bracket the parse in a `MemoryLimitConstraint.Begin`/`End` window of its own.
 
+### 4.26 A deep recursion no longer refuses the host that started it ([#3343](https://github.com/sebastienros/jint/issues/3343))
+
+`Options.Constraints.MaxExecutionStackCount` selects a lane that continues a deep call chain on a fresh
+thread-pool thread while the calling thread blocks. That hop did not transfer engine ownership, so
+`Engine._ownerThreadId` went on naming the thread parked below it and every public entry made from the far
+side took the wrong-owner path:
+
+```csharp
+var engine = new Engine(o => o.Constraints.MaxExecutionStackCount = 1_000_000);
+engine.SetValue("probe", new Func<int, int>(d => { engine.Evaluate("1 + 1"); return d; }));
+engine.Execute("function recurse(n) { return n === 0 ? probe(n) : recurse(n - 1) + 0; }");
+
+engine.Evaluate("recurse(10)");    // 4.16.x: fine
+engine.Evaluate("recurse(2000)");  // 4.16.x: InvalidOperationException, "already in use by another thread"
+```
+
+One host thread, one script, no concurrency — the engine refused itself, and the exception escaped the
+callback and killed the evaluation. `JsValue.FromObject`, `JsonParser.Parse` and anything else behind the
+ownership check failed the same way. Combining the setting with `LimitMemory` was worse still: the memory
+constraint checks ownership on every statement, so a *plain* script with no host callback at all died at the
+first hop.
+
+The hop now hands ownership over for its duration and takes it back afterwards, carrying the memory-limit
+segment with it so allocations are charged to the thread that makes them. It is a transfer, not a release: an
+unrelated thread reaching a public entry mid-hop is refused exactly as it was before the hop started.
+
+**What could break:** nothing an embedder configured. A test asserting that the exception is thrown was
+asserting the bug. An engine left at the default `MaxExecutionStackCount` (`-1`) never took this lane and is
+unaffected — `Options.Constraints.StackOverflowGuard`, the default, throws a `RangeError` without hopping
+threads.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
