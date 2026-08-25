@@ -65,14 +65,14 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         ProxyHandler? clrHandler)
         : base(engine, target.Class)
     {
-        // JsProxy always implements ICallable; whether it is *callable* is reported by IsCallable
+        // JsProxy always implements ICallable; whether it is *callable* is reported by HasCall
         // from the target. The flag mirrors `is ICallable`, so a proxy over a non-callable target
         // still carries it and still throws from Call, exactly as before.
         _type |= InternalTypes.ExoticGet | InternalTypes.Callable;
         _target = target;
         _handler = handler;
         _clrHandler = clrHandler;
-        IsCallable = target.IsCallable;
+        HasCall = target.HasCall;
         _isConstructor = target.IsConstructor;
         _bubbleExceptions = engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
     }
@@ -86,7 +86,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         // a proxy only has [[Call]] if its target does - emulate the missing internal
         // method for callers that reach us through the ICallable interface
-        if (!IsCallable)
+        if (!HasCall)
         {
             Throw.TypeError(_engine.Realm, "Proxy target is not a function");
         }
@@ -178,10 +178,10 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return constructor.Construct(arguments, newTarget);
     }
 
-    internal override bool IsArray()
+    internal override bool IsSpecArray()
     {
         AssertNotRevoked(KeyIsArray);
-        return _target.IsArray();
+        return _target.IsSpecArray();
     }
 
     public override object ToObject()
@@ -959,7 +959,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return true;
     }
 
-    internal override bool IsCallable { get; }
+    internal override bool HasCall { get; }
 
     /// <summary>
     /// Shared trap fetch: GetMethod(handler, trapName). Returns null when the trap is absent
@@ -1274,5 +1274,5 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     }
 #pragma warning restore CS8763
 
-    public override string ToString() => IsCallable ? "function () { [native code] }" : base.ToString();
+    public override string ToString() => HasCall ? "function () { [native code] }" : base.ToString();
 }

@@ -221,13 +221,13 @@ internal static class JsAccessibleEmitter
 
             case AccessibleValueKind.Boolean:
                 DeclineUnless(sb, "global::Jint.Native.JsBoolean");
-                sb.Append("            ").Append(access).AppendLine(" = global::Jint.JsValueExtensions.AsBoolean(value);");
+                sb.Append("            ").Append(access).AppendLine(" = value.AsBoolean();");
                 sb.AppendLine("            return true;");
                 return;
         }
 
         DeclineUnless(sb, "global::Jint.Native.JsNumber");
-        sb.AppendLine("            var d = global::Jint.JsValueExtensions.AsNumber(value);");
+        sb.AppendLine("            var d = value.AsNumber();");
 
         if (kind == AccessibleValueKind.Double)
         {

@@ -1146,7 +1146,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return Undefined;
         }
 
-        if (!getter.IsCallable)
+        if (!getter.HasCall)
         {
             return Undefined;
         }
@@ -2573,7 +2573,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             {
                 return TypeConverter.ToBoolean(spreadable);
             }
-            return IsArray();
+            return IsSpecArray();
         }
     }
 

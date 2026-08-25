@@ -119,7 +119,7 @@ internal sealed class JintUnaryExpression : JintExpression
                 case Types.Symbol: return JsString.SymbolString;
             }
 
-            if (v.IsCallable)
+            if (v.HasCall)
             {
                 return JsString.FunctionString;
             }

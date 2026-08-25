@@ -231,7 +231,7 @@ public class PerformanceTests
         // does, and carries an attribute's property attributes: enumerable and configurable,
         // https://webidl.spec.whatwg.org/#es-attributes. Node 24 reports the same triple.
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin')").AsObject();
-        descriptor.Get("get").IsCallable.Should().BeTrue();
+        descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();

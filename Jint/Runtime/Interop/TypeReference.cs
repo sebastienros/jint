@@ -111,7 +111,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                         }
 
                         // nothing to do, is an array as expected
-                        if (currentArgument.IsArray())
+                        if (currentArgument.IsSpecArray())
                         {
                             return arguments;
                         }

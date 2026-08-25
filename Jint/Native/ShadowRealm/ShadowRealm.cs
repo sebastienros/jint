@@ -293,7 +293,7 @@ public sealed class ShadowRealm : ObjectInstance
     {
         if (value is ObjectInstance oi)
         {
-            if (!oi.IsCallable)
+            if (!oi.HasCall)
             {
                 ThrowCrossRealmError(throwerRealm, "Result is not callable");
             }

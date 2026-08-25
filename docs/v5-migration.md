@@ -774,6 +774,59 @@ unchanged and stay where they are.
 One thing that is not observable but worth knowing if you build engines in a tight loop: `Advanced`, `Tasks`,
 `WebApi` and `Diagnostics` are each materialized on first access, so an engine that never touches one never
 allocates it. `engine.Constraints` and `engine.Modules` are unchanged.
+### 3.14 `JsValue`'s vocabulary is on `JsValue`, and `JsValueExtensions` moved to `Jint.Native` ([#3353](https://github.com/sebastienros/jint/pull/3353))
+
+`JsValue` is in `Jint.Native`. The extension methods that gave it its vocabulary were in `Jint`, so a file
+that imported the namespace the type lives in and nothing else dotted a `JsValue` and saw `Get`, `Set`,
+`ToObject` and `Type` — but not `IsString()`. Both halves are in `Jint.Native` now.
+
+**The one thing to type.** A file that used the vocabulary and imported only `Jint` needs one more using:
+
+```c#
+using Jint;
+using Jint.Native;   // <- add this
+```
+
+The compiler finds every site: `error CS1061: 'JsValue' does not contain a definition for 'AsInt32Array'`.
+A file whose own namespace is nested under `Jint.Native` needs nothing at all.
+
+**Twenty-five members moved onto the type itself** and no longer need any using:
+
+| | |
+| --- | --- |
+| predicates | `IsUndefined`, `IsNull`, `IsString`, `IsNumber`, `IsBoolean`, `IsObject`, `IsArray`, `IsCallable`, `IsPromise`, `IsDate`, `IsRegExp`, `IsSymbol`, `IsBigInt` |
+| accessors | `AsString`, `AsNumber`, `AsBoolean`, `AsObject`, `AsArray` |
+| `TryGet` (new) | `TryGetString`, `TryGetNumber`, `TryGetBoolean`, `TryGetObject`, `TryGetArray` |
+| promise | `UnwrapIfPromise()` and its two overloads, `UnwrapIfPromiseAsync` |
+
+An instance member wins over an extension method, so a call site that compiled before compiles now and
+binds to the same implementation. Two callers do change:
+
+- an explicit static call — `JsValueExtensions.IsString(value)` becomes `value.IsString()`;
+- a host's own extension method named after one of them, which the instance member now shadows. Rename it,
+  or call it as a static.
+
+**A `TryGet` for each promoted accessor** is the new part. `IsX()` followed by `AsX()` is two type tests and
+a throw waiting to happen; one call answers both questions:
+
+```c#
+// 4.16.x
+if (value.IsString())
+{
+    Use(value.AsString());
+}
+
+// 5.x
+if (value.TryGetString(out var text))
+{
+    Use(text);
+}
+```
+
+**What stayed an extension method**, and is reached by the same one using: the typed-array,
+`ArrayBuffer` and `DataView` accessors, `AsDate`, `AsRegExp`, `AsFunctionInstance`, `IsPrimitive`,
+`IsPrivateName`, `IsConstructor` and the six `Call` overloads. The line is what a value *is* in JavaScript's
+own vocabulary versus what a value is in Jint's — the first is on the type, the second is beside it.
 
 ## 4. Breaking without a signature change
 
@@ -1251,6 +1304,24 @@ fires, and script that reached one of these generics now gets an answer where it
 destructuring of a `HashSet<T>` changes too — `var [...r] = set` yielded `[undefined, undefined, undefined]`
 while `[...set]` yielded the elements, and both now yield the elements. Destructuring is *GetIterator* in
 the specification, so an index-reading fast path may only stand in for the iterator where the two agree.
+### 4.20 `AsArray()` and `IsArray()` are the same question ([#3353](https://github.com/sebastienros/jint/pull/3353))
+
+`AsArray()` guarded with the *specification's* `IsArray` — which is true for `Array.prototype` and follows a
+`Proxy` to its target — and then cast to `JsArray`, which neither of those is. The guard passed and the cast
+threw:
+
+```c#
+// 4.16.x
+engine.Evaluate("Array.prototype").AsArray();      // System.InvalidCastException
+engine.Evaluate("new Proxy([], {})").AsArray();    // System.InvalidCastException
+
+// 5.x
+engine.Evaluate("Array.prototype").AsArray();      // ArgumentException: The value is not an array
+engine.Evaluate("new Proxy([], {})").AsArray();    // ArgumentException: The value is not an array
+```
+
+`IsArray()` answers `false` for both, which it always did, and `TryGetArray` declines. A host that wants the
+proxy-following answer asks script for it — `Array.isArray(value)` is unchanged, and still `true` for both.
 
 ## 5. New in v5
 

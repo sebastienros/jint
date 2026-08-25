@@ -128,7 +128,7 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
 
         if (val is ObjectInstance obj)
         {
-            if (obj.IsArray())
+            if (obj.IsSpecArray())
             {
                 var i = 0UL;
                 var len = TypeConverter.ToLength(obj.Get(CommonProperties.Length));
@@ -203,7 +203,7 @@ internal sealed partial class JsonInstance : BuiltinShapeObject
 
         var parser = new JsonParser(_engine);
 
-        if (reviver.IsCallable)
+        if (reviver.HasCall)
         {
             // Parse with source tracking
             var parseResult = parser.ParseWithSourceInfo(jsonString);

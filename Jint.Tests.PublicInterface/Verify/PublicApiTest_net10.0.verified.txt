@@ -196,71 +196,6 @@ namespace Jint
     {
         public JsAccessibleAttribute() { }
     }
-    public static class JsValueExtensions
-    {
-        public static Jint.Native.JsArray AsArray(this Jint.Native.JsValue value) { }
-        public static byte[]? AsArrayBuffer(this Jint.Native.JsValue value) { }
-        public static long[] AsBigInt64Array(this Jint.Native.JsValue value) { }
-        public static ulong[] AsBigUint64Array(this Jint.Native.JsValue value) { }
-        public static bool AsBoolean(this Jint.Native.JsValue value) { }
-        public static byte[]? AsDataView(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsDate AsDate(this Jint.Native.JsValue value) { }
-        public static System.Half[] AsFloat16Array(this Jint.Native.JsValue value) { }
-        public static float[] AsFloat32Array(this Jint.Native.JsValue value) { }
-        public static double[] AsFloat64Array(this Jint.Native.JsValue value) { }
-        public static Jint.Native.Function.Function AsFunctionInstance(this Jint.Native.JsValue value) { }
-        public static short[] AsInt16Array(this Jint.Native.JsValue value) { }
-        public static int[] AsInt32Array(this Jint.Native.JsValue value) { }
-        public static sbyte[] AsInt8Array(this Jint.Native.JsValue value) { }
-        public static double AsNumber(this Jint.Native.JsValue value) { }
-        public static Jint.Native.Object.ObjectInstance AsObject(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsRegExp AsRegExp(this Jint.Native.JsValue value) { }
-        public static string AsString(this Jint.Native.JsValue value) { }
-        public static ushort[] AsUint16Array(this Jint.Native.JsValue value) { }
-        public static uint[] AsUint32Array(this Jint.Native.JsValue value) { }
-        public static byte[] AsUint8Array(this Jint.Native.JsValue value) { }
-        public static byte[] AsUint8ClampedArray(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, params Jint.Native.JsValue[] arguments) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue thisObj, Jint.Native.JsValue[] arguments) { }
-        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2, Jint.Native.JsValue arg3) { }
-        public static bool IsArray(this Jint.Native.JsValue value) { }
-        public static bool IsArrayBuffer(this Jint.Native.JsValue value) { }
-        public static bool IsBigInt(this Jint.Native.JsValue value) { }
-        public static bool IsBigInt64Array(this Jint.Native.JsValue value) { }
-        public static bool IsBigUint64Array(this Jint.Native.JsValue value) { }
-        public static bool IsBoolean(this Jint.Native.JsValue value) { }
-        public static bool IsCallable(this Jint.Native.JsValue value) { }
-        public static bool IsConstructor(this Jint.Native.JsValue value) { }
-        public static bool IsDataView(this Jint.Native.JsValue value) { }
-        public static bool IsDate(this Jint.Native.JsValue value) { }
-        public static bool IsFloat16Array(this Jint.Native.JsValue value) { }
-        public static bool IsFloat32Array(this Jint.Native.JsValue value) { }
-        public static bool IsFloat64Array(this Jint.Native.JsValue value) { }
-        public static bool IsInt16Array(this Jint.Native.JsValue value) { }
-        public static bool IsInt32Array(this Jint.Native.JsValue value) { }
-        public static bool IsInt8Array(this Jint.Native.JsValue value) { }
-        public static bool IsNull(this Jint.Native.JsValue value) { }
-        public static bool IsNumber(this Jint.Native.JsValue value) { }
-        public static bool IsObject(this Jint.Native.JsValue value) { }
-        public static bool IsPrimitive(this Jint.Native.JsValue value) { }
-        public static bool IsPrivateName(this Jint.Native.JsValue value) { }
-        public static bool IsPromise(this Jint.Native.JsValue value) { }
-        public static bool IsRegExp(this Jint.Native.JsValue value) { }
-        public static bool IsString(this Jint.Native.JsValue value) { }
-        public static bool IsSymbol(this Jint.Native.JsValue value) { }
-        public static bool IsUint16Array(this Jint.Native.JsValue value) { }
-        public static bool IsUint32Array(this Jint.Native.JsValue value) { }
-        public static bool IsUint8Array(this Jint.Native.JsValue value) { }
-        public static bool IsUint8ClampedArray(this Jint.Native.JsValue value) { }
-        public static bool IsUndefined(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value) { }
-        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.Threading.CancellationToken cancellationToken) { }
-        public static Jint.Native.JsValue UnwrapIfPromise(this Jint.Native.JsValue value, System.TimeSpan timeout) { }
-        public static System.Threading.Tasks.Task<Jint.Native.JsValue> UnwrapIfPromiseAsync(this Jint.Native.JsValue value, System.Threading.CancellationToken cancellationToken = default) { }
-    }
     public sealed class ModuleParsingOptions : Jint.IParsingOptions, System.IEquatable<Jint.ModuleParsingOptions>
     {
         public static readonly Jint.ModuleParsingOptions Default;
@@ -1239,15 +1174,42 @@ namespace Jint.Native
         protected JsValue(Jint.Runtime.Types type) { }
         [System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)]
         public Jint.Runtime.Types Type { get; }
+        public Jint.Native.JsArray AsArray() { }
+        public bool AsBoolean() { }
+        public double AsNumber() { }
+        public Jint.Native.Object.ObjectInstance AsObject() { }
+        public string AsString() { }
         public virtual bool Equals(Jint.Native.JsValue? other) { }
         public override bool Equals(object? obj) { }
         public Jint.Native.JsValue Get(Jint.Native.JsValue property) { }
         public virtual Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
         public override int GetHashCode() { }
+        public bool IsArray() { }
+        public bool IsBigInt() { }
+        public bool IsBoolean() { }
+        public bool IsCallable() { }
+        public bool IsDate() { }
         protected virtual bool IsLooselyEqual(Jint.Native.JsValue value) { }
+        public bool IsNull() { }
+        public bool IsNumber() { }
+        public bool IsObject() { }
+        public bool IsPromise() { }
+        public bool IsRegExp() { }
+        public bool IsString() { }
+        public bool IsSymbol() { }
+        public bool IsUndefined() { }
         public virtual bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
         public abstract object? ToObject();
         public override string ToString() { }
+        public bool TryGetArray([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Native.JsArray? value) { }
+        public bool TryGetBoolean(out bool value) { }
+        public bool TryGetNumber(out double value) { }
+        public bool TryGetObject([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Native.Object.ObjectInstance? value) { }
+        public bool TryGetString([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? value) { }
+        public Jint.Native.JsValue UnwrapIfPromise() { }
+        public Jint.Native.JsValue UnwrapIfPromise(System.Threading.CancellationToken cancellationToken) { }
+        public Jint.Native.JsValue UnwrapIfPromise(System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<Jint.Native.JsValue> UnwrapIfPromiseAsync(System.Threading.CancellationToken cancellationToken = default) { }
         public static Jint.Native.JsValue FromObject(Jint.Engine engine, object? value) { }
         public static Jint.Native.JsValue FromObjectWithType(Jint.Engine engine, object? value, System.Type? type) { }
         public static Jint.Native.JsValue op_Implicit(System.Numerics.BigInteger value) { }
@@ -1261,6 +1223,49 @@ namespace Jint.Native
         public static Jint.Native.JsValue op_Implicit(ulong value) { }
         public static bool operator !=(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
         public static bool operator ==(Jint.Native.JsValue? a, Jint.Native.JsValue? b) { }
+    }
+    public static class JsValueExtensions
+    {
+        public static byte[]? AsArrayBuffer(this Jint.Native.JsValue value) { }
+        public static long[] AsBigInt64Array(this Jint.Native.JsValue value) { }
+        public static ulong[] AsBigUint64Array(this Jint.Native.JsValue value) { }
+        public static byte[]? AsDataView(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsDate AsDate(this Jint.Native.JsValue value) { }
+        public static System.Half[] AsFloat16Array(this Jint.Native.JsValue value) { }
+        public static float[] AsFloat32Array(this Jint.Native.JsValue value) { }
+        public static double[] AsFloat64Array(this Jint.Native.JsValue value) { }
+        public static Jint.Native.Function.Function AsFunctionInstance(this Jint.Native.JsValue value) { }
+        public static short[] AsInt16Array(this Jint.Native.JsValue value) { }
+        public static int[] AsInt32Array(this Jint.Native.JsValue value) { }
+        public static sbyte[] AsInt8Array(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsRegExp AsRegExp(this Jint.Native.JsValue value) { }
+        public static ushort[] AsUint16Array(this Jint.Native.JsValue value) { }
+        public static uint[] AsUint32Array(this Jint.Native.JsValue value) { }
+        public static byte[] AsUint8Array(this Jint.Native.JsValue value) { }
+        public static byte[] AsUint8ClampedArray(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, params Jint.Native.JsValue[] arguments) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue thisObj, Jint.Native.JsValue[] arguments) { }
+        public static Jint.Native.JsValue Call(this Jint.Native.JsValue value, Jint.Native.JsValue arg1, Jint.Native.JsValue arg2, Jint.Native.JsValue arg3) { }
+        public static bool IsArrayBuffer(this Jint.Native.JsValue value) { }
+        public static bool IsBigInt64Array(this Jint.Native.JsValue value) { }
+        public static bool IsBigUint64Array(this Jint.Native.JsValue value) { }
+        public static bool IsConstructor(this Jint.Native.JsValue value) { }
+        public static bool IsDataView(this Jint.Native.JsValue value) { }
+        public static bool IsFloat16Array(this Jint.Native.JsValue value) { }
+        public static bool IsFloat32Array(this Jint.Native.JsValue value) { }
+        public static bool IsFloat64Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt16Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt32Array(this Jint.Native.JsValue value) { }
+        public static bool IsInt8Array(this Jint.Native.JsValue value) { }
+        public static bool IsPrimitive(this Jint.Native.JsValue value) { }
+        public static bool IsPrivateName(this Jint.Native.JsValue value) { }
+        public static bool IsUint16Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint32Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint8Array(this Jint.Native.JsValue value) { }
+        public static bool IsUint8ClampedArray(this Jint.Native.JsValue value) { }
     }
     public abstract class LazyJsString : Jint.Native.JsString
     {

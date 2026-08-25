@@ -35,7 +35,7 @@ internal sealed partial class ReflectInstance : BuiltinShapeObject
     [JsFunction]
     private JsValue Apply(JsValue thisObject, JsValue target, JsValue thisArgument, JsValue argumentsList)
     {
-        if (!target.IsCallable)
+        if (!target.HasCall)
         {
             Throw.TypeError(_realm, "Reflect.apply requires the first argument to be a function");
         }

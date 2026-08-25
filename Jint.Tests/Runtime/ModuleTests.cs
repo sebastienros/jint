@@ -1265,8 +1265,8 @@ export const count = globals.counter;
 
         ns.Get("c").AsInteger().Should().Be(1);
         ns.Get("l").AsInteger().Should().Be(2);
-        ns.Get("K").IsCallable.Should().BeTrue();
-        ns.Get("default").IsCallable.Should().BeTrue();
+        ns.Get("K").IsCallable().Should().BeTrue();
+        ns.Get("default").IsCallable().Should().BeTrue();
     }
 
     [Fact]

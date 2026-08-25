@@ -524,7 +524,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(mark))").AsString().Should().Be("[]");
 
         var descriptor = engine.Evaluate("Object.getOwnPropertyDescriptor(PerformanceEntry.prototype, 'startTime')").AsObject();
-        descriptor.Get("get").IsCallable.Should().BeTrue();
+        descriptor.Get("get").IsCallable().Should().BeTrue();
         descriptor.Get("set").IsUndefined().Should().BeTrue();
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();

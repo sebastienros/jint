@@ -105,7 +105,7 @@ internal sealed class DisposeCapability
 
     /// <summary>
     /// Legacy synchronous entry point. Drives the state machine to completion,
-    /// sync-waiting via <see cref="JsValueExtensions.UnwrapIfPromise(JsValue, TimeSpan)"/>
+    /// sync-waiting via <see cref="JsValue.UnwrapIfPromise(TimeSpan)"/>
     /// on every suspension. Used by callers that can't suspend their own context
     /// (sync function bodies, module loading). After all async-context call sites
     /// migrated to <see cref="BeginDispose"/> / <see cref="ContinueDispose"/>, this

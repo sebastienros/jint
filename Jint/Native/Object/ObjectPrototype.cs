@@ -94,7 +94,7 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
 
-        if (!getter.IsCallable)
+        if (!getter.HasCall)
         {
             Throw.TypeError(_realm, "Object.prototype.__defineGetter__: Expecting function");
         }
@@ -114,7 +114,7 @@ public sealed partial class ObjectPrototype : Prototype
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
 
-        if (!setter.IsCallable)
+        if (!setter.HasCall)
         {
             Throw.TypeError(_realm, "Object.prototype.__defineSetter__: Expecting function");
         }
@@ -252,7 +252,7 @@ public sealed partial class ObjectPrototype : Prototype
         }
 
         var o = TypeConverter.ToObject(_realm, thisObject);
-        var isArray = o.IsArray();
+        var isArray = o.IsSpecArray();
 
         var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
         if (!tag.IsString())
@@ -261,7 +261,7 @@ public sealed partial class ObjectPrototype : Prototype
             {
                 tag = "Array";
             }
-            else if (o.IsCallable)
+            else if (o.HasCall)
             {
                 tag = "Function";
             }

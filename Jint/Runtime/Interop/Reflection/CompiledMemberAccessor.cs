@@ -66,8 +66,8 @@ internal static class CompiledMemberAccessor
     private static readonly ConcurrentDictionary<MemberInfo, JsValueSetter?> _jsValueSetters = new();
     private static readonly ConcurrentDictionary<MemberInfo, Action<object, object?>?> _rawSetters = new();
 
-    private static readonly MethodInfo _asNumber = typeof(JsValueExtensions).GetMethod(nameof(JsValueExtensions.AsNumber), [typeof(JsValue)])!;
-    private static readonly MethodInfo _asBoolean = typeof(JsValueExtensions).GetMethod(nameof(JsValueExtensions.AsBoolean), [typeof(JsValue)])!;
+    private static readonly MethodInfo _asNumber = typeof(JsValue).GetMethod(nameof(JsValue.AsNumber), Type.EmptyTypes)!;
+    private static readonly MethodInfo _asBoolean = typeof(JsValue).GetMethod(nameof(JsValue.AsBoolean), Type.EmptyTypes)!;
     private static readonly MethodInfo _objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
     private static readonly MethodInfo _doubleIsNaN = typeof(double).GetMethod(nameof(double.IsNaN), [typeof(double)])!;
     private static readonly MethodInfo _doubleIsInfinity = typeof(double).GetMethod(nameof(double.IsInfinity), [typeof(double)])!;
@@ -505,7 +505,7 @@ internal static class CompiledMemberAccessor
         if (memberType == typeof(bool))
         {
             body.Add(DeclineIfNotType(value, typeof(JsBoolean), returnLabel));
-            return Expression.Call(_asBoolean, value);
+            return Expression.Call(value, _asBoolean);
         }
 
         // int / long / double
@@ -513,7 +513,7 @@ internal static class CompiledMemberAccessor
 
         var number = Expression.Variable(typeof(double), "d");
         locals.Add(number);
-        body.Add(Expression.Assign(number, Expression.Call(_asNumber, value)));
+        body.Add(Expression.Assign(number, Expression.Call(value, _asNumber)));
 
         if (memberType == typeof(double))
         {

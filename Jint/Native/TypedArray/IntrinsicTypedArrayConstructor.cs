@@ -48,7 +48,7 @@ internal sealed partial class IntrinsicTypedArrayConstructor : Constructor
         var mapping = !mapFunction.IsUndefined();
         if (mapping)
         {
-            if (!mapFunction.IsCallable)
+            if (!mapFunction.HasCall)
             {
                 Throw.TypeError(_realm, "mapFn is not a function");
             }

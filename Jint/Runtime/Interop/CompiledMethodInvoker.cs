@@ -40,8 +40,8 @@ internal static class CompiledMethodInvoker
     /// </summary>
     internal delegate bool Invoker(object? target, JsCallArguments arguments, out JsValue result);
 
-    private static readonly MethodInfo _asNumber = typeof(JsValueExtensions).GetMethod(nameof(JsValueExtensions.AsNumber), [typeof(JsValue)])!;
-    private static readonly MethodInfo _asBoolean = typeof(JsValueExtensions).GetMethod(nameof(JsValueExtensions.AsBoolean), [typeof(JsValue)])!;
+    private static readonly MethodInfo _asNumber = typeof(JsValue).GetMethod(nameof(JsValue.AsNumber), Type.EmptyTypes)!;
+    private static readonly MethodInfo _asBoolean = typeof(JsValue).GetMethod(nameof(JsValue.AsBoolean), Type.EmptyTypes)!;
     private static readonly MethodInfo _objectToString = typeof(object).GetMethod(nameof(ToString), Type.EmptyTypes)!;
     private static readonly MethodInfo _doubleIsNaN = typeof(double).GetMethod(nameof(double.IsNaN), [typeof(double)])!;
     private static readonly MethodInfo _doubleIsInfinity = typeof(double).GetMethod(nameof(double.IsInfinity), [typeof(double)])!;
@@ -398,7 +398,7 @@ internal static class CompiledMethodInvoker
         if (parameterType == typeof(bool))
         {
             body.Add(DeclineIfNotType(arg, typeof(JsBoolean), returnLabel));
-            return Expression.Call(_asBoolean, arg);
+            return Expression.Call(arg, _asBoolean);
         }
 
         // int / long / double
@@ -406,7 +406,7 @@ internal static class CompiledMethodInvoker
 
         var value = Expression.Variable(typeof(double), "d" + index);
         locals.Add(value);
-        body.Add(Expression.Assign(value, Expression.Call(_asNumber, arg)));
+        body.Add(Expression.Assign(value, Expression.Call(arg, _asNumber)));
 
         if (parameterType == typeof(double))
         {

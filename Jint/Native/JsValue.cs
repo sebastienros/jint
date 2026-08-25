@@ -16,6 +16,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native;
 
+/// <summary>
+/// A JavaScript value: one of the primitives, or an object. Belongs to the engine that created it and must
+/// not be shared with another.
+/// </summary>
 public abstract partial class JsValue : IEquatable<JsValue>
 {
     public static readonly JsValue Undefined = new JsUndefined();
@@ -37,8 +41,15 @@ public abstract partial class JsValue : IEquatable<JsValue>
         _type = type;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-isarray
+    /// The specification's IsArray, which is a different question from the public <see cref="IsArray"/>:
+    /// it is true for every array exotic object (Array.prototype included) and follows a Proxy to its
+    /// target, where the public one asks only whether this is a <see cref="JsArray"/>. Script reaches this
+    /// one through Array.isArray; a host wants the other.
+    /// </summary>
     [Pure]
-    internal virtual bool IsArray() => false;
+    internal virtual bool IsSpecArray() => false;
 
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal virtual bool IsIntegerIndexedArray => false;
@@ -405,7 +416,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
             return TypeConverter.ToBoolean(instOfHandler.Call(target, this));
         }
 
-        if (!target.IsCallable)
+        if (!target.HasCall)
         {
             Throw.TypeErrorNoEngine("Right-hand side of 'instanceof' is not callable");
         }
@@ -587,15 +598,19 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
     internal virtual JsValue DoClone() => this;
 
+    /// <summary>
+    /// Whether this value has a [[Call]] internal method, which is what the specification's IsCallable
+    /// asks. The public spelling is <see cref="IsCallable"/>, a method, so this one cannot share the name.
+    /// </summary>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    internal virtual bool IsCallable => this is ICallable;
+    internal virtual bool HasCall => this is ICallable;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinaryhasinstance
     /// </summary>
     internal virtual bool OrdinaryHasInstance(JsValue v)
     {
-        if (!IsCallable)
+        if (!HasCall)
         {
             return false;
         }

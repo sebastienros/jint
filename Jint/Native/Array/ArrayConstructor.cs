@@ -750,7 +750,7 @@ public sealed partial class ArrayConstructor : Constructor
     // throws a TypeError (JsProxy.IsArray -> AssertNotRevoked), and "argument is not a revoked proxy"
     // is not something a FastCallGuard can express — but "argument is one of our own arrays" is, and
     // it settles the question outright: InternalTypes.Array is set by ArrayInstance's constructors
-    // and nothing else, and ArrayInstance seals IsArray() to true. So a guarded call is a flag test
+    // and nothing else, and ArrayInstance seals IsSpecArray() to true. So a guarded call is a flag test
     // and a return, while the answer-is-false calls the guard turns away — including the proxy whose
     // TypeError needs the frame — take the framed path exactly as before.
     [JsFunction(Length = 1, Leaf = true, LeafArg0 = FastCallGuard.Array)]
@@ -766,7 +766,7 @@ public sealed partial class ArrayConstructor : Constructor
             return JsBoolean.False;
         }
 
-        return oi.IsArray();
+        return oi.IsSpecArray();
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
@@ -991,7 +991,7 @@ public sealed partial class ArrayConstructor : Constructor
     /// </summary>
     internal ObjectInstance ArraySpeciesCreate(ObjectInstance originalArray, ulong length)
     {
-        var isArray = originalArray.IsArray();
+        var isArray = originalArray.IsSpecArray();
         if (!isArray)
         {
             return ArrayCreate(length);
