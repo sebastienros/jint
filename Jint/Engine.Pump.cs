@@ -502,85 +502,42 @@ public partial class Engine
     public sealed partial class AdvancedOperations
     {
         /// <summary>
-        /// How long this engine may be left alone before <see cref="ProcessTasks"/> has something to run, or
-        /// <see langword="null"/> when it has nothing scheduled at all.
+        /// Gets how long this engine may be left alone before <see cref="ProcessTasks"/> has work to run, or
+        /// <see langword="null"/> when nothing is scheduled.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>The canonical host loop is this property plus <see cref="ProcessTasks"/>, and there is
-        /// deliberately no third method that drains for a budget.</b> Jint never starts a thread to run script:
-        /// a <c>setTimeout</c> callback, a <c>scheduler.postTask</c> task, a settled <c>Atomics.waitAsync</c>
-        /// all run on whichever thread calls into the engine, and nowhere else. What a host driving its own
-        /// loop was missing is not another way to pump but the answer to <i>when</i> to pump, which is this.
+        /// <see cref="TimeSpan.Zero"/> means there is work to run now — call <see cref="ProcessTasks"/>. A
+        /// positive value is how long until the earliest <em>timed</em> work comes due: a <c>setTimeout</c>,
+        /// an <c>AbortSignal.timeout()</c>, a delayed <c>scheduler.postTask</c>, an <c>Atomics.waitAsync</c>
+        /// deadline.
         /// </para>
         /// <para>
-        /// The three answers:
-        /// <list type="bullet">
-        /// <item><description>
-        /// <see cref="TimeSpan.Zero"/> — there is work to run <em>now</em>: an event-loop job is queued (a
-        /// promise reaction, a scheduler task, a completion that arrived from a background thread), a timer is
-        /// already due, or an idle callback is waiting for a pump. Call <see cref="ProcessTasks"/>.
-        /// </description></item>
-        /// <item><description>
-        /// A positive <see cref="TimeSpan"/> — nothing to run yet, and this is how long until the earliest
-        /// <em>timed</em> work comes due. That covers <c>setTimeout</c> and <c>setInterval</c>,
-        /// <c>AbortSignal.timeout()</c>, a delayed <c>scheduler.postTask</c>, a <c>requestIdleCallback</c>
-        /// timeout, and the deadline of an <c>Atomics.waitAsync</c>.
-        /// </description></item>
-        /// <item><description>
-        /// <see langword="null"/> — nothing is scheduled. The engine will produce no work by itself; only
-        /// something the host does, or a background completion it is already waiting for, can change that.
-        /// </description></item>
-        /// </list>
+        /// Do not treat <see langword="null"/> as "nothing will happen". A CLR task a script awaits through
+        /// interop, and an <c>Atomics.waitAsync</c> another agent notifies, both simply enqueue and have no
+        /// due time to report, so a host loop needs a cadence of its own.
         /// </para>
         /// <para>
-        /// <b>It is a hint about the engine's own schedule, never a substitute for waiting on external work.</b>
-        /// A <see cref="System.Threading.Tasks.Task"/> a script is awaiting through interop settles when it
-        /// settles, and an <c>Atomics.waitAsync</c> woken by another agent's <c>Atomics.notify</c> settles when
-        /// that happens; both simply enqueue, and neither has a due time to report. A <see langword="null"/>
-        /// therefore means "I have nothing timed pending", not "nothing will ever happen" — which is why the
-        /// loop below still has a frame cadence of its own rather than sleeping on this value alone.
+        /// The answer is a snapshot taken on the calling thread and may be stale the instant it is returned,
+        /// so do not sleep on it indefinitely. Use <see cref="WaitForScheduledWork(TimeSpan, CancellationToken)"/>
+        /// instead when there is no frame to keep — it also wakes on a job arriving from another thread.
         /// </para>
         /// <para>
-        /// The answer is a snapshot taken on the calling thread and can be stale the instant it is returned:
-        /// a background completion may enqueue a job right after a <see langword="null"/> is handed back. That
-        /// is harmless for the loop shape below — the job is simply seen by the next
-        /// <see cref="ProcessTasks"/> — and it is another reason not to sleep on the value indefinitely. For
-        /// the same reason it may occasionally report <see cref="TimeSpan.Zero"/> for a job that turns out to
-        /// belong to an evaluation cycle <see cref="RestoreGlobalSnapshot"/> has ended, which
-        /// <see cref="ProcessTasks"/> then discards without running.
-        /// </para>
-        /// <para>
-        /// Reading it is cheap and allocation-free, and an engine with no web APIs and no asynchronous atomics
-        /// wait answers from one queue check.
+        /// Reading it is allocation-free, so a per-frame read costs nothing.
         /// </para>
         /// </remarks>
         /// <example>
-        /// A game loop — the shape this exists for. The engine is pumped once per frame, and the pump is
-        /// skipped entirely on the frames where it provably has nothing to do:
+        /// A game loop, pumping once per frame and skipping the pump on frames with provably nothing to do:
         /// <code>
         /// while (running)
         /// {
         ///     var until = engine.Advanced.TimeUntilNextScheduledWork;
         ///     if (until is null || until &lt;= frameBudget)
         ///     {
-        ///         // Either nothing is scheduled — in which case a job may still have arrived from a
-        ///         // background completion — or it comes due within this frame. Either way, pump.
         ///         engine.Advanced.ProcessTasks();
         ///     }
         ///
         ///     RenderFrame();
-        ///     SleepUntilNextFrame();
-        /// }
-        /// </code>
-        /// A message pump with no frame of its own does not need to read the value at all:
-        /// <see cref="WaitForScheduledWork"/> already parks on it, and — unlike a sleep — also wakes on a job
-        /// that arrives from another thread, which has no due time for this property to report.
-        /// <code>
-        /// while (running)
-        /// {
-        ///     engine.Advanced.ProcessTasks();
-        ///     engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
         /// }
         /// </code>
         /// </example>

@@ -96,15 +96,21 @@ public sealed class OperationDeadlineConstraint : Constraint
     private CancellationToken _cancellationToken;
     private object? _scopeOwner;
 
-#if NET8_0_OR_GREATER
     /// <summary>
     /// Creates a constraint measuring its budget against the system's monotonic clock
     /// (<see cref="Stopwatch.GetTimestamp"/>).
     /// </summary>
-    public OperationDeadlineConstraint() : this(timeProvider: null)
+    // Declared rather than left implicit on the target frameworks that have no TimeProvider: an implicit
+    // constructor is still public API and cannot carry the summary above, which is what left downlevel
+    // consumers looking at an undocumented one. Only the chained call is conditional.
+    public OperationDeadlineConstraint()
+#if NET8_0_OR_GREATER
+        : this(timeProvider: null)
+#endif
     {
     }
 
+#if NET8_0_OR_GREATER
     /// <summary>
     /// Creates a constraint measuring its budget against <paramref name="timeProvider"/>.
     /// </summary>

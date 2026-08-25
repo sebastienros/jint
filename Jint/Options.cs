@@ -1217,55 +1217,29 @@ public sealed partial class Options
 
         /// <summary>
         /// Whether every entry into an interpreted function probes the remaining native stack and throws a
-        /// catchable <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
-        /// <see langword="true"/>.
+        /// catchable <c>RangeError</c> when it runs low. Defaults to <see langword="true"/>.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Turn this on when the engine runs script you did not write. Without it, an unbounded recursion
-        /// ends the host process with a native stack overflow: no <c>catch</c> sees it, no exception is
-        /// raised, nothing is logged, and the process is simply gone. With it, the same script raises an
-        /// ordinary JavaScript error that the script itself can catch and the engine survives to be used
-        /// again. That is the whole trade — a process kill converted into an error value.
+        /// Leave it on for script you did not write. Without it an unbounded recursion ends the host process
+        /// with a native stack overflow that no <c>catch</c> sees and nothing logs; with it the same script
+        /// raises an error it can catch, and the engine survives.
         /// </para>
         /// <para>
-        /// It measures the stack rather than counting calls, so it covers every route into a function body
-        /// rather than only a call expression: <c>new</c>, a getter or setter, a <c>valueOf</c>/<c>toString</c>
-        /// coercion, a Proxy trap, a callback a built-in invokes, and a host delegate that re-enters the
-        /// engine. Eighteen distinct routes reproduce the overflow, and the engine's older probe sat in the
-        /// call expression, so it saw one of them. Measuring also means the depth follows the stack of the
-        /// thread the engine runs on, instead of a frame count the host had to guess.
+        /// It measures the stack rather than counting calls, so it covers every route into a function body:
+        /// <c>new</c>, an accessor, a <c>valueOf</c>/<c>toString</c> coercion, a Proxy trap, a callback a
+        /// built-in invokes, and a host delegate that re-enters the engine.
         /// </para>
         /// <para>
-        /// A proper tail call in a strict function is exempt, and needs to be: it replaces the caller's
-        /// frame rather than stacking one on top, so the recursion runs on a trampoline and consumes no
-        /// native stack at all. The probe sits on the entry points that add a frame, never on the loop the
-        /// trampoline re-enters, so a strict tail recursion neither pays for it nor is stopped by it. What
-        /// remains in scope is everything the trampoline does not carry: sloppy-mode recursion, a call out
-        /// of tail position, and the non-call routes above.
+        /// A proper tail call in a strict function is exempt, because it replaces the caller's frame instead
+        /// of stacking one on top. Sloppy-mode recursion, a call out of tail position, and the non-call
+        /// routes above all remain in scope.
         /// </para>
         /// <para>
-        /// It is enabled by default because the alternative on an unbounded recursion is termination of the
-        /// host process. The probe is not free: the benchmark gate measured the recursion rows (<c>Fib</c>,
-        /// <c>DeepSum</c>, <c>Tak</c>) roughly 1.5–3% slower with it on, while hot shallow calls stayed within
-        /// run-to-run noise. A host whose scripts are all trusted and independently bounded can explicitly
-        /// set this property to <see langword="false"/> to recover that cost. A host sandboxing untrusted
-        /// input generally cannot, and a couple of percent on deep recursion is the price of staying alive.
-        /// </para>
-        /// <para>
-        /// It is a backstop, not a policy. <see cref="MaxRecursionDepth"/> counts frames and is checked
-        /// before the callee is entered, so where both are configured the recursion limit is what fires;
-        /// the probe answers when no limit was set, when the limit was set higher than the thread's stack
-        /// can actually hold, and when the limit structurally cannot see the recursion — it counts
-        /// occurrences of one function <em>definition</em>, so a recursion whose every level is a function
-        /// created for that level (<c>eval</c>, <c>new Function</c>, a host re-running a script) repeats
-        /// no definition and never reaches it. <see cref="MaxExecutionStackCount"/> selects the older
-        /// continue-on-a-fresh-thread lane instead, and takes precedence over this flag when both are set,
-        /// because the probe sits a few frames deeper and would reach the condition first — leaving that
-        /// lane nothing to hop with.
-        /// </para>
-        /// <para>
-        /// Read once, while the engine is being constructed.
+        /// It is a backstop, not a policy: where <see cref="MaxRecursionDepth"/> is also set that limit fires
+        /// first, and <see cref="MaxExecutionStackCount"/> takes precedence over this flag. Set it to
+        /// <see langword="false"/> to recover the probe's cost when every script is trusted and independently
+        /// bounded. Read once, while the engine is being constructed.
         /// </para>
         /// </remarks>
         public bool StackOverflowGuard { get; set { ThrowIfReadOnly(); field = value; } } = true;
