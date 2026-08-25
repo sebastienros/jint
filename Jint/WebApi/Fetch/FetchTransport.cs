@@ -148,6 +148,12 @@ internal sealed class FetchExchange : IDisposable
 {
     internal required HttpResponseMessage Response { get; init; }
 
+    /// <summary>
+    /// The method the last hop was made with, which is not always the one the request started with: a
+    /// redirect rewrites <c>POST</c> to <c>GET</c>. What answers whether the response has a body at all.
+    /// </summary>
+    internal required string Method { get; init; }
+
     /// <summary>The URL that produced this response, i.e. the last hop of the redirect chain.</summary>
     internal required UrlRecord Url { get; init; }
 
@@ -169,8 +175,9 @@ internal sealed class FetchResponseSnapshot
     internal required List<HeaderEntry> Headers { get; init; }
 
     /// <summary>
-    /// The body still on the wire, or <see langword="null"/> for a status the standard gives no body —
-    /// https://fetch.spec.whatwg.org/#null-body-status. The connection is <b>still open</b> when this
+    /// The body still on the wire, or <see langword="null"/> for the two answers the standard gives no body:
+    /// a null body status (https://fetch.spec.whatwg.org/#null-body-status) and a response to
+    /// <c>HEAD</c>. The connection is <b>still open</b> when this
     /// reaches the engine thread: <see cref="FetchBodyStream.Attach"/> is what starts reading it, and
     /// <see cref="FetchBodyStream.Dispose"/> is what lets it go if nothing ever will.
     /// </summary>
@@ -290,7 +297,7 @@ internal static class FetchTransport
         var handedOver = false;
         try
         {
-            var snapshot = await BeginResponseAsync(exchange.Response, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
+            var snapshot = await BeginResponseAsync(exchange.Response, exchange.Method, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
             handedOver = snapshot.Body is not null;
             return snapshot;
         }
@@ -325,6 +332,7 @@ internal static class FetchTransport
         var body = request.Body;
         var content = request.BodyContent;
         var headers = new List<HeaderEntry>(request.Headers);
+        AppendDefaultAccept(headers);
         var redirectCount = 0;
 
         while (true)
@@ -363,7 +371,7 @@ internal static class FetchTransport
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Url = url, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, Redirected = redirectCount > 0 };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -377,7 +385,7 @@ internal static class FetchTransport
                 if (location is null)
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Url = url, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, Redirected = redirectCount > 0 };
                 }
 
                 // https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status
@@ -409,6 +417,38 @@ internal static class FetchTransport
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-fetch step 12: a request whose header list does not contain
+    /// <c>Accept</c> is given one, and <c>*/*</c> is the value for everything but the few destinations a
+    /// browser knows — a document, an image, a stylesheet. A request made here has no destination, so the
+    /// general value is the only one that applies.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The list this appends to is the transport's copy, which is what makes it invisible to the script: a
+    /// browser sends <c>Accept: */*</c> while the <c>Request</c> the script holds still answers null for it,
+    /// and so does this. Every hop of a redirect carries it for the same reason the script's own headers do.
+    /// </para>
+    /// <para>
+    /// <b>Step 13, the <c>Accept-Language</c> beside it, is deliberately not implemented.</b> It applies only
+    /// "if request's client is non-null" and its value is the user's language preferences; an embedded engine
+    /// has neither a client nor a user, so there is nothing to report and a made-up value would be worse than
+    /// the absence.
+    /// </para>
+    /// </remarks>
+    private static void AppendDefaultAccept(List<HeaderEntry> headers)
+    {
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.LowerName, "accept", StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        headers.Add(new HeaderEntry("accept", "*/*"));
     }
 
     /// <summary>
@@ -531,19 +571,86 @@ internal static class FetchTransport
             message.Content.Headers.ContentType = null;
         }
 
+        var bodiless = message.Content is null;
+
         foreach (var header in headers)
         {
             // A content header belongs on the content, and the request-header collection refuses it. Both
             // calls are TryAddWithoutValidation: the header list has already been validated against the
             // Fetch Standard's own grammar, which is what a script is entitled to be measured against.
-            if (!message.Headers.TryAddWithoutValidation(header.LowerName, header.Value))
+            if (message.Headers.TryAddWithoutValidation(header.LowerName, header.Value))
             {
-                message.Content?.Headers.TryAddWithoutValidation(header.LowerName, header.Value);
+                continue;
             }
+
+            // Content-Length is the one content header a carrier does not take: there is no body, and a
+            // length is what the transport frames one with, so a script that set one would have this request
+            // announce bytes it is never going to send.
+            if (bodiless && string.Equals(header.LowerName, "content-length", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            message.Content ??= CreateHeaderCarrier(method);
+            message.Content.Headers.TryAddWithoutValidation(header.LowerName, header.Value);
         }
 
         return message;
     }
+
+    /// <summary>
+    /// The empty <see cref="HttpContent"/> a request with no body is given so that a content header the
+    /// script set can leave at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://fetch.spec.whatwg.org/#concept-header-list is <i>one</i> list, and the only names it treats
+    /// specially on a request are the forbidden request-headers, which these are not. The BCL splits that one
+    /// list in two: <c>Content-Encoding</c>, <c>Content-Language</c>, <c>Content-Location</c>,
+    /// <c>Content-Type</c> and the rest belong to <see cref="HttpContent.Headers"/> and are refused by
+    /// <see cref="HttpRequestMessage.Headers"/> — so a <c>GET</c> or a <c>HEAD</c> carrying one had nowhere to
+    /// put it and dropped it on the floor.
+    /// </para>
+    /// <para>
+    /// <b>The framing it costs.</b> A message with content is framed, and the BCL offers exactly two shapes:
+    /// a known length writes <c>Content-Length</c>, an unknown one writes <c>Transfer-Encoding: chunked</c>
+    /// and an empty chunked body. For <c>POST</c> and <c>PUT</c> the first is what the standard appends
+    /// itself — https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch step 8, "If httpRequest's
+    /// body is null and httpRequest's method is `POST` or `PUT`, then set contentLengthHeaderValue to `0`" —
+    /// and what a bodiless request of those methods already sends, so the carrier keeps its length;
+    /// <c>PATCH</c> joins them because a body is expected of it too and <see cref="HttpClient"/> already sends
+    /// <c>Content-Length: 0</c> for a bodiless one. For every other method the standard appends no
+    /// <c>Content-Length</c> at all, so the
+    /// length is suppressed and the chunked framing is taken instead: a transfer encoding is an HTTP/1.1
+    /// artefact that no header list contains and that HTTP/2 does not have, where an invented
+    /// <c>Content-Length: 0</c> would be a header the server reads out of the very list the standard decides.
+    /// </para>
+    /// </remarks>
+    private static ByteArrayContent CreateHeaderCarrier(string method)
+    {
+        var carrier = new ByteArrayContent([]);
+        if (!MustHaveRequestBody(method))
+        {
+            carrier.Headers.ContentLength = null;
+        }
+
+        return carrier;
+    }
+
+    /// <summary>
+    /// The methods a request body is expected of, and so the ones a bodiless request already announces a
+    /// length for: the two the standard names, plus the one <see cref="HttpClient"/> adds.
+    /// </summary>
+    /// <remarks>
+    /// Case-insensitively, unlike the ordinal comparisons elsewhere here, because
+    /// https://fetch.spec.whatwg.org/#concept-method-normalize uppercases six methods and leaves
+    /// <c>patch</c> alone — and which of the two spellings a script wrote is no reason to frame its request
+    /// differently.
+    /// </remarks>
+    private static bool MustHaveRequestBody(string method)
+        => method.Equals("POST", StringComparison.OrdinalIgnoreCase)
+        || method.Equals("PUT", StringComparison.OrdinalIgnoreCase)
+        || method.Equals("PATCH", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Collects the headers and hands the still-open body over to a <see cref="FetchBodyStream"/>, which the
@@ -565,16 +672,16 @@ internal static class FetchTransport
     /// </remarks>
     private static async Task<FetchResponseSnapshot> BeginResponseAsync(
         HttpResponseMessage response,
+        string method,
         UrlRecord url,
         bool redirected,
         FetchPolicy policy,
         CancellationToken cancellationToken)
     {
+        // Read before the headers are collected, and not only for the cap below: a response a host's own
+        // handler built in memory computes its length on first access and only then carries the header, so
+        // this read is also what puts Content-Length in the list.
         var declaredLength = response.Content.Headers.ContentLength;
-        if (declaredLength is { } length && length > policy.MaxResponseBytes)
-        {
-            throw TooLarge(policy);
-        }
 
         var headers = new List<HeaderEntry>();
         Collect(headers, response.Headers);
@@ -582,8 +689,24 @@ internal static class FetchTransport
 
         var status = (int) response.StatusCode;
 
+        // https://fetch.spec.whatwg.org/#concept-main-fetch step 22: "If response is not a network error and
+        // either request's method is `HEAD` or `CONNECT`, or internalResponse's status is a null body status,
+        // set internalResponse's body to null and disregard any enqueuing toward it (if any)." The method half
+        // is the one a server cannot be trusted on: a HEAD response carries the headers the GET would have
+        // had — Content-Length among them — and none of the bytes they describe. CONNECT never reaches here,
+        // being a forbidden method (see FetchValues.IsForbiddenMethod).
+        var hasBody = !FetchValues.IsNullBodyStatus(status) && !string.Equals(method, "HEAD", StringComparison.Ordinal);
+
+        // Only a body that will be read is measured against the cap. A HEAD answers the length of the
+        // representation it is describing rather than of anything it is about to send, so refusing it as too
+        // large would fail a request that transfers nothing — which is the whole point of asking with HEAD.
+        if (hasBody && declaredLength is { } length && length > policy.MaxResponseBytes)
+        {
+            throw TooLarge(policy);
+        }
+
         FetchBodyStream? body = null;
-        if (!FetchValues.IsNullBodyStatus(status))
+        if (hasBody)
         {
             Stream content;
             try

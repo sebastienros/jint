@@ -1209,7 +1209,9 @@ delivered as generation-stamped event-loop jobs, exactly like every other cross-
 so nothing about a body arrives on a thread the host did not pump. `MaxResponseBytes` is enforced on the
 running total per chunk; because the promise has already resolved by the time a body byte is read, a body
 that breaks the cap **errors the stream** rather than rejecting the `fetch` promise (a `Content-Length` that
-already exceeds it is still refused before the promise settles).
+already exceeds it is still refused before the promise settles — unless the response has no body to read at
+all, a `HEAD` or a 204/205/304, where that header describes a representation rather than a transfer and
+`response.body` is `null`).
 
 The `Body` mixin sits on top of that and is unchanged in behaviour: `text()`, `json()`, `arrayBuffer()`,
 `bytes()` and `blob()` read the stream to the end and answer with the whole body, `bodyUsed` is the stream's

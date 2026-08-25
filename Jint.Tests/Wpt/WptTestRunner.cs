@@ -1065,23 +1065,14 @@ public class WptTestRunner
 
         // ---- what the server lane found. WptServer (issue #3260) is what let these files make a real
         // request for the first time; WptHarness._serverBackedFiles is the list of the files it runs.
-
-        // The five defects the lane turned up, each filed and deliberately not fixed here — see
-        // WptDivergence.NeedsTriage for the citation behind every one and why the change that first ran a
-        // suite must not also be the change that moves the engine.
         //
-        // The first entry's stars are escaped because they are part of the test's *name* — its sibling row is
-        // "…with value 'custom/*'" and passes, so an unescaped pattern would cover a passing test. See
-        // WptExclusion.MatchesPattern.
-        new("fetch/api/basic/accept-header.any.js",
-            @"Request through fetch should have 'accept' header with value '\*/\*'", WptDivergence.NeedsTriage),
-        new("fetch/api/basic/response-null-body.any.js",
-            "Response.body is null for responses with method=HEAD", WptDivergence.NeedsTriage),
-        new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with GET", WptDivergence.NeedsTriage),
-        new("fetch/api/redirect/redirect-method.any.js", "Redirect 30* with HEAD", WptDivergence.NeedsTriage),
+        // The five defects it turned up were all filed rather than fixed there, and all five are now fixed:
+        // #3281 and #3283 first, then #3279, #3280 and #3282 together, which is what emptied
+        // WptDivergence.NeedsTriage again. The entries below are the lane's *decisions*, which no fix moves.
 
         // The other half of accept-header.any.js, and not a defect: Accept-Language is a browser reporting
-        // the user's language preferences, and there is no user here.
+        // the user's language preferences, and there is no user here. Its sibling rows — the Accept the
+        // standard gives every client, whether the script named one or not — pass since #3279.
         new("fetch/api/basic/accept-header.any.js",
             "Request through fetch should have a 'accept-language' header", WptDivergence.NeedsBrowserRequestHeaders),
 

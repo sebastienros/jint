@@ -388,6 +388,65 @@ public class WebApiFetchTests
         engine.Evaluate("typeof fetch").AsString().Should().Be("function");
     });
 
+    /// <summary>
+    /// What a host's own <c>HttpClient</c> — or the <c>DelegatingHandler</c> in front of it — sees of a
+    /// request the engine composed.
+    /// </summary>
+    [Fact]
+    public void AHostsHandlerSeesTheStandardsAcceptAndABodilessRequestsContentHeaders()
+    {
+        var handler = new RecordingHandler();
+        var engine = WebEngine(handler);
+
+        engine.Evaluate("fetch('https://example.org/a', { headers: { 'Content-Language': 'en-US' } }).then(r => r.status)")
+            .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+
+        // https://fetch.spec.whatwg.org/#concept-fetch step 12 — appended by the engine, not by the script,
+        // and not by HttpClient either: SocketsHttpHandler adds no Accept of its own.
+        request.Accept.Should().Be("*/*");
+
+        // The Fetch header list is one list; the BCL's is two, and Content-Language lives in the half that
+        // belongs to the content — so a request with no body is given an empty one to carry it. A handler
+        // that reads Content on a GET will find it, and it reads as the zero bytes it is.
+        request.HasContent.Should().BeTrue();
+        request.ContentLanguage.Should().Be("en-US");
+
+        // No length, because the standard appends Content-Length only for a body or for a bodiless POST or
+        // PUT — this is what decides the framing HttpClient writes.
+        request.ContentLength.Should().BeNull();
+    }
+
+    private sealed record RecordedRequest(string? Accept, string? ContentLanguage, bool HasContent, long? ContentLength);
+
+    /// <summary>
+    /// Records the few facts about a request that outlive it — the message and its content are disposed as
+    /// soon as the transport has its answer.
+    /// </summary>
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        internal List<RecordedRequest> Requests { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(new RecordedRequest(
+                First(request.Headers, "accept"),
+                request.Content is { } content ? First(content.Headers, "content-language") : null,
+                request.Content is not null,
+                request.Content?.Headers.ContentLength));
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") });
+        }
+
+        /// <remarks>
+        /// Through <c>NonValidated</c>, which answers the bytes that will go out rather than
+        /// <see cref="HttpClient"/>'s re-serialization of its parsed form.
+        /// </remarks>
+        private static string? First(System.Net.Http.Headers.HttpHeaders headers, string name)
+            => headers.NonValidated.TryGetValues(name, out var values) ? values.ToString() : null;
+    }
+
     [Fact]
     public Task AnEngineCancellationSettlesNothingAtAll() => DedicatedThread.RunAsync(() =>
     {
