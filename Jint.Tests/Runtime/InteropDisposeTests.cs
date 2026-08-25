@@ -248,7 +248,7 @@ public class InteropDisposeTests
 
     /// <summary>
     /// Top-level `await using` in a module — exercises the Pattern B refactor in
-    /// SourceTextModule's TLA execution path.
+    /// SourceTextModuleRecord's TLA execution path.
     /// </summary>
     [Fact]
     public Task ShouldAsyncDisposeInTopLevelAwaitModule() => DedicatedThread.RunAsync(() =>

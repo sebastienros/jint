@@ -1,6 +1,5 @@
 using Jint.Runtime;
 using Jint.Runtime.Modules;
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.NodeCompat;
 
@@ -84,7 +83,7 @@ internal sealed class NodeBuiltinModuleLoader : IModuleLoader
     }
 
     /// <inheritdoc />
-    public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+    public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
         if (TryLoadBuiltin(engine, resolved, out var module))
         {
@@ -98,7 +97,7 @@ internal sealed class NodeBuiltinModuleLoader : IModuleLoader
     /// Builds a builtin, or reports an unknown <c>node:</c> name. Answers <see langword="false"/> for
     /// everything else, which is what the inner loader is for.
     /// </summary>
-    private bool TryLoadBuiltin(Engine engine, ResolvedSpecifier resolved, out Module? module)
+    private bool TryLoadBuiltin(Engine engine, ResolvedSpecifier resolved, out ModuleRecord? module)
     {
         var key = resolved.Key;
 
@@ -126,7 +125,7 @@ internal sealed class NodeBuiltinModuleLoader : IModuleLoader
     /// <c>Engine.Modules.Add</c> produces for an exports-only registration - the same record type, built
     /// directly so that nothing has to be registered up front and a module nobody imports costs nothing.
     /// </summary>
-    private BuilderModule Build(Engine engine, string canonicalName)
+    private BuilderModuleRecord Build(Engine engine, string canonicalName)
     {
         var builder = new ModuleBuilder(engine, canonicalName);
 
@@ -137,7 +136,7 @@ internal sealed class NodeBuiltinModuleLoader : IModuleLoader
         }
 
         var parsed = builder.Parse(canonicalName);
-        var module = new BuilderModule(engine, engine.Realm, in parsed, canonicalName, async: false);
+        var module = new BuilderModuleRecord(engine, engine.Realm, in parsed, canonicalName, async: false);
         builder.BindExportedValues(module);
         return module;
     }
@@ -168,7 +167,7 @@ internal sealed class NodeBuiltinModuleLoader : IModuleLoader
             => _builtins.Resolve(referencingModuleLocation, moduleRequest);
 
         /// <inheritdoc />
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved) => _builtins.LoadModule(engine, resolved);
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved) => _builtins.LoadModule(engine, resolved);
 
         /// <inheritdoc />
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)

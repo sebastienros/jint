@@ -8,7 +8,7 @@ public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
     private readonly string _specifier;
-    private Prepared<AstModule>? _module;
+    private Prepared<Module>? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _defaultParserOptions;
@@ -42,7 +42,7 @@ public sealed class ModuleBuilder
     /// relative imports should be prepared with <c>PrepareModule</c>'s <c>source</c> argument set to the key
     /// the loader resolves the registration to.
     /// </remarks>
-    public ModuleBuilder AddModule(in Prepared<AstModule> preparedModule)
+    public ModuleBuilder AddModule(in Prepared<Module> preparedModule)
     {
         if (!preparedModule.IsValid)
         {
@@ -168,7 +168,7 @@ public sealed class ModuleBuilder
     /// A module supplied pre-compiled through <see cref="AddModule"/> is the exception - it keeps the name it
     /// was prepared with, as its doc explains.
     /// </summary>
-    internal Prepared<AstModule> Parse(string location)
+    internal Prepared<Module> Parse(string location)
     {
         if (_module != null) return _module.Value;
 
@@ -180,11 +180,11 @@ public sealed class ModuleBuilder
         {
             // No source means nothing to parse and no relative imports to resolve, but the module is still
             // named so that an exports-only registration identifies itself the way every other module does.
-            var exportsOnly = new AstModule(NodeList.From(Array.Empty<Statement>()))
+            var exportsOnly = new Module(NodeList.From(Array.Empty<Statement>()))
             {
                 Location = default(SourceLocation).WithSourceFile(location),
             };
-            return new Prepared<AstModule>(
+            return new Prepared<Module>(
                 exportsOnly,
                 parserOptions,
                 parsingConstraints: _engine.CombineParsingConstraints(ParsingConstraints.From(_parsingOptions)));
@@ -205,7 +205,7 @@ public sealed class ModuleBuilder
             }
 
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return new Prepared<AstModule>(
+            return new Prepared<Module>(
                 parser.ParseModule(source, location),
                 parserOptions,
                 parsingConstraints: parser.Constraints);
@@ -231,7 +231,7 @@ public sealed class ModuleBuilder
         }
     }
 
-    internal void BindExportedValues(BuilderModule module)
+    internal void BindExportedValues(BuilderModuleRecord module)
     {
         foreach (var export in _exports)
         {

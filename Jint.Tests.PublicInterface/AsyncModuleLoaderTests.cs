@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 #nullable enable
 
@@ -61,7 +60,7 @@ public class AsyncModuleLoaderTests
             return new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
         }
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -129,7 +128,7 @@ public class AsyncModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The asynchronous path is required.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -633,7 +632,7 @@ public class AsyncModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -794,7 +793,7 @@ public class AsyncModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -917,7 +916,7 @@ public class AsyncModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -970,7 +969,7 @@ public class AsyncModuleLoaderTests
     /// </summary>
     /// <remarks>
     /// Note the rebase against <see cref="_baseUri"/>: <see cref="ModuleFactory"/> takes a module's
-    /// <see cref="Module.Location"/> from <see cref="Uri.LocalPath"/>, so the referrer location a nested
+    /// <see cref="ModuleRecord.Location"/> from <see cref="Uri.LocalPath"/>, so the referrer location a nested
     /// specifier is resolved against arrives as a path rather than an absolute URI.
     /// <see cref="DefaultModuleLoader"/> does the same thing for the same reason.
     /// </remarks>
@@ -1067,7 +1066,7 @@ public class AsyncModuleLoaderTests
         module.Evaluate();
         engine.Tasks.ProcessTasks();
 
-        Module.GetModuleNamespace(module).Get("value").AsNumber().Should().Be(11);
+        ModuleRecord.GetModuleNamespace(module).Get("value").AsNumber().Should().Be(11);
     }
 
     [Fact]
@@ -1149,7 +1148,7 @@ public class AsyncModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -1297,7 +1296,7 @@ public class AsyncModuleLoaderTests
             return new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
         }
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)

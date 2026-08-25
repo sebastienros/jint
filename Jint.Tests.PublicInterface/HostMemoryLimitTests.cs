@@ -9,7 +9,6 @@ using Jint.Runtime.Modules;
 using Jint.WebApi;
 #endif
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -968,7 +967,7 @@ public class HostMemoryLimitTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The asynchronous loader path was expected.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)

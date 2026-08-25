@@ -41,7 +41,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         var env = context.Engine.ExecutionContext.LexicalEnvironment;
         var asyncFn = context.Engine.ExecutionContext.AsyncFunction;
 
-        // For function/class declarations, the binding is already initialized in SourceTextModule.InitializeEnvironment
+        // For function/class declarations, the binding is already initialized in SourceTextModuleRecord.InitializeEnvironment
         // Skip if already bound AND we're not resuming from an async suspension
         if (env.HasBinding("*default*") && (asyncFn is null || !asyncFn._isResuming))
         {

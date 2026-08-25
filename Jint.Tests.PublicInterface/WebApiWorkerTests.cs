@@ -663,7 +663,7 @@ public class WebApiWorkerTests
             return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.RelativeOrAbsolute);
         }
 
-        public Jint.Runtime.Modules.Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public Jint.Runtime.Modules.ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => ModuleFactory.BuildSourceTextModule(engine, resolved, _sources[resolved.Key]);
     }
 }

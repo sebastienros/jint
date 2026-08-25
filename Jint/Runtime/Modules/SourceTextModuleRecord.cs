@@ -53,9 +53,9 @@ internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequ
 /// <summary>
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-internal class SourceTextModule : CyclicModule
+internal class SourceTextModuleRecord : CyclicModuleRecord
 {
-    internal readonly AstModule _source;
+    internal readonly Module _source;
     private readonly ParserOptions _parserOptions;
     private readonly ParsingConstraints _parsingConstraints;
     internal override ParsingConstraints ParsingConstraints => _parsingConstraints;
@@ -71,7 +71,7 @@ internal class SourceTextModule : CyclicModule
     private JintStatementList? _tlaStatementList;
     private AsyncFunctionInstance? _tlaAsyncInstance;
 
-    internal SourceTextModule(Engine engine, Realm realm, in Prepared<AstModule> source, string? location, bool isAsync)
+    internal SourceTextModuleRecord(Engine engine, Realm realm, in Prepared<Module> source, string? location, bool isAsync)
         : base(engine, realm, location, isAsync)
     {
         Debug.Assert(source.IsValid);
@@ -101,9 +101,9 @@ internal class SourceTextModule : CyclicModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
-    public override List<string?> GetExportedNames(List<CyclicModule>? exportStarSet = null)
+    public override List<string?> GetExportedNames(List<CyclicModuleRecord>? exportStarSet = null)
     {
-        exportStarSet ??= new List<CyclicModule>();
+        exportStarSet ??= new List<CyclicModuleRecord>();
         if (exportStarSet.Contains(this))
         {
             //Reached the starting point of an export * circularity

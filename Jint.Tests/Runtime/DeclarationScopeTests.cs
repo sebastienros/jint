@@ -132,7 +132,7 @@ public class DeclarationScopeTests
     public void APreparedModulesCachedScopeAgreesWithTheModuleWalk()
     {
         // An Acornima Module reports NodeType.Program, but preparing one no longer caches a scope on the root at
-        // all: every reader of a cached scope is Script-typed and SourceTextModule.InitializeEnvironment re-walks,
+        // all: every reader of a cached scope is Script-typed and SourceTextModuleRecord.InitializeEnvironment re-walks,
         // so the walk prepare time used to do was thrown away. The two walks must still agree: the moment they do
         // not, the obvious cleanup - having the module consume a scope built at prepare time - silently drops every
         // exported lexical declaration.

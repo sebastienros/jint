@@ -679,7 +679,7 @@ The other two are gone rather than re-signatured, because neither is something a
 
 After this change `Realm` appears in exactly six places in the public surface, and a host can satisfy every
 one of them: five `Host` virtuals, where the engine *hands* the realm to the host (`CreateRealm` is the only
-one that has to produce one, and `base.CreateRealm()` produces it), and the `protected` `Module._realm`
+one that has to produce one, and `base.CreateRealm()` produces it), and the `protected` `ModuleRecord._realm`
 field, on a class whose only constructor is `internal` and which therefore cannot be derived from outside
 Jint at all.
 
@@ -830,6 +830,71 @@ if (value.TryGetString(out var text))
 `ArrayBuffer` and `DataView` accessors, `AsDate`, `AsRegExp`, `AsFunctionInstance`, `IsPrimitive`,
 `IsPrivateName`, `IsConstructor` and the six `Call` overloads. The line is what a value *is* in JavaScript's
 own vocabulary versus what a value is in Jint's — the first is on the type, the second is beside it.
+
+### 3.15 The module record is `ModuleRecord`, and `Module` is Acornima's AST node alone ([#3311](https://github.com/sebastienros/jint/issues/3311))
+
+`Jint.Runtime.Modules.Module` is ECMA-262's
+[Abstract Module Record](https://tc39.es/ecma262/#sec-abstract-module-records) — the loaded, linkable,
+evaluatable module a loader hands the engine. Under its old name it collided with two types host code
+imports as a matter of course: `Acornima.Ast.Module`, which is what `Engine.PrepareModule` returns inside a
+`Prepared<>`, and `System.Reflection.Module`. Either import turned a bare `Module` into
+`error CS0104: 'Module' is an ambiguous reference`, so a host had no way to name the type but to alias one
+of the three. This repository carried seventeen such aliases plus a global one in `Directory.Build.props`,
+and nine of the seventeen were in `Jint.Tests.PublicInterface` — the one suite without `InternalsVisibleTo`,
+and so the one that sees what an integrator sees. All of them are gone.
+
+| 4.16.x | 5.x |
+| --- | --- |
+| `Jint.Runtime.Modules.Module` | `Jint.Runtime.Modules.ModuleRecord` |
+| `Jint.Runtime.Modules.CyclicModule` | `Jint.Runtime.Modules.CyclicModuleRecord` |
+
+```c#
+// 4.16.x — the alias is what makes the file compile
+using Acornima.Ast;
+using Jint.Runtime.Modules;
+using Module = Jint.Runtime.Modules.Module;
+
+sealed class MyLoader : IModuleLoader
+{
+    private readonly Dictionary<string, Prepared<AstModule>> _cache = new();  // ...and a second alias
+
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved) => /* ... */;
+    public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest) => /* ... */;
+}
+
+// 5.x — no alias, and `Module` means what Acornima means by it
+using Acornima.Ast;
+using Jint.Runtime.Modules;
+
+sealed class MyLoader : IModuleLoader
+{
+    private readonly Dictionary<string, Prepared<Module>> _cache = new();
+
+    public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved) => /* ... */;
+    public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest) => /* ... */;
+}
+```
+
+Every `ModuleFactory.Build*Module` overload, `IModuleLoader.LoadModule`, `ModuleLoader.LoadModule`,
+`ModuleLoadCompletion.SetModule`, `ModuleRecord.GetModuleNamespace`, and the `Host.GetImportMetaProperties`
+/ `Host.FinalizeImportMeta` parameters move with it — the last two were already *named* `moduleRecord`.
+The concept keeps its own word: `ModuleFactory`, `ModuleBuilder`, `IModuleLoader`, `ModuleRequest` and
+`ResolvedSpecifier` are unchanged, and so is `Engine.PrepareModule`, which still returns
+`Prepared<Acornima.Ast.Module>` — that type belongs to the parser, and renaming it is not Jint's to do.
+
+**Nothing but the name changed.** Both types' only constructors were already `internal`, so no host has ever
+derived from either; there is no override signature, no `base` call and no behaviour in the diff.
+
+**If you would rather not touch your call sites**, one line keeps them all compiling — an alias beats a
+namespace import, so it also settles the `System.Reflection` collision if you had one:
+
+```c#
+// GlobalUsings.cs
+global using Module = Jint.Runtime.Modules.ModuleRecord;
+```
+
+That is the shim, not the recommendation: a file that spells `Module` for the record cannot also spell
+`Module` for Acornima's AST node, which is the whole reason the type was renamed.
 
 ## 4. Breaking without a signature change
 

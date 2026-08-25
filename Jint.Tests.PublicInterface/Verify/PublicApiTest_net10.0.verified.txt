@@ -1897,8 +1897,8 @@ namespace Jint.Runtime
         protected virtual void CreateIntrinsics(Jint.Runtime.Realm realmRec) { }
         protected virtual Jint.Runtime.Realm CreateRealm() { }
         public virtual void EnsureCanCompileStrings(Jint.Runtime.Realm callerRealm, Jint.Runtime.Realm evalRealm) { }
-        public virtual void FinalizeImportMeta(Jint.Native.Object.ObjectInstance importMeta, Jint.Runtime.Modules.Module moduleRecord) { }
-        public virtual System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>> GetImportMetaProperties(Jint.Runtime.Modules.Module moduleRecord) { }
+        public virtual void FinalizeImportMeta(Jint.Native.Object.ObjectInstance importMeta, Jint.Runtime.Modules.ModuleRecord moduleRecord) { }
+        public virtual System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Native.JsValue>> GetImportMetaProperties(Jint.Runtime.Modules.ModuleRecord moduleRecord) { }
         public void Initialize(Jint.Engine engine) { }
         protected virtual void InitializeHostDefinedRealm() { }
         public virtual void InitializeShadowRealm(Jint.Runtime.Realm realm) { }
@@ -2428,13 +2428,13 @@ namespace Jint.Runtime.Modules
         protected virtual System.Threading.Tasks.Task<byte[]> LoadModuleContentsAsBytesAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, System.Threading.CancellationToken cancellationToken) { }
         protected abstract System.Threading.Tasks.Task<string> LoadModuleContentsAsync(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, System.Threading.CancellationToken cancellationToken);
     }
-    public abstract class CyclicModule : Jint.Runtime.Modules.Module
+    public abstract class CyclicModuleRecord : Jint.Runtime.Modules.ModuleRecord
     {
         protected bool _hasTLA;
         public override Jint.Native.JsValue Evaluate() { }
         protected abstract void InitializeEnvironment();
-        protected override Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index, ref int asyncEvalOrder) { }
-        protected override int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index) { }
+        protected override Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModuleRecord> stack, int index, ref int asyncEvalOrder) { }
+        protected override int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModuleRecord> stack, int index) { }
         public override void Link() { }
         public override Jint.Native.JsValue LoadRequestedModules() { }
     }
@@ -2455,23 +2455,8 @@ namespace Jint.Runtime.Modules
     }
     public interface IModuleLoader
     {
-        Jint.Runtime.Modules.Module LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved);
+        Jint.Runtime.Modules.ModuleRecord LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved);
         Jint.Runtime.Modules.ResolvedSpecifier Resolve(string? referencingModuleLocation, Jint.Runtime.Modules.ModuleRequest moduleRequest);
-    }
-    public abstract class Module : Jint.Native.JsValue
-    {
-        protected readonly Jint.Engine _engine;
-        protected readonly Jint.Runtime.Realm _realm;
-        public string Location { get; }
-        public abstract Jint.Native.JsValue Evaluate();
-        public abstract System.Collections.Generic.List<string> GetExportedNames(System.Collections.Generic.List<Jint.Runtime.Modules.CyclicModule> exportStarSet = null);
-        protected abstract Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index, ref int asyncEvalOrder);
-        protected abstract int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModule> stack, int index);
-        public abstract void Link();
-        public virtual Jint.Native.JsValue LoadRequestedModules() { }
-        public override object ToObject() { }
-        public override string ToString() { }
-        public static Jint.Native.Object.ObjectInstance GetModuleNamespace(Jint.Runtime.Modules.Module module) { }
     }
     public sealed class ModuleAllowlistPolicy : Jint.Runtime.Modules.IModuleLoadPolicy
     {
@@ -2501,12 +2486,12 @@ namespace Jint.Runtime.Modules
     }
     public static class ModuleFactory
     {
-        public static Jint.Runtime.Modules.Module BuildBytesModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, byte[] bytes) { }
-        public static Jint.Runtime.Modules.Module BuildJsonModule(Jint.Engine engine, Jint.Native.JsValue parsedJson, string? location) { }
-        public static Jint.Runtime.Modules.Module BuildJsonModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string jsonString) { }
-        public static Jint.Runtime.Modules.Module BuildSourceTextModule(Jint.Engine engine, in Jint.Prepared<Acornima.Ast.Module> preparedModule) { }
-        public static Jint.Runtime.Modules.Module BuildSourceTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string code, Jint.ModuleParsingOptions? parsingOptions = null) { }
-        public static Jint.Runtime.Modules.Module BuildTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string text) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildBytesModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, byte[] bytes) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildJsonModule(Jint.Engine engine, Jint.Native.JsValue parsedJson, string? location) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildJsonModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string jsonString) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildSourceTextModule(Jint.Engine engine, in Jint.Prepared<Acornima.Ast.Module> preparedModule) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildSourceTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string code, Jint.ModuleParsingOptions? parsingOptions = null) { }
+        public static Jint.Runtime.Modules.ModuleRecord BuildTextModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved, string text) { }
         public static string LocationOf(Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
     }
     public sealed class ModuleGraphLimitException : Jint.JintException
@@ -2535,7 +2520,7 @@ namespace Jint.Runtime.Modules
         public Jint.Runtime.Modules.ResolvedSpecifier Resolved { get; }
         public void SetError(System.Exception exception) { }
         public void SetError(string message) { }
-        public void SetModule(Jint.Runtime.Modules.Module module) { }
+        public void SetModule(Jint.Runtime.Modules.ModuleRecord module) { }
         public void SetSource(byte[] bytes) { }
         public void SetSource(string code) { }
     }
@@ -2543,10 +2528,25 @@ namespace Jint.Runtime.Modules
     {
         protected ModuleLoader() { }
         protected virtual Jint.Native.Object.ObjectInstance? GetModuleSource(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
-        public Jint.Runtime.Modules.Module LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
+        public Jint.Runtime.Modules.ModuleRecord LoadModule(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
         protected abstract string LoadModuleContents(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved);
         protected virtual byte[] LoadModuleContentsAsBytes(Jint.Engine engine, Jint.Runtime.Modules.ResolvedSpecifier resolved) { }
         public abstract Jint.Runtime.Modules.ResolvedSpecifier Resolve(string? referencingModuleLocation, Jint.Runtime.Modules.ModuleRequest moduleRequest);
+    }
+    public abstract class ModuleRecord : Jint.Native.JsValue
+    {
+        protected readonly Jint.Engine _engine;
+        protected readonly Jint.Runtime.Realm _realm;
+        public string Location { get; }
+        public abstract Jint.Native.JsValue Evaluate();
+        public abstract System.Collections.Generic.List<string> GetExportedNames(System.Collections.Generic.List<Jint.Runtime.Modules.CyclicModuleRecord> exportStarSet = null);
+        protected abstract Jint.Runtime.Completion InnerModuleEvaluation(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModuleRecord> stack, int index, ref int asyncEvalOrder);
+        protected abstract int InnerModuleLinking(System.Collections.Generic.Stack<Jint.Runtime.Modules.CyclicModuleRecord> stack, int index);
+        public abstract void Link();
+        public virtual Jint.Native.JsValue LoadRequestedModules() { }
+        public override object ToObject() { }
+        public override string ToString() { }
+        public static Jint.Native.Object.ObjectInstance GetModuleNamespace(Jint.Runtime.Modules.ModuleRecord module) { }
     }
     public readonly struct ModuleRequest : System.IEquatable<Jint.Runtime.Modules.ModuleRequest>
     {

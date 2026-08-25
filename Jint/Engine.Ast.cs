@@ -231,7 +231,7 @@ public partial class Engine
 
                 case NodeType.Program:
                     // A module root is a Program by node type, but nothing reads a module's cached scope —
-                    // every reader of it is Script-typed and SourceTextModule walks its own declarations —
+                    // every reader of it is Script-typed and SourceTextModuleRecord walks its own declarations —
                     // so caching one for a module was a second full walk of the AST that never got consumed.
                     if (node is Script script)
                     {

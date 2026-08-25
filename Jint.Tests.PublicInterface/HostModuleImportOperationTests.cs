@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -33,7 +32,7 @@ public class HostModuleImportOperationTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The engine must not take the synchronous path for an IAsyncModuleLoader.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)

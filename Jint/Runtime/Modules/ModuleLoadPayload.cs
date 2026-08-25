@@ -29,7 +29,7 @@ internal abstract class ModuleLoadPayload
     /// <paramref name="module"/> (a normal completion) and <paramref name="error"/> (a throw completion) is
     /// non-null.
     /// </summary>
-    internal abstract void Continue(Module? module, JsValue? error);
+    internal abstract void Continue(ModuleRecord? module, JsValue? error);
 }
 
 internal sealed class ModuleLoadBudget
@@ -69,12 +69,12 @@ internal sealed class ModuleLoadBudget
 /// </summary>
 internal sealed class GraphLoadingState
 {
-    private readonly Dictionary<Module, int> _nodeIndexes = new(ReferenceComparer<Module>.Instance);
-    private readonly HashSet<CyclicModule> _expanded = new(ReferenceComparer<CyclicModule>.Instance);
+    private readonly Dictionary<ModuleRecord, int> _nodeIndexes = new(ReferenceComparer<ModuleRecord>.Instance);
+    private readonly HashSet<CyclicModuleRecord> _expanded = new(ReferenceComparer<CyclicModuleRecord>.Instance);
     private readonly Queue<PendingGraphModule> _modulesToProcess = new();
     private bool _isProcessingModules;
 
-    internal GraphLoadingState(PromiseCapability promiseCapability, Module root, ModuleLoadBudget budget)
+    internal GraphLoadingState(PromiseCapability promiseCapability, ModuleRecord root, ModuleLoadBudget budget)
     {
         PromiseCapability = promiseCapability;
         Budget = budget;
@@ -95,19 +95,19 @@ internal sealed class GraphLoadingState
     /// Modules reached by this graph load, in discovery order. Identity lookup uses a dictionary with
     /// <see cref="ReferenceComparer{T}"/> because <see cref="JsValue.GetHashCode"/> hashes only the value type.
     /// </summary>
-    internal List<Module> Nodes { get; } = [];
+    internal List<ModuleRecord> Nodes { get; } = [];
 
-    internal List<CyclicModule> Expanded { get; } = [];
+    internal List<CyclicModuleRecord> Expanded { get; } = [];
 
     internal List<ModuleGraphEdge> Edges { get; } = [];
 
-    internal void RecordEdge(CyclicModule parent, Module child)
+    internal void RecordEdge(CyclicModuleRecord parent, ModuleRecord child)
     {
         Edges.Add(new ModuleGraphEdge(parent, child));
         AddNode(child);
     }
 
-    internal bool TryExpand(CyclicModule module)
+    internal bool TryExpand(CyclicModuleRecord module)
     {
         if (!_expanded.Add(module))
         {
@@ -118,7 +118,7 @@ internal sealed class GraphLoadingState
         return true;
     }
 
-    internal void Enqueue(Module module, int depth)
+    internal void Enqueue(ModuleRecord module, int depth)
         => _modulesToProcess.Enqueue(new PendingGraphModule(module, depth));
 
     internal bool TryBeginProcessing()
@@ -146,7 +146,7 @@ internal sealed class GraphLoadingState
 
     internal void EndProcessing() => _isProcessingModules = false;
 
-    private void AddNode(Module module)
+    private void AddNode(ModuleRecord module)
     {
         if (_nodeIndexes.TryAdd(module, Nodes.Count))
         {
@@ -345,13 +345,13 @@ internal sealed class GraphLoadingState
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct ModuleGraphEdge(CyclicModule Parent, Module Child);
+internal readonly record struct ModuleGraphEdge(CyclicModuleRecord Parent, ModuleRecord Child);
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SccTraversalFrame(int Node, int NextChild);
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct PendingGraphModule(Module Module, int Depth);
+internal readonly record struct PendingGraphModule(ModuleRecord Module, int Depth);
 
 internal sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class
 {
@@ -369,10 +369,10 @@ internal sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : clas
 internal sealed class GraphModuleLoadPayload : ModuleLoadPayload
 {
     private readonly GraphLoadingState _state;
-    private readonly CyclicModule _parent;
+    private readonly CyclicModuleRecord _parent;
     private readonly int _depth;
 
-    internal GraphModuleLoadPayload(GraphLoadingState state, CyclicModule parent, int depth)
+    internal GraphModuleLoadPayload(GraphLoadingState state, CyclicModuleRecord parent, int depth)
     {
         _state = state;
         _parent = parent;
@@ -381,7 +381,7 @@ internal sealed class GraphModuleLoadPayload : ModuleLoadPayload
 
     internal override ModuleLoadBudget Budget => _state.Budget;
 
-    internal override void Continue(Module? module, JsValue? error)
+    internal override void Continue(ModuleRecord? module, JsValue? error)
     {
         if (!_state.IsLoading)
         {
@@ -391,7 +391,7 @@ internal sealed class GraphModuleLoadPayload : ModuleLoadPayload
         if (error is null)
         {
             _state.RecordEdge(_parent, module!);
-            CyclicModule.InnerModuleLoading(_state, module!, _depth);
+            CyclicModuleRecord.InnerModuleLoading(_state, module!, _depth);
         }
         else
         {
@@ -427,7 +427,7 @@ internal sealed class DynamicImportPayload : ModuleLoadPayload
 
     internal override ModuleLoadBudget Budget { get; }
 
-    internal override void Continue(Module? module, JsValue? error)
+    internal override void Continue(ModuleRecord? module, JsValue? error)
     {
         if (error is not null)
         {
@@ -455,14 +455,14 @@ internal sealed class RootModuleLoadPayload : ModuleLoadPayload
     internal override ModuleLoadBudget Budget { get; }
 
     /// <summary>The loaded module, or null while the load is in flight or has failed.</summary>
-    internal Module? Module { get; private set; }
+    internal ModuleRecord? Module { get; private set; }
 
     /// <summary>The error the load failed with, or null.</summary>
     internal JsValue? Error { get; private set; }
 
     internal bool IsCompleted { get; private set; }
 
-    internal override void Continue(Module? module, JsValue? error)
+    internal override void Continue(ModuleRecord? module, JsValue? error)
     {
         IsCompleted = true;
         Module = module;

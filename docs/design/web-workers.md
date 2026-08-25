@@ -105,7 +105,7 @@ public sealed class WorkerRequest            // internal constructor: the engine
 {
     public Engine Parent { get; }                 // suspended mid-statement; read it, don't run it
     public string Specifier { get; }              // verbatim, unresolved
-    public string? ReferencingLocation { get; }   // the calling module's Module.Location, or null
+    public string? ReferencingLocation { get; }   // the calling module's ModuleRecord.Location, or null
     public WorkerType Type { get; }               // Module — the only value, see §8
     public string Name { get; }
     public int Depth { get; }                     // 0 for a top-level worker; >0 only under opted-in nesting
@@ -588,11 +588,11 @@ only `module` type workers"); QuickJS's `os.Worker` takes a module filename; Mod
 and Bun have no classic-script concept; **no non-browser runtime ships a working `importScripts`**. The refusal
 of `'classic'` is Jint's policy — the spec's default is `'classic'` and nothing licenses refusing it — taken for
 Deno's reasons plus two of Jint's own: there is no classic-script loader (`IModuleLoader` loads modules, and
-`Module.Location`'s contract would need re-arguing for a non-module), and a synchronous fetch-and-execute inside
+`ModuleRecord.Location`'s contract would need re-arguing for a non-module), and a synchronous fetch-and-execute inside
 a statement is the one thing this family refuses. A host that must run a legacy classic worker installs its own
 `importScripts` with `AddLazyGlobal` and owns the blocking read.
 
-Declined, absent (not faked): `location` (`WorkerLocation` — the worker's script name is `Module.Location`,
+Declined, absent (not faked): `location` (`WorkerLocation` — the worker's script name is `ModuleRecord.Location`,
 host-exposable via `import.meta`; revisit on demand, §15), `navigator` beyond what the parent's `Navigator` flag
 inherited (`hardwareConcurrency` stays absent — the host owns the threads), `SharedWorker`, `ServiceWorker`,
 `caches` (subtracted with `CacheApi`, so a Jint worker never gets it even when its parent has it),
@@ -764,7 +764,7 @@ offered it would be a separate opt-in feature, and it is not part of Workers.
 | 3 | Termination is cooperative: ≤64 statements on the worker's thread, unbounded inside a host CLR call; the spec's abort is immediate. (Matching the spec: `finally` blocks do not run.) | `webappapis.html#killing-scripts` |
 | 4 | Jint does not URL-parse the specifier, so the constructor's `SyntaxError` becomes whatever the worker's loader later reports. | `workers.html#dedicated-workers-and-the-worker-interface` (step 4) |
 | 5 | No `WorkerGlobalScope`/`DedicatedWorkerGlobalScope` interface objects, so `self instanceof WorkerGlobalScope` answers false — an interface object without the prototype chain would make `instanceof` lie. Ruled together with #3195. | `workers.html#the-workerglobalscope-common-interface` |
-| 6 | No `location`; the worker's script name is its `Module.Location`, exposable via `import.meta`. | `workers.html#dom-workerglobalscope-location` |
+| 6 | No `location`; the worker's script name is its `ModuleRecord.Location`, exposable via `import.meta`. | `workers.html#dom-workerglobalscope-location` |
 | 7 | `navigator` exists only when inherited via `WebApiFeatures.Navigator`; `hardwareConcurrency` deliberately absent — the host owns the threads. | `workers.html#the-workernavigator-object` |
 | 8 | `SharedArrayBuffer` cannot cross, exactly as in a page that is not cross-origin isolated; a browser's dedicated worker *is* in its creator's agent cluster, so this is Jint's isolation policy, not a fact about agents. | `structured-data.html#structuredserializeinternal` |
 | 9 | A worker gets strictly *fewer* capabilities than its creator (network/storage/routing/nesting subtracted); HTML gives it the creator's, floored never raised. Deno's monotonicity rule, applied more strictly. | `workers.html#run-a-worker` |

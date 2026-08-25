@@ -160,7 +160,7 @@ internal sealed class WptWorkerProvider : WorkerProvider
             return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.RelativeOrAbsolute);
         }
 
-        public Jint.Runtime.Modules.Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public Jint.Runtime.Modules.ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => ModuleFactory.BuildSourceTextModule(engine, resolved, _source);
     }
 
@@ -213,7 +213,7 @@ internal sealed class WptWorkerProvider : WorkerProvider
             return new ResolvedSpecifier(moduleRequest, path, Uri: null, SpecifierType.RelativeOrAbsolute);
         }
 
-        public Jint.Runtime.Modules.Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public Jint.Runtime.Modules.ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => ModuleFactory.BuildSourceTextModule(engine, resolved, WptCorpus.Read(resolved.Key));
 
         /// <summary>

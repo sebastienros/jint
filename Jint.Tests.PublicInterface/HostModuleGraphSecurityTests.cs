@@ -10,7 +10,6 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -91,7 +90,7 @@ public sealed class HostModuleGraphSecurityTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The asynchronous path should be used.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -139,14 +138,14 @@ public sealed class HostModuleGraphSecurityTests
 
     private sealed class PreparedLoader : IModuleLoader
     {
-        private readonly Prepared<AstModule> _prepared = Engine.PrepareModule(
+        private readonly Prepared<Module> _prepared = Engine.PrepareModule(
             "export default 1;",
             "prepared");
 
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => ModuleFactory.BuildSourceTextModule(engine, in _prepared);
     }
 
@@ -159,7 +158,7 @@ public sealed class HostModuleGraphSecurityTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => ModuleFactory.BuildBytesModule(engine, resolved, _bytes);
     }
 
@@ -171,7 +170,7 @@ public sealed class HostModuleGraphSecurityTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => resolved.Key == "json"
                 ? ModuleFactory.BuildJsonModule(engine, resolved, Json)
                 : ModuleFactory.BuildTextModule(engine, resolved, Text);

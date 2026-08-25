@@ -31,7 +31,6 @@
   <ItemGroup>
     <Using Include="Acornima" />
     <Using Include="Acornima.Ast" />
-    <Using Include="Acornima.Ast.Module" Alias="AstModule" />
   </ItemGroup>
 
 </Project>

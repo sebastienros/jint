@@ -393,7 +393,7 @@ public class HostOptionsReadOnlyTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => throw new NotSupportedException();
 
-        public Jint.Runtime.Modules.Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public Jint.Runtime.Modules.ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new NotSupportedException();
     }
 }

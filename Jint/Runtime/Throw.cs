@@ -503,6 +503,8 @@ internal static class Throw
     [DoesNotReturn]
     public static void InvalidPreparedModuleArgumentException(string paramName)
     {
-        throw new ArgumentException($"Instances of {typeof(Prepared<AstModule>)} returned by {nameof(Engine.PrepareModule)} are allowed only.", paramName);
+        // Qualified because this file also imports System.Reflection, whose Module collides with
+        // Acornima's. That pair is not Jint's to rename, and it is the one an embedder still meets.
+        throw new ArgumentException($"Instances of {typeof(Prepared<Acornima.Ast.Module>)} returned by {nameof(Engine.PrepareModule)} are allowed only.", paramName);
     }
 }

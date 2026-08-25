@@ -2,7 +2,6 @@
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.Runtime;
 
@@ -599,7 +598,7 @@ export const count = globals.counter;
             return new ResolvedSpecifier(moduleRequest, target.ToString(), target, SpecifierType.Bare);
         }
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             resolved.Uri.Should().NotBeNull();
             var source = resolved.Uri.ToString();
@@ -792,7 +791,7 @@ export const count = globals.counter;
             export const msg = json.message;
             """;
 
-        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>>();
         var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)));
 
         loaderModules.Add(JsonModuleSpecifier, (engine, resolved) => ModuleFactory.BuildJsonModule(engine, resolved, JsonModuleContent));
@@ -830,7 +829,7 @@ export const count = globals.counter;
 
         var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>>();
         var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)))
             .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
 
@@ -864,7 +863,7 @@ export const count = globals.counter;
             export const msg = txt;
             """;
 
-        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>>();
         var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)));
 
         loaderModules.Add(TextModuleSpecifier, (engine, resolved) => ModuleFactory.BuildTextModule(engine, resolved, TextModuleContent));
@@ -899,7 +898,7 @@ export const count = globals.counter;
 
         var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>>();
         var engine = new Engine(o => o.UseModules(new TestModuleLoader(loaderModules)))
             .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
 
@@ -920,9 +919,9 @@ export const count = globals.counter;
 
     private sealed class TestModuleLoader : IModuleLoader
     {
-        private readonly Dictionary<string, Func<Engine, ResolvedSpecifier, Module>> _moduleFactories;
+        private readonly Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>> _moduleFactories;
 
-        public TestModuleLoader(Dictionary<string, Func<Engine, ResolvedSpecifier, Module>> moduleFactories)
+        public TestModuleLoader(Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>> moduleFactories)
         {
             _moduleFactories = moduleFactories;
         }
@@ -932,7 +931,7 @@ export const count = globals.counter;
             return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.RelativeOrAbsolute);
         }
 
-        Module IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
+        ModuleRecord IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             if (_moduleFactories.TryGetValue(resolved.ModuleRequest.Specifier, out var moduleFactory))
             {
@@ -948,7 +947,7 @@ export const count = globals.counter;
     {
         // Module that imports a valid module (which has a linking error) and an unresolvable module.
         // The unresolvable module loading error should be reported before the linking error.
-        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, ModuleRecord>>
         {
             ["main"] = (e, r) => ModuleFactory.BuildSourceTextModule(e, r, "import './has-linking-error'; import './does-not-exist';"),
             ["./has-linking-error"] = (e, r) => ModuleFactory.BuildSourceTextModule(e, r, "import { nonExistent } from './has-linking-error';"),
@@ -1086,7 +1085,7 @@ export const count = globals.counter;
         _engine.Modules.Import("main");
 
         _engine.Evaluate("globalThis.rejected").AsBoolean().Should().BeTrue();
-        // A SourceTextModule's [[ModuleSource]] is empty, and step 3.b of
+        // A SourceTextModuleRecord's [[ModuleSource]] is empty, and step 3.b of
         // https://tc39.es/proposal-source-phase-imports/#sec-ContinueDynamicImport rejects with
         // "a newly created SyntaxError object" for exactly that case.
         _engine.Evaluate("globalThis.errorName").AsString().Should().Be("SyntaxError");

@@ -145,13 +145,13 @@ public sealed class ModuleLoadCompletion
     /// Finishes the load with a module record the host built itself, e.g. through <see cref="ModuleFactory"/>.
     /// </summary>
     /// <remarks>
-    /// The record must have been built for <see cref="Engine"/>: a <see cref="Module"/> holds its engine and
+    /// The record must have been built for <see cref="Engine"/>: a <see cref="ModuleRecord"/> holds its engine and
     /// realm, and sharing one across engines is unsupported. Parsing is safe to do on a worker thread —
     /// <c>Engine.PrepareModule</c> exists for that, and its result may be shared — but the
     /// <see cref="ModuleFactory"/> call that turns it into a record should happen on the engine thread, so
     /// prefer <see cref="SetSource(string)"/> and let the engine make that call at the right moment.
     /// </remarks>
-    public void SetModule(Module module)
+    public void SetModule(ModuleRecord module)
     {
         if (module is null)
         {
@@ -241,7 +241,7 @@ public sealed class ModuleLoadCompletion
         Engine.EnqueueModuleLoadCompletion(onEngineThread, _registration);
     }
 
-    private void Build(Func<Module> build)
+    private void Build(Func<ModuleRecord> build)
     {
         var previousParsingConstraints = Engine._parsingConstraintsOverride;
         Engine._parsingConstraintsOverride = _parsingConstraints;
@@ -260,7 +260,7 @@ public sealed class ModuleLoadCompletion
                 return;
             }
 
-            Module module;
+            ModuleRecord module;
             try
             {
                 module = build();
@@ -346,7 +346,7 @@ public sealed class ModuleLoadCompletion
         ExceptionDispatchInfo.Capture(exception).Throw();
     }
 
-    private void FinishWaiters(Module? module, JsValue? error, Exception? exception)
+    private void FinishWaiters(ModuleRecord? module, JsValue? error, Exception? exception)
     {
         if (error is not null
             && exception is JavaScriptException javaScriptException

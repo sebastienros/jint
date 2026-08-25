@@ -9,7 +9,6 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
 using Xunit.Sdk;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -950,7 +949,7 @@ public class HostEngineConcurrencyTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("The asynchronous path should be used.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -968,7 +967,7 @@ public class HostEngineConcurrencyTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             entered.Set();
             release.Wait(ceiling);
@@ -981,7 +980,7 @@ public class HostEngineConcurrencyTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => throw new ModuleResolutionException("blocked", moduleRequest.Specifier, referencingModuleLocation, filePath: null);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("Resolve should reject the import.");
     }
 

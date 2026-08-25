@@ -139,7 +139,7 @@ Default every new type, member, field and parameter to the **narrowest visibilit
 3. **`protected internal`** — extension points on public abstract classes that user-derived classes legitimately need.
 4. **`public`** — only when the type appears in an already-public signature, or end users must construct it directly.
 
-If a type is only referenced by `internal` members, it must be `internal`. When a public surface seems to force your hand, first check whether that surface can be split so the implementation detail stays internal — `ModuleImportPhase` stayed internal by splitting `public GetModuleNamespace(Module)` from `internal GetModuleNamespace(Module, ModuleImportPhase)`. Public API is a durable commitment; `internal` costs nothing to widen later.
+If a type is only referenced by `internal` members, it must be `internal`. When a public surface seems to force your hand, first check whether that surface can be split so the implementation detail stays internal — `ModuleImportPhase` stayed internal by splitting `public GetModuleNamespace(ModuleRecord)` from `internal GetModuleNamespace(ModuleRecord, ModuleImportPhase)`. Public API is a durable commitment; `internal` costs nothing to widen later.
 
 ## The size budget, and which agents load what
 

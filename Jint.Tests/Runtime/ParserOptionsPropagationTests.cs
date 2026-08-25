@@ -37,7 +37,7 @@ public class ParserOptionsPropagationTests
             throw new ArgumentException(null, nameof(moduleRequest));
         }
 
-        Jint.Runtime.Modules.Module IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
+        Jint.Runtime.Modules.ModuleRecord IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             if (resolved.ModuleRequest.Specifier == MainSpecifier)
             {

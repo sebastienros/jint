@@ -4,7 +4,6 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 using System.Runtime.CompilerServices;
 
-using Module = Jint.Runtime.Modules.Module;
 
 #nullable enable
 
@@ -34,7 +33,7 @@ public class HostErrorDisclosureTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, new Uri("https://user:token@internal.example/module.js"), SpecifierType.RelativeOrAbsolute);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("Synchronous loading is not used.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -90,7 +89,7 @@ public class HostErrorDisclosureTests
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
             => "export const unused = true;";
 
-        Module IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
+        ModuleRecord IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new JavaScriptException(engine.Intrinsics.Error, Secret);
     }
 
@@ -99,7 +98,7 @@ public class HostErrorDisclosureTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => throw new JavaScriptException(new JsString(Secret));
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("Resolve must fail first.");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)

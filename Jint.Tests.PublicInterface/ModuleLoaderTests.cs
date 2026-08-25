@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 #nullable enable
 
@@ -166,7 +165,7 @@ public class ModuleLoaderTests
             return _modules.Resolve(referencingModuleLocation, moduleRequest);
         }
 
-        Module IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
+        ModuleRecord IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             if (resolved.ModuleRequest.Specifier == MainSpecifier)
                 return ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule(_main, MainSpecifier));
@@ -177,8 +176,8 @@ public class ModuleLoaderTests
     /// <summary>
     /// <para>
     /// A simple <see cref="IModuleLoader"/> implementation which will
-    /// re-use prepared <see cref="AstModule"/> or <see cref="JsValue"/> modules to
-    /// produce <see cref="Jint.Runtime.Modules.Module"/>.
+    /// re-use prepared <see cref="Module"/> or <see cref="JsValue"/> modules to
+    /// produce <see cref="Jint.Runtime.Modules.ModuleRecord"/>.
     /// </para>
     /// <para>
     /// The module source gets loaded from <see cref="ModuleStore"/>.
@@ -208,7 +207,7 @@ public class ModuleLoaderTests
             return _store.Resolve(referencingModuleLocation, moduleRequest);
         }
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             resolved.Uri.Should().NotBeNull();
             #if NETCOREAPP1_0_OR_GREATER
@@ -231,10 +230,10 @@ public class ModuleLoaderTests
 
         private sealed class ParsedModule
         {
-            private readonly Prepared<AstModule>? _textModule;
+            private readonly Prepared<Module>? _textModule;
             private readonly (JsValue Json, string Location)? _jsonModule;
 
-            private ParsedModule(in Prepared<AstModule> textModule)
+            private ParsedModule(in Prepared<Module> textModule)
             {
                 _textModule = textModule;
             }
@@ -257,7 +256,7 @@ public class ModuleLoaderTests
                 return parser.Parse(json);
             }
 
-            public Module ToModule(Engine engine)
+            public ModuleRecord ToModule(Engine engine)
             {
                 if (_jsonModule is not null)
                     return ModuleFactory.BuildJsonModule(engine, _jsonModule.Value.Json, _jsonModule.Value.Location);
@@ -367,7 +366,7 @@ public class ModuleLoaderTests
     }
 
     /// <summary>
-    /// Prepares every module once and shares the prepared <see cref="AstModule"/> across engines, naming each
+    /// Prepares every module once and shares the prepared <see cref="Module"/> across engines, naming each
     /// one with <see cref="ModuleFactory.LocationOf"/> so it carries the identity the string-loading overloads
     /// of <see cref="ModuleFactory"/> would have produced. The same string is the cache key, so a module and
     /// its cache entry cannot drift apart.
@@ -377,7 +376,7 @@ public class ModuleLoaderTests
         private static readonly Uri Root = new("file:///modules/");
 
         private readonly IReadOnlyDictionary<string, string> _sources;
-        private readonly Dictionary<string, Prepared<AstModule>> _prepared = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Prepared<Module>> _prepared = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Uri> _urisByLocation = new(StringComparer.Ordinal);
         private readonly List<(string? Referencing, string Specifier)> _resolutions = new();
         private readonly List<string> _preparedLocations = new();
@@ -416,7 +415,7 @@ public class ModuleLoaderTests
             return resolved;
         }
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             // Both the cache key and the prepared module's name are the location the engine derives itself.
             var location = ModuleFactory.LocationOf(resolved);

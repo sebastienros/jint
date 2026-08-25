@@ -984,7 +984,7 @@ public sealed class NodeStyleModuleLoader : ModuleLoader
 
     /// <summary>
     /// The directory a module's own imports resolve against. <c>referencingModuleLocation</c> is
-    /// <see cref="Module.Location"/>, which for anything this loader produced is a file system path - but a
+    /// <see cref="ModuleRecord.Location"/>, which for anything this loader produced is a file system path - but a
     /// module registered with <c>Engine.Modules.Add</c> knows itself by its registration name, and that name is
     /// resolved against the base path, exactly as <see cref="DefaultModuleLoader"/> resolves it.
     /// </summary>

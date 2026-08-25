@@ -238,7 +238,7 @@ This is the exhaustive list. Each row names the spec clause, the Jint site, and 
 | 5 | [`GeneratorResume`](https://tc39.es/proposal-async-context/#sec-generatorresume) / [`GeneratorResumeAbrupt`](https://tc39.es/proposal-async-context/#sec-generatorresumeabrupt) | restore | `GeneratorInstance.GeneratorResume` `:142`, `GeneratorResumeAbrupt` `:170` |
 | 6 | [`AsyncGeneratorStart`](https://tc39.es/proposal-async-context/#sec-asyncgeneratorstart) / [`AsyncGeneratorResume`](https://tc39.es/proposal-async-context/#sec-asyncgeneratorresume) | capture / restore | `Jint/Native/AsyncGenerator/AsyncGeneratorInstance.cs` |
 | 7 | [`YieldExpression` evaluation](https://tc39.es/proposal-async-context/#sec-generator-function-definitions-runtime-semantics-evaluation) | restore the generator's own mapping after the yield returns | **Nothing needed in Jint** — see [§3.4](#34-jint-shapes-that-change-the-answer) |
-| 8 | [`ExecuteModule`](https://tc39.es/proposal-async-context/#sec-source-text-module-record-execute-module) — *"Let moduleContextMapping be a new empty list"* | swap to the **empty** mapping for the whole evaluation | `SourceTextModule.ExecuteModule`, `Jint/Runtime/Modules/SourceTextModule.cs:396` |
+| 8 | [`ExecuteModule`](https://tc39.es/proposal-async-context/#sec-source-text-module-record-execute-module) — *"Let moduleContextMapping be a new empty list"* | swap to the **empty** mapping for the whole evaluation | `SourceTextModuleRecord.ExecuteModule`, `Jint/Runtime/Modules/SourceTextModuleRecord.cs:396` |
 | 9 | [`FinalizationRegistry ( cleanupCallback )`](https://tc39.es/proposal-async-context/#sec-finalization-registry-cleanup-callback) — *"Set finalizationRegistry.[[FinalizationRegistryAsyncContextMapping]] to AsyncContextSnapshot()"* | capture at construction | `FinalizationRegistryInstance` ctor, `Jint/Native/FinalizationRegistry/FinalizationRegistryInstance.cs:16` — **blocked, see [§3.3](#33-finalizationregistry-is-blocked-in-jint)** |
 | 10 | [`HostEnqueueFinalizationRegistryCleanupJob`](https://tc39.es/proposal-async-context/#sec-host-cleanup-finalization-registry) | restore the construction-time mapping around the cleanup | same file, `Observer` finalizer at `:64` — **blocked** |
 | 11 | [`HostPromiseRejectionTracker`](https://tc39.es/proposal-async-context/#sec-host-promise-rejection-tracker) requirements list | snapshot at the call, swap around the notification | `Host.HostPromiseRejectionTracker` `Jint/Runtime/Host.cs:473` → `Engine.OnPromiseRejectionTracker`. Host territory; see [§4.4](#44-hostpromiserejectiontracker) |
@@ -505,7 +505,7 @@ held to (`Jint/Engine.Pump.cs:44-59`).
 | `setTimeout` / `setInterval` registration | 1 load + 1 store on `TimerEntry` | +8 B per timer, capped by `MaxActiveTimers` |
 | `TimerEntry.Fire` | 2 null tests | `Jint/WebApi/Timers/TimerQueue.cs:300` |
 | `queueMicrotask` | 1 load, captured into the existing closure | the closure already exists (`TimerFunctions.cs:180`) |
-| `SourceTextModule.ExecuteModule` | 1 swap pair per module evaluation | not a hot path |
+| `SourceTextModuleRecord.ExecuteModule` | 1 swap pair per module evaluation | not a hot path |
 | `Variable.get()` | 1 null test → return `[[AsyncVariableDefaultValue]]` | only reachable if script has a `Variable` |
 | Engine construction | **zero** | `Agent` gains a null reference field; nothing is allocated |
 
