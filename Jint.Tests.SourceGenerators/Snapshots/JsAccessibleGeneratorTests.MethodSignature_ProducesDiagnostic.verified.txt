@@ -1,0 +1,102 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (12,22)-(12,29),
+      Message: Method 'Utility' on 'Model' is reached through reflection: it is static, and the generated read, write and invoke lanes are instance lanes,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (13,13)-(13,20),
+      Message: Method 'Generic' on 'Model' is reached through reflection: it is generic, and its type arguments are chosen per call,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (14,19)-(14,23),
+      Message: Method 'Slot' on 'Model' is reached through reflection: it returns by reference,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (15,34)-(15,38),
+      Message: Method 'Coerced' on 'Model' is reached through reflection: parameter 'text' is typed 'string' rather than JsValue, so its reflected binding is a conversion chain steered by engine options,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (16,52)-(16,57),
+      Message: Method 'Defaulted' on 'Model' is reached through reflection: parameter 'other' is optional, and its default is applied by the reflected binder,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (17,43)-(17,49),
+      Message: Method 'Spread' on 'Model' is reached through reflection: parameter 'values' is a params parameter, whose reflected binding spreads the remaining arguments,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (18,37)-(18,42),
+      Message: Method 'ByRef' on 'Model' is reached through reflection: parameter 'value' is passed by reference,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT033,
+        Title: [JsAccessible] method signature is outside the generated lane,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

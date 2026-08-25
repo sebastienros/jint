@@ -1,0 +1,60 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (15,19)-(15,29),
+      Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT032,
+        Title: [JsAccessible] method name is not unique,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (16,19)-(16,29),
+      Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT032,
+        Title: [JsAccessible] method name is not unique,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (18,27)-(18,35),
+      Message: Method 'ToString' on 'Model' is reached through reflection: 'ToString' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT032,
+        Title: [JsAccessible] method name is not unique,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (20,19)-(20,27),
+      Message: Method 'Describe' on 'Model' is reached through reflection: 'Sample.INamed' also declares 'Describe', which resolves by name to the same accessor,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT032,
+        Title: [JsAccessible] method name is not unique,
+        MessageFormat: Method '{0}' on '{1}' is reached through reflection: {2},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

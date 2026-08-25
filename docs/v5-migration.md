@@ -1489,14 +1489,30 @@ one reports the arity it inherits from `Function.prototype`.
 **What the generator declines**, leaving the member to resolve through reflection exactly as it did before
 you annotated the type:
 
-| shape | why |
-| --- | --- |
-| an overloaded method name | overload resolution is what the reflected path exists for |
-| a method parameter not typed `JsValue` | its reflected binding is a conversion chain steered by engine options; reproducing it in emitted code is where a generated accessor stops being equivalent |
-| an optional, `params`, `ref`/`out` parameter, or a generic method | same |
-| a property with a non-public or `init` accessor | reflection writes those and emitted C# cannot, so half a member would be worse than none |
-| a `static` member, an indexer, a `const` field | resolved by a different lane |
-| an `abstract`, `static`, generic or nested-private type, and any value type | never the runtime type of a receiver, or unreachable from emitted code — and a value type's instance member would be written through a boxed copy |
+| shape | diagnostic | why |
+| --- | --- | --- |
+| an overloaded method name — counting a base type's and an implemented interface's | `JINT032` | overload resolution is what the reflected path exists for |
+| a method parameter not typed `JsValue` | `JINT033` | its reflected binding is a conversion chain steered by engine options; reproducing it in emitted code is where a generated accessor stops being equivalent |
+| an optional, `params`, `ref`/`out` parameter, a generic method, a `ref` return, a `static` method | `JINT033` | same, or the lane is an instance lane |
+| a property with a non-public or `init` accessor, or a `ref` return | `JINT034` | reflection writes those and emitted C# cannot, so half a member would be worse than none |
+| a member typed by a pointer or a ref struct | `JINT035` | emitted C# cannot name or box it |
+| an indexer | `JINT036` | it is probed ahead of the declared members, so every name it answers for resolves through it |
+| an `abstract`, `static`, generic, record or nested-private type, and any value type | `JINT030` | never the runtime type of a receiver, or unreachable from emitted code — and a value type's instance member would be written through a boxed copy |
+| an annotated type where none of the above leaves anything | `JINT031` | the annotation registers nothing |
+
+**Every one of those is now reported**, at `Info`, against the declaration that caused it — so annotating a
+type tells you which of its members you did *not* buy the no-reflection claim for. A `static` property or
+field, a `const`, and anything non-public are declined *silently*, because the default
+`ObjectWrapperReported*BindingFlags` do not report them to script either and nothing was lost.
+
+Promote whichever of them your build cares about in `.editorconfig`; there is no attribute property for it,
+because whether a fallback is tolerable is a property of the build rather than of one annotated type:
+
+```ini
+[*.cs]
+dotnet_diagnostic.JINT033.severity = error   # every method of mine must take the generated lane
+dotnet_diagnostic.JINT032.severity = none    # ... but my overloads may stay reflected
+```
 
 **What still contains it.** `TypeResolver.MemberFilter`, `MemberNameCreator`, `MemberNameComparer` and
 `Options.Interop.ObjectWrapperReported*BindingFlags` reach a generated member exactly as they reach a
@@ -1517,8 +1533,7 @@ Consume the generator with an `Analyzer` project reference for now:
                   OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 ```
 
-Shipping it inside the `Jint` NuGet package and diagnostics for the declined shapes above are each their own
-follow-up.
+Shipping it inside the `Jint` NuGet package is its own follow-up.
 
 ### 5.2 Changing one locale datum is one override ([#3335](https://github.com/sebastienros/jint/pull/3335))
 

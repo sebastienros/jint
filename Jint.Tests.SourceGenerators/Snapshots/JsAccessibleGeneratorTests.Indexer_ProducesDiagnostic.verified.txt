@@ -1,0 +1,18 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (9,18)-(9,22),
+      Message: Indexer 'this[string]' on 'Model' is reached through reflection, and it is probed ahead of the declared members: every name the indexer answers for resolves through it, and the generated lane is not consulted for that name,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT036,
+        Title: [JsAccessible] indexer is probed ahead of every generated member,
+        MessageFormat: Indexer 'this[{0}]' on '{1}' is reached through reflection, and it is probed ahead of the declared members: every name the indexer answers for resolves through it, and the generated lane is not consulted for that name,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

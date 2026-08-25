@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Jint.SourceGenerators.Interop;
 
@@ -52,44 +53,55 @@ internal sealed record class AccessibleMethod(
     string ReturnTypeFullName,
     bool ReturnsVoid);
 
-internal sealed record class AccessibleTypeDefinition(
-    string FullyQualifiedName,
+/// <summary>
+/// One annotated declaration, as the pipeline carries it: what can be emitted for it, if anything, and
+/// what could not be — the second half being the point of the diagnostics, since a declined member keeps
+/// the reflection path silently and the feature's whole claim is about not reflecting.
+/// </summary>
+/// <remarks>
+/// The two halves travel together because they are decided together and deduplicated together: a partial
+/// class carrying the attribute on two of its parts arrives twice, and reporting one part's diagnostics
+/// twice would be as wrong as emitting one part's source twice.
+/// </remarks>
+internal sealed record class AccessibleTypeResult(
     string MetadataPath,
-    EquatableArray<AccessibleMember> Members,
-    EquatableArray<AccessibleMethod> Methods)
+    AccessibleTypeDefinition? Definition,
+    EquatableArray<DiagnosticInfo> DiagnosticInfos)
 {
-    /// <summary>
-    /// One file per annotated type, named by the path that actually identifies it. The MVP used
-    /// <c>{Namespace}.{Name}</c>, which gives <c>Demo.Player</c> for both <c>Demo.Player</c> and
-    /// <c>Demo.Outer.Player</c> — and a second <c>AddSource</c> under a hint name already used crashes the
-    /// generator rather than reporting anything.
-    /// </summary>
-    public string HintName => MetadataPath + ".JsAccessible.g.cs";
-
-    /// <summary>The same path as a C# identifier, which is what makes the emitted class names unique.</summary>
-    public string SafeId => Sanitize(MetadataPath);
-
-    private static string Sanitize(string id)
+    public IEnumerable<Diagnostic> Diagnostics
     {
-        var sb = new StringBuilder(id.Length);
-        foreach (var ch in id)
+        get
         {
-            sb.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
+            foreach (var info in DiagnosticInfos)
+            {
+                yield return info.ToDiagnostic();
+            }
         }
-
-        return sb.ToString();
     }
 
-    public static AccessibleTypeDefinition? From(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
+    public static AccessibleTypeResult? From(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken)
     {
         if (context.TargetSymbol is not INamedTypeSymbol type)
         {
             return null;
         }
 
-        if (!IsEligibleType(type))
+        var typeLocation = context.TargetNode is TypeDeclarationSyntax declaration
+            ? declaration.Identifier.GetLocation()
+            : context.TargetNode.GetLocation();
+
+        var diagnostics = new List<DiagnosticInfo>();
+        var metadataPath = MetadataPathOf(type);
+
+        var ineligible = IneligibleTypeReason(type);
+        if (ineligible is not null)
         {
-            return null;
+            diagnostics.Add(new DiagnosticInfo(
+                JsAccessibleDiagnosticDescriptors.TypeCannotBeRegistered,
+                typeLocation,
+                type.Name,
+                ineligible));
+            return new AccessibleTypeResult(metadataPath, Definition: null, diagnostics.ToEquatableArray());
         }
 
         var members = ImmutableArray.CreateBuilder<AccessibleMember>();
@@ -99,37 +111,47 @@ internal sealed record class AccessibleTypeDefinition(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (member.IsStatic || member.DeclaredAccessibility != Accessibility.Public)
+            // A member that is not public is not reachable from script under any binding-flag configuration
+            // the engine offers, so declining it costs nothing and there is nothing to report. Saying so on
+            // every private field of an annotated type would be the noise that gets the whole rule turned
+            // off.
+            if (member.DeclaredAccessibility != Accessibility.Public)
             {
                 continue;
             }
 
             switch (member)
             {
-                case IPropertySymbol property when TryDescribeProperty(property, out var described):
-                    members.Add(described!);
+                case IPropertySymbol property:
+                    DescribeProperty(type, property, members, diagnostics);
                     break;
 
-                case IFieldSymbol field when TryDescribeField(field, out var describedField):
-                    members.Add(describedField!);
+                case IFieldSymbol field:
+                    DescribeField(type, field, members, diagnostics);
                     break;
 
-                case IMethodSymbol method when TryDescribeMethod(type, method, out var describedMethod):
-                    methods.Add(describedMethod!);
+                case IMethodSymbol method:
+                    DescribeMethod(type, method, methods, diagnostics);
                     break;
             }
         }
 
         if (members.Count == 0 && methods.Count == 0)
         {
-            return null;
+            diagnostics.Add(new DiagnosticInfo(
+                JsAccessibleDiagnosticDescriptors.TypeRegistersNothing,
+                typeLocation,
+                type.Name));
+            return new AccessibleTypeResult(metadataPath, Definition: null, diagnostics.ToEquatableArray());
         }
 
-        return new AccessibleTypeDefinition(
+        var definition = new AccessibleTypeDefinition(
             FullyQualifiedName: type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            MetadataPath: MetadataPathOf(type),
+            MetadataPath: metadataPath,
             Members: new EquatableArray<AccessibleMember>(members.ToImmutable()),
             Methods: new EquatableArray<AccessibleMethod>(methods.ToImmutable()));
+
+        return new AccessibleTypeResult(metadataPath, definition, diagnostics.ToEquatableArray());
     }
 
     /// <summary>
@@ -165,14 +187,41 @@ internal sealed record class AccessibleTypeDefinition(
         return sb.ToString();
     }
 
-    private static bool IsEligibleType(INamedTypeSymbol type)
+    /// <summary>
+    /// Why the whole type stays on the reflection path, or <see langword="null"/> when it does not. A value
+    /// type's instance members are excluded for the reason the run-time compiled lanes exclude them: the
+    /// typed access runs against a boxed copy. An open generic has no single runtime <c>Type</c> to register
+    /// under, and an abstract or static type is never a receiver's runtime type.
+    /// </summary>
+    private static string? IneligibleTypeReason(INamedTypeSymbol type)
     {
-        // A value type's instance members are excluded for the reason the run-time compiled lanes exclude
-        // them: the typed access runs against a boxed copy. An open generic has no single runtime Type to
-        // register under, and an abstract or static type is never a receiver's runtime type.
-        if (type.TypeKind != TypeKind.Class || type.IsAbstract || type.IsStatic || type.IsGenericType)
+        if (type.TypeKind != TypeKind.Class)
         {
-            return false;
+            return $"it is a {type.TypeKind.ToString().ToLowerInvariant()}, and only a class is registered";
+        }
+
+        // A record is a class, so it reaches here — and its compiler-generated members are exactly the shape
+        // the emitter cannot name: `<Clone>$` is an ordinary public method whose name is not an identifier.
+        // Declining the type is what the generator has always done (a record declaration is not a
+        // ClassDeclarationSyntax, so it never used to arrive at all); the only change is that it now says so.
+        if (type.IsRecord)
+        {
+            return "it is a record, whose compiler-generated members the generator does not model";
+        }
+
+        if (type.IsStatic)
+        {
+            return "it is a static class, so it is never the runtime type of a receiver";
+        }
+
+        if (type.IsAbstract)
+        {
+            return "it is abstract, so it is never the runtime type of a receiver";
+        }
+
+        if (type.IsGenericType)
+        {
+            return "it is a generic type definition, and has no single runtime type to register under";
         }
 
         // The generated registration is an ordinary class in the same assembly, so it can name anything
@@ -187,25 +236,50 @@ internal sealed record class AccessibleTypeDefinition(
                 case Accessibility.NotApplicable:
                     break;
                 default:
-                    return false;
+                    return "it, or a type containing it, is private or protected, and the generated registration cannot name it";
             }
         }
 
-        return true;
+        return null;
     }
 
-    private static bool TryDescribeProperty(IPropertySymbol property, out AccessibleMember? member)
+    private static void DescribeProperty(
+        INamedTypeSymbol type,
+        IPropertySymbol property,
+        ImmutableArray<AccessibleMember>.Builder members,
+        List<DiagnosticInfo> diagnostics)
     {
-        member = null;
-
-        if (property.IsIndexer || property.Parameters.Length != 0 || property.RefKind != RefKind.None)
+        // Reported on its own rule: an indexer is not merely a member the generator declines, it is probed
+        // ahead of the declared members, so every name it answers for resolves through it whatever the
+        // registry holds.
+        if (property.IsIndexer)
         {
-            return false;
+            diagnostics.Add(new DiagnosticInfo(
+                JsAccessibleDiagnosticDescriptors.IndexerIsProbedFirst,
+                LocationOf(property),
+                property.Parameters.Length == 1 ? property.Parameters[0].Type.ToDisplayString() : "…",
+                type.Name));
+            return;
+        }
+
+        // Default ObjectWrapperReportedPropertyBindingFlags is Public | Instance, so a static property is
+        // not reachable from script at all and declining it takes nothing away. (Methods differ - the
+        // default method flags include Static - which is why DescribeMethod reports one and this does not.)
+        if (property.IsStatic || property.Parameters.Length != 0)
+        {
+            return;
+        }
+
+        if (property.RefKind != RefKind.None)
+        {
+            ReportMember(diagnostics, JsAccessibleDiagnosticDescriptors.MemberDeclarationNotGenerated, property, type, "it returns by reference");
+            return;
         }
 
         if (!IsExpressibleType(property.Type))
         {
-            return false;
+            ReportInexpressible(diagnostics, property, type, property.Type, "its type");
+            return;
         }
 
         // Reflection reads and writes a non-public accessor perfectly well - PropertyInfo.CanWrite is true
@@ -218,73 +292,124 @@ internal sealed record class AccessibleTypeDefinition(
 
         if (getter is not null && getter.DeclaredAccessibility != Accessibility.Public)
         {
-            return false;
+            ReportMember(diagnostics, JsAccessibleDiagnosticDescriptors.MemberDeclarationNotGenerated, property, type, "its get accessor is not public, and generated code cannot call it");
+            return;
         }
 
-        if (setter is not null && (setter.DeclaredAccessibility != Accessibility.Public || setter.IsInitOnly))
+        if (setter is not null && setter.IsInitOnly)
         {
-            return false;
+            ReportMember(diagnostics, JsAccessibleDiagnosticDescriptors.MemberDeclarationNotGenerated, property, type, "its setter is 'init', which only an object initializer or reflection can call");
+            return;
+        }
+
+        if (setter is not null && setter.DeclaredAccessibility != Accessibility.Public)
+        {
+            ReportMember(diagnostics, JsAccessibleDiagnosticDescriptors.MemberDeclarationNotGenerated, property, type, "its set accessor is not public, and generated code cannot call it");
+            return;
         }
 
         if (getter is null && setter is null)
         {
-            return false;
+            return;
         }
 
-        member = new AccessibleMember(
+        members.Add(new AccessibleMember(
             Name: property.Name,
             TypeFullName: property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             Kind: Classify(property.Type),
             IsValueType: property.Type.IsValueType,
             CanRead: getter is not null,
-            CanWrite: setter is not null);
-        return true;
+            CanWrite: setter is not null));
     }
 
-    private static bool TryDescribeField(IFieldSymbol field, out AccessibleMember? member)
+    private static void DescribeField(
+        INamedTypeSymbol type,
+        IFieldSymbol field,
+        ImmutableArray<AccessibleMember>.Builder members,
+        List<DiagnosticInfo> diagnostics)
     {
-        member = null;
-
-        // A constant has no storage to read through, which is why the compiled read lane declines it too;
-        // reflection answers it out of metadata.
-        if (field.IsConst || field.IsImplicitlyDeclared || field.RefKind != RefKind.None)
+        // Three silent declines, and none of them is a difference a host could act on. A backing field is
+        // not something they wrote. A static field - and a constant, which is static - is not reported by
+        // the default ObjectWrapperReportedFieldBindingFlags (Public | Instance), so it is not reachable
+        // from script whether or not the generator takes it; the IsConst test is kept beside IsStatic
+        // because the compiled read lane declines a constant for its own reason, that it has no storage to
+        // read through. And a ref field exists only in a ref struct, which never reaches this method.
+        if (field.IsImplicitlyDeclared || field.IsStatic || field.IsConst || field.RefKind != RefKind.None)
         {
-            return false;
+            return;
         }
 
         if (!IsExpressibleType(field.Type))
         {
-            return false;
+            ReportInexpressible(diagnostics, field, type, field.Type, "its type");
+            return;
         }
 
-        member = new AccessibleMember(
+        members.Add(new AccessibleMember(
             Name: field.Name,
             TypeFullName: field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             Kind: Classify(field.Type),
             IsValueType: field.Type.IsValueType,
             CanRead: true,
-            CanWrite: !field.IsReadOnly);
-        return true;
+            CanWrite: !field.IsReadOnly));
     }
 
-    private static bool TryDescribeMethod(INamedTypeSymbol type, IMethodSymbol method, out AccessibleMethod? described)
+    private static void DescribeMethod(
+        INamedTypeSymbol type,
+        IMethodSymbol method,
+        ImmutableArray<AccessibleMethod>.Builder methods,
+        List<DiagnosticInfo> diagnostics)
     {
-        described = null;
-
-        if (method.MethodKind != MethodKind.Ordinary
-            || method.IsGenericMethod
-            || method.IsAbstract
-            || method.RefKind != RefKind.None)
+        // Property accessors, constructors, operators, finalizers and event accessors. Reflection does
+        // resolve `get_Score` by name, so declining these is a real difference — but nobody annotated a type
+        // wanting a generated `get_Score`, and reporting two lines per property is how a rule earns a
+        // blanket suppression.
+        if (method.MethodKind != MethodKind.Ordinary)
         {
-            return false;
+            return;
+        }
+
+        // Unlike properties and fields, the default ObjectWrapperReportedMethodBindingFlags includes Static,
+        // so a public static method IS reachable from script through an instance wrapper and declining it is
+        // a genuine difference.
+        if (method.IsStatic)
+        {
+            ReportMethod(diagnostics, JsAccessibleDiagnosticDescriptors.MethodSignatureNotGenerated, method, type, "it is static, and the generated read, write and invoke lanes are instance lanes");
+            return;
+        }
+
+        if (method.IsGenericMethod)
+        {
+            ReportMethod(diagnostics, JsAccessibleDiagnosticDescriptors.MethodSignatureNotGenerated, method, type, "it is generic, and its type arguments are chosen per call");
+            return;
+        }
+
+        // Defensive, and silent because it cannot be reached: an abstract method exists only in an abstract
+        // class, and IneligibleTypeReason has already declined the whole type by the time this runs.
+        if (method.IsAbstract)
+        {
+            return;
+        }
+
+        if (method.RefKind != RefKind.None)
+        {
+            ReportMethod(diagnostics, JsAccessibleDiagnosticDescriptors.MethodSignatureNotGenerated, method, type, "it returns by reference");
+            return;
         }
 
         // Overload resolution is what MethodInfoFunction exists for; a name carrying more than one candidate
         // anywhere the engine would look for it stays with it. Base types count (reflection reports inherited
         // methods) and so does System.Object, which is why an override of ToString or Equals is never taken.
-        if (NameIsAmbiguous(type, method))
+        var ambiguity = NameAmbiguityReason(type, method);
+        if (ambiguity is not null)
         {
-            return false;
+            diagnostics.Add(new DiagnosticInfo(
+                JsAccessibleDiagnosticDescriptors.MethodNameIsNotUnique,
+                LocationOf(method),
+                method.Name,
+                type.Name,
+                ambiguity));
+            return;
         }
 
         foreach (var parameter in method.Parameters)
@@ -293,29 +418,69 @@ internal sealed record class AccessibleTypeDefinition(
             // handed the argument untouched (InteropParameterFlags.JsValueAssignable). Every other parameter
             // type goes through a conversion chain that is steered by engine options, and reproducing it in
             // emitted code is how the MVP acquired both of its behavioural divergences.
-            if (parameter.RefKind != RefKind.None
-                || parameter.IsParams
-                || parameter.IsOptional
-                || Classify(parameter.Type) != AccessibleValueKind.JsValue)
+            var problem = ParameterProblem(parameter);
+            if (problem is not null)
             {
-                return false;
+                diagnostics.Add(new DiagnosticInfo(
+                    JsAccessibleDiagnosticDescriptors.MethodSignatureNotGenerated,
+                    parameter.Locations.FirstOrDefault() ?? LocationOf(method),
+                    method.Name,
+                    type.Name,
+                    problem));
+                return;
             }
         }
 
         if (!method.ReturnsVoid && !IsExpressibleType(method.ReturnType))
         {
-            return false;
+            var reason = InexpressibleReason(method.ReturnType);
+            if (reason is not null)
+            {
+                diagnostics.Add(new DiagnosticInfo(
+                    JsAccessibleDiagnosticDescriptors.MemberTypeCannotBeNamed,
+                    LocationOf(method),
+                    "Method",
+                    method.Name,
+                    type.Name,
+                    $"its return type '{method.ReturnType.ToDisplayString()}' {reason}"));
+            }
+
+            return;
         }
 
-        described = new AccessibleMethod(
+        methods.Add(new AccessibleMethod(
             Name: method.Name,
             ParameterCount: method.Parameters.Length,
             ReturnTypeFullName: method.ReturnsVoid ? "void" : method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-            ReturnsVoid: method.ReturnsVoid);
-        return true;
+            ReturnsVoid: method.ReturnsVoid));
     }
 
-    private static bool NameIsAmbiguous(INamedTypeSymbol type, IMethodSymbol method)
+    private static string? ParameterProblem(IParameterSymbol parameter)
+    {
+        if (parameter.RefKind != RefKind.None)
+        {
+            return $"parameter '{parameter.Name}' is passed by reference";
+        }
+
+        if (parameter.IsParams)
+        {
+            return $"parameter '{parameter.Name}' is a params parameter, whose reflected binding spreads the remaining arguments";
+        }
+
+        if (parameter.IsOptional)
+        {
+            return $"parameter '{parameter.Name}' is optional, and its default is applied by the reflected binder";
+        }
+
+        if (Classify(parameter.Type) != AccessibleValueKind.JsValue)
+        {
+            return $"parameter '{parameter.Name}' is typed '{parameter.Type.ToDisplayString()}' rather than JsValue, so its reflected binding is a conversion chain steered by engine options";
+        }
+
+        return null;
+    }
+
+    private static string? NameAmbiguityReason(INamedTypeSymbol type, IMethodSymbol method)
     {
         var seen = 0;
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
@@ -331,7 +496,7 @@ internal sealed record class AccessibleTypeDefinition(
 
         if (seen != 1)
         {
-            return true;
+            return $"'{method.Name}' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for";
         }
 
         // An explicitly implemented interface member is resolved by name too, and reaches the same accessor.
@@ -341,12 +506,72 @@ internal sealed record class AccessibleTypeDefinition(
             {
                 if (sibling is IMethodSymbol { MethodKind: MethodKind.Ordinary })
                 {
-                    return true;
+                    return $"'{iface.ToDisplayString()}' also declares '{method.Name}', which resolves by name to the same accessor";
                 }
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /// <summary>JINT032 and JINT033 name the method directly, so their arguments are (name, type, reason).</summary>
+    private static void ReportMethod(
+        List<DiagnosticInfo> diagnostics,
+        DiagnosticDescriptor descriptor,
+        IMethodSymbol method,
+        INamedTypeSymbol type,
+        string reason)
+        => diagnostics.Add(new DiagnosticInfo(descriptor, LocationOf(method), method.Name, type.Name, reason));
+
+    /// <summary>JINT034 and JINT035 cover more than one member kind, so they lead with the kind word.</summary>
+    private static void ReportMember(
+        List<DiagnosticInfo> diagnostics,
+        DiagnosticDescriptor descriptor,
+        ISymbol member,
+        INamedTypeSymbol type,
+        string reason)
+        => diagnostics.Add(new DiagnosticInfo(descriptor, LocationOf(member), KindWordOf(member), member.Name, type.Name, reason));
+
+    private static void ReportInexpressible(
+        List<DiagnosticInfo> diagnostics,
+        ISymbol member,
+        INamedTypeSymbol type,
+        ITypeSymbol memberType,
+        string possessive)
+    {
+        var reason = InexpressibleReason(memberType);
+        if (reason is null)
+        {
+            return;
+        }
+
+        diagnostics.Add(new DiagnosticInfo(
+            JsAccessibleDiagnosticDescriptors.MemberTypeCannotBeNamed,
+            LocationOf(member),
+            KindWordOf(member),
+            member.Name,
+            type.Name,
+            $"{possessive} '{memberType.ToDisplayString()}' {reason}"));
+    }
+
+    private static string KindWordOf(ISymbol member) => member switch
+    {
+        IPropertySymbol => "Property",
+        IFieldSymbol => "Field",
+        _ => "Method",
+    };
+
+    private static Location? LocationOf(ISymbol symbol)
+    {
+        foreach (var location in symbol.Locations)
+        {
+            if (location.IsInSource)
+            {
+                return location;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -366,6 +591,36 @@ internal sealed record class AccessibleTypeDefinition(
         // A tuple, a nested type, a generic instantiation - all nameable. What is not is anything whose
         // declaration the emitted file cannot see.
         return IsAtLeastInternal(type);
+    }
+
+    /// <summary>
+    /// Why <see cref="IsExpressibleType"/> declined the type, as a clause, or <see langword="null"/> when
+    /// there is nothing worth saying — which is the error-type case, where the compilation already carries a
+    /// diagnostic of its own and a second one about interop would only bury it.
+    /// </summary>
+    private static string? InexpressibleReason(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Error)
+        {
+            return null;
+        }
+
+        if (type.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer)
+        {
+            return "is a pointer type, which generated code cannot box";
+        }
+
+        if (type.TypeKind == TypeKind.TypeParameter)
+        {
+            return "is a type parameter, which has no single runtime type";
+        }
+
+        if (type.IsRefLikeType)
+        {
+            return "is a ref struct, which generated code cannot box";
+        }
+
+        return "is less accessible than internal, so the generated file cannot name it";
     }
 
     private static bool IsAtLeastInternal(ITypeSymbol type)
@@ -429,5 +684,34 @@ internal sealed record class AccessibleTypeDefinition(
         }
 
         return AccessibleValueKind.Other;
+    }
+}
+
+internal sealed record class AccessibleTypeDefinition(
+    string FullyQualifiedName,
+    string MetadataPath,
+    EquatableArray<AccessibleMember> Members,
+    EquatableArray<AccessibleMethod> Methods)
+{
+    /// <summary>
+    /// One file per annotated type, named by the path that actually identifies it. The MVP used
+    /// <c>{Namespace}.{Name}</c>, which gives <c>Demo.Player</c> for both <c>Demo.Player</c> and
+    /// <c>Demo.Outer.Player</c> — and a second <c>AddSource</c> under a hint name already used crashes the
+    /// generator rather than reporting anything.
+    /// </summary>
+    public string HintName => MetadataPath + ".JsAccessible.g.cs";
+
+    /// <summary>The same path as a C# identifier, which is what makes the emitted class names unique.</summary>
+    public string SafeId => Sanitize(MetadataPath);
+
+    private static string Sanitize(string id)
+    {
+        var sb = new StringBuilder(id.Length);
+        foreach (var ch in id)
+        {
+            sb.Append(char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_');
+        }
+
+        return sb.ToString();
     }
 }

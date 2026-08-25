@@ -1,0 +1,74 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (5,22)-(5,30),
+      Message: Type 'Abstract' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is abstract, so it is never the runtime type of a receiver,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT030,
+        Title: [JsAccessible] type cannot be registered,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: {1},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (17,20)-(17,27),
+      Message: Type 'Generic' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is a generic type definition, and has no single runtime type to register under,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT030,
+        Title: [JsAccessible] type cannot be registered,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: {1},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (31,25)-(31,31),
+      Message: Type 'Hidden' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it, or a type containing it, is private or protected, and the generated registration cannot name it,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT030,
+        Title: [JsAccessible] type cannot be registered,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: {1},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (23,21)-(23,29),
+      Message: Type 'Recorded' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is a record, whose compiler-generated members the generator does not model,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT030,
+        Title: [JsAccessible] type cannot be registered,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: {1},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (11,20)-(11,27),
+      Message: Type 'Statics' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is a static class, so it is never the runtime type of a receiver,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT030,
+        Title: [JsAccessible] type cannot be registered,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: {1},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

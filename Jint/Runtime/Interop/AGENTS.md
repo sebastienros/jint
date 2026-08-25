@@ -61,7 +61,7 @@ rather than approximately like it, and it is why `GeneratedMemberAccessor` reads
 runs every case against both an annotated type and an un-annotated twin and compares the results, so a
 drift shows up as a failure naming the script that diverged.
 
-Five consequences worth knowing before touching any of it.
+Six consequences worth knowing before touching any of it.
 
 - **Anything the two paths cannot agree on is not generated at all.** A method parameter not typed
   `JsValue` goes through a conversion chain steered by `Options.Interop.ValueCoercion` and the installed
@@ -98,6 +98,23 @@ Five consequences worth knowing before touching any of it.
   against before answering from its cache.** Without that, a `RegisterAll()` landing after an engine had
   already resolved a member of the same type would go on being answered with the reflected accessor and
   nothing would say so.
+- **Every decline is reported, and a decline that costs a host nothing is deliberately not.**
+  `JsAccessibleModels.cs` reports `JINT030`–`JINT036` at **info**, one id per remedy: the type is out of
+  scope (030), the annotation registers nothing at all (031), a method name is not unique (032), a method
+  signature is outside the lane (033), a member's declaration is (034), a member's type cannot be named in
+  emitted C# (035), and an indexer, which is probed ahead of every declared member and therefore takes the
+  generated lane out of play for every name it answers for (036). **The rule for a new decline is whether
+  reflection would have served the member**, not whether the generator took it: a non-public member, a
+  static property or field, a `const` (which is static), a backing field and a property accessor are all
+  declined *silently*, because the default `ObjectWrapperReported*BindingFlags` never report them and
+  nothing was lost. A public **static method** is reported, because the default method flags include
+  `BindingFlags.Static` and reflection does serve it. Getting that wrong in the permissive direction is how
+  a rule earns a blanket suppression and stops being read at all. There is deliberately **no attribute
+  property** promoting these: `dotnet_diagnostic.JINT033.severity = error` in an `.editorconfig` is
+  verified to reach a generator-reported diagnostic, it is per id rather than all-or-nothing, and it is a
+  property of the build rather than of one annotated type. A branch that cannot be reached is declined
+  silently and says so in a comment (an abstract method, a `ref` field) rather than carrying a message no
+  snapshot can pin.
 - **The generator lives in its own analyzer assembly, `Jint.SourceGenerators.Interop`, and that is not
   organisational.** `Jint.SourceGenerators` emits its attribute set through
   `RegisterPostInitializationOutput` unconditionally, and that source declares members typed

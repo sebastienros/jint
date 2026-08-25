@@ -23,12 +23,16 @@ public sealed class JsAccessibleGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        // TypeDeclarationSyntax rather than ClassDeclarationSyntax, which is what it used to be. A record is
+        // a class, so [JsAccessible] compiles on one, but a RecordDeclarationSyntax is not a
+        // ClassDeclarationSyntax — so an annotated record used to be dropped here, before anything could say
+        // a word about it. It is still declined, now by IneligibleTypeReason and with a diagnostic.
         var types = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 JsAccessibleAttributeMetadataName,
-                predicate: static (node, _) => node is ClassDeclarationSyntax,
-                transform: static (ctx, ct) => AccessibleTypeDefinition.From(ctx, ct))
-            .Where(static definition => definition is not null)
+                predicate: static (node, _) => node is TypeDeclarationSyntax,
+                transform: static (ctx, ct) => AccessibleTypeResult.From(ctx, ct))
+            .Where(static result => result is not null)
             .Collect();
 
         var rootNamespace = context.AnalyzerConfigOptionsProvider
@@ -39,36 +43,56 @@ public sealed class JsAccessibleGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(types.Combine(rootNamespace), static (spc, pair) =>
         {
-            var definitions = Deduplicate(pair.Left!);
-            if (definitions.Length == 0)
+            var results = Deduplicate(pair.Left!);
+
+            foreach (var result in results)
+            {
+                foreach (var diagnostic in result.Diagnostics)
+                {
+                    spc.ReportDiagnostic(diagnostic);
+                }
+            }
+
+            var definitions = ImmutableArray.CreateBuilder<AccessibleTypeDefinition>(results.Length);
+            foreach (var result in results)
+            {
+                if (result.Definition is not null)
+                {
+                    definitions.Add(result.Definition);
+                }
+            }
+
+            if (definitions.Count == 0)
             {
                 return;
             }
 
-            foreach (var definition in definitions)
+            var emitted = definitions.ToImmutable();
+            foreach (var definition in emitted)
             {
                 spc.AddSource(definition.HintName, SourceText.From(JsAccessibleEmitter.EmitType(definition), Encoding.UTF8));
             }
 
             spc.AddSource(
                 "JsAccessibleRegistration.g.cs",
-                SourceText.From(JsAccessibleEmitter.EmitRegistration(pair.Right, definitions), Encoding.UTF8));
+                SourceText.From(JsAccessibleEmitter.EmitRegistration(pair.Right, emitted), Encoding.UTF8));
         });
     }
 
     /// <summary>
-    /// One entry per annotated type, ordered by the path that names it so the emitted registration is stable
-    /// whatever order the compilation reported the declarations in.
+    /// One entry per annotated type, ordered by the path that names it so the emitted registration — and the
+    /// order the diagnostics are reported in — is stable whatever order the compilation reported the
+    /// declarations in.
     /// </summary>
-    private static ImmutableArray<AccessibleTypeDefinition> Deduplicate(ImmutableArray<AccessibleTypeDefinition?> definitions)
+    private static ImmutableArray<AccessibleTypeResult> Deduplicate(ImmutableArray<AccessibleTypeResult?> results)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var unique = new List<AccessibleTypeDefinition>(definitions.Length);
-        foreach (var definition in definitions)
+        var unique = new List<AccessibleTypeResult>(results.Length);
+        foreach (var result in results)
         {
-            if (definition is not null && seen.Add(definition.MetadataPath))
+            if (result is not null && seen.Add(result.MetadataPath))
             {
-                unique.Add(definition);
+                unique.Add(result);
             }
         }
 

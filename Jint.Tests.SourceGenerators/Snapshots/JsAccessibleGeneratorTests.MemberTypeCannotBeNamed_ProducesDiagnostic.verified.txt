@@ -1,0 +1,46 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (13,18)-(13,26),
+      Message: Property 'Borrowed' on 'Model' is reached through reflection: its type 'Sample.Handle' is a ref struct, which generated code cannot box,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT035,
+        Title: [JsAccessible] member type cannot be named in generated code,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (14,23)-(14,30),
+      Message: Property 'Address' on 'Model' is reached through reflection: its type 'int*' is a pointer type, which generated code cannot box,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT035,
+        Title: [JsAccessible] member type cannot be named in generated code,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (15,18)-(15,24),
+      Message: Method 'Borrow' on 'Model' is reached through reflection: its return type 'Sample.Handle' is a ref struct, which generated code cannot box,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT035,
+        Title: [JsAccessible] member type cannot be named in generated code,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}
