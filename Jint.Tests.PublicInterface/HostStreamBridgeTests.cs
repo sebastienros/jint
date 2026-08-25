@@ -24,12 +24,31 @@ namespace Jint.Tests.PublicInterface;
 /// asynchronous methods complete synchronously (see <see cref="RecordingStream"/>), so the whole copy runs on
 /// the engine's own turns and a bounded <c>ProcessTasks</c> loop is enough to drive it to completion. The one
 /// test that deliberately goes off-thread, <see cref="ReadsAStreamWhoseReadsCompleteOnAnotherThread"/>, waits
-/// for the outcome through the engine's own blocking drain rather than for an interval.
+/// for the outcome through the engine's own blocking drain rather than for an interval — under the wedge
+/// ceiling <see cref="OffThreadStreamEngine"/> configures, which is a bound on a hang and never an assertion.
 /// </para>
 /// </remarks>
 public class HostStreamBridgeTests
 {
     private static Engine StreamEngine() => new(options => options.UseWebApis(WebApiFeatures.Streams));
+
+    /// <summary>
+    /// The same engine for the one test whose chunks arrive from another thread, with the promise budget the
+    /// blocking drain runs under moved off the engine's ten-second default and onto
+    /// <see cref="TestBudgets.WedgeCeiling"/>.
+    /// </summary>
+    /// <remarks>
+    /// Nothing here asserts a duration — the assertion is the text that came out of the stream — so the
+    /// budget is a wedge ceiling and widening it can hide nothing. What it removes is the thread pool from
+    /// the set of things that decide the outcome: each chunk is delivered by a pool continuation, and on a
+    /// saturated runner the whole copy has been seen failing as <c>PromiseRejectedException: Timeout of
+    /// 00:00:10 reached</c> (#3358), which is a symptom of the machine rather than of the bridge.
+    /// </remarks>
+    private static Engine OffThreadStreamEngine() => new(options =>
+    {
+        options.UseWebApis(WebApiFeatures.Streams);
+        options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
+    });
 
     private static byte[] Utf8(string text) => Encoding.UTF8.GetBytes(text);
 
@@ -383,7 +402,7 @@ public class HostStreamBridgeTests
         // The cross-thread half: every chunk arrives as a generation-stamped event-loop job rather than
         // through the synchronous window. UnwrapIfPromise is the engine's own blocking drain, which wakes on
         // the work-arrived signal rather than on a poll interval.
-        var engine = StreamEngine();
+        var engine = OffThreadStreamEngine();
         engine.SetValue("input", engine.WebApi.CreateReadableStream(
             new OffThreadStream(Utf8("streamed off-thread")),
             new HostReadableStreamOptions { ChunkSize = 4 }));

@@ -327,7 +327,15 @@ public class UntrustedCodeProfileTests
     [Fact]
     public async Task OperationScopeCannotEndWhileAsyncWorkOwnsTheEngine()
     {
-        var limits = CreateLimits();
+        // Every wall-clock limit here is a wedge ceiling rather than part of the claim: what is asserted is
+        // that a scope refuses to end while an evaluation is suspended, and then ends once it resumes. The
+        // profile's own five-second timeout interval and ten-second operation deadline are budgets an
+        // embedder would size for their own work, and leaving them at those defaults made this test fail on
+        // a loaded runner as a TimeoutException from the gate below rather than as anything about scopes.
+        var limits = CreateLimits(
+            timeoutInterval: TestBudgets.WedgeCeiling,
+            promiseTimeout: TestBudgets.WedgeCeiling,
+            maxOperationDuration: TestBudgets.WedgeCeiling);
         using var cancellation = new CancellationTokenSource();
         // TaskCompletionSource<bool> rather than the non-generic one, which only exists from .NET 5 and
         // this project also compiles for net472.

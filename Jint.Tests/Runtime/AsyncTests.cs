@@ -965,7 +965,17 @@ public class AsyncTests
     public Task ShouldTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
-        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+
+        // What is asserted is the order the three appends landed in, never a duration, so the promise budget
+        // here is a wedge ceiling rather than part of the claim. The delays below add up to about 1.1 s of
+        // intended work, which the engine's ten-second default was sized for on an idle machine and not on a
+        // two-core runner whose pool grows at a worker per 500 ms: sebastienros/jint#3358 saw exactly this
+        // body fail on net472 with "Timeout of 00:00:10 reached", which says nothing about awaiting a stack.
+        Engine engine = new(options =>
+        {
+            options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
+        });
         AsyncTestClass asyncTestClass = new();
 
         engine.SetValue("myAsyncMethod", new Func<Task>(async () =>
@@ -1284,7 +1294,11 @@ public class AsyncTests
     public Task ShouldValueTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
-        Engine engine = new();
+
+        // The ValueTask twin of ShouldTaskAwaitCurrentStack, and a wedge ceiling for the same reason: the
+        // assertion is the order, and a second of intended work inside a ten-second default is not a margin
+        // a two-core runner respects.
+        Engine engine = new(options => options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling);
         string log = "";
         engine.SetValue("myAsyncMethod", new Func<ValueTask>(async () =>
         {
@@ -1308,7 +1322,7 @@ public class AsyncTests
         Engine engine = new(options =>
         {
             options.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
-            options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(2);
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
         });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedValueTaskAsync().then(x=>x)");

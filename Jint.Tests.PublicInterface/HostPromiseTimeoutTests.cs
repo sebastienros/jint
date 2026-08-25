@@ -20,8 +20,33 @@ namespace Jint.Tests.PublicInterface;
 public class HostPromiseTimeoutTests
 {
     /// <summary>
-    /// A promise nobody settles, and a budget far below the ten-second default. The elapsed time is the
-    /// assertion: reading the default instead of the configured value would park for ten seconds.
+    /// <c>Options.Constraints.PromiseTimeout</c>'s own default, and so what the wrong answer costs in each
+    /// row below where the engine's configured value is not the one asserted about.
+    /// </summary>
+    private static readonly TimeSpan DefaultPromiseTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Which budget the wait actually ran under, stated by the wait itself. <c>UnwrapIfPromiseCore</c>
+    /// resolves the effective timeout into one local, hands that local to the drain, and formats the very
+    /// same local into this message — so a wait that consulted the wrong budget cannot name the right one,
+    /// and this is a witness rather than a restatement of the configuration.
+    /// </summary>
+    private static void ShouldNameTheBudgetItWaitedUnder(PromiseRejectedException rejection, TimeSpan budget)
+        => rejection.Message.Should().Contain(budget.ToString());
+
+    /// <summary>
+    /// The other half of the same claim, and the half a clock is needed for: that the wait <em>ended</em> on
+    /// the budget it names rather than sitting out the longer one it should have ignored. The bound is half
+    /// of whatever the wrong answer would have spent, so it stays a midpoint between the two candidates
+    /// instead of an absolute number a loaded runner can walk past — #3358 saw a 200 ms wait measured at
+    /// 1 m 3 s against a fixed 5 s.
+    /// </summary>
+    private static void ShouldNotHaveSpentTheOtherBudget(Stopwatch elapsed, TimeSpan wrongBudget)
+        => elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromTicks(wrongBudget.Ticks / 2));
+
+    /// <summary>
+    /// A promise nobody settles, and a budget far below the ten-second default. Reading the default instead
+    /// of the configured value would name ten seconds and park for ten seconds, and both are asserted.
     /// </summary>
     [Fact]
     public void TheArgumentLessUnwrapTakesTheConfiguredPromiseTimeout()
@@ -35,10 +60,8 @@ public class HostPromiseTimeoutTests
         var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise());
         elapsed.Stop();
 
-        // Generous against a loaded CI machine, and still an order of magnitude below the ten seconds the
-        // hard-coded default would have cost.
-        elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
-        rejection.Message.Should().Contain(configured.ToString());
+        ShouldNameTheBudgetItWaitedUnder(rejection, configured);
+        ShouldNotHaveSpentTheOtherBudget(elapsed, DefaultPromiseTimeout);
     }
 
     /// <summary>
@@ -49,7 +72,8 @@ public class HostPromiseTimeoutTests
     [Fact]
     public void AnExplicitTimeoutStillWinsOverTheConfiguredOne()
     {
-        using var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(5));
+        var configured = TimeSpan.FromMinutes(5);
+        using var engine = new Engine(options => options.Constraints.PromiseTimeout = configured);
         var manual = engine.Tasks.RegisterPromise();
 
         var requested = TimeSpan.FromMilliseconds(200);
@@ -58,8 +82,8 @@ public class HostPromiseTimeoutTests
         var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise(requested));
         elapsed.Stop();
 
-        elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
-        rejection.Message.Should().Contain(requested.ToString());
+        ShouldNameTheBudgetItWaitedUnder(rejection, requested);
+        ShouldNotHaveSpentTheOtherBudget(elapsed, configured);
     }
 
     /// <summary>

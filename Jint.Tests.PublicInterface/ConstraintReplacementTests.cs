@@ -21,6 +21,15 @@ public class ConstraintReplacementTests
 {
     private const string LoopScript = "var n = 0; for (var i = 0; i < 200000; i++) { n += i; } n";
 
+    /// <summary>
+    /// The widened interval in the row below. It is not a duration the test is about: the discriminator is
+    /// the one-millisecond interval that must no longer be registered, which two hundred thousand iterations
+    /// pass by four orders of magnitude on any machine. What this number decides is only whether a healthy
+    /// run finishes inside it, so it is a wedge ceiling — thirty seconds was one on an idle box and not on a
+    /// runner that has been seen stalling a two-hundred-millisecond wait for a minute (#3358).
+    /// </summary>
+    private static readonly TimeSpan WidenedInterval = TimeSpan.FromMinutes(10);
+
     [Fact]
     public void TheLaterTimeoutIsTheOneEnforced()
     {
@@ -28,7 +37,7 @@ public class ConstraintReplacementTests
         // constraint is still registered alongside it
         var engine = new Engine(o => o
             .LimitExecutionTime(TimeSpan.FromMilliseconds(1))
-            .LimitExecutionTime(TimeSpan.FromSeconds(30)));
+            .LimitExecutionTime(WidenedInterval));
 
         engine.Evaluate(LoopScript).AsNumber().Should().BeGreaterThan(0);
     }
