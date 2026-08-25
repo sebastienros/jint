@@ -566,8 +566,11 @@ public class TimerTests
 
         engine.Execute("(async () => { await new Promise(r => setTimeout(r, 50)); markDone(); })();");
 
-        var deadline = Stopwatch.StartNew();
-        while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
+        // A wedge ceiling: what is asserted is that the host's own pump is enough, never how many passes it
+        // took. A timer nothing runs is never run at all, so no budget here can be too generous — while the
+        // five seconds this was is a number a loaded runner can reach on a healthy engine (#3379).
+        var elapsed = Stopwatch.StartNew();
+        while (!done && elapsed.Elapsed < TestBudgets.WedgeCeiling)
         {
             // Nothing but the host's own pump: no engine thread, no background timer.
             engine.Tasks.ProcessTasks();

@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using System.Diagnostics;
 using System.Threading;
 using Jint;
 using Jint.Runtime;
@@ -360,10 +361,19 @@ public class WebApiWorkerTests
     /// <c>postMessage</c> round trip crosses it.
     /// </summary>
     /// <remarks>
-    /// Event-driven throughout, with a ten-second ceiling on every wait so that a loaded machine makes this
-    /// slower rather than redder. The worker's thread parks on its own reset event, which the parent's pump
-    /// wakes — the engine's own wait primitive is a separate change and this deliberately does not depend on
-    /// it.
+    /// <para>
+    /// Event-driven throughout, and every wait is a <see cref="TestBudgets.WedgeCeiling"/> rather than part
+    /// of the claim: nothing here asserts a duration, so a loaded machine has to make this slower rather than
+    /// redder. The worker's thread parks on its own reset event, which the parent's pump wakes — the engine's
+    /// own wait primitive is a separate change and this deliberately does not depend on it.
+    /// </para>
+    /// <para>
+    /// The ceiling has an assertion of its own, before the value is read, and #3297 is why: the loop used to
+    /// exit on a ten-second deadline straight into <c>AsString()</c>, so a machine slow enough to exhaust the
+    /// budget reported <i>"System.ArgumentException : Expected string but got Null"</i> from inside
+    /// <c>JsValue</c> — a message naming neither the worker, nor the round trip, nor the seconds that had
+    /// passed. A ceiling that ran out and a wrong value are different failures and now say so.
+    /// </para>
     /// </remarks>
     [Fact]
     public void AHostProviderThreadPerWorkerRoundTrips()
@@ -378,18 +388,32 @@ public class WebApiWorkerTests
             w.postMessage('ping');
             """);
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (DateTime.UtcNow < deadline && parent.Evaluate("got").IsNull())
+        var elapsed = Stopwatch.StartNew();
+        var got = parent.Evaluate("got");
+        while (got.IsNull() && elapsed.Elapsed < TestBudgets.WedgeCeiling)
         {
             parent.Tasks.ProcessTasks();
-            host.Answered.Wait(TimeSpan.FromMilliseconds(50));
+            // Bounded, so a wake this thread never sees costs one iteration rather than the whole budget.
+            host.Answered.Wait(PumpInterval);
+            got = parent.Evaluate("got");
         }
 
-        parent.Evaluate("got").AsString().Should().Be("pong:ping");
+        got.IsNull().Should().BeFalse(
+            $"the round trip must complete inside {TestBudgets.WedgeCeiling}; {elapsed.Elapsed} elapsed and the worker had "
+            + (host.Answered.IsSet ? "already answered, so the reply did not reach the parent's pump" : "not answered yet"));
+
+        got.AsString().Should().Be("pong:ping");
 
         parent.Execute("w.terminate();");
         host.WaitForPumpToLeave();
     }
+
+    /// <summary>
+    /// How long the parent parks between pumps while the worker has not answered. Not a budget anything
+    /// asserts — <see cref="ThreadPerWorkerHost.Answered"/> is what ends the park in the ordinary case, and
+    /// this only decides how long a lost wake would cost.
+    /// </summary>
+    private static readonly TimeSpan PumpInterval = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
     /// A startup failure reaches the host through the connection alone — no sink, no listener, nothing wired.
@@ -635,7 +659,7 @@ public class WebApiWorkerTests
         }
 
         public void WaitForPumpToLeave()
-            => _left.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the loop observes IsEnded and leaves");
+            => _left.Wait(TestBudgets.WedgeCeiling).Should().BeTrue("the loop observes IsEnded and leaves");
 
         public void Dispose()
         {

@@ -66,9 +66,10 @@ public class ForLoopIterationEnvironmentAwaitTests
 
         DedicatedThread.Run(
             () => result = new Engine().Evaluate(script).UnwrapIfPromise(),
-            joinTimeout: TimeSpan.FromSeconds(30),
-            timeoutMessage: "evaluation did not complete within 30s — the lexical environment chain is most "
-                + "likely corrupt, leaving GetThisEnvironment() or an identifier walk spinning");
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"evaluation did not complete within {TestBudgets.WedgeCeiling} — the lexical "
+                + "environment chain is most likely corrupt, leaving GetThisEnvironment() or an identifier "
+                + "walk spinning");
 
         return result;
     }
