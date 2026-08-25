@@ -179,7 +179,7 @@ public partial class InteropTests
     }
 }
 
-file sealed class SystemTextJsonValueConverter : IObjectConverter
+file sealed class SystemTextJsonValueConverter : ObjectConverter
 {
     public static readonly SystemTextJsonValueConverter Instance = new();
 
@@ -187,7 +187,7 @@ file sealed class SystemTextJsonValueConverter : IObjectConverter
     {
     }
 
-    public bool TryConvert(Engine engine, object value, out JsValue result)
+    public override bool TryConvert(Engine engine, object value, out JsValue result)
     {
         if (value is JsonValue jsonValue)
         {

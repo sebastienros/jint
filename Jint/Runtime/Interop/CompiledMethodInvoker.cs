@@ -282,7 +282,7 @@ internal static class CompiledMethodInvoker
 
     /// <summary>
     /// Whether a return value of <paramref name="returnType"/> is one that registered
-    /// <see cref="IObjectConverter"/>s could never observe anyway, so producing the
+    /// <see cref="ObjectConverter"/>s could never observe anyway, so producing the
     /// <see cref="JsValue"/> here instead of through <see cref="JsValue.FromObjectWithType"/> keeps
     /// their contract intact.
     /// <para>
@@ -301,9 +301,9 @@ internal static class CompiledMethodInvoker
     /// Every other supported return type (<see cref="int"/>, <see cref="long"/>,
     /// <see cref="double"/>, <see cref="bool"/>, <see cref="string"/>) boxes into a plain CLR value
     /// that the converters are entitled to intercept, so those keep the converter gate. This is
-    /// only about <see cref="IObjectConverter"/> (CLR value to <see cref="JsValue"/>); argument
+    /// only about <see cref="ObjectConverter"/> (CLR value to <see cref="JsValue"/>); argument
     /// binding runs the other direction and is gated separately on the engine's
-    /// <see cref="ITypeConverter"/>.
+    /// <see cref="ClrTypeConverter"/>.
     /// </para>
     /// <para>
     /// Keep this in sync with <see cref="IsSupportedReturnType"/>: a newly supported return type is

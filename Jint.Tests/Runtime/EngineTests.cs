@@ -3411,22 +3411,22 @@ x.test = {
         public Func<int, int, int> Init { get; set; }
     }
 
-    private class TestObjectConverter : Jint.Runtime.Interop.IObjectConverter
+    private class TestObjectConverter : Jint.Runtime.Interop.ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             throw new NotImplementedException();
         }
     }
 
-    private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
+    private class TestTypeConverter : Jint.Runtime.Interop.ClrTypeConverter
     {
-        public object Convert(object value, Type type, IFormatProvider formatProvider)
+        public override object Convert(object value, Type type, IFormatProvider formatProvider)
         {
             throw new NotImplementedException();
         }
 
-        public bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
+        public override bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
             throw new NotImplementedException();
         }

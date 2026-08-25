@@ -1207,7 +1207,7 @@ public sealed partial class Engine : IDisposable
     private DebugHandler? _debugger;
 
     // cached access
-    internal readonly IObjectConverter[]? _objectConverters;
+    internal readonly ObjectConverter[]? _objectConverters;
 
     // which declared CLR member types the registered converters can claim, null when none are registered.
     // Lets the compiled interop read lanes stay in play for members no converter can ever be handed.
@@ -1320,20 +1320,41 @@ public sealed partial class Engine : IDisposable
     internal TailCallRequest? _tailCallRequest;
     internal readonly ExtensionMethodCache _extensionMethods;
 
-    private ITypeConverter _typeConverter = null!;
+    /// <summary>
+    /// The converter every interop conversion actually goes through, which is what engine-internal call sites
+    /// must read. With host-contract verification on it is a wrapper around what the host installed; the public
+    /// <see cref="TypeConverter"/> unwraps it, so a host observes its own instance in every configuration.
+    /// </summary>
+    internal ClrTypeConverter _typeConverter = null!;
 
-    // kept in sync by the TypeConverter setter so the interop fast lane, which is only valid for the
-    // stock converter, can gate on a bool field instead of a per-call GetType() comparison
-    internal bool _typeConverterIsDefault;
+    // Which conversion *target* types the installed converter may answer differently from the stock one, and
+    // therefore which member writes, argument bindings and indexer keys the compiled interop lanes must leave
+    // to it. Null for the stock converter, which is what those lanes reproduce. Kept in sync by
+    // InstallTypeConverter so a lane gates on a field read instead of a per-call GetType() comparison - and
+    // so that a converter swapped in after construction is honoured, which a value captured once would not be.
+    internal TypeConverterTargetFilter? _typeConverterTargetFilter;
 
-    public ITypeConverter TypeConverter
+    public ClrTypeConverter TypeConverter
     {
-        get => _typeConverter;
-        internal set
-        {
-            _typeConverter = value;
-            _typeConverterIsDefault = value.GetType() == typeof(DefaultTypeConverter);
-        }
+        get => _typeConverter is VerifyingClrTypeConverter verifying ? verifying.Inner : _typeConverter;
+        internal set => InstallTypeConverter(value, declaredTargetTypes: null);
+    }
+
+    /// <summary>
+    /// Installs <paramref name="converter"/> together with what its registration declared, and derives the
+    /// filter the compiled lanes gate on.
+    /// </summary>
+    /// <remarks>
+    /// The verifying wrapper is built only when a declaration was actually made and host-contract verification
+    /// is on: an undeclared converter has promised nothing, and there is nothing to check.
+    /// </remarks>
+    internal void InstallTypeConverter(ClrTypeConverter converter, Type[]? declaredTargetTypes)
+    {
+        var filter = TypeConverterTargetFilter.Create(converter, declaredTargetTypes);
+        _typeConverterTargetFilter = filter;
+        _typeConverter = HostContractVerification.Enabled && filter is { IsRestricted: true }
+            ? new VerifyingClrTypeConverter(converter, filter, new DefaultTypeConverter(this))
+            : converter;
     }
 
     // cache of types used when resolving CLR type names
@@ -1506,14 +1527,16 @@ public sealed partial class Engine : IDisposable
         // one has to reach the expressions that consult it.
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
-        // likewise after Apply, which is where a custom ITypeConverter gets installed
+        // Likewise after Apply. The installed ClrTypeConverter is deliberately not part of this: the only
+        // resolution artefact it can steer is an IndexerAccessor's baked-in key, and TypeResolver excludes
+        // exactly those from the shared cache in both directions instead - see TypeResolver.IsConverterNeutral.
+        // Partitioning on the converter here would have cost every engine with one the whole shared cache.
         _interopResolutionProfile = new InteropResolutionProfile(
             Options.Interop.AllowGetType,
             Options.Interop.ObjectWrapperReportedFieldBindingFlags,
             Options.Interop.ObjectWrapperReportedPropertyBindingFlags,
             Options.Interop.ObjectWrapperReportedMethodBindingFlags,
-            _extensionMethods,
-            _typeConverterIsDefault);
+            _extensionMethods);
 
         CallStack = new JintCallStack(_maxRecursionDepth >= 0);
         _stackGuard = new StackGuard(this);

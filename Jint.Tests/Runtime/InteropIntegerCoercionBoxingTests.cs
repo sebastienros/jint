@@ -201,7 +201,7 @@ public class InteropIntegerCoercionBoxingTests
     }
 
     /// <summary>
-    /// A host-installed <see cref="ITypeConverter"/> turns off the compiled member-write fast lane,
+    /// A host-installed <see cref="ClrTypeConverter"/> turns off the compiled member-write fast lane,
     /// so the field and property writes below really do take the coercion path (and then the
     /// reflection setter, which widens either way).
     /// </summary>

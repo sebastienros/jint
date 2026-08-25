@@ -7,7 +7,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Benchmark;
 
 /// <summary>
-/// Sizes what registering an <see cref="IObjectConverter"/> costs the compiled member-accessor lane
+/// Sizes what registering an <see cref="ObjectConverter"/> costs the compiled member-accessor lane
 /// (<c>Runtime/Interop/Reflection/CompilableMemberAccessor.cs</c>). A registered converter is entitled to
 /// see every CLR value before it becomes a <see cref="JsValue"/> and the compiled lane produces the
 /// <see cref="JsValue"/> itself, so the lane has to decline for any member the converter could be handed.
@@ -111,14 +111,14 @@ public class InteropObjectConverterBenchmark
     /// Converts nothing, so the two rows are behaviourally identical and the measurement isolates
     /// the cost of a converter merely being registered.
     /// </summary>
-    private sealed class NeverConvertingObjectConverter : IObjectConverter
+    private sealed class NeverConvertingObjectConverter : ObjectConverter
     {
         // The interface annotates result with [NotNullWhen(true)]. That attribute cannot be spelled
         // in this project — YantraJS.Core (referenced for the engine-comparison lanes) ships its own
         // System.Diagnostics.CodeAnalysis.NotNullWhenAttribute, so the name is ambiguous — so the
         // parameter is declared non-nullable instead, which is a strictly stronger promise and
         // satisfies the annotation without needing it.
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             result = JsValue.Undefined;
             return false;

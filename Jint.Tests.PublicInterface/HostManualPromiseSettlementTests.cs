@@ -216,13 +216,13 @@ public class HostManualPromiseSettlementTests
 
     private sealed record Payload(string Marker);
 
-    private sealed class ThreadRecordingConverter : IObjectConverter
+    private sealed class ThreadRecordingConverter : ObjectConverter
     {
         private volatile int _convertingThread = -1;
 
         public int ConvertingThread => _convertingThread;
 
-        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public override bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             if (value is not Payload payload)
             {

@@ -53,9 +53,9 @@ public class ArrayBufferTests
     /// <summary>
     /// Converts a byte array to an ArrayBuffer.
     /// </summary>
-    private sealed class BytesToArrayBufferConverter : IObjectConverter
+    private sealed class BytesToArrayBufferConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out JsValue result)
+        public override bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is byte[] bytes)
             {

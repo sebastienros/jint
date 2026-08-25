@@ -191,7 +191,7 @@ internal sealed class MethodDescriptor
     // and the delegate it produces closes over nothing Engine-specific: only the open invocation
     // delegate created from the same MethodBase, the JsValue.Undefined / JsValue.Null process-wide
     // singletons, the public JsValue implicit operators and JsValueExtensions accessors. The
-    // Engine-affine policy decisions (custom object converters, a custom ITypeConverter, receiver
+    // Engine-affine policy decisions (custom object converters, a custom ClrTypeConverter, receiver
     // type checks) live at the call site in MethodInfoFunction.Call and gate *use* of the invoker,
     // never its construction, so one Engine's policy can never leak into another through this cache.
     //
@@ -237,6 +237,11 @@ internal sealed class MethodDescriptor
     // the compiled lane entirely, a path far more expensive than the probe this memo saves.
     private ObjectConverterTypeFilter? _returnTypeUnclaimedBy;
 
+    // The argument-binding twin of the memo above. The compiled invoker binds every argument itself, so the
+    // question is asked of the whole parameter list rather than of one type - and the answer is a pure
+    // function of (Parameters, filter), so the same negative-only memo applies for the same reason.
+    private TypeConverterTargetFilter? _parameterTypesUnclaimedBy;
+
     /// <summary>
     /// Whether <paramref name="filter"/> claims this method's return type, with the negative
     /// answer — the one every call on the compiled lane has to have — memoized per filter.
@@ -258,7 +263,30 @@ internal sealed class MethodDescriptor
     }
 
     /// <summary>
-    /// Whether this method's return value is one that registered <see cref="IObjectConverter"/>s
+    /// Whether <paramref name="filter"/> claims any of this method's parameter types as a conversion target,
+    /// which is what the reflection path would consult the converter with when binding the argument.
+    /// </summary>
+    internal bool ParameterTypesClaimedBy(TypeConverterTargetFilter filter)
+    {
+        if (ReferenceEquals(_parameterTypesUnclaimedBy, filter))
+        {
+            return false;
+        }
+
+        foreach (var parameter in Parameters)
+        {
+            if (filter.Claims(parameter.ParameterType))
+            {
+                return true;
+            }
+        }
+
+        _parameterTypesUnclaimedBy = filter;
+        return false;
+    }
+
+    /// <summary>
+    /// Whether this method's return value is one that registered <see cref="ObjectConverter"/>s
     /// could never observe, so the compiled invoker may produce the <see cref="JsValue"/> itself
     /// even when converters are registered. See
     /// <see cref="CompiledMethodInvoker.ReturnValueIsInvisibleToObjectConverters"/>.
@@ -633,7 +661,7 @@ internal sealed class MethodDescriptor
                 }
                 else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                 {
-                    converted = engine.TypeConverter.Convert(
+                    converted = engine._typeConverter.Convert(
                         value.ToObject(),
                         parameterType,
                         System.Globalization.CultureInfo.InvariantCulture);

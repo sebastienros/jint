@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Constraints;
@@ -263,7 +264,6 @@ public class SecurityConfigurationTests
         var options = new[]
         {
             CreateSafeOptions().Configure(static _ => { }),
-            CreateSafeOptions().SetTypeConverter(static _ => new PassThroughTypeConverter()),
             CreateSafeOptions().UseHostFactory(static _ => new Host())
         };
 
@@ -272,6 +272,25 @@ public class SecurityConfigurationTests
             configured.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle().Which.Code
                 .Should().Be(SecurityDiagnosticCodes.EngineConstructionCallback);
         }
+
+        // SetTypeConverter is one too, and additionally installs a CLR callback - the converter itself, which
+        // runs host code for every value crossing out of script. It used to be absent from JINTSEC052's list.
+        CreateSafeOptions().SetTypeConverter(static _ => new PassThroughTypeConverter())
+            .ValidateSecurityConfiguration().Diagnostics.Select(static d => d.Code)
+            .Should().BeEquivalentTo([
+                SecurityDiagnosticCodes.EngineConstructionCallback,
+                SecurityDiagnosticCodes.ClrCallbackConfigured
+            ]);
+    }
+
+    [Fact]
+    public void AHostInstalledTypeConverterIsReportedFromABuiltEngineToo()
+    {
+        var options = CreateSafeOptions().SetTypeConverter(static _ => new PassThroughTypeConverter());
+        var engine = new Engine(options);
+
+        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Select(static d => d.Code)
+            .Should().Contain(SecurityDiagnosticCodes.ClrCallbackConfigured);
     }
 
     [Fact]
@@ -638,11 +657,11 @@ public class SecurityConfigurationTests
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved) => string.Empty;
     }
 
-    private sealed class PassThroughTypeConverter : ITypeConverter
+    private sealed class PassThroughTypeConverter : ClrTypeConverter
     {
-        public object? Convert(object? value, Type type, IFormatProvider formatProvider) => value;
+        public override object? Convert(object? value, Type type, IFormatProvider formatProvider) => value;
 
-        public bool TryConvert(
+        public override bool TryConvert(
             object? value,
             Type type,
             IFormatProvider formatProvider,

@@ -111,7 +111,7 @@ being detailed. A compiler cannot find those, so the guide is the only place an 
 | `ArrayLikeObject` — public abstract class, exactly two abstract members (`Length`, `TryGetIndex`) | `Jint/Native/Object/ArrayLikeObject.cs` |
 | `IReferenceResolver` + `ReferenceResolverInterests` | `Jint/Runtime/Interop/IReferenceResolver.cs` |
 | `NullPropagatingReferenceResolver` — sealed, singleton `Instance`, the shipped null-propagation resolver the engine recognizes by identity and serves inline | `Jint/Runtime/Interop/NullPropagatingReferenceResolver.cs` |
-| `IObjectConverter`, `ITypeConverter` | `Jint/Runtime/Interop/` |
+| `ObjectConverter`, `ClrTypeConverter` — public abstract classes | `Jint/Runtime/Interop/` |
 | `JintException.TryGetClrException` + `Options.Interop.ChainClrExceptionAsInnerException` + `OptionsExtensions.ChainClrExceptions` + `JavaScriptException(ErrorConstructor, string?, Exception)` — the CLR exception behind an interop error the script was allowed to catch, held on the error **value** and readable by the host alone | `Jint/JintException.cs`, `Jint/Runtime/JavaScriptException.cs`, `Jint/Options.cs`, `Jint/Options.Extensions.cs` |
 | `Constraint` + `IsAmortizable` | `Jint/Constraint.cs` |
 | `OperationDeadlineConstraint` — public sealed, host-armed `Begin`/`End` budget spanning a whole multi-entry host operation, which the per-entry constraint reset deliberately never rewinds | `Jint/Constraints/OperationDeadlineConstraint.cs` |

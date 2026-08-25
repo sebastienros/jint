@@ -3,9 +3,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Converters;
 
-public class EnumsToStringConverter : IObjectConverter
+public class EnumsToStringConverter : ObjectConverter
 {
-    public bool TryConvert(Engine engine, object value, out JsValue result)
+    public override bool TryConvert(Engine engine, object value, out JsValue result)
     {
         if (value is Enum)
         {

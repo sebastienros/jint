@@ -33,7 +33,7 @@ namespace Jint
         public Jint.Native.Object.ObjectInstance Global { get; }
         public Jint.Runtime.Intrinsics Intrinsics { get; }
         public Jint.Engine.ModuleOperations Modules { get; }
-        public Jint.Runtime.Interop.ITypeConverter TypeConverter { get; }
+        public Jint.Runtime.Interop.ClrTypeConverter TypeConverter { get; }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, params Jint.Native.JsValue[] arguments) { }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
         public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue constructor, params Jint.Native.JsValue[] arguments) { }
@@ -398,7 +398,7 @@ namespace Jint
             public Jint.OptionsList<System.Type> ExtensionMethodTypes { get; }
             public Jint.OptionsList<System.Type> ImmutableCrossingTypes { get; }
             public Jint.Options.MemberAccessorDelegate MemberAccessor { get; set; }
-            public Jint.OptionsList<Jint.Runtime.Interop.IObjectConverter> ObjectConverters { get; }
+            public Jint.OptionsList<Jint.Runtime.Interop.ObjectConverter> ObjectConverters { get; }
             public System.Reflection.BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; }
             public System.Reflection.MemberTypes ObjectWrapperReportedMemberTypes { get; set; }
             public System.Reflection.BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; }
@@ -511,10 +511,10 @@ namespace Jint
         public static Jint.Options AddExtensionMethods(this Jint.Options options, params System.Type[] types) { }
         public static Jint.Options AddImmutableCrossing(this Jint.Options options, params System.Type[] types) { }
         public static Jint.Options AddLazyGlobal(this Jint.Options options, string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
-        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.IObjectConverter objectConverter) { }
-        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.IObjectConverter objectConverter, params System.Type[] handledTypes) { }
+        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.ObjectConverter objectConverter) { }
+        public static Jint.Options AddObjectConverter(this Jint.Options options, Jint.Runtime.Interop.ObjectConverter objectConverter, params System.Type[] handledTypes) { }
         public static Jint.Options AddObjectConverter<T>(this Jint.Options options)
-            where T : Jint.Runtime.Interop.IObjectConverter, new () { }
+            where T : Jint.Runtime.Interop.ObjectConverter, new () { }
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=""YourAssembly"" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.")]
         public static Jint.Options AllowClr(this Jint.Options options) { }
         [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(@"AllowClr lets script name CLR types and namespaces as strings, so nothing in the host statically references what it exposes and trimming is free to remove all of it. When trimming, either root the assemblies you allow (<TrimmerRootAssembly Include=""YourAssembly"" />) or do not call AllowClr at all and hand each type to script explicitly instead - Engine.SetValue<T>, TypeReference.CreateTypeReference<T> and ModuleBuilder.ExportType<T> carry [DynamicallyAccessedMembers] annotations that preserve exactly what Jint reflects over, and need no root.")]
@@ -525,7 +525,8 @@ namespace Jint
         public static Jint.Options ForUntrustedCode(this Jint.Options options, Jint.UntrustedCodeLimits limits) { }
         public static Jint.Options RemoveConstraints(this Jint.Options options, System.Predicate<Jint.Constraint> predicate) { }
         public static Jint.Options SetReferenceResolver(this Jint.Options options, Jint.Runtime.Interop.IReferenceResolver resolver, Jint.Runtime.Interop.ReferenceResolverInterests interests = 31) { }
-        public static Jint.Options SetTypeConverter(this Jint.Options options, System.Func<Jint.Engine, Jint.Runtime.Interop.ITypeConverter> typeConverterFactory) { }
+        public static Jint.Options SetTypeConverter(this Jint.Options options, System.Func<Jint.Engine, Jint.Runtime.Interop.ClrTypeConverter> typeConverterFactory) { }
+        public static Jint.Options SetTypeConverter(this Jint.Options options, System.Func<Jint.Engine, Jint.Runtime.Interop.ClrTypeConverter> typeConverterFactory, params System.Type[] handledTargetTypes) { }
         public static Jint.Options UseHostFactory<T>(this Jint.Options options, System.Func<Jint.Engine, T> factory)
             where T : Jint.Runtime.Host { }
         public static Jint.Options UseModules(this Jint.Options options, Jint.Runtime.Modules.IModuleLoader moduleLoader) { }
@@ -2262,15 +2263,18 @@ namespace Jint.Runtime.Interop
         public string? MemberName { get; }
         public System.Type Type { get; }
     }
-    public class DefaultTypeConverter : Jint.Runtime.Interop.ITypeConverter
+    public abstract class ClrTypeConverter
+    {
+        protected ClrTypeConverter() { }
+        protected virtual System.Type[]? HandledTargetTypes { get; }
+        public abstract object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider);
+        public abstract bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted);
+    }
+    public class DefaultTypeConverter : Jint.Runtime.Interop.ClrTypeConverter
     {
         public DefaultTypeConverter(Jint.Engine engine) { }
-        public virtual object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider) { }
-        public virtual bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted) { }
-    }
-    public interface IObjectConverter
-    {
-        bool TryConvert(Jint.Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Native.JsValue? result);
+        public override object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider) { }
+        public override bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted) { }
     }
     public interface IObjectWrapper
     {
@@ -2282,11 +2286,6 @@ namespace Jint.Runtime.Interop
         bool TryGetCallable(Jint.Engine engine, object callee, out Jint.Native.JsValue value);
         bool TryPropertyReference(Jint.Engine engine, Jint.Runtime.Reference reference, ref Jint.Native.JsValue value);
         bool TryUnresolvableReference(Jint.Engine engine, Jint.Runtime.Reference reference, out Jint.Native.JsValue value);
-    }
-    public interface ITypeConverter
-    {
-        object? Convert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider);
-        bool TryConvert(object? value, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.None | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors | System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields)] System.Type type, System.IFormatProvider formatProvider, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out object? converted);
     }
     public static class JsAccessibleRegistry
     {
@@ -2316,6 +2315,12 @@ namespace Jint.Runtime.Interop
         public bool TryGetCallable(Jint.Engine engine, object callee, out Jint.Native.JsValue value) { }
         public bool TryPropertyReference(Jint.Engine engine, Jint.Runtime.Reference reference, ref Jint.Native.JsValue value) { }
         public bool TryUnresolvableReference(Jint.Engine engine, Jint.Runtime.Reference reference, out Jint.Native.JsValue value) { }
+    }
+    public abstract class ObjectConverter
+    {
+        protected ObjectConverter() { }
+        protected virtual System.Type[]? HandledTypes { get; }
+        public abstract bool TryConvert(Jint.Engine engine, object value, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Jint.Native.JsValue? result);
     }
     public class ObjectWrapper : Jint.Native.Object.ObjectInstance, Jint.Runtime.Interop.IObjectWrapper, System.IEquatable<Jint.Runtime.Interop.ObjectWrapper>
     {

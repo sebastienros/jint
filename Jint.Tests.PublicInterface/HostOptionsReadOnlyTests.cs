@@ -357,9 +357,9 @@ public class HostOptionsReadOnlyTests
         public int Value { get; set; }
     }
 
-    private sealed class NoopConverter : IObjectConverter
+    private sealed class NoopConverter : ObjectConverter
     {
-        public bool TryConvert(Engine engine, object value, out Native.JsValue result)
+        public override bool TryConvert(Engine engine, object value, out Native.JsValue result)
         {
             result = Native.JsValue.Undefined;
             return false;

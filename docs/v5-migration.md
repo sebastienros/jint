@@ -570,6 +570,70 @@ enumeration including the CLR conversion, and reaches the probe lane it could no
 member genuinely needs to intercept reads that resolve on its *prototype* was never served by this class —
 `Get` has always been sealed — and stays on plain `ObjectInstance`.
 
+### 3.10 The two converters are abstract classes, and a registration says what it converts ([#3346](https://github.com/sebastienros/jint/pull/3346))
+
+`IObjectConverter` is now `ObjectConverter` and `ITypeConverter` is now `ClrTypeConverter`, both public
+abstract classes. The rename of the second one avoids an ambiguity that an interface never had: `TypeConverter`
+would have collided with `Jint.Runtime.TypeConverter`, which is public and which hosts do call.
+
+```c#
+// 4.16.x
+public sealed class MyConverter : IObjectConverter
+{
+    public bool TryConvert(Engine engine, object value, out JsValue? result) { … }
+}
+
+// 5.0
+public sealed class MyConverter : ObjectConverter
+{
+    public override bool TryConvert(Engine engine, object value, out JsValue? result) { … }
+}
+```
+
+Same shape for `ITypeConverter` → `ClrTypeConverter` (`Convert` and `TryConvert` become `override`), and for
+anything typed as one of them: `Engine.TypeConverter`, `Options.Interop.ObjectConverters`,
+`AddObjectConverter`, `SetTypeConverter`. A converter deriving from `DefaultTypeConverter` — the recommended
+way to adjust one conversion — needs no change at all. If your converter already has a base class, wrap it: an
+`ObjectConverter` subclass that forwards to it is four lines, and it is what `AddObjectConverter`'s typed
+overload does internally.
+
+What the classes buy is a member the interfaces could not carry, because the target frameworks include ones
+without default interface members:
+
+```c#
+public sealed class TimeSpanConverter : ObjectConverter
+{
+    protected override Type[]? HandledTypes => [typeof(TimeSpan)];
+
+    public override bool TryConvert(Engine engine, object value, out JsValue? result) { … }
+}
+```
+
+**Why it matters, and this is the part that has no compile error.** A converter that declares nothing is
+entitled to see every value, so registering one turns off compiled interop lanes engine-wide. The gate on the
+type-converter side used to be `converter.GetType() == typeof(DefaultTypeConverter)` — an *exact* type test —
+so `class Mine : DefaultTypeConverter`, written to change one conversion and inherit the rest, silently cost
+the compiled member-write lane, the compiled method-invoker lane, and the engine's share of the process-wide
+accessor cache. It no longer does, provided the converter says what it converts:
+
+```c#
+options.SetTypeConverter(engine => new MoneyConverter(engine), typeof(Money));
+```
+
+The declaration is a promise that for every *other* target type the converter produces exactly what
+`DefaultTypeConverter` produces. Because a `ClrTypeConverter` is handed the target `Type` rather than a value,
+the question is exact: a declared type claims itself and its subtypes and nothing above them. Run with
+host-contract verification (`AppContext.SetSwitch("Jint.EnableHostContractVerification", true)`, set before the
+first use of any Jint type) on to have the promise checked — the stock conversion
+is run beside yours for every undeclared target, and a disagreement is reported instead of being silently
+bypassed. `AddObjectConverter(converter, handledTypes)` is the same idea for the other direction and is
+unchanged; its filter has to guess about a runtime value, so a member typed `object` can never be excluded
+from it.
+
+`Engine.TypeConverter` still hands back exactly the instance your factory produced, verification on or off.
+`SetTypeConverter` now also raises `JINTSEC052` from `ValidateSecurityConfiguration`, as every other host CLR
+callback already did.
+
 ## 4. Breaking without a signature change
 
 This is the section that matters most, because a compiler cannot find any of it. Every row below

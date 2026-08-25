@@ -39,9 +39,16 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
 
     /// <summary>
     /// The last converter-type filter that answered "does not claim <see cref="ReflectionAccessor.MemberType"/>",
-    /// or <see langword="null"/> if none has. See <see cref="Claims"/>.
+    /// or <see langword="null"/> if none has. See <see cref="Claims(ObjectConverterTypeFilter)"/>.
     /// </summary>
     private ObjectConverterTypeFilter? _unclaimedBy;
+
+    /// <summary>
+    /// The write-side twin of <see cref="_unclaimedBy"/>: the last type-converter filter that answered "does
+    /// not claim <see cref="ReflectionAccessor.MemberType"/> as a conversion target". Same memo, same safety
+    /// argument — see <see cref="Claims(ObjectConverterTypeFilter)"/>.
+    /// </summary>
+    private TypeConverterTargetFilter? _unclaimedAsTargetBy;
 
     protected CompilableMemberAccessor(MemberInfo member, Type memberType, PropertyInfo? indexer)
         : base(memberType, indexer)
@@ -103,11 +110,14 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
 
     public sealed override bool TrySetJsValue(Engine engine, object target, JsValue value)
     {
-        // The fallback conversion consults the engine's ITypeConverter for some of these member
-        // types (an integer JsNumber assigned to a double member reaches ConvertValueToSet, for
-        // example), so a host-installed converter must keep seeing them. The flag is maintained by
-        // the TypeConverter setter, so this costs a field read instead of a GetType() per write.
-        if (!engine._typeConverterIsDefault)
+        // The fallback conversion consults the engine's ClrTypeConverter for some of these member types (a
+        // JsNumber outside the int range assigned to a long member reaches ConvertValueToSet, for example), so
+        // a host-installed converter must keep seeing them. Only for the member types it could answer
+        // differently, though: a converter that declared its target types (see OptionsExtensions
+        // .SetTypeConverter) leaves every other member on the fast lane. A converter registered without
+        // declaring them claims everything, which is the pre-existing behaviour.
+        var converterTargetFilter = engine._typeConverterTargetFilter;
+        if (converterTargetFilter is not null && Claims(converterTargetFilter))
         {
             return false;
         }
@@ -226,6 +236,23 @@ internal abstract class CompilableMemberAccessor : ReflectionAccessor
         }
 
         _unclaimedBy = filter;
+        return false;
+    }
+
+    /// <inheritdoc cref="Claims(ObjectConverterTypeFilter)"/>
+    private bool Claims(TypeConverterTargetFilter filter)
+    {
+        if (ReferenceEquals(_unclaimedAsTargetBy, filter))
+        {
+            return false;
+        }
+
+        if (filter.Claims(MemberType))
+        {
+            return true;
+        }
+
+        _unclaimedAsTargetBy = filter;
         return false;
     }
 

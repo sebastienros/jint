@@ -178,24 +178,32 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+    /// Adds an <see cref="ObjectConverter"/> instance to convert CLR values to <see cref="JsValue"/>.
     /// </summary>
-    public static Options AddObjectConverter<T>(this Options options) where T : IObjectConverter, new()
+    /// <inheritdoc cref="AddObjectConverter(Options, ObjectConverter)" path="/remarks"/>
+    public static Options AddObjectConverter<T>(this Options options) where T : ObjectConverter, new()
     {
         return AddObjectConverter(options, new T());
     }
 
     /// <summary>
-    /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+    /// Adds an <see cref="ObjectConverter"/> instance to convert CLR values to <see cref="JsValue"/>.
     /// </summary>
-    public static Options AddObjectConverter(this Options options, IObjectConverter objectConverter)
+    /// <remarks>
+    /// A converter that does not declare the CLR types it handles — through
+    /// <see cref="ObjectConverter.HandledTypes"/> or the overload below — can be handed any value, so this
+    /// registration disarms the <b>compiled member-read lane</b> and the <b>compiled method-invoker lane</b>
+    /// for every wrapped member and method: both produce the <see cref="JsValue"/> themselves, and a converter
+    /// entitled to see every CLR value must be given the chance to.
+    /// </remarks>
+    public static Options AddObjectConverter(this Options options, ObjectConverter objectConverter)
     {
         options.Interop.ObjectConverters.Add(objectConverter);
         return options;
     }
 
     /// <summary>
-    /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>, declaring
+    /// Adds an <see cref="ObjectConverter"/> instance to convert CLR values to <see cref="JsValue"/>, declaring
     /// the CLR types the converter can handle.
     /// </summary>
     /// <remarks>
@@ -204,6 +212,16 @@ public static class OptionsExtensions
     /// <paramref name="handledTypes"/> — such a member never reaches the converter. Declare a base type, an
     /// interface or <see cref="System.Enum"/> to cover a family of values, or use the overload without
     /// <paramref name="handledTypes"/> for a converter that inspects everything.
+    /// <para>
+    /// What it costs when it does not narrow: an undeclared registration disarms the compiled member-read and
+    /// method-invoker lanes for every member and method. A declaration buys those back for the ones no declared
+    /// type can reach — but never for a member or return type of <see cref="object"/>, which can hold anything.
+    /// Every registered converter has to declare, since one that has not can be handed anything.
+    /// </para>
+    /// <para>
+    /// A converter that declares through <see cref="ObjectConverter.HandledTypes"/> as well claims the union of
+    /// the two, so this parameter can widen its declaration but never narrow it.
+    /// </para>
     /// </remarks>
     /// <param name="options">Options to modify.</param>
     /// <param name="objectConverter">The converter to register.</param>
@@ -211,7 +229,7 @@ public static class OptionsExtensions
     /// The CLR types the converter handles. Values assignable to any of them (including through a declared
     /// base type or interface) are considered convertible by this converter.
     /// </param>
-    public static Options AddObjectConverter(this Options options, IObjectConverter objectConverter, params Type[] handledTypes)
+    public static Options AddObjectConverter(this Options options, ObjectConverter objectConverter, params Type[] handledTypes)
     {
         if (objectConverter is null)
         {
@@ -266,7 +284,7 @@ public static class OptionsExtensions
     /// </para>
     /// <para>
     /// Assignability is the rule, exactly as for
-    /// <see cref="AddObjectConverter(Options, Runtime.Interop.IObjectConverter, Type[])"/>: declare an
+    /// <see cref="AddObjectConverter(Options, Runtime.Interop.ObjectConverter, Type[])"/>: declare an
     /// interface or a base type to cover a whole family (<c>typeof(IReadOnlyDictionary&lt;string, object&gt;)</c>
     /// for every implementation of it). Unlike that filter this one never guesses in the permissive
     /// direction — an open generic type declaration claims nothing, since a wrong claim here would serve
@@ -316,13 +334,91 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Sets the type converter to use.
+    /// Sets the converter that turns script values into the CLR types the host's members and methods ask for.
     /// </summary>
-    public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)
+    /// <remarks>
+    /// A converter that does not declare the target types it handles — through
+    /// <see cref="ClrTypeConverter.HandledTargetTypes"/> or the overload below — could answer any conversion
+    /// differently from <see cref="DefaultTypeConverter"/>, so this registration disarms the <b>compiled
+    /// member-write lane</b> and the <b>compiled method-invoker lane</b> for every member and method, and keeps
+    /// every non-integer-keyed indexer accessor out of the accessor cache a
+    /// <see cref="Options.InteropOptions.TypeResolver"/> shares between engines.
+    /// <para>
+    /// Deriving from <see cref="DefaultTypeConverter"/> to adjust one conversion is enough to reach all of that:
+    /// what the engine gates on is the <em>declaration</em>, not the base class. Use the overload below.
+    /// </para>
+    /// </remarks>
+    public static Options SetTypeConverter(this Options options, Func<Engine, ClrTypeConverter> typeConverterFactory)
     {
-        options.AddConfiguration(new EngineConfiguration(
-            engine => engine.TypeConverter = typeConverterFactory(engine),
-            EngineConfigurationProvenance.User));
+        return AddTypeConverterConfiguration(options, typeConverterFactory, handledTargetTypes: null);
+    }
+
+    /// <summary>
+    /// Sets the type converter to use, declaring the CLR target types it converts to.
+    /// </summary>
+    /// <remarks>
+    /// The declaration is a promise that for every <em>other</em> target type the converter produces exactly
+    /// what <see cref="DefaultTypeConverter"/> produces, and in exchange the engine keeps its compiled
+    /// member-write and method-invoker lanes for members and parameters typed that way, and keeps sharing their
+    /// resolved accessors with engines running the stock converter.
+    /// <para>
+    /// The question is exact, unlike
+    /// <see cref="AddObjectConverter(Options, ObjectConverter, Type[])"/>'s: a converter is handed the target
+    /// <see cref="Type"/> itself rather than a value, so a declared type claims itself and its subtypes and
+    /// nothing above them. Declaring an interface or a base type covers the family under it.
+    /// </para>
+    /// <para>
+    /// Run with host-contract verification on to have the promise checked: the stock conversion is run beside
+    /// the converter's for every undeclared target type, and a disagreement is reported instead of being
+    /// silently bypassed.
+    /// </para>
+    /// </remarks>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="typeConverterFactory">Builds the converter for each engine.</param>
+    /// <param name="handledTargetTypes">
+    /// The CLR target types this converter answers differently from <see cref="DefaultTypeConverter"/>. A
+    /// declared type covers itself and everything assignable to it. Unioned with the converter's own
+    /// <see cref="ClrTypeConverter.HandledTargetTypes"/>, so this can widen that declaration but never narrow it.
+    /// </param>
+    public static Options SetTypeConverter(
+        this Options options,
+        Func<Engine, ClrTypeConverter> typeConverterFactory,
+        params Type[] handledTargetTypes)
+    {
+        if (handledTargetTypes is null || handledTargetTypes.Length == 0)
+        {
+            Throw.ArgumentException(
+                "At least one handled target type is required, use the overload without handled target types for a converter that answers for every target type.",
+                nameof(handledTargetTypes));
+        }
+
+        foreach (var handledType in handledTargetTypes!)
+        {
+            if (handledType is null)
+            {
+                Throw.ArgumentException("Handled target types cannot contain null.", nameof(handledTargetTypes));
+            }
+        }
+
+        return AddTypeConverterConfiguration(options, typeConverterFactory, handledTargetTypes);
+    }
+
+    private static Options AddTypeConverterConfiguration(
+        Options options,
+        Func<Engine, ClrTypeConverter> typeConverterFactory,
+        Type[]? handledTargetTypes)
+    {
+        if (typeConverterFactory is null)
+        {
+            Throw.ArgumentNullException(nameof(typeConverterFactory));
+        }
+
+        options.AddConfiguration(
+            new EngineConfiguration(
+                engine => engine.InstallTypeConverter(typeConverterFactory!(engine), handledTargetTypes),
+                EngineConfigurationProvenance.User),
+            nameof(SetTypeConverter));
+        options.HasUserTypeConverter = true;
         return options;
     }
 
