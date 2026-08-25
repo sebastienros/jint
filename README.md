@@ -2193,10 +2193,13 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   named-projection hooks against each other — `HasName` and `NameAt` against `TryGetNamedValue`, a
   `writable: true` name against having a `TrySetNamedValue` override to accept it (and the reverse), and a
   `TryDeleteName` that answered `true` for a name still readable — a `LazyJsString`'s declared
-  length against the text it eventually produces, and an
+  length against the text it eventually produces, an
   `ObjectConverter` registered with `AddObjectConverter(converter, handledTypes)` converting a type it did not
-  declare. Turn it on in a test or staging host, never in production: the checks deliberately redo the work the
-  hooks exist to avoid. A Debug build of Jint has them on already and needs no switch.
+  declare, and — the one check that is about your *threading* rather than your property model — an
+  engine-affine object built on one thread while a different thread is inside that engine, which is the
+  violation the `Engine` entry-point check cannot see (see **Thread-safety**). Turn it on in a test or staging
+  host, never in production: the checks deliberately redo the work the hooks exist to avoid. A Debug build of
+  Jint has them on already and needs no switch.
 
 **Lazy values.** `PropertyFlag.CustomJsValue` is the supported hook for a property whose value is *computed on
 every read*: a `PropertyDescriptor` subclass overriding `CustomValue` keeps working under the read inline
@@ -2544,6 +2547,21 @@ engine to the pool. Direct mutation through engine-owned objects such as `engine
 the same contract and cannot be guarded by the `Engine` entry-point check. `Dispose` also fails fast while
 an operation owns the engine; await or finish that operation before disposing. This is observable during
 exception unwinding too, so a `using` scope must not outlive an async engine operation.
+
+**The fail-fast check guards operations, not value construction, and that line is drawn deliberately.** The
+APIs that *build* a value for an engine — `JsObject.Create`, `JsObject.CreateFromEntries` and the `JsArray`
+constructors, the ones **Projecting host data** above recommends — take no reservation. They are per-object
+APIs on a bulk path, and an always-on claim there would be paid by every host that projects a batch of rows.
+Building one of them on a second thread while another thread is inside the engine is therefore the host's own
+responsibility, and it does not fail where it is built: an engine-affine object built during another thread's
+work fails later, somewhere else, as a torn shape table or a lost property. **Host-contract verification is
+how you find one** — turn the switch on in a test or staging host (see **Projecting host data**) and the
+construction throws, naming the type, instead of succeeding quietly. `JsValue.FromObject` is on the guarded
+side, but because it can run host converters and reference resolvers, not because construction generally is.
+
+The rule that follows from the two paragraphs together: build values for an engine on the thread that owns
+it, or while no thread does. An idle engine accepts construction from any thread, which is what makes
+preparing values between turns — and pooling engines — work.
 
 ## Examples
 
