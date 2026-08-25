@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -72,13 +73,17 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             return new ArrayLikeOperations(arrayWrapper);
         }
 
-        if (instance is ObjectWrapper wrapper)
+        // A wrapped CLR collection reaches the indexed lane only when it has an index to read: ICollection is
+        // a count-and-copy contract, so Queue<T>, Stack<T>, LinkedList<T> and SortedSet<T> are array-like and
+        // have no element at index 0. They fall through to ObjectOperations, where the generics honour the
+        // wrapper's length and read undefined at each index — which is what an array-like with no index
+        // properties means, and what a HashSet<T> (a collection through the generic interface only, so never
+        // admitted here in the first place) has always done.
+        if (instance is ObjectWrapper { HasIndexedElements: true } wrapper
+            && wrapper._typeDescriptor.IsArrayLike
+            && wrapper.Target is ICollection)
         {
-            var descriptor = wrapper._typeDescriptor;
-            if (descriptor.IsArrayLike && wrapper.Target is ICollection)
-            {
-                return new IndexWrappedOperations(wrapper);
-            }
+            return new IndexWrappedOperations(wrapper);
         }
 
         return new ObjectOperations(instance);
@@ -607,13 +612,17 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
     {
         private readonly ObjectWrapper _target;
         private readonly ICollection _collection;
-        private readonly IList _list;
+        private readonly IList? _list;
 
+        // The caller guarantees ObjectWrapper.HasIndexedElements, so one of _list and the type descriptor's
+        // integer indexer answers an element read — the second being the AOT-degraded case, where an
+        // IList<T> that is not an IList could not get its typed wrapper. Every member below was already
+        // written for a null _list, which is what says the hard cast this replaced was never the intent.
         public IndexWrappedOperations(ObjectWrapper wrapper)
         {
             _target = wrapper;
             _collection = (ICollection) wrapper.Target;
-            _list = (IList) wrapper.Target;
+            _list = wrapper.Target as IList;
         }
 
         public override ObjectInstance Target => _target;
@@ -630,21 +639,26 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
                 return;
             }
 
-            if (_list == null)
+            var list = _list;
+            if (list is null)
             {
-                throw new NotSupportedException();
+                // readable through the descriptor's indexer but with no IList to resize: route the write
+                // through the wrapper, whose read-only "length" refuses it as a JavaScript TypeError rather
+                // than as a CLR exception
+                _target.Set(CommonProperties.Length, length, true);
+                return;
             }
 
-            while (_list.Count > (int) length)
+            while (list.Count > (int) length)
             {
                 // shrink list to fit
-                _list.RemoveAt(_list.Count - 1);
+                list.RemoveAt(list.Count - 1);
             }
 
-            while (_list.Count < (int) length)
+            while (list.Count < (int) length)
             {
                 // expand list to fit
-                _list.Add(null);
+                list.Add(null);
             }
         }
 
@@ -668,13 +682,29 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         private JsValue ReadValue(int index)
         {
-            if (_list is not null)
+            var list = _list;
+            if (list is not null)
             {
-                return (uint) index < _list.Count ? JsValue.FromObject(_target.Engine, _list[index]) : JsValue.Undefined;
+                return (uint) index < list.Count ? JsValue.FromObject(_target.Engine, list[index]) : JsValue.Undefined;
             }
 
-            // via reflection is slow, but better than nothing
-            return JsValue.FromObject(_target.Engine, _target._typeDescriptor.IntegerIndexerProperty!.GetValue(Target, [index]));
+            var indexer = _target._typeDescriptor.IntegerIndexerProperty;
+            if (indexer is null)
+            {
+                return JsValue.Undefined;
+            }
+
+            // via reflection is slow, but better than nothing. The receiver is the CLR object, not the
+            // wrapper around it — passing the wrapper was a TargetException waiting for the first caller.
+            try
+            {
+                return JsValue.FromObject(_target.Engine, indexer.GetValue(_target.Target, [index]));
+            }
+            catch (TargetInvocationException exception)
+            {
+                Throw.MeaningfulException(_target.Engine, exception);
+                return JsValue.Undefined;
+            }
         }
 
         public override bool HasProperty(ulong index) => index < (ulong) _collection.Count;

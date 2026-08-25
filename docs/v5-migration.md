@@ -1214,6 +1214,44 @@ or by assigning `Prototype` after construction — is now doing it twice, harmle
 methods on the constructor object as own properties is unaffected: this changes what the object *inherits*,
 never what it owns. A script asserting `Box instanceof Function === false` was asserting the bug.
 
+### 4.19 An `Array.prototype` generic over a host collection with no index answers instead of throwing ([#3356](https://github.com/sebastienros/jint/pull/3356))
+
+A wrapped CLR collection is array-like when it has a `Count`, and `ICollection` is a count-and-copy
+contract with no index in it. `Queue<T>`, `Stack<T>`, `LinkedList<T>`, `SortedSet<T>` and an embedder's own
+`ICollection` therefore have a `length` and no element at index 0. Applying an `Array.prototype` generic to
+one, or destructuring it, threw a raw `System.InvalidCastException` out of `Engine.Evaluate` — not a
+`JavaScriptException`, so neither a host `catch` nor a script `try`/`catch` could see it:
+
+```js
+// 4.16.x, for engine.SetValue("q", new Queue<int>([1, 2, 3]))
+q.length                            // 3
+Array.prototype.join.call(q, '-')   // InvalidCastException: ... to type 'System.Collections.IList'
+Array.prototype.indexOf.call(q, 2)  // InvalidCastException
+var [...r] = q;                     // InvalidCastException
+```
+
+The indexed lane is now entered only for a target that actually has an indexer, so those collections behave
+as `HashSet<T>` always has — it reaches the engine through the generic `ICollection<T>` and was never
+admitted to that lane:
+
+```js
+// 5.x
+Array.prototype.join.call(q, '-')   // "--"     — length honoured, three absent indices
+Array.prototype.indexOf.call(q, 2)  // -1
+[...q].join('-')                    // "1-2-3"  — iteration is unaffected
+var [...r] = q; r.join('-')         // "1-2-3"
+Array.prototype.push.call(q, 4)     // TypeError — "length" forwards to a read-only Count
+```
+
+A collection that *does* have an integer indexer keeps its elements, including a host `ICollection` that is
+not an `IList`: `join` over one answers `"1-2-3"`, where 4.16 threw.
+
+**What could break:** a `catch (InvalidCastException)` around `Evaluate` written to absorb this no longer
+fires, and script that reached one of these generics now gets an answer where it used to abort. Array
+destructuring of a `HashSet<T>` changes too — `var [...r] = set` yielded `[undefined, undefined, undefined]`
+while `[...set]` yielded the elements, and both now yield the elements. Destructuring is *GetIterator* in
+the specification, so an index-reading fast path may only stand in for the iterator where the two agree.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

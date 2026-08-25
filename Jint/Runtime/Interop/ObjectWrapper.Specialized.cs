@@ -103,6 +103,10 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public abstract int Length { get; }
 
+    // every subclass is a view over something with an indexer, including the IReadOnlyList<T> one the
+    // type descriptor does not recognize as integer-indexed
+    internal sealed override bool HasIndexedElements => true;
+
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
         if (property.IsInteger())
