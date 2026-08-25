@@ -17,6 +17,10 @@ var ns = engine.Modules.Import("./my-module.js");
 engine.Modules.Add("lib", builder => builder.ExportType<MyClass>().ExportValue("version", 1));
 ```
 
+### `NodeStyleModuleLoader`
+
+`NodeStyleModuleLoader` is opt-in, all-TFM (no gating), implementing Node's [ESM_RESOLVE](https://nodejs.org/api/esm.html#resolution-algorithm-specification) over an on-disk `node_modules` tree, with two rules worth knowing before touching it: the base path bounds the upward walk as well as the reachable files, so nothing above it is read or named in a message; and a bare specifier matching no package is handed back as `SpecifierType.Bare` rather than raising the algorithm's *Module Not Found*, which is the only step deliberately deviated from and the whole reason `Engine.Modules.Add` still works alongside it.
+
 ### Asynchronous module loading
 
 `IModuleLoader.LoadModule` has to hand back a parsed `ModuleRecord` there and then, so a host fetching module source over I/O — HTTP, a Vite dev server, an asset pipeline — could only satisfy it by blocking the calling thread, which is not viable on a game loop or a UI thread. The spec has always allowed better: `HostLoadImportedModule` may complete whenever it likes and call `FinishLoadingImportedModule` later. Jint used the spec's names for those hooks but not their shape — there was no load phase at all, and modules were loaded lazily and synchronously from inside `InnerModuleLinking`.
@@ -34,6 +38,20 @@ One settle is exempt from the queue entirely: a completion settled **before `Loa
 A blocking import nested inside a job does not reach that wait at all, though. `ModuleOperations.ThrowIfBlockedInsideJob` fails it up front with an `InvalidOperationException` naming `StartImport`/`ImportAsync`, because the wait it would enter cannot end in anything but the `PromiseTimeout`: the queued completion that would settle the load is exactly what the re-entrancy guard makes unrunnable from there. Ten seconds of stall and "the loader did not finish in time" is the wrong answer to a structurally impossible wait — the guard above is what keeps that wait cheap for the cases that *can* progress, not a licence to enter it when none can.
 
 **Which of the two a given load takes is not something a host can predict**, and nothing reports it afterwards. It is decided by whether the loader's answer happens to be at hand before `LoadModuleAsync` returns, so one loader settles inline on a cache hit and queues on a miss, and a task that completes on the thread pool can land on either side of that return depending on nothing but how busy the machine is. For an ordinary failure the difference is invisible — it is the same rejection either way. For one of the propagating failures above it decides *where* the exception erupts: inline, out of the very call that started the import (`Modules.Import`, `ImportAsync`, `StartImport`); queued, out of whatever pumps the event loop afterwards, with the importing promise left unsettled and its `ModuleImportOperation` never completing — so on that side the erupting exception is the whole outcome, and a host that only polled `IsCompleted` would poll forever. Both are behaviour rather than an accident, which is why a test asserting either has to *select* its window instead of letting the machine pick one: `AsyncModuleLoaderTests` pins one test on each side (`AResultLimitSettledInsideTheLoadCallStaysFatalOnTheImportingStack`, `AResultLimitSettledAfterTheLoadCallReturnedStaysFatalOnThePumpInstead`), and a change that ever makes the two agree updates both rather than deleting one.
+
+### What counts as a public contract
+
+These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it
+is a row in [`docs/v5-migration.md`](../../../docs/v5-migration.md), written in the same pull request**, even
+when it breaks nothing at compile time — and the engine-wide rows are in
+[`Jint/AGENTS.md`](../../AGENTS.md#what-counts-as-a-public-contract).
+
+| Surface | Location |
+| --- | --- |
+| `IModuleLoader` — and the promise that a loader which only implements *it* is still driven synchronously | `Jint/Runtime/Modules/IModuleLoader.cs` |
+| `ModuleRecord.Location` — the name a module knows itself by, never null, and the `referencingModuleLocation` its own imports resolve against | `Jint/Runtime/Modules/ModuleRecord.cs` |
+| `ModuleFactory.LocationOf` — public **static**, the rule deriving that name from a `ResolvedSpecifier`, which a host naming a module itself has to match exactly | `Jint/Runtime/Modules/ModuleFactory.cs` |
+| `IAsyncModuleLoader` + `ModuleLoadCompletion` + `AsyncModuleLoader` + `ModuleRecord.LoadRequestedModules` + `Engine.Modules.StartImport` / `ImportAsync` + `ModuleImportOperation` | `Jint/Runtime/Modules/`, `Jint/Engine.Modules.cs` |
 
 ### Gotchas
 

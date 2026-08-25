@@ -11,6 +11,19 @@
 
 CLR access is disabled by default; enable it with `new Engine(cfg => cfg.AllowClr())`. Execution constraints bound resource use: `options.LimitMemory(4_000_000)`, `options.LimitExecutionTime(TimeSpan.FromSeconds(4))`, `options.LimitStatements(1000)`, or a custom `Constraint` subclass. Read the gotchas in the integration-surface section before relying on any of them.
 
+### What counts as a public contract
+
+These are this area's rows of Jint's public surface. The rule they all obey — **a change to any of it
+is a row in [`docs/v5-migration.md`](../../docs/v5-migration.md), written in the same pull request**, even
+when it breaks nothing at compile time — and the engine-wide rows are in
+[`Jint/AGENTS.md`](../AGENTS.md#what-counts-as-a-public-contract).
+
+| Surface | Location |
+| --- | --- |
+| `Constraint` + `IsAmortizable` | `Jint/Constraint.cs` |
+| `OperationDeadlineConstraint` — public sealed, host-armed `Begin`/`End` budget spanning a whole multi-entry host operation, which the per-entry constraint reset deliberately never rewinds | `Jint/Constraints/OperationDeadlineConstraint.cs` |
+| `MemoryLimitConstraint` + `MemoryLimitAccuracy` — per-operation managed-allocation accounting carried across async thread hops, with host-armed `Begin`/`End` for a multi-entry operation | `Jint/Constraints/MemoryLimitConstraint.cs` |
+
 ### Gotchas
 
 Each of these cost a real integrator or a real bug. These are the ones that bite in this area; the
