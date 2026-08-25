@@ -31,6 +31,42 @@ public sealed partial class Options
     private WebApiOptions? _webApi;
 
     /// <summary>
+    /// Returns a copy of these options whose web-API subtree is shared with nothing, so that a host callback
+    /// writing to it reaches the one engine that asked for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Engine.WebApi.Enable</c> is the only caller, and it takes this copy before it runs the
+    /// host's configuration callback. Every other group stays shared by reference: they are frozen, nothing
+    /// this door can reach writes to them, and copying them would cost an engine build's worth of allocations
+    /// to change nothing.
+    /// </para>
+    /// <para>
+    /// A null <see cref="_webApi"/> is left null rather than materialized — the copy's own accessor will
+    /// create it, born frozen, exactly as any other post-freeze group access does.
+    /// </para>
+    /// </remarks>
+    internal Options CloneWithPrivateWebApiOptions()
+    {
+        var clone = (Options) MemberwiseClone();
+
+        // TimeSystem materializes inside its own getter, so a null field here would let the copy and the
+        // original each build one and hand two engines two different clocks. Reading it materializes the
+        // original's and MemberwiseClone has already shared whatever that produced.
+        clone._timeSystem = TimeSystem;
+
+        var webApi = _webApi?.Clone();
+
+        // Clone gives FetchOptions.AllowedSchemes a fresh OptionsList, and a fresh one is born writable;
+        // every group otherwise carries the source's frozen state through MemberwiseClone. Re-freezing the
+        // subtree is what keeps the live door to setting a value rather than growing a registry.
+        SetReadOnly(webApi, _readOnly);
+        clone._webApi = webApi;
+
+        return clone;
+    }
+
+    /// <summary>
     /// Configuration for the opt-in web platform APIs. Requires .NET 8 or higher.
     /// </summary>
     /// <remarks>
@@ -192,8 +228,8 @@ public sealed partial class Options
         /// <remarks>
         /// <para>
         /// A worker needs a thread and a pump, and Jint never starts either, so there is no default provider
-        /// and there cannot be one. See <see cref="WorkerProvider"/> for what a provider owes and for the
-        /// pooled-host warning about setting this through the live <c>Engine.WebApi.Enable</c> door.
+        /// and there cannot be one. See <see cref="WorkerProvider"/> for what a provider owes and for how a
+        /// pooled host reaches per-request policy from one.
         /// </para>
         /// <para>
         /// Read once, when the engine is built.

@@ -539,12 +539,12 @@ built. Four things are worth knowing:
 * **Network access is still only ever granted by name.** No feature closure pulls in `Fetch`, `EventSource`
   or `WebSocket`; asking for `WebApiFeatures.Default` here grants exactly what it grants on the options.
 * **Settings come from this engine's `Options`, read at the moment of the call**, with the same read-once
-  semantics they have at construction. The delegate is handed that same group — which, exactly as at options
-  time, is shared with every other engine built from the same `Options` instance, so give an engine its own
-  `Options` when its network policy has to be its own. Two settings are deliberately *not* re-read for an
-  engine that already has web-API state: `Timers.TimeProvider`, because the timers, `performance.now()` and
-  the time origin have to stay on one clock for the engine's life, and `Diagnostics.Sink`, which also decides
-  whether a callback's exception erupts.
+  semantics they have at construction. The delegate is handed a copy of the web-API settings that the engine
+  takes for itself first — it starts as a copy, so whatever you configured on the `Options` up front is still
+  in force, and a network policy you set here is this engine's and no sibling's. Two settings are deliberately
+  *not* re-read for an engine that already has web-API state: `Timers.TimeProvider`, because the timers,
+  `performance.now()` and the time origin have to stay on one clock for the engine's life, and
+  `Diagnostics.Sink`, which also decides whether a callback's exception erupts.
 * **`RestoreGlobalSnapshot` removes globals installed after the capture**, exactly as it does for
   `AddLazyGlobal` and `SetFetchHandler` — and it does *not* revert the engine's feature record, so the engine
   is left knowing about an API whose globals script can no longer name, and re-calling `engine.WebApi.Enable` is a

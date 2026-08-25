@@ -1162,9 +1162,9 @@ Three details worth knowing:
   write to an engine's own options after construction, and it is the only place the freeze is suspended. The
   suspension covers that engine's own web-API group and its sub-groups, on the calling thread, for the
   duration of the callback — no other `Options` instance, no other group, and not the registries: a live
-  enable sets a value, it never grows an `OptionsList<T>`. Note that the instance it writes to is shared with
-  every engine built from it, and for an engine built by `new Engine()` it is one Jint keeps process-wide, so
-  give an engine its own `Options` before configuring it there.
+  enable sets a value, it never grows an `OptionsList<T>`. What it writes to is a copy of the web-API settings
+  the engine takes for itself, so nothing the callback writes reaches another engine — see
+  [§4.19](#421-webapienables-callback-configures-one-engine-not-every-engine-3359).
 - **A group is allocated on first touch, and one materialized after the freeze is born frozen.** So
   `options.Intl.CldrProvider = …` on an engine's options throws even though nothing had ever touched
   `Intl`.
@@ -1251,6 +1251,33 @@ fires, and script that reached one of these generics now gets an answer where it
 destructuring of a `HashSet<T>` changes too — `var [...r] = set` yielded `[undefined, undefined, undefined]`
 while `[...set]` yielded the elements, and both now yield the elements. Destructuring is *GetIterator* in
 the specification, so an index-reading fast path may only stand in for the iterator where the two agree.
+
+### 4.21 `WebApi.Enable`'s callback configures one engine, not every engine ([#3359](https://github.com/sebastienros/jint/pull/3359))
+
+`Engine.WebApi.Enable(features, configure)` used to hand the callback the very `Options`
+instance the engine was built from. That instance is shared with every other engine built from it,
+and an engine built by `new Engine()` shares one Jint keeps process-wide — so this, the sample from
+the method's own documentation, set the tenant's client on every default-built engine in the process,
+those built before the call included:
+
+```csharp
+var engine = new Engine();
+engine.WebApi.Enable(WebApiFeatures.Fetch, w => w.Fetch.HttpClient = tenantClient);
+```
+
+The engine now takes a copy of the web-API settings for itself before the callback runs. The copy
+starts as a copy, so whatever the host configured on the options up front is still in force, and what
+the callback writes reaches that one engine.
+
+**What could break:** a host that used the callback to configure a *pool* — writing through one
+engine and expecting its siblings to pick the setting up — and a host reading a setting back off its
+own `Options` afterwards, which now answers what the host put there rather than what the callback
+wrote. Shared configuration is spelled by configuring the options before building:
+
+```csharp
+var options = new Options().UseWebApis(WebApiFeatures.Fetch);
+options.WebApi.Fetch.HttpClient = sharedClient;   // every engine built from this
+```
 
 ## 5. New in v5
 

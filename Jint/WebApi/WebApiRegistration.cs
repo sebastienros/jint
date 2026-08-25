@@ -106,11 +106,18 @@ internal static class WebApiRegistration
         var options = engine.Options;
         if (configure is not null)
         {
-            // The engine froze its options when it was built, and this callback is documented to configure
-            // the very group the engine reads its web-API settings from — the one sanctioned write to an
-            // engine's own options after construction. The suspension is scoped to this group's subtree and
-            // to this thread; see Options.BeginLiveWebApiConfiguration for why the group's own flag is the
-            // wrong thing to toggle when the Options may be shared with engines being built right now.
+            // The callback is about to write settings only this engine should read, and the instance it would
+            // otherwise write to is shared — with every engine built from it, and for `new Engine()` with one
+            // Jint keeps process-wide. So the engine takes a private copy of the web-API subtree first, and
+            // the callback configures that. Everything already on the shared group is copied across, so a
+            // host that configured its options up front still gets those settings; what the callback adds
+            // reaches this engine and nothing else.
+            options = engine.TakePrivateWebApiOptions();
+
+            // The engine froze its options when it was built, and the copy inherits that, so this callback is
+            // still writing to a frozen group — the one sanctioned write to an engine's own options after
+            // construction. The suspension is scoped to this group's subtree and to this thread; see
+            // Options.BeginLiveWebApiConfiguration for why the group's own flag is the wrong thing to toggle.
             var webApi = options.WebApi;
             var previous = Options.BeginLiveWebApiConfiguration(webApi);
             try
