@@ -41,7 +41,7 @@ public class AtomicsWaitAsyncTests
                 Atomics.waitAsync(i32a, 0, 0, 180000);
                 Atomics.notify(i32a, 0);
                 """);
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             return new WeakReference(engine);
         }
     }
@@ -87,7 +87,7 @@ public class AtomicsWaitAsyncTests
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (engine.Evaluate(condition).AsBoolean())
             {
                 return;

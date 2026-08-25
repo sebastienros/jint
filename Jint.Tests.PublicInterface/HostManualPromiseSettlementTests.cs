@@ -7,7 +7,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <c>Engine.Advanced.RegisterPromise</c> from the embedder's side: a host that settles a promise from a
+/// <c>Engine.Tasks.RegisterPromise</c> from the embedder's side: a host that settles a promise from a
 /// background thread must never have to build the settlement value on that thread.
 /// </summary>
 /// <remarks>
@@ -37,7 +37,7 @@ public class HostManualPromiseSettlementTests
         var converter = new ThreadRecordingConverter();
         using var engine = new Engine(options => options.AddObjectConverter(converter));
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         engine.SetValue("pending", manual.Promise);
         engine.Execute("var seen; pending.then(v => { seen = v.marker; });");
 
@@ -59,7 +59,7 @@ public class HostManualPromiseSettlementTests
         }));
 
         engine.Execute("busy();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         convertedBeforeThePump.Should().BeFalse("the settling thread could not claim the engine, so nothing of the value may have been built yet");
         converter.ConvertingThread.Should().NotBe(settlingThread);
@@ -77,7 +77,7 @@ public class HostManualPromiseSettlementTests
     {
         using var engine = new Engine();
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         engine.SetValue("pending", manual.Promise);
         engine.Execute("var body; pending.then(v => { body = v.status; });");
 
@@ -109,7 +109,7 @@ public class HostManualPromiseSettlementTests
         }));
 
         engine.Execute("busy();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         failure.Should().BeNull();
         engine.Evaluate("body").AsString().Should().Be("done");
@@ -124,7 +124,7 @@ public class HostManualPromiseSettlementTests
     {
         using var engine = new Engine();
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         var value = new JsObject(engine);
         value.Set("tag", "same");
 
@@ -132,7 +132,7 @@ public class HostManualPromiseSettlementTests
         engine.Execute("var received; pending.then(v => { received = v; });");
 
         manual.Resolve(value);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("received").Should().BeSameAs(value);
     }
@@ -147,12 +147,12 @@ public class HostManualPromiseSettlementTests
     {
         using var engine = new Engine();
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         engine.SetValue("pending", manual.Promise);
         engine.Execute("var received = 'untouched'; pending.then(v => { received = v; });");
 
         manual.Resolve(null);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("received").Should().Be(JsValue.Null);
     }
@@ -166,7 +166,7 @@ public class HostManualPromiseSettlementTests
     {
         using var engine = new Engine();
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         engine.SetValue("pending", manual.Promise);
         engine.Execute("var reason; pending.catch(e => { reason = e.status; });");
 
@@ -174,7 +174,7 @@ public class HostManualPromiseSettlementTests
         settler.Start();
         settler.Join();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("reason").AsString().Should().Be("nope");
     }
@@ -191,7 +191,7 @@ public class HostManualPromiseSettlementTests
 
         engine.SetValue("getJSON", new Func<string, JsValue>(url =>
         {
-            var (promise, resolve, reject) = engine.Advanced.RegisterPromise();
+            var (promise, resolve, reject) = engine.Tasks.RegisterPromise();
 
             _ = Task.Run(async () =>
             {

@@ -177,8 +177,8 @@ is answering a request the corpus itself composed.
   `NeedsApiBaseUrl` rather than being fixed up by the harness.
 * **The drive loop had to learn to wait for something with no due time.** Every other lane treats "nothing
   queued and nothing scheduled" as proof that pumping cannot change the answer. A request in flight is
-  neither — it is a completion on a thread-pool thread, and `Advanced.TimeUntilNextScheduledWork` has nothing
-  to report about it, which is the case `Advanced.WaitForScheduledWork` documents as findable only by
+  neither — it is a completion on a thread-pool thread, and `Tasks.TimeUntilNextScheduledWork` has nothing
+  to report about it, which is the case `Tasks.WaitForScheduledWork` documents as findable only by
   polling. So the server lane polls, with an idle timer reset by *progress* (a test settling) rather than by
   the wall clock, and a grace period deliberately longer than the lane's own `fetch` timeout so that a
   request the server never answers becomes a failing test rather than a stalled file.

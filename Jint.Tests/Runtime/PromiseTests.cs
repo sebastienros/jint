@@ -794,7 +794,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     {
         var engine = new Engine();
         var operations = new List<PromiseRejectionOperation>();
-        engine.Advanced.PromiseRejectionTracker += (_, args) => operations.Add(args.Operation);
+        engine.Tasks.PromiseRejectionTracker += (_, args) => operations.Add(args.Operation);
 
         engine.Evaluate("var caught = '';");
         engine.Execute("""
@@ -806,7 +806,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
                 }
             })();
         """);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.GetValue("caught").AsString().Should().Be("boom");
         // Promise.reject creates an already-rejected promise (fires Reject), and the await's
@@ -862,7 +862,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
                 }
             })();
         """);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.GetValue("caught").AsString().Should().Be("getter-boom");
     }
@@ -880,7 +880,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
             subIsMy = sub instanceof MyPromise;
             sub.then(function (v) { subVal = v; });
         """);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.GetValue("subIsMy").AsBoolean().Should().BeTrue();
         engine.GetValue("subVal").AsInteger().Should().Be(8);

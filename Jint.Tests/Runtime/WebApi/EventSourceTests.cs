@@ -229,7 +229,7 @@ public class EventSourceTests
         var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (until())
             {
                 return;
@@ -305,7 +305,7 @@ public class EventSourceTests
 
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
@@ -472,7 +472,7 @@ public class EventSourceTests
 
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
@@ -503,7 +503,7 @@ public class EventSourceTests
 
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
@@ -526,7 +526,7 @@ public class EventSourceTests
         engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
 
         clock.Advance(60_000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Requests.Should().ContainSingle();
     }
 
@@ -555,7 +555,7 @@ public class EventSourceTests
         Log(engine).Should().Be("error~2");
 
         clock.Advance(60_000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Requests.Should().ContainSingle();
     }
 
@@ -608,7 +608,7 @@ public class EventSourceTests
         // Nothing has been retried yet: the delay is on the timer queue, and this clock has not moved.
         for (var i = 0; i < 10; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
@@ -616,7 +616,7 @@ public class EventSourceTests
 
         // Just short of the announced 250ms, then past it.
         clock.Advance(200);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Requests.Should().ContainSingle();
 
         clock.Advance(60);
@@ -665,7 +665,7 @@ public class EventSourceTests
 
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
@@ -688,7 +688,7 @@ public class EventSourceTests
         Log(engine).Should().Be("open~1|error~2");
 
         clock.Advance(60_000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Requests.Should().ContainSingle();
     }
 

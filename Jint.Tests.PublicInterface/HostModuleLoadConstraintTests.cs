@@ -103,7 +103,7 @@ public class HostModuleLoadConstraintTests
         });
 
         var operation = engine.Modules.StartImport("m");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();

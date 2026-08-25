@@ -64,7 +64,7 @@ public sealed record CoverageEntry
 
     /// <summary>
     /// How many times the construct was entered. Always greater than zero: a construct that never ran has no
-    /// entry at all (see <see cref="Engine.AdvancedOperations.GetCoverage"/> on deriving the uncovered set).
+    /// entry at all (see <see cref="Engine.DiagnosticOperations.GetCoverage"/> on deriving the uncovered set).
     /// </summary>
     public long HitCount { get; }
 }
@@ -99,7 +99,7 @@ public sealed record CoverageSource
 
 /// <summary>
 /// A snapshot of everything one engine has counted since it was created, or since the last
-/// <see cref="Engine.AdvancedOperations.ResetCoverage"/>.
+/// <see cref="Engine.DiagnosticOperations.ResetCoverage"/>.
 /// </summary>
 /// <remarks>
 /// <b>Forward-extensible.</b> This type may gain members in any release; it has no public constructor.

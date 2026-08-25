@@ -125,7 +125,7 @@ public class HostGlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("canceled").AsNumber().Should().Be(3);
 
@@ -164,7 +164,7 @@ public class HostGlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<RecursionDepthOverflowException>(() => engine.Advanced.ProcessTasks());
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Tasks.ProcessTasks());
 
         engine.Evaluate("seen").AsNumber().Should().Be(0);
         sink.Reports.Should().BeEmpty();
@@ -188,7 +188,7 @@ public class HostGlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks()).Message.Should().Be("boom");
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks()).Message.Should().Be("boom");
 
         engine.Evaluate("seen").AsNumber().Should().Be(0);
 

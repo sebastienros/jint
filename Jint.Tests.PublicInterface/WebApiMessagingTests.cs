@@ -11,7 +11,7 @@ namespace Jint.Tests.PublicInterface;
 /// <summary>
 /// Channel messaging seen from outside the assembly: what a host has to write to get it, and the one web API
 /// that lets two <see cref="Engine"/>s talk to each other —
-/// <c>Engine.Advanced.CreateMessagePortPair</c>.
+/// <c>Engine.WebApi.CreateMessagePortPair</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,7 +19,7 @@ namespace Jint.Tests.PublicInterface;
 /// </para>
 /// <para>
 /// The cross-engine tests run both engines on the test's own thread and pump them alternately with
-/// <c>Advanced.ProcessTasks()</c>, which is the shape a host with its own loop uses. That is deliberate:
+/// <c>Tasks.ProcessTasks()</c>, which is the shape a host with its own loop uses. That is deliberate:
 /// two threads would test the operating system's scheduler as much as the code, whereas alternating pumps
 /// test exactly the contract — a message serialized on one engine's turn is deserialized and dispatched on
 /// the other engine's turn, and never in between.
@@ -93,9 +93,9 @@ public class WebApiMessagingTests
         var enabled = MessagingEngine();
         var plain = new Engine();
 
-        Assert.Throws<InvalidOperationException>(() => enabled.Advanced.CreateMessagePortPair(plain));
-        Assert.Throws<InvalidOperationException>(() => plain.Advanced.CreateMessagePortPair(enabled));
-        Assert.Throws<ArgumentNullException>(() => enabled.Advanced.CreateMessagePortPair(null!));
+        Assert.Throws<InvalidOperationException>(() => enabled.WebApi.CreateMessagePortPair(plain));
+        Assert.Throws<InvalidOperationException>(() => plain.WebApi.CreateMessagePortPair(enabled));
+        Assert.Throws<ArgumentNullException>(() => enabled.WebApi.CreateMessagePortPair(null!));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class WebApiMessagingTests
         var first = MessagingEngine();
         var second = MessagingEngine();
 
-        var pair = first.Advanced.CreateMessagePortPair(second);
+        var pair = first.WebApi.CreateMessagePortPair(second);
 
         first.SetValue("port", pair.Local);
         second.SetValue("port", pair.Remote);
@@ -124,7 +124,7 @@ public class WebApiMessagingTests
     public void CreateMessagePortPairWithTheSameEngineIsASameEngineChannel()
     {
         var engine = MessagingEngine();
-        var pair = engine.Advanced.CreateMessagePortPair(engine);
+        var pair = engine.WebApi.CreateMessagePortPair(engine);
 
         engine.SetValue("a", pair.Local);
         engine.SetValue("b", pair.Remote);
@@ -144,7 +144,7 @@ public class WebApiMessagingTests
         host.Execute("port.postMessage({ ask: 'ping', payload: [1, 2, 3] });");
         ReceivedCount(worker).Should().Be(0);
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("received.length").AsNumber().Should().Be(1);
         worker.Evaluate("received[0].ask").AsString().Should().Be("ping");
         worker.Evaluate("received[0].payload.join('-')").AsString().Should().Be("1-2-3");
@@ -153,7 +153,7 @@ public class WebApiMessagingTests
         worker.Execute("port.postMessage('pong');");
         ReceivedCount(host).Should().Be(0);
 
-        host.Advanced.ProcessTasks();
+        host.Tasks.ProcessTasks();
         host.Evaluate("received[0]").AsString().Should().Be("pong");
     }
 
@@ -163,7 +163,7 @@ public class WebApiMessagingTests
         var (host, worker) = ConnectedPair();
 
         host.Execute("for (var i = 0; i < 4; i++) { port.postMessage(i); }");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("received.join(',')").AsString().Should().Be("0,1,2,3");
     }
@@ -174,7 +174,7 @@ public class WebApiMessagingTests
         var (host, worker) = ConnectedPair();
 
         host.Execute("var sent = new Map([['k', { n: 1 }]]); port.postMessage(sent);");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // The receiving engine gets objects of its own realm, which is what makes sharing a JsValue across
         // engines unnecessary — and it is the only reason this is safe at all.
@@ -200,7 +200,7 @@ public class WebApiMessagingTests
         // of delivery, so it does not wait for the receiver to be pumped.
         host.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("received[0] instanceof ArrayBuffer").AsBoolean().Should().BeTrue();
         worker.Evaluate("received[0].byteLength").AsNumber().Should().Be(4);
         worker.Evaluate("new Uint8Array(received[0])[0]").AsNumber().Should().Be(1);
@@ -212,7 +212,7 @@ public class WebApiMessagingTests
     {
         var host = MessagingEngine();
         var worker = MessagingEngine();
-        var pair = host.Advanced.CreateMessagePortPair(worker);
+        var pair = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port", pair.Local);
         worker.SetValue("port", pair.Remote);
 
@@ -221,7 +221,7 @@ public class WebApiMessagingTests
         worker.Execute("var received = []; port.addEventListener('message', function (e) { received.push(e.data); });");
 
         host.Execute("port.postMessage('waiting');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
 
         worker.Execute("port.start();");
@@ -235,7 +235,7 @@ public class WebApiMessagingTests
 
         worker.Execute("port.close();");
         host.Execute("port.postMessage('lost');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
     }
@@ -255,7 +255,7 @@ public class WebApiMessagingTests
         Thread.Sleep(50);
         ReceivedCount(worker).Should().Be(0);
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         ReceivedCount(worker).Should().Be(1);
         worker.Evaluate("received[0]").AsString().Should().Be("never");
     }
@@ -273,7 +273,7 @@ public class WebApiMessagingTests
 
         // The worker ends that cycle before it ever runs the delivery job.
         worker.Advanced.RestoreGlobalSnapshot(snapshot);
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // A port's listeners are closures over the cycle it was created in, so running them against the
         // restored globals is exactly the cross-cycle channel the fence forbids. This half is caught by the
@@ -293,17 +293,17 @@ public class WebApiMessagingTests
         // The port itself is what belongs to the ended cycle, so it does not matter that this message was
         // posted afterwards: the channel is over.
         host.Execute("port.postMessage('too late');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
 
         // A fresh pair is what a pooled engine wants, and it works immediately.
-        var replacement = host.Advanced.CreateMessagePortPair(worker);
+        var replacement = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port2", replacement.Local);
         worker.SetValue("port2", replacement.Remote);
         worker.Execute("port2.onmessage = function (e) { received.push(e.data); };");
         host.Execute("port2.postMessage('next cycle');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("received[0]").AsString().Should().Be("next cycle");
     }
@@ -316,7 +316,7 @@ public class WebApiMessagingTests
 
         host.Execute("port.postMessage('sent then restored');");
         host.Advanced.RestoreGlobalSnapshot(snapshot);
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // The message was serialized when it was posted and carries nothing of the sender's, so the sender's
         // cycle ending afterwards has no bearing on it. Only the RECEIVER's generation fences delivery.
@@ -339,7 +339,7 @@ public class WebApiMessagingTests
             port.postMessage('here is a port', [side.port2]);
             """);
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // The worker's engine built a MessagePort of its OWN realm — no JsValue crossed — and the event
         // carries it in a frozen ports array.
@@ -347,7 +347,7 @@ public class WebApiMessagingTests
         worker.Evaluate("Object.getPrototypeOf(moved) === MessagePort.prototype").AsBoolean().Should().BeTrue();
         // ... and it is entangled with the host's side.port1, which never learned that anything moved.
         worker.Execute("moved.postMessage('hello from the worker');");
-        host.Advanced.ProcessTasks();
+        host.Tasks.ProcessTasks();
         host.Evaluate("received.join(',')").AsString().Should().Be("side:hello from the worker");
     }
 
@@ -366,8 +366,8 @@ public class WebApiMessagingTests
             """);
 
         worker.Execute("port.onmessage = function (e) { e.ports[0].onmessage = function (ev) { received.push(ev.data); }; };");
-        worker.Advanced.ProcessTasks();
-        host.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
+        host.Tasks.ProcessTasks();
 
         // Nothing came back through the detached object, and the worker got the one message the channel
         // really carried.
@@ -375,7 +375,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
 
         host.Execute("side.port1.postMessage('through the moved port');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("received.join(',')").AsString().Should().Be("through the moved port");
     }
 
@@ -395,12 +395,12 @@ public class WebApiMessagingTests
             """);
 
         worker.Execute("port.onmessage = function (e) { e.ports[0].onmessage = function (ev) { received.push(ev.data); }; };");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("received.join(',')").AsString().Should().Be("queued-1,queued-2,in-transit");
 
         host.Execute("side.port1.postMessage('after');");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("received.join(',')").AsString().Should().Be("queued-1,queued-2,in-transit,after");
     }
 
@@ -429,19 +429,19 @@ public class WebApiMessagingTests
 
         // ... B does not even look at it, it just forwards it on to C ...
         b.Execute("ab.onmessage = function (e) { bc.postMessage('passing it on', [e.ports[0]]); };");
-        b.Advanced.ProcessTasks();
+        b.Tasks.ProcessTasks();
 
         // ... and C ends up talking straight to A.
         c.Execute("var received = []; bc.onmessage = function (e) { var p = e.ports[0]; p.onmessage = function (ev) { received.push(ev.data); }; p.postMessage('hello from C'); };");
-        c.Advanced.ProcessTasks();
+        c.Tasks.ProcessTasks();
 
-        a.Advanced.ProcessTasks();
+        a.Tasks.ProcessTasks();
         a.Evaluate("received.join(',')").AsString().Should().Be("hello from C");
 
         // The message A queued before the first hop survived both of them, and arrives at C in order ahead of
         // anything posted afterwards.
         a.Execute("side.port1.postMessage('after two hops');");
-        c.Advanced.ProcessTasks();
+        c.Tasks.ProcessTasks();
         c.Evaluate("received.join(',')").AsString().Should().Be("queued before anything moved,after two hops");
 
         // B was only ever a courier: it never bound the side, and its own port is untouched.
@@ -464,10 +464,10 @@ public class WebApiMessagingTests
         // never be bound to anything. It has to be ENDED rather than left waiting: the host's own port would
         // otherwise go on serializing into a queue nobody can ever drain.
         worker.Advanced.RestoreGlobalSnapshot(snapshot);
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         host.Execute("side.port1.postMessage('into the void');");
-        host.Advanced.ProcessTasks();
+        host.Tasks.ProcessTasks();
         host.Evaluate("received.length").AsNumber().Should().Be(0);
 
         // The port that was in flight was detached by the transfer, so it cannot be handed over again
@@ -486,7 +486,7 @@ public class WebApiMessagingTests
 
         // The first transfer is unaffected: the worker still gets exactly one port.
         worker.Execute("var ports = 0; port.onmessage = function (e) { ports += e.ports.length; };");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
         worker.Evaluate("ports").AsNumber().Should().Be(1);
     }
 
@@ -514,7 +514,7 @@ public class WebApiMessagingTests
     /// </summary>
     private static void Wire(Engine first, Engine second, string name)
     {
-        var pair = first.Advanced.CreateMessagePortPair(second);
+        var pair = first.WebApi.CreateMessagePortPair(second);
         first.SetValue(name, pair.Local);
         second.SetValue(name, pair.Remote);
     }
@@ -534,7 +534,7 @@ public class WebApiMessagingTests
         var host = MessagingEngine();
         var worker = MessagingEngine();
 
-        var pair = host.Advanced.CreateMessagePortPair(worker);
+        var pair = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port", pair.Local);
         worker.SetValue("port", pair.Remote);
 

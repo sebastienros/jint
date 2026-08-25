@@ -19,7 +19,7 @@ namespace Jint.Tests.PublicInterface;
 /// </para>
 /// <para>
 /// The cross-engine tests run every engine on the test's own thread and pump them with
-/// <c>Advanced.ProcessTasks()</c>, which is the shape a host with its own loop uses. That is deliberate: two
+/// <c>Tasks.ProcessTasks()</c>, which is the shape a host with its own loop uses. That is deliberate: two
 /// threads would test the operating system's scheduler as much as the code, whereas pumping in turn tests
 /// exactly the contract — a message serialized on one engine's turn is deserialized and dispatched on the
 /// other engine's turn, and never in between.
@@ -89,7 +89,7 @@ public class WebApiBroadcastChannelTests
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
         engine.Evaluate("typeof BroadcastChannel").AsString().Should().Be("undefined");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Messaging);
+        engine.WebApi.Enable(WebApiFeatures.Messaging);
 
         engine.Execute("""
             var log = [];
@@ -111,10 +111,10 @@ public class WebApiBroadcastChannelTests
         listener.Execute("var received = []; var c = new BroadcastChannel('room'); c.onmessage = function (e) { received.push(e.data); };");
 
         var sender = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
-        sender.Advanced.EnableWebApis(WebApiFeatures.Messaging, webApi => webApi.Messaging.Broker = broker);
+        sender.WebApi.Enable(WebApiFeatures.Messaging, webApi => webApi.Messaging.Broker = broker);
 
         sender.Execute("new BroadcastChannel('room').postMessage('from a live enable');");
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         listener.Evaluate("received[0]").AsString().Should().Be("from a live enable");
     }
@@ -130,10 +130,10 @@ public class WebApiBroadcastChannelTests
         // Timers already gave this engine its web-API state, so enabling messaging has to attach the broker to
         // the state that exists rather than create one — the other half of the live door.
         var sender = new Engine(options => options.UseWebApis(WebApiFeatures.Timers));
-        sender.Advanced.EnableWebApis(WebApiFeatures.Messaging, webApi => webApi.Messaging.Broker = broker);
+        sender.WebApi.Enable(WebApiFeatures.Messaging, webApi => webApi.Messaging.Broker = broker);
 
         sender.Execute("new BroadcastChannel('room').postMessage('attached to a live state');");
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         listener.Evaluate("received[0]").AsString().Should().Be("attached to a live state");
     }
@@ -149,7 +149,7 @@ public class WebApiBroadcastChannelTests
         second.Execute("var received = []; var c = new BroadcastChannel('room'); c.onmessage = function (e) { received.push(e.data); };");
         first.Execute("new BroadcastChannel('room').postMessage('should not cross');");
 
-        second.Advanced.ProcessTasks();
+        second.Tasks.ProcessTasks();
         ReceivedCount(second).Should().Be(0);
     }
 
@@ -166,7 +166,7 @@ public class WebApiBroadcastChannelTests
         // Nothing has been pumped on the listener yet, so nothing has arrived.
         ReceivedCount(listener).Should().Be(0);
 
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
         listener.Evaluate("received.length").AsNumber().Should().Be(1);
         listener.Evaluate("received[0].ask").AsString().Should().Be("ping");
         listener.Evaluate("received[0].payload.join('-')").AsString().Should().Be("1-2-3");
@@ -186,8 +186,8 @@ public class WebApiBroadcastChannelTests
 
         sender.Execute("new BroadcastChannel('room').postMessage('members only');");
 
-        inside.Advanced.ProcessTasks();
-        outside.Advanced.ProcessTasks();
+        inside.Tasks.ProcessTasks();
+        outside.Tasks.ProcessTasks();
 
         inside.Evaluate("received[0]").AsString().Should().Be("members only");
         ReceivedCount(outside).Should().Be(0);
@@ -209,7 +209,7 @@ public class WebApiBroadcastChannelTests
 
         foreach (var listener in listeners)
         {
-            listener.Advanced.ProcessTasks();
+            listener.Tasks.ProcessTasks();
             listener.Evaluate("received[0]").AsString().Should().Be("everyone");
         }
     }
@@ -229,7 +229,7 @@ public class WebApiBroadcastChannelTests
         listener.Execute("var received = []; var c = new BroadcastChannel('room'); c.onmessage = function (e) { received.push(e.data); };");
         sender.Execute("new BroadcastChannel('room').postMessage('shared options');");
 
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
         listener.Evaluate("received[0]").AsString().Should().Be("shared options");
     }
 
@@ -247,7 +247,7 @@ public class WebApiBroadcastChannelTests
         listener.Execute("var received = []; var c = new BroadcastChannel('room'); c.onmessage = function (e) { received.push(e.data); };");
         sender.Execute("new BroadcastChannel('room').postMessage('should not cross');");
 
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
         ReceivedCount(listener).Should().Be(0);
     }
 
@@ -260,7 +260,7 @@ public class WebApiBroadcastChannelTests
 
         listener.Execute("var received = []; var c = new BroadcastChannel('room'); c.onmessage = function (e) { received.push(e.data); };");
         sender.Execute("new BroadcastChannel('room').postMessage(new Map([['k', { n: 1 }]]));");
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         // The receiving engine gets objects of its own realm, which is what makes sharing a JsValue across
         // engines unnecessary — and it is the only reason this is safe at all.
@@ -286,7 +286,7 @@ public class WebApiBroadcastChannelTests
         Thread.Sleep(50);
         ReceivedCount(listener).Should().Be(0);
 
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
         listener.Evaluate("received[0]").AsString().Should().Be("never");
     }
 
@@ -304,8 +304,8 @@ public class WebApiBroadcastChannelTests
 
         sender.Execute("new BroadcastChannel('room').postMessage(new Uint8Array([1, 2, 3]));");
 
-        first.Advanced.ProcessTasks();
-        second.Advanced.ProcessTasks();
+        first.Tasks.ProcessTasks();
+        second.Tasks.ProcessTasks();
 
         // One serialization record, two deserializations, and each has to own its bytes — otherwise a write on
         // one engine's thread would be visible on another's, which is the one thing a message is never allowed
@@ -331,7 +331,7 @@ public class WebApiBroadcastChannelTests
         sender.Execute("new BroadcastChannel('room').postMessage('from the previous cycle');");
 
         listener.Advanced.RestoreGlobalSnapshot(snapshot);
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         // A channel's listeners are closures over the cycle it was created in, so running them against the
         // restored globals is exactly the cross-cycle channel a restore forbids. `received` is part of the
@@ -354,12 +354,12 @@ public class WebApiBroadcastChannelTests
         // The channel itself is what belonged to the ended cycle, so it does not matter that this message was
         // posted afterwards: it is no longer a subscriber and it is closed.
         sender.Execute("new BroadcastChannel('room').postMessage('too late');");
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         // A fresh channel is what a pooled engine wants, and it works immediately.
         listener.Execute("var received = []; var fresh = new BroadcastChannel('room'); fresh.onmessage = function (e) { received.push(e.data); };");
         sender.Execute("new BroadcastChannel('room').postMessage('next cycle');");
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         listener.Evaluate("received.join(',')").AsString().Should().Be("next cycle");
     }
@@ -376,7 +376,7 @@ public class WebApiBroadcastChannelTests
 
         sender.Execute("new BroadcastChannel('room').postMessage('sent then restored');");
         sender.Advanced.RestoreGlobalSnapshot(snapshot);
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
 
         // The message was serialized when it was posted and carries nothing of the sender's, so the sender's
         // cycle ending afterwards has no bearing on it.
@@ -401,10 +401,10 @@ public class WebApiBroadcastChannelTests
 
         // The engine that is still here is unaffected; the one that left is not asked for a job at all, which
         // is what keeps a long-lived broker from retaining every engine that ever joined it.
-        listener.Advanced.ProcessTasks();
+        listener.Tasks.ProcessTasks();
         listener.Evaluate("received[0]").AsString().Should().Be("after the dispose");
 
-        leaving.Advanced.ProcessTasks();
+        leaving.Tasks.ProcessTasks();
         ReceivedCount(leaving).Should().Be(0);
     }
 

@@ -89,7 +89,7 @@ public class HostModuleImportOperationTests
         operation.IsCompleted.Should().BeFalse();
 
         loader.Deliver("m");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeFalse();
@@ -105,7 +105,7 @@ public class HostModuleImportOperationTests
 
         var operation = engine.Modules.StartImport("m");
         loader.Deliver("m");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         operation.IsCompleted.Should().BeTrue();
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
@@ -127,7 +127,7 @@ public class HostModuleImportOperationTests
 
         var retried = engine.Modules.StartImport("m");
         loader.Deliver("m");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         retried.GetResult().Get("v").AsNumber().Should().Be(1);
         loader.Fetches.Should().Be(2, "the abandoned load's registration must not be what the retry attaches to");

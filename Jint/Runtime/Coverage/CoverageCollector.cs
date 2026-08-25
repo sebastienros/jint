@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace Jint.Runtime.Coverage;
 
 /// <summary>
-/// The per-engine hit counters behind <see cref="Engine.AdvancedOperations.GetCoverage"/>. One instance exists
+/// The per-engine hit counters behind <see cref="Engine.DiagnosticOperations.GetCoverage"/>. One instance exists
 /// per engine, and only when <see cref="Options.CoverageOptions.Enabled"/> was set: on every other engine
 /// <c>Engine._coverage</c> is <see langword="null"/> and nothing here is ever reached.
 /// </summary>

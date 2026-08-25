@@ -39,7 +39,7 @@ internal sealed class MessageChannelConstructor : Constructor
     /// <remarks>
     /// Both ports belong to this engine, so the entangled pair is an ordinary in-engine channel: a message
     /// posted on one is serialized immediately and delivered to the other as an event-loop task. The
-    /// cross-engine form of exactly the same pair is <c>Engine.Advanced.CreateMessagePortPair</c>.
+    /// cross-engine form of exactly the same pair is <c>Engine.WebApi.CreateMessagePortPair</c>.
     /// </remarks>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {

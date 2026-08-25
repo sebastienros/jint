@@ -69,7 +69,7 @@ public class FinalizationRegistryTests
         {
             GC.Collect(2, GCCollectionMode.Forced, blocking: true);
             GC.WaitForPendingFinalizers();
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
     }
 
@@ -131,7 +131,7 @@ public class FinalizationRegistryTests
         // [[Cells]] (nothing has removed it yet), so it is removed now and `removed` is true.
         engine.Evaluate("registry.unregister(token)").AsBoolean().Should().BeTrue();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         recorder.HeldValues.Should().BeEmpty("an unregistered cell has left [[Cells]] and step 3 no longer sees it");
     }
 
@@ -171,7 +171,7 @@ public class FinalizationRegistryTests
         {
             GC.Collect(2, GCCollectionMode.Forced, blocking: true);
             GC.WaitForPendingFinalizers();
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         recorder.HeldValues.Should().BeEmpty("a cell registered before the restore belongs to a cycle the engine has ended");
@@ -200,7 +200,7 @@ public class FinalizationRegistryTests
         {
             GC.Collect(2, GCCollectionMode.Forced, blocking: true);
             GC.WaitForPendingFinalizers();
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         recorder.HeldValues.Should().Equal("current");

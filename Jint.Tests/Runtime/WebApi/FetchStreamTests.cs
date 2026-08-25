@@ -218,7 +218,7 @@ public class FetchStreamTests
                 Assert.Fail("Timed out waiting for " + what);
             }
 
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(1);
         }
     }
@@ -242,14 +242,14 @@ public class FetchStreamTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("r.status").AsNumber().Should().Be(200);
 
         // Backpressure: the stream's high water mark is zero, so the promise resolving with the response has
         // touched the socket for its headers and for nothing else. Pumping cannot change that — only a
         // consumer can.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Body.ReadCount.Should().Be(0);
 
         // Nor does taking a reader, which locks the stream without asking it for anything.
@@ -334,7 +334,7 @@ public class FetchStreamTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => x && (r = x));");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // https://fetch.spec.whatwg.org/#concept-body-clone — the original keeps the first branch, the clone
         // gets the second, and neither is the stream that existed before.
@@ -362,15 +362,15 @@ public class FetchStreamTests
         var engine = WebEngine(handler);
 
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Execute("var state = 'pending'; var reader = r.body.getReader(); reader.read().then(x => state = x.done ? 'done' : 'chunk', () => state = 'error');");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("the pull should have reached the transport");
 
         engine.Execute("reader.cancel('stop');");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The cancel reached the socket, not just the stream.
         handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue(
@@ -395,7 +395,7 @@ public class FetchStreamTests
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // Held on the host side, because the restore is about to revert the global that names it.
         var body = engine.Evaluate("r.body");
@@ -424,10 +424,10 @@ public class FetchStreamTests
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Execute("var reader = r.body.getReader(); reader.read();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue(
             "the read should have reached the transport");
@@ -449,7 +449,7 @@ public class FetchStreamTests
         var engine = WebEngine(handler);
 
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // https://fetch.spec.whatwg.org/#null-body-status — null, not an empty stream, and reading it never
         // disturbs anything.
@@ -489,7 +489,7 @@ public class FetchStreamTests
         // The request is already on its way, with nothing written into it: a buffered upload would not have
         // opened it at all until the stream had closed.
         PumpUntil(engine, () => handler.RequestStarted.IsSet, "the request to reach the transport");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         handler.Chunks.Should().BeEmpty();
         engine.Evaluate("state").AsString().Should().Be("pending");
 
@@ -555,7 +555,7 @@ public class FetchStreamTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // Taking a BYOB reader is as free as taking a default one: nothing is read until read() asks.
         engine.Execute("var reader = r.body.getReader({ mode: 'byob' });");

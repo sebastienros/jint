@@ -4,7 +4,7 @@ namespace Jint.Diagnostics;
 
 /// <summary>
 /// A point-in-time count of what one <see cref="Engine"/> is holding on to, as reported by
-/// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>. Written for the host that pools engines and
+/// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>. Written for the host that pools engines and
 /// wants to know whether a pooled engine's retained set is growing between requests.
 /// </summary>
 /// <remarks>
@@ -71,7 +71,7 @@ public sealed record EngineMemoryReport
     /// surface (the intrinsic references, <c>NaN</c>, <c>Infinity</c>, <c>undefined</c>, <c>globalThis</c> and
     /// the global functions); every <see cref="Engine.SetValue(string, Native.JsValue)"/>, every
     /// <c>var</c>/<c>function</c> declaration a script evaluated at top level, and every
-    /// <see cref="Engine.AdvancedOperations.AddLazyGlobal(string, Func{Engine, Native.JsValue}, Runtime.Descriptors.PropertyFlag)"/>
+    /// <see cref="Engine.AddLazyGlobal(string, Func{Engine, Native.JsValue}, Runtime.Descriptors.PropertyFlag)"/>
     /// adds one.
     /// </summary>
     /// <remarks>

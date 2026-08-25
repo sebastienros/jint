@@ -12,7 +12,7 @@ using Jint.WebApi;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <c>engine.Advanced.EnableWebApis</c> seen from outside the assembly: turning a web API on for an engine
+/// <c>engine.WebApi.Enable</c> seen from outside the assembly: turning a web API on for an engine
 /// that already exists, which is what a host renting engines from a pool needs when it only learns per
 /// request what the script it is about to run wants.
 /// </summary>
@@ -64,7 +64,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
         engine.Evaluate("typeof TextEncoder").AsString().Should().Be("undefined");
 
-        var added = engine.Advanced.EnableWebApis(WebApiFeatures.Console | WebApiFeatures.Encoding);
+        var added = engine.WebApi.Enable(WebApiFeatures.Console | WebApiFeatures.Encoding);
 
         added.Should().Be(WebApiFeatures.Console | WebApiFeatures.Encoding);
         engine.Evaluate("typeof console").AsString().Should().Be("object");
@@ -89,7 +89,7 @@ public class WebApiLiveEnableTests
         var configured = new Engine(options => options.UseWebApis());
 
         var live = new Engine();
-        live.Advanced.EnableWebApis();
+        live.WebApi.Enable();
 
         const string Survey = """
             Object.getOwnPropertyNames(globalThis)
@@ -110,18 +110,18 @@ public class WebApiLiveEnableTests
         var clock = new ManualClock();
         var engine = new Engine();
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers, webApi => webApi.Timers.TimeProvider = clock);
+        engine.WebApi.Enable(WebApiFeatures.Timers, webApi => webApi.Timers.TimeProvider = clock);
 
         engine.Execute("var log = []; setTimeout(() => log.push('late'), 50);");
         engine.Evaluate("log.length").AsNumber().Should().Be(0);
 
         // Not yet due: the pump must not run it early.
         clock.Advance(20);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("log.length").AsNumber().Should().Be(0);
 
         clock.Advance(40);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("log.join(',')").AsString().Should().Be("late");
     }
 
@@ -134,11 +134,11 @@ public class WebApiLiveEnableTests
     {
         var engine = new Engine();
 
-        var added = engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, webApi => webApi.Fetch.HttpClient = new HttpClient(new StubHandler()));
+        var added = engine.WebApi.Enable(WebApiFeatures.Fetch, webApi => webApi.Fetch.HttpClient = new HttpClient(new StubHandler()));
 
         added.Should().Be(
             WebApiFeatures.Fetch | WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams);
-        engine.Advanced.WebApiFeatures.Should().Be(added);
+        engine.WebApi.Features.Should().Be(added);
 
         foreach (var name in new[] { "fetch", "Request", "Response", "Headers", "AbortController", "URL", "Blob", "ReadableStream" })
         {
@@ -164,11 +164,11 @@ public class WebApiLiveEnableTests
             }
 
             var engine = new Engine();
-            engine.Advanced.EnableWebApis(feature);
+            engine.WebApi.Enable(feature);
 
-            engine.Advanced.WebApiFeatures.Should().NotHaveFlag(WebApiFeatures.Fetch, $"{feature} must not grant fetch");
-            engine.Advanced.WebApiFeatures.Should().NotHaveFlag(WebApiFeatures.EventSource, $"{feature} must not grant EventSource");
-            engine.Advanced.WebApiFeatures.Should().NotHaveFlag(WebApiFeatures.WebSocket, $"{feature} must not grant WebSocket");
+            engine.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.Fetch, $"{feature} must not grant fetch");
+            engine.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.EventSource, $"{feature} must not grant EventSource");
+            engine.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.WebSocket, $"{feature} must not grant WebSocket");
 
             engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
             engine.Evaluate("typeof EventSource").AsString().Should().Be("undefined");
@@ -185,7 +185,7 @@ public class WebApiLiveEnableTests
         engine.Execute("var saved = console;");
 
         var configureRan = false;
-        var added = engine.Advanced.EnableWebApis(WebApiFeatures.Console, _ => configureRan = true);
+        var added = engine.WebApi.Enable(WebApiFeatures.Console, _ => configureRan = true);
 
         added.Should().Be(WebApiFeatures.None);
         configureRan.Should().BeFalse("a call that enables nothing must not even run the configuration delegate");
@@ -198,10 +198,10 @@ public class WebApiLiveEnableTests
         var engine = new Engine();
 
         var configureRan = false;
-        engine.Advanced.EnableWebApis(WebApiFeatures.None, _ => configureRan = true).Should().Be(WebApiFeatures.None);
+        engine.WebApi.Enable(WebApiFeatures.None, _ => configureRan = true).Should().Be(WebApiFeatures.None);
 
         configureRan.Should().BeFalse();
-        engine.Advanced.WebApiFeatures.Should().Be(WebApiFeatures.None);
+        engine.WebApi.Features.Should().Be(WebApiFeatures.None);
         engine.Evaluate("typeof DOMException").AsString().Should().Be("undefined");
     }
 
@@ -211,11 +211,11 @@ public class WebApiLiveEnableTests
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
         engine.Execute("var saved = console;");
 
-        var added = engine.Advanced.EnableWebApis(WebApiFeatures.Console | WebApiFeatures.Base64);
+        var added = engine.WebApi.Enable(WebApiFeatures.Console | WebApiFeatures.Base64);
 
         // Only the part that was missing.
         added.Should().Be(WebApiFeatures.Base64);
-        engine.Advanced.WebApiFeatures.Should().Be(WebApiFeatures.Console | WebApiFeatures.Base64);
+        engine.WebApi.Features.Should().Be(WebApiFeatures.Console | WebApiFeatures.Base64);
 
         engine.Evaluate("console === saved").AsBoolean().Should().BeTrue();
         engine.Evaluate("atob(btoa('hi'))").AsString().Should().Be("hi");
@@ -232,7 +232,7 @@ public class WebApiLiveEnableTests
 
         engine.Execute("var encoder = new TextEncoder(); TextEncoder.marker = 'mine';");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Streams);
+        engine.WebApi.Enable(WebApiFeatures.Streams);
 
         engine.Evaluate("TextEncoder.marker").AsString().Should().Be("mine");
         engine.Evaluate("encoder instanceof TextEncoder").AsBoolean().Should().BeTrue();
@@ -248,7 +248,7 @@ public class WebApiLiveEnableTests
         var engine = new Engine();
         engine.SetValue("console", new { marker = "host" });
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         engine.Evaluate("console.marker").AsString().Should().Be("host");
         engine.Evaluate("typeof console.log").AsString().Should().Be("undefined");
@@ -267,13 +267,13 @@ public class WebApiLiveEnableTests
     {
         var built = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("console", _ =>
+        engine.AddLazyGlobal("console", _ =>
         {
             built++;
             return JsValue.FromObject(engine, new { marker = "host" });
         });
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         built.Should().Be(0, "the existence check must probe, not read");
 
@@ -296,11 +296,11 @@ public class WebApiLiveEnableTests
             options.WebApi.Timers.TimeProvider = clock;
         });
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers).Should().Be(WebApiFeatures.Timers);
+        engine.WebApi.Enable(WebApiFeatures.Timers).Should().Be(WebApiFeatures.Timers);
 
         engine.Execute("var log = []; setTimeout(() => log.push('fired'), 10);");
         clock.Advance(20);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("log.join(',')").AsString().Should().Be("fired");
 
@@ -317,10 +317,10 @@ public class WebApiLiveEnableTests
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.IdleCallback).Should().Be(WebApiFeatures.IdleCallback);
+        engine.WebApi.Enable(WebApiFeatures.IdleCallback).Should().Be(WebApiFeatures.IdleCallback);
 
         engine.Execute("var log = []; requestIdleCallback(d => log.push(typeof d.timeRemaining));");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("log.join(',')").AsString().Should().Be("function");
     }
@@ -330,10 +330,10 @@ public class WebApiLiveEnableTests
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Scheduler).Should().Be(WebApiFeatures.Scheduler);
+        engine.WebApi.Enable(WebApiFeatures.Scheduler).Should().Be(WebApiFeatures.Scheduler);
 
         engine.Execute("var log = []; scheduler.postTask(() => log.push('task'));");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("log.join(',')").AsString().Should().Be("task");
     }
@@ -349,7 +349,7 @@ public class WebApiLiveEnableTests
         var handler = new StubHandler();
         var engine = new Engine();
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, webApi =>
+        engine.WebApi.Enable(WebApiFeatures.Fetch, webApi =>
         {
             webApi.Fetch.HttpClient = new HttpClient(handler);
             webApi.Fetch.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
@@ -369,7 +369,7 @@ public class WebApiLiveEnableTests
         var provider = new InMemoryStorageProvider();
         var engine = new Engine();
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Storage, webApi => webApi.Storage.LocalStorageProvider = provider);
+        engine.WebApi.Enable(WebApiFeatures.Storage, webApi => webApi.Storage.LocalStorageProvider = provider);
 
         engine.Execute("localStorage.setItem('k', 'v');");
 
@@ -390,7 +390,7 @@ public class WebApiLiveEnableTests
         var engine = new Engine();
         var clean = engine.Advanced.CaptureGlobalSnapshot();
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console).Should().Be(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console).Should().Be(WebApiFeatures.Console);
         engine.Evaluate("typeof console").AsString().Should().Be("object");
 
         engine.Advanced.RestoreGlobalSnapshot(clean);
@@ -400,8 +400,8 @@ public class WebApiLiveEnableTests
 
         // The record survives, so the engine knows about an API whose globals script can no longer name — and
         // asking again is a no-op, not a reinstall.
-        engine.Advanced.WebApiFeatures.Should().Be(WebApiFeatures.Console);
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console).Should().Be(WebApiFeatures.None);
+        engine.WebApi.Features.Should().Be(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console).Should().Be(WebApiFeatures.None);
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
     }
 
@@ -410,7 +410,7 @@ public class WebApiLiveEnableTests
     public void ASnapshotTakenAfterTheEnableCarriesTheGlobalsThroughEveryRestore()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console | WebApiFeatures.Base64);
+        engine.WebApi.Enable(WebApiFeatures.Console | WebApiFeatures.Base64);
 
         var clean = engine.Advanced.CaptureGlobalSnapshot();
 
@@ -439,7 +439,7 @@ public class WebApiLiveEnableTests
     public void AGlobalStillUnreadAtCaptureIsRestoredToItsBinding()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         // Captured without ever reading `console`, so the descriptor is still unmaterialized.
         var clean = engine.Advanced.CaptureGlobalSnapshot();
@@ -457,7 +457,7 @@ public class WebApiLiveEnableTests
     public void AShadowRealmStillGetsNothing()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis();
+        engine.WebApi.Enable();
 
         engine.Evaluate("typeof console").AsString().Should().Be("object");
 
@@ -486,7 +486,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate(probe).AsString().Should().Be("undefined/undefined");
         engine.Evaluate(probe).AsString().Should().Be("undefined/undefined");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         engine.Evaluate(probe).AsString().Should().Be("object/object");
     }
@@ -499,13 +499,13 @@ public class WebApiLiveEnableTests
     public void AWarmedMemberReadSeesAGlobalInstalledAfterIt()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         var probe = Engine.PrepareScript("typeof globalThis.btoa");
         engine.Evaluate(probe).AsString().Should().Be("undefined");
         engine.Evaluate(probe).AsString().Should().Be("undefined");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Base64);
+        engine.WebApi.Enable(WebApiFeatures.Base64);
 
         engine.Evaluate(probe).AsString().Should().Be("function");
     }
@@ -519,15 +519,15 @@ public class WebApiLiveEnableTests
     {
         var engine = new Engine();
 
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.CreateAbortSignal(CancellationToken.None));
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.CreateMessagePortPair(engine));
+        Assert.Throws<InvalidOperationException>(() => engine.WebApi.CreateAbortSignal(CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => engine.WebApi.CreateMessagePortPair(engine));
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Events | WebApiFeatures.Messaging);
+        engine.WebApi.Enable(WebApiFeatures.Events | WebApiFeatures.Messaging);
 
-        engine.SetValue("hostSignal", engine.Advanced.CreateAbortSignal(CancellationToken.None));
+        engine.SetValue("hostSignal", engine.WebApi.CreateAbortSignal(CancellationToken.None));
         engine.Evaluate("hostSignal.aborted").AsBoolean().Should().BeFalse();
 
-        var pair = engine.Advanced.CreateMessagePortPair(engine);
+        var pair = engine.WebApi.CreateMessagePortPair(engine);
         pair.Local.Should().NotBeNull();
         pair.Remote.Should().NotBeNull();
     }

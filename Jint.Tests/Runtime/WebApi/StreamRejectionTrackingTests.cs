@@ -10,7 +10,7 @@ using Jint.WebApi;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// What a host's <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> hears while the streams
+/// What a host's <see cref="Engine.TaskOperations.PromiseRejectionTracker"/> hears while the streams
 /// algorithms do their own bookkeeping — which is nothing, because every rejection they make for themselves
 /// is one the specification accounts for in the very next step.
 /// </summary>
@@ -51,7 +51,7 @@ public class StreamRejectionTrackingTests
         var rejections = new List<Rejection>();
         var engine = new Engine(options => options.UseWebApis(features));
 
-        engine.Advanced.PromiseRejectionTracker += (_, e) =>
+        engine.Tasks.PromiseRejectionTracker += (_, e) =>
             rejections.Add(new Rejection(e.Promise, e.Operation, Describe(e.Value)));
 
         engine.Execute("""

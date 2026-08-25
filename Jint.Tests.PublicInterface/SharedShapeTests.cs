@@ -230,7 +230,7 @@ public class SharedShapeTests
 
         foreach (var sample in samples)
         {
-            var representation = engine.Advanced.GetObjectRepresentation(sample);
+            var representation = engine.Diagnostics.GetObjectRepresentation(sample);
             var shared = representation is ObjectRepresentation.HiddenClass or ObjectRepresentation.SharedBuiltinLayout;
             engine.Advanced.HasSharedShape(sample).Should().Be(shared, "representation was {0}", representation);
         }

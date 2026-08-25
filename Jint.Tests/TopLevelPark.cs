@@ -6,7 +6,7 @@ using Xunit.Sdk;
 namespace Jint.Tests;
 
 /// <summary>
-/// A <em>top-level</em> park on <see cref="Engine.AdvancedOperations.WaitForScheduledWork"/> run on a thread
+/// A <em>top-level</em> park on <see cref="Engine.TaskOperations.WaitForScheduledWork"/> run on a thread
 /// of its own, together with the only observation that can tell a test the park is in force.
 /// </summary>
 /// <remarks>
@@ -41,7 +41,7 @@ internal sealed class TopLevelPark
 {
     /// <summary>
     /// How often the detection loop looks. It decides only when an observation is made, never what it has to
-    /// be: every probe before the park is an empty <see cref="Engine.AdvancedOperations.ProcessTasks"/> loop.
+    /// be: every probe before the park is an empty <see cref="Engine.TaskOperations.ProcessTasks"/> loop.
     /// </summary>
     private static readonly TimeSpan ProbeInterval = TimeSpan.FromMilliseconds(20);
 
@@ -106,7 +106,7 @@ internal sealed class TopLevelPark
     public Task Completed { get; }
 
     /// <summary>
-    /// What the park answered: whether it found work for <see cref="Engine.AdvancedOperations.ProcessTasks"/>.
+    /// What the park answered: whether it found work for <see cref="Engine.TaskOperations.ProcessTasks"/>.
     /// Read after awaiting <see cref="Completed"/>, which is what publishes it.
     /// </summary>
     public bool Reported { get; private set; }
@@ -161,7 +161,7 @@ internal sealed class TopLevelPark
             var attempt = Stopwatch.StartNew();
             try
             {
-                Reported = _engine.Advanced.WaitForScheduledWork(ceiling, cancellationToken);
+                Reported = _engine.Tasks.WaitForScheduledWork(ceiling, cancellationToken);
                 Elapsed = attempt.Elapsed;
                 return;
             }
@@ -190,7 +190,7 @@ internal sealed class TopLevelPark
         try
         {
             // An engine with nothing queued, so a probe landing before the park costs an empty loop.
-            _engine.Advanced.ProcessTasks();
+            _engine.Tasks.ProcessTasks();
             return false;
         }
         catch (InvalidOperationException e) when (e.Message.Contains("already in use", StringComparison.Ordinal))
@@ -229,6 +229,6 @@ internal sealed class TopLevelPark
     private static void WarmTheProbePath()
     {
         using var warmup = new Engine();
-        warmup.Advanced.ProcessTasks();
+        warmup.Tasks.ProcessTasks();
     }
 }

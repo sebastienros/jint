@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// The profiler from an embedder's vantage point: <see cref="Options.ProfilingOptions"/>,
-/// <see cref="Engine.AdvancedOperations.StartProfiling"/> / <see cref="Engine.AdvancedOperations.StopProfiling"/>
+/// <see cref="Engine.DiagnosticOperations.StartProfiling"/> / <see cref="Engine.DiagnosticOperations.StopProfiling"/>
 /// and the <see cref="ScriptProfile"/> they produce, reached with nothing but the public surface — this suite
 /// has no <c>InternalsVisibleTo</c>, so a test here is proof a third party can do the same.
 ///
@@ -37,9 +37,9 @@ public class HostScriptProfilingTests
     {
         var engine = new Engine();
 
-        engine.Advanced.IsProfiling.Should().BeFalse();
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Advanced.StartProfiling());
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling());
         exception.Message.Should().Contain("Options.Profiling.Enabled");
     }
 
@@ -48,12 +48,12 @@ public class HostScriptProfilingTests
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
 
-        engine.Advanced.StartProfiling();
-        engine.Advanced.IsProfiling.Should().BeTrue();
+        engine.Diagnostics.StartProfiling();
+        engine.Diagnostics.IsProfiling.Should().BeTrue();
         engine.Execute(Script, "host.js");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
-        engine.Advanced.IsProfiling.Should().BeFalse();
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
         profile.Truncated.Should().BeFalse();
         profile.Events.Should().NotBeEmpty();
         profile.Frames.Select(static f => f.Name).Should().BeEquivalentTo(["root", "middle", "leaf"]);
@@ -72,14 +72,14 @@ public class HostScriptProfilingTests
         var first = new Engine(options);
         var second = new Engine(options);
 
-        first.Advanced.StartProfiling();
-        second.Advanced.StartProfiling();
+        first.Diagnostics.StartProfiling();
+        second.Diagnostics.StartProfiling();
 
         first.Execute("function a() { return 1; } a();");
         second.Execute("function b() { return 1; } b();");
 
-        first.Advanced.StopProfiling().Frames.Select(static f => f.Name).Should().Equal("a");
-        second.Advanced.StopProfiling().Frames.Select(static f => f.Name).Should().Equal("b");
+        first.Diagnostics.StopProfiling().Frames.Select(static f => f.Name).Should().Equal("a");
+        second.Diagnostics.StopProfiling().Frames.Select(static f => f.Name).Should().Equal("b");
     }
 
     [Fact]
@@ -91,9 +91,9 @@ public class HostScriptProfilingTests
             options.Profiling.MaxEvents = 50;
         });
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function f() { return 1; } for (var i = 0; i < 10000; i++) { f(); }");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         profile.Truncated.Should().BeTrue();
         profile.Events.Count.Should().BeLessThanOrEqualTo(50);
@@ -103,9 +103,9 @@ public class HostScriptProfilingTests
     public void TheExportedDocumentIsAValidSpeedscopeEventedProfile()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute(Script, "host.js");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         using var stream = new MemoryStream();
         profile.WriteSpeedscopeJson(stream);
@@ -182,9 +182,9 @@ public class HostScriptProfilingTests
         static WeakReference ProfileOnceAndForget(List<ScriptProfile> sink)
         {
             var engine = new Engine(options => options.Profiling.Enabled = true);
-            engine.Advanced.StartProfiling();
+            engine.Diagnostics.StartProfiling();
             engine.Execute(Script);
-            sink.Add(engine.Advanced.StopProfiling());
+            sink.Add(engine.Diagnostics.StopProfiling());
             return new WeakReference(engine);
         }
     }
@@ -194,7 +194,7 @@ public class HostScriptProfilingTests
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
 
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.StopProfiling());
+        Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
     [Fact]

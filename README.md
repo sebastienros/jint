@@ -504,7 +504,7 @@ runtime should get the truth.
 
 `options.WebApi.Features` is read once, when the engine is built, so a pooled engine's feature set is fixed at
 construction — which is awkward for a host that only discovers *per request* what the script it is about to
-run needs. `engine.Advanced.EnableWebApis(...)` is the per-engine counterpart of `options.UseWebApis(...)`,
+run needs. `engine.WebApi.Enable(...)` is the per-engine counterpart of `options.UseWebApis(...)`,
 for exactly that case:
 
 ```csharp
@@ -512,19 +512,19 @@ var engine = pool.Rent();                       // built with WebApiFeatures.Con
 
 if (script.NeedsTimers)
 {
-    engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Events);
+    engine.WebApi.Enable(WebApiFeatures.Timers | WebApiFeatures.Events);
 }
 
 if (tenant.MayReachTheNetwork)
 {
     // The optional delegate is handed this engine's own options group, so a feature that carries settings
     // can be configured at the moment it is enabled.
-    engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, w =>
+    engine.WebApi.Enable(WebApiFeatures.Fetch, w =>
         w.Fetch.UrlFilter = uri => tenant.Allows(uri));
 }
 
 // What the engine actually carries, after the feature closure has been expanded.
-WebApiFeatures live = engine.Advanced.WebApiFeatures;   // Console | Timers | Events | Fetch | Url | Files | Streams
+WebApiFeatures live = engine.WebApi.Features;   // Console | Timers | Events | Fetch | Url | Files | Streams
 ```
 
 It runs the same code construction runs — the same feature closure, the same per-engine state, the same lazy,
@@ -547,7 +547,7 @@ built. Four things are worth knowing:
   whether a callback's exception erupts.
 * **`RestoreGlobalSnapshot` removes globals installed after the capture**, exactly as it does for
   `AddLazyGlobal` and `SetFetchHandler` — and it does *not* revert the engine's feature record, so the engine
-  is left knowing about an API whose globals script can no longer name, and re-calling `EnableWebApis` is a
+  is left knowing about an API whose globals script can no longer name, and re-calling `engine.WebApi.Enable` is a
   no-op that cannot bring them back. Enable **before** you capture the snapshot you reuse, or enable on the
   `Options` so the globals are part of the engine's initial state.
 
@@ -558,7 +558,7 @@ As at options time, only the principal realm is touched: a `ShadowRealm` still g
 **Jint never starts a thread, and never a `System.Threading.Timer`, to run your script.** A `setTimeout`
 callback runs on the first drain of the event loop at or after its due time, and a drain only happens where
 one always happened: at the end of an `Execute`/`Evaluate`, inside a blocking `UnwrapIfPromise`, while
-`await`ing `EvaluateAsync`, or when the host calls `engine.Advanced.ProcessTasks()` itself.
+`await`ing `EvaluateAsync`, or when the host calls `engine.Tasks.ProcessTasks()` itself.
 
 ```csharp
 var engine = new Engine(options => options.UseWebApis());
@@ -572,7 +572,7 @@ answer = await engine.EvaluateAsync("(async () => { await new Promise(r => setTi
 
 // Or from your own loop — a game loop, a message pump — where every turn provably runs on your thread.
 engine.Execute("setTimeout(() => console.log('later'), 50);");
-while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }
+while (running) { engine.Tasks.ProcessTasks(); Thread.Sleep(5); }
 ```
 
 An engine nobody pumps never fires a timer, which is what makes this safe in a request handler that returns
@@ -723,15 +723,15 @@ var host = new Engine(o => o.UseWebApis());
 var worker = new Engine(o => o.UseWebApis());
 
 // Create the pair while neither engine is running, then give each half to its own engine.
-var pair = host.Advanced.CreateMessagePortPair(worker);
+var pair = host.WebApi.CreateMessagePortPair(worker);
 host.SetValue("port", pair.Local);
 worker.SetValue("port", pair.Remote);
 
 worker.Execute("port.onmessage = e => port.postMessage(e.data.n * 2);");
 host.Execute("port.onmessage = e => log(e.data); port.postMessage({ n: 21 });");
 
-worker.Advanced.ProcessTasks();   // the worker's turn: it receives 21 and replies
-host.Advanced.ProcessTasks();     // the host's turn: it receives 42
+worker.Tasks.ProcessTasks();   // the worker's turn: it receives 21 and replies
+host.Tasks.ProcessTasks();     // the host's turn: it receives 42
 ```
 
 **No `JsValue` ever crosses.** `postMessage` serializes on the calling engine's thread into a record that
@@ -769,7 +769,7 @@ var consumer = new Engine(o => { o.UseWebApis(); o.WebApi.Messaging.Broker = clu
 consumer.Execute("new BroadcastChannel('jobs').onmessage = e => log(e.data);");
 producer.Execute("new BroadcastChannel('jobs').postMessage({ id: 7 });");
 
-consumer.Advanced.ProcessTasks();   // the consumer's turn: it receives { id: 7 }
+consumer.Tasks.ProcessTasks();   // the consumer's turn: it receives { id: 7 }
 ```
 
 Say nothing and each engine gets a private broker, so channels on one engine hear each other and nothing
@@ -826,8 +826,8 @@ sealed class ThreadPerWorker(string root) : WorkerProvider
         {
             while (!c.IsEnded)
             {
-                c.Worker.Advanced.ProcessTasks();
-                try { c.Worker.Advanced.WaitForScheduledWork(TimeSpan.FromSeconds(1), c.TerminationToken); }
+                c.Worker.Tasks.ProcessTasks();
+                try { c.Worker.Tasks.WaitForScheduledWork(TimeSpan.FromSeconds(1), c.TerminationToken); }
                 catch (OperationCanceledException) { }   // terminate() — fall out via IsEnded
             }
 
@@ -857,7 +857,7 @@ foreach (var c in live)
 {
     var slice = (OperationDeadlineConstraint) c.HostState!;   // registered in CreateWorkerEngine
     slice.Begin(TimeSpan.FromMilliseconds(2), c.TerminationToken);
-    try { c.Worker.Advanced.ProcessTasks(); }
+    try { c.Worker.Tasks.ProcessTasks(); }
     catch (TimeoutException) { /* overran its slice; resumes next frame */ }
     finally { slice.End(); }
 }
@@ -979,7 +979,7 @@ var engine = new Engine(options => options.UseWebApis().UseDiagnostics(new LogSi
 
 There are four kinds of report. `ReportedError` is what a script handed `reportError(e)`.
 `UnhandledPromiseRejection` is `HostPromiseRejectionTracker`'s two operations, told apart by
-`RejectionHandled` — and it is *additive*: the long-standing `engine.Advanced.PromiseRejectionTracker` event
+`RejectionHandled` — and it is *additive*: the long-standing `engine.Tasks.PromiseRejectionTracker` event
 still fires exactly as it did, first. `UncaughtCallbackError` is an exception that escaped a callback the
 engine invoked for you. `WorkerError` is a failure inside a `Worker` that neither the worker nor the `Worker`
 object handled; its `Value` is the message as a string, because the thrown value belongs to the worker's realm
@@ -1077,18 +1077,18 @@ is due"; Jint has no frames, so the mapping is stated plainly:
 
 ### Driving the engine from your own loop
 
-`engine.Advanced.TimeUntilNextScheduledWork` answers the question a host loop actually has — *when should I
-pump?* — and `engine.Advanced.ProcessTasks()` is the pump. There is deliberately no third method that drains
+`engine.Tasks.TimeUntilNextScheduledWork` answers the question a host loop actually has — *when should I
+pump?* — and `engine.Tasks.ProcessTasks()` is the pump. There is deliberately no third method that drains
 for a budget: Jint never starts a thread, so the work always runs on your thread anyway; what was missing was
 the timing, not another way to run it.
 
 ```csharp
 while (running)
 {
-    var until = engine.Advanced.TimeUntilNextScheduledWork;
+    var until = engine.Tasks.TimeUntilNextScheduledWork;
     if (until is null || until <= frameBudget)
     {
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
     }
 
     RenderFrame();
@@ -1102,7 +1102,7 @@ nothing is scheduled. It is available on **every** target framework, not just .N
 reports is a core-engine one. It describes the engine's own schedule and not the outside world, so a `null` is
 "nothing timed is pending" rather than "nothing will ever happen".
 
-**`engine.Advanced.WaitForScheduledWork(timeout, token)` is the answer to the work that arrives from a
+**`engine.Tasks.WaitForScheduledWork(timeout, token)` is the answer to the work that arrives from a
 background thread.** A loop with no frame of its own would otherwise have to sleep on a ceiling of its own
 choosing, and then a job enqueued from *another* thread — an interop `Task` settling, an asynchronous module
 load completing, a message posted in from a second engine — waits out that ceiling before anything notices it:
@@ -1113,11 +1113,11 @@ runs out; the token ends it with an `OperationCanceledException`.
 ```csharp
 while (!token.IsCancellationRequested)
 {
-    engine.Advanced.ProcessTasks();
+    engine.Tasks.ProcessTasks();
 
     try
     {
-        engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+        engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
     }
     catch (OperationCanceledException)
     {
@@ -1135,7 +1135,7 @@ by another thread"*, which is what makes one drainer per engine self-enforcing. 
 the same contract without holding a thread. Both are available on **every** target framework and are unaffected
 by which web APIs are enabled.
 
-**`engine.Advanced.CreateAbortSignal(cancellationToken)`** bridges your cancellation into script: hand the
+**`engine.WebApi.CreateAbortSignal(cancellationToken)`** bridges your cancellation into script: hand the
 returned `AbortSignal` to `fetch`, to `scheduler.postTask`, or to a listener the script adds itself. Requires
 the `Events` feature. Cancelling the token **never runs script on the cancelling thread** — it enqueues, and
 the abort happens on the next pump, the same contract `setTimeout` has — so an engine nobody pumps never
@@ -1255,7 +1255,7 @@ HTTP/1.1; this sends it chunked, as every server-side HTTP client does. And the 
 if `HttpClient` needs to resend the request, the fetch fails rather than sending a truncated body.
 
 Like every other web API, `fetch` settles only while the engine is being pumped: the promise resolves inside a
-blocking `UnwrapIfPromise`, an `await` of `EvaluateAsync`, or your own `engine.Advanced.ProcessTasks()` loop.
+blocking `UnwrapIfPromise`, an `await` of `EvaluateAsync`, or your own `engine.Tasks.ProcessTasks()` loop.
 The deadline is the one exception, and deliberately so — it is enforced CLR-side, so an engine nobody pumps
 still lets go of its socket, and it covers the body as well as the headers. An in-flight request is cancelled
 by `Engine.Advanced.RestoreGlobalSnapshot`, and its promise never settles into the restored engine; a body
@@ -1299,7 +1299,7 @@ the original depending on how each branch is being read.
 The streams the *engine* hands out are byte streams too: `response.body`, `request.body` and `Blob.stream()`
 each give a `ReadableByteStreamController` behind the scenes, so `getReader({ mode: 'byob' })` works on a
 network response, on a buffered body and on a blob — and `tee()` on any of them produces two byte streams.
-`Engine.Advanced.CreateReadableStream(Stream)` is the one that is still an ordinary stream: it wraps a host
+`Engine.WebApi.CreateReadableStream(Stream)` is the one that is still an ordinary stream: it wraps a host
 `Stream` you already own, whose reads go into a buffer the bridge owns rather than into one a script
 supplied.
 
@@ -1326,7 +1326,7 @@ only a value:
 ```csharp
 var host = new Engine(o => o.UseWebApis());
 var worker = new Engine(o => o.UseWebApis());
-var pair = host.Advanced.CreateMessagePortPair(worker);
+var pair = host.WebApi.CreateMessagePortPair(worker);
 host.SetValue("port", pair.Local);
 worker.SetValue("port", pair.Remote);
 
@@ -1428,7 +1428,7 @@ engine.Execute("""
     events.onmessage = e => console.log(e.lastEventId, e.data);
     """);
 
-while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
+while (running) { engine.Tasks.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
 ```
 
 It is the standard's own object: `url`, `readyState` with `CONNECTING`/`OPEN`/`CLOSED`, `onopen`/`onmessage`/
@@ -1486,7 +1486,7 @@ engine.Execute("""
     ws.onclose = e => console.log(e.code, e.reason, e.wasClean);
     """);
 
-while (running) { engine.Advanced.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
+while (running) { engine.Tasks.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
 ```
 
 It is the standard's own object: `url`, `readyState` with the four ready-state constants, `bufferedAmount`,
@@ -1544,9 +1544,9 @@ export default {
 var engine = new Engine(options => options.UseWebApis(
     WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Timers));
 
-engine.Advanced.SetFetchHandler(engine.Modules.Import("./worker.js"));
+engine.WebApi.SetFetchHandler(engine.Modules.Import("./worker.js"));
 
-using var response = await engine.Advanced.InvokeFetchHandlerAsync(request);
+using var response = await engine.WebApi.InvokeFetchHandlerAsync(request);
 ```
 
 `SetFetchHandler` accepts three shapes, tried in this order: a **function**; an **object with a callable
@@ -1557,7 +1557,7 @@ registers its handler just as directly:
 
 ```csharp
 engine.Execute("function handle(request) { return new Response('hi'); }");
-engine.Advanced.SetFetchHandler(engine.GetValue("handle"));
+engine.WebApi.SetFetchHandler(engine.GetValue("handle"));
 ```
 
 **There is no feature flag for registering a handler this way, and doing so never grants network access.**
@@ -1573,8 +1573,8 @@ at *top level* has to be evaluated after the registration — the ordinary shape
 response when it runs, does not care.
 
 Only the request is passed. A Workers handler takes `(request, env, ctx)`; per-request host state reaches this
-one the way it always has, through `engine.Advanced.AddLazyGlobal(...)` or a host function reading
-`engine.Advanced.HostDefined`.
+one the way it always has, through `engine.AddLazyGlobal(...)` or a host function reading
+`engine.HostDefined`.
 
 #### The script-facing form: `addEventListener('fetch', …)`
 
@@ -1602,7 +1602,7 @@ async function handle(request) {
 var engine = new Engine(options => options.UseWebApis(WebApiFeatures.FetchEvents));
 engine.Execute(File.ReadAllText("worker.js"));
 
-using var response = await engine.Advanced.InvokeFetchHandlerAsync(request);
+using var response = await engine.WebApi.InvokeFetchHandlerAsync(request);
 ```
 
 **The flag is its own grant, and is not `Fetch`.** Naming it does not enable `fetch` and enabling `fetch` does
@@ -1648,10 +1648,10 @@ runs where you decided. It is the same pair `Engine.Modules.ImportAsync` / `Star
 reason.
 
 ```csharp
-var operation = engine.Advanced.InvokeFetchHandler(request);
+var operation = engine.WebApi.InvokeFetchHandler(request);
 while (!operation.IsCompleted)
 {
-    engine.Advanced.ProcessTasks();     // your loop, your thread
+    engine.Tasks.ProcessTasks();     // your loop, your thread
 }
 
 using var response = operation.GetResult();
@@ -1671,7 +1671,7 @@ All of Jint's own exceptions derive from `JintException`, so that is the one typ
 ```csharp
 try
 {
-    using var handled = await engine.Advanced.InvokeFetchHandlerAsync(request, context.RequestAborted);
+    using var handled = await engine.WebApi.InvokeFetchHandlerAsync(request, context.RequestAborted);
     // ... copy it onto the real response
 }
 catch (JintException ex)
@@ -1701,7 +1701,7 @@ that can never fire — which is what a script written for Workers or Deno expec
 `fetch(upstream, { signal: request.signal })` needs in order to stop:
 
 ```csharp
-var operation = engine.Advanced.InvokeFetchHandler(request, context.RequestAborted);
+var operation = engine.WebApi.InvokeFetchHandler(request, context.RequestAborted);
 ```
 
 `InvokeFetchHandlerAsync`'s existing `CancellationToken` does this too. That is deliberately an addition to
@@ -1715,7 +1715,7 @@ Four things follow from where the abort happens:
 - **It lands on a pump, on your thread.** Cancelling a `CancellationTokenSource` runs its callbacks on the
   cancelling thread, and aborting a signal dispatches a JavaScript `abort` event — which is script. So the
   registration only enqueues a job, and the abort happens the next time you pump. It is the same contract
-  `setTimeout`, `AbortSignal.timeout()` and `engine.Advanced.CreateAbortSignal` have, and it uses the same
+  `setTimeout`, `AbortSignal.timeout()` and `engine.WebApi.CreateAbortSignal` have, and it uses the same
   bridge. Cancel and never pump again and the signal never aborted.
 - **A token that is *already* cancelled needs no pump**: the handler is called with a request whose
   `signal.aborted` is true from its first statement, so it can refuse without doing any work. The reason is
@@ -1786,7 +1786,7 @@ app.Map("/{**path}", async (HttpContext context, EnginePool pool, ILogger<Progra
     HttpResponseMessage handled;
     try
     {
-        handled = await lease.Engine.Advanced.InvokeFetchHandlerAsync(inbound, context.RequestAborted);
+        handled = await lease.Engine.WebApi.InvokeFetchHandlerAsync(inbound, context.RequestAborted);
     }
     catch (JintException ex)
     {
@@ -1856,16 +1856,16 @@ a complete member are ignored. A stream that ends with no compressed bytes at al
 
 ### Bridging a stream to `System.IO.Stream`
 
-`Engine.Advanced` connects the two worlds in both directions, so a host never has to write the pump itself:
+`Engine.WebApi` connects the two worlds in both directions, so a host never has to write the pump itself:
 
 ```csharp
 var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams | WebApiFeatures.Encoding));
 
 // A .NET stream the script can read, with backpressure: nothing is read until the queue wants a chunk.
-engine.SetValue("input", engine.Advanced.CreateReadableStream(File.OpenRead("in.txt")));
+engine.SetValue("input", engine.WebApi.CreateReadableStream(File.OpenRead("in.txt")));
 
 // A .NET stream the script can write; `await writer.close()` is its proof the bytes were flushed.
-engine.SetValue("output", engine.Advanced.CreateWritableStream(File.Create("out.txt")));
+engine.SetValue("output", engine.WebApi.CreateWritableStream(File.Create("out.txt")));
 
 // And a script stream read back into .NET — here, a file transformed through a script TransformStream.
 var upperCased = engine.Evaluate("""
@@ -1877,10 +1877,10 @@ var upperCased = engine.Evaluate("""
     }))
     """);
 
-var copy = engine.Advanced.StartReadableStreamCopy(upperCased, File.Create("shouted.txt"));
+var copy = engine.WebApi.StartReadableStreamCopy(upperCased, File.Create("shouted.txt"));
 while (!copy.IsCompleted)
 {
-    engine.Advanced.ProcessTasks();   // the host owns the turns
+    engine.Tasks.ProcessTasks();   // the host owns the turns
 }
 
 Console.WriteLine($"{copy.GetResult()} bytes");   // throws PromiseRejectedException if the copy failed
@@ -1892,7 +1892,7 @@ registered in; everything that touches your `Stream` happens on whichever thread
 completes on, and produces nothing but bytes and exceptions. Three consequences:
 
 - **The engine must be given turns or nothing moves.** An `await` in script, `EvaluateAsync`, a blocking
-  `UnwrapIfPromise`, or your own `engine.Advanced.ProcessTasks()` loop. An engine nobody pumps never reads a
+  `UnwrapIfPromise`, or your own `engine.Tasks.ProcessTasks()` loop. An engine nobody pumps never reads a
   byte. A read that completes synchronously — a `MemoryStream`, a warm page cache — is delivered on the spot
   instead, so such a stream costs no thread hop at all.
 - **Hand the stream over and stop touching it.** A read or a write may be in flight whenever the script is
@@ -2207,13 +2207,13 @@ by; store it wherever you store descriptors (`SetOwnProperty` or `GetOwnProperty
 `JsObjectLayout.AddLazy` (records) and `JsObjectShape` (prototypes), and it does not exempt you from the rule
 above them: storing any raw descriptor under a string key still moves a shape-mode object to the dictionary
 representation. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building
-the value until script reads the name, and `engine.Advanced.AddLazyGlobal` does the same on an engine that
+the value until script reads the name, and `engine.AddLazyGlobal` does the same on an engine that
 already exists — which is what you need when the value comes from the request you are about to serve rather
 than from process-wide configuration. Both install the property eagerly, so `in`, `hasOwnProperty` and
 `Object.keys(globalThis)` see the name without building anything; only reading the value runs the factory,
 once. The per-engine overload receives its engine, so unlike an `Options`-registered factory it may capture
 engine-affine state — and where it would do nothing but capture, the overload taking the state,
-`engine.Advanced.AddLazyGlobal(name, state, static (e, s) => ...)`, hands it to a `static` factory instead.
+`engine.AddLazyGlobal(name, state, static (e, s) => ...)`, hands it to a `static` factory instead.
 That matters only because this registration is per engine: a capturing factory costs a display class and a
 delegate for every global on every engine you build, which on `FreshEngineGlobalsBenchmark`'s forty-global
 row is 32 bytes per global. There is deliberately no `Options` counterpart — a registration made there is
@@ -2252,7 +2252,7 @@ constructor — the way this was written before `LazyJsString` existed, and whic
 
 **Per-request state behind an engine.** Every host-facing factory in this API receives the engine and nothing
 else, which is a problem when the value depends on the request rather than on process-wide configuration.
-`engine.Advanced.HostDefined` closes that gap: an opaque `object?` the engine never reads or interprets — the
+`engine.HostDefined` closes that gap: an opaque `object?` the engine never reads or interprets — the
 `[[HostDefined]]` field the specification reserves on a Realm Record — so a factory that captures nothing can
 still reach the scope it is running in. The alternative embedders reach for is a
 `static ConditionalWeakTable<Engine, IServiceProvider>`, which takes its internal write lock every time a
@@ -2262,10 +2262,10 @@ host associates state with an engine, across every tenant in the process.
 // once per process — the factory captures nothing, so one Options serves every engine
 var options = new Options()
     .AddLazyGlobal("user", static engine =>
-        JsValue.FromObject(engine, ((RequestContext) engine.Advanced.HostDefined!).User));
+        JsValue.FromObject(engine, ((RequestContext) engine.HostDefined!).User));
 
 // per request, before you run anything
-engine.Advanced.HostDefined = requestContext;
+engine.HostDefined = requestContext;
 ```
 
 It is the *principal* realm's field, not the current one, so it answers the same value inside a `ShadowRealm`
@@ -2403,7 +2403,7 @@ charge unrelated allocations while an async operation is suspended.
 and realm that created it, and passing one to a different engine is not supported — it is neither validated
 nor made safe. `Prepared<Script>` / `Prepared<Module>` and `ModuleBuilder` are the supported ways to share
 work between engines. For a script result, prefer
-`engine.Advanced.ConvertResult(value, limits)`: it copies arrays, typed arrays, array buffers, maps, sets and
+`engine.ConvertResult(value, limits)`: it copies arrays, typed arrays, array buffers, maps, sets and
 enumerable own properties into a detached CLR data graph while incrementally enforcing depth, cumulative
 property/element count, individual string length, aggregate characters and binary bytes. Cycles, functions and
 symbols are rejected. A CLR wrapper is already host-owned, so conversion returns its target without walking or
@@ -2422,7 +2422,7 @@ var engine = new Engine(options =>
 });
 
 var value = engine.Evaluate(source);
-var result = engine.Advanced.ConvertResult(value);
+var result = engine.ConvertResult(value);
 ```
 
 The same option bounds Jint's `JsonSerializer` and script-visible `JSON.stringify`; per-call overloads can use
@@ -2456,9 +2456,9 @@ own thread, because inspecting a running engine from another thread is not somet
 ```csharp
 var engine = new Engine(options => options.Profiling.Enabled = true);
 
-engine.Advanced.StartProfiling();
+engine.Diagnostics.StartProfiling();
 engine.Execute(script);
-var profile = engine.Advanced.StopProfiling();
+var profile = engine.Diagnostics.StopProfiling();
 
 using var file = File.Create("run.speedscope.json");
 profile.WriteSpeedscopeJson(file);
@@ -2509,7 +2509,7 @@ window. There are four: from the moment a host call is handed the callback until
 made that call — the `Evaluate`, `Execute`, `Invoke` or callback turn on the stack — returns; while one of
 the async engine APIs is outstanding; while the engine is driving its event loop for a blocking
 `UnwrapIfPromise` or `Modules.Import`; and while a host thread is parked on
-`Engine.Advanced.WaitForScheduledWork` or `WaitForScheduledWorkAsync`. Inside a window Jint reserves the
+`Engine.Tasks.WaitForScheduledWork` or `WaitForScheduledWorkAsync`. Inside a window Jint reserves the
 engine against unrelated callers and transfers ownership to that callback one turn at a time. Such an
 authorized transfer may wait for the current callback turn; ordinary public callers still fail immediately
 rather than being serialized. The first three hand over to one another in the usual shape: an `async` host
@@ -2948,7 +2948,7 @@ foreach (var diagnostic in report.Diagnostics)
 
 // Throws SecurityConfigurationException if the report contains an error.
 var engine = new Engine(options.EnsureSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts));
-var effectiveReport = engine.Advanced.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
+var effectiveReport = engine.Diagnostics.ValidateSecurityConfiguration(SecurityConfigurationPolicy.UntrustedScripts);
 ```
 
 Validation is read-only: it does not apply a hardened profile or change normal engine defaults, so it also
@@ -2957,7 +2957,7 @@ codes are stable and results are ordered by code for deterministic logging. Warn
 need host-specific review (for example a custom module loader); they remain in the report but do not make
 `EnsureSecurityConfiguration` throw. Treat a validated `Options` as immutable and pass it directly to
 `Engine(Options)`. Public engine-construction callbacks registered by `Configure`, `SetTypeConverter`, or
-`UseHostFactory` produce `JINTSEC031`; inspect `engine.Advanced.ValidateSecurityConfiguration()` after
+`UseHostFactory` produce `JINTSEC031`; inspect `engine.Diagnostics.ValidateSecurityConfiguration()` after
 construction to validate their final effects without replaying them. Custom constraint factories remain
 supported under their existing contract and are invoked only by engine construction, never by diagnostics.
 
@@ -3334,7 +3334,7 @@ The engine is single-threaded, and settling the completion does not change that:
 var import = engine.Modules.StartImport("./main.js");
 
 // every frame
-engine.Advanced.ProcessTasks();
+engine.Tasks.ProcessTasks();
 if (import.IsCompleted)
 {
     var ns = import.GetResult();   // throws PromiseRejectedException if the load or evaluation failed
@@ -3455,7 +3455,7 @@ there is no evaluation for a `Task` to describe:
   — an `Engine` serves one host operation at a time.
 
 This holds for `EvaluateAsync`, `ExecuteAsync`, `InvokeAsync`, `Modules.ImportAsync`,
-`Advanced.WaitForScheduledWorkAsync` and `UnwrapIfPromiseAsync` alike. Constraints are unaffected by it:
+`Tasks.WaitForScheduledWorkAsync` and `UnwrapIfPromiseAsync` alike. Constraints are unaffected by it:
 the same exception type and message still fire, and still abort the run — only which channel delivers them
 is now fixed rather than decided by which thread got there first.
 
@@ -3482,13 +3482,13 @@ The synchronous `UnwrapIfPromise` is still available for scenarios where blockin
 ### Handing script a promise your host settles
 
 When the asynchronous thing is yours rather than a `Task` the engine can see — an HTTP call, a queue read, a
-callback-shaped API — `engine.Advanced.RegisterPromise()` hands script a promise and hands you the two
+callback-shaped API — `engine.Tasks.RegisterPromise()` hands script a promise and hands you the two
 functions that settle it.
 
 ```c#
 engine.SetValue("getJSON", new Func<string, JsValue>(url =>
 {
-    var (promise, resolve, reject) = engine.Advanced.RegisterPromise();
+    var (promise, resolve, reject) = engine.Tasks.RegisterPromise();
 
     _ = Task.Run(async () =>
     {
@@ -3735,7 +3735,7 @@ var engine = new Engine(options => options.Coverage.Enabled = true);
 
 engine.Execute("function f(n) { if (n > 0) { return 'positive'; } return 'other'; } f(1); f(2);", "rules.js");
 
-foreach (var source in engine.Advanced.GetCoverage().Sources)
+foreach (var source in engine.Diagnostics.GetCoverage().Sources)
 {
     foreach (var entry in source.Entries)
     {
@@ -3744,7 +3744,7 @@ foreach (var source in engine.Advanced.GetCoverage().Sources)
     }
 }
 
-engine.Advanced.ResetCoverage(); // start a fresh measurement
+engine.Diagnostics.ResetCoverage(); // start a fresh measurement
 ```
 
 - `Options.Coverage.Granularity` is `Statements` by default, or `Functions` to report function-body entries

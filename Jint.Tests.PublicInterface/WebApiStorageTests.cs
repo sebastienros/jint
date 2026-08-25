@@ -315,7 +315,7 @@ public class WebApiStorageTests
 
         // A restore reverts the global binding table, not the world behind it: the script's own global is
         // gone and the host's store is not. A host pooling an engine per request and wanting the storage
-        // gone too clears the provider itself — it is host state, like Engine.Advanced.HostDefined.
+        // gone too clears the provider itself — it is host state, like Engine.HostDefined.
         engine.Evaluate("typeof leaked").AsString().Should().Be("undefined");
         engine.Evaluate("localStorage.getItem('a')").AsString().Should().Be("1");
 

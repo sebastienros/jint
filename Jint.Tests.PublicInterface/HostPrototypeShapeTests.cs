@@ -100,7 +100,7 @@ public class HostPrototypeShapeTests
         // after something has touched the object.
         engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
 
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public class HostPrototypeShapeTests
         Invoking(() => engine.Execute("'use strict'; delete proto.ELEMENT_NODE;")).Should().Throw<JavaScriptException>();
 
         engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     // ---- per-realm slots ----
@@ -297,8 +297,8 @@ public class HostPrototypeShapeTests
         engineB.Evaluate("proto.constructor").Should().Be("ctor-B");
 
         // ...and the object is still shaped afterwards (a declared name never forces the dictionary)
-        engineA.Advanced.GetObjectRepresentation(protoA).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
-        engineB.Advanced.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engineA.Diagnostics.GetObjectRepresentation(protoA).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engineB.Diagnostics.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         // the declared attributes permit the ordinary spec-validated route too
         engineA.Execute("Object.defineProperty(proto, 'constructor', { value: 'redefined' });");
@@ -388,7 +388,7 @@ public class HostPrototypeShapeTests
         engineB.Evaluate("Object.isFrozen(proto)").Should().Be(false);
 
         // B is untouched down to its representation and its constant attributes.
-        engineB.Advanced.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engineB.Diagnostics.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
         engineB.Evaluate("Object.getOwnPropertyDescriptor(proto, 'ELEMENT_NODE').writable").Should().Be(false);
         engineB.Evaluate("Object.getOwnPropertyDescriptor(proto, 'ELEMENT_NODE').configurable").Should().Be(false);
         engineB.Evaluate("Object.getOwnPropertyDescriptor(proto, 'ELEMENT_NODE').enumerable").Should().Be(true);
@@ -421,7 +421,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("el.greet('x')").Should().Be("hello x");
         engine.Execute("proto.greet = function () { return 'patched'; };");
         engine.Evaluate("el.greet('x')").Should().Be("patched");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -436,7 +436,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.greet").Should().Be("from getter");
         engine.Evaluate("typeof Object.getOwnPropertyDescriptor(proto, 'greet').get").Should().Be("function");
 
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -448,7 +448,7 @@ public class HostPrototypeShapeTests
 
         engine.Evaluate("Object.getOwnPropertyNames(proto).join(',')")
             .Should().Be("greet,secretMethod,tagName,readOnlyTag,ELEMENT_NODE,SECRET,constructor,added,defined");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
         engine.Evaluate("proto.added").Should().Be(1);
         engine.Evaluate("proto.defined").Should().Be(2);
     }
@@ -460,7 +460,7 @@ public class HostPrototypeShapeTests
 
         engine.Execute("proto[0] = 'zero';");
 
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
         engine.Evaluate("proto[0]").Should().Be("zero");
         engine.Evaluate("proto.greet('x')").Should().Be("hello x");
         engine.Evaluate("Object.getOwnPropertyNames(proto)[0]").Should().Be("0");
@@ -477,7 +477,7 @@ public class HostPrototypeShapeTests
 
         engine.Evaluate("delete proto.greet").Should().Be(true);
 
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
         engine.Evaluate("proto.greet").Should().Be(JsValue.Undefined);
 
         // Every member that was never touched before the fallback still works, including the ones that need
@@ -502,7 +502,7 @@ public class HostPrototypeShapeTests
         engine.Execute("proto.brandNew = 1;");
         engine.Evaluate("'brandNew' in proto").Should().Be(false);
         engine.Evaluate("proto.greet('x')").Should().Be("hello x");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         engine.Execute("Object.freeze(proto);");
         engine.Evaluate("Object.isFrozen(proto)").Should().Be(true);
@@ -510,7 +510,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("typeof proto.greet").Should().Be("function");
         // reads keep working, and the object stays in the shared layout after the freeze materialized it
         engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -521,7 +521,7 @@ public class HostPrototypeShapeTests
 
         engine.Evaluate("proto.inherited").Should().Be("yes");
         engine.Evaluate("proto.greet('x')").Should().Be("hello x");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -535,7 +535,7 @@ public class HostPrototypeShapeTests
 
         engine.Execute("delete proto[proto.symbolValue];");
         engine.Evaluate("proto[proto.symbolValue]").Should().Be(JsValue.Undefined);
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     // ---- enumeration ----
@@ -593,7 +593,7 @@ public class HostPrototypeShapeTests
         var engine = EngineWithPrototype(out var prototype);
 
         engine.Evaluate("delete proto.greet").Should().Be(true);
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
 
         engine.Evaluate("'greet' in proto").Should().Be(false);
         engine.Evaluate("proto.hasOwnProperty('greet')").Should().Be(false);
@@ -638,9 +638,9 @@ public class HostPrototypeShapeTests
 
         // Touch every level so the representation has settled, then witness it.
         engine.Evaluate("[root.ROOT_CONST, typeof middle.middleMember, typeof leaf.leafMember].length").Should().Be(3);
-        engine.Advanced.GetObjectRepresentation(root).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
-        engine.Advanced.GetObjectRepresentation(middle).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
-        engine.Advanced.GetObjectRepresentation(leaf).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(root).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(middle).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(leaf).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         engine.Evaluate("Object.getPrototypeOf(leaf) === middle").Should().Be(true);
         engine.Evaluate("Object.getPrototypeOf(middle) === root").Should().Be(true);
@@ -703,7 +703,7 @@ public class HostPrototypeShapeTests
         var engine = EngineWithPrototype(out var prototype);
 
         engine.Execute("proto.extra = 1;");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         engine.Evaluate("proto.hasOwnProperty('extra')").Should().Be(true);
         engine.Evaluate("'extra' in proto").Should().Be(true);
@@ -726,7 +726,7 @@ public class HostPrototypeShapeTests
         var engine = EngineWithPrototype(out var prototype);
 
         engine.Execute("Object.defineProperty(proto, '0', { value: 1, configurable: true });");
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
 
         engine.Evaluate("proto.hasOwnProperty('0')").Should().Be(true);
         engine.Evaluate("'0' in proto").Should().Be(true);

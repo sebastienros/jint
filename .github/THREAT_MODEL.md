@@ -140,7 +140,7 @@ embedded in prepared code. The actual source-length, AST-node, source-retention,
 are validated together; the default preparation options therefore report unbounded parser limits and
 the 10-second regex warning.
 
-After construction, `engine.Advanced.ValidateSecurityConfiguration()` reads the effective options and
+After construction, `engine.Diagnostics.ValidateSecurityConfiguration()` reads the effective options and
 the constraint instances the engine already created. It does not replay a callback or factory. Public
 `Configure`, `SetTypeConverter`, and `UseHostFactory` callbacks continue to produce `JINTSEC031`;
 Jint-owned configuration has separate internal provenance so a future first-party hardened profile can
@@ -465,7 +465,7 @@ Kill the isolated worker when the outer deadline expires.
 
 ### TM-09: A sequence of engine entries escapes a per-entry budget
 
-**Threat.** `Execute`, `Evaluate`, `Invoke`, `Call`, `Advanced.ConvertResult`, public
+**Threat.** `Execute`, `Evaluate`, `Invoke`, `Call`, `ConvertResult`, public
 `JsonSerializer.Serialize` calls, and bounded
 `JavaScriptException.GetJavaScriptErrorString` are separate top-level runs. Built-in
 constraints reset around each one, so a host loop that invokes a script once per record
@@ -591,7 +591,7 @@ can alter or observe subsequent execution.
 
 - `RestoreGlobalSnapshot` explicitly does not revert intrinsic/prototype mutations, nested
   host object graphs, CLR state, registered modules, `Symbol.for`, or
-  `Advanced.HostDefined`.
+  `HostDefined`.
 - A constraint exception can leave partially mutated state.
 - A host-retained JavaScript function or object remains engine-affine and can carry an old
   request's closures and authority.
@@ -619,7 +619,7 @@ incorrect authorization context, cross-request disclosure, crashes, or hangs.
   handed the callback out. A host may dispatch one to another thread while the engine holds an
   admission window — the engine operation that made the call which received the callback has not
   returned, an async engine API is outstanding, the engine is draining its event loop for a blocking
-  unwrap or import, or a host thread is parked on `Engine.Advanced.WaitForScheduledWork` or its
+  unwrap or import, or a host thread is parked on `Engine.Tasks.WaitForScheduledWork` or its
   asynchronous form; Jint yields and transfers the reserved engine one callback turn at a time
   without admitting unrelated public callers.
 - How narrowly a window admits is decided by whether an operation token is in force under it, never by
@@ -759,7 +759,7 @@ run additional code and consume CPU or memory outside the intended execution bud
 - `JSON.parse` has a configurable maximum parse depth.
 - `ResultLimits` can bound conversion/serialization depth, cumulative properties or elements,
   individual strings, aggregate characters, and UTF-8 or binary bytes.
-- `Advanced.ConvertResult` copies Jint-owned arrays, typed arrays, maps, sets, and enumerable
+- `ConvertResult` copies Jint-owned arrays, typed arrays, maps, sets, and enumerable
   object properties to a detached CLR graph, rejects cycles, and enforces the selected limits
   before known-size output allocations and before property getters are read.
 - Jint's JSON serializer enforces the same limits while walking, counts escaped characters
@@ -786,7 +786,7 @@ run additional code and consume CPU or memory outside the intended execution bud
 - Returning an engine-owned `JsValue` extends the engine and realm lifetime.
 
 **Required host action.** Define a small result schema, configure and tune `ResultLimits` (the
-`Conservative` preset is only a starting point), and return `Advanced.ConvertResult` output or
+`Conservative` preset is only a starting point), and return `ConvertResult` output or
 bounded `JsonSerializer` output. Keep time, statement, cancellation, memory, stack, worker, and
 response-server byte limits around the whole operation. Independently configure every external
 serializer and log sink, and discard engine-owned values with the engine.
@@ -1170,7 +1170,7 @@ actually stop a call in progress.
 lets a script reach *out* to the network, this routes requests the host already holds *in* to
 the script. With it enabled, one line — `addEventListener('fetch', e => e.respondWith(…))` —
 makes the evaluated script the answer to every request the host passes to
-`Engine.Advanced.InvokeFetchHandler`. A script submitted to compute a value can instead decide
+`Engine.WebApi.InvokeFetchHandler`. A script submitted to compute a value can instead decide
 what the server replies with, and read everything the request carries on the way. The
 registration leaves no trace in the script's own result, so a host that only inspects the
 returned value never sees it happen.
@@ -1184,11 +1184,11 @@ returned value never sees it happen.
   grants no outbound network access and `UseFetch()` grants no inbound routing. Enabling it
   installs `Headers`, `Request` and `Response` — a listener that cannot build a `Response` has
   nothing to respond with — and not `fetch`, the same split
-  `Engine.Advanced.SetFetchHandler` already makes.
+  `Engine.WebApi.SetFetchHandler` already makes.
 - **A handler the host registered outranks every listener.** `RequireFetchRoute` reads the
   `SetFetchHandler` slot first and returns it outright; listeners are consulted only where there
   was nothing to win against, so script cannot take a route away from the host by adding a line.
-  `Engine.Advanced.HasFetchHandler` reports that registration alone and deliberately answers
+  `Engine.WebApi.HasFetchHandler` reports that registration alone and deliberately answers
   `false` for an engine whose script registered a listener, so script cannot change the host's
   own record of what the host did either.
 - **An unanswered dispatch fails the operation.** When no listener called `respondWith()` —
@@ -1249,7 +1249,7 @@ returned value never sees it happen.
 - **The bracket bounds the dispatch, not the turns the host pumps afterwards**, and the two
   budgets part company differently ([TM-09](#tm-09-a-sequence-of-engine-entries-escapes-a-per-entry-budget)).
   A listener that answers with a promise has returned before the promise's reaction runs, and
-  `Advanced.ProcessTasks` is not a bracket. So the reaction gets a **fresh** `MaxStatements`
+  `Tasks.ProcessTasks` is not a bracket. So the reaction gets a **fresh** `MaxStatements`
   allowance — the reset on the way out of the dispatch refilled it — and runs against a
   `TimeoutInterval` deadline armed at that same moment; refilled *once*, note, because nothing
   resets a constraint again until the engine is next entered, so every turn pumped after that

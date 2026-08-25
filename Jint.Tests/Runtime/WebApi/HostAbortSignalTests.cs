@@ -8,7 +8,7 @@ using Jint.WebApi.Abort;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// <c>Engine.Advanced.CreateAbortSignal(CancellationToken)</c> — the bridge from the host's own cancellation to
+/// <c>Engine.WebApi.CreateAbortSignal(CancellationToken)</c> — the bridge from the host's own cancellation to
 /// the <c>AbortSignal</c> script consumes.
 /// </summary>
 /// <remarks>
@@ -33,7 +33,7 @@ public class HostAbortSignalTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var signal = (JsAbortSignal) engine.Advanced.CreateAbortSignal(cts.Token);
+        var signal = (JsAbortSignal) engine.WebApi.CreateAbortSignal(cts.Token);
 
         signal.Aborted.Should().BeTrue();
 
@@ -58,7 +58,7 @@ public class HostAbortSignalTests
         using var engine = EventsEngine();
         using var cts = new CancellationTokenSource();
 
-        var signal = (JsAbortSignal) engine.Advanced.CreateAbortSignal(cts.Token);
+        var signal = (JsAbortSignal) engine.WebApi.CreateAbortSignal(cts.Token);
 
         // Taken before the abort, which is what a fetch does when it starts a request.
         var clrToken = signal.CancellationToken;
@@ -72,7 +72,7 @@ public class HostAbortSignalTests
         signal.Aborted.Should().BeFalse();
         clrToken.IsCancellationRequested.Should().BeFalse();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         signal.Aborted.Should().BeTrue();
         clrToken.IsCancellationRequested.Should().BeTrue();
@@ -88,14 +88,14 @@ public class HostAbortSignalTests
     {
         using var engine = EventsEngine();
 
-        var signal = (JsAbortSignal) engine.Advanced.CreateAbortSignal(CancellationToken.None);
+        var signal = (JsAbortSignal) engine.WebApi.CreateAbortSignal(CancellationToken.None);
 
         signal.Aborted.Should().BeFalse();
 
         engine.SetValue("s", signal);
         engine.Evaluate("s instanceof AbortSignal").Should().Be(JsBoolean.True);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         signal.Aborted.Should().BeFalse();
     }
 
@@ -109,7 +109,7 @@ public class HostAbortSignalTests
         using var engine = EventsEngine();
         using var cts = new CancellationTokenSource();
 
-        engine.SetValue("s", engine.Advanced.CreateAbortSignal(cts.Token));
+        engine.SetValue("s", engine.WebApi.CreateAbortSignal(cts.Token));
 
         engine.Evaluate("Object.getPrototypeOf(s) === AbortSignal.prototype").Should().Be(JsBoolean.True);
         engine.Evaluate("s instanceof EventTarget").Should().Be(JsBoolean.True);
@@ -128,13 +128,13 @@ public class HostAbortSignalTests
         using var engine = EventsEngine();
         using var cts = new CancellationTokenSource();
 
-        var signal = (JsAbortSignal) engine.Advanced.CreateAbortSignal(cts.Token);
+        var signal = (JsAbortSignal) engine.WebApi.CreateAbortSignal(cts.Token);
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         cts.Cancel();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         signal.Aborted.Should().BeFalse();
     }
@@ -149,12 +149,12 @@ public class HostAbortSignalTests
     {
         using var engine = new Engine();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Advanced.CreateAbortSignal(CancellationToken.None));
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.WebApi.CreateAbortSignal(CancellationToken.None));
         exception.Message.Should().Contain("WebApiFeatures.Events");
 
         // Enabling some other feature is not enough either.
         using var consoleOnly = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
-        Assert.Throws<InvalidOperationException>(() => consoleOnly.Advanced.CreateAbortSignal(CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => consoleOnly.WebApi.CreateAbortSignal(CancellationToken.None));
     }
 }
 #endif

@@ -100,10 +100,10 @@ public class ScriptProfilingTests
     {
         var engine = new Engine();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Advanced.StartProfiling());
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling());
 
         exception.Message.Should().Contain("Options.Profiling.Enabled");
-        engine.Advanced.IsProfiling.Should().BeFalse();
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
     }
 
     [Fact]
@@ -112,8 +112,8 @@ public class ScriptProfilingTests
         var engine = new Engine();
         engine.Execute("function f() { return 1; } f(); f();");
 
-        engine.Advanced.IsProfiling.Should().BeFalse();
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.StopProfiling());
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
+        Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
     [Fact]
@@ -121,18 +121,18 @@ public class ScriptProfilingTests
     {
         var engine = CreateProfilingEngine();
 
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.StopProfiling());
+        Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
     [Fact]
     public void StartProfilingTwiceThrows()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
 
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.StartProfiling());
+        Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling());
 
-        engine.Advanced.StopProfiling();
+        engine.Diagnostics.StopProfiling();
     }
 
     [Fact]
@@ -141,10 +141,10 @@ public class ScriptProfilingTests
         var engine = CreateProfilingEngine();
         engine.Execute("function f() { return 1; } f(); f();");
 
-        engine.Advanced.IsProfiling.Should().BeFalse();
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
 
-        engine.Advanced.StartProfiling();
-        var profile = engine.Advanced.StopProfiling();
+        engine.Diagnostics.StartProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         profile.Events.Should().BeEmpty("nothing ran between start and stop");
         profile.Frames.Should().BeEmpty();
@@ -155,9 +155,9 @@ public class ScriptProfilingTests
     public void EveryEnterIsMatchedByAnExit()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function inner() { return 1; } function outer() { return inner() + inner(); } outer();");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         profile.Events.Should().HaveCount(6);
         RenderCallTree(profile).Should().Be("outer\n  inner\n  inner\n");
@@ -167,14 +167,14 @@ public class ScriptProfilingTests
     public void NestedCallTreeShapeIsReconstructable()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("""
             function leaf() { return 1; }
             function middle() { return leaf(); }
             function root() { return middle() + leaf(); }
             root();
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile).Should().Be("root\n  middle\n    leaf\n  leaf\n");
     }
@@ -183,14 +183,14 @@ public class ScriptProfilingTests
     public void AThrowCaughtInScriptStillClosesEveryFrame()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("""
             function thrower() { throw new Error('boom'); }
             function middle() { thrower(); }
             function root() { try { middle(); } catch (e) { return 'caught'; } }
             root();
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         // The tree is what a consumer sees; the assertion that matters is that RenderCallTree can build one
         // at all, since it fails on any unbalanced or improperly nested pair.
@@ -202,7 +202,7 @@ public class ScriptProfilingTests
     public void AThrowEscapingToTheHostStillClosesEveryFrame()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
 
         Assert.Throws<JavaScriptException>(() => engine.Execute("""
             function thrower() { throw new Error('boom'); }
@@ -214,7 +214,7 @@ public class ScriptProfilingTests
         // An escaping throw unwinds through the same finallys a return does, so every frame is popped on the
         // way out and the profiler is back at depth zero for whatever the host runs next.
         engine.Execute("function after() { return 1; } after();");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         // (The tail of the abandoned tree is the Error constructor and the `stack` accessors the unwinding
         // reads, so only its head is pinned.)
@@ -228,7 +228,7 @@ public class ScriptProfilingTests
         var engine = CreateProfilingEngine();
         engine.SetValue("reset", new Action(() => engine.Advanced.ResetCallStack()));
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("""
             function inner() { reset(); }
             function outer() { inner(); }
@@ -236,7 +236,7 @@ public class ScriptProfilingTests
             outer();
             after();
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile).Should().StartWith("outer\n  inner\n");
         DepthOfFirstOpen(profile, "after").Should().Be(0, "the abandoned frames were closed, not left open");
@@ -246,9 +246,9 @@ public class ScriptProfilingTests
     public void RecursionIsRecordedAsNestedActivationsOfOneFrame()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function down(n) { return n === 0 ? 0 : down(n - 1); } down(10);");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         // Non-strict, so no proper tail call: eleven activations of one function, properly nested.
         RenderCallTree(profile);
@@ -268,13 +268,13 @@ public class ScriptProfilingTests
     public void AProperTailCallIsRecordedAsACloseFollowedByAnOpen()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("""
             'use strict';
             function down(n) { return n === 0 ? 0 : down(n - 1); }
             down(50);
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile);
         profile.Frames.Should().ContainSingle(f => f.Name == "down");
@@ -287,13 +287,13 @@ public class ScriptProfilingTests
     public void ClosuresOfOneSourceFunctionShareAFrame()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("""
             function make(n) { return function adder(x) { return x + n; }; }
             var a = make(1), b = make(2);
             a(1); b(2); a(3);
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile);
         profile.Frames.Where(f => f.Name == "adder").Should().HaveCount(1, "closures of one source function are one frame");
@@ -304,9 +304,9 @@ public class ScriptProfilingTests
     public void FramesCarryTheDeclarationName_And_SourceLocation()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function named() { return 1; }\nnamed();", "profiled.js");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         var frame = profile.Frames.Single(f => f.Name == "named");
         frame.File.Should().Be("profiled.js");
@@ -318,9 +318,9 @@ public class ScriptProfilingTests
     public void AnInferredNameIsPreferredToAnonymity()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("var inferred = function () { return 1; }; inferred();");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         OpenedNames(profile).Should().Contain("inferred");
     }
@@ -329,9 +329,9 @@ public class ScriptProfilingTests
     public void AFunctionWithNoNameAtAllIsAnonymous()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("(function () { return 1; })();", "anon.js");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile);
         var frame = profile.Frames.Single();
@@ -345,9 +345,9 @@ public class ScriptProfilingTests
     public void AGetterIsProfiledUnderTheAccessorName()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("var o = { get p() { return 1; } }; function g() { return o.p; } g();");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile).Should().Be("g\n  get p\n");
     }
@@ -358,9 +358,9 @@ public class ScriptProfilingTests
         var engine = CreateProfilingEngine();
         engine.SetValue("hostCall", new Func<int>(static () => 42));
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function caller() { return hostCall(); } caller();");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         RenderCallTree(profile);
         profile.Frames.Should().HaveCount(2);
@@ -383,9 +383,9 @@ public class ScriptProfilingTests
         public void AFramelessLeafBuiltInDisappearsOnceItsCallSiteIsWarm()
         {
             var engine = CreateProfilingEngine();
-            engine.Advanced.StartProfiling();
+            engine.Diagnostics.StartProfiling();
             engine.Execute("function f(x) { return Math.abs(x); } for (var i = 0; i < 5; i++) { f(-1); }");
-            var profile = engine.Advanced.StopProfiling();
+            var profile = engine.Diagnostics.StopProfiling();
 
             RenderCallTree(profile);
 
@@ -399,9 +399,9 @@ public class ScriptProfilingTests
         public void ACallbackABuiltInInvokesHasNoFrameButItsCalleesDo()
         {
             var engine = CreateProfilingEngine();
-            engine.Advanced.StartProfiling();
+            engine.Diagnostics.StartProfiling();
             engine.Execute("function helper(v) { return v; } [1, 2].map(function (x) { return helper(x); });");
-            var profile = engine.Advanced.StopProfiling();
+            var profile = engine.Diagnostics.StopProfiling();
 
             // `map` is framed and the callback is not, so `helper` lands directly under `map` — one level
             // short of the truth, never at the wrong depth.
@@ -412,13 +412,13 @@ public class ScriptProfilingTests
         public void APromiseReactionHandlerHasNoFrameButItsCalleesDo()
         {
             var engine = CreateProfilingEngine();
-            engine.Advanced.StartProfiling();
+            engine.Diagnostics.StartProfiling();
             engine.Execute("""
                 function helper(v) { return v; }
                 function reaction(v) { return helper(v); }
                 Promise.resolve(1).then(reaction);
                 """);
-            var profile = engine.Advanced.StopProfiling();
+            var profile = engine.Diagnostics.StopProfiling();
 
             RenderCallTree(profile);
 
@@ -438,9 +438,9 @@ public class ScriptProfilingTests
             options.Profiling.MaxEvents = 20;
         });
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function f() { return 1; } for (var i = 0; i < 1000; i++) { f(); }");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         profile.Truncated.Should().BeTrue();
         profile.Events.Count.Should().BeLessThanOrEqualTo(20);
@@ -459,9 +459,9 @@ public class ScriptProfilingTests
             options.Profiling.MaxEvents = 12;
         });
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function down(n) { return n === 0 ? 0 : down(n - 1); } down(50);");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         profile.Truncated.Should().BeTrue();
         profile.Events.Count.Should().BeLessThanOrEqualTo(12);
@@ -473,28 +473,28 @@ public class ScriptProfilingTests
     {
         var engine = CreateProfilingEngine();
         ScriptProfile? captured = null;
-        engine.SetValue("stop", new Action(() => captured = engine.Advanced.StopProfiling()));
+        engine.SetValue("stop", new Action(() => captured = engine.Diagnostics.StopProfiling()));
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function inner() { stop(); } function outer() { inner(); } outer();");
 
         captured.Should().NotBeNull();
         RenderCallTree(captured!).Should().StartWith("outer\n  inner\n");
-        engine.Advanced.IsProfiling.Should().BeFalse();
+        engine.Diagnostics.IsProfiling.Should().BeFalse();
     }
 
     [Fact]
     public void AProfileStartedMidCallDropsTheExitsItNeverSaw()
     {
         var engine = CreateProfilingEngine();
-        engine.SetValue("start", new Action(() => engine.Advanced.StartProfiling()));
+        engine.SetValue("start", new Action(() => engine.Diagnostics.StartProfiling()));
 
         engine.Execute("""
             function inner() { start(); }
             function outer() { inner(); return 1; }
             outer();
             """);
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         // outer/inner/start were already on the stack when the session opened, so their pops have nothing to
         // match and are dropped rather than corrupting the stream.
@@ -511,12 +511,12 @@ public class ScriptProfilingTests
         var profiled = new Engine(options);
         var unprofiled = new Engine(options);
 
-        profiled.Advanced.StartProfiling();
+        profiled.Diagnostics.StartProfiling();
         unprofiled.Execute("function other() { return 1; } other();");
         profiled.Execute("function mine() { return 1; } mine();");
-        var profile = profiled.Advanced.StopProfiling();
+        var profile = profiled.Diagnostics.StopProfiling();
 
-        unprofiled.Advanced.IsProfiling.Should().BeFalse();
+        unprofiled.Diagnostics.IsProfiling.Should().BeFalse();
         OpenedNames(profile).Should().Equal("mine");
     }
 
@@ -534,9 +534,9 @@ public class ScriptProfilingTests
     public void DurationCoversTheWholeSession()
     {
         var engine = CreateProfilingEngine();
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function f() { return 1; } for (var i = 0; i < 100; i++) { f(); }");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         // Structural, not timed: the session cannot be shorter than its own last event, and its TimeSpan
         // projection must agree with the nanosecond figure the speedscope export uses.
@@ -550,13 +550,13 @@ public class ScriptProfilingTests
         var engine = CreateProfilingEngine();
         engine.Execute("function first() { return 1; } function second() { return 2; }");
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("first();");
-        var one = engine.Advanced.StopProfiling();
+        var one = engine.Diagnostics.StopProfiling();
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("second();");
-        var two = engine.Advanced.StopProfiling();
+        var two = engine.Diagnostics.StopProfiling();
 
         OpenedNames(one).Should().Equal("first");
         OpenedNames(two).Should().Equal("second");

@@ -45,7 +45,7 @@ internal sealed class AtomicsWaiterDeadlines
 
     /// <summary>
     /// How many registered waits are still unsettled, for
-    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>. Entries an <c>Atomics.notify</c> has
+    /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>. Entries an <c>Atomics.notify</c> has
     /// already settled sit in the heap until they next surface, so they are filtered out here rather than
     /// reported: the question the count answers is what the engine is still waiting on, and a linear pass
     /// over a heap this size costs nothing on a diagnostic path.

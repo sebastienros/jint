@@ -151,7 +151,7 @@ internal sealed class JsMessagePort : JsEventTarget
     /// <param name="endpoint">
     /// The side to bind to — a transferred one, from StructuredDeserializeWithTransfer — or
     /// <see langword="null"/> to create a side of this port's own, which is what <c>new MessageChannel()</c>
-    /// and <c>Engine.Advanced.CreateMessagePortPair</c> do.
+    /// and <c>Engine.WebApi.CreateMessagePortPair</c> do.
     /// </param>
     internal JsMessagePort(Engine engine, Realm realm, MessagePortEndpoint? endpoint) : base(engine, realm)
     {

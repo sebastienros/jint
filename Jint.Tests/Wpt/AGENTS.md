@@ -32,7 +32,7 @@ citations. A row that turns out not to be a defect at all leaves for `AssertsWha
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
 enable and shims one onto the event loop, this driver enables
-`WebApiFeatures.Timers` and pumps with `Advanced.ProcessTasks()` bounded by `TimeUntilNextPumpScheduledWork()`,
+`WebApiFeatures.Timers` and pumps with `Tasks.ProcessTasks()` bounded by `TimeUntilNextPumpScheduledWork()`,
 so a suite that schedules a timer exercises the shipped `TimerQueue`. **`// META: variant=` sharding is
 ignored**: the shim leaves `location.search` empty, so `subsetTest`/`subsetTestByKey` run everything and one
 run of a file is the union of all of its variants. And **every engine carries the fetch object model**:

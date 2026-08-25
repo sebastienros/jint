@@ -47,7 +47,7 @@ internal sealed class JintCallStack
 
     /// <summary>
     /// The profiling session recording this stack's activations, or <see langword="null"/> — which it is
-    /// unless a host has called <see cref="Engine.AdvancedOperations.StartProfiling"/>. Every mutation of
+    /// unless a host has called <see cref="Engine.DiagnosticOperations.StartProfiling"/>. Every mutation of
     /// <see cref="_stack"/> happens in this class, so hooking the four of them here is what makes a
     /// profile's enter/exit stream balanced by construction, exceptions included: an unwinding throw pops
     /// through the same <c>finally</c>s a return does.

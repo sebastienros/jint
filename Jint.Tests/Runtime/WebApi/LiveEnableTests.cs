@@ -8,7 +8,7 @@ using Jint.WebApi;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// <c>Engine.Advanced.EnableWebApis</c> from the inside: the parts of a post-construction install the public
+/// <c>Engine.WebApi.Enable</c> from the inside: the parts of a post-construction install the public
 /// surface cannot see. Which descriptor is stored and that it is stored unmaterialized; that the install bumps
 /// the own-property version every global-binding and member-read inline cache validates against; and — the
 /// half the issue calls the real work — that an engine which already had web-API state has that state
@@ -25,7 +25,7 @@ public class LiveEnableTests
     public void InstallsUnmaterializedLazyDescriptors()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("console");
 
@@ -50,17 +50,17 @@ public class LiveEnableTests
         var global = engine.Realm.GlobalObject;
 
         var before = global._propertiesVersion;
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console);
+        engine.WebApi.Enable(WebApiFeatures.Console);
         global._propertiesVersion.Should().NotBe(before, "the first install has to invalidate the caches");
 
         // ... and again for a second, later call, which is the pooled-engine shape.
         before = global._propertiesVersion;
-        engine.Advanced.EnableWebApis(WebApiFeatures.Base64);
+        engine.WebApi.Enable(WebApiFeatures.Base64);
         global._propertiesVersion.Should().NotBe(before);
 
         // A call that enables nothing installs nothing, so it must not churn the caches either.
         before = global._propertiesVersion;
-        engine.Advanced.EnableWebApis(WebApiFeatures.Console).Should().Be(WebApiFeatures.None);
+        engine.WebApi.Enable(WebApiFeatures.Console).Should().Be(WebApiFeatures.None);
         global._propertiesVersion.Should().Be(before);
     }
 
@@ -78,7 +78,7 @@ public class LiveEnableTests
         var lexicalMutations = globalEnv._lexicalMutations;
         var injectionEpoch = engine._envBindingInjectionEpoch;
 
-        engine.Advanced.EnableWebApis();
+        engine.WebApi.Enable();
 
         globalEnv._lexicalMutations.Should().Be(lexicalMutations);
         engine._envBindingInjectionEpoch.Should().Be(injectionEpoch);
@@ -88,7 +88,7 @@ public class LiveEnableTests
     public void TheEngineRecordsTheExpandedClosure()
     {
         var engine = new Engine();
-        engine.Advanced.EnableWebApis(WebApiFeatures.CacheApi);
+        engine.WebApi.Enable(WebApiFeatures.CacheApi);
 
         // The Cache API stores Request/Response pairs, so it brings the three features those are built out of
         // — and deliberately not the network.
@@ -120,7 +120,7 @@ public class LiveEnableTests
         var timeOrigin = state.TimeOrigin;
         var clock = state.TimeProvider;
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback);
+        engine.WebApi.Enable(WebApiFeatures.Timers | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback);
 
         engine._webApi.Should().BeSameAs(state, "the state must be extended, never rebuilt");
         state.Timers.Should().NotBeNull();
@@ -147,7 +147,7 @@ public class LiveEnableTests
         var engine = new Engine(options);
         var original = engine._webApi!.TimeProvider;
 
-        engine.Advanced.EnableWebApis(
+        engine.WebApi.Enable(
             WebApiFeatures.Timers,
             webApi => webApi.Timers.TimeProvider = new FakeTimeProvider());
 
@@ -167,7 +167,7 @@ public class LiveEnableTests
 
         engine._webApi.Should().BeNull("console keeps no engine state");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers, webApi =>
+        engine.WebApi.Enable(WebApiFeatures.Timers, webApi =>
         {
             webApi.Timers.TimeProvider = clock;
             webApi.Timers.MaxActiveTimers = 3;
@@ -191,7 +191,7 @@ public class LiveEnableTests
         var provider = engine._webApi!.LocalStorageProvider;
 
         // Enabling storage again is a no-op, and so is enabling something else beside it.
-        engine.Advanced.EnableWebApis(WebApiFeatures.Storage | WebApiFeatures.Base64);
+        engine.WebApi.Enable(WebApiFeatures.Storage | WebApiFeatures.Base64);
 
         engine._webApi.LocalStorageProvider.Should().BeSameAs(provider);
         engine.Evaluate("localStorage.getItem('k')").AsString().Should().Be("v");

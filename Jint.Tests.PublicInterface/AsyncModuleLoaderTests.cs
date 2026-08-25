@@ -240,7 +240,7 @@ public class AsyncModuleLoaderTests
         Invoking(() => engine.Modules.StartImport("module"))
             .Should().ThrowExactly<ResultLimitExceededException>();
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().NotThrow("the load was finished inline and left nothing queued behind it");
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
@@ -262,7 +262,7 @@ public class AsyncModuleLoaderTests
             .Should().NotThrow("a settle after the load call returned is queued, never run on the settling stack");
         import.IsCompleted.Should().BeFalse("nothing has run the queued completion yet");
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().ThrowExactly<ResultLimitExceededException>("a limit that became a rejection would no longer bound anything");
 
         // Propagating drops the waiters, so on this side of the window the erupting exception is the whole
@@ -274,7 +274,7 @@ public class AsyncModuleLoaderTests
     private static ResultLimitExceededException CreateResultLimitFailure()
     {
         using var engine = new Engine();
-        return Invoking(() => engine.Advanced.ConvertResult(
+        return Invoking(() => engine.ConvertResult(
                 engine.Evaluate("[1, 2]"),
                 new ResultLimits(maxPropertyCount: 1)))
             .Should().ThrowExactly<ResultLimitExceededException>().Which;
@@ -352,7 +352,7 @@ public class AsyncModuleLoaderTests
         loader.Pending.Should().ContainSingle();
 
         loader.Deliver("./late.js", "export const value = 7;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("log.join(',')").AsString().Should().Be("after-import,loaded:7");
     }
@@ -368,7 +368,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("outcome").AsString().Should().Be("pending");
 
         loader.Fail("./gone.js", new HttpRequestExceptionStandIn("connection refused"));
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("outcome").AsString().Should().Be("Could not load module.");
     }
@@ -390,7 +390,7 @@ public class AsyncModuleLoaderTests
         // applies it.
         engine.Evaluate("value").AsNumber().Should().Be(0);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("value").AsNumber().Should().Be(99);
     });
 
@@ -408,10 +408,10 @@ public class AsyncModuleLoaderTests
 
         engine.Execute("globalThis.results = []; import('./twice.js').then(ns => results.push(ns.value));");
         loader.Deliver("./twice.js", "export const value = 'first';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Execute("import('./twice.js').then(ns => results.push(ns.value));");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("results.join(',')").AsString().Should().Be("first,first");
         loader.AskedFor("./twice.js").Should().Be(1);
@@ -431,10 +431,10 @@ public class AsyncModuleLoaderTests
 
         var import = engine.Modules.StartImport("./main.js");
         loader.Deliver("./main.js", "import defer * as d from './dep.js'; import { v } from './dep.js'; export const a = v;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         loader.Deliver("./dep.js", "globalThis.depEvaluations = (globalThis.depEvaluations ?? 0) + 1; export const v = 3;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.GetResult().Get("a").AsNumber().Should().Be(3);
         loader.AskedFor("./dep.js").Should().Be(1, "the two phases denote one module record, so the second request coalesces onto the first load");
@@ -456,7 +456,7 @@ public class AsyncModuleLoaderTests
         completion.SetSource("export const value = 2;");
         completion.SetError("too late");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("value").AsNumber().Should().Be(1);
     }
 
@@ -473,7 +473,7 @@ public class AsyncModuleLoaderTests
         completion.Resolved.ModuleRequest.Specifier.Should().Be("./built.js");
         completion.SetModule(ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("export const value = 'built';", "./built.js")));
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.GetResult().Get("value").AsString().Should().Be("built");
     }
@@ -498,7 +498,7 @@ public class AsyncModuleLoaderTests
         while (!import.IsCompleted && frames < 2000)
         {
             frames++;
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(1);
         }
 
@@ -517,7 +517,7 @@ public class AsyncModuleLoaderTests
         var import = engine.Modules.StartImport("./nope.js");
         loader.Fail("./nope.js", new InvalidOperationException("asset bundle missing"));
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
@@ -582,10 +582,10 @@ public class AsyncModuleLoaderTests
 
         var import = engine.Modules.StartImport("./root.js");
         loader.Deliver("./root.js", "import './mid.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./mid.js", "import 'lib';");
 
-        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().NotThrow();
 
         import.IsCompleted.Should().BeTrue("the parse failure must settle the import rather than strand it");
         import.IsFaulted.Should().BeTrue();
@@ -601,7 +601,7 @@ public class AsyncModuleLoaderTests
         var import = engine.Modules.StartImport("./broken.js");
         loader.Deliver("./broken.js", "export const = ;");
 
-        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().NotThrow();
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
@@ -618,7 +618,7 @@ public class AsyncModuleLoaderTests
         var engine = CreateEngine(loader);
 
         var import = engine.Modules.StartImport("./unreachable.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();
@@ -672,7 +672,7 @@ public class AsyncModuleLoaderTests
         while (!import.IsCompleted && frames < 2000)
         {
             frames++;
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(1);
         }
 
@@ -751,9 +751,9 @@ public class AsyncModuleLoaderTests
 
         var import = engine.Modules.StartImport("./main.js");
         loader.Deliver("./main.js", "import data from './config.json' with { type: 'json' }; export const message = data.message;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./config.json", """{ "message": "hello" }""");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.IsCompleted.Should().BeTrue();
         import.GetResult().Get("message").AsString().Should().Be("hello");
@@ -770,7 +770,7 @@ public class AsyncModuleLoaderTests
         engine.Execute("globalThis.result = null; import('./blob.bin', { with: { type: 'bytes' } }).then(ns => { result = ns.default.length + ':' + ns.default[0] + ',' + ns.default[1]; });");
 
         loader.Take("./blob.bin").SetSource(new byte[] { 200, 7 });
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("result").AsString().Should().Be("2:200,7");
     }
@@ -848,7 +848,7 @@ public class AsyncModuleLoaderTests
 
         engine.SetValue("hostImport", new Func<string>(() => engine.Modules.Import("./root.js").Get("value").AsString()));
         engine.Execute("globalThis.result = null; Promise.resolve().then(() => { result = hostImport(); });");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("result").AsString().Should().Be("root+dep");
     }
@@ -1061,11 +1061,11 @@ public class AsyncModuleLoaderTests
 
         module.LoadRequestedModules();
         loader.Deliver("./dep.js", "export const v = 11;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         module.Link();
         module.Evaluate();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Module.GetModuleNamespace(module).Get("value").AsNumber().Should().Be(11);
     }
@@ -1088,7 +1088,7 @@ public class AsyncModuleLoaderTests
             """);
 
         loader.Deliver("./sandboxed.js", "globalThis.leak = 'from-module'; export const value = 'ok';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("imported").AsString().Should().Be("ok");
         engine.Evaluate("typeof globalThis.leak").AsString().Should().Be("undefined", "the module's top-level code must not have run against the principal realm's globals");
@@ -1108,15 +1108,15 @@ public class AsyncModuleLoaderTests
 
         var first = engine.Modules.StartImport("./a.js");
         loader.Deliver("./a.js", "import './shared.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         var second = engine.Modules.StartImport("./b.js");
         loader.Deliver("./b.js", "import './shared.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // Both graphs now wait on one in-flight load of './shared.js', whose own import is refused by Resolve.
         loader.Deliver("./shared.js", "import './forbidden.js';");
-        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().NotThrow();
 
         first.IsCompleted.Should().BeTrue("the resolution failure must settle the import rather than strand it");
         first.IsFaulted.Should().BeTrue();
@@ -1179,7 +1179,7 @@ public class AsyncModuleLoaderTests
         while (!import.IsCompleted && frames < 2000)
         {
             frames++;
-            Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+            Invoking(() => engine.Tasks.ProcessTasks()).Should().NotThrow();
             Thread.Sleep(1);
         }
 
@@ -1218,7 +1218,7 @@ public class AsyncModuleLoaderTests
         var second = engine.Modules.StartImport("lib");
 
         loader.Deliver("lib", "export const who = 'fetched';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         first.GetResult().Get("who").AsString().Should().Be("fetched");
         second.GetResult().Should().BeSameAs(first.GetResult(), "one key must denote one module record");
@@ -1327,7 +1327,7 @@ public class AsyncModuleLoaderTests
         var engine = CreateEngine(new SynchronousLoader());
 
         var events = new List<PromiseRejectionTrackerEventArgs>();
-        engine.Advanced.PromiseRejectionTracker += (_, args) => events.Add(args);
+        engine.Tasks.PromiseRejectionTracker += (_, args) => events.Add(args);
 
         Invoking(() => engine.Modules.Import("./imports-missing.js")).Should().Throw<JavaScriptException>();
 
@@ -1347,7 +1347,7 @@ public class AsyncModuleLoaderTests
 
         ModuleImportOperation import = null!;
         Invoking(() => import = engine.Modules.StartImport("./forbidden.js")).Should().NotThrow();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.IsCompleted.Should().BeTrue();
         import.IsFaulted.Should().BeTrue();

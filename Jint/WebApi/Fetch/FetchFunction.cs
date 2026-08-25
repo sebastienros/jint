@@ -23,7 +23,7 @@ namespace Jint.WebApi.Fetch;
 /// <b>Nothing runs until the engine is pumped.</b> The request is started on the calling thread and completes
 /// on a thread pool thread, but the promise settles from an event-loop job, so the script's continuation runs
 /// where every other continuation runs: inside a blocking <c>UnwrapIfPromise</c>, an <c>await</c> of
-/// <c>EvaluateAsync</c>, or the host's own <c>engine.Advanced.ProcessTasks()</c> loop. The deadline is the
+/// <c>EvaluateAsync</c>, or the host's own <c>engine.Tasks.ProcessTasks()</c> loop. The deadline is the
 /// one exception, and deliberately so — it is enforced CLR-side, so an engine nobody pumps still lets go of
 /// its socket.
 /// </para>

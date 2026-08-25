@@ -66,7 +66,7 @@ public class LazyGlobalRestoreContractTests
         var engine = new Engine();
         var clean = engine.Advanced.CaptureGlobalSnapshot();
 
-        engine.Advanced.AddLazyGlobal("contextual", e =>
+        engine.AddLazyGlobal("contextual", e =>
         {
             built++;
             return JsValue.FromObject(e, current);
@@ -82,7 +82,7 @@ public class LazyGlobalRestoreContractTests
         engine.Evaluate("typeof contextual").AsString().Should().Be("undefined");
 
         current = "second";
-        engine.Advanced.AddLazyGlobal("contextual", e =>
+        engine.AddLazyGlobal("contextual", e =>
         {
             built++;
             return JsValue.FromObject(e, current);

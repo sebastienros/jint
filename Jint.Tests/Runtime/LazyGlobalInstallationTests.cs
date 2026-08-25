@@ -7,7 +7,7 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// <c>engine.Advanced.AddLazyGlobal</c> installs the same descriptor the options-time registration does, but
+/// <c>engine.AddLazyGlobal</c> installs the same descriptor the options-time registration does, but
 /// onto an engine whose interpreter caches may already hold a resolved binding for that name. These are the
 /// parts of that the public surface cannot see: which descriptor is stored, that it is stored unmaterialized,
 /// and — the load-bearing one — that installing it bumps the own-property version every global-binding and
@@ -19,7 +19,7 @@ public class LazyGlobalInstallationTests
     public void InstallsAnUnmaterializedLazyDescriptor()
     {
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ => "built");
+        engine.AddLazyGlobal("value", _ => "built");
 
         var descriptor = engine.Realm.GlobalObject.GetOwnProperty("value");
 
@@ -44,24 +44,24 @@ public class LazyGlobalInstallationTests
 
         // (1) a brand new name — the hybrid side dictionary of the still-shaped global
         var before = global._propertiesVersion;
-        engine.Advanced.AddLazyGlobal("fresh", _ => 1);
+        engine.AddLazyGlobal("fresh", _ => 1);
         global._propertiesVersion.Should().NotBe(before);
 
         // (2) replacing a host global that already sits in that dictionary
         engine.SetValue("eager", "value");
         before = global._propertiesVersion;
-        engine.Advanced.AddLazyGlobal("eager", _ => 2);
+        engine.AddLazyGlobal("eager", _ => 2);
         global._propertiesVersion.Should().NotBe(before);
 
         // (3) replacing a built-in, which lives in the shared layout rather than the dictionary
         before = global._propertiesVersion;
-        engine.Advanced.AddLazyGlobal("parseInt", _ => 3);
+        engine.AddLazyGlobal("parseInt", _ => 3);
         global._propertiesVersion.Should().NotBe(before);
 
         // (4) and again once the global has been forced out of its shared layout altogether
         engine.Evaluate("globalThis[0] = 'deopt';");
         before = global._propertiesVersion;
-        engine.Advanced.AddLazyGlobal("afterDeopt", _ => 4);
+        engine.AddLazyGlobal("afterDeopt", _ => 4);
         global._propertiesVersion.Should().NotBe(before);
 
         engine.Evaluate("[fresh, eager, parseInt, afterDeopt].join(',')").AsString().Should().Be("1,2,3,4");
@@ -81,7 +81,7 @@ public class LazyGlobalInstallationTests
         var lexicalMutations = globalEnv._lexicalMutations;
         var injectionEpoch = engine._envBindingInjectionEpoch;
 
-        engine.Advanced.AddLazyGlobal("value", _ => JsValue.Undefined);
+        engine.AddLazyGlobal("value", _ => JsValue.Undefined);
 
         globalEnv._lexicalMutations.Should().Be(lexicalMutations);
         engine._envBindingInjectionEpoch.Should().Be(injectionEpoch);
@@ -91,7 +91,7 @@ public class LazyGlobalInstallationTests
     public void AnInstalledLazyGlobalIsFieldBackedSoARestoreCanRevertIt()
     {
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ => "built");
+        engine.AddLazyGlobal("value", _ => "built");
 
         // The marker asserts the value lives in the inherited _value field, which is what lets a snapshot
         // restore put the descriptor back into its unmaterialized state.

@@ -6,7 +6,7 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// An import in progress, handed back by <c>Engine.Modules.StartImport</c>. The engine makes progress on it
 /// only when it is given turns, so a host with a thread it must not block — a game loop, a UI thread — drives
-/// it by calling <c>engine.Advanced.ProcessTasks()</c> and watching <see cref="IsCompleted"/>.
+/// it by calling <c>engine.Tasks.ProcessTasks()</c> and watching <see cref="IsCompleted"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -14,7 +14,7 @@ namespace Jint.Runtime.Modules;
 /// _import = engine.Modules.StartImport("./main.js");
 ///
 /// // every frame
-/// engine.Advanced.ProcessTasks();
+/// engine.Tasks.ProcessTasks();
 /// if (_import.IsCompleted)
 /// {
 ///     var ns = _import.GetResult();   // throws PromiseRejectedException if the load or evaluation failed
@@ -121,7 +121,7 @@ public sealed class ModuleImportOperation
         using var ownership = _engine.EnterHostCall();
         if (!IsCompleted)
         {
-            Throw.InvalidOperationException("The module import has not completed. Give the engine turns with engine.Advanced.ProcessTasks() until IsCompleted is true, or await Engine.Modules.ImportAsync instead.");
+            Throw.InvalidOperationException("The module import has not completed. Give the engine turns with engine.Tasks.ProcessTasks() until IsCompleted is true, or await Engine.Modules.ImportAsync instead.");
         }
 
         if (IsFaulted)

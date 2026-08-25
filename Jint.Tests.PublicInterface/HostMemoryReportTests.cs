@@ -11,7 +11,7 @@ using Jint.Native;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <c>engine.Advanced.GetMemoryReport()</c> from a third party's side. This project has no internals access,
+/// <c>engine.Diagnostics.GetMemoryReport()</c> from a third party's side. This project has no internals access,
 /// so everything exercised here is genuinely reachable by an embedder: the report types, the counts, and the
 /// bound on the object census.
 ///
@@ -30,7 +30,7 @@ public class HostMemoryReportTests
         var engine = new Engine();
         engine.Execute("var greeting = 'hello';");
 
-        EngineMemoryReport report = engine.Advanced.GetMemoryReport();
+        EngineMemoryReport report = engine.Diagnostics.GetMemoryReport();
 
         Assert.True(report.GlobalPropertyCount > 0);
         Assert.InRange(report.MaterializedGlobalPropertyCount, 0, report.GlobalPropertyCount);
@@ -50,8 +50,8 @@ public class HostMemoryReportTests
         var engine = new Engine();
         engine.Execute("function twice(x) { return x * 2; } twice(21);");
 
-        var first = engine.Advanced.GetMemoryReport();
-        var second = engine.Advanced.GetMemoryReport();
+        var first = engine.Diagnostics.GetMemoryReport();
+        var second = engine.Diagnostics.GetMemoryReport();
 
         // The report types are records, so one comparison covers every figure including the nested ones.
         // This is the property a host relies on when it logs the report on every request.
@@ -63,7 +63,7 @@ public class HostMemoryReportTests
     {
         var engine = new Engine();
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
-        var baseline = engine.Advanced.GetMemoryReport();
+        var baseline = engine.Diagnostics.GetMemoryReport();
 
         for (var request = 0; request < 5; request++)
         {
@@ -71,7 +71,7 @@ public class HostMemoryReportTests
             engine.Advanced.RestoreGlobalSnapshot(snapshot);
         }
 
-        var after = engine.Advanced.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
 
         // What the restore does revert: the globals and the lexical declarations each request added.
         Assert.Equal(baseline.GlobalPropertyCount, after.GlobalPropertyCount);
@@ -90,12 +90,12 @@ public class HostMemoryReportTests
         var prepared = Engine.PrepareScript("function total(a, b) { return a + b; } total(1, 2);");
 
         engine.Execute(prepared);
-        var afterFirst = engine.Advanced.GetMemoryReport().HandlerTreeCaches;
+        var afterFirst = engine.Diagnostics.GetMemoryReport().HandlerTreeCaches;
         Assert.Equal(1, afterFirst.EvaluatedScripts);
         Assert.Equal(0, afterFirst.ScriptStatementLists);
 
         engine.Execute(prepared);
-        var afterSecond = engine.Advanced.GetMemoryReport().HandlerTreeCaches;
+        var afterSecond = engine.Diagnostics.GetMemoryReport().HandlerTreeCaches;
         Assert.Equal(1, afterSecond.EvaluatedScripts);
         Assert.Equal(1, afterSecond.ScriptStatementLists);
     }
@@ -108,13 +108,13 @@ public class HostMemoryReportTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         engine.Modules.Import("lib");
-        Assert.Equal(1, engine.Advanced.GetMemoryReport().RegisteredModuleCount);
+        Assert.Equal(1, engine.Diagnostics.GetMemoryReport().RegisteredModuleCount);
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         // Honesty pin: the module registry is deliberately outside what a restore reverts, so on a pooled
         // engine this count only ever grows. Being able to see that is the point.
-        Assert.Equal(1, engine.Advanced.GetMemoryReport().RegisteredModuleCount);
+        Assert.Equal(1, engine.Diagnostics.GetMemoryReport().RegisteredModuleCount);
     }
 
     [Fact]
@@ -123,12 +123,12 @@ public class HostMemoryReportTests
         var engine = new Engine();
         engine.Execute("var chain = { a: { b: { c: { d: {} } } } };");
 
-        var bounded = engine.Advanced.GetMemoryReport(objectCensusBound: 3).ObjectCensus;
+        var bounded = engine.Diagnostics.GetMemoryReport(objectCensusBound: 3).ObjectCensus;
         Assert.Equal(3, bounded.Bound);
         Assert.Equal(3, bounded.ObjectCount);
         Assert.True(bounded.BoundReached);
 
-        var whole = engine.Advanced.GetMemoryReport(objectCensusBound: 100_000).ObjectCensus;
+        var whole = engine.Diagnostics.GetMemoryReport(objectCensusBound: 100_000).ObjectCensus;
         Assert.False(whole.BoundReached);
         Assert.True(whole.ObjectCount > bounded.ObjectCount);
     }
@@ -139,7 +139,7 @@ public class HostMemoryReportTests
         var engine = new Engine();
         engine.Execute("var probe = { nested: {} };");
 
-        var report = engine.Advanced.GetMemoryReport(objectCensusBound: 0);
+        var report = engine.Diagnostics.GetMemoryReport(objectCensusBound: 0);
 
         Assert.Equal(0, report.ObjectCensus.ObjectCount);
         Assert.False(report.ObjectCensus.BoundReached);
@@ -160,7 +160,7 @@ public class HostMemoryReportTests
         engine.Execute("globalThis.probe = { get live() { return readCounter(); } };");
         invocations = 0;
 
-        engine.Advanced.GetMemoryReport();
+        engine.Diagnostics.GetMemoryReport();
 
         Assert.Equal(0, invocations);
     }
@@ -170,13 +170,13 @@ public class HostMemoryReportTests
     {
         var invocations = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("expensive", _ =>
+        engine.AddLazyGlobal("expensive", _ =>
         {
             invocations++;
             return new JsString("built");
         });
 
-        var installed = engine.Advanced.GetMemoryReport();
+        var installed = engine.Diagnostics.GetMemoryReport();
         Assert.Equal(0, invocations);
 
         // Installed eagerly, resolved lazily: the property is visible to the count, its value is not built.
@@ -185,7 +185,7 @@ public class HostMemoryReportTests
         Assert.Equal("built", engine.Evaluate("expensive").AsString());
         Assert.Equal(1, invocations);
 
-        var resolved = engine.Advanced.GetMemoryReport();
+        var resolved = engine.Diagnostics.GetMemoryReport();
         Assert.True(resolved.MaterializedGlobalPropertyCount > installed.MaterializedGlobalPropertyCount);
     }
 }

@@ -30,7 +30,7 @@ something else:
 | What a worker needs | What already does it |
 | --- | --- |
 | A second isolated global | a second `Engine` |
-| A channel between the two | `Engine.Advanced.CreateMessagePortPair` (`Jint/Engine.Advanced.WebApi.cs`) |
+| A channel between the two | `Engine.WebApi.CreateMessagePortPair` (`Jint/Engine.WebApi.Operations.cs`) |
 | A value crossing without a `JsValue` crossing | `SerializationRecord` — engine-neutral, pinned by `SerializationRecordTests`; since #3197 it may carry `MessagePortEndpoint`s, which its class remarks argue safe |
 | Delivery on the receiver's own thread | `Engine.AddToEventLoop(action, generation)` — internal, so the feature needs no new public enqueue API |
 | A fence so a dead cycle cannot be posted into | the generation each `JsMessagePort` captures **at its own construction** (`JsMessagePort._generation`) — the fence is per **port**, not per endpoint, which is exactly what lets a *transferred* side rejoin the receiving engine's current cycle |
@@ -38,7 +38,7 @@ something else:
 | `self` / `addEventListener` / `dispatchEvent` on the global | `WebApiFeatures.GlobalEvents` (`Jint/WebApi/WebApiRegistration.cs`) |
 | Module loading driven by the host's own loop | `Engine.Modules.StartImport` — legal from inside a job on the worker's own loop; it never reaches `ModuleOperations.ThrowIfBlockedInsideJob`, which guards the *blocking* import |
 | An error channel the host cannot lose | `DiagnosticsSink` |
-| A host-owned pump | `Advanced.ProcessTasks` + `Advanced.TimeUntilNextScheduledWork` |
+| A host-owned pump | `Tasks.ProcessTasks` + `Tasks.TimeUntilNextScheduledWork` |
 | Refusing a second thread inside one engine | the #3035 admission check — *"This Engine is already in use by another thread…"* |
 
 The one thing that does not exist, and must not, is **the thread**. *Jint never starts a thread to run script*
@@ -151,7 +151,7 @@ end callback runs *outside* the lock, so no host code ever runs under one.
 
 **Why options-held**: every host capability in this subtree lives on options and is read once at build
 (`StorageProvider`, `BroadcastChannelBroker`, `ConsoleSink`, `DiagnosticsSink`,
-`FetchOptions.HttpClientFactory`); host code is knowable at options time. `Engine.Advanced.SetFetchHandler` is
+`FetchOptions.HttpClientFactory`); host code is knowable at options time. `Engine.WebApi.SetFetchHandler` is
 not a counter-example, because it registers a *script value*. **Why abstract class**: `StorageProvider`'s
 reasoning verbatim — later revisions can add members; a `Func<>` can never grow a parameter. **Why it returns
 an `Engine`**: the host has to pump it, and pumping is `ProcessTasks()` bounded by `TimeUntilNextScheduledWork`;
@@ -161,9 +161,9 @@ family's absent-rather-than-throwing convention.
 
 **Pooled hosts: one provider per process, per-request policy from `HostDefined`.** Everything that varies per
 request — tenant, loader root, budget — is read inside `CreateWorkerEngine` from
-`request.Parent.Advanced.HostDefined`, which is per engine, never read by the engine, and survives
+`request.Parent.HostDefined`, which is per engine, never read by the engine, and survives
 `RestoreGlobalSnapshot`. Do **not** set the provider through
-`engine.Advanced.EnableWebApis(…, w => w.Workers.Provider = …)` on a pooled host: `ApplyLive` hands the callback
+`engine.WebApi.Enable(…, w => w.Workers.Provider = …)` on a pooled host: `ApplyLive` hands the callback
 the engine's `Options.WebApi` group, and a shared `Options` is shared there too — that write is a cross-tenant
 leak. A host needing *asynchronous* per-request policy puts the lookup in the worker's own
 `IAsyncModuleLoader`, so the check runs on the worker's pump and a refusal becomes `StartupFailed` plus a parent
@@ -242,8 +242,8 @@ sealed class ThreadPerWorker : WorkerProvider
         {
             while (!c.IsEnded)
             {
-                c.Worker.Advanced.ProcessTasks();
-                try { c.Worker.Advanced.WaitForScheduledWork(_ceiling, c.TerminationToken); }
+                c.Worker.Tasks.ProcessTasks();
+                try { c.Worker.Tasks.WaitForScheduledWork(_ceiling, c.TerminationToken); }
                 catch (OperationCanceledException) { }   // terminate() — fall out via IsEnded
             }
             c.Worker.Dispose();                          // on the pumping thread, after the loop
@@ -260,11 +260,11 @@ foreach (var c in _live)
 {
     var slice = (OperationDeadlineConstraint) c.HostState!;
     slice.Begin(_frameSliceForWorkers, c.TerminationToken);
-    try { c.Worker.Advanced.ProcessTasks(); }
+    try { c.Worker.Tasks.ProcessTasks(); }
     catch (TimeoutException) { /* overran its slice; resumes next frame */ }
     finally { slice.End(); }
 }
-parent.Advanced.ProcessTasks();
+parent.Tasks.ProcessTasks();
 ```
 
 `OperationDeadlineConstraint.Begin` from `CreateWorkerEngine` on the parent's thread is safe only because
@@ -572,15 +572,15 @@ have it and can never fire, for the reason `JsMessagePort` already records — p
 **Feature mask** (nesting off per §7.4):
 
 ```
-parent.Advanced.WebApiFeatures
+parent.WebApi.Features
   & ~(Fetch | EventSource | WebSocket | Storage | CacheApi | FetchEvents | Workers)
   | Messaging | GlobalEvents
 ```
 
 `Messaging | GlobalEvents` are forced on (the worker global's `postMessage` *is* a port, and
 `CreateMessagePortPair` requires `Messaging` on both engines). The mask is computed from
-`parent.Advanced.WebApiFeatures` — the engine's own closure — rather than from the parent's options, so a live
-`Advanced.EnableWebApis` call is accounted for. The provider overrules all of it by assigning `Features`
+`parent.WebApi.Features` — the engine's own closure — rather than from the parent's options, so a live
+`WebApi.Enable` call is accounted for. The provider overrules all of it by assigning `Features`
 afterwards.
 
 **Module-only is the settled post-browser default**: Deno requires `type: "module"` ("Currently Deno supports
@@ -854,7 +854,7 @@ only.
 
 ## 14. Implementation order
 
-0. **`Engine.Advanced.WaitForScheduledWork` + async variant** — its own PR, before Workers, ungated, all-TFM
+0. **`Engine.Tasks.WaitForScheduledWork` + async variant** — its own PR, before Workers, ungated, all-TFM
    (§3). Serves existing hosts on its own.
 1. ✅ Types + options + `WebApiFeatures.Workers = 1 << 24` + `UseWorkers` + `Options.CopySecurityPosture` with
    its reflective pin. No script surface; this document synced in the same PR.
@@ -881,7 +881,7 @@ travel, grants do not); `MaxQueuedMessages` default (16384).
   policy decision for its own issue, not architecture.
 - `location` as a read-only `WorkerLocation` over the resolved module location — declined for v1, cheap to add
   if porting pressure shows up.
-- `Engine.Advanced.SetWorkerProvider` (a per-engine live door for pooled hosts that want per-tenant
-  `typeof Worker` to differ) and `Engine.Advanced.InstallWorkerGlobalScope(port, name)` (the low-level door that
+- `Engine.WebApi.SetWorkerProvider` (a per-engine live door for pooled hosts that want per-tenant
+  `typeof Worker` to differ) and `Engine.WebApi.InstallWorkerGlobalScope(port, name)` (the low-level door that
   would let a host build a `SharedWorker`, classic or host-evaluated worker without the constructor) — both
   considered, neither ships blind; the `HostDefined` pattern and `CreateMessagePortPair` cover the known cases.

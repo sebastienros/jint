@@ -2075,13 +2075,13 @@ public class AsyncTests
         var engine = new Engine();
         var rejections = new List<(JsValue Value, PromiseRejectionOperation Op)>();
 
-        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        engine.Tasks.PromiseRejectionTracker += (sender, args) =>
         {
             rejections.Add((args.Value!, args.Operation));
         };
 
         engine.Evaluate("Promise.reject('unhandled')");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         rejections.Should().ContainSingle();
         rejections[0].Op.Should().Be(PromiseRejectionOperation.Reject);
@@ -2094,18 +2094,18 @@ public class AsyncTests
         var engine = new Engine();
         var operations = new List<PromiseRejectionOperation>();
 
-        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        engine.Tasks.PromiseRejectionTracker += (sender, args) =>
         {
             operations.Add(args.Operation);
         };
 
         // Reject without handler first - triggers Reject
         engine.Evaluate("var p = Promise.reject('error')");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // Add handler - triggers Handle
         engine.Evaluate("p.catch(() => {})");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operations.Should().HaveCount(2);
         operations[0].Should().Be(PromiseRejectionOperation.Reject);
@@ -2118,7 +2118,7 @@ public class AsyncTests
         var engine = new Engine();
         var rejections = new List<PromiseRejectionOperation>();
 
-        engine.Advanced.PromiseRejectionTracker += (sender, args) =>
+        engine.Tasks.PromiseRejectionTracker += (sender, args) =>
         {
             rejections.Add(args.Operation);
         };
@@ -2132,7 +2132,7 @@ public class AsyncTests
                 reject('handled');
             }).catch(function() {});
             """);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The original promise fires Reject since the executor rejects
         // before .catch() can attach (per spec: reject happens synchronously

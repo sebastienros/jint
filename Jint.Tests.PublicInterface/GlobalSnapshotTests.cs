@@ -302,17 +302,17 @@ public class GlobalSnapshotTests
     public void RestoreKeepsTheGlobalInItsSharedBuiltinLayoutAfterADeopt()
     {
         var engine = new Engine();
-        engine.Advanced.GetObjectRepresentation(engine.Global).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(engine.Global).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         // an integer-like own key is the one thing the fixed built-in layout cannot express
         engine.Evaluate("globalThis[0] = 'deopt';");
-        engine.Advanced.GetObjectRepresentation(engine.Global).Should().NotBe(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(engine.Global).Should().NotBe(ObjectRepresentation.SharedBuiltinLayout);
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        engine.Advanced.GetObjectRepresentation(engine.Global).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(engine.Global).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
         engine.Evaluate("typeof globalThis[0]").AsString().Should().Be("undefined");
         engine.Evaluate("JSON.stringify([Math.max(1, 2), parseInt('3')])").AsString().Should().Be("[2,3]");
     }
@@ -391,7 +391,7 @@ public class GlobalSnapshotTests
 
         // control: the leftover job really does run against the next evaluation
         var control = Arrange();
-        control.Advanced.ProcessTasks();
+        control.Tasks.ProcessTasks();
         control.Evaluate("globalThis.ran === true").AsBoolean().Should().BeTrue();
 
         var engine = new Engine();
@@ -400,7 +400,7 @@ public class GlobalSnapshotTests
             .Should().Throw<JavaScriptException>();
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("typeof globalThis.ran").AsString().Should().Be("undefined");
     }
@@ -418,7 +418,7 @@ public class GlobalSnapshotTests
         static (Engine Engine, ManualPromise Handle) Arrange()
         {
             var engine = new Engine();
-            var handle = engine.Advanced.RegisterPromise();
+            var handle = engine.Tasks.RegisterPromise();
             engine.SetValue("hostWork", handle.Promise);
             return (engine, handle);
         }
@@ -427,7 +427,7 @@ public class GlobalSnapshotTests
         var (control, controlHandle) = Arrange();
         control.Evaluate("(async () => { await hostWork; globalThis.cache = 'tenantA'; })();");
         controlHandle.Resolve(JsValue.Undefined);
-        control.Advanced.ProcessTasks();
+        control.Tasks.ProcessTasks();
         control.Evaluate("globalThis.cache").AsString().Should().Be("tenantA");
 
         var (engine, handle) = Arrange();
@@ -439,7 +439,7 @@ public class GlobalSnapshotTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         handle.Resolve(JsValue.Undefined);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("typeof globalThis.cache").AsString().Should().Be("undefined");
     }

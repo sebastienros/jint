@@ -10,7 +10,7 @@ namespace Jint.WebApi.Streams;
 
 /// <summary>
 /// A <c>WritableStream</c> whose underlying sink is a host <see cref="Stream"/>: the engine's side of
-/// <c>Engine.Advanced.CreateWritableStream</c>.
+/// <c>Engine.WebApi.CreateWritableStream</c>.
 /// </summary>
 /// <remarks>
 /// <para>

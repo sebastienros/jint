@@ -64,7 +64,7 @@ public sealed class ResultLimits
     /// </summary>
     /// <remarks>
     /// This is the structural-work and container-allocation bound for
-    /// <see cref="Engine.AdvancedOperations.ConvertResult"/>. Shared, non-cyclic references are converted once
+    /// <see cref="Engine.ConvertResult"/>. Shared, non-cyclic references are converted once
     /// per occurrence, so hosts processing untrusted graphs must set this limit even when string and binary
     /// limits are configured.
     /// </remarks>

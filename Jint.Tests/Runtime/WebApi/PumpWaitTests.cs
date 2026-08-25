@@ -6,14 +6,14 @@ using System.Diagnostics;
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.WaitForScheduledWork"/> against the one source of scheduled work that
+/// <see cref="Engine.TaskOperations.WaitForScheduledWork"/> against the one source of scheduled work that
 /// only exists on .NET 8 and later: a due web-API timer.
 /// </summary>
 /// <remarks>
 /// A file of its own rather than a gated region inside <c>Runtime.WaitForScheduledWorkTests</c>, because the
 /// wait itself is core surface on every target framework and only what it is being pointed at here is not —
 /// the same split <c>HostScheduledWorkTests</c> and <c>WebApiSchedulingSurfaceTests</c> already make for
-/// <see cref="Engine.AdvancedOperations.TimeUntilNextScheduledWork"/>.
+/// <see cref="Engine.TaskOperations.TimeUntilNextScheduledWork"/>.
 /// </remarks>
 public class PumpWaitTests
 {
@@ -33,11 +33,11 @@ public class PumpWaitTests
         engine.Evaluate("fired").AsBoolean().Should().BeFalse();
 
         var elapsed = Stopwatch.StartNew();
-        engine.Advanced.WaitForScheduledWork(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        engine.Tasks.WaitForScheduledWork(TimeSpan.FromSeconds(10)).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
 
         // The wait reports work; the pump is what runs it. That division is the whole contract.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("fired").AsBoolean().Should().BeTrue();
     }
 }

@@ -32,7 +32,7 @@ public class WebApiFetchHandlerAbortTests
     {
         var engine = new Engine(options => options.UseWebApis(ModelFeatures | extra));
         engine.Execute(source);
-        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+        engine.WebApi.SetFetchHandler(engine.GetValue("handler"));
         return engine;
     }
 
@@ -51,7 +51,7 @@ public class WebApiFetchHandlerAbortTests
         var stopwatch = Stopwatch.StartNew();
         while (!operation.IsCompleted)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (operation.IsCompleted)
             {
                 break;
@@ -82,7 +82,7 @@ public class WebApiFetchHandlerAbortTests
             """);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
         operation.IsCompleted.Should().BeFalse();
 
         cts.Cancel();
@@ -118,7 +118,7 @@ public class WebApiFetchHandlerAbortTests
             WebApiFeatures.Timers);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         cts.Cancel();
         Pump(engine, operation);
@@ -148,7 +148,7 @@ public class WebApiFetchHandlerAbortTests
             """);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         cts.Cancel();
         Pump(engine, operation);
@@ -179,7 +179,7 @@ public class WebApiFetchHandlerAbortTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         operation.IsCompleted.Should().BeTrue();
         using var response = operation.GetResult();
@@ -208,7 +208,7 @@ public class WebApiFetchHandlerAbortTests
 
         for (var i = 0; i < 10; i++)
         {
-            var served = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+            var served = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
             served.IsCompleted.Should().BeTrue();
             using var response = served.GetResult();
             Text(response).Should().Be("ok");
@@ -216,7 +216,7 @@ public class WebApiFetchHandlerAbortTests
 
         // The requests are all over. Cancelling now must reach none of their signals.
         cts.Cancel();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeFalse();
         engine.Evaluate("seen.length").AsNumber().Should().Be(0);
@@ -241,7 +241,7 @@ public class WebApiFetchHandlerAbortTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         // Held here because the restore takes the global away — the object survives, and whether it aborted
         // is exactly the question.
@@ -249,7 +249,7 @@ public class WebApiFetchHandlerAbortTests
 
         cts.Cancel();
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsFaulted.Should().BeTrue();
         Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("abandoned");
@@ -275,7 +275,7 @@ public class WebApiFetchHandlerAbortTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        using var response = await engine.Advanced.InvokeFetchHandlerAsync(Get(), cts.Token);
+        using var response = await engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
 
         ((int) response.StatusCode).Should().Be(499);
         Text(response).Should().Be("AbortError");
@@ -292,11 +292,11 @@ public class WebApiFetchHandlerAbortTests
 
         using var cts = new CancellationTokenSource();
 
-        using var response = await engine.Advanced.InvokeFetchHandlerAsync(Get(), cts.Token);
+        using var response = await engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
 
         Text(response).Should().Be("aborted=false");
 
-        using var none = await engine.Advanced.InvokeFetchHandlerAsync(Get());
+        using var none = await engine.WebApi.InvokeFetchHandlerAsync(Get());
         Text(none).Should().Be("aborted=false");
     }
 
@@ -319,7 +319,7 @@ public class WebApiFetchHandlerAbortTests
             """);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         cts.Cancel();
         Pump(engine, operation);
@@ -342,12 +342,12 @@ public class WebApiFetchHandlerAbortTests
             ].join(','));
             """);
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get());
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
         using var response = operation.GetResult();
         Text(response).Should().Be("true,false");
 
         // The same for an explicitly passed token that can never be cancelled.
-        var explicitNone = engine.Advanced.InvokeFetchHandler(Get(), CancellationToken.None);
+        var explicitNone = engine.WebApi.InvokeFetchHandler(Get(), CancellationToken.None);
         using var second = explicitNone.GetResult();
         Text(second).Should().Be("true,false");
     }
@@ -361,10 +361,10 @@ public class WebApiFetchHandlerAbortTests
     {
         var engine = Handler("globalThis.handler = () => new Response('x');");
 
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.InvokeFetchHandler(null!, CancellationToken.None));
+        Assert.Throws<ArgumentNullException>(() => engine.WebApi.InvokeFetchHandler(null!, CancellationToken.None));
 
         var bare = new Engine(options => options.UseWebApis(ModelFeatures));
-        Assert.Throws<InvalidOperationException>(() => bare.Advanced.InvokeFetchHandler(Get(), CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(() => bare.WebApi.InvokeFetchHandler(Get(), CancellationToken.None));
     }
 }
 #endif

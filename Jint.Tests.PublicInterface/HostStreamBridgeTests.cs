@@ -11,7 +11,7 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// The bridge between the WHATWG streams and <see cref="System.IO.Stream"/>, seen from outside the assembly:
-/// <c>Engine.Advanced.CreateReadableStream</c>, <c>CreateWritableStream</c>,
+/// <c>Engine.WebApi.CreateReadableStream</c>, <c>CreateWritableStream</c>,
 /// <c>StartReadableStreamCopy</c> and <c>CopyReadableStreamAsync</c>.
 /// </summary>
 /// <remarks>
@@ -215,7 +215,7 @@ public class HostStreamBridgeTests
     {
         for (var i = 0; i < 10_000 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         operation.IsCompleted.Should().BeTrue("the copy should have finished within 10000 engine turns");
@@ -225,7 +225,7 @@ public class HostStreamBridgeTests
     public void ReadsAHostStreamAsAReadableStreamOfUint8Arrays()
     {
         var engine = StreamEngine();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(new RecordingStream(Utf8("hello world"))));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(new RecordingStream(Utf8("hello world"))));
 
         var text = engine.Evaluate("""
             (async () => {
@@ -248,7 +248,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var options = new HostReadableStreamOptions { ChunkSize = 4 };
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(new RecordingStream(Utf8("abcdefghij")), options));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(new RecordingStream(Utf8("abcdefghij")), options));
 
         var sizes = engine.Evaluate("""
             (async () => {
@@ -270,7 +270,7 @@ public class HostStreamBridgeTests
     public void TheChunkIsAUint8ArrayAndAFreshOneEveryTime()
     {
         var engine = StreamEngine();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(
             new RecordingStream(Utf8("abcd")),
             new HostReadableStreamOptions { ChunkSize = 2 }));
 
@@ -298,11 +298,11 @@ public class HostStreamBridgeTests
         var engine = StreamEngine();
         var source = new RecordingStream(Utf8("abcdefgh"));
 
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(
             source,
             new HostReadableStreamOptions { ChunkSize = 2, HighWaterMark = 0 }));
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         source.Reads.Should().Be(0);
 
         engine.Evaluate("input.getReader().read()").UnwrapIfPromise();
@@ -310,9 +310,9 @@ public class HostStreamBridgeTests
 
         var eager = new RecordingStream(Utf8("abcdefgh"));
         var other = StreamEngine();
-        other.SetValue("input", other.Advanced.CreateReadableStream(eager, new HostReadableStreamOptions { ChunkSize = 2 }));
+        other.SetValue("input", other.WebApi.CreateReadableStream(eager, new HostReadableStreamOptions { ChunkSize = 2 }));
 
-        other.Advanced.ProcessTasks();
+        other.Tasks.ProcessTasks();
         eager.Reads.Should().Be(1);
     }
 
@@ -321,7 +321,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var source = new RecordingStream(Utf8("abc"));
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(source));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(source));
 
         engine.Evaluate("(async () => { const r = input.getReader(); while (!(await r.read()).done); })()").UnwrapIfPromise();
 
@@ -333,7 +333,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var source = new RecordingStream(Utf8("abc"));
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(source, new HostReadableStreamOptions { LeaveOpen = true }));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(source, new HostReadableStreamOptions { LeaveOpen = true }));
 
         engine.Evaluate("(async () => { const r = input.getReader(); while (!(await r.read()).done); })()").UnwrapIfPromise();
 
@@ -346,7 +346,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var source = new RecordingStream(Utf8("abcdefgh"));
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(source, new HostReadableStreamOptions { ChunkSize = 2 }));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(source, new HostReadableStreamOptions { ChunkSize = 2 }));
 
         engine.Evaluate("input.cancel('bored')").UnwrapIfPromise();
 
@@ -358,7 +358,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var source = new FailingReadStream();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(source));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(source));
 
         var rejection = Assert.Throws<PromiseRejectedException>(() => engine.Evaluate("input.getReader().read()").UnwrapIfPromise());
 
@@ -384,7 +384,7 @@ public class HostStreamBridgeTests
         // through the synchronous window. UnwrapIfPromise is the engine's own blocking drain, which wakes on
         // the work-arrived signal rather than on a poll interval.
         var engine = StreamEngine();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(
             new OffThreadStream(Utf8("streamed off-thread")),
             new HostReadableStreamOptions { ChunkSize = 4 }));
 
@@ -409,8 +409,8 @@ public class HostStreamBridgeTests
         var destination = new RecordingStream();
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(source, new HostReadableStreamOptions { HighWaterMark = 0 }));
-        engine.SetValue("output", engine.Advanced.CreateWritableStream(destination));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(source, new HostReadableStreamOptions { HighWaterMark = 0 }));
+        engine.SetValue("output", engine.WebApi.CreateWritableStream(destination));
 
         source.Disposed.Should().BeFalse();
         destination.Disposed.Should().BeFalse();
@@ -426,7 +426,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var destination = new RecordingStream();
-        engine.SetValue("output", engine.Advanced.CreateWritableStream(destination));
+        engine.SetValue("output", engine.WebApi.CreateWritableStream(destination));
 
         engine.Evaluate("""
             (async () => {
@@ -449,7 +449,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var destination = new RecordingStream();
-        engine.SetValue("output", engine.Advanced.CreateWritableStream(destination));
+        engine.SetValue("output", engine.WebApi.CreateWritableStream(destination));
 
         var outcome = engine.Evaluate("""
             (async () => {
@@ -472,7 +472,7 @@ public class HostStreamBridgeTests
         // desiredSize is the standard's own arithmetic — highWaterMark minus the queue — so this is an exact
         // structural statement about backpressure rather than a timing one.
         var engine = StreamEngine();
-        engine.SetValue("output", engine.Advanced.CreateWritableStream(new RecordingStream()));
+        engine.SetValue("output", engine.WebApi.CreateWritableStream(new RecordingStream()));
 
         var sizes = engine.Evaluate("""
             (() => {
@@ -492,7 +492,7 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
         var destination = new RecordingStream();
-        engine.SetValue("output", engine.Advanced.CreateWritableStream(destination));
+        engine.SetValue("output", engine.WebApi.CreateWritableStream(destination));
 
         engine.Evaluate("output.abort('nope')").UnwrapIfPromise();
 
@@ -508,7 +508,7 @@ public class HostStreamBridgeTests
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams | WebApiFeatures.Encoding));
         var destination = new RecordingStream();
 
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(new RecordingStream(Utf8("shout this")), new HostReadableStreamOptions { ChunkSize = 3 }));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(new RecordingStream(Utf8("shout this")), new HostReadableStreamOptions { ChunkSize = 3 }));
 
         var transformed = engine.Evaluate("""
             input.pipeThrough(new TransformStream({
@@ -519,7 +519,7 @@ public class HostStreamBridgeTests
             }))
             """);
 
-        var copy = engine.Advanced.StartReadableStreamCopy(transformed, destination);
+        var copy = engine.WebApi.StartReadableStreamCopy(transformed, destination);
         Drive(engine, copy);
 
         copy.IsFaulted.Should().BeFalse();
@@ -538,7 +538,7 @@ public class HostStreamBridgeTests
 
         var body = engine.Evaluate("new Blob(['part one, ', 'part two']).stream()");
 
-        var copy = engine.Advanced.StartReadableStreamCopy(body, destination);
+        var copy = engine.WebApi.StartReadableStreamCopy(body, destination);
         Drive(engine, copy);
 
         copy.IsFaulted.Should().BeFalse();
@@ -560,11 +560,11 @@ public class HostStreamBridgeTests
         }
 
         compressed.Position = 0;
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(compressed));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(compressed));
 
         var plain = engine.Evaluate("input.pipeThrough(new DecompressionStream('gzip'))");
 
-        var copy = engine.Advanced.StartReadableStreamCopy(plain, destination);
+        var copy = engine.WebApi.StartReadableStreamCopy(plain, destination);
         Drive(engine, copy);
 
         copy.IsFaulted.Should().BeFalse();
@@ -578,7 +578,7 @@ public class HostStreamBridgeTests
         var destination = new RecordingStream();
         var source = engine.Evaluate("new ReadableStream({ start(c) { c.enqueue(new Uint8Array([97, 98])); c.enqueue('c'); c.close(); } })");
 
-        var written = await engine.Advanced.CopyReadableStreamAsync(source, destination);
+        var written = await engine.WebApi.CopyReadableStreamAsync(source, destination);
 
         written.Should().Be(3);
         Encoding.UTF8.GetString(destination.ToArray()).Should().Be("abc");
@@ -598,7 +598,7 @@ public class HostStreamBridgeTests
             })
             """);
 
-        var written = await engine.Advanced.CopyReadableStreamAsync(source, destination);
+        var written = await engine.WebApi.CopyReadableStreamAsync(source, destination);
 
         written.Should().Be(13);
         Encoding.UTF8.GetString(destination.ToArray()).Should().Be("one two three");
@@ -613,7 +613,7 @@ public class HostStreamBridgeTests
         engine.SetValue("source", source);
         engine.Evaluate("source.getReader()");
 
-        var copy = engine.Advanced.StartReadableStreamCopy(source, new RecordingStream());
+        var copy = engine.WebApi.StartReadableStreamCopy(source, new RecordingStream());
 
         copy.IsCompleted.Should().BeTrue();
         copy.IsFaulted.Should().BeTrue();
@@ -626,9 +626,9 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
 
-        Assert.Throws<ArgumentException>(() => engine.Advanced.StartReadableStreamCopy(JsValue.Undefined, new RecordingStream()));
-        Assert.Throws<ArgumentException>(() => engine.Advanced.StartReadableStreamCopy(engine.Evaluate("({})"), new RecordingStream()));
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.StartReadableStreamCopy(engine.Evaluate("new ReadableStream()"), null!));
+        Assert.Throws<ArgumentException>(() => engine.WebApi.StartReadableStreamCopy(JsValue.Undefined, new RecordingStream()));
+        Assert.Throws<ArgumentException>(() => engine.WebApi.StartReadableStreamCopy(engine.Evaluate("({})"), new RecordingStream()));
+        Assert.Throws<ArgumentNullException>(() => engine.WebApi.StartReadableStreamCopy(engine.Evaluate("new ReadableStream()"), null!));
     }
 
     [Fact]
@@ -639,7 +639,7 @@ public class HostStreamBridgeTests
 
         // A source that records its own cancel(), which is how the piping rules are observable from script.
         var source = engine.Evaluate("new ReadableStream({ start(c) { c.enqueue({}); }, cancel(r) { cancelled.push('yes'); } })");
-        var copy = engine.Advanced.StartReadableStreamCopy(source, new RecordingStream());
+        var copy = engine.WebApi.StartReadableStreamCopy(source, new RecordingStream());
         Drive(engine, copy);
 
         copy.IsFaulted.Should().BeTrue();
@@ -647,7 +647,7 @@ public class HostStreamBridgeTests
 
         engine.Execute("cancelled = [];");
         var kept = engine.Evaluate("new ReadableStream({ start(c) { c.enqueue({}); }, cancel(r) { cancelled.push('yes'); } })");
-        var preventing = engine.Advanced.StartReadableStreamCopy(kept, new RecordingStream(), new HostStreamCopyOptions { PreventCancel = true });
+        var preventing = engine.WebApi.StartReadableStreamCopy(kept, new RecordingStream(), new HostStreamCopyOptions { PreventCancel = true });
         Drive(engine, preventing);
 
         preventing.IsFaulted.Should().BeTrue();
@@ -660,7 +660,7 @@ public class HostStreamBridgeTests
         var engine = StreamEngine();
         var source = engine.Evaluate("new ReadableStream({ start(c) { c.error(new RangeError('nope')); } })");
 
-        var copy = engine.Advanced.StartReadableStreamCopy(source, new RecordingStream());
+        var copy = engine.WebApi.StartReadableStreamCopy(source, new RecordingStream());
         Drive(engine, copy);
 
         copy.IsFaulted.Should().BeTrue();
@@ -677,8 +677,8 @@ public class HostStreamBridgeTests
         using var cancellation = new CancellationTokenSource();
         var source = engine.Evaluate("new ReadableStream({ pull(c) { /* never produces a chunk */ } })");
 
-        var copy = engine.Advanced.StartReadableStreamCopy(source, destination, options: null, cancellation.Token);
-        engine.Advanced.ProcessTasks();
+        var copy = engine.WebApi.StartReadableStreamCopy(source, destination, options: null, cancellation.Token);
+        engine.Tasks.ProcessTasks();
         copy.IsCompleted.Should().BeFalse();
 
         cancellation.Cancel();
@@ -701,7 +701,7 @@ public class HostStreamBridgeTests
         var source = engine.Evaluate("new ReadableStream()");
         engine.SetValue("source", source);
 
-        var copy = engine.Advanced.StartReadableStreamCopy(source, destination, options: null, cancellation.Token);
+        var copy = engine.WebApi.StartReadableStreamCopy(source, destination, options: null, cancellation.Token);
 
         copy.IsFaulted.Should().BeTrue();
         copy.Error!.Get("name").AsString().Should().Be("AbortError");
@@ -717,7 +717,7 @@ public class HostStreamBridgeTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         var source = engine.Evaluate("new ReadableStream({ pull(c) { } })");
-        var copy = engine.Advanced.StartReadableStreamCopy(source, destination);
+        var copy = engine.WebApi.StartReadableStreamCopy(source, destination);
         copy.IsCompleted.Should().BeFalse();
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
@@ -741,11 +741,11 @@ public class HostStreamBridgeTests
     {
         var engine = StreamEngine();
 
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateReadableStream(null!));
-        Assert.Throws<ArgumentNullException>(() => engine.Advanced.CreateWritableStream(null!));
+        Assert.Throws<ArgumentNullException>(() => engine.WebApi.CreateReadableStream(null!));
+        Assert.Throws<ArgumentNullException>(() => engine.WebApi.CreateWritableStream(null!));
 
         var readOnly = new RecordingStream(Utf8("abc"));
-        Assert.Throws<ArgumentException>(() => engine.Advanced.CreateWritableStream(readOnly));
+        Assert.Throws<ArgumentException>(() => engine.WebApi.CreateWritableStream(readOnly));
     }
 
     [Fact]
@@ -754,7 +754,7 @@ public class HostStreamBridgeTests
         // The bridge installs no global and needs none: what the Streams flag buys a script is the
         // constructor's name, not the object's behaviour.
         var engine = new Engine();
-        engine.SetValue("input", engine.Advanced.CreateReadableStream(new RecordingStream(Utf8("ok"))));
+        engine.SetValue("input", engine.WebApi.CreateReadableStream(new RecordingStream(Utf8("ok"))));
 
         engine.Evaluate("typeof ReadableStream").AsString().Should().Be("undefined");
         engine.Evaluate("(async () => String.fromCharCode(...(await input.getReader().read()).value))()")

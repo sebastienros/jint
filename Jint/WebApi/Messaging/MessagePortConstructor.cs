@@ -18,7 +18,7 @@ namespace Jint.WebApi.Messaging;
 /// interface object. It declares no constructor operation, which in WebIDL means the interface object exists
 /// and is a function but refuses to construct anything —
 /// https://webidl.spec.whatwg.org/#es-interface-call — so a port can only come from a <c>MessageChannel</c> or
-/// from the host, through <c>Engine.Advanced.CreateMessagePortPair</c>.
+/// from the host, through <c>Engine.WebApi.CreateMessagePortPair</c>.
 /// </remarks>
 internal sealed class MessagePortConstructor : Constructor
 {

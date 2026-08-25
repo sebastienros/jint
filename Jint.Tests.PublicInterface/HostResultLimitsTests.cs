@@ -64,7 +64,7 @@ public class HostResultLimitsTests
         using var engine = new Engine(options);
         var value = engine.Evaluate("({ name: 'jint', nested: [1, true, null] })");
 
-        var result = engine.Advanced.ConvertResult(value)
+        var result = engine.ConvertResult(value)
             .Should().BeAssignableTo<IDictionary<string, object>>().Which;
 
         result["name"].Should().Be("jint");
@@ -78,9 +78,9 @@ public class HostResultLimitsTests
         using var engine = new Engine();
         var value = engine.Evaluate("({ child: { value: 1 } })");
 
-        engine.Advanced.ConvertResult(value, Limits(maxDepth: 2)).Should().NotBeNull();
+        engine.ConvertResult(value, Limits(maxDepth: 2)).Should().NotBeNull();
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxDepth: 1)),
+            () => engine.ConvertResult(value, Limits(maxDepth: 1)),
             ResultLimit.Depth,
             maximum: 1,
             observed: 2);
@@ -92,7 +92,7 @@ public class HostResultLimitsTests
         using var engine = new Engine();
         var value = engine.Evaluate("({ date: new Date(0), boxed: new Number(1), regexp: /x/ })");
 
-        engine.Advanced.ConvertResult(value, Limits(maxDepth: 1)).Should().NotBeNull();
+        engine.ConvertResult(value, Limits(maxDepth: 1)).Should().NotBeNull();
     }
 
     [Fact]
@@ -104,12 +104,12 @@ public class HostResultLimitsTests
             ({ get a() { reads++; return 1; }, get b() { reads++; return 2; }, get c() { reads++; return 3; } })
             """);
 
-        engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 3)).Should().NotBeNull();
+        engine.ConvertResult(value, Limits(maxPropertyCount: 3)).Should().NotBeNull();
         engine.GetValue("reads").AsNumber().Should().Be(3);
 
         engine.SetValue("reads", 0);
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 2)),
+            () => engine.ConvertResult(value, Limits(maxPropertyCount: 2)),
             ResultLimit.PropertyCount,
             maximum: 2,
             observed: 3);
@@ -123,12 +123,12 @@ public class HostResultLimitsTests
         var value = engine.Evaluate("({ a: '1234', b: '5678' })");
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxStringLength: 3)),
+            () => engine.ConvertResult(value, Limits(maxStringLength: 3)),
             ResultLimit.StringLength,
             maximum: 3,
             observed: 4);
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxOutputCharacters: 9)),
+            () => engine.ConvertResult(value, Limits(maxOutputCharacters: 9)),
             ResultLimit.OutputCharacters,
             maximum: 9,
             observed: 10);
@@ -140,7 +140,7 @@ public class HostResultLimitsTests
         using var engine = new Engine();
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(
+            () => engine.ConvertResult(
                 engine.Evaluate("[1, 2, 3]"),
                 Limits(maxPropertyCount: 2)),
             ResultLimit.PropertyCount,
@@ -148,7 +148,7 @@ public class HostResultLimitsTests
             observed: 3);
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(
+            () => engine.ConvertResult(
                 engine.Evaluate("new Uint32Array(3)"),
                 Limits(maxOutputBytes: 11)),
             ResultLimit.OutputBytes,
@@ -166,12 +166,12 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxOutputBytes: 5)),
+            () => engine.ConvertResult(value, Limits(maxOutputBytes: 5)),
             ResultLimit.OutputBytes,
             maximum: 5,
             observed: 6);
 
-        var bytes = (byte[]) engine.Advanced.ConvertResult(engine.GetValue("buffer"));
+        var bytes = (byte[]) engine.ConvertResult(engine.GetValue("buffer"));
         bytes[0] = 99;
         engine.Evaluate("new Uint8Array(buffer)[0]").AsNumber().Should().Be(1);
     }
@@ -181,9 +181,9 @@ public class HostResultLimitsTests
     {
         using var engine = new Engine();
 
-        Invoking(() => engine.Advanced.ConvertResult(engine.Evaluate("(function () {})")))
+        Invoking(() => engine.ConvertResult(engine.Evaluate("(function () {})")))
             .Should().ThrowExactly<NotSupportedException>();
-        Invoking(() => engine.Advanced.ConvertResult(engine.Evaluate("Symbol('x')")))
+        Invoking(() => engine.ConvertResult(engine.Evaluate("Symbol('x')")))
             .Should().ThrowExactly<NotSupportedException>();
     }
 
@@ -198,7 +198,7 @@ public class HostResultLimitsTests
             })
             """);
 
-        var result = (Dictionary<string, object>) engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 10));
+        var result = (Dictionary<string, object>) engine.ConvertResult(value, Limits(maxPropertyCount: 10));
         var map = result["map"].Should()
             .BeAssignableTo<List<KeyValuePair<object, object>>>().Which;
         var set = result["set"].Should().BeAssignableTo<object[]>().Which;
@@ -215,7 +215,7 @@ public class HostResultLimitsTests
         using var engine = new Engine();
         var value = engine.Evaluate("var value = {}; value.self = value; value");
 
-        Invoking(() => engine.Advanced.ConvertResult(value, ResultLimits.Conservative))
+        Invoking(() => engine.ConvertResult(value, ResultLimits.Conservative))
             .Should().ThrowExactly<JavaScriptException>()
             .WithMessage("*Cyclic reference detected*");
     }
@@ -235,7 +235,7 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 2)),
+            () => engine.ConvertResult(value, Limits(maxPropertyCount: 2)),
             ResultLimit.PropertyCount,
             maximum: 2,
             observed: 3);
@@ -256,7 +256,7 @@ public class HostResultLimitsTests
             })
             """);
 
-        engine.Advanced.ConvertResult(value, Limits(maxDepth: 1, maxPropertyCount: 2))
+        engine.ConvertResult(value, Limits(maxDepth: 1, maxPropertyCount: 2))
             .Should().BeEquivalentTo(new object[] { 1d, 2d });
         engine.GetValue("gets").AsNumber().Should().Be(3, "length and both elements are read through the proxy");
     }
@@ -267,7 +267,7 @@ public class HostResultLimitsTests
         using var engine = new Engine(options => options.LimitStatements(100));
         var value = engine.Evaluate("({ get value() { while (true) {} } })");
 
-        Invoking(() => engine.Advanced.ConvertResult(value, ResultLimits.Conservative))
+        Invoking(() => engine.ConvertResult(value, ResultLimits.Conservative))
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
@@ -285,7 +285,7 @@ public class HostResultLimitsTests
             """);
         constraint.Armed = true;
 
-        Invoking(() => engine.Advanced.ConvertResult(
+        Invoking(() => engine.ConvertResult(
                 value,
                 Limits(maxDepth: 20, maxPropertyCount: 100_000)))
             .Should().ThrowExactly<InvalidOperationException>()
@@ -302,7 +302,7 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 3)),
+            () => engine.ConvertResult(value, Limits(maxPropertyCount: 3)),
             ResultLimit.PropertyCount,
             maximum: 3,
             observed: 4);
@@ -315,7 +315,7 @@ public class HostResultLimitsTests
         var target = new HostPayload { Value = "unbounded host-owned value" };
         var wrapper = ObjectWrapper.Create(engine, target);
 
-        engine.Advanced.ConvertResult(wrapper, new ResultLimits(maxDepth: 0, maxPropertyCount: 0))
+        engine.ConvertResult(wrapper, new ResultLimits(maxDepth: 0, maxPropertyCount: 0))
             .Should().BeSameAs(target);
     }
 
@@ -370,7 +370,7 @@ public class HostResultLimitsTests
         entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
         try
         {
-            Invoking(() => engine.Advanced.ConvertResult(value))
+            Invoking(() => engine.ConvertResult(value))
                 .Should().Throw<InvalidOperationException>()
                 .WithMessage(ConcurrentUseMessage);
             Invoking(() => serializer.Serialize(value))
@@ -386,7 +386,7 @@ public class HostResultLimitsTests
         }
 
         await running;
-        engine.Advanced.ConvertResult(value).Should().NotBeNull();
+        engine.ConvertResult(value).Should().NotBeNull();
         serializer.Serialize(value).AsString().Should().Be("""{"value":42}""");
     }
 
@@ -403,7 +403,7 @@ public class HostResultLimitsTests
             })
             """);
 
-        var converted = (Dictionary<string, object>) engine.Advanced.ConvertResult(value);
+        var converted = (Dictionary<string, object>) engine.ConvertResult(value);
         converted["value"].Should().Be(42d);
         new JsonSerializer(engine).Serialize(value).AsString().Should().Be("""{"value":42}""");
     }
@@ -441,7 +441,7 @@ public class HostResultLimitsTests
 
         // Warm parsing, the getter's call path and ConvertResult. Nothing depends on it any more — the
         // clock does not move on its own — but it keeps the row's shape comparable with the downlevel leg.
-        engine.Advanced.ConvertResult(engine.Evaluate(CheckedEvaluationSource));
+        engine.ConvertResult(engine.Evaluate(CheckedEvaluationSource));
 
         deadline.Begin(OperationBudget);
         try
@@ -452,13 +452,13 @@ public class HostResultLimitsTests
             // One tick short of the budget: the entry boundary in between refunded nothing, and there is
             // still something left, so a fresh top-level entry completes.
             clock.Advance(OperationBudget - OneClockTick);
-            engine.Advanced.ConvertResult(value).Should().NotBeNull(
+            engine.ConvertResult(value).Should().NotBeNull(
                 "the operation still has a tick of its budget left");
 
             // ...and the single tick that exhausts it fails the very next one. The conversion is a fresh
             // top-level entry, and the engine's per-entry reset must not refund it the operation's budget.
             clock.Advance(OneClockTick);
-            Invoking(() => engine.Advanced.ConvertResult(value))
+            Invoking(() => engine.ConvertResult(value))
                 .Should().ThrowExactly<TimeoutException>();
         }
         finally
@@ -490,7 +490,7 @@ public class HostResultLimitsTests
         using var engine = new Engine(options => options.AddConstraint(deadline));
 
         // Warm parsing, the getter's call path and ConvertResult before the clock starts.
-        engine.Advanced.ConvertResult(engine.Evaluate(CheckedEvaluationSource));
+        engine.ConvertResult(engine.Evaluate(CheckedEvaluationSource));
 
         var stopwatch = Stopwatch.StartNew();
         deadline.Begin(OperationBudget);
@@ -511,7 +511,7 @@ public class HostResultLimitsTests
 
             Thread.Sleep(OperationBudget + BudgetOverspend);
 
-            Invoking(() => engine.Advanced.ConvertResult(value))
+            Invoking(() => engine.ConvertResult(value))
                 .Should().ThrowExactly<TimeoutException>(
                     "the conversion is a fresh top-level entry, and the engine's per-entry reset must not "
                     + "refund it the operation's budget");
@@ -539,7 +539,7 @@ public class HostResultLimitsTests
         {
             var value = engine.Evaluate("allocate(); ({ get value() { allocate(); return 42; } })");
 
-            Invoking(() => engine.Advanced.ConvertResult(value))
+            Invoking(() => engine.ConvertResult(value))
                 .Should().ThrowExactly<MemoryLimitExceededException>();
         }
         finally
@@ -547,7 +547,7 @@ public class HostResultLimitsTests
             memory.End();
         }
 
-        engine.Advanced.ConvertResult(engine.Evaluate("({ value: 42 })")).Should().NotBeNull();
+        engine.ConvertResult(engine.Evaluate("({ value: 42 })")).Should().NotBeNull();
     }
 
     [Fact]
@@ -557,7 +557,7 @@ public class HostResultLimitsTests
         engine.Modules.Add("result", "export const answer = 42; export const nested = { ok: true };");
 
         var module = engine.Modules.Import("result");
-        var converted = (Dictionary<string, object>) engine.Advanced.ConvertResult(
+        var converted = (Dictionary<string, object>) engine.ConvertResult(
             module,
             Limits(maxDepth: 2, maxPropertyCount: 4));
 
@@ -572,12 +572,12 @@ public class HostResultLimitsTests
         var value = engine.Evaluate("({ a: 1, b: 2 })");
 
         AssertLimit(
-            () => engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 1)),
+            () => engine.ConvertResult(value, Limits(maxPropertyCount: 1)),
             ResultLimit.PropertyCount,
             maximum: 1,
             observed: 2);
 
-        engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 2)).Should().NotBeNull();
+        engine.ConvertResult(value, Limits(maxPropertyCount: 2)).Should().NotBeNull();
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
@@ -587,7 +587,7 @@ public class HostResultLimitsTests
         using var engine = new Engine(options => options.CatchClrExceptions());
         var value = engine.Evaluate("[1, 2]");
         engine.SetValue("convert", new Action(() =>
-            engine.Advanced.ConvertResult(value, Limits(maxPropertyCount: 1))));
+            engine.ConvertResult(value, Limits(maxPropertyCount: 1))));
 
         Invoking(() => engine.Evaluate("""
             try {

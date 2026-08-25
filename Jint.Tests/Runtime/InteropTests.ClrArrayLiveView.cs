@@ -356,12 +356,12 @@ public partial class InteropTests
         deadline.Begin(TimeSpan.FromMilliseconds(10));
         Invoking(() => engine.SetValue("failed", source))
             .Should().ThrowExactly<TimeoutException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
         deadline.End();
 
         engine.SetValue("retry", source);
         engine.Evaluate("retry.length === 1 && retry[0] === 1").AsBoolean().Should().BeTrue();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Theory]
@@ -427,12 +427,12 @@ public partial class InteropTests
         second[0] = first;
 
         Invoking(() => engine.SetValue("first", first)).Should().ThrowExactly<ArgumentException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
 
         // If the nested snapshot escaped from the failed conversion, this would return that partial
         // graph instead of reaching the still-unsupported multidimensional element and throwing again.
         Invoking(() => engine.SetValue("second", second)).Should().ThrowExactly<ArgumentException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
     }
 
     [Fact]
@@ -468,10 +468,10 @@ public partial class InteropTests
         engine.SetValue("outer", new object[] { new ReentrantCopyProbe() });
 
         engine.Evaluate("outer[0]").AsNumber().Should().Be(1);
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
 
         Invoking(() => engine.SetValue("failed", failedRoot)).Should().ThrowExactly<ArgumentException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]

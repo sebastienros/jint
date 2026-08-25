@@ -6,13 +6,13 @@ using Jint.Native;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.WaitForScheduledWork"/> and
-/// <see cref="Engine.AdvancedOperations.WaitForScheduledWorkAsync"/> from the outside — the other half of
+/// <see cref="Engine.TaskOperations.WaitForScheduledWork"/> and
+/// <see cref="Engine.TaskOperations.WaitForScheduledWorkAsync"/> from the outside — the other half of
 /// <see cref="HostScheduledWorkTests"/>, which covers the <em>when to pump</em> question this one parks on.
 /// </summary>
 /// <remarks>
 /// Deliberately <b>not</b> gated on <c>NET8_0_OR_GREATER</c>: the wait is all-target-framework
-/// <c>Advanced</c> surface, and everything it is pointed at here — an event-loop job produced by settling a
+/// <c>Tasks</c> surface, and everything it is pointed at here — an event-loop job produced by settling a
 /// host-registered promise from another thread — is core engine machinery. The .NET 8 sources it also serves
 /// (a due timer) are covered in <c>Jint.Tests</c>.
 /// </remarks>
@@ -46,7 +46,7 @@ public class HostPumpWaitTests
         using var engine = new Engine();
         using var producerArmed = new ManualResetEventSlim();
 
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         var elapsed = new Stopwatch();
 
         engine.SetValue("hostWork", manual.Promise);
@@ -55,7 +55,7 @@ public class HostPumpWaitTests
             elapsed.Start();
             producerArmed.Set();
         }));
-        engine.SetValue("park", new Func<bool>(() => engine.Advanced.WaitForScheduledWork(Ceiling)));
+        engine.SetValue("park", new Func<bool>(() => engine.Tasks.WaitForScheduledWork(Ceiling)));
 
         var producer = DedicatedThread.RunAsync(() =>
         {
@@ -94,9 +94,9 @@ public class HostPumpWaitTests
     {
         using var engine = new Engine();
 
-        (await engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50))).Should().BeFalse();
+        (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50))).Should().BeFalse();
 
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
-        (await engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeFalse();
+        (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeFalse();
     }
 }

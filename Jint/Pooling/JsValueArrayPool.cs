@@ -24,7 +24,7 @@ internal sealed class JsValueArrayPool
 
     /// <summary>
     /// How many arrays the four buckets are holding between them, for
-    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>.
+    /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// </summary>
     internal int PooledArrayCount =>
         _poolArray1.PooledCount + _poolArray2.PooledCount + _poolArray3.PooledCount + _poolArray4.PooledCount;

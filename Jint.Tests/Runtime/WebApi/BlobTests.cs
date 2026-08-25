@@ -423,7 +423,7 @@ public class BlobTests
         // Writing through one chunk cannot reach the blob or the other stream: a blob is immutable and what
         // crosses into script is a copy.
         engine.Execute("s1.getReader().read().then(x => { x.value[0] = 0x7A; });");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("ab");
         engine.Evaluate("s2.getReader().read().then(x => String.fromCharCode.apply(null, Array.from(x.value)))")

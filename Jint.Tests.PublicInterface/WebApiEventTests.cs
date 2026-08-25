@@ -199,7 +199,7 @@ public class WebApiEventTests
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeFalse();
 
         clock.Advance(TimeSpan.FromMilliseconds(2));
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeTrue();
         engine.Evaluate("signal.reason.name").AsString().Should().Be("TimeoutError");

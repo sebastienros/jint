@@ -270,7 +270,7 @@ public sealed partial class Options
     /// </summary>
     /// <remarks>
     /// Setting this also bounds script-visible <c>JSON.stringify</c>. Use per-call limits on
-    /// <see cref="Engine.AdvancedOperations.ConvertResult"/> or <see cref="Native.Json.JsonSerializer"/> when
+    /// <see cref="Engine.ConvertResult"/> or <see cref="Native.Json.JsonSerializer"/> when
     /// different requests sharing one options object need different policies.
     /// </remarks>
     public ResultLimits ResultLimits
@@ -482,7 +482,7 @@ public sealed partial class Options
         "Coverage",
 
         // Host diagnostics again, and a capability script cannot reach at all — a profiling session is opened
-        // by the host through Advanced.StartProfiling. Its gate defaults to refusing, so a second engine
+        // by the host through Diagnostics.StartProfiling. Its gate defaults to refusing, so a second engine
         // already starts at the restrictive answer whatever the first one chose.
         "Profiling",
 
@@ -716,14 +716,14 @@ public sealed partial class Options
     {
         /// <summary>
         /// Whether the engine counts what it executes, defaults to false. When set, the engine collects hit
-        /// counts readable through <see cref="Engine.AdvancedOperations.GetCoverage"/>; when not set — the
+        /// counts readable through <see cref="Engine.DiagnosticOperations.GetCoverage"/>; when not set — the
         /// default — the interpreter contains no coverage work of any kind, since the per-statement lane the
         /// counting rides on is not armed.
         /// </summary>
         /// <remarks>
         /// Enabling it disarms the interpreter's tight-loop lane for the engine, the same way registering an
         /// exact execution constraint or enabling the debugger does, so measured code runs the instrumented
-        /// path. See <see cref="Engine.AdvancedOperations.GetCoverage"/>.
+        /// path. See <see cref="Engine.DiagnosticOperations.GetCoverage"/>.
         /// </remarks>
         public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }
 

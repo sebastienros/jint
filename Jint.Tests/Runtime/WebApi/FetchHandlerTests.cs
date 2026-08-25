@@ -24,17 +24,17 @@ public class FetchHandlerTests
     {
         var engine = new Engine(options => options.UseWebApis(ModelFeatures));
         engine.Execute(source);
-        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+        engine.WebApi.SetFetchHandler(engine.GetValue("handler"));
         return engine;
     }
 
     /// <summary>Runs one request through the handler and answers with the response body as text.</summary>
     private static string Answer(Engine engine, HttpRequestMessage request)
     {
-        var operation = engine.Advanced.InvokeFetchHandler(request);
+        var operation = engine.WebApi.InvokeFetchHandler(request);
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         using var response = operation.GetResult();
@@ -176,7 +176,7 @@ public class FetchHandlerTests
     {
         var engine = Handler("globalThis.handler = () => Response.json({ ok: true }, { status: 202 });");
 
-        var operation = engine.Advanced.InvokeFetchHandler(new HttpRequestMessage(HttpMethod.Get, "https://example.org/"));
+        var operation = engine.WebApi.InvokeFetchHandler(new HttpRequestMessage(HttpMethod.Get, "https://example.org/"));
         using var response = operation.GetResult();
 
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.Accepted);
@@ -206,7 +206,7 @@ public class FetchHandlerTests
             .AddLazyGlobal("tenant", static _ => JsString.Create("acme")));
 
         engine.Execute("globalThis.handler = () => new Response(tenant);");
-        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+        engine.WebApi.SetFetchHandler(engine.GetValue("handler"));
 
         // A Workers handler takes (request, env, ctx); this one takes the request alone, and per-request host
         // state reaches the script the way it always has.

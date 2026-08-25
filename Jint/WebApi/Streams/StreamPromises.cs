@@ -125,7 +125,7 @@ internal static class StreamPromises
     /// <b>The flag is set before the rejection, and that ordering is the whole point of this helper.</b>
     /// Written the specification's way round, <c>RejectPromise</c> step 7 calls
     /// <c>HostPromiseRejectionTracker(promise, "reject")</c> while <c>[[PromiseIsHandled]]</c> is still
-    /// false, and a host watching <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> or a
+    /// false, and a host watching <see cref="Engine.TaskOperations.PromiseRejectionTracker"/> or a
     /// <see cref="DiagnosticsSink"/> is told about a rejection that the very next step accounts for. A
     /// browser is not, because HTML's <i>notify about rejected promises</i> re-reads the flag in a queued
     /// task — "If <i>p</i>.[[PromiseIsHandled]] is true, then continue" — by which time the algorithm has

@@ -8,8 +8,8 @@ namespace Jint.Tests.PublicInterface;
 
 /// <summary>
 /// The scheduling surface a host driving its own loop actually touches:
-/// <see cref="Engine.AdvancedOperations.TimeUntilNextScheduledWork"/> over the web-API sources,
-/// <see cref="Engine.AdvancedOperations.CreateAbortSignal"/> as the way its own cancellation reaches script,
+/// <see cref="Engine.TaskOperations.TimeUntilNextScheduledWork"/> over the web-API sources,
+/// <see cref="Engine.WebApiOperations.CreateAbortSignal"/> as the way its own cancellation reaches script,
 /// and the <c>requestIdleCallback</c> globals.
 /// </summary>
 /// <remarks>
@@ -69,7 +69,7 @@ public class WebApiSchedulingSurfaceTests
 
         engine.Execute("var x = 1;");
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>
@@ -83,10 +83,10 @@ public class WebApiSchedulingSurfaceTests
 
         engine.Execute("setTimeout(() => {}, 100);");
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(100));
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(100));
 
         clock.Advance(40);
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(60));
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(60));
     }
 
     /// <summary>
@@ -102,12 +102,12 @@ public class WebApiSchedulingSurfaceTests
 
         clock.Advance(250);
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("fired").Should().Be(JsBoolean.True);
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>
@@ -121,10 +121,10 @@ public class WebApiSchedulingSurfaceTests
 
         engine.Execute("globalThis.ran = false; scheduler.postTask(() => { globalThis.ran = true; }, { delay: 250 });");
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(250));
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.FromMilliseconds(250));
 
         clock.Advance(250);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("ran").Should().Be(JsBoolean.True);
     }
@@ -148,12 +148,12 @@ public class WebApiSchedulingSurfaceTests
             requestIdleCallback(() => { requestIdleCallback(() => { globalThis.inner = true; }); });
             """);
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("inner").Should().Be(JsBoolean.True);
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>
@@ -168,9 +168,9 @@ public class WebApiSchedulingSurfaceTests
 
         engine.Execute("globalThis.ran = false; requestIdleCallback(() => { globalThis.ran = true; });");
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("ran").Should().Be(JsBoolean.False);
     }
 
@@ -207,7 +207,7 @@ public class WebApiSchedulingSurfaceTests
         var (engine, _) = WebEngine();
         using var cts = new CancellationTokenSource();
 
-        engine.SetValue("hostSignal", engine.Advanced.CreateAbortSignal(cts.Token));
+        engine.SetValue("hostSignal", engine.WebApi.CreateAbortSignal(cts.Token));
 
         var abortThread = 0;
         engine.SetValue("recordAbortThread", new Action(() => abortThread = Environment.CurrentManagedThreadId));
@@ -235,9 +235,9 @@ public class WebApiSchedulingSurfaceTests
         abortThread.Should().Be(0);
 
         // ... and the engine has work waiting, which is what a host loop is told to look for.
-        engine.Advanced.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
+        engine.Tasks.TimeUntilNextScheduledWork.Should().Be(TimeSpan.Zero);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         abortThread.Should().Be(engineThread);
         engine.Evaluate("hostSignal.aborted").Should().Be(JsBoolean.True);
@@ -257,13 +257,13 @@ public class WebApiSchedulingSurfaceTests
         var (engine, _) = WebEngine();
         using var cts = new CancellationTokenSource();
 
-        engine.SetValue("hostSignal", engine.Advanced.CreateAbortSignal(cts.Token));
+        engine.SetValue("hostSignal", engine.WebApi.CreateAbortSignal(cts.Token));
 
         engine.Dispose();
 
         cts.Cancel();
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>

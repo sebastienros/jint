@@ -263,7 +263,7 @@ internal static class FetchTransport
     /// </summary>
     /// <remarks>
     /// Called on the engine thread, once per request, which is what lets a host factory read per-request state
-    /// through <c>engine.Advanced.HostDefined</c>. Answers <see langword="null"/> only when a host factory
+    /// through <c>engine.HostDefined</c>. Answers <see langword="null"/> only when a host factory
     /// did; each caller decides what that failure looks like to script.
     /// </remarks>
     internal static HttpClient? ResolveClient(Engine engine, Options.FetchOptions options)

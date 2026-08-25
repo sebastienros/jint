@@ -187,7 +187,7 @@ public class HostPrototypeShapeBenchmark
         var expected = PrototypeKind == HostPrototypeKind.Shape
             ? ObjectRepresentation.SharedBuiltinLayout
             : ObjectRepresentation.Dictionary;
-        var representation = engine.Advanced.GetObjectRepresentation(prototype);
+        var representation = engine.Diagnostics.GetObjectRepresentation(prototype);
         if (representation != expected)
         {
             throw new InvalidOperationException(
@@ -293,7 +293,7 @@ public class HostPrototypeShapeBenchmark
 
             // The representation settles on first touch, so force one before asking.
             level.Get(_chainTables[i].Members[0].Name);
-            var representation = engine.Advanced.GetObjectRepresentation(level);
+            var representation = engine.Diagnostics.GetObjectRepresentation(level);
             if (representation != expected)
             {
                 throw new InvalidOperationException(

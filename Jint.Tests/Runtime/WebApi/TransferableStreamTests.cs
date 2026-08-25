@@ -578,8 +578,8 @@ public class TransferableStreamTests
         Log(engine).Should().Be("source cancelled: TypeError");
 
         var pullsAfterStranding = engine.Evaluate("pulls").AsNumber();
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("pulls").AsNumber().Should().Be(pullsAfterStranding, "no pipe may be left running against a stranded side");
     }
 
@@ -607,8 +607,8 @@ public class TransferableStreamTests
         Log(engine).Should().Be("source cancelled: TypeError");
 
         var pullsAfterStranding = engine.Evaluate("pulls").AsNumber();
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("pulls").AsNumber().Should().Be(pullsAfterStranding);
     }
 
@@ -634,8 +634,8 @@ public class TransferableStreamTests
         Log(engine).Should().Be("source cancelled: TypeError");
 
         var pullsAfterStranding = engine.Evaluate("pulls").AsNumber();
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("pulls").AsNumber().Should().Be(pullsAfterStranding);
     }
 }

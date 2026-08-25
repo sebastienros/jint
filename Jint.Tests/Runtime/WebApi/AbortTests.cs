@@ -395,15 +395,15 @@ public class AbortTests
             signal.addEventListener('abort', function () { log.push(signal.reason.name); });
             """);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeFalse();
 
         clock.Advance(49);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeFalse();
 
         clock.Advance(1);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("signal.aborted").AsBoolean().Should().BeTrue();
         engine.Evaluate("signal.reason instanceof DOMException").AsBoolean().Should().BeTrue();
@@ -423,7 +423,7 @@ public class AbortTests
         // Long past due, and nothing has pumped: no abort. The same contract setTimeout has.
         signal.Aborted.Should().BeFalse();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         signal.Aborted.Should().BeTrue();
     }
 

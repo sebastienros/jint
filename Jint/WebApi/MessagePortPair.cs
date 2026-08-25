@@ -6,7 +6,7 @@ namespace Jint.WebApi;
 
 /// <summary>
 /// Two entangled <c>MessagePort</c> objects, one belonging to each of the engines
-/// <c>Engine.Advanced.CreateMessagePortPair</c> was given. Requires .NET 8 or higher.
+/// <c>Engine.WebApi.CreateMessagePortPair</c> was given. Requires .NET 8 or higher.
 /// </summary>
 /// <remarks>
 /// <para>

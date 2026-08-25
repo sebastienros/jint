@@ -429,7 +429,7 @@ public class ParsingLimitTests
         engine.Evaluate(prepared);
         await Task.Run(() => loader.Deliver("export const value = 1;"));
 
-        var failure = await Record.ExceptionAsync(() => Task.Run(engine.Advanced.ProcessTasks));
+        var failure = await Record.ExceptionAsync(() => Task.Run(engine.Tasks.ProcessTasks));
         var parsingFailure = failure.Should().BeOfType<ParsingLimitException>().Subject;
         parsingFailure.Limit.Should().Be(20);
         parsingFailure.Actual.Should().Be(23);
@@ -491,14 +491,14 @@ public class ParsingLimitTests
                 ParsingOptions = new ScriptParsingOptions { MaxSourceLength = 10 },
             });
         var engine = new Engine(options => options.UseModules(loader));
-        engine.SetValue("drain", new Action(engine.Advanced.ProcessTasks));
+        engine.SetValue("drain", new Action(engine.Tasks.ProcessTasks));
 
         engine.Evaluate(importing);
         loader.Deliver("import 'dep';");
         engine.Evaluate(draining);
 
         loader.Deliver("export const value = 1;");
-        Invoking(() => engine.Advanced.ProcessTasks()).Should().NotThrow();
+        Invoking(() => engine.Tasks.ProcessTasks()).Should().NotThrow();
         loader.Fetches.Should().Be(2);
     }
 

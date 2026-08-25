@@ -307,7 +307,7 @@ public class InterfaceObjectExposureTests
     }
 
     /// <summary>
-    /// <c>Engine.Advanced.EnableWebApis</c> is the same install on a live engine, so it grants the same
+    /// <c>Engine.WebApi.Enable</c> is the same install on a live engine, so it grants the same
     /// interface objects.
     /// </summary>
     [Fact]
@@ -318,7 +318,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("typeof ReadableStreamDefaultReader").AsString().Should().Be("undefined");
         engine.Evaluate("typeof Crypto").AsString().Should().Be("undefined");
 
-        engine.Advanced.EnableWebApis(
+        engine.WebApi.Enable(
             WebApiFeatures.Streams | WebApiFeatures.Crypto | WebApiFeatures.Performance
             | WebApiFeatures.Navigator | WebApiFeatures.Scheduler);
 

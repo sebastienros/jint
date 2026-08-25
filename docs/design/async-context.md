@@ -48,7 +48,7 @@ The surface is two classes on one namespace object
 | `AsyncContext.Snapshot.wrap(fn)` | [`#sec-asynccontext-snapshot.wrap`](https://tc39.es/proposal-async-context/#sec-asynccontext-snapshot.wrap) |
 
 **Why an embedder cares.** Jint's answer to "which request is this engine serving" is already good:
-`Engine.Advanced.HostDefined` (`Jint/Engine.Advanced.cs:600`) holds the principal realm's `[[HostDefined]]`, and
+`Engine.HostDefined` (`Jint/Engine.Globals.cs`) holds the principal realm's `[[HostDefined]]`, and
 a pooled engine keeps it across a `RestoreGlobalSnapshot`. What it cannot answer is "which *logical operation
 within* this request is running right now", because a pooled engine serving one request may still interleave
 several script-initiated flows across event-loop turns — a `setTimeout` callback, a promise reaction, a resumed
@@ -455,7 +455,7 @@ phase; the pair in §4.1 covers the correlation use case on its own.
 
 They answer different questions and compose rather than compete:
 
-| | `Engine.Advanced.HostDefined` | AsyncContext |
+| | `Engine.HostDefined` | AsyncContext |
 | --- | --- | --- |
 | Scope | per **engine** (principal realm's `[[HostDefined]]`) | per **flow**, within one engine |
 | Set by | the host, in CLR | the script, or the host through §4.1 |

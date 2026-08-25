@@ -15,7 +15,7 @@ public partial class Engine
     //
     // A usage error - a null argument, an unprepared script, and ReserveAsyncHostOperation refusing because
     // the engine is already in use - says the operation never started, so it belongs on the caller's stack;
-    // there is no evaluation for a task to describe, and Advanced.WaitForScheduledWorkAsync reserves
+    // there is no evaluation for a task to describe, and Tasks.WaitForScheduledWorkAsync reserves
     // synchronously for the same reason. Everything else says the operation started and failed, and belongs
     // on the returned task: an async body captures its own synchronous phase, which is exactly what makes
     // that true for the parse and for the whole synchronous run of the script.

@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
 /// The host's own "this request has been abandoned" token reaching the script as <c>request.signal</c> —
-/// <c>Engine.Advanced.InvokeFetchHandler(request, requestAborted)</c> and the token
+/// <c>Engine.WebApi.InvokeFetchHandler(request, requestAborted)</c> and the token
 /// <c>InvokeFetchHandlerAsync</c> already took.
 /// </summary>
 /// <remarks>
@@ -32,7 +32,7 @@ public class FetchHandlerAbortTests
     {
         var engine = new Engine(options => options.UseWebApis(ModelFeatures | extra));
         engine.Execute(source);
-        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+        engine.WebApi.SetFetchHandler(engine.GetValue("handler"));
         return engine;
     }
 
@@ -49,7 +49,7 @@ public class FetchHandlerAbortTests
     {
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
     }
 
@@ -75,7 +75,7 @@ public class FetchHandlerAbortTests
             """);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         var signal = (JsAbortSignal) engine.GetValue("signal");
 
@@ -122,7 +122,7 @@ public class FetchHandlerAbortTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         // Synchronous: no job and no pump, because building the request already runs on the engine's thread.
         operation.IsCompleted.Should().BeTrue();
@@ -156,7 +156,7 @@ public class FetchHandlerAbortTests
             """);
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         var signal = (JsAbortSignal) engine.GetValue("signal");
         signal.Aborted.Should().BeFalse();
@@ -185,7 +185,7 @@ public class FetchHandlerAbortTests
 
         for (var i = 0; i < 25; i++)
         {
-            var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+            var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
             operation.IsCompleted.Should().BeTrue();
             using var response = operation.GetResult();
             Body(response).Should().Be("ok");
@@ -205,7 +205,7 @@ public class FetchHandlerAbortTests
 
         using var cts = new CancellationTokenSource();
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         operation.IsFaulted.Should().BeTrue();
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
@@ -224,15 +224,15 @@ public class FetchHandlerAbortTests
 
         for (var i = 0; i < 5; i++)
         {
-            using var response = await engine.Advanced.InvokeFetchHandlerAsync(Get(), cts.Token);
+            using var response = await engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
             Body(response).Should().Be("ok");
 
             engine._webApi!.HostAbortBridgeCount.Should().Be(0, "await {0} must have given its registration back", i);
         }
 
         // The same when the invocation fails rather than answering.
-        engine.Advanced.SetFetchHandler(engine.Evaluate("() => { throw new Error('nope'); }"));
-        await Assert.ThrowsAsync<JavaScriptException>(() => engine.Advanced.InvokeFetchHandlerAsync(Get(), cts.Token));
+        engine.WebApi.SetFetchHandler(engine.Evaluate("() => { throw new Error('nope'); }"));
+        await Assert.ThrowsAsync<JavaScriptException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
     }
 
@@ -254,7 +254,7 @@ public class FetchHandlerAbortTests
 
         // Nothing may touch the engine while the asynchronous host operation is in flight, so everything this
         // reads it for happens after the await has ended.
-        var pending = engine.Advanced.InvokeFetchHandlerAsync(Get(), cts.Token);
+        var pending = engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
 
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
@@ -264,7 +264,7 @@ public class FetchHandlerAbortTests
 
         // ... and the abort itself was not swallowed with it. It may already have landed inside the await —
         // the two halves of the token race — but it must have landed by the time a pump has run.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         ((JsAbortSignal) engine.GetValue("signal")).Aborted.Should().BeTrue();
     }
 
@@ -278,7 +278,7 @@ public class FetchHandlerAbortTests
         var engine = Handler("globalThis.handler = () => new Promise(() => {});");
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
 
         operation.IsCompleted.Should().BeFalse();
         engine._webApi!.HostAbortBridgeCount.Should().Be(1);
@@ -297,7 +297,7 @@ public class FetchHandlerAbortTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         using var cts = new CancellationTokenSource();
-        var operation = engine.Advanced.InvokeFetchHandler(Get(), cts.Token);
+        var operation = engine.WebApi.InvokeFetchHandler(Get(), cts.Token);
         var signal = (JsAbortSignal) engine.GetValue("signal");
 
         // Enqueued, then fenced: the job carries the cycle's generation and the restore moves the engine past
@@ -305,7 +305,7 @@ public class FetchHandlerAbortTests
         cts.Cancel();
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         signal.Aborted.Should().BeFalse();
         operation.IsFaulted.Should().BeTrue();
@@ -325,13 +325,13 @@ public class FetchHandlerAbortTests
             globalThis.handler = request => new Promise(() => { globalThis.signal = request.signal; });
             """);
 
-        engine.Advanced.InvokeFetchHandler(Get());
+        engine.WebApi.InvokeFetchHandler(Get());
 
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
         ((JsAbortSignal) engine.GetValue("signal")).Aborted.Should().BeFalse();
 
         // ... and so does an explicitly passed token that can never be cancelled.
-        engine.Advanced.InvokeFetchHandler(Get(), CancellationToken.None);
+        engine.WebApi.InvokeFetchHandler(Get(), CancellationToken.None);
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
     }
 
@@ -350,14 +350,14 @@ public class FetchHandlerAbortTests
         using var first = new CancellationTokenSource();
         using var second = new CancellationTokenSource();
 
-        engine.Advanced.InvokeFetchHandler(Get(), first.Token);
-        engine.Advanced.InvokeFetchHandler(Get(), second.Token);
+        engine.WebApi.InvokeFetchHandler(Get(), first.Token);
+        engine.WebApi.InvokeFetchHandler(Get(), second.Token);
 
         engine.Evaluate("signals.length").AsNumber().Should().Be(2);
         engine.Evaluate("signals[0] === signals[1]").Should().Be(JsBoolean.False);
 
         first.Cancel();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("[signals[0].aborted, signals[1].aborted].join(',')").Should().Be(new JsString("true,false"));
     }

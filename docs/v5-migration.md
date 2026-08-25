@@ -51,7 +51,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `TypeConverter.CheckObjectCoercible(Engine, JsValue)` | `TypeConverter.RequireObjectCoercible(Engine, JsValue)` — same behaviour, spec name | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `DeclarationBindingType` (enum) | nothing. It was public, had no members that anything read, and had exactly one reference in the repository: its own declaration | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsValue`'s `System.IConvertible` implementation | nothing. It was an explicit implementation, so `jsValue.ToInt32(...)` never compiled; only `((IConvertible) jsValue)` did, and 9 of its 17 members threw `NotImplementedException`. Use `JsValue.ToObject()`, or the `AsNumber()` / `AsString()` / `AsBoolean()` extension helpers | [#3304](https://github.com/sebastienros/jint/pull/3304) |
-| `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.Advanced.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
+| `Realm()` (public parameterless constructor) | nothing. A `Realm` only makes sense as the one an `Engine` built; get it from `Engine.HostDefined` or `Host.InitializeShadowRealm`. It was `public` only inside `#if DEBUG`, plus the implicit constructor in Release, so the shipped package's surface differed from a source build's | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `Engine.ModuleOperations(Engine, IModuleLoader)` → `internal` | nothing. `Engine.Modules`' setter is `internal`, so an instance a host constructed could never be installed | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | `JsMap(Engine, Realm)` → `internal` | nothing. It required a `Realm`, which a host has no supported way to obtain; `JsSet`'s equivalent was already `internal` | [#3304](https://github.com/sebastienros/jint/pull/3304) |
 | The `Options` extension methods that mirrored a property — `Strict`, `Culture`, `LocalTimeZone`, `DebugMode`, `AllowClrWrite`, `LimitRecursion`, `SetTypeResolver` and sixteen more | the property they set — the full table is in [3.3](#33-options-is-configured-through-its-properties) | [#3310](https://github.com/sebastienros/jint/pull/3310) |
@@ -63,7 +63,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `Arguments.Skip(this JsValue[] args, int count)` | a slice copy — `args.AsSpan(count).ToArray()`, guarded for an argument list shorter than `count` — or `System.Linq.Enumerable.Skip`, which the same source text now binds to. See [2.5](#25-argumentsskip-no-longer-shadows-linqs-skip) | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `AstExtensions` (the whole class, with its two `GetKey` overloads) → `internal` | nothing. `GetKey` extracts a property key from an Acornima expression and needs a live execution context to do it for a computed one, so it was never callable from host code at a meaningful moment; it appeared in IntelliSense for every host with `using Jint;` and an `Expression` in scope | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `GlobalSymbolRegistry()` (public parameterless constructor) → `internal` | nothing. The well-known symbols on it are `static` and still readable — `GlobalSymbolRegistry.Iterator` and its fourteen siblings are unchanged. The *instance* half holds the symbols one engine's `Symbol.for` created, and `Engine.GlobalSymbolRegistry` is `internal`, so a host-constructed registry could never be installed | [#3320](https://github.com/sebastienros/jint/pull/3320) |
-| `ManualPromise(JsValue, Action<JsValue>, Action<JsValue>)` → `internal` | `Engine.Advanced.RegisterPromise()`, the only thing that ever returned one. Settling requires the resolving functions the engine built for that particular promise, so a hand-constructed handle settled nothing. The properties, `with` and `var (promise, resolve, reject) = …` are unchanged | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `ManualPromise(JsValue, Action<JsValue>, Action<JsValue>)` → `internal` | `Engine.Tasks.RegisterPromise()`, the only thing that ever returned one. Settling requires the resolving functions the engine built for that particular promise, so a hand-constructed handle settled nothing. The properties, `with` and `var (promise, resolve, reject) = …` are unchanged | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 
 ### 2.1 Sealed types
 
@@ -83,11 +83,12 @@ The sealed groups: `CacheOptions`, `ConsoleOptions`, `ConstraintOptions`, `Cover
 `JsonOptions`, `MessagingOptions`, `ModuleOptions`, `ProfilingOptions`, `StorageOptions`, `TemporalOptions`,
 `TimerOptions`, `WebApiOptions`, `WorkerOptions` (`ParsingOptions` already was).
 
-`Engine`'s three facets — `Engine.AdvancedOperations`, `Engine.ConstraintOperations` and
-`Engine.ModuleOperations`, the types behind `engine.Advanced`, `engine.Constraints` and `engine.Modules` — are
-`sealed` too ([#3320](https://github.com/sebastienros/jint/pull/3320)). Each one's only constructor is
-`internal` and each is handed out by an `Engine` that built it, so nothing outside the assembly could have
-derived from one; they were the last nested public classes left unsealed.
+`Engine`'s facets — `Engine.AdvancedOperations`, `Engine.ConstraintOperations`,
+`Engine.ModuleOperations`, and the three [§3.13](#313-engineadvanced-is-split-by-concern-3351) adds
+(`Engine.TaskOperations`, `Engine.WebApiOperations`, `Engine.DiagnosticOperations`) — are `sealed`
+([#3320](https://github.com/sebastienros/jint/pull/3320)). Each one's only constructor is `internal` and each
+is handed out by an `Engine` that built it, so nothing outside the assembly could have derived from one; they
+were the last nested public classes left unsealed.
 
 ### 2.2 The declared non-contracts now say so to the compiler
 
@@ -98,13 +99,13 @@ members. Nothing in the type system said so. They now carry
 
 | Marked | |
 | --- | --- |
-| `ObjectRepresentation`, `Engine.Advanced.GetObjectRepresentation` | to *assert* an object is shaped, use `Engine.Advanced.HasSharedShape`, which **is** a contract and is not marked |
-| `Engine.Advanced.GetMemoryReport` and the `Jint.Diagnostics` records (`EngineMemoryReport`, `HandlerTreeCacheReport`, `InteropCacheReport`, `PoolReport`, `ObjectCensusReport`) | |
-| `InteropConversionDiagnostics`, `Engine.Advanced.GetInteropConversionDiagnostics` | |
+| `ObjectRepresentation`, `Engine.Diagnostics.GetObjectRepresentation` | to *assert* an object is shaped, use `Engine.Advanced.HasSharedShape`, which **is** a contract and is not marked |
+| `Engine.Diagnostics.GetMemoryReport` and the `Jint.Diagnostics` records (`EngineMemoryReport`, `HandlerTreeCacheReport`, `InteropCacheReport`, `PoolReport`, `ObjectCensusReport`) | |
+| `InteropConversionDiagnostics`, `Engine.Diagnostics.GetInteropConversionDiagnostics` | |
 
 ```c#
 #pragma warning disable JINT0001 // Jint diagnostic API, deliberately outside the compatibility contract
-    var report = engine.Advanced.GetMemoryReport();
+    var report = engine.Diagnostics.GetMemoryReport();
 #pragma warning restore JINT0001
 ```
 
@@ -112,9 +113,9 @@ or, for a host that logs one on every request, `<NoWarn>$(NoWarn);JINT0001</NoWa
 file. The identifier is stable: a member marked `JINT0001` keeps that identifier for as long as it is marked,
 so the suppression does not have to be revisited.
 
-Two things this deliberately does *not* mark. `Engine.Advanced.ProcessTasks` is the canonical host loop —
+Two things this deliberately does *not* mark. `Engine.Tasks.ProcessTasks` is the canonical host loop —
 every host with timers, promises or workers must call it — so its stale "this API may break and change
-behavior!" line was corrected rather than promoted to an attribute. `Engine.Advanced.RegisterPromise` is a
+behavior!" line was corrected rather than promoted to an attribute. `Engine.Tasks.RegisterPromise` is a
 real capability rather than a report about an internal representation, so its equally stale
 "EXPERIMENTAL! Subject to change." banner was removed for the same reason: once the attribute exists, the
 word has to mean one thing.
@@ -497,12 +498,12 @@ parameter declared `List<T>` and assigned from one needs its type changed; `ILis
 
 ### 3.9 `ManualPromise` settles with a CLR value ([#3329](https://github.com/sebastienros/jint/issues/3329))
 
-`Engine.Advanced.RegisterPromise()`'s resolve and reject callbacks took a `JsValue`. They now take an
+`Engine.Tasks.RegisterPromise()`'s resolve and reject callbacks took a `JsValue`. They now take an
 `object?`, and the conversion runs inside the enqueued settlement job — on the engine's thread — rather than
 wherever the callback was invoked.
 
 ```c#
-var manual = engine.Advanced.RegisterPromise();
+var manual = engine.Tasks.RegisterPromise();
 
 // 4.16.x - the conversion is on whatever thread the completion landed on
 _ = Task.Run(async () => manual.Resolve(JsValue.FromObject(engine, await FetchAsync(url))));
@@ -513,7 +514,7 @@ _ = Task.Run(async () => manual.Resolve(await FetchAsync(url)));
 
 Most code needs no edit. `JsValue` converts to `object?` implicitly and `JsValue.FromObject` returns a
 `JsValue` unchanged, so every `resolve(someJsValue)` call site compiles and behaves as before, and
-`var (promise, resolve, reject) = engine.Advanced.RegisterPromise();` still deconstructs. What does need an
+`var (promise, resolve, reject) = engine.Tasks.RegisterPromise();` still deconstructs. What does need an
 edit is a callback stored in an explicitly typed `Action<JsValue>` local, field or parameter — change it to
 `Action<object?>`.
 
@@ -678,6 +679,101 @@ one of them: five `Host` virtuals, where the engine *hands* the realm to the hos
 one that has to produce one, and `base.CreateRealm()` produces it), and the `protected` `Module._realm`
 field, on a class whose only constructor is `internal` and which therefore cannot be derived from outside
 Jint at all.
+
+### 3.13 `engine.Advanced` is split by concern ([#3351](https://github.com/sebastienros/jint/pull/3351))
+
+`Engine.Advanced` had grown to about forty members covering nine unrelated things, and the one that hurt is
+the host loop. Jint never starts a thread, so `ProcessTasks` is the **only** way a `setTimeout` callback, a
+settled `Atomics.waitAsync` or a worker message ever runs — a host using timers has no choice about calling
+it — and it was item twenty-two of a facet whose name reads as *"you probably should not"*.
+
+The members are unchanged: same signatures, same semantics, same exceptions. Only the address moved, and
+every move is mechanical — this is a find-and-replace, not a redesign.
+
+**The host loop is `engine.Tasks`.**
+
+| 4.16.x / early 5.0 previews | v5 |
+| --- | --- |
+| `engine.Advanced.ProcessTasks()` | `engine.Tasks.ProcessTasks()` |
+| `engine.Advanced.TimeUntilNextScheduledWork` | `engine.Tasks.TimeUntilNextScheduledWork` |
+| `engine.Advanced.WaitForScheduledWork(…)` | `engine.Tasks.WaitForScheduledWork(…)` |
+| `engine.Advanced.WaitForScheduledWorkAsync(…)` | `engine.Tasks.WaitForScheduledWorkAsync(…)` |
+| `engine.Advanced.RegisterPromise()` | `engine.Tasks.RegisterPromise()` |
+| `engine.Advanced.PromiseRejectionTracker` | `engine.Tasks.PromiseRejectionTracker` |
+
+```c#
+// v5 — the canonical host loop, and now it is called that on the engine too
+while (running)
+{
+    engine.Tasks.ProcessTasks();
+    engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+}
+```
+
+**The web-platform bridge is `engine.WebApi`**, and, like everything else under `Jint.WebApi`, the whole
+facet exists only on `net8.0` and later. Two members are renamed as well as moved, because
+`engine.WebApi.WebApiFeatures` and `engine.WebApi.EnableWebApis` stutter — and `EnableWebApis` was a second
+spelling of `options.UseWebApis` under a different verb and a different return type.
+
+| 4.16.x / early 5.0 previews | v5 |
+| --- | --- |
+| `engine.Advanced.EnableWebApis()` | `engine.WebApi.Enable()` |
+| `engine.Advanced.EnableWebApis(features, configure)` | `engine.WebApi.Enable(features, configure)` |
+| `engine.Advanced.WebApiFeatures` | `engine.WebApi.Features` |
+| `engine.Advanced.HasFetchHandler` | `engine.WebApi.HasFetchHandler` |
+| `engine.Advanced.SetFetchHandler(…)` | `engine.WebApi.SetFetchHandler(…)` |
+| `engine.Advanced.InvokeFetchHandler(…)` | `engine.WebApi.InvokeFetchHandler(…)` |
+| `engine.Advanced.InvokeFetchHandlerAsync(…)` | `engine.WebApi.InvokeFetchHandlerAsync(…)` |
+| `engine.Advanced.CreateMessagePortPair(other)` | `engine.WebApi.CreateMessagePortPair(other)` |
+| `engine.Advanced.CreateAbortSignal(token)` | `engine.WebApi.CreateAbortSignal(token)` |
+| `engine.Advanced.CreateReadableStream(…)` | `engine.WebApi.CreateReadableStream(…)` |
+| `engine.Advanced.CreateWritableStream(…)` | `engine.WebApi.CreateWritableStream(…)` |
+| `engine.Advanced.StartReadableStreamCopy(…)` | `engine.WebApi.StartReadableStreamCopy(…)` |
+| `engine.Advanced.CopyReadableStreamAsync(…)` | `engine.WebApi.CopyReadableStreamAsync(…)` |
+
+`options.WebApi.Features` is unrelated and unchanged: it still reads back exactly what the host asked for,
+where `engine.WebApi.Features` reports the expanded closure the engine actually carries.
+
+**The reports and the instruments that produce them are `engine.Diagnostics`.** Nothing on it changes what a
+script computes, which is the line between it and what stays on `Advanced`.
+
+| 4.16.x / early 5.0 previews | v5 |
+| --- | --- |
+| `engine.Advanced.StackTrace` | `engine.Diagnostics.StackTrace` |
+| `engine.Advanced.ValidateSecurityConfiguration(…)` | `engine.Diagnostics.ValidateSecurityConfiguration(…)` |
+| `engine.Advanced.IsProfiling` | `engine.Diagnostics.IsProfiling` |
+| `engine.Advanced.StartProfiling()` | `engine.Diagnostics.StartProfiling()` |
+| `engine.Advanced.StopProfiling()` | `engine.Diagnostics.StopProfiling()` |
+| `engine.Advanced.GetCoverage()` | `engine.Diagnostics.GetCoverage()` |
+| `engine.Advanced.ResetCoverage()` | `engine.Diagnostics.ResetCoverage()` |
+| `engine.Advanced.GetMemoryReport(…)` | `engine.Diagnostics.GetMemoryReport(…)` |
+| `engine.Advanced.GetObjectRepresentation(…)` | `engine.Diagnostics.GetObjectRepresentation(…)` |
+| `engine.Advanced.GetInteropConversionDiagnostics()` | `engine.Diagnostics.GetInteropConversionDiagnostics()` |
+
+The last three are still the declared non-contracts and still carry `[Experimental("JINT0001")]`; see
+[§2.2](#22-the-declared-non-contracts-now-say-so-to-the-compiler).
+
+**Three members are on `Engine` itself**, because none of them is advanced and each is a peer of something
+already there. `HostDefined` is the host's own slot on this engine, next to `Global` and `Intrinsics`;
+`AddLazyGlobal` is the lazy `SetValue`, and belongs beside it; and `ConvertResult` is the **bounded** way to
+get a CLR object out of the engine, while the unbounded `JsValue.ToObject()` is a method on every value a
+host holds — a host that never found the bounded one was taking the unbounded route by default.
+
+| 4.16.x / early 5.0 previews | v5 |
+| --- | --- |
+| `engine.Advanced.HostDefined` | `engine.HostDefined` |
+| `engine.Advanced.AddLazyGlobal(name, factory, flags)` | `engine.AddLazyGlobal(name, factory, flags)` |
+| `engine.Advanced.AddLazyGlobal(name, state, factory, flags)` | `engine.AddLazyGlobal(name, state, factory, flags)` |
+| `engine.Advanced.ConvertResult(value, limits)` | `engine.ConvertResult(value, limits)` |
+
+**What stays on `Advanced` is what the name should always have meant**: operations with no counterpart in the
+ECMAScript object model. `ResetCallStack`, `CreateProxy`, `CreateRevocableProxy`, `HasSharedShape`,
+`GetPropertyAccessSemantics`, `CaptureGlobalSnapshot`, `RestoreGlobalSnapshot` and `WithRestoredGlobals` are
+unchanged and stay where they are.
+
+One thing that is not observable but worth knowing if you build engines in a tight loop: `Advanced`, `Tasks`,
+`WebApi` and `Diagnostics` are each materialized on first access, so an engine that never touches one never
+allocates it. `engine.Constraints` and `engine.Modules` are unchanged.
 
 ## 4. Breaking without a signature change
 
@@ -917,7 +1013,7 @@ behaviour. They are listed here because a host running untrusted code should now
 | --- | --- | --- | --- |
 | [#3037](https://github.com/sebastienros/jint/pull/3037) | parser source length and AST size | `Parsing.MaxSourceLength`, `Parsing.MaxNodeCount` | `null` (unlimited) |
 | [#3045](https://github.com/sebastienros/jint/pull/3045) | module graph size, depth, resolution hops, and destination | `Modules.MaxModuleCount`, `MaxTotalModuleSourceBytes`, `MaxModuleGraphDepth`, `MaxModuleResolutionHops`, `Modules.LoadPolicy` | `int.MaxValue` / `long.MaxValue` / `null` |
-| [#3046](https://github.com/sebastienros/jint/pull/3046) | host-side result conversion, JSON serialization, error rendering | `Options.ResultLimits`, `Engine.Advanced.ConvertResult` | `ResultLimits.Unlimited` |
+| [#3046](https://github.com/sebastienros/jint/pull/3046) | host-side result conversion, JSON serialization, error rendering | `Options.ResultLimits`, `Engine.ConvertResult` | `ResultLimits.Unlimited` |
 
 Crossing a parser limit throws `ParsingLimitException`, a module-graph limit throws
 `ModuleGraphLimitException` and a result limit throws `ResultLimitExceededException`. None is
@@ -1062,7 +1158,7 @@ share the same `Options`, and a sink you own does not.
 
 Three details worth knowing:
 
-- **`Engine.Advanced.EnableWebApis(features, configure)` still works.** Its callback is the one sanctioned
+- **`Engine.WebApi.Enable(features, configure)` still works.** Its callback is the one sanctioned
   write to an engine's own options after construction, and it is the only place the freeze is suspended. The
   suspension covers that engine's own web-API group and its sub-groups, on the calling thread, for the
   duration of the callback — no other `Options` instance, no other group, and not the registries: a live

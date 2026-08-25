@@ -333,7 +333,7 @@ public class WebApiFetchTests
 
         // Three at once: the third is refused rather than queued.
         engine.Execute("var outcome; fetch('https://example.org/1'); fetch('https://example.org/2'); fetch('https://example.org/3').then(() => outcome = 'resolved', e => outcome = e.message);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("outcome").AsString().Should()
             .Be("Failed to fetch: the engine already has 2 requests in flight, which is its Options.WebApi.Fetch.MaxConcurrentRequests limit.");
@@ -378,7 +378,7 @@ public class WebApiFetchTests
         // ... and nothing from the ended cycle ever settles into the restored engine.
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
@@ -410,7 +410,7 @@ public class WebApiFetchTests
 
         for (var i = 0; i < 20; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
@@ -453,7 +453,7 @@ public class WebApiFetchTests
         var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline && !engine.Evaluate("done").AsBoolean())
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
@@ -468,7 +468,7 @@ public class WebApiFetchTests
         var engine = WebEngine(handler);
 
         engine.Execute("var error; fetch('https://example.org/').then(() => {}, e => error = e);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         var error = engine.Evaluate("error");
         error.AsObject().Get("message").AsString().Should().Be("Failed to fetch");
@@ -497,12 +497,12 @@ public class WebApiFetchTests
                 fetch.HttpClientFactory = e =>
                 {
                     // Called on the engine thread, so per-request host state is reachable.
-                    seen.Add(e.Advanced.HostDefined);
+                    seen.Add(e.HostDefined);
                     return new HttpClient(byFactory);
                 };
             }));
 
-        engine.Advanced.HostDefined = "tenant-a";
+        engine.HostDefined = "tenant-a";
         engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(202);
 
         seen.Should().Equal("tenant-a");
@@ -525,7 +525,7 @@ public class WebApiFetchTests
 
         first.Execute("fetch('https://example.org/1');");
         second.Execute("var outcome; fetch('https://example.org/2').then(() => outcome = 'resolved', e => outcome = e.name);");
-        second.Advanced.ProcessTasks();
+        second.Tasks.ProcessTasks();
 
         // The second engine's request was not refused by the first engine's slot being taken.
         second.Evaluate("typeof outcome").AsString().Should().Be("undefined");

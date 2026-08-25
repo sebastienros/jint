@@ -56,10 +56,10 @@ public class FetchEventTests
     /// </summary>
     private static string Answer(Engine engine, HttpRequestMessage? request = null)
     {
-        var operation = engine.Advanced.InvokeFetchHandler(request ?? Get());
+        var operation = engine.WebApi.InvokeFetchHandler(request ?? Get());
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         using var response = operation.GetResult();
@@ -87,7 +87,7 @@ public class FetchEventTests
 
         // The whole point of the separate flag: routing requests IN is not a grant to reach OUT.
         engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
-        engine.Advanced.WebApiFeatures.Should().NotHaveFlag(WebApiFeatures.Fetch);
+        engine.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.Fetch);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class FetchEventTests
 
         // Deliberately not implied in either direction — outbound network and inbound routing are two grants.
         var fetching = new Engine(options => options.UseFetch());
-        fetching.Advanced.WebApiFeatures.Should().NotHaveFlag(WebApiFeatures.FetchEvents);
+        fetching.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.FetchEvents);
         fetching.Evaluate("typeof FetchEvent").AsString().Should().Be("undefined");
     }
 
@@ -384,7 +384,7 @@ public class FetchEventTests
             });
             """);
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get());
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
         operation.IsCompleted.Should().BeFalse();
 
         // The response promise is a lifetime promise too, so the event is still active with the dispatch over.
@@ -393,7 +393,7 @@ public class FetchEventTests
         engine.Execute("release(new Response('done'));");
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         using (var response = operation.GetResult())
@@ -489,10 +489,10 @@ public class FetchEventTests
             });
             """, sink);
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get());
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         // The host already learns about it, as the operation's failure — reporting it a second time as a lost
@@ -510,13 +510,13 @@ public class FetchEventTests
     {
         var engine = Worker("addEventListener('fetch', e => e.respondWith(new Response('sync')));");
 
-        var operation = engine.Advanced.InvokeFetchHandler(Get());
+        var operation = engine.WebApi.InvokeFetchHandler(Get());
 
         // Unlike a SetFetchHandler handler that returns a Response, respondWith() puts its argument through
         // PromiseResolve, and a promise reaction is a job — so even the most synchronous listener needs a pump.
         operation.IsCompleted.Should().BeFalse();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         operation.IsCompleted.Should().BeTrue();
     }
 
@@ -533,7 +533,7 @@ public class FetchEventTests
         // gives.
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        Assert.Throws<InvalidOperationException>(() => engine.Advanced.InvokeFetchHandler(Get()))
+        Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()))
             .Message.Should().Contain("addEventListener('fetch'");
     }
 }

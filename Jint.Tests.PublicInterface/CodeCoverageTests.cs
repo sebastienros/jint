@@ -46,10 +46,10 @@ public class CodeCoverageTests
             options.Coverage.Granularity = CoverageGranularity.Statements;
         });
 
-        CoverageReport report = engine.Advanced.GetCoverage();
+        CoverageReport report = engine.Diagnostics.GetCoverage();
         report.Sources.Should().BeEmpty();
 
-        engine.Advanced.ResetCoverage();
+        engine.Diagnostics.ResetCoverage();
     }
 
     [Fact]
@@ -58,8 +58,8 @@ public class CodeCoverageTests
         var engine = new Engine();
         engine.Execute("var a = 1;");
 
-        Invoking(() => engine.Advanced.GetCoverage()).Should().Throw<InvalidOperationException>();
-        Invoking(() => engine.Advanced.ResetCoverage()).Should().Throw<InvalidOperationException>();
+        Invoking(() => engine.Diagnostics.GetCoverage()).Should().Throw<InvalidOperationException>();
+        Invoking(() => engine.Diagnostics.ResetCoverage()).Should().Throw<InvalidOperationException>();
     }
 
     // ---- the report a host actually consumes ----
@@ -77,7 +77,7 @@ public class CodeCoverageTests
         var engine = CreateEngine();
         engine.Execute(Code, Source);
 
-        var rows = Rows(Code, engine.Advanced.GetCoverage());
+        var rows = Rows(Code, engine.Diagnostics.GetCoverage());
 
         // three calls, of which one takes the early return
         rows.Should().Contain(("classify(i);", CoverageEntryKind.Statement, 3L));
@@ -103,7 +103,7 @@ public class CodeCoverageTests
         var engine = CreateEngine();
         engine.Execute(Code, Source);
 
-        var entries = engine.Advanced.GetCoverage().Sources.Single().Entries;
+        var entries = engine.Diagnostics.GetCoverage().Sources.Single().Entries;
 
         entries.Should().HaveCount(2);
 
@@ -124,7 +124,7 @@ public class CodeCoverageTests
         var engine = CreateEngine();
         engine.Execute(Code, Source);
 
-        Rows(Code, engine.Advanced.GetCoverage())
+        Rows(Code, engine.Diagnostics.GetCoverage())
             .Select(r => r.Text)
             .Should().NotContain("var unreachable = 1;");
     }
@@ -137,7 +137,7 @@ public class CodeCoverageTests
         var engine = CreateEngine(CoverageGranularity.Functions);
         engine.Execute(Code, Source);
 
-        Rows(Code, engine.Advanced.GetCoverage()).Should().Equal(
+        Rows(Code, engine.Diagnostics.GetCoverage()).Should().Equal(
             ("{ var x = 1; return x; }", CoverageEntryKind.Function, 3L));
     }
 
@@ -148,11 +148,11 @@ public class CodeCoverageTests
 
         var engine = CreateEngine();
         engine.Execute(Code, Source);
-        engine.Advanced.ResetCoverage();
+        engine.Diagnostics.ResetCoverage();
         engine.Execute(Code, Source);
         engine.Execute(Code, Source);
 
-        Rows(Code, engine.Advanced.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 2L));
+        Rows(Code, engine.Diagnostics.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 2L));
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class CodeCoverageTests
         engine.Execute("var b = 2;", "beta.js");
         engine.Execute("var c = 3;");
 
-        engine.Advanced.GetCoverage().Sources.Select(s => s.Name)
+        engine.Diagnostics.GetCoverage().Sources.Select(s => s.Name)
             .Should().Equal("<anonymous>", "alpha.js", "beta.js");
     }
 
@@ -188,8 +188,8 @@ public class CodeCoverageTests
         first.Execute(Code, Source);
         second.Execute(Code, Source);
 
-        Rows(Code, first.Advanced.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 2L));
-        Rows(Code, second.Advanced.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 1L));
+        Rows(Code, first.Diagnostics.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 2L));
+        Rows(Code, second.Diagnostics.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 1L));
     }
 
     /// <summary>
@@ -215,7 +215,7 @@ public class CodeCoverageTests
         covering.Execute(prepared);
 
         // the plain engine's ten runs left nothing behind for the covering one to find
-        var rows = Rows(Code, covering.Advanced.GetCoverage());
+        var rows = Rows(Code, covering.Diagnostics.GetCoverage());
         rows.Should().Contain(("return a + b;", CoverageEntryKind.Statement, 2L));
         rows.Should().Contain(("{ return a + b; }", CoverageEntryKind.Function, 2L));
 
@@ -241,6 +241,6 @@ public class CodeCoverageTests
         engine.Execute(Code, Source);
 
         engine.GetValue("n").AsNumber().Should().Be(10);
-        Rows(Code, engine.Advanced.GetCoverage()).Should().Contain(("n += i;", CoverageEntryKind.Statement, 5L));
+        Rows(Code, engine.Diagnostics.GetCoverage()).Should().Contain(("n += i;", CoverageEntryKind.Statement, 5L));
     }
 }

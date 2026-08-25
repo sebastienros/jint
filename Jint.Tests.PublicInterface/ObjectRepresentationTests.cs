@@ -12,7 +12,7 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.GetObjectRepresentation"/> is the only way a host can tell whether
+/// <see cref="Engine.DiagnosticOperations.GetObjectRepresentation"/> is the only way a host can tell whether
 /// the object factories actually shaped an object or quietly fell back to the dictionary representation.
 /// These tests live outside the Jint assembly on purpose: the point of the API is that an integrator with
 /// nothing but the public surface can write exactly these assertions.
@@ -61,10 +61,10 @@ public class ObjectRepresentationTests
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee. The
         // reflection assertions catch the accident of the surface being narrowed to internal + IVT later.
         var engine = new Engine();
-        engine.Advanced.GetObjectRepresentation(CreateSample(engine)).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(CreateSample(engine)).Should().Be(ObjectRepresentation.HiddenClass);
 
         typeof(ObjectRepresentation).IsPublic.Should().BeTrue();
-        typeof(Engine.AdvancedOperations).GetMethod(nameof(Engine.AdvancedOperations.GetObjectRepresentation))
+        typeof(Engine.DiagnosticOperations).GetMethod(nameof(Engine.DiagnosticOperations.GetObjectRepresentation))
             .Should().NotBeNull();
     }
 
@@ -72,7 +72,7 @@ public class ObjectRepresentationTests
     public void NullIsRejected()
     {
         var engine = new Engine();
-        Invoking(() => engine.Advanced.GetObjectRepresentation(null!)).Should().Throw<ArgumentNullException>();
+        Invoking(() => engine.Diagnostics.GetObjectRepresentation(null!)).Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class ObjectRepresentationTests
         var engine = new Engine();
         var other = new Engine();
 
-        Invoking(() => engine.Advanced.GetObjectRepresentation(CreateSample(other)))
+        Invoking(() => engine.Diagnostics.GetObjectRepresentation(CreateSample(other)))
             .Should().Throw<ArgumentException>().WithMessage("*different engine*");
     }
 
@@ -93,11 +93,11 @@ public class ObjectRepresentationTests
     public void AnObjectBuiltFromALayoutIsShaped()
     {
         var engine = new Engine();
-        engine.Advanced.GetObjectRepresentation(CreateSample(engine)).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(CreateSample(engine)).Should().Be(ObjectRepresentation.HiddenClass);
 
         // An empty layout still resolves to a (property-less) hidden class.
         var empty = JsObject.Create(engine, new JsObjectLayout(), []);
-        engine.Advanced.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.HiddenClass);
 
         // Wider than the in-object slot capacity, so the values spill — still shaped.
         var wide = JsObject.Create(engine, new JsObjectLayout("a", "b", "c", "d", "e", "f", "g"),
@@ -105,7 +105,7 @@ public class ObjectRepresentationTests
             JsNumber.Create(1), JsNumber.Create(2), JsNumber.Create(3), JsNumber.Create(4),
             JsNumber.Create(5), JsNumber.Create(6), JsNumber.Create(7)
         ]);
-        engine.Advanced.GetObjectRepresentation(wide).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(wide).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
     [Fact]
@@ -113,10 +113,10 @@ public class ObjectRepresentationTests
     {
         var engine = new Engine();
         var fromSpan = JsObject.CreateFromEntries(engine, SampleEntries());
-        engine.Advanced.GetObjectRepresentation(fromSpan).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(fromSpan).Should().Be(ObjectRepresentation.HiddenClass);
 
         var fromEnumerable = JsObject.CreateFromEntries(engine, (IEnumerable<KeyValuePair<string, JsValue>>) SampleEntries());
-        engine.Advanced.GetObjectRepresentation(fromEnumerable).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(fromEnumerable).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class ObjectRepresentationTests
         var engine = new Engine();
         var empty = JsObject.CreateFromEntries(engine, System.Array.Empty<KeyValuePair<string, JsValue>>());
 
-        engine.Advanced.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     [Fact]
@@ -137,10 +137,10 @@ public class ObjectRepresentationTests
         var engine = new Engine();
 
         var literal = engine.Evaluate("({ id: 1, name: 'sample', active: true })").AsObject();
-        engine.Advanced.GetObjectRepresentation(literal).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(literal).Should().Be(ObjectRepresentation.HiddenClass);
 
         var empty = engine.Evaluate("({})").AsObject();
-        engine.Advanced.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     // ---- fallback triggers ----
@@ -159,7 +159,7 @@ public class ObjectRepresentationTests
             new KeyValuePair<string, JsValue>(name, JsNumber.Create(1)),
             new KeyValuePair<string, JsValue>("other", JsNumber.Create(2))
         ]);
-        engine.Advanced.GetObjectRepresentation(leading).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(leading).Should().Be(ObjectRepresentation.Dictionary);
 
         // and part way through: shaped, then dropped mid-build
         var trailing = JsObject.CreateFromEntries(engine,
@@ -167,7 +167,7 @@ public class ObjectRepresentationTests
             new KeyValuePair<string, JsValue>("other", JsNumber.Create(2)),
             new KeyValuePair<string, JsValue>(name, JsNumber.Create(1))
         ]);
-        engine.Advanced.GetObjectRepresentation(trailing).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(trailing).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class ObjectRepresentationTests
             entries[i] = new KeyValuePair<string, JsValue>("k" + i, JsNumber.Create(i));
         }
 
-        engine.Advanced.GetObjectRepresentation(JsObject.CreateFromEntries(engine, entries))
+        engine.Diagnostics.GetObjectRepresentation(JsObject.CreateFromEntries(engine, entries))
             .Should().Be(ObjectRepresentation.Dictionary);
     }
 
@@ -199,12 +199,12 @@ public class ObjectRepresentationTests
             new KeyValuePair<string, JsValue>("shared", JsNumber.Create(i))
         ]);
 
-        engine.Advanced.GetObjectRepresentation(Build(0)).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(Build(0)).Should().Be(ObjectRepresentation.HiddenClass);
 
         var fellBackAt = -1;
         for (var i = 1; i < 500 && fellBackAt < 0; i++)
         {
-            if (engine.Advanced.GetObjectRepresentation(Build(i)) == ObjectRepresentation.Dictionary)
+            if (engine.Diagnostics.GetObjectRepresentation(Build(i)) == ObjectRepresentation.Dictionary)
             {
                 fellBackAt = i;
             }
@@ -242,14 +242,14 @@ public class ObjectRepresentationTests
         }
 
         var first = WideLayout("first_");
-        engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, first, values))
+        engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, first, values))
             .Should().Be(ObjectRepresentation.HiddenClass);
 
         var exhaustedAt = -1;
         for (var iteration = 0; iteration < 1000 && exhaustedAt < 0; iteration++)
         {
             var layout = WideLayout("burn" + iteration + "_");
-            if (engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, layout, values)) == ObjectRepresentation.Dictionary)
+            if (engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, layout, values)) == ObjectRepresentation.Dictionary)
             {
                 exhaustedAt = iteration;
             }
@@ -258,12 +258,12 @@ public class ObjectRepresentationTests
         exhaustedAt.Should().BeGreaterThan(0, "the per-engine layout budget is finite");
 
         // An already-resolved layout keeps its hidden class: the budget only gates layouts new to the engine.
-        engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, first, values))
+        engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, first, values))
             .Should().Be(ObjectRepresentation.HiddenClass);
 
         // A different engine starts over with a full budget, from the very layout that just failed.
         var fresh = new Engine();
-        fresh.Advanced.GetObjectRepresentation(JsObject.Create(fresh, WideLayout("burn" + exhaustedAt + "_"), values))
+        fresh.Diagnostics.GetObjectRepresentation(JsObject.Create(fresh, WideLayout("burn" + exhaustedAt + "_"), values))
             .Should().Be(ObjectRepresentation.HiddenClass);
     }
 
@@ -282,9 +282,9 @@ public class ObjectRepresentationTests
         var obj = CreateSample(engine);
         engine.SetValue("o", obj);
 
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
         engine.Execute(script);
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
 
         // ...and the object still behaves exactly as it did.
         engine.Evaluate("o.id").Should().Be(1);
@@ -301,13 +301,13 @@ public class ObjectRepresentationTests
         // extensions (which changes no property descriptor) and swapping the prototype all leave the layout
         // intact — so a host asserting "still shaped" is not asserting "never touched".
         engine.Execute("o.name = 'changed'; o[Symbol('s')] = 1;");
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
 
         engine.Execute("Object.setPrototypeOf(o, { inherited: 1 });");
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
 
         engine.Execute("Object.preventExtensions(o);");
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
 
         engine.Evaluate("o.name + ',' + o.inherited").Should().Be("changed,1");
     }
@@ -323,9 +323,9 @@ public class ObjectRepresentationTests
         // itself, because a diagnostic that initializes what it inspects changes what it is measuring.
         engine.Execute("Math.abs(1); JSON.stringify(1);");
 
-        engine.Advanced.GetObjectRepresentation(engine.Evaluate("Math").AsObject())
+        engine.Diagnostics.GetObjectRepresentation(engine.Evaluate("Math").AsObject())
             .Should().Be(ObjectRepresentation.SharedBuiltinLayout);
-        engine.Advanced.GetObjectRepresentation(engine.Evaluate("JSON").AsObject())
+        engine.Diagnostics.GetObjectRepresentation(engine.Evaluate("JSON").AsObject())
             .Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
@@ -336,13 +336,13 @@ public class ObjectRepresentationTests
         engine.SetValue("host", new HostPoint { X = 1 });
 
         var array = engine.Evaluate("[1, 2, 3]").AsObject();
-        engine.Advanced.GetObjectRepresentation(array).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(array).Should().Be(ObjectRepresentation.Specialized);
 
         var wrapper = engine.Evaluate("host").AsObject();
-        engine.Advanced.GetObjectRepresentation(wrapper).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(wrapper).Should().Be(ObjectRepresentation.Specialized);
 
         var proxy = engine.Evaluate("new Proxy({}, {})").AsObject();
-        engine.Advanced.GetObjectRepresentation(proxy).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(proxy).Should().Be(ObjectRepresentation.Specialized);
     }
 
     [Fact]
@@ -355,6 +355,6 @@ public class ObjectRepresentationTests
         engine.SetValue("host", host);
 
         engine.Evaluate("host.answer").Should().Be(42);
-        engine.Advanced.GetObjectRepresentation(host).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(host).Should().Be(ObjectRepresentation.Specialized);
     }
 }

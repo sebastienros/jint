@@ -7,7 +7,7 @@ namespace Jint.WebApi.Messaging;
 
 /// <summary>
 /// Entangles two <see cref="JsMessagePort"/>s — the pair a <c>MessageChannel</c> is made of, and the pair
-/// <c>Engine.Advanced.CreateMessagePortPair</c> hands a host to bridge two engines.
+/// <c>Engine.WebApi.CreateMessagePortPair</c> hands a host to bridge two engines.
 /// <para>
 /// https://html.spec.whatwg.org/multipage/web-messaging.html#entangle
 /// </para>
@@ -38,7 +38,7 @@ internal static class MessagePortBridge
     /// <remarks>
     /// Both ports are constructed here, on the calling thread, which for a cross-engine pair means one of them
     /// is built on a thread that is not its own engine's. That is why
-    /// <c>Engine.Advanced.CreateMessagePortPair</c> requires both engines to be quiescent: constructing a port
+    /// <c>Engine.WebApi.CreateMessagePortPair</c> requires both engines to be quiescent: constructing a port
     /// materializes its realm's <c>MessagePort</c> intrinsics, which is engine mutation like any other.
     /// </remarks>
     internal static (JsMessagePort First, JsMessagePort Second) CreatePair(

@@ -146,13 +146,13 @@ public class FreshEngineGlobalsBenchmark
                 // built here rather than hoisted for the same reason the Delegate row builds its delegates
                 // here: a host whose globals depend on the request has nothing to hoist.
                 var index = i;
-                engine.Advanced.AddLazyGlobal(name, e => CreateClrFunction(e, name, index));
+                engine.AddLazyGlobal(name, e => CreateClrFunction(e, name, index));
             }
             else if (Kind == GlobalKind.LazyPerEngineWithState)
             {
                 // The same registration with the per-request data passed through instead of captured, so the
                 // factory is static and the descriptor is the only thing allocated.
-                engine.Advanced.AddLazyGlobal(
+                engine.AddLazyGlobal(
                     name,
                     (Owner: this, Name: name, Index: i),
                     static (e, s) => s.Owner.CreateClrFunction(e, s.Name, s.Index));
@@ -232,7 +232,7 @@ public enum GlobalKind
 
     /// <summary>
     /// The same declaration made on the engine itself through
-    /// <see cref="Engine.AdvancedOperations.AddLazyGlobal"/>, which is what a host must use when the value
+    /// <see cref="Engine.AddLazyGlobal"/>, which is what a host must use when the value
     /// depends on per-request state a shared <see cref="Options"/> cannot hold — a scoped service provider,
     /// a request, a workflow context.
     /// <para>

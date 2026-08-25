@@ -41,7 +41,7 @@ internal sealed record ResolvingFunctions(
 );
 
 /// <summary>
-/// The handle <see cref="Engine.AdvancedOperations.RegisterPromise"/> returns: a JavaScript promise plus the
+/// The handle <see cref="Engine.TaskOperations.RegisterPromise"/> returns: a JavaScript promise plus the
 /// two functions that settle it. Only the engine can hand one out — settling requires the resolving functions
 /// the engine built for that particular promise, so a host-constructed instance could never mean anything.
 /// </summary>

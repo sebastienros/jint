@@ -155,7 +155,7 @@ public class WebApiTimerBenchmark
         for (var i = 0; i < IntervalFirings; i++)
         {
             _intervalClock.Advance(IntervalStepMilliseconds);
-            _intervalEngine.Advanced.ProcessTasks();
+            _intervalEngine.Tasks.ProcessTasks();
         }
 
         _intervalEngine.Execute(_intervalStop);

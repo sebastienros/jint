@@ -258,7 +258,7 @@ public sealed partial class Options
 
 #if NET8_0_OR_GREATER
     /// <summary>
-    /// The group <c>Engine.Advanced.EnableWebApis</c> is running a host's configuration callback against on
+    /// The group <c>Engine.WebApi.Enable</c> is running a host's configuration callback against on
     /// this thread, which is the one sanctioned write to an engine's own options after construction.
     /// </summary>
     /// <remarks>
@@ -297,7 +297,7 @@ public sealed partial class Options
     /// Suspends the read-only guard for <paramref name="target"/>'s subtree on this thread.
     /// </summary>
     /// <returns>
-    /// The suspension this one replaced, so that a callback re-entering <c>EnableWebApis</c> restores it
+    /// The suspension this one replaced, so that a callback re-entering <c>Engine.WebApi.Enable</c> restores it
     /// rather than clearing it.
     /// </returns>
     internal static WebApiOptions? BeginLiveWebApiConfiguration(WebApiOptions target)

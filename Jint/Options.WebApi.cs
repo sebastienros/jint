@@ -48,8 +48,8 @@ public sealed partial class Options
         /// Read once, when an engine is built, so this is the set an engine <i>starts</i> with rather than the
         /// set it has: it always reads back exactly what the host asked for, while the engine additionally
         /// carries the feature closure, and a host may turn further features on afterwards with
-        /// <c>Engine.Advanced.EnableWebApis</c>. What a given engine actually has is
-        /// <c>engine.Advanced.WebApiFeatures</c>.
+        /// <c>Engine.WebApi.Enable</c>. What a given engine actually has is
+        /// <c>engine.WebApi.Features</c>.
         /// </remarks>
         public WebApiFeatures Features { get; set { ThrowIfReadOnly(); field = value; } }
 
@@ -145,7 +145,7 @@ public sealed partial class Options
     /// <remarks>
     /// Nothing here is needed for <c>MessageChannel</c>, <c>MessagePort</c> or <c>MessageEvent</c>: a port pair
     /// is entangled by construction, and the cross-engine form of one is
-    /// <c>Engine.Advanced.CreateMessagePortPair</c> rather than an option. A <c>BroadcastChannel</c> has no
+    /// <c>Engine.WebApi.CreateMessagePortPair</c> rather than an option. A <c>BroadcastChannel</c> has no
     /// pair to be entangled with — it addresses a <i>name</i> — so which channels are in earshot of each other
     /// is the one thing about it a host has to be able to say.
     /// </remarks>
@@ -193,7 +193,7 @@ public sealed partial class Options
         /// <para>
         /// A worker needs a thread and a pump, and Jint never starts either, so there is no default provider
         /// and there cannot be one. See <see cref="WorkerProvider"/> for what a provider owes and for the
-        /// pooled-host warning about setting this through the live <c>EnableWebApis</c> door.
+        /// pooled-host warning about setting this through the live <c>Engine.WebApi.Enable</c> door.
         /// </para>
         /// <para>
         /// Read once, when the engine is built.
@@ -417,7 +417,7 @@ public sealed partial class Options
         /// </summary>
         /// <remarks>
         /// Called on the engine's thread, once per <c>fetch</c> call, before anything is sent — so it may read
-        /// per-request host state through <c>engine.Advanced.HostDefined</c>, which is how a multi-tenant host
+        /// per-request host state through <c>engine.HostDefined</c>, which is how a multi-tenant host
         /// hands each tenant its own <c>IHttpClientFactory</c>-managed client. It must not return
         /// <see langword="null"/>, and it must not block: it runs while the calling script is suspended.
         /// </remarks>
@@ -559,7 +559,7 @@ public sealed partial class Options
     /// <b>Timers fire only while the engine is being pumped, and Jint never starts a thread to pump it.</b>
     /// A callback runs on the first drain of the event loop at or after its due time — a blocking
     /// <c>UnwrapIfPromise</c>, an <c>await</c> of <c>EvaluateAsync</c>, or the host's own
-    /// <c>engine.Advanced.ProcessTasks()</c> loop. An engine nobody pumps never fires a timer, which is what
+    /// <c>engine.Tasks.ProcessTasks()</c> loop. An engine nobody pumps never fires a timer, which is what
     /// makes this safe in a request handler that returns as soon as the script does.
     /// </para>
     /// </remarks>
@@ -845,7 +845,7 @@ public enum WebApiFeatures
     /// Standard's web messaging, https://html.spec.whatwg.org/multipage/web-messaging.html. A message is
     /// structured-cloned when it is posted and delivered as an event-loop task, so nothing fires except while
     /// the engine is being pumped. The same ports can span <b>two</b> engines through
-    /// <c>Engine.Advanced.CreateMessagePortPair</c>, which needs this flag on both of them; a
+    /// <c>Engine.WebApi.CreateMessagePortPair</c>, which needs this flag on both of them; a
     /// <c>BroadcastChannel</c> spans as many engines as share a
     /// <see cref="Options.MessagingOptions.Broker"/>, and reaches every other channel of its name rather than
     /// one peer. A <c>MessagePort</c> is itself transferable, so a port can be handed over another port — or
@@ -1014,7 +1014,7 @@ public enum WebApiFeatures
     /// The <c>FetchEvent</c> interface and the script-facing registration form the service-worker and
     /// edge-worker world writes — <c>addEventListener('fetch', event =&gt; event.respondWith(…))</c> —
     /// https://w3c.github.io/ServiceWorker/#fetchevent-interface. With it enabled,
-    /// <c>Engine.Advanced.InvokeFetchHandler</c> dispatches the inbound request at the global scope as a
+    /// <c>Engine.WebApi.InvokeFetchHandler</c> dispatches the inbound request at the global scope as a
     /// trusted <c>fetch</c> event whenever the host registered no handler of its own, so an unmodified
     /// Workers-shaped script runs without the host adapting it.
     /// </summary>
@@ -1024,7 +1024,7 @@ public enum WebApiFeatures
     /// directions:</b> naming this does not enable fetch and naming fetch does not enable this. The two are
     /// separate grants — <see cref="Fetch"/> lets the script reach <i>out</i> to the network, while this one
     /// routes requests the host already has <i>in</i> to the script — and coupling them would contradict the
-    /// refusal <c>Engine.Advanced.SetFetchHandler</c> already makes, which installs the object model and
+    /// refusal <c>Engine.WebApi.SetFetchHandler</c> already makes, which installs the object model and
     /// pointedly not <c>fetch</c>. It is nevertheless a capability worth naming on its own: a script that can
     /// register a <c>fetch</c> listener can take over every request the host routes into the engine, including
     /// ones a host handler would otherwise have answered.
