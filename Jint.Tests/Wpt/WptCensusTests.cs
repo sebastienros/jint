@@ -47,9 +47,9 @@ public class WptCensusTests
         var stated = WptCensus.ReadmeTable(lines);
         var derived = WptCensus.Render(measured: false, lines);
 
-        if (!string.Equals(derived, stated, StringComparison.Ordinal))
+        if (WptCensus.Reconcile(derived, stated, countsIncluded: false) is { } differences)
         {
-            Assert.Fail(WptCensus.Explain(derived, stated, "the standards, suite counts or file counts have moved"));
+            Assert.Fail(differences);
         }
     }
 
@@ -78,6 +78,23 @@ public class WptCensusTests
     /// second is the whole maintenance procedure, and it replaces the hand re-census.
     /// </para>
     /// <para>
+    /// <b>Four equalities and a ceiling.</b> <c>Suites</c>, <c>Files</c> and <c>Assertions</c> are held
+    /// exactly, because the first two are read off the corpus and the third counts <i>registrations</i> — a
+    /// suite registers its cases at file scope, so a file that reports at all reports every one of them.
+    /// <c>Not passing</c> is the only column that counts <i>outcomes</i>, and so the only one a loaded machine
+    /// has ever moved: <see href="https://github.com/sebastienros/jint/issues/3339">#3339</see> is three
+    /// unrelated pull requests reddened by it in one afternoon, one of them a change to three markdown
+    /// headings. A rise still fails — the census cannot tell a flake from a real regression, and must not
+    /// try — but it fails <i>as a regression</i>, naming the suite, the direction and the size, where it used
+    /// to say "the inventory table is out of date" and thereby invite the one response that would ratchet the
+    /// number permanently worse. A fall fails as staleness, which is the case that phrase actually fits.
+    /// </para>
+    /// <para>
+    /// <b>And the rewrite will not raise the ceiling.</b> Without that half, a rise would still be answerable
+    /// by re-censusing, which is exactly what must not work; see <see cref="WptCensus.RefusalToRaise"/> and
+    /// the one deliberate spelling that overrides it.
+    /// </para>
+    /// <para>
     /// Windows only, in both modes, because assertion counts move per operating system and the table says in
     /// its own first line that it is measured on Windows — updating it from a Linux run would write figures
     /// the table does not claim. That is a deliberate hole: the three columns above are platform-independent
@@ -100,18 +117,135 @@ public class WptCensusTests
         WptCensus.Measure();
 
         var measured = WptCensus.Render(measured: true);
+        var stated = WptCensus.ReadmeTable();
 
         if (updating)
         {
+            if (!WptCensus.RaiseRequested() && WptCensus.RefusalToRaise(measured, stated) is { } refusal)
+            {
+                Assert.Fail(refusal);
+            }
+
             var path = WptCensus.WriteReadmeTable(measured);
             Assert.Skip($"{WptCensus.UpdateVariable} rewrote the inventory table in {path}.");
         }
 
-        var stated = WptCensus.ReadmeTable();
-        if (!string.Equals(measured, stated, StringComparison.Ordinal))
+        if (WptCensus.Reconcile(measured, stated, countsIncluded: true) is { } differences)
         {
-            Assert.Fail(WptCensus.Explain(measured, stated, "the corpus was censused and the totals disagree"));
+            Assert.Fail(differences);
         }
+    }
+
+    /// <summary>
+    /// A one-row table plus its total, which is the smallest thing the comparison has an opinion about.
+    /// </summary>
+    private static string Table(int files, int assertions, int notPassing, string standard = "Fetch", string suites = "`fetch/api/` ×5") =>
+        $"""
+         | Standard | Suites | Files | Assertions | Not passing |
+         | --- | --- | --- | --- | --- |
+         | {standard} | {suites} | {files} | {assertions} | {notPassing} |
+         | **total** | **5** | **{files}** | **{assertions}** | **{notPassing}** |
+
+         """;
+
+    [Fact]
+    public void ATableTheCorpusAgreesWithIsNotADifference()
+    {
+        WptCensus.Reconcile(Table(49, 714, 154), Table(49, 714, 154), countsIncluded: true).Should().BeNull();
+    }
+
+    [Fact]
+    public void MoreFailingAssertionsThanTheTableAllowsIsReportedAsARegression()
+    {
+        // The shape of every complaint on #3339: fourteen fetch assertions that passed on one run and did not
+        // on the next. What the message must not do is present that as a stale table, because the response to
+        // a stale table is to re-census — which would write the worse number in as the new floor.
+        var message = WptCensus.Reconcile(Table(49, 714, 168), Table(49, 714, 154), countsIncluded: true);
+
+        message.Should().NotBeNull();
+        message.Should().Contain("fails more than");
+        message.Should().Contain("Fetch: not passing 154 -> 168 (+14)", "the suite, the direction and the size");
+        message.Should().Contain("total: not passing 154 -> 168 (+14)");
+        message.Should().Contain("ceiling, not a baseline");
+        message.Should().NotContain("out of date", "a regression is not the author forgetting to re-census");
+    }
+
+    [Fact]
+    public void FewerFailingAssertionsThanTheTableStatesIsReportedAsStaleness()
+    {
+        // The other direction, and the one case where "out of date" is the truthful sentence: a fix removed an
+        // exclusion and nobody re-censused. This is what the update mode is for, and it says so.
+        var message = WptCensus.Reconcile(Table(49, 714, 140), Table(49, 714, 154), countsIncluded: true);
+
+        message.Should().NotBeNull();
+        message.Should().Contain("out of date");
+        message.Should().Contain("Fetch: not passing 154 -> 140 (-14)");
+        message.Should().Contain($"{WptCensus.UpdateVariable}=update");
+    }
+
+    [Theory]
+    // One more file than the table names, and one more assertion. Neither counts an outcome, so both are
+    // equalities in both directions and a change either way is the corpus having moved.
+    [InlineData(50, 714, 154)]
+    [InlineData(48, 714, 154)]
+    [InlineData(49, 715, 154)]
+    [InlineData(49, 713, 154)]
+    public void AColumnThatIsNotAnOutcomeIsHeldExactly(int files, int assertions, int notPassing)
+    {
+        WptCensus.Reconcile(Table(files, assertions, notPassing), Table(49, 714, 154), countsIncluded: true)
+            .Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ASuiteRegroupedOrAStandardRenamedIsReportedByName()
+    {
+        // The other two equalities, which are text rather than figures: a directory split into one more
+        // theory, and a row whose standard the census no longer names — the second reported from both ends,
+        // because a rename is a row appearing and a row disappearing and a reader needs to see the pair.
+        var regrouped = WptCensus.Reconcile(
+            Table(49, 714, 154, suites: "`fetch/api/` ×6"), Table(49, 714, 154), countsIncluded: true);
+
+        regrouped.Should().NotBeNull();
+        regrouped.Should().Contain("Fetch: suites `fetch/api/` ×5 -> `fetch/api/` ×6");
+
+        var renamed = WptCensus.Reconcile(
+            Table(49, 714, 154, standard: "Fetch API"), Table(49, 714, 154), countsIncluded: true);
+
+        renamed.Should().NotBeNull();
+        renamed.Should().Contain("Fetch API: the corpus has this standard and the table has no row for it");
+        renamed.Should().Contain("Fetch: the table has a row for it and the corpus does not");
+    }
+
+    [Fact]
+    public void TheFreeCheckHasNoOpinionOnTheTwoCountedColumns()
+    {
+        // It has not run the suites, so it knows nothing about either — which is what lets it run on every
+        // platform and in a filtered run.
+        WptCensus.Reconcile(Table(49, 0, 0), Table(49, 714, 154), countsIncluded: false).Should().BeNull();
+        WptCensus.Reconcile(Table(50, 0, 0), Table(49, 714, 154), countsIncluded: false).Should().NotBeNull();
+    }
+
+    [Fact]
+    public void TheRewriteRefusesToRaiseTheCeilingAndSaysWhatWouldNotBe()
+    {
+        // Without this the ceiling is a suggestion: a rise fails the check, the author reaches for the one
+        // command the failure mentions, and the worse number becomes the baseline. So the rewrite lowers and
+        // never raises, and it names the deliberate spelling rather than leaving the door simply shut — a
+        // corpus bump does arrive with new failures.
+        var refusal = WptCensus.RefusalToRaise(Table(49, 714, 168), Table(49, 714, 154));
+
+        refusal.Should().NotBeNull();
+        refusal.Should().Contain("Fetch: not passing 154 -> 168 (+14)");
+        refusal.Should().Contain(WptCensus.RaiseVariableValue);
+    }
+
+    [Theory]
+    // A fall and an exact match are both fine to write: neither can be a bad run being made the new floor.
+    [InlineData(140)]
+    [InlineData(154)]
+    public void TheRewriteWritesAnythingThatIsNotARise(int notPassing)
+    {
+        WptCensus.RefusalToRaise(Table(49, 714, notPassing), Table(49, 714, 154)).Should().BeNull();
     }
 }
 #endif

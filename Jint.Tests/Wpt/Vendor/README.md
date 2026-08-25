@@ -1039,7 +1039,8 @@ The 69 that remain are decisions or environment, in five groups that add up exac
 
 **This table is generated, not maintained.** `Jint.Tests/Wpt/WptCensusTests.cs` derives every figure in it
 from the corpus and fails when the README disagrees — see [Taking the census](#taking-the-census) below for
-the two halves of that check and the one command that rewrites the table.
+the two halves of that check, the command that rewrites the table, and why
+[four of the five columns are equalities and the fifth is a ceiling](#four-equalities-and-a-ceiling).
 
 Measured at this pin, on Windows, with the driver's exclusion table in force. "Not passing" is every result
 the shim did not record `PASS`, which is exactly the set the table names. The last change to move a row is the
@@ -1147,8 +1148,31 @@ JINT_WPT_CENSUS=update dotnet test -c Release Jint.Tests/Jint.Tests.csproj -f ne
   --filter "FullyQualifiedName~Jint.Tests.Wpt.WptCensusTests"
 ```
 
-A failure prints the stated table and the measured one side by side, so the rows that moved are the rows that
-differ.
+### Four equalities and a ceiling
+
+**Standard**, **Suites**, **Files** and **Assertions** are equalities in both directions. The first three are
+read off the corpus, and **Assertions** counts *registrations* rather than outcomes: a suite registers its
+cases at file scope, so a file that reports at all reports every one of them, and a file that cannot report at
+all is a harness error its own suite already fails on.
+
+**Not passing** is the only column that counts an *outcome*, and it is therefore the only one a loaded machine
+has ever moved. [#3339](https://github.com/sebastienros/jint/issues/3339) is the record of what that cost: a
+timing-sensitive fetch entry made the column disagree by fourteen on three unrelated pull requests in one
+afternoon — one of them changed nothing but three markdown headings — and every one of them presented as *"the
+inventory table is out of date"*, which reads as the author having forgotten to re-census and invites exactly
+the wrong repair. So that column is a **ceiling**:
+
+* A **rise** fails as a regression. The census cannot tell a flake from a real defect and must not try, so it
+  still goes red — but it names the suite, the direction and the size (`Fetch: not passing 154 -> 168 (+14)`),
+  and it says that re-censusing is not the way out.
+* A **fall** fails as staleness. This is the case *"out of date"* actually fits: a fix removed an exclusion and
+  nobody re-censused, which is the drift the census was built to close.
+
+**And the rewrite will not raise the ceiling.** `JINT_WPT_CENSUS=update` lowers a not-passing figure and never
+raises one, because a check that a bad run can answer by re-baselining is not a ceiling. A rise that is
+genuinely intended — a corpus bump arriving with new failures, each of them named in the exclusion table — is
+spelled `JINT_WPT_CENSUS=update-raising-the-ceiling`, one deliberate spelling that cannot be typed by accident and
+that leaves the raised figures visible in the diff.
 
 ## Updating the pin
 

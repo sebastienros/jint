@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Jint.Tests.Wpt;
@@ -45,6 +46,21 @@ namespace Jint.Tests.Wpt;
 /// table, <c>update</c> rewrites it — and the PR workflow's Windows leg is what sets it, in the same shape as
 /// the <c>JINT_HOST_CONTRACT_VERIFICATION</c> leg beside it. An ordinary developer run pays only the free
 /// half.
+/// </para>
+/// <para>
+/// <b>Four of the five columns are equalities and the fifth is a ceiling</b>, and the split is what each
+/// column counts rather than a concession. <c>Standard</c>, <c>Suites</c> and <c>Files</c> are read off the
+/// embedded corpus, and <c>Assertions</c> counts <i>registrations</i> — a suite registers its cases at file
+/// scope, so a file that reports at all reports every one of them, and a file that cannot report at all is a
+/// harness error its own suite already fails on. <c>Not passing</c> is the only column that counts
+/// <i>outcomes</i>, which is why it is the only one a loaded machine has ever moved:
+/// <see href="https://github.com/sebastienros/jint/issues/3339">#3339</see> records it reddening three
+/// unrelated pull requests in one afternoon, one of which changed nothing but three markdown headings. So a
+/// rise fails as a regression, naming the suite and the size of it, and a fall fails as staleness, which is
+/// the one case where "the table is out of date" is the truthful sentence. What a rise must never be is
+/// something an author can make go away: <see cref="UpdateVariable"/><c>=update</c> refuses to write a larger
+/// not-passing figure — see <see cref="RefusalToRaise"/> — because a check satisfiable by re-baselining a bad
+/// run would ratchet the corpus quietly worse, which is the opposite of what this artefact is for.
 /// </para>
 /// </remarks>
 internal static class WptCensus
@@ -390,22 +406,38 @@ internal static class WptCensus
     }
 
     /// <summary>
-    /// Whether <see cref="UpdateVariable"/> asked for the census at all — <c>1</c>, <c>true</c> or
-    /// <c>update</c>. Unset is the default, and the reason the measured check costs a normal run nothing.
+    /// The one spelling of <see cref="UpdateVariable"/> that may write a <i>larger</i> not-passing figure.
+    /// See <see cref="RefusalToRaise"/> for why raising the ceiling has to be said out loud.
+    /// </summary>
+    internal const string RaiseVariableValue = "update-raising-the-ceiling";
+
+    /// <summary>
+    /// Whether <see cref="UpdateVariable"/> asked for the census at all — <c>1</c>, <c>true</c>, <c>update</c>
+    /// or <see cref="RaiseVariableValue"/>. Unset is the default, and the reason the measured check costs a
+    /// normal run nothing.
     /// </summary>
     internal static bool CensusRequested()
     {
         var value = Environment.GetEnvironmentVariable(UpdateVariable);
         return string.Equals(value, "1", StringComparison.Ordinal)
             || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "update", StringComparison.OrdinalIgnoreCase);
+            || UpdateRequested();
     }
 
     /// <summary>
-    /// Whether it asked for the table to be rewritten rather than checked.
+    /// Whether it asked for the table to be rewritten rather than checked, in either spelling.
     /// </summary>
-    internal static bool UpdateRequested() =>
-        string.Equals(Environment.GetEnvironmentVariable(UpdateVariable), "update", StringComparison.OrdinalIgnoreCase);
+    internal static bool UpdateRequested()
+    {
+        var value = Environment.GetEnvironmentVariable(UpdateVariable);
+        return string.Equals(value, "update", StringComparison.OrdinalIgnoreCase) || RaiseRequested();
+    }
+
+    /// <summary>
+    /// Whether the rewrite was told, in as many words, that it may raise the ceiling.
+    /// </summary>
+    internal static bool RaiseRequested() =>
+        string.Equals(Environment.GetEnvironmentVariable(UpdateVariable), RaiseVariableValue, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the rendered table over the one in the working tree's <c>Vendor/README.md</c>, preserving the
@@ -453,21 +485,242 @@ internal static class WptCensus
     }
 
     /// <summary>
-    /// The message a mismatch reports: the two tables side by side, and how to rewrite it.
+    /// One line of a rendered table, read back so that two of them can be compared column by column and a
+    /// difference can be named instead of a whole table being printed twice.
     /// </summary>
-    internal static string Explain(string expected, string actual, string what)
+    /// <remarks>
+    /// <c>Suites</c> stays text because that cell is not a number in a row — <c>`WebCryptoAPI/` ×8</c> — while
+    /// it is one in the total; comparing it as written is right for both. The total row parses as an ordinary
+    /// row called <c>total</c>, which is what keeps a table whose rows and total disagree failing.
+    /// </remarks>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct TableRow(
+        string Standard,
+        string Suites,
+        int Files,
+        int Assertions,
+        int NotPassing);
+
+    /// <summary>
+    /// How a measured table differs from a stated one, split by what each kind of difference <i>means</i> —
+    /// which is the whole point, because the three call for three different things to be done.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct Differences(
+        List<string> Moved,
+        List<string> Regressed,
+        List<string> Stale)
     {
+        internal bool Any => Moved.Count > 0 || Regressed.Count > 0 || Stale.Count > 0;
+    }
+
+    private static List<TableRow> ParseRows(string table)
+    {
+        var rows = new List<TableRow>();
+
+        foreach (var rawLine in table.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (!line.StartsWith("|", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var cells = Cells(line);
+            if (cells.Length != 5
+                || !TryParseNumber(cells[2], out var files)
+                || !TryParseNumber(cells[3], out var assertions)
+                || !TryParseNumber(cells[4], out var notPassing))
+            {
+                // The header and the divider, which carry no figures.
+                continue;
+            }
+
+            rows.Add(new TableRow(cells[0].Trim('*'), cells[1], files, assertions, notPassing));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Compares what the corpus measures against what the README states, column by column.
+    /// </summary>
+    /// <param name="countsIncluded">
+    /// Whether the caller is entitled to an opinion on <c>Assertions</c> and <c>Not passing</c>. False for the
+    /// free check, which has not run the suites and so knows nothing about either.
+    /// </param>
+    private static Differences Compare(string measured, string stated, bool countsIncluded)
+    {
+        var differences = new Differences([], [], []);
+
+        var claimed = new Dictionary<string, TableRow>(StringComparer.Ordinal);
+        foreach (var row in ParseRows(stated))
+        {
+            claimed[row.Standard] = row;
+        }
+
+        foreach (var row in ParseRows(measured))
+        {
+            if (!claimed.Remove(row.Standard, out var claim))
+            {
+                differences.Moved.Add($"{row.Standard}: the corpus has this standard and the table has no row for it");
+                continue;
+            }
+
+            if (!string.Equals(row.Suites, claim.Suites, StringComparison.Ordinal))
+            {
+                differences.Moved.Add($"{row.Standard}: suites {claim.Suites} -> {row.Suites}");
+            }
+
+            if (row.Files != claim.Files)
+            {
+                differences.Moved.Add($"{row.Standard}: files {Number(claim.Files)} -> {Number(row.Files)}");
+            }
+
+            if (!countsIncluded)
+            {
+                continue;
+            }
+
+            if (row.Assertions != claim.Assertions)
+            {
+                differences.Moved.Add(
+                    $"{row.Standard}: assertions {Number(claim.Assertions)} -> {Number(row.Assertions)}");
+            }
+
+            var delta = row.NotPassing - claim.NotPassing;
+            if (delta > 0)
+            {
+                differences.Regressed.Add(
+                    $"{row.Standard}: not passing {Number(claim.NotPassing)} -> {Number(row.NotPassing)} (+{Number(delta)})");
+            }
+            else if (delta < 0)
+            {
+                differences.Stale.Add(
+                    $"{row.Standard}: not passing {Number(claim.NotPassing)} -> {Number(row.NotPassing)} (-{Number(-delta)})");
+            }
+        }
+
+        foreach (var orphan in claimed.Values)
+        {
+            differences.Moved.Add($"{orphan.Standard}: the table has a row for it and the corpus does not");
+        }
+
+        return differences;
+    }
+
+    /// <summary>
+    /// What a check reports, or <see langword="null"/> when the table is what the corpus says it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Three failures rather than one, because they are three different facts and only one of them is the
+    /// author's to fix by re-censusing. A <b>regression</b> is the corpus failing more than the table allows;
+    /// it names the suite, the direction and the size, and it says outright not to write the larger number,
+    /// because "the inventory table is out of date" is what invited exactly that on
+    /// <see href="https://github.com/sebastienros/jint/issues/3339">#3339</see>. <b>Staleness</b> is the corpus
+    /// failing less, which is the case the phrase actually fits and the one <c>update</c> exists for. And a
+    /// <b>moved</b> column is one of the four equalities — a file vendored or removed, a suite regrouped, a
+    /// standard renamed, or a run that did not register everything it should have.
+    /// </para>
+    /// </remarks>
+    internal static string? Reconcile(string measured, string stated, bool countsIncluded)
+    {
+        var differences = Compare(measured, stated, countsIncluded);
+        if (!differences.Any)
+        {
+            return null;
+        }
+
         var message = new StringBuilder();
-        message.Append("Vendor/README.md's inventory table is out of date (").Append(what).AppendLine(").");
+
+        if (differences.Regressed.Count > 0)
+        {
+            message.AppendLine(
+                "The web-platform-tests corpus now fails more than Vendor/README.md's inventory table allows:");
+            message.AppendLine();
+            AppendAll(message, differences.Regressed);
+            message.AppendLine();
+            message.AppendLine(
+                "That column is a ceiling, not a baseline. A rise is a regression to find — either in the "
+                + "engine, or in a corpus entry whose outcome depends on the machine it ran on — and "
+                + $"{UpdateVariable}=update refuses to write the larger figure, so re-censusing is not the "
+                + "way out of this one.");
+        }
+
+        if (differences.Stale.Count > 0)
+        {
+            Separate(message);
+            message.AppendLine(
+                "Vendor/README.md's inventory table is out of date: the corpus fails less than it states, so "
+                + "the table describes an engine that no longer exists.");
+            message.AppendLine();
+            AppendAll(message, differences.Stale);
+            message.AppendLine();
+            message.AppendLine($"Rewrite it by running the WPT suites with {UpdateVariable}=update set.");
+        }
+
+        if (differences.Moved.Count > 0)
+        {
+            Separate(message);
+            message.AppendLine(
+                "These columns are derived from the corpus and have to match it exactly:");
+            message.AppendLine();
+            AppendAll(message, differences.Moved);
+            message.AppendLine();
+            message.AppendLine($"Rewrite the table by running the WPT suites with {UpdateVariable}=update set.");
+        }
+
+        return message.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Why <c>update</c> will not write this run's table, or <see langword="null"/> when it may.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the half that makes the ceiling mean anything.</b> A check that goes red on a rise but can
+    /// be satisfied by running the rewrite is not a ceiling, it is a suggestion — and the rewrite is exactly
+    /// what "the inventory table is out of date" used to invite. So the rewrite lowers a not-passing figure
+    /// and never raises one, and a rise that is genuinely intended — a corpus bump brings a batch of new
+    /// failures with it — is spelled <see cref="RaiseVariableValue"/>, one deliberate spelling that cannot be
+    /// typed by accident and that leaves the raised numbers visible in the diff.
+    /// </remarks>
+    internal static string? RefusalToRaise(string measured, string stated)
+    {
+        var differences = Compare(measured, stated, countsIncluded: true);
+        if (differences.Regressed.Count == 0)
+        {
+            return null;
+        }
+
+        var message = new StringBuilder();
+        message.AppendLine(
+            $"{UpdateVariable}=update will not raise a not-passing figure, and this run measured more failures "
+            + "than the table states:");
         message.AppendLine();
-        message.AppendLine("It says:");
-        message.AppendLine(actual.TrimEnd('\n'));
+        AppendAll(message, differences.Regressed);
         message.AppendLine();
-        message.AppendLine("The corpus says:");
-        message.AppendLine(expected.TrimEnd('\n'));
-        message.AppendLine();
-        message.Append($"Rewrite it by running the WPT suites with {UpdateVariable}=update set.");
+        message.Append(
+            "Find the regression instead. If the rise is genuinely intended — a corpus bump arriving with new "
+            + $"failures, each of them named in the exclusion table — say so with {UpdateVariable}="
+            + $"{RaiseVariableValue}.");
         return message.ToString();
+    }
+
+    private static void AppendAll(StringBuilder message, List<string> lines)
+    {
+        foreach (var line in lines)
+        {
+            message.Append("  ").AppendLine(line);
+        }
+    }
+
+    private static void Separate(StringBuilder message)
+    {
+        if (message.Length > 0)
+        {
+            message.AppendLine();
+        }
     }
 }
 #endif
