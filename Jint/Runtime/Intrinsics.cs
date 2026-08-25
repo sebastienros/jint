@@ -38,6 +38,15 @@ using Jint.Native.WeakSet;
 
 namespace Jint.Runtime;
 
+/// <summary>
+/// The built-in constructors and prototypes of one <see cref="Realm"/>, each created the first time
+/// something reaches it.
+/// </summary>
+/// <remarks>
+/// Reading a property here is what creates the intrinsic behind it, so an engine whose script never mentions
+/// <c>Map</c> has never built one. Two realms — a <c>ShadowRealm</c>, a worker — have separate intrinsics,
+/// and an object belongs to the realm whose intrinsic built it.
+/// </remarks>
 public sealed partial class Intrinsics
 {
     private static readonly JsString _errorFunctionName = new("Error");

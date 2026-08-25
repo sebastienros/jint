@@ -30,16 +30,16 @@ using Jint.WebApi.Workers;
 
 namespace Jint.Runtime;
 
-/// <summary>
-/// The opt-in web platform APIs, lazily created per realm exactly like the ECMAScript intrinsics beside them.
-/// Requires .NET 8 or higher.
-/// </summary>
-/// <remarks>
-/// Reaching one of these fields is what creates it, and nothing but the global installed by
-/// <c>Jint.WebApi.WebApiRegistration</c> reaches them — which is itself a lazy property descriptor. So an
-/// engine that enabled a feature whose global the script never mentions has still built nothing, and a
-/// <c>ShadowRealm</c>'s intrinsics are simply never asked.
-/// </remarks>
+// The opt-in web platform APIs, lazily created per realm exactly like the ECMAScript intrinsics beside them.
+//
+// This part is gated on net8.0, so its documentation cannot be the type's: a doc comment here is absent from
+// the netstandard and net472 assemblies, which is what PublicApiDocumentationTest's cross-target-framework
+// check exists to notice. The type's summary is on the ungated part in Intrinsics.cs.
+//
+// Reaching one of these fields is what creates it, and nothing but the global installed by
+// Jint.WebApi.WebApiRegistration reaches them - which is itself a lazy property descriptor. So an engine that
+// enabled a feature whose global the script never mentions has still built nothing, and a ShadowRealm's
+// intrinsics are simply never asked.
 public sealed partial class Intrinsics
 {
     private DomExceptionConstructor? _domException;

@@ -3,7 +3,6 @@
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Xml.Linq;
 using PublicApiGenerator;
 using VerifyTests;
 using VerifyTests.DiffPlex;
@@ -48,21 +47,10 @@ namespace Jint.Tests.PublicInterface;
 public class PublicApiTest
 {
     /// <summary>
-    /// The repository root, found by walking up from the test binary — with <c>UseArtifactsOutput</c> the
-    /// output always sits at <c>&lt;root&gt;/artifacts/bin/&lt;project&gt;/&lt;configuration&gt;_&lt;tfm&gt;/</c>.
-    /// </summary>
-    private static readonly string _repositoryRoot = FindRepositoryRoot();
-
-    /// <summary>
-    /// The artifacts pivot this test binary itself was built into, so that a Debug run reads Debug output.
-    /// </summary>
-    private static readonly string _configuration = FindConfiguration();
-
-    /// <summary>
     /// What <c>Jint.csproj</c> says it ships, so that a new target framework is a new row rather than a
     /// silently unsnapshotted surface.
     /// </summary>
-    private static readonly string[] _shippedTargetFrameworks = ReadShippedTargetFrameworks();
+    private static readonly string[] _shippedTargetFrameworks = ShippedJintBuildOutput.TargetFrameworks;
 
     public static TheoryData<string> ShippedTargetFrameworks() => new(_shippedTargetFrameworks);
 
@@ -70,20 +58,13 @@ public class PublicApiTest
     [MemberData(nameof(ShippedTargetFrameworks))]
     public async Task PublicApiHasNotChangedUnintentionally(string targetFramework)
     {
-        var assemblyPath = ShippedAssemblyPath(targetFramework);
+        var assemblyPath = ShippedJintBuildOutput.AssemblyPath(targetFramework);
         if (!File.Exists(assemblyPath))
         {
-            Assert.Fail($"""
-                Jint has no {targetFramework} build output at '{assemblyPath}'.
-
-                The public API baselines are generated from the built assemblies, because three of the five
-                target frameworks Jint ships cannot be loaded by any test project. Build them with:
-
-                    dotnet build -c Release Jint/Jint.csproj
-                """);
+            Assert.Fail(ShippedJintBuildOutput.MissingBuildOutput(targetFramework, assemblyPath));
         }
 
-        using var context = new MetadataLoadContext(new PathAssemblyResolver(ResolverPaths(assemblyPath)));
+        using var context = new MetadataLoadContext(new PathAssemblyResolver(ShippedJintBuildOutput.ResolverPaths(assemblyPath)));
         var assembly = context.LoadFromAssemblyPath(assemblyPath);
 
         var options = new ApiGeneratorOptions
@@ -130,13 +111,13 @@ public class PublicApiTest
         var found = new List<string>();
         foreach (var targetFramework in _shippedTargetFrameworks)
         {
-            var assemblyPath = ShippedAssemblyPath(targetFramework);
+            var assemblyPath = ShippedJintBuildOutput.AssemblyPath(targetFramework);
             if (!File.Exists(assemblyPath))
             {
                 continue;
             }
 
-            using var context = new MetadataLoadContext(new PathAssemblyResolver(ResolverPaths(assemblyPath)));
+            using var context = new MetadataLoadContext(new PathAssemblyResolver(ShippedJintBuildOutput.ResolverPaths(assemblyPath)));
             var mvid = context.LoadFromAssemblyPath(assemblyPath).ManifestModule.ModuleVersionId;
             found.Add($"  {targetFramework}: {mvid}");
             if (mvid == loaded)
@@ -153,68 +134,9 @@ public class PublicApiTest
 
                 dotnet build -c Release Jint/Jint.csproj
 
-            What is in '{Path.Combine(_repositoryRoot, "artifacts", "bin", "Jint")}':
+            What is in '{Path.Combine(ShippedJintBuildOutput.RepositoryRoot, "artifacts", "bin", "Jint")}':
             {(found.Count == 0 ? "  (nothing)" : string.Join(Environment.NewLine, found))}
             """);
-    }
-
-    private static string ShippedAssemblyPath(string targetFramework)
-        => Path.Combine(_repositoryRoot, "artifacts", "bin", "Jint", $"{_configuration}_{targetFramework}", "Jint.dll");
-
-    /// <summary>
-    /// Cecil resolves the assembly's own references while it walks it, so the directory beside this test
-    /// binary (which carries Acornima) and the running runtime's directory both have to be reachable.
-    /// </summary>
-    private static List<string> ResolverPaths(string assemblyPath)
-    {
-        var paths = new List<string> { assemblyPath };
-        paths.AddRange(Directory.GetFiles(AppContext.BaseDirectory, "*.dll"));
-
-        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
-        if (!string.IsNullOrEmpty(runtimeDirectory))
-        {
-            paths.AddRange(Directory.GetFiles(runtimeDirectory, "*.dll"));
-        }
-
-        return paths;
-    }
-
-    private static string[] ReadShippedTargetFrameworks()
-    {
-        var project = Path.Combine(_repositoryRoot, "Jint", "Jint.csproj");
-        var declaration = XDocument.Load(project).Descendants("TargetFrameworks").FirstOrDefault()
-            ?? throw new InvalidOperationException($"'{project}' declares no <TargetFrameworks>, so the public API baselines cannot know what Jint ships.");
-
-        return declaration.Value
-            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-            .Select(targetFramework => targetFramework.Trim())
-            .ToArray();
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Jint", "Jint.csproj")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException($"No directory containing 'Jint/Jint.csproj' above '{AppContext.BaseDirectory}'. The public API baselines are generated from the repository's own build output and cannot be produced from a detached copy of this assembly.");
-    }
-
-    private static string FindConfiguration()
-    {
-        // artifacts/bin/<project>/<configuration>_<tfm> - the layout Directory.Build.props opts into with
-        // UseArtifactsOutput. Anything else (a plain bin/<configuration>/<tfm> layout, say) means the pivot
-        // is not in the directory name, and Release is what this repository builds.
-        var leaf = new DirectoryInfo(AppContext.BaseDirectory).Name;
-        var separator = leaf.IndexOf('_');
-        return separator > 0 ? leaf.Substring(0, separator) : "release";
     }
 }
 

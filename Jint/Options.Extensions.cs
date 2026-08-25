@@ -682,113 +682,53 @@ public static class OptionsExtensions
     }
 
     /// <summary>
-    /// Registers a global whose value is produced the first time script reads it, instead of when the
-    /// engine is created. Hosts that install a large fixed set of globals — of which a given script
-    /// typically touches a handful — pay only for the ones actually used.
+    /// Registers a global whose value <paramref name="valueFactory"/> produces on the first read, rather
+    /// than when the engine is created.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The property is installed eagerly, so existence checks and enumeration — <c>in</c>,
-    /// <c>hasOwnProperty</c>, <c>Object.keys(globalThis)</c>, <c>Object.getOwnPropertyNames</c> — see it
-    /// from the start without materializing anything. Only its value is left unresolved:
-    /// <paramref name="valueFactory"/> runs on the first read of that value, and the produced value is
-    /// stored in the descriptor so subsequent reads are ordinary property reads.
-    /// <c>typeof</c> counts as a read, since it has to inspect the value to name its type. Once per engine,
-    /// then — with the single exception of a global snapshot restore, which re-arms an unread global
-    /// deliberately; see below.
+    /// The property itself is installed eagerly, so <c>in</c>, <c>hasOwnProperty</c> and
+    /// <c>Object.keys(globalThis)</c> see it without materializing anything. Only the value waits, and
+    /// <c>typeof</c> counts as a read of it.
     /// </para>
     /// <para>
-    /// A script that <b>deletes</b> the global before ever reading it (<c>delete globalThis.name</c>,
-    /// requires <see cref="PropertyFlag.Configurable"/>) removes the descriptor outright, and the factory
-    /// never runs. A script that <b>overwrites or redefines</b> it first does still run the factory once
-    /// and then discard the result: <c>[[Set]]</c> on the global object funnels into
-    /// <c>[[DefineOwnProperty]]</c>, whose ValidateAndApplyPropertyDescriptor step reads the current
-    /// value before replacing it. The end state is correct in every case — the script's value wins — the
-    /// laziness is simply not preserved through that particular sequence.
+    /// The factory runs once per engine, receiving the engine being built, so one <see cref="Options"/>
+    /// may be shared by any number of engines. It must not return <see langword="null"/>;
+    /// <see cref="JsValue.Undefined"/> is stored if it does.
     /// </para>
     /// <para>
-    /// Registration is recorded on the <see cref="Options"/> instance and applied per engine, so a single
-    /// <see cref="Options"/> object may be shared by any number of engines: each gets its own descriptor
-    /// and its own invocation of <paramref name="valueFactory"/>, with the engine being built passed in.
-    /// The factory must not return <see langword="null"/>; <see cref="JsValue.Undefined"/> is substituted
-    /// if it does, so that a null return cannot silently turn into a factory that re-runs on every read.
+    /// Deleting the global before any read skips the factory. Overwriting or redefining it before any read
+    /// still runs the factory once and discards the result, because <c>[[DefineOwnProperty]]</c> reads the
+    /// current value before replacing it.
     /// </para>
     /// <para>
-    /// <b>Sharing an <see cref="Options"/> instance is supported, not required.</b> Because the factory
-    /// receives only the <see cref="Engine"/>, a host whose values depend on per-request or per-scope state
-    /// (a scoped <c>IServiceProvider</c>, a workflow context) cannot express that through a process-wide
-    /// <see cref="Options"/>. Constructing a fresh <see cref="Options"/> per scope or per evaluation and
-    /// letting the factories close over that scope is a supported and cheap pattern — an
-    /// <see cref="Options"/> object is a plain configuration record, and the caches that make repeated
-    /// engine construction cheap (resolved CLR members on the <see cref="TypeResolver"/>, delegate
-    /// metadata, compiled invokers) are keyed process-wide rather than on the <see cref="Options"/>
-    /// instance. Share one instance when the configuration is genuinely global; build one per scope when
-    /// it is not.
-    /// </para>
-    /// <para>
-    /// <b>A restore re-arms an unread global, and this is a contract.</b> If
-    /// <see cref="Engine.AdvancedOperations.CaptureGlobalSnapshot"/> is taken while this global has not yet
-    /// been read, <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> returns it to that
-    /// unmaterialized state, and <paramref name="valueFactory"/> <b>runs again</b> on the next read. It is
-    /// not merely permitted to — a host pooling engines across requests depends on it, since the value the
-    /// factory produced belongs to the request that read it. Capture before the first evaluation and every
-    /// later one starts from an unresolved global rather than an inherited value.
-    /// <para>
-    /// <b>What the second run produces is the factory's business, not the restore's.</b> The restore reverts
-    /// the descriptor; it has no idea what <paramref name="valueFactory"/> reads from and cannot revert
-    /// that. A factory that constructs — <c>e =&gt; new JsObject(e)</c>, or one projecting the current
-    /// request's data — gives the next cycle a genuinely fresh value. A factory that hands back something it
-    /// is holding — a cached wrapper, a static, a captured local it assigns on first use — gives the next
-    /// cycle exactly what the previous one mutated, and re-running it changes nothing. Jint's own globals
-    /// are the second kind (their factories read memoized realm intrinsics), which is why
-    /// <c>globalThis.Math</c> and <c>globalThis.console</c> keep whatever was written on them across a
-    /// restore. A host that wants freshness has to put it in the factory.
-    /// </para>
-    /// <para>
-    /// The failure this rules out is silent, which is why it is stated rather than left to the
-    /// implementation: were the descriptor reinstated with its materialized value intact, a reused engine
-    /// would serve the next request a value closed over the previous one's state, with nothing to observe
-    /// but the wrong answer.
-    /// </para>
-    /// <para>
-    /// The guarantee covers a global whose factory had <em>not</em> run at capture time. One already read by
-    /// then is part of the captured surface and is restored to that value, which is the same rule seen from
-    /// the other side.
-    /// </para>
-    /// </para>
-    /// <para>
-    /// <b>Flags differ from <see cref="Engine.SetValue(string, Delegate)"/>.</b> The default here matches
-    /// <see cref="Engine.SetValue(string, JsValue)"/> — configurable, enumerable and writable — whereas
-    /// registering a delegate global installs it as <see cref="PropertyFlag.NonEnumerable"/> (configurable
-    /// and writable, but hidden from <c>Object.keys(globalThis)</c> and <c>for...in</c>). A host converting
-    /// delegate registrations to lazy ones must pass <see cref="PropertyFlag.NonEnumerable"/> explicitly to
-    /// keep global enumeration looking the same.
+    /// <see cref="Engine.AdvancedOperations.RestoreGlobalSnapshot"/> re-arms a global whose factory had not
+    /// run when the snapshot was taken, so it runs again — a host pooling engines depends on that. Whether
+    /// the second run produces a fresh value is the factory's business: one that hands back something it
+    /// holds gives the next cycle exactly what the previous one mutated.
     /// </para>
     /// </remarks>
     /// <example>
-    /// Deferring an expensive host object — here a CLR type projection, which otherwise builds an engine-affine
-    /// <c>TypeReference</c> (and resolves its members) at engine-construction time whether or not the script
-    /// mentions it:
+    /// Deferring a CLR type projection, which otherwise resolves the type's members at engine-construction
+    /// time whether or not the script mentions it:
     /// <code>
     /// options.AddLazyGlobal("DateTime", static engine => TypeReference.CreateTypeReference&lt;DateTime&gt;(engine));
     ///
-    /// // A delegate global, deferred and given a real name: DelegateWrapper always reports
-    /// // fn.name === "delegate", while a ClrFunction carries the name it was constructed with.
     /// options.AddLazyGlobal(
     ///     "log",
     ///     engine => new ClrFunction(engine, "log", (_, args) => { Console.WriteLine(args.At(0)); return JsValue.Undefined; }),
     ///     PropertyFlag.NonEnumerable);
     /// </code>
     /// </example>
-    /// <param name="options">Options to modify.</param>
+    /// <param name="options">The options to modify.</param>
     /// <param name="name">The global property name.</param>
     /// <param name="valueFactory">
-    /// Produces the value for a given engine. Invoked lazily, so it may use anything the engine exposes
-    /// after construction — unlike <see cref="UseHostFactory{T}"/> callbacks, which observe a half-built engine.
+    /// The factory producing the value for a given engine, invoked on the first read — so unlike a
+    /// <see cref="UseHostFactory{T}"/> callback it sees a fully built engine.
     /// </param>
     /// <param name="flags">
-    /// Property attributes; defaults to the configurable/enumerable/writable combination that
-    /// <see cref="Engine.SetValue(string, JsValue)"/> produces — <b>not</b> the
+    /// The property attributes. Defaults to configurable, enumerable and writable, which is what
+    /// <see cref="Engine.SetValue(string, JsValue)"/> produces and <b>not</b> the
     /// <see cref="PropertyFlag.NonEnumerable"/> that <see cref="Engine.SetValue(string, Delegate)"/> uses.
     /// </param>
     public static Options AddLazyGlobal(
