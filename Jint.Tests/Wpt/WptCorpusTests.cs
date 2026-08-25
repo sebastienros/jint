@@ -58,6 +58,13 @@ public class WptCorpusTests
     // because the driver still refuses it if any test in that file passes.
     [InlineData("*", "anything", true)]
     [InlineData("*", "", true)]
+    // \* is a literal asterisk, for the names that contain one. No entry spells it today — the pair it was
+    // introduced for is accept-header.any.js's, and both rows pass since
+    // https://github.com/sebastienros/jint/issues/3279 — so this is what keeps the escape honest.
+    [InlineData(@"Request through fetch should have 'accept' header with value '\*/\*'",
+        "Request through fetch should have 'accept' header with value '*/*'", true)]
+    [InlineData(@"Request through fetch should have 'accept' header with value '\*/\*'",
+        "Request through fetch should have 'accept' header with value 'custom/*'", false)]
     public void AnExclusionMatchesExactlyWhatItsPatternSays(string pattern, string testName, bool expected)
         => WptExclusion.MatchesPattern(pattern, testName).Should().Be(expected);
 }

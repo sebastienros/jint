@@ -367,9 +367,11 @@ internal enum WptDivergence
     /// state — <c>Accept-Language</c> from the user's language preferences, and the <c>Referer</c> family
     /// from the document that made the request. An embedded engine has neither, and inventing a value would
     /// be inventing a fact about a user who does not exist. Deliberately not the same row as a header the
-    /// <i>standard</i> requires of every client: <c>Accept: */*</c> is step 8 of
-    /// https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch and is owed by anyone implementing
-    /// fetch, so its row is a defect and lives in <see cref="NeedsTriage"/>.
+    /// <i>standard</i> requires of every client: <c>Accept: */*</c> is step 12 of
+    /// https://fetch.spec.whatwg.org/#concept-fetch and is owed by anyone implementing fetch, so its row was a
+    /// defect (https://github.com/sebastienros/jint/issues/3279) rather than an entry here, and it passes. The
+    /// two steps sit next to each other in the same algorithm, and the condition on the second — "and
+    /// request's client is non-null" — is precisely the line between them.
     /// </summary>
     NeedsBrowserRequestHeaders,
 
@@ -495,28 +497,31 @@ internal enum WptDivergence
     /// <see cref="AssertsWhatNothingRequires"/> rather than earning a longer explanation under this one.
     /// </para>
     /// <para>
-    /// <b>It is not empty any more, and that is the mechanism working.</b> Standing
-    /// <see cref="WptServer"/> up (https://github.com/sebastienros/jint/issues/3260) let the fetch corpus
-    /// make a real request for the first time, and five things it asserts turned out not to hold. Each is
-    /// filed as its own issue and deliberately left unfixed here, for the reason the paragraphs above give:
-    /// the change that first ran a suite must not also be the change that moves the engine, or nobody can
-    /// tell which of the two a number came from.
+    /// <b>It went non-empty once, and the whole cycle is what the mechanism looks like when it works.</b>
+    /// Standing <see cref="WptServer"/> up (https://github.com/sebastienros/jint/issues/3260) let the fetch
+    /// corpus make a real request for the first time, and five things it asserts turned out not to hold. Each
+    /// was filed as its own issue and deliberately left unfixed there, for the reason the paragraphs above
+    /// give: the change that first runs a suite must not also be the change that moves the engine, or nobody
+    /// can tell which of the two a number came from. All five are now fixed — the response <c>Headers</c>
+    /// guard (https://github.com/sebastienros/jint/issues/3281) and <c>clone()</c>'s shared buffer
+    /// (https://github.com/sebastienros/jint/issues/3283) first, then the three the request and response
+    /// plumbing owed, which left this category empty again:
     /// <list type="bullet">
     /// <item><description>
     /// https://github.com/sebastienros/jint/issues/3279 — <c>basic/accept-header.any.js</c>: no
-    /// <c>Accept: */*</c> is appended, which is step 8 of
-    /// https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch.
+    /// <c>Accept: */*</c> was appended, which is step 12 of https://fetch.spec.whatwg.org/#concept-fetch.
     /// </description></item>
     /// <item><description>
     /// https://github.com/sebastienros/jint/issues/3280 — <c>basic/response-null-body.any.js</c>: a
-    /// <c>HEAD</c> response carries a body stream where
-    /// https://fetch.spec.whatwg.org/#concept-http-network-fetch gives it a null body.
+    /// <c>HEAD</c> response carried a body stream where step 22 of
+    /// https://fetch.spec.whatwg.org/#concept-main-fetch gives it a null body.
     /// </description></item>
     /// <item><description>
     /// https://github.com/sebastienros/jint/issues/3282 — <c>redirect/redirect-method.any.js</c>:
     /// <c>Content-Encoding</c>, <c>Content-Language</c> and <c>Content-Location</c> set on a bodiless request
-    /// never reach the wire, because the BCL files them as content headers and a GET has no content to hang
-    /// them on.
+    /// never reached the wire, because the BCL files them as content headers and a GET has no content to hang
+    /// them on. It has one now, and <c>FetchTransport.CreateHeaderCarrier</c> is where the framing that costs
+    /// is argued.
     /// </description></item>
     /// </list>
     /// </para>
@@ -626,6 +631,10 @@ internal sealed record WptExclusion(
     /// not the second — every literal segment of the one is a segment of the other, so the wildcard reading
     /// makes them indistinguishable and the two-sided rule (match a failing test, match no passing one) can
     /// never be satisfied. No other escape is recognized, and a lone backslash is a lone backslash.
+    /// <b>No entry spells it today</b>: that pair is exactly the case
+    /// https://github.com/sebastienros/jint/issues/3279 fixed, so both rows pass and the exclusion that
+    /// needed the escape is gone. <c>WptCorpusTests.AnExclusionMatchesExactlyWhatItsPatternSays</c> holds the
+    /// escape instead, so it stays correct for the next name that carries a star.
     /// </para>
     /// </remarks>
     internal static bool MatchesPattern(string pattern, string value)

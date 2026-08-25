@@ -21,14 +21,16 @@ Six things to know before touching it. **The exclusion table is the artefact**: 
 named in `WptTestRunner._exclusions` with a `WptDivergence` category, and an entry must match at least one
 failing test and no passing one — so a fix, a rename, or a corpus bump makes the run fail until the table is
 brought back in line, and a `*` glob can never widen into a blanket. A test *name* may itself contain a `*`,
-which is what the `\*` escape is for; without it there is no pattern at all that names
-`fetch/api/basic/accept-header.any.js`'s failing `…with value '*/*'` row and not its passing sibling
-`…with value 'custom/*'`. **`NeedsTriage` is the debt**: those are genuine defects the harness found, recorded
+which is what the `\*` escape is for; without it there was no pattern at all that named
+`fetch/api/basic/accept-header.any.js`'s then-failing `…with value '*/*'` row and not its passing sibling
+`…with value 'custom/*'` — both pass now, so the escape's only user today is `WptCorpusTests`.
+**`NeedsTriage` is the debt**: those are genuine defects the harness found, recorded
 rather than fixed so that the change which first ran a suite is not also the change that moved the engine — a
 non-zero count there means the corpus has found something and somebody still owes the engine a fix. It was
-empty until [#3260](https://github.com/sebastienros/jint/issues/3260) gave the fetch corpus a server; the five
-things it found the moment it could make a real request are filed as #3279–#3283 and named there with their
-citations. A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
+empty until [#3260](https://github.com/sebastienros/jint/issues/3260) gave the fetch corpus a server, which
+found five things the moment it could make a real request; they were filed as #3279–#3283, they are all fixed,
+and the category is **empty again**, which is the state that makes the next non-zero count mean something.
+A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
 enable and shims one onto the event loop, this driver enables

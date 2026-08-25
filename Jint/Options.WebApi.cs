@@ -509,6 +509,11 @@ public sealed partial class Options
         /// response's body stream</i> instead, and every consumer of that body reports it.
         /// </para>
         /// <para>
+        /// <b>A response with no body to read is never refused for its length</b> — a <c>HEAD</c>, or one of
+        /// the null body statuses. There the <c>Content-Length</c> describes a representation the response is
+        /// not transferring, and asking with <c>HEAD</c> precisely so as not to transfer it is the point.
+        /// </para>
+        /// <para>
         /// <b><see cref="long.MaxValue"/> means unlimited</b>, and zero or less refuses every body. This is
         /// deliberately unlike the execution constraints' saturated sentinels, where
         /// <c>LimitMemory(long.MaxValue)</c> removes the constraint: there is no constraint to remove here, and

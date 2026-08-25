@@ -40,7 +40,14 @@ public class FetchTests
     /// through <c>NonValidated</c>, which answers the raw value rather than <see cref="HttpClient"/>'s
     /// re-serialization of its parsed form.
     /// </remarks>
-    private sealed record RecordedRequest(string Method, string Url, Dictionary<string, string> Headers, string? Body)
+    /// <param name="ContentLength">
+    /// What the request's content answered for its own length, which is not the same question as whether a
+    /// <c>Content-Length</c> header was in <paramref name="Headers"/>: this is the value
+    /// <see cref="HttpClient"/> frames the request with — a number writes <c>Content-Length</c> and
+    /// <see langword="null"/> writes <c>Transfer-Encoding: chunked</c> — and a message that never reaches a
+    /// socket is the only place it can be read.
+    /// </param>
+    private sealed record RecordedRequest(string Method, string Url, Dictionary<string, string> Headers, string? Body, long? ContentLength)
     {
         internal string? Header(string name) => Headers.TryGetValue(name, out var value) ? value : null;
     }
@@ -76,13 +83,18 @@ public class FetchTests
             Collect(headers, request.Headers);
 
             string? body = null;
+            long? contentLength = null;
             if (request.Content is { } content)
             {
                 Collect(headers, content.Headers);
+
+                // After the collection, deliberately: reading the length is what computes it, and a content
+                // that computed one here would look to every other test like a header the engine had set.
+                contentLength = content.Headers.ContentLength;
                 body = await content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            return new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body);
+            return new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body, contentLength);
         }
 
         private static void Collect(Dictionary<string, string> headers, System.Net.Http.Headers.HttpHeaders source)
@@ -475,6 +487,151 @@ public class FetchTests
         // A null body is never disturbed, so it reads as often as the script likes.
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
         engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("");
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-fetch step 12 — the <c>Accept</c> a request that named none of
+    /// its own is given, and <c>*/*</c> is the value for every destination but the handful a browser knows.
+    /// </summary>
+    [Fact]
+    public void SendsTheDefaultAcceptAndLeavesAScriptSetOneAlone()
+    {
+        var handler = new StubHandler();
+        Fetch(handler, "fetch('https://example.org/a').then(r => r.status)");
+        handler.Requests.Should().ContainSingle().Which.Header("accept").Should().Be("*/*");
+
+        // Step 13, the Accept-Language beside it, applies only "if request's client is non-null" and reports
+        // a user's language preferences. There is neither here, so nothing is sent.
+        handler.Requests[0].Header("accept-language").Should().BeNull();
+
+        var named = new StubHandler();
+        Fetch(named, "fetch('https://example.org/a', { headers: { accept: 'custom/*' } }).then(r => r.status)");
+        named.Requests.Should().ContainSingle().Which.Header("accept").Should().Be("custom/*");
+    }
+
+    [Fact]
+    public void TheDefaultAcceptIsNotVisibleOnTheRequestTheScriptHolds()
+    {
+        // The step appends to the header list fetch is working with, which is a copy: a browser sends
+        // Accept: */* while the script's own Request still answers null for it.
+        Fetch(new StubHandler(), "(() => { const r = new Request('https://example.org/a'); return fetch(r).then(() => String(r.headers.get('accept'))); })()")
+            .AsString().Should().Be("null");
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-header-list is one list, so a content header a script set
+    /// reaches the wire whether or not the request has a body — which is what the BCL's split of the same
+    /// list into request headers and content headers stood in the way of.
+    /// </summary>
+    [Fact]
+    public void CarriesContentHeadersOnARequestThatHasNoBody()
+    {
+        var handler = new StubHandler();
+
+        Fetch(handler, @"fetch('https://example.org/a', {
+            method: 'GET',
+            headers: { 'Content-Encoding': 'Identity', 'Content-Language': 'en-US', 'Content-Location': 'foo' },
+        }).then(r => r.status)");
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Header("content-encoding").Should().Be("Identity");
+        request.Header("content-language").Should().Be("en-US");
+        request.Header("content-location").Should().Be("foo");
+
+        // https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch step 8 appends Content-Length
+        // only for a body, or for a bodiless POST or PUT — so the content this GET had to be given to carry
+        // those three headers must not announce a length of its own, and it sends nothing.
+        request.ContentLength.Should().BeNull();
+        request.Body.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ABodilessPostStillAnnouncesTheZeroLengthTheStandardGivesIt()
+    {
+        var handler = new StubHandler();
+
+        Fetch(handler, "fetch('https://example.org/a', { method: 'POST', headers: { 'content-type': 'application/json' } }).then(r => r.status)");
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Header("content-type").Should().Be("application/json");
+
+        // "If httpRequest's body is null and httpRequest's method is `POST` or `PUT`, then set
+        // contentLengthHeaderValue to `0`" — which is also what a bodiless POST sent before it had anywhere
+        // to put a Content-Type.
+        request.ContentLength.Should().Be(0);
+    }
+
+    [Fact]
+    public void ARequestWithNoBodyDoesNotCarryAScriptSetContentLength()
+    {
+        var handler = new StubHandler();
+
+        // Content-Length is what a request body is framed with, and this request has none. Browsers refuse
+        // the name outright as a forbidden request-header; Jint declines to enforce that list (see
+        // HeadersGuard) and drops the value at the wire instead, exactly as it did before the header list
+        // had any content of its own to be carried on.
+        Fetch(handler, "fetch('https://example.org/a', { headers: { 'Content-Language': 'en-US', 'Content-Length': '99' } }).then(r => r.status)");
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Header("content-language").Should().Be("en-US");
+        request.Header("content-length").Should().BeNull();
+        request.ContentLength.Should().BeNull();
+    }
+
+    [Fact]
+    public void AResponseToHeadCarriesNoBody()
+    {
+        // https://fetch.spec.whatwg.org/#concept-main-fetch step 22: "If response is not a network error and
+        // either request's method is `HEAD` or `CONNECT`, or internalResponse's status is a null body status,
+        // set internalResponse's body to null and disregard any enqueuing toward it (if any)." A server that
+        // answers HEAD with bytes is what the step exists to standardise the handling of.
+        var handler = new StubHandler
+        {
+            Responder = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("hello-world") },
+        };
+
+        var engine = WebEngine(handler);
+        engine.Execute("var r; fetch('https://example.org/', { method: 'HEAD' }).then(x => r = x);");
+        engine.Tasks.ProcessTasks();
+
+        engine.Evaluate("r.status").AsNumber().Should().Be(200);
+        engine.Evaluate("r.body === null").AsBoolean().Should().BeTrue();
+        engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("");
+
+        // Nothing was disturbed, so it reads as often as the script likes — the same property a 204 has.
+        engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("");
+
+        // The headers stay as they came: a HEAD answers the length of the representation it describes, and
+        // that it describes bytes it does not send is the whole point of asking with HEAD.
+        engine.Evaluate("r.headers.get('content-length')").AsString().Should().Be("11");
+    }
+
+    [Fact]
+    public void AHeadOfSomethingLargerThanTheCapIsNotRefused()
+    {
+        // The cap bounds what a response spends, and a HEAD spends nothing: refusing one for the length it
+        // reports would fail the one request that is asking precisely so as not to transfer it.
+        var handler = new StubHandler
+        {
+            Responder = _ =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("") };
+                response.Content.Headers.ContentLength = 5_000_000;
+                return response;
+            },
+        };
+
+        var engine = WebEngine(handler, fetch => fetch.MaxResponseBytes = 1024);
+        engine.Execute("var r; fetch('https://example.org/', { method: 'HEAD' }).then(x => r = x, e => r = e);");
+        engine.Tasks.ProcessTasks();
+
+        engine.Evaluate("r.status").AsNumber().Should().Be(200);
+        engine.Evaluate("r.headers.get('content-length')").AsString().Should().Be("5000000");
+
+        // The same length on a GET is still refused before the promise settles.
+        Fetch(handler, "fetch('https://example.org/').then(() => 'resolved', e => e.constructor.name)", fetch => fetch.MaxResponseBytes = 1024)
+            .AsString().Should().Be("TypeError");
     }
 
     [Fact]
