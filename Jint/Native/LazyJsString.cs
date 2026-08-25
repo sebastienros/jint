@@ -133,10 +133,10 @@ public abstract class LazyJsString : JsString
         if (HostContractVerification.Enabled)
         {
             // No out-of-assembly gate: nothing in Jint derives from this class - its own lazy strings
-            // (SlicedString, ConcatenatedString) predate it and answer their lengths from their own
-            // fields - so every instance reaching here is a host type by construction. The check is one
-            // integer comparison on the path that just did the expensive part, so there is nothing to
-            // save by narrowing it further.
+            // (SlicedString, ConcatenatedString, RopeString) are built on JsString directly and answer
+            // their lengths from their own fields - so every instance reaching here is a host type by
+            // construction. The check is one integer comparison on the path that just did the expensive
+            // part, so there is nothing to save by narrowing it further.
             VerifyDeclaredLength(value);
         }
 

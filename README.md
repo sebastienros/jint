@@ -2246,8 +2246,11 @@ memoization cannot be bypassed — and it never runs at all for anything the dec
 against a 40 KB value costs nothing. Override `this[int index]` as well when your store can produce one
 character without decoding the whole value, and character access joins that list. Everything else does need
 the characters, including the one that surprises: a property key is a string plus its ordinal hash, so
-`obj[field]`, `field in obj` and a computed key all materialize, as do `JSON.stringify`, concatenation and
-the `String.prototype` methods.
+`obj[field]`, `field in obj` and a computed key all materialize, as do `JSON.stringify` and the
+`String.prototype` methods. Concatenation is the exception it used to be part of: `field + x` defers the
+result once it is long enough to be worth deferring, holding your value as one of the two operands, so
+measuring or further concatenating that result still costs nothing. A short concatenation, and any read of
+the finished text, materializes as before.
 
 The length you declare is what all of those shortcuts answer from, so it has to be the length you produce;
 with **host-contract verification** on (above) a disagreement throws at the moment both answers exist,

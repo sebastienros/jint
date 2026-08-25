@@ -4,7 +4,8 @@ namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// <see cref="JsString"/> has more than one internal representation: a flat value, a lazily
-/// materialized view over a larger string, and a growable buffer built up by repeated concatenation.
+/// materialized view over a larger string, a growable buffer built up by repeated <c>+=</c>, and an
+/// immutable two-operand node produced by a long <c>+</c>.
 /// All of them must be usable interchangeably as a key, which means each one has to hash its
 /// <em>content</em> — the same hash a plain <see cref="JsString"/> with those characters produces.
 /// Hashing anything else (buffer identity, for instance) breaks the equals/hash-code contract:
@@ -285,5 +286,50 @@ public class StringRepresentationKeyTests
             .AsNumber().Should().Be(1);
         engine.Evaluate(Source + " var flat = big.split('').slice(0, 1500).join(''); new Map([[big.substring(0, 1500), 1]]).get(flat)")
             .AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// Builds "abc…" through <c>+</c> rather than <c>+=</c>, which past a threshold produces the
+    /// immutable two-operand node — the fourth representation, and the one a <c>+</c> is free to hand
+    /// out because nobody can append into it.
+    /// </summary>
+    private const string DeferredConcatenation = "var d = ''; for (var i = 0; i < 200; i++) { d = d + 'abc'; }";
+
+    [Fact]
+    public void DeferredConcatenationIsLeftUnflattened()
+    {
+        // guards the premise of the two rows below, exactly as the first test in this file does for the
+        // growable-buffer representation
+        var engine = CreateEngine();
+
+        var value = engine.Evaluate(DeferredConcatenation + " d");
+
+        value.Should().BeOfType<JsString.RopeString>();
+        value.ToString().Should().Be(string.Concat(Enumerable.Repeat("abc", 200)));
+    }
+
+    [Fact]
+    public void DeferredConcatenationHashesLikeTheEquivalentFlatString()
+    {
+        var engine = CreateEngine();
+
+        var deferred = engine.Evaluate(DeferredConcatenation + " d");
+        var flat = new JsString(string.Concat(Enumerable.Repeat("abc", 200)));
+
+        deferred.Equals(flat).Should().BeTrue();
+        deferred.GetHashCode().Should().Be(flat.GetHashCode());
+    }
+
+    [Fact]
+    public void DeferredConcatenationIsUsableAsACollectionKey()
+    {
+        var engine = CreateEngine();
+
+        engine.Evaluate(DeferredConcatenation + " var flat = ''; for (var i = 0; i < 200; i++) { flat += 'abc'; } flat = flat.split('').join('');"
+            + " new Set([d, flat]).size").AsNumber().Should().Be(1);
+        engine.Evaluate(DeferredConcatenation + " var flat = ''; for (var i = 0; i < 200; i++) { flat += 'abc'; } flat = flat.split('').join('');"
+            + " new Map([[d, 1]]).get(flat)").AsNumber().Should().Be(1);
+        engine.Evaluate(DeferredConcatenation + " var flat = ''; for (var i = 0; i < 200; i++) { flat += 'abc'; } flat = flat.split('').join('');"
+            + " var o = {}; o[d] = 5; o[flat]").AsNumber().Should().Be(5);
     }
 }

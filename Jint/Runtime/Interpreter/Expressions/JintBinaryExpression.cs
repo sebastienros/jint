@@ -1495,17 +1495,20 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         if (lprim.IsString() || rprim.IsString())
         {
-            var left = TypeConverter.ToString(lprim);
-            var right = TypeConverter.ToString(rprim);
+            // ToJsString rather than ToString: the operands keep their own representation, so a large
+            // left operand is not materialized just to be copied. JsString.Concat then decides whether
+            // the result is worth deferring - which is what keeps `s = s + x` in a loop linear.
+            var left = TypeConverter.ToJsString(lprim);
+            var right = TypeConverter.ToJsString(rprim);
 
-            // Checked before string.Concat allocates the result. The realm is resolved only inside
+            // Checked before the result is built, deferred or not. The realm is resolved only inside
             // the cold branch, so the warm path pays one widened add and one compare.
             if ((long) left.Length + right.Length > JsString.MaxLength)
             {
                 Throw.RangeError(context.Engine.Realm, "Invalid string length");
             }
 
-            return JsString.Create(string.Concat(left, right));
+            return JsString.Concat(left, right);
         }
 
         if (AreNonBigIntOperands(lprim, rprim))
@@ -1524,10 +1527,16 @@ internal abstract class JintBinaryExpression : JintExpression
     /// <para>
     /// Left-associativity means that once the first operation yields a string, every later '+' in the
     /// chain is also a string concatenation. So the chain's kind can be decided once, from the first
-    /// two primitives: if either is a string the whole chain is concatenated in a single pass and the
-    /// result is allocated exactly once. The nested <see cref="PlusBinaryExpression"/> form instead
-    /// materializes one intermediate string per '+' — for a 3-operand chain of large strings that is
-    /// about twice the result's bytes (measured 250 KB per concat against a 125 KB result).
+    /// two primitives: if either is a string, the whole chain is coerced in a single pass. A short
+    /// result is then allocated exactly once, where the nested <see cref="PlusBinaryExpression"/> form
+    /// materializes one intermediate string per '+' — for a 3-operand chain that is one extra copy of
+    /// the first two operands.
+    /// </para>
+    /// <para>
+    /// A long result is instead folded through <see cref="JsString.Concat"/>, which defers the copy into
+    /// an immutable node, so a chain that accumulates (<c>s = s + a + b</c>) never copies its
+    /// accumulator. This is the same decision the two-operand form makes; deciding it here as well is
+    /// what keeps the flattened chain from being the one shape that stayed quadratic.
     /// </para>
     /// <para>
     /// Evaluation order matches ApplyStringOrNumericBinaryOperator exactly: evaluate operand 0,
@@ -1721,7 +1730,7 @@ internal abstract class JintBinaryExpression : JintExpression
                     nextFold++;
                 }
 
-                return accumulator ?? JsString.Create(ConcatAll(context, buffer, count));
+                return accumulator ?? ConcatAll(context, buffer, count);
             }
             finally
             {
@@ -1771,46 +1780,111 @@ internal abstract class JintBinaryExpression : JintExpression
             }
 
             _kind = ChainKind.String;
-            var s0 = TypeConverter.ToString(p0);
-            var s1 = TypeConverter.ToString(p1);
+            var s0 = TypeConverter.ToJsString(p0);
+            var s1 = TypeConverter.ToJsString(p1);
 
             if (count == 3)
             {
-                var s2 = NextOperandAsString(context, operands[2]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
-                return JsString.Create(string.Concat(s0, s1, s2));
+                var s2 = NextOperandAsJsString(context, operands[2]);
+                return ConcatThree(context, s0, s1, s2);
             }
 
             if (count == 4)
             {
-                var s2 = NextOperandAsString(context, operands[2]);
-                var s3 = NextOperandAsString(context, operands[3]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
-                return JsString.Create(string.Concat(s0, s1, s2, s3));
+                var s2 = NextOperandAsJsString(context, operands[2]);
+                var s3 = NextOperandAsJsString(context, operands[3]);
+                return ConcatFour(context, s0, s1, s2, s3);
             }
 
-            var strings = new string[count];
-            strings[0] = s0;
-            strings[1] = s1;
+            var parts = new JsString[count];
+            parts[0] = s0;
+            parts[1] = s1;
             long total = s0.Length + (long) s1.Length;
             for (var i = 2; i < count; i++)
             {
-                var next = NextOperandAsString(context, operands[i]);
-                strings[i] = next;
+                var next = NextOperandAsJsString(context, operands[i]);
+                parts[i] = next;
                 total += next.Length;
             }
 
             CheckConcatenationLength(context, total);
-            return JsString.Create(string.Concat(strings));
+            return ConcatMany(parts, total);
         }
 
         /// <summary>
         /// Evaluates one trailing operand and coerces it, in that order — past the opening pair each
         /// operand is coerced before the next one is evaluated.
         /// </summary>
+        /// <remarks>
+        /// <see cref="TypeConverter.ToJsString"/> rather than <see cref="TypeConverter.ToString(JsValue)"/>:
+        /// the two produce the same characters, but this one leaves a string operand in whatever
+        /// representation it already has, so a large one is not materialized just to be copied.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string NextOperandAsString(EvaluationContext context, JintExpression operand)
-            => TypeConverter.ToString(TypeConverter.ToPrimitive(operand.GetValue(context)));
+        private static JsString NextOperandAsJsString(EvaluationContext context, JintExpression operand)
+            => TypeConverter.ToJsString(TypeConverter.ToPrimitive(operand.GetValue(context)));
+
+        /// <summary>
+        /// The chain's whole result, in the two shapes it can take: a short one is concatenated in the
+        /// single allocation the flattened chain exists to produce, and a long one is folded
+        /// left-to-right through <see cref="JsString.Concat"/>, which defers the copy — so a chain that
+        /// accumulates (<c>s = s + a + b</c>) never copies its accumulator, exactly as the two-operand
+        /// form does not. Both callers — the direct path and the resumed one — share these, so the
+        /// decision cannot drift between them.
+        /// </summary>
+        private static JsString ConcatThree(EvaluationContext context, JsString s0, JsString s1, JsString s2)
+        {
+            var total = (long) s0.Length + s1.Length + s2.Length;
+            CheckConcatenationLength(context, total);
+
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                return JsString.Concat(JsString.Concat(s0, s1), s2);
+            }
+
+            return JsString.Create(string.Concat(s0.ToString(), s1.ToString(), s2.ToString()));
+        }
+
+        /// <inheritdoc cref="ConcatThree"/>
+        private static JsString ConcatFour(EvaluationContext context, JsString s0, JsString s1, JsString s2, JsString s3)
+        {
+            var total = (long) s0.Length + s1.Length + s2.Length + s3.Length;
+            CheckConcatenationLength(context, total);
+
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                return JsString.Concat(JsString.Concat(JsString.Concat(s0, s1), s2), s3);
+            }
+
+            return JsString.Create(string.Concat(s0.ToString(), s1.ToString(), s2.ToString(), s3.ToString()));
+        }
+
+        /// <inheritdoc cref="ConcatThree"/>
+        /// <remarks>
+        /// The five-or-more form, whose caller has already summed and checked the total — the 3- and
+        /// 4-operand ones exist to keep the <see cref="string"/>[]-free <c>string.Concat</c> overloads.
+        /// </remarks>
+        private static JsString ConcatMany(JsString[] parts, long total)
+        {
+            if (total >= JsString.MinDeferredConcatenationLength)
+            {
+                var accumulator = JsString.Concat(parts[0], parts[1]);
+                for (var i = 2; i < parts.Length; i++)
+                {
+                    accumulator = JsString.Concat(accumulator, parts[i]);
+                }
+
+                return accumulator;
+            }
+
+            var strings = new string[parts.Length];
+            for (var i = 0; i < parts.Length; i++)
+            {
+                strings[i] = parts[i].ToString();
+            }
+
+            return JsString.Create(string.Concat(strings));
+        }
 
         /// <summary>
         /// Refuses a concatenation whose result would exceed <see cref="JsString.MaxLength"/>, before
@@ -1828,42 +1902,42 @@ internal abstract class JintBinaryExpression : JintExpression
         }
 
         /// <summary>
-        /// Joins every operand's string form with a single allocation for the result. The 3- and
-        /// 4-operand overloads avoid the intermediate <see cref="string"/>[] that the general
-        /// <see cref="string.Concat(string[])"/> path needs.
+        /// Joins every operand of a chain that suspended at least once. The buffer already holds each
+        /// operand's coerced <see cref="JsString"/>, so this only has to make the same call the direct
+        /// path makes, through the same three helpers.
         /// </summary>
-        private static string ConcatAll(EvaluationContext context, JsValue[] buffer, int count)
+        private static JsString ConcatAll(EvaluationContext context, JsValue[] buffer, int count)
         {
             if (count == 3)
             {
-                var s0 = TypeConverter.ToString(buffer[0]);
-                var s1 = TypeConverter.ToString(buffer[1]);
-                var s2 = TypeConverter.ToString(buffer[2]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length);
-                return string.Concat(s0, s1, s2);
+                return ConcatThree(
+                    context,
+                    TypeConverter.ToJsString(buffer[0]),
+                    TypeConverter.ToJsString(buffer[1]),
+                    TypeConverter.ToJsString(buffer[2]));
             }
 
             if (count == 4)
             {
-                var s0 = TypeConverter.ToString(buffer[0]);
-                var s1 = TypeConverter.ToString(buffer[1]);
-                var s2 = TypeConverter.ToString(buffer[2]);
-                var s3 = TypeConverter.ToString(buffer[3]);
-                CheckConcatenationLength(context, (long) s0.Length + s1.Length + s2.Length + s3.Length);
-                return string.Concat(s0, s1, s2, s3);
+                return ConcatFour(
+                    context,
+                    TypeConverter.ToJsString(buffer[0]),
+                    TypeConverter.ToJsString(buffer[1]),
+                    TypeConverter.ToJsString(buffer[2]),
+                    TypeConverter.ToJsString(buffer[3]));
             }
 
-            var strings = new string[count];
+            var parts = new JsString[count];
             long total = 0;
             for (var i = 0; i < count; i++)
             {
-                var next = TypeConverter.ToString(buffer[i]);
-                strings[i] = next;
+                var next = TypeConverter.ToJsString(buffer[i]);
+                parts[i] = next;
                 total += next.Length;
             }
 
             CheckConcatenationLength(context, total);
-            return string.Concat(strings);
+            return ConcatMany(parts, total);
         }
     }
 

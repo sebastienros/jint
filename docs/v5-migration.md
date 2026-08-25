@@ -1542,6 +1542,25 @@ asserting the bug. An engine left at the default `MaxExecutionStackCount` (`-1`)
 unaffected — `Options.Constraints.StackOverflowGuard`, the default, throws a `RangeError` without hopping
 threads.
 
+### 4.27 A long `+` returns a deferred string ([#3350](https://github.com/sebastienros/jint/issues/3350))
+
+`s += x` and `s = s + x` mean the same thing and did not cost the same thing: the compound form builds into a
+`StringBuilder`-backed value and is amortised linear, while a plain `+` produced a flat string per operation
+and so copied the whole accumulated left operand on every iteration. Prepending (`s = x + s`) had no fast
+path at all. From v5 a `+` whose result is at least 512 characters returns an *immutable* two-operand node
+instead, and materializes the text on the first read that needs characters.
+
+**What could break:** nothing a script can see — the value is the string it stands for, for equality,
+hashing, property keys, `length`, every `String.prototype` method and `JSON.stringify`. Two things a host
+might notice:
+
+- `engine.Evaluate("a + b")` may hand back a `JsString` **subclass**. It always could — `+=` has returned one
+  since long before v5 — so `is JsString`, `AsString()`, `ToString()` and `ToObject()` are unaffected, but an
+  exact-type test (`result.GetType() == typeof(JsString)`) now fails for one more shape.
+- The result keeps its two operands alive until something reads its text. A host that concatenates a large
+  string and holds only the result, expecting the operands to become collectable immediately, gets that back
+  by reading the result once (`AsString()` is enough) — the node then drops both references.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
