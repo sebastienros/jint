@@ -97,6 +97,43 @@ public sealed class ReflectedModel
 }
 
 /// <summary>
+/// An annotated type carrying a string indexer, which is probed ahead of the member itself. An indexer that
+/// answers for a name a declared member also carries has to win on both paths, and one that declines has to
+/// leave the member to answer on both paths.
+/// </summary>
+[JsAccessible]
+public sealed class GeneratedIndexed
+{
+    private readonly Dictionary<string, string> _entries = new(StringComparer.Ordinal);
+
+    public string? Name { get; set; }
+
+    public string? this[string key] => _entries.TryGetValue(key, out var value) ? value : null;
+
+    public JsValue Put(JsValue key, JsValue value)
+    {
+        _entries[key.ToString()] = value.ToString();
+        return value;
+    }
+}
+
+/// <summary>Byte-for-byte the same members as <see cref="GeneratedIndexed"/>, without the attribute.</summary>
+public sealed class ReflectedIndexed
+{
+    private readonly Dictionary<string, string> _entries = new(StringComparer.Ordinal);
+
+    public string? Name { get; set; }
+
+    public string? this[string key] => _entries.TryGetValue(key, out var value) ? value : null;
+
+    public JsValue Put(JsValue key, JsValue value)
+    {
+        _entries[key.ToString()] = value.ToString();
+        return value;
+    }
+}
+
+/// <summary>
 /// A nested annotated type. Its hint name has to carry the containing type: the MVP derived one from
 /// <c>{Namespace}.{Name}</c> alone, so this type and a top-level <c>Player</c> in the same namespace both
 /// claimed <c>Ns.Player.JsAccessible.g.cs</c> and the second <c>AddSource</c> threw.

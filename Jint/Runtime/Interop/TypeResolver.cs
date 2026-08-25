@@ -409,18 +409,19 @@ public sealed class TypeResolver
     }
 
     /// <summary>
-    /// Whether a generated member may stand in for the reflected one. The generated lanes reach a type's
-    /// public instance members under their CLR names, which is what the four settings below decide for every
-    /// other type - so a host that has changed any of them gets the reflection path for annotated types too,
-    /// rather than a lane that silently ignores the filter it installed. Routing the generated members
-    /// through those settings instead is a separate change; until it lands, this is the difference between
-    /// "not yet supported" and "quietly bypassed".
+    /// Whether the registry's own name-keyed lookup answers what the reflected selection would have chosen,
+    /// so a generated member can be resolved without reflecting over the type at all. It does exactly while
+    /// the host has changed nothing that steers the selection: the registry is keyed by CLR name under
+    /// <see cref="DefaultMemberNameComparer"/>, and it holds public instance members only.
     /// </summary>
-    internal bool GeneratedMembersAreConsultable(Engine engine)
+    /// <remarks>
+    /// A host that has changed one of them still gets the generated lanes — through
+    /// <see cref="TryFindMemberAccessor"/>, which runs the whole reflected selection and swaps the generated
+    /// accessor in for the member that selection landed on. This is only about whether the cheaper answer is
+    /// also the same answer.
+    /// </remarks>
+    private bool GeneratedNameLookupIsEquivalent(Engine engine)
     {
-        // A filter can only ever hide members, so one installed at all has to be honoured; the default
-        // predicate hides nothing. AllowGetType folds in the same way - it is a filter over a single name,
-        // and a member called GetType is never registered.
         if (!_memberFilterIsDefault
             || !_memberNameCreatorIsDefault
             || !ReferenceEquals(_memberNameComparer, DefaultMemberNameComparer.Instance))
@@ -432,6 +433,40 @@ public sealed class TypeResolver
         return (PropertyBindingFlags(engine) & PublicInstance) == PublicInstance
                && (FieldBindingFlags(engine) & PublicInstance) == PublicInstance
                && (MethodBindingFlags(engine) & PublicInstance) == PublicInstance;
+    }
+
+    /// <summary>
+    /// The generated lane for the member the reflected selection just chose, if that member is a registered
+    /// one and the two accessors answer the same questions about it. Reflection has already applied
+    /// <see cref="MemberFilter"/>, <see cref="MemberNameCreator"/>, <see cref="MemberNameComparer"/> and the
+    /// engine's binding flags by the time this is asked, so containment is honoured by construction and only
+    /// the read and write lanes are exchanged.
+    /// </summary>
+    private static bool TrySubstituteGeneratedAccessor(
+        Type type,
+        MemberInfo reflectedMember,
+        ReflectionAccessor reflected,
+        [NotNullWhen(true)] out ReflectionAccessor? generated)
+    {
+        generated = null;
+
+        if (JsAccessibleRegistry.IsEmpty
+            || !JsAccessibleRegistry.TryGetAccessorForDeclaredMember(type, reflectedMember, out var candidate))
+        {
+            return false;
+        }
+
+        // Resolution is filtered by MemberResolutionRequirement further up, so a generated accessor that
+        // disagreed with the reflected one about being readable or writable could turn a resolved member
+        // into an unresolved one. The generator declines every shape where they could disagree; this says so
+        // rather than trusting it.
+        if (candidate.Readable != reflected.Readable || candidate.Writable != reflected.Writable)
+        {
+            return false;
+        }
+
+        generated = candidate;
+        return true;
     }
 
     private ReflectionAccessor ResolvePropertyDescriptorFactory(
@@ -450,14 +485,21 @@ public sealed class TypeResolver
         // property/field/method lookup - and for nothing else, which is why they are consulted here rather
         // than ahead of the indexer probe: an annotated type carrying a string indexer must still resolve
         // names the way an un-annotated one does.
+        //
+        // This is the shortcut, taken only while the registry's own name-keyed lookup provably answers what
+        // the reflected selection would have. Everything else reaches the same generated accessors through
+        // TryFindMemberAccessor, which applies the host's filter and name policy first and substitutes
+        // afterwards; the answer is the same, the cost is one reflected selection instead of none.
         if (!isInteger
             && indexer is null
             && !JsAccessibleRegistry.IsEmpty
-            && GeneratedMembersAreConsultable(engine)
-            && JsAccessibleRegistry.TryGetAccessor(type, memberName, out var generated)
-            && requirement.IsSatisfiedBy(generated))
+            && GeneratedNameLookupIsEquivalent(engine)
+            && JsAccessibleRegistry.TryGetMember(type, memberName, out var generated)
+            // the one thing a default MemberFilter still decides, spelled the way Filter spells it
+            && (AllowGetType(engine) || !string.Equals(generated.Name, nameof(GetType), StringComparison.Ordinal))
+            && requirement.IsSatisfiedBy(generated.Accessor))
         {
-            return generated;
+            return generated.Accessor;
         }
 
         // properties and fields cannot be numbers
@@ -800,9 +842,18 @@ public sealed class TypeResolver
             }
         }
 
+        // Whether a generated lane may stand in for whatever this selection lands on. The instance lane only
+        // (the static one passes its own flags and registered members are never static), and only for a type
+        // carrying no indexer: an indexer is probed ahead of the member itself, and a generated accessor has
+        // no such probe - the same reason the shortcut in ResolvePropertyDescriptorFactory sits behind it.
+        var maySubstituteGenerated = bindingFlags is null && indexerToTry is null && !JsAccessibleRegistry.IsEmpty;
+
         if (property is not null)
         {
-            accessor = new PropertyAccessor(property, indexerToTry);
+            var reflected = new PropertyAccessor(property, indexerToTry);
+            accessor = maySubstituteGenerated && TrySubstituteGeneratedAccessor(type, property, reflected, out var substitute)
+                ? substitute
+                : reflected;
             return true;
         }
 
@@ -827,7 +878,10 @@ public sealed class TypeResolver
 
         if (field is not null)
         {
-            accessor = new FieldAccessor(field, indexerToTry);
+            var reflected = new FieldAccessor(field, indexerToTry);
+            accessor = maySubstituteGenerated && TrySubstituteGeneratedAccessor(type, field, reflected, out var substitute)
+                ? substitute
+                : reflected;
             return true;
         }
 
@@ -900,7 +954,16 @@ public sealed class TypeResolver
 
         if (methods?.Count > 0)
         {
-            accessor = new MethodAccessor(type, MethodDescriptor.Build(methods));
+            var reflected = new MethodAccessor(type, MethodDescriptor.Build(methods));
+
+            // A registered method is the sole candidate for its name by construction (the generator declines
+            // any name carrying more than one), so a name that collected several here is one the host's name
+            // policy merged and reflection has to bind.
+            accessor = maySubstituteGenerated
+                       && methods.Count == 1
+                       && TrySubstituteGeneratedAccessor(type, methods[0], reflected, out var substitute)
+                ? substitute
+                : reflected;
             return true;
         }
 

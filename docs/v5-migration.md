@@ -1298,11 +1298,17 @@ you annotated the type:
 | a `static` member, an indexer, a `const` field | resolved by a different lane |
 | an `abstract`, `static`, generic or nested-private type, and any value type | never the runtime type of a receiver, or unreachable from emitted code — and a value type's instance member would be written through a boxed copy |
 
-The generated lane is also skipped **entirely, for every annotated type**, when the host has installed a
-`TypeResolver.MemberFilter`, `MemberNameCreator` or `MemberNameComparer`, or binding flags that no longer
-report public instance members. Those four steer which members exist and under what names; the generated
-lanes do not run through them yet, and declining is the difference between "not yet supported" and "quietly
-bypasses the filter you installed".
+**What still contains it.** `TypeResolver.MemberFilter`, `MemberNameCreator`, `MemberNameComparer` and
+`Options.Interop.ObjectWrapperReported*BindingFlags` reach a generated member exactly as they reach a
+reflected one: a member your filter hides stays hidden, a member your name creator renames answers only to
+the new name, and flags that no longer report a member hide it from both. Installing one of them costs an
+annotated type nothing but one reflected member lookup per member, after which reads, writes and calls run
+through the generated code as before.
+
+One shape stays reflected whatever you configure: an annotated type that also declares an **indexer**. An
+indexer is probed before the member itself, and the generated accessors carry no such probe, so the whole
+type keeps the reflection path — which is what makes its names resolve in the order an un-annotated type's
+do.
 
 Consume the generator with an `Analyzer` project reference for now:
 
@@ -1311,8 +1317,8 @@ Consume the generator with an `Analyzer` project reference for now:
                   OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 ```
 
-Shipping it inside the `Jint` NuGet package, diagnostics for the declined shapes above, and routing the
-generated members through `MemberFilter` and the name policy are each their own follow-up.
+Shipping it inside the `Jint` NuGet package and diagnostics for the declined shapes above are each their own
+follow-up.
 
 ### 5.2 Changing one locale datum is one override ([#3335](https://github.com/sebastienros/jint/pull/3335))
 

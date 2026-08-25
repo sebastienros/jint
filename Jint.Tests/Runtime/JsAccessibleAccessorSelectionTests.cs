@@ -92,21 +92,66 @@ public class JsAccessibleAccessorSelectionTests
         Resolve<NotAnnotated>("Score").Should().BeOfType<PropertyAccessor>();
     }
 
-    [Fact]
-    public void AHostMemberFilterTakesTheWholeTypeBackToReflection()
+    /// <summary>
+    /// A host that installed one of the settings steering member resolution keeps the generated lane. The
+    /// registry's own name-keyed lookup is skipped — it is only equivalent to the reflected selection while
+    /// nothing steers that selection — and the reflected selection runs instead, with the generated accessor
+    /// swapped in for whatever it landed on. What the host configured decides which member that is; the lane
+    /// it is read through is unaffected.
+    /// </summary>
+    [Theory]
+    [InlineData("Score")]
+    [InlineData("Field")]
+    [InlineData("Echo")]
+    public void AMemberAHostFilterAllowsKeepsItsGeneratedAccessor(string member)
     {
         var resolver = new TypeResolver { MemberFilter = static _ => true };
-        Resolve<Annotated>("Score", resolver).Should().BeOfType<PropertyAccessor>();
+        var accessor = Resolve<Annotated>(member, resolver);
+
+        (accessor is GeneratedMemberAccessor or GeneratedMethodAccessor).Should().BeTrue("{0} resolved to {1}", member, accessor.GetType().Name);
     }
 
     [Fact]
-    public void ANarrowedPropertyBindingProfileTakesTheWholeTypeBackToReflection()
+    public void AMemberAHostFilterHidesResolvesToNothingRatherThanToItsGeneratedAccessor()
     {
-        var accessor = Resolve<Annotated>(
-            "Score",
-            new TypeResolver(),
-            options => options.Interop.ObjectWrapperReportedPropertyBindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var resolver = new TypeResolver { MemberFilter = static m => !string.Equals(m.Name, "Score", StringComparison.Ordinal) };
 
-        accessor.Should().NotBeOfType<GeneratedMemberAccessor>();
+        Resolve<Annotated>("Score", resolver).Should().BeSameAs(ConstantValueAccessor.NullAccessor);
+        Resolve<Annotated>("Name", resolver).Should().BeOfType<GeneratedMemberAccessor>();
+    }
+
+    [Fact]
+    public void AHostNameCreatorRenamesTheGeneratedMemberRatherThanRemovingIt()
+    {
+        var resolver = new TypeResolver { MemberNameCreator = static m => ["js_" + m.Name] };
+
+        Resolve<Annotated>("js_Score", resolver).Should().BeOfType<GeneratedMemberAccessor>();
+        Resolve<Annotated>("js_Echo", resolver).Should().BeOfType<GeneratedMethodAccessor>();
+        Resolve<Annotated>("Score", resolver).Should().BeSameAs(ConstantValueAccessor.NullAccessor);
+    }
+
+    [Fact]
+    public void AHostNameComparerDecidesWhichNamesReachTheGeneratedMember()
+    {
+        var resolver = new TypeResolver { MemberNameComparer = StringComparer.Ordinal };
+
+        Resolve<Annotated>("Score", resolver).Should().BeOfType<GeneratedMemberAccessor>();
+
+        // the default comparer ignores the first character's casing; an ordinal one does not
+        Resolve<Annotated>("score", resolver).Should().BeSameAs(ConstantValueAccessor.NullAccessor);
+    }
+
+    /// <summary>
+    /// Binding flags that no longer report a member hide it from both lanes — and cost nothing to the lanes
+    /// they do not narrow, which is what the blanket skip used to get wrong.
+    /// </summary>
+    [Fact]
+    public void ANarrowedPropertyBindingProfileHidesThePropertiesAndLeavesTheFieldsAlone()
+    {
+        static Action<Options> NonPublicPropertiesOnly()
+            => options => options.Interop.ObjectWrapperReportedPropertyBindingFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+
+        Resolve<Annotated>("Score", new TypeResolver(), NonPublicPropertiesOnly()).Should().BeSameAs(ConstantValueAccessor.NullAccessor);
+        Resolve<Annotated>("Field", new TypeResolver(), NonPublicPropertiesOnly()).Should().BeOfType<GeneratedMemberAccessor>();
     }
 }

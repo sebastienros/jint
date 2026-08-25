@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interop;
 public sealed class JsAccessibleTypeBuilder
 {
     private readonly Type _type;
-    private readonly Dictionary<string, ReflectionAccessor> _members = new(TypeResolver.DefaultNameComparer);
+    private readonly Dictionary<string, JsAccessibleRegistry.GeneratedMember> _members = new(TypeResolver.DefaultNameComparer);
 
     internal JsAccessibleTypeBuilder(Type type)
     {
@@ -69,7 +69,7 @@ public sealed class JsAccessibleTypeBuilder
             Throw.ArgumentNullException(nameof(memberType));
         }
 
-        _members[name] = new GeneratedMemberAccessor(memberType, read, readBoxed, write, writeBoxed);
+        _members[name] = new JsAccessibleRegistry.GeneratedMember(name, new GeneratedMemberAccessor(memberType, read, readBoxed, write, writeBoxed));
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ public sealed class JsAccessibleTypeBuilder
             Throw.ArgumentNullException(nameof(invoke));
         }
 
-        _members[name] = new GeneratedMethodAccessor(_type, name, length, invoke);
+        _members[name] = new JsAccessibleRegistry.GeneratedMember(name, new GeneratedMethodAccessor(_type, name, length, invoke));
     }
 
     internal JsAccessibleRegistry.GeneratedTypeMembers Build() => new(_members);

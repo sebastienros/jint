@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Jint.Runtime.Interop.Reflection;
 
@@ -24,12 +26,11 @@ namespace Jint.Runtime.Interop;
 /// resolving is lock-free.
 /// </para>
 /// <para>
-/// <b>What the registry does not decide.</b> A registered member is consulted only when the engine's
-/// interop configuration still matches the one the generator assumed. A host that installed a
-/// <see cref="TypeResolver.MemberFilter"/>, a <see cref="TypeResolver.MemberNameCreator"/>, a
-/// <see cref="TypeResolver.MemberNameComparer"/>, or binding flags that no longer report public instance
-/// members keeps the reflection path for every type, annotated or not, because those four steer which
-/// members exist and under which names and the generated lanes do not yet run through them.
+/// <b>What the registry does not decide.</b> Whether a registered member is reachable at all, and under
+/// which name. <see cref="TypeResolver.MemberFilter"/>, <see cref="TypeResolver.MemberNameCreator"/>,
+/// <see cref="TypeResolver.MemberNameComparer"/> and the reported binding flags apply to a generated
+/// member exactly as they do to a reflected one, so a member a host hid stays hidden and a member it
+/// renamed answers only to the new name.
 /// </para>
 /// </remarks>
 public static class JsAccessibleRegistry
@@ -76,19 +77,72 @@ public static class JsAccessibleRegistry
     /// </summary>
     internal static bool IsEmpty => _byType.IsEmpty;
 
-    internal static bool TryGetAccessor(
-        Type type,
-        string memberName,
-        [NotNullWhen(true)] out ReflectionAccessor? accessor)
+    /// <summary>
+    /// The name-keyed lookup, matched the way <see cref="TypeResolver"/>'s default name comparer matches a
+    /// reflected member. Only equivalent to the reflected selection while the host has changed nothing that
+    /// steers it, which is why <see cref="TypeResolver"/> and not this method decides when to ask.
+    /// </summary>
+    internal static bool TryGetMember(Type type, string memberName, out GeneratedMember member)
     {
         if (_byType.TryGetValue(type, out var members))
         {
-            return members.TryGet(memberName, out accessor);
+            return members.TryGet(memberName, out member);
         }
 
-        accessor = null;
+        member = default;
         return false;
     }
+
+    /// <summary>
+    /// The generated lane for a member the reflected selection already chose, or <see langword="false"/> if
+    /// that member is not one of this type's registered ones. Everything registered is a public instance
+    /// property, field or method declared on <paramref name="type"/> itself, so anything else — an inherited
+    /// or static member, an extension method, a member whose name merely reads the same — is not it.
+    /// </summary>
+    internal static bool TryGetAccessorForDeclaredMember(
+        Type type,
+        MemberInfo reflected,
+        [NotNullWhen(true)] out ReflectionAccessor? accessor)
+    {
+        accessor = null;
+
+        if (!_byType.TryGetValue(type, out var members)
+            || !members.TryGet(reflected.Name, out var member)
+            // the name-keyed lookup is deliberately fuzzy, so the entry it returned still has to be the
+            // member being asked about rather than one whose name only differs in the first character
+            || !string.Equals(member.Name, reflected.Name, StringComparison.Ordinal)
+            || reflected.DeclaringType != type)
+        {
+            return false;
+        }
+
+        var matches = reflected switch
+        {
+            PropertyInfo property => member.Accessor is GeneratedMemberAccessor && !IsStatic(property),
+            FieldInfo field => member.Accessor is GeneratedMemberAccessor && !field.IsStatic,
+            MethodInfo method => member.Accessor is GeneratedMethodAccessor generated
+                                 && !method.IsStatic
+                                 && method.GetParameters().Length == generated.Length,
+            _ => false,
+        };
+
+        if (!matches)
+        {
+            return false;
+        }
+
+        accessor = member.Accessor;
+        return true;
+    }
+
+    private static bool IsStatic(PropertyInfo property) => (property.GetMethod ?? property.SetMethod)?.IsStatic ?? false;
+
+    /// <summary>
+    /// One registered member. The CLR name is carried beside the accessor because a containment question is
+    /// asked about the member, not about the name the script used to reach it.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct GeneratedMember(string Name, ReflectionAccessor Accessor);
 
     /// <summary>
     /// The registered members of one type, keyed the way <see cref="TypeResolver"/>'s default name comparer
@@ -96,14 +150,14 @@ public static class JsAccessibleRegistry
     /// </summary>
     internal sealed class GeneratedTypeMembers
     {
-        private readonly Dictionary<string, ReflectionAccessor> _members;
+        private readonly Dictionary<string, GeneratedMember> _members;
 
-        internal GeneratedTypeMembers(Dictionary<string, ReflectionAccessor> members)
+        internal GeneratedTypeMembers(Dictionary<string, GeneratedMember> members)
         {
             _members = members;
         }
 
-        internal bool TryGet(string memberName, [NotNullWhen(true)] out ReflectionAccessor? accessor)
-            => _members.TryGetValue(memberName, out accessor);
+        internal bool TryGet(string memberName, out GeneratedMember member)
+            => _members.TryGetValue(memberName, out member);
     }
 }
