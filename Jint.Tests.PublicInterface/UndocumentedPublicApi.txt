@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 658
+undocumented: 635
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -175,29 +175,6 @@ M:Jint.Native.Error.ErrorConstructor.Construct(System.String)
 M:Jint.Native.Intl.CompactPatterns.#ctor
 M:Jint.Native.Intl.CurrencyData.#ctor
 M:Jint.Native.Intl.DateTimePatterns.#ctor
-M:Jint.Native.Intl.DefaultCldrProvider.GetCompactPatterns(System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetCurrencyData(System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetCurrencyDisplayName(System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetDateTimePatterns(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetDayPeriods(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetDefaultNumberingSystem(System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetEraNames(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetLikelySubtags(System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetListPatterns(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetMonthNames(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetNumberingSystemDigits(System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetRelativeTimePatterns(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetRelativeTimeSpecialPhrase(System.String,System.String,System.Int32,System.Boolean,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedCalendars
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedCollations
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedCurrencies
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedNumberingSystems
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedTimeZones
-M:Jint.Native.Intl.DefaultCldrProvider.GetSupportedUnits
-M:Jint.Native.Intl.DefaultCldrProvider.GetUnitPatterns(System.String,System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetWeekInfo(System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.GetWeekdayNames(System.String,System.String)
-M:Jint.Native.Intl.DefaultCldrProvider.SelectPluralCategory(System.String,System.Double,System.String)
 M:Jint.Native.Intl.ListPatterns.#ctor
 M:Jint.Native.Intl.RelativeTimePatterns.#ctor
 M:Jint.Native.Intl.UnitPatterns.#ctor

@@ -11,15 +11,16 @@ namespace Jint.Native.Intl;
 /// <remarks>
 /// <para>
 /// Every member is <c>virtual</c>, so changing one datum means deriving from this class and overriding
-/// that one member. The other twenty-two are inherited, and nothing has to be delegated by hand.
+/// that one member. The other twenty are inherited, and nothing has to be delegated by hand.
 /// </para>
 /// <para>
 /// Install the derived instance on <see cref="Options.IntlOptions.CldrProvider"/>; leaving that property
 /// alone keeps <see cref="Instance"/>, the shared singleton every unconfigured engine reads.
 /// </para>
 /// <para>
-/// Overriding a member is not the same as adding data the engine never asks for: ten of the twenty-three
-/// members have no caller inside Jint today, so overriding one of those changes nothing script can see.
+/// Overriding a member is not the same as adding data the engine never asks for: six still have no caller
+/// inside Jint — the four that answer for <c>Intl.DateTimeFormat</c>, plus <see cref="GetCompactPatterns"/>
+/// and <see cref="GetNumberingSystemDigits"/> — so overriding one of those changes nothing script can see.
 /// </para>
 /// </remarks>
 /// <example>
@@ -56,6 +57,7 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === List Patterns ===
 
+    /// <inheritdoc />
     public virtual ListPatterns? GetListPatterns(string locale, string type, string style)
     {
         // Try embedded CLDR data first
@@ -88,6 +90,7 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Relative Time Patterns ===
 
+    /// <inheritdoc />
     public virtual RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style)
     {
         // Try embedded CLDR data first
@@ -146,6 +149,7 @@ public class DefaultCldrProvider : ICldrProvider
         };
     }
 
+    /// <inheritdoc />
     public virtual string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style)
     {
         // Only provide English phrases
@@ -200,17 +204,20 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Number Formatting ===
 
+    /// <inheritdoc />
     public virtual string? GetNumberingSystemDigits(string numberingSystem)
     {
         return NumberingSystemData.Digits.TryGetValue(numberingSystem, out var digits) ? digits : null;
     }
 
+    /// <inheritdoc />
     public virtual string? GetDefaultNumberingSystem(string locale)
     {
         // Default provider has no per-locale CLDR data; caller falls back to "latn".
         return null;
     }
 
+    /// <inheritdoc />
     public virtual CompactPatterns? GetCompactPatterns(string locale, string style)
     {
         // Use existing CompactPatterns data
@@ -251,42 +258,112 @@ public class DefaultCldrProvider : ICldrProvider
         return null;
     }
 
+    /// <inheritdoc />
     public virtual CurrencyData? GetCurrencyData(string locale, string currencyCode)
     {
-        // Default provider returns basic currency data from .NET
-        try
+        return new CurrencyData
         {
-            var culture = IntlUtilities.GetCultureInfo(locale);
-            if (culture is null)
-            {
-                return null;
-            }
-            var region = new RegionInfo(culture.Name);
-
-            // Common currency symbols
-            var symbol = currencyCode switch
-            {
-                "USD" => "$",
-                "EUR" => "\u20AC",
-                "GBP" => "\u00A3",
-                "JPY" => "\u00A5",
-                "CNY" => "\u00A5",
-                _ => currencyCode
-            };
-
-            return new CurrencyData
-            {
-                Symbol = symbol,
-                NarrowSymbol = symbol,
-                DisplayName = currencyCode
-            };
-        }
-        catch
-        {
-            return null;
-        }
+            Symbol = LocaleAwareCurrencySymbol(locale, currencyCode),
+            NarrowSymbol = NarrowCurrencySymbol(currencyCode),
+            DisplayName = CurrencyAmountName(currencyCode)
+        };
     }
 
+    /// <summary>
+    /// Some locales prefix a foreign currency with its country, so that "$" stays the local currency.
+    /// </summary>
+    private static string LocaleAwareCurrencySymbol(string locale, string currencyCode)
+    {
+        if (string.Equals(currencyCode, "USD", StringComparison.Ordinal))
+        {
+            var parts = locale.Split('-');
+            var language = parts[0];
+            var region = parts.Length > 1 ? parts[parts.Length - 1] : "";
+
+            // Taiwan, Korea and the Chinese locales other than Hong Kong write USD as "US$"
+            if (string.Equals(region, "TW", StringComparison.Ordinal) ||
+                string.Equals(region, "KR", StringComparison.Ordinal) ||
+                (string.Equals(language, "zh", StringComparison.Ordinal) && !string.Equals(region, "HK", StringComparison.Ordinal)))
+            {
+                return "US$";
+            }
+        }
+
+        return CurrencySymbol(currencyCode);
+    }
+
+    private static string CurrencySymbol(string currencyCode)
+    {
+        return currencyCode switch
+        {
+            "USD" => "$",
+            "EUR" => "\u20AC",
+            "GBP" => "\u00A3",
+            "JPY" => "\u00A5",
+            "CNY" => "\u00A5",
+            "KRW" => "\u20A9",
+            "INR" => "\u20B9",
+            "RUB" => "\u20BD",
+            "BRL" => "R$",
+            "CAD" => "CA$",
+            "AUD" => "A$",
+            "CHF" => "CHF",
+            "HKD" => "HK$",
+            "SGD" => "S$",
+            "SEK" => "kr",
+            "NOK" => "kr",
+            "DKK" => "kr",
+            "MXN" => "MX$",
+            "NZD" => "NZ$",
+            "ZAR" => "R",
+            "TWD" => "NT$",
+            "THB" => "\u0E3F",
+            "PLN" => "z\u0142",
+            "TRY" => "\u20BA",
+            "ILS" => "\u20AA",
+            "AED" => "\u062F.\u0625",
+            "SAR" => "\uFDFC",
+            "PHP" => "\u20B1",
+            "MYR" => "RM",
+            "IDR" => "Rp",
+            "CZK" => "K\u010D",
+            "HUF" => "Ft",
+            _ => currencyCode
+        };
+    }
+
+    private static string NarrowCurrencySymbol(string currencyCode)
+    {
+        // Most currencies narrow to their ordinary symbol; the exceptions are the ones whose
+        // ordinary symbol carries a country prefix to disambiguate it from another dollar.
+        return currencyCode switch
+        {
+            "CAD" or "AUD" or "HKD" or "SGD" or "NZD" or "MXN" or "TWD" => "$",
+            _ => CurrencySymbol(currencyCode)
+        };
+    }
+
+    private static string CurrencyAmountName(string currencyCode)
+    {
+        return currencyCode switch
+        {
+            "USD" => "US dollars",
+            "EUR" => "euros",
+            "GBP" => "British pounds",
+            "JPY" => "Japanese yen",
+            "CNY" => "Chinese yuan",
+            "KRW" => "South Korean won",
+            "INR" => "Indian rupees",
+            "RUB" => "Russian rubles",
+            "BRL" => "Brazilian reals",
+            "CAD" => "Canadian dollars",
+            "AUD" => "Australian dollars",
+            "CHF" => "Swiss francs",
+            _ => currencyCode
+        };
+    }
+
+    /// <inheritdoc />
     public virtual UnitPatterns? GetUnitPatterns(string locale, string unit, string style)
     {
         // Try embedded CLDR data first
@@ -356,12 +433,14 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Date/Time Formatting ===
 
+    /// <inheritdoc />
     public virtual DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
     {
         // Default provider delegates to .NET's DateTimeFormatInfo
         return null;
     }
 
+    /// <inheritdoc />
     public virtual string[]? GetMonthNames(string locale, string style, string? calendar)
     {
         var cacheKey = string.Concat(locale, "_", style);
@@ -383,6 +462,7 @@ public class DefaultCldrProvider : ICldrProvider
         });
     }
 
+    /// <inheritdoc />
     public virtual string[]? GetWeekdayNames(string locale, string style)
     {
         var cacheKey = string.Concat(locale, "_", style);
@@ -404,6 +484,7 @@ public class DefaultCldrProvider : ICldrProvider
         });
     }
 
+    /// <inheritdoc />
     public virtual string[]? GetDayPeriods(string locale, string style, string? calendar)
     {
         var cacheKey = string.Concat(locale, "_", style);
@@ -419,6 +500,7 @@ public class DefaultCldrProvider : ICldrProvider
         });
     }
 
+    /// <inheritdoc />
     public virtual string[]? GetEraNames(string locale, string style, string? calendar)
     {
         if (!IsEnglish(locale))
@@ -437,6 +519,7 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Display Names ===
 
+    /// <inheritdoc />
     public virtual string? GetCurrencyDisplayName(string locale, string code)
     {
         if (!IsEnglish(locale))
@@ -450,75 +533,24 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Locale Data ===
 
-    public virtual string? GetLikelySubtags(string locale)
-    {
-        return LikelySubtagsData.TryResolve(locale, out var result) ? result : null;
-    }
-
+    /// <inheritdoc />
     public virtual WeekInfo? GetWeekInfo(string locale)
     {
         // Extract region from locale for week data lookup
         var region = ExtractRegion(locale);
 
-        var firstDayNum = WeekData.GetFirstDayOfWeek(region);
-        var minDays = WeekData.GetMinDays(region);
-
-        // Convert CLDR day number (1=Monday, 7=Sunday) to DayOfWeek
-        var firstDay = firstDayNum switch
+        var weekendNumbers = WeekData.GetWeekend(region);
+        var weekend = new DayOfWeek[weekendNumbers.Length];
+        for (var i = 0; i < weekendNumbers.Length; i++)
         {
-            1 => DayOfWeek.Monday,
-            2 => DayOfWeek.Tuesday,
-            3 => DayOfWeek.Wednesday,
-            4 => DayOfWeek.Thursday,
-            5 => DayOfWeek.Friday,
-            6 => DayOfWeek.Saturday,
-            7 => DayOfWeek.Sunday,
-            _ => DayOfWeek.Monday
-        };
+            weekend[i] = IntlUtilities.CldrDayNumberToDayOfWeek(weekendNumbers[i]);
+        }
 
         return new WeekInfo
         {
-            FirstDay = firstDay,
-            MinimalDays = minDays,
-            Weekend = new[] { DayOfWeek.Saturday, DayOfWeek.Sunday }
+            FirstDay = IntlUtilities.CldrDayNumberToDayOfWeek(WeekData.GetFirstDayOfWeek(region)),
+            Weekend = weekend
         };
-    }
-
-    // === Plural Rules ===
-
-    public virtual string SelectPluralCategory(string locale, double value, string type)
-    {
-        // Basic English plural rules for cardinal numbers
-        // English only has "one" and "other" categories
-        // For ordinal: "one" (1st, 21st), "two" (2nd, 22nd), "few" (3rd, 23rd), "other" (4th, 11th, etc.)
-
-        var absValue = System.Math.Abs(value);
-
-        if (string.Equals(type, "ordinal", StringComparison.Ordinal))
-        {
-            // English ordinal rules
-            var intValue = (int) absValue;
-            var mod10 = intValue % 10;
-            var mod100 = intValue % 100;
-
-            if (mod10 == 1 && mod100 != 11)
-            {
-                return "one"; // 1st, 21st, 31st, ...
-            }
-            if (mod10 == 2 && mod100 != 12)
-            {
-                return "two"; // 2nd, 22nd, 32nd, ...
-            }
-            if (mod10 == 3 && mod100 != 13)
-            {
-                return "few"; // 3rd, 23rd, 33rd, ...
-            }
-            return "other"; // 4th, 5th, 11th, 12th, 13th, ...
-        }
-
-        // English cardinal rules: "one" for 1, "other" for everything else
-        // Note: Many languages have more complex rules (zero, two, few, many)
-        return absValue == 1 ? "one" : "other";
     }
 
     private static string? ExtractRegion(string locale)
@@ -542,6 +574,7 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Supported Values ===
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedCalendars()
     {
         // Only return calendars that are fully supported per ECMA-402 and Intl.Era-monthcode spec
@@ -556,6 +589,7 @@ public class DefaultCldrProvider : ICldrProvider
         };
     }
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedCollations()
     {
         // https://tc39.es/ecma402/#sec-availablecanonicalcollations wants the collations the
@@ -564,22 +598,26 @@ public class DefaultCldrProvider : ICldrProvider
         return CollatorConstructor.AvailableCanonicalCollations;
     }
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedCurrencies()
     {
         return _supportedCurrencies.Value;
     }
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedNumberingSystems()
     {
         return NumberingSystemData.Digits.Keys.ToArray();
     }
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedTimeZones()
     {
         // Return only canonical (primary) timezone identifiers for supportedValuesOf
         return TimeZoneData.GetCanonicalTimeZones();
     }
 
+    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedUnits()
     {
         return new[]

@@ -272,16 +272,20 @@ internal sealed partial class NumberFormatConstructor : Constructor
         numberFormatInfo.CurrencyDecimalDigits = clampedMaxFractionDigits;
         numberFormatInfo.PercentDecimalDigits = clampedMaxFractionDigits;
 
-        // Apply currency symbol based on currencyDisplay option
+        // Apply currency symbol based on currencyDisplay option. "code" is the currency code by
+        // specification, so it is the one display the provider is not asked about.
         if (currency != null)
         {
+            var currencyData = currencyDisplay is "code"
+                ? null
+                : _engine.Options.Intl.CldrProvider.GetCurrencyData(resolvedLocale, currency);
+
             numberFormatInfo.CurrencySymbol = currencyDisplay switch
             {
                 "code" => currency, // e.g., "USD"
-                "symbol" => GetLocaleAwareCurrencySymbol(currency, resolvedLocale), // e.g., "$" or "US$" depending on locale
-                "narrowSymbol" => GetCurrencyNarrowSymbol(currency), // e.g., "$"
-                "name" => GetCurrencyName(currency), // e.g., "US dollars"
-                _ => GetLocaleAwareCurrencySymbol(currency, resolvedLocale)
+                "narrowSymbol" => currencyData?.NarrowSymbol ?? currencyData?.Symbol ?? currency, // e.g., "$"
+                "name" => currencyData?.DisplayName ?? currency, // e.g., "US dollars"
+                _ => currencyData?.Symbol ?? currency // "symbol": "$", or "US$" depending on locale
             };
         }
 
@@ -714,125 +718,6 @@ internal sealed partial class NumberFormatConstructor : Constructor
             "KRW" or "PYG" or "RWF" or "UGX" or "UYI" or "VND" or "VUV" or
             "XAF" or "XOF" or "XPF" => 0, // 0 decimal places
             _ => 2 // Default 2 decimal places
-        };
-    }
-
-    /// <summary>
-    /// Gets the locale-aware currency symbol for a currency code.
-    /// Some locales display foreign currencies with a country code prefix (e.g., "US$" for USD in zh-TW).
-    /// </summary>
-    private static string GetLocaleAwareCurrencySymbol(string currency, string locale)
-    {
-        // Get the base language and region from the locale
-        var parts = locale.Split('-');
-        var lang = parts[0];
-        var region = parts.Length > 1 ? parts[parts.Length - 1] : "";
-
-        // Check if this is a foreign currency that needs a prefix
-        // zh-TW and ko-KR display USD as "US$" to distinguish from local currency
-        if (string.Equals(currency, "USD", StringComparison.Ordinal))
-        {
-            // In Taiwan, Korea, and Chinese locales (except Hong Kong), USD is displayed as "US$"
-            if (string.Equals(region, "TW", StringComparison.Ordinal) ||
-                string.Equals(region, "KR", StringComparison.Ordinal) ||
-                (string.Equals(lang, "zh", StringComparison.Ordinal) && !string.Equals(region, "HK", StringComparison.Ordinal)))
-            {
-                return "US$";
-            }
-        }
-
-        // For other cases, use the standard symbol
-        return GetCurrencySymbol(currency);
-    }
-
-    /// <summary>
-    /// Gets the currency symbol for a currency code.
-    /// </summary>
-    private static string GetCurrencySymbol(string currency)
-    {
-        return currency switch
-        {
-            "USD" => "$",
-            "EUR" => "€",
-            "GBP" => "£",
-            "JPY" => "¥",
-            "CNY" => "¥",
-            "KRW" => "₩",
-            "INR" => "₹",
-            "RUB" => "₽",
-            "BRL" => "R$",
-            "CAD" => "CA$",
-            "AUD" => "A$",
-            "CHF" => "CHF",
-            "HKD" => "HK$",
-            "SGD" => "S$",
-            "SEK" => "kr",
-            "NOK" => "kr",
-            "DKK" => "kr",
-            "MXN" => "MX$",
-            "NZD" => "NZ$",
-            "ZAR" => "R",
-            "TWD" => "NT$",
-            "THB" => "฿",
-            "PLN" => "zł",
-            "TRY" => "₺",
-            "ILS" => "₪",
-            "AED" => "د.إ",
-            "SAR" => "﷼",
-            "PHP" => "₱",
-            "MYR" => "RM",
-            "IDR" => "Rp",
-            "CZK" => "Kč",
-            "HUF" => "Ft",
-            _ => currency // Fall back to the code itself
-        };
-    }
-
-    /// <summary>
-    /// Gets the narrow currency symbol (usually same as regular symbol).
-    /// </summary>
-    private static string GetCurrencyNarrowSymbol(string currency)
-    {
-        // For most currencies, narrow symbol is the same as regular symbol
-        // Some exceptions exist but they're relatively rare
-        return currency switch
-        {
-            "USD" => "$",
-            "EUR" => "€",
-            "GBP" => "£",
-            "JPY" => "¥",
-            "CNY" => "¥",
-            "CAD" => "$", // Narrow: $ instead of CA$
-            "AUD" => "$", // Narrow: $ instead of A$
-            "HKD" => "$", // Narrow: $ instead of HK$
-            "SGD" => "$", // Narrow: $ instead of S$
-            "NZD" => "$", // Narrow: $ instead of NZ$
-            "MXN" => "$", // Narrow: $ instead of MX$
-            "TWD" => "$", // Narrow: $ instead of NT$
-            _ => GetCurrencySymbol(currency)
-        };
-    }
-
-    /// <summary>
-    /// Gets the currency name for a currency code.
-    /// </summary>
-    private static string GetCurrencyName(string currency)
-    {
-        return currency switch
-        {
-            "USD" => "US dollars",
-            "EUR" => "euros",
-            "GBP" => "British pounds",
-            "JPY" => "Japanese yen",
-            "CNY" => "Chinese yuan",
-            "KRW" => "South Korean won",
-            "INR" => "Indian rupees",
-            "RUB" => "Russian rubles",
-            "BRL" => "Brazilian reals",
-            "CAD" => "Canadian dollars",
-            "AUD" => "Australian dollars",
-            "CHF" => "Swiss francs",
-            _ => currency // Fall back to the code
         };
     }
 

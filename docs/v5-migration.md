@@ -64,6 +64,9 @@ This table is filled by the pull request that removes the member. A member that 
 | `AstExtensions` (the whole class, with its two `GetKey` overloads) → `internal` | nothing. `GetKey` extracts a property key from an Acornima expression and needs a live execution context to do it for a computed one, so it was never callable from host code at a meaningful moment; it appeared in IntelliSense for every host with `using Jint;` and an `Expression` in scope | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `GlobalSymbolRegistry()` (public parameterless constructor) → `internal` | nothing. The well-known symbols on it are `static` and still readable — `GlobalSymbolRegistry.Iterator` and its fourteen siblings are unchanged. The *instance* half holds the symbols one engine's `Symbol.for` created, and `Engine.GlobalSymbolRegistry` is `internal`, so a host-constructed registry could never be installed | [#3320](https://github.com/sebastienros/jint/pull/3320) |
 | `ManualPromise(JsValue, Action<JsValue>, Action<JsValue>)` → `internal` | `Engine.Tasks.RegisterPromise()`, the only thing that ever returned one. Settling requires the resolving functions the engine built for that particular promise, so a hand-constructed handle settled nothing. The properties, `with` and `var (promise, resolve, reject) = …` are unchanged | [#3320](https://github.com/sebastienros/jint/pull/3320) |
+| `ICldrProvider.SelectPluralCategory` (and `DefaultCldrProvider`'s override) | nothing. It took a `double`, which cannot carry the CLDR plural operands — `1` and `1.00` are different categories in most languages and the same `double` — so it could not implement plural selection correctly even if the engine had asked. `Intl.PluralRules`, `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.DurationFormat` all use the engine's own operand-aware rules | [#3336](https://github.com/sebastienros/jint/issues/3336) |
+| `ICldrProvider.GetLikelySubtags` (and `DefaultCldrProvider`'s override) | nothing. It expressed only the *maximize* half of the Unicode Add/Remove Likely Subtags algorithm, and `Intl.Locale.prototype.minimize` needs both halves plus subtag-level lookups the signature has no room for. The table is a Unicode constant, not a locale opinion | [#3336](https://github.com/sebastienros/jint/issues/3336) |
+| `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 
 ### 2.1 Sealed types
 
@@ -1322,7 +1325,6 @@ engine.Evaluate("new Proxy([], {})").AsArray();    // ArgumentException: The val
 
 `IsArray()` answers `false` for both, which it always did, and `TryGetArray` declines. A host that wants the
 proxy-following answer asks script for it — `Array.isArray(value)` is unchanged, and still `true` for both.
-
 ### 4.21 `WebApi.Enable`'s callback configures one engine, not every engine ([#3359](https://github.com/sebastienros/jint/pull/3359))
 
 `Engine.WebApi.Enable(features, configure)` used to hand the callback the very `Options`
@@ -1349,6 +1351,33 @@ wrote. Shared configuration is spelled by configuring the options before buildin
 var options = new Options().UseWebApis(WebApiFeatures.Fetch);
 options.WebApi.Fetch.HttpClient = sharedClient;   // every engine built from this
 ```
+
+### 4.22 `Intl` reads the CLDR provider for currency symbols and week info ([#3336](https://github.com/sebastienros/jint/issues/3336))
+
+`Intl.NumberFormat`'s currency symbols came from a hardcoded switch inside the engine, and
+`Intl.Locale.prototype.getWeekInfo` read the embedded CLDR week data directly. Both now go through
+`Options.Intl.CldrProvider` — `GetCurrencyData` and `GetWeekInfo` — so overriding either reaches script:
+
+```c#
+// 5.x — one override, and Intl.NumberFormat().format() shows it
+sealed class MyCurrencies : DefaultCldrProvider
+{
+    public override CurrencyData? GetCurrencyData(string locale, string currencyCode)
+        => currencyCode == "XCD"
+            ? new CurrencyData { Symbol = "EC$", NarrowSymbol = "$", DisplayName = "East Caribbean dollars" }
+            : base.GetCurrencyData(locale, currencyCode);
+}
+```
+
+That switch is now `DefaultCldrProvider`'s data, so an engine that configures no provider — or one whose
+provider derives from `DefaultCldrProvider` — formats exactly as it did in 4.16.
+
+**What could break:** a host implementing `ICldrProvider` from scratch rather than deriving from
+`DefaultCldrProvider`. Its `GetCurrencyData` and `GetWeekInfo` were dead code and are now read, so whatever
+they return is what script sees. Returning `null` from `GetCurrencyData` formats the currency *code*
+(`"USD12.50"`), which is what `currencyDisplay: "code"` has always produced; returning `null` from
+`GetWeekInfo` keeps the embedded week data. `currencyDisplay: "code"` never consults the provider, because
+the specification fixes that display to the currency code.
 
 ## 5. New in v5
 
@@ -1460,7 +1489,7 @@ follow-up.
 
 `DefaultCldrProvider`, `DefaultTimeZoneProvider` and `DefaultCalendarProvider` were `sealed`, so a host that
 disagreed with one currency name, one time zone alias or one calendar had to implement the whole interface —
-23, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
+21, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
 engine silently loses a datum it used to have.
 
 All three are now unsealed with `virtual` members, matching `DefaultTimeSystem`, which has always had that
@@ -1469,7 +1498,7 @@ shape. Nothing about an unconfigured engine changed: the `Options` properties st
 and answers inline rather than going through the interface.
 
 ```c#
-// 5.x — the other twenty-two members are inherited
+// 5.x — the other twenty members are inherited
 sealed class MyCldr : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
@@ -1479,11 +1508,12 @@ sealed class MyCldr : DefaultCldrProvider
 var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
-Two limits are worth knowing before reaching for this. Ten of `ICldrProvider`'s twenty-three members have no
-caller inside Jint today — `GetCurrencyData`, `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods`,
-`GetDateTimePatterns`, `GetCompactPatterns`, `GetNumberingSystemDigits`, `GetLikelySubtags`, `GetWeekInfo`
-and `SelectPluralCategory` — so overriding one of those changes nothing script can observe until the engine
-starts consulting it. And on the calendar side, *correcting* a calendar Jint already
+Two limits are worth knowing before reaching for this. Six of `ICldrProvider`'s twenty-one members have no
+caller inside Jint today — `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods`, `GetDateTimePatterns`,
+`GetCompactPatterns` and `GetNumberingSystemDigits` — so overriding one of those changes nothing script can
+observe until the engine starts consulting it; [#3336](https://github.com/sebastienros/jint/issues/3336)
+tracks the remaining six, and wired `GetCurrencyData` and `GetWeekInfo` on the way, per
+[4.21](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info). And on the calendar side, *correcting* a calendar Jint already
 knows is one override, while *adding* one it does not know is four: `IsSupported`, `GetSupportedCalendars` and
 both conversions all have to answer for the new identifier.
 

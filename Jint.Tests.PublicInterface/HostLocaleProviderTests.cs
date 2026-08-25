@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 public class HostLocaleProviderTests
 {
     [Fact]
-    public void OverridingOneCldrDatumLeavesTheOtherTwentyTwoMembersInherited()
+    public void OverridingOneCldrDatumLeavesTheOtherTwentyMembersInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrencyName());
 
@@ -33,6 +33,42 @@ public class HostLocaleProviderTests
         engine.Evaluate("new Intl.RelativeTimeFormat('en').format(3, 'day')")
             .AsString().Should().Be("in 3 days");
         engine.Evaluate("Intl.supportedValuesOf('unit').length").AsNumber().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void OverridingOneCurrencyReachesNumberFormat()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrency());
+
+        // the three displays the provider answers for
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'XCD' }).format(12.5)")
+            .AsString().Should().Be("EC$12.50");
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'XCD', currencyDisplay: 'narrowSymbol' }).format(12.5)")
+            .AsString().Should().Be("$12.50");
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'XCD', currencyDisplay: 'name' }).format(12.5)")
+            .AsString().Should().StartWith("East Caribbean dollars");
+
+        // the code display is the currency code by specification, whatever the provider says
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'XCD', currencyDisplay: 'code' }).format(12.5)")
+            .AsString().Should().Be("XCD12.50");
+
+        // …and every currency the subclass does not claim still reads the inherited data
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'USD' }).format(12.5)")
+            .AsString().Should().Be("$12.50");
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'currency', currency: 'CAD', currencyDisplay: 'narrowSymbol' }).format(12.5)")
+            .AsString().Should().Be("$12.50");
+    }
+
+    [Fact]
+    public void OverridingOneWeekInfoReachesIntlLocale()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new SundayIsTheWeekend());
+
+        engine.Evaluate("new Intl.Locale('en-US').getWeekInfo().firstDay").AsNumber().Should().Be(3);
+        engine.Evaluate("JSON.stringify(new Intl.Locale('en-US').getWeekInfo().weekend)").AsString().Should().Be("[7]");
+
+        // an explicit -u-fw- still wins over the provider, per the specification
+        engine.Evaluate("new Intl.Locale('en-US-u-fw-mon').getWeekInfo().firstDay").AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -103,14 +139,30 @@ public class HostLocaleProviderTests
     }
 }
 
-/// <summary>One currency's display name; the other twenty-two members are inherited.</summary>
+/// <summary>One currency's display name; the other twenty members are inherited.</summary>
 file sealed class OneCurrencyName : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
         => string.Equals(code, "EUR", StringComparison.Ordinal) ? "Space Credits" : base.GetCurrencyDisplayName(locale, code);
 }
 
-/// <summary>One list-pattern set; the other twenty-two members are inherited.</summary>
+/// <summary>One currency's symbols and name; every other currency is the inherited data.</summary>
+file sealed class OneCurrency : DefaultCldrProvider
+{
+    public override CurrencyData? GetCurrencyData(string locale, string currencyCode)
+        => string.Equals(currencyCode, "XCD", StringComparison.Ordinal)
+            ? new CurrencyData { Symbol = "EC$", NarrowSymbol = "$", DisplayName = "East Caribbean dollars" }
+            : base.GetCurrencyData(locale, currencyCode);
+}
+
+/// <summary>One locale's week layout; every other member is inherited.</summary>
+file sealed class SundayIsTheWeekend : DefaultCldrProvider
+{
+    public override WeekInfo? GetWeekInfo(string locale)
+        => new WeekInfo { FirstDay = DayOfWeek.Wednesday, Weekend = [DayOfWeek.Sunday] };
+}
+
+/// <summary>One list-pattern set; the other twenty members are inherited.</summary>
 file sealed class GermanLists : DefaultCldrProvider
 {
     public override ListPatterns? GetListPatterns(string locale, string type, string style)
@@ -137,7 +189,7 @@ file sealed class ShiftedHebrewEra : DefaultCalendarProvider
 
 /// <summary>
 /// Present only to be compiled: a host reaching a member the engine never consults still has to be able
-/// to override it, and the compiler is the only thing that checks that all twenty-three are virtual.
+/// to override it, and the compiler is the only thing that checks that all twenty-one are virtual.
 /// </summary>
 file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
 {
@@ -155,9 +207,7 @@ file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
     public override string[]? GetDayPeriods(string locale, string style, string? calendar) => base.GetDayPeriods(locale, style, calendar);
     public override string[]? GetEraNames(string locale, string style, string? calendar) => base.GetEraNames(locale, style, calendar);
     public override string? GetCurrencyDisplayName(string locale, string code) => base.GetCurrencyDisplayName(locale, code);
-    public override string? GetLikelySubtags(string locale) => base.GetLikelySubtags(locale);
     public override WeekInfo? GetWeekInfo(string locale) => base.GetWeekInfo(locale);
-    public override string SelectPluralCategory(string locale, double value, string type) => base.SelectPluralCategory(locale, value, type);
     public override IReadOnlyCollection<string> GetSupportedCalendars() => base.GetSupportedCalendars();
     public override IReadOnlyCollection<string> GetSupportedCollations() => base.GetSupportedCollations();
     public override IReadOnlyCollection<string> GetSupportedCurrencies() => base.GetSupportedCurrencies();

@@ -304,20 +304,6 @@ public sealed class IcuCldrProvider : ICldrProvider
 
     // === Locale Data ===
 
-    public string? GetLikelySubtags(string locale)
-    {
-        try
-        {
-            var icuLocale = new UCultureInfo(locale);
-            var maximized = UCultureInfo.AddLikelySubtags(icuLocale);
-            return maximized?.Name ?? _fallback.GetLikelySubtags(locale);
-        }
-        catch
-        {
-            return _fallback.GetLikelySubtags(locale);
-        }
-    }
-
     public WeekInfo? GetWeekInfo(string locale)
         => _fallback.GetWeekInfo(locale);
 
@@ -344,28 +330,4 @@ public sealed class IcuCldrProvider : ICldrProvider
 
     public IReadOnlyCollection<string> GetSupportedUnits()
         => _fallback.GetSupportedUnits();
-
-    // === Plural Rules ===
-
-    public string SelectPluralCategory(string locale, double value, string type)
-    {
-        try
-        {
-            var culture = new UCultureInfo(locale);
-            var pluralType = string.Equals(type, "ordinal", StringComparison.Ordinal)
-                ? PluralType.Ordinal
-                : PluralType.Cardinal;
-
-            var rules = PluralRules.GetInstance(culture, pluralType);
-            var category = rules.Select(value);
-
-            // ICU4N returns the category name (e.g., "one", "other", "few", "many", "zero", "two")
-            return category ?? "other";
-        }
-        catch
-        {
-            // Fallback to default provider's English rules
-            return _fallback.SelectPluralCategory(locale, value, type);
-        }
-    }
 }
