@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Jint.Collections;
 using Jint.Native;
-using Module = Jint.Runtime.Modules.Module;
+using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Environments;
 
@@ -28,7 +28,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-createimportbinding
     /// </summary>
-    public void CreateImportBinding(string importName, Module module, string name)
+    public void CreateImportBinding(string importName, ModuleRecord module, string name)
     {
         _importBindings[importName] = new IndirectBinding(module, name);
         CreateImmutableBindingAndInitialize(importName, true, Undefined, DisposeHint.Normal);
@@ -63,5 +63,5 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     /// </summary>
     internal override bool HasThisBinding() => true;
 
-    private readonly record struct IndirectBinding(Module Module, string BindingName);
+    private readonly record struct IndirectBinding(ModuleRecord Module, string BindingName);
 }

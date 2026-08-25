@@ -4,14 +4,14 @@ using Jint.Native.Json;
 namespace Jint.Runtime.Modules;
 
 /// <summary>
-/// Factory which creates a single runtime <see cref="Module"/> from a given source.
+/// Factory which creates a single runtime <see cref="ModuleRecord"/> from a given source.
 /// </summary>
 public static class ModuleFactory
 {
     /// <summary>
     /// The name a module resolved to <paramref name="resolved"/> knows itself by: <see cref="ResolvedSpecifier.Key"/>,
     /// the string the loader itself chose, with one exception for a <c>file:</c> uri. This is the
-    /// <see cref="Module.Location"/> every <c>Build*Module</c> overload taking a <see cref="ResolvedSpecifier"/>
+    /// <see cref="ModuleRecord.Location"/> every <c>Build*Module</c> overload taking a <see cref="ResolvedSpecifier"/>
     /// gives the module it builds, and it is never null.
     /// </summary>
     /// <param name="resolved">The specifier a <see cref="ModuleLoader"/> resolved a module request to.</param>
@@ -20,7 +20,7 @@ public static class ModuleFactory
     /// <para>
     /// A host that shares one prepared module across pooled engines has to name the module before any module
     /// exists, and the name has to be exactly the one the engine would have derived - it becomes
-    /// <see cref="Module.Location"/> and therefore the <c>referencingModuleLocation</c> echoed back into
+    /// <see cref="ModuleRecord.Location"/> and therefore the <c>referencingModuleLocation</c> echoed back into
     /// <see cref="ModuleLoader.Resolve"/> for the module's own imports, so a mismatch breaks relative-import
     /// resolution with no error to point at. Pass this as the <c>source</c> argument of
     /// <see cref="Engine.PrepareModule"/> and a shared prepared AST carries the same identity the
@@ -72,11 +72,11 @@ public static class ModuleFactory
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/>
     /// from the provided javascript <paramref name="code"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null. This name is also the module's identity for stack traces and for
     /// the debugger, and the <c>referencingModuleLocation</c> passed to <see cref="ModuleLoader.Resolve"/>
@@ -84,7 +84,7 @@ public static class ModuleFactory
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occurred when parsing <paramref name="code"/>.</exception>
-    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
+    public static ModuleRecord BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = LocationOf(resolved);
         parsingOptions ??= ModuleParsingOptions.Default;
@@ -92,7 +92,7 @@ public static class ModuleFactory
         var parser = engine.CreateModuleParser(parserOptions, parsingOptions);
         var module = parser.ParseModuleGuarded(engine, code, source);
 
-        var result = BuildSourceTextModule(engine, new Prepared<AstModule>(
+        var result = BuildSourceTextModule(engine, new Prepared<Module>(
             module,
             parserOptions,
             parsingConstraints: parser.Constraints));
@@ -101,14 +101,14 @@ public static class ModuleFactory
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/>
     /// from the parsed <paramref name="preparedModule"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) will be set
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) will be set
     /// to <see cref="SourceLocation.SourceFile"/> of the <paramref name="preparedModule"/>.
     /// </remarks>
-    public static Module BuildSourceTextModule(Engine engine, in Prepared<AstModule> preparedModule)
+    public static ModuleRecord BuildSourceTextModule(Engine engine, in Prepared<Module> preparedModule)
     {
         if (!preparedModule.IsValid)
         {
@@ -116,20 +116,20 @@ public static class ModuleFactory
         }
 
         var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(preparedModule.Program!);
-        return new SourceTextModule(engine, engine.Realm, in preparedModule, preparedModule.Program!.Location.SourceFile, isAsync: hasTopLevelAwait);
+        return new SourceTextModuleRecord(engine, engine.Realm, in preparedModule, preparedModule.Program!.Location.SourceFile, isAsync: hasTopLevelAwait);
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/> for the
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/> for the
     /// provided JSON module <paramref name="jsonString"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null, where before it was null for a loader returning no uri.
     /// </remarks>
     /// <exception cref="JavaScriptException">Is thrown if an error occurred when parsing <paramref name="jsonString"/>.</exception>
-    public static Module BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string jsonString)
+    public static ModuleRecord BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string jsonString)
     {
         var source = LocationOf(resolved);
         engine.CheckParsingSourceLength(jsonString.Length);
@@ -159,57 +159,57 @@ public static class ModuleFactory
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/>
     /// from the parsed JSON provided in <paramref name="parsedJson"/>.
     /// </summary>
     /// <remarks>
-    /// The returned modules location (see <see cref="Module.Location"/>) will be set
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) will be set
     /// to <paramref name="location"/>.
     /// </remarks>
-    public static Module BuildJsonModule(Engine engine, JsValue parsedJson, string? location)
+    public static ModuleRecord BuildJsonModule(Engine engine, JsValue parsedJson, string? location)
     {
-        return new SyntheticModule(engine, engine.Realm, parsedJson, location);
+        return new SyntheticModuleRecord(engine, engine.Realm, parsedJson, location);
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/> for the
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/> for the
     /// provided bytes module data.
     /// </summary>
     /// <remarks>
     /// https://tc39.es/proposal-import-bytes/#sec-create-bytes-module
     /// <para>
-    /// The returned modules location (see <see cref="Module.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null, where before it was null for a loader returning no uri.
     /// </para>
     /// </remarks>
-    public static Module BuildBytesModule(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
+    public static ModuleRecord BuildBytesModule(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
     {
         var arrayBuffer = engine.Realm.Intrinsics.ArrayBuffer.Construct(bytes);
         arrayBuffer._isImmutable = true;
 
         var uint8Array = engine.Realm.Intrinsics.Uint8Array.Construct([arrayBuffer], engine.Realm.Intrinsics.Uint8Array);
 
-        var result = new SyntheticModule(engine, engine.Realm, uint8Array, LocationOf(resolved));
+        var result = new SyntheticModuleRecord(engine, engine.Realm, uint8Array, LocationOf(resolved));
         result.SourceByteLength = bytes.Length;
         return result;
     }
 
     /// <summary>
-    /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/> for the
+    /// Creates a <see cref="ModuleRecord"/> for the usage within the given <paramref name="engine"/> for the
     /// provided text module contents.
     /// </summary>
     /// <remarks>
     /// https://tc39.es/proposal-import-text/#sec-create-text-module
     /// <para>
-    /// The returned modules location (see <see cref="Module.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
+    /// The returned modules location (see <see cref="ModuleRecord.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null, where before it was null for a loader returning no uri.
     /// </para>
     /// </remarks>
-    public static Module BuildTextModule(Engine engine, ResolvedSpecifier resolved, string text)
+    public static ModuleRecord BuildTextModule(Engine engine, ResolvedSpecifier resolved, string text)
     {
-        var result = new SyntheticModule(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
+        var result = new SyntheticModuleRecord(engine, engine.Realm, JsString.Create(text), LocationOf(resolved));
         result.SourceByteLength = System.Text.Encoding.UTF8.GetByteCount(text);
         return result;
     }
@@ -220,10 +220,10 @@ public static class ModuleFactory
     /// <see cref="ModuleLoadCompletion.SetSource(string)"/>, so both answer a given
     /// <c>with { type: … }</c> the same way.
     /// </summary>
-    internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, string code)
+    internal static ModuleRecord BuildFromContents(Engine engine, ResolvedSpecifier resolved, string code)
         => BuildFromContents(engine, resolved, code, engine.GetActiveParsingConstraints());
 
-    internal static Module BuildFromContents(
+    internal static ModuleRecord BuildFromContents(
         Engine engine,
         ResolvedSpecifier resolved,
         string code,
@@ -249,7 +249,7 @@ public static class ModuleFactory
         var parserOptions = ModuleParsingOptions.Default.GetParserOptions();
         var parser = JintParser.Create(parserOptions, in parsingConstraints);
         var module = parser.ParseModuleGuarded(engine, code, source);
-        var result = BuildSourceTextModule(engine, new Prepared<AstModule>(
+        var result = BuildSourceTextModule(engine, new Prepared<Module>(
             module,
             parserOptions,
             parsingConstraints: parsingConstraints));
@@ -261,10 +261,10 @@ public static class ModuleFactory
     /// The <see cref="BuildFromContents(Engine,ResolvedSpecifier,string)"/> counterpart for a loader that
     /// produced raw bytes.
     /// </summary>
-    internal static Module BuildFromContents(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
+    internal static ModuleRecord BuildFromContents(Engine engine, ResolvedSpecifier resolved, byte[] bytes)
         => BuildFromContents(engine, resolved, bytes, engine.GetActiveParsingConstraints());
 
-    internal static Module BuildFromContents(
+    internal static ModuleRecord BuildFromContents(
         Engine engine,
         ResolvedSpecifier resolved,
         byte[] bytes,

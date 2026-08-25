@@ -41,7 +41,7 @@ internal sealed class HoistingScope
         // A module root is a Program too, so the flag has to be derived from the node rather than defaulted -
         // otherwise the same AST answers differently depending on which factory was called, and the module's
         // own exported lexical declarations go missing from the scope this returns.
-        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: script is AstModule);
+        var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames, module: script is Module);
         treeWalker.Visit(script, null);
 
         return new HoistingScope(
@@ -69,7 +69,7 @@ internal sealed class HoistingScope
     }
 
     public static HoistingScope GetModuleLevelDeclarations(
-        AstModule module,
+        Module module,
         bool collectVarNames = false,
         bool collectLexicalNames = false)
     {
@@ -85,7 +85,7 @@ internal sealed class HoistingScope
     }
 
     public static void GetImportsAndExports(
-        AstModule module,
+        Module module,
         out HashSet<ModuleRequest> requestedModules,
         out List<ImportEntry>? importEntries,
         out List<ExportEntry> localExportEntries,
@@ -190,7 +190,7 @@ internal sealed class HoistingScope
         internal List<Key>? _lexicalNames;
 
         /// <summary>
-        /// Whether the walk started at an <see cref="AstModule"/>. Only there can an export declaration wrap a
+        /// Whether the walk started at an <see cref="Module"/>. Only there can an export declaration wrap a
         /// module-level lexical declaration, so a script or function body walk stops at the root test. It has no
         /// default: every entry point must state it, because getting it wrong silently drops declarations.
         /// </summary>
@@ -289,7 +289,7 @@ internal sealed class HoistingScope
             // Only a direct child of the module, or an export wrapping one, is a module item; a top-level block or `for` head is not.
             // Outside a module the module-item question cannot arise, so the root test is the whole answer.
             var atTopLevel = parent is null
-                || (_module && node.Type is NodeType.ExportNamedDeclaration or NodeType.ExportDefaultDeclaration && parent is AstModule);
+                || (_module && node.Type is NodeType.ExportNamedDeclaration or NodeType.ExportDefaultDeclaration && parent is Module);
 
             foreach (var childNode in node.ChildNodes)
             {
@@ -482,7 +482,7 @@ internal sealed class HoistingScope
     /// Checks if the module has top-level await expressions.
     /// Only checks at the module level, not inside function bodies.
     /// </summary>
-    public static bool HasTopLevelAwait(AstModule module)
+    public static bool HasTopLevelAwait(Module module)
     {
         return HasTopLevelAwaitVisitor.Check(module);
     }
@@ -491,7 +491,7 @@ internal sealed class HoistingScope
     {
         private bool _hasTopLevelAwait;
 
-        public static bool Check(AstModule module)
+        public static bool Check(Module module)
         {
             var visitor = new HasTopLevelAwaitVisitor();
             visitor.Visit(module);

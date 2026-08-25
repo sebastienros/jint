@@ -21,7 +21,7 @@ public interface IModuleLoadPolicy
     /// <summary>
     /// Returns <c>true</c> if the module identified by <paramref name="resolved"/> may be loaded.
     /// </summary>
-    /// <param name="referrerLocation">The <see cref="Module.Location"/> of the importing module, or
+    /// <param name="referrerLocation">The <see cref="ModuleRecord.Location"/> of the importing module, or
     /// <c>null</c> for a root/host import.</param>
     /// <param name="request">The import request as written in source.</param>
     /// <param name="resolved">The resolved specifier the module loader produced.</param>

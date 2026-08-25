@@ -6,7 +6,6 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Runtime;
 
@@ -126,10 +125,10 @@ public class Host
     /// <remarks>
     /// The spec asserts the referrer's <c>[[LoadedModules]]</c> holds an entry for the request: everything
     /// that asks has already been through the load phase. The fallback covers the paths that predate it — a
-    /// host calling <see cref="Module.Link"/> or <see cref="Module.Evaluate"/> on a module it built itself —
+    /// host calling <see cref="ModuleRecord.Link"/> or <see cref="ModuleRecord.Evaluate"/> on a module it built itself —
     /// and is a plain synchronous load, exactly what those paths used to do.
     /// </remarks>
-    internal virtual Module GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
+    internal virtual ModuleRecord GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
     {
         if (Engine.Modules.TryGetLoadedModule(referrer, request, out var module))
         {
@@ -181,7 +180,7 @@ public class Host
         string? referrerLocation,
         ModuleRequest moduleRequest,
         ModuleLoadPayload payload,
-        Module? module,
+        ModuleRecord? module,
         JsValue? error)
     {
         if (error is null)
@@ -204,7 +203,7 @@ public class Host
     /// on a later event-loop turn.
     /// </remarks>
     internal virtual void ContinueDynamicImport(
-        Module module,
+        ModuleRecord module,
         ModuleRequest moduleRequest,
         PromiseCapability payload,
         ModuleLoadBudget budget)
@@ -243,7 +242,7 @@ public class Host
         JsValue loadResult;
         try
         {
-            loadResult = module is CyclicModule cyclicModule
+            loadResult = module is CyclicModuleRecord cyclicModule
                 ? cyclicModule.LoadRequestedModulesWithBudget(budget)
                 : module.LoadRequestedModules();
         }
@@ -266,12 +265,12 @@ public class Host
     /// The <c>linkAndEvaluateClosure</c> of
     /// <see href="https://tc39.es/ecma262/#sec-ContinueDynamicImport">ContinueDynamicImport</see>.
     /// </summary>
-    private void LinkAndEvaluateForDynamicImport(Module moduleRecord, ModuleRequest moduleRequest, PromiseCapability payload)
+    private void LinkAndEvaluateForDynamicImport(ModuleRecord moduleRecord, ModuleRequest moduleRequest, PromiseCapability payload)
     {
         try
         {
             // Link the module if not already linked/linking/evaluating
-            if (moduleRecord is CyclicModule cyclicModule)
+            if (moduleRecord is CyclicModuleRecord cyclicModule)
             {
                 if (cyclicModule.Status == ModuleStatus.Unlinked)
                 {
@@ -297,7 +296,7 @@ public class Host
             if (evaluateResult is not JsPromise evaluatePromise)
             {
                 // Non-cyclic module - shouldn't happen but handle gracefully
-                var ns = Module.GetModuleNamespace(moduleRecord);
+                var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
                 payload.Resolve(ns);
                 return;
             }
@@ -305,7 +304,7 @@ public class Host
             if (evaluatePromise.State == PromiseState.Fulfilled)
             {
                 // Sync completion - resolve immediately with namespace
-                var ns = Module.GetModuleNamespace(moduleRecord);
+                var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
                 payload.Resolve(ns);
             }
             else if (evaluatePromise.State == PromiseState.Rejected)
@@ -317,7 +316,7 @@ public class Host
                 // Pending - chain on the evaluation promise
                 var onEvalFulfilled = new ClrFunction(Engine, "", (_, evalArgs) =>
                 {
-                    var ns = Module.GetModuleNamespace(moduleRecord);
+                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
                     payload.Resolve(ns);
                     return JsValue.Undefined;
                 }, 0, PropertyFlag.Configurable);
@@ -343,18 +342,18 @@ public class Host
     /// <see href="https://tc39.es/proposal-defer-import-eval/#sec-ContinueDynamicImport">ContinueDynamicImport</see>:
     /// gather async transitive dependencies, await their evaluation, then resolve the payload with the deferred namespace.
     /// </summary>
-    private void HandleDeferredImport(Module moduleRecord, PromiseCapability payload)
+    private void HandleDeferredImport(ModuleRecord moduleRecord, PromiseCapability payload)
     {
-        var asyncDeps = new List<Module>();
-        if (moduleRecord is CyclicModule cm)
+        var asyncDeps = new List<ModuleRecord>();
+        if (moduleRecord is CyclicModuleRecord cm)
         {
-            CyclicModule.GatherAsynchronousTransitiveDependencies(cm, asyncDeps);
+            CyclicModuleRecord.GatherAsynchronousTransitiveDependencies(cm, asyncDeps);
         }
 
         if (asyncDeps.Count == 0)
         {
             // No async deps - resolve immediately with deferred namespace.
-            payload.Resolve(Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            payload.Resolve(ModuleRecord.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
             return;
         }
 
@@ -391,7 +390,7 @@ public class Host
 
         if (pending == 0)
         {
-            payload.Resolve(Module.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
+            payload.Resolve(ModuleRecord.GetModuleNamespace(moduleRecord, ModuleImportPhase.Defer));
             return;
         }
 
@@ -412,7 +411,7 @@ public class Host
             if (--remaining == 0)
             {
                 settled = true;
-                payload.Resolve(Module.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer));
+                payload.Resolve(ModuleRecord.GetModuleNamespace(deferredModule, ModuleImportPhase.Defer));
             }
             return JsValue.Undefined;
         }, 0, PropertyFlag.Configurable);
@@ -442,7 +441,7 @@ public class Host
     /// <summary>
     /// https://tc39.es/ecma262/#sec-hostgetimportmetaproperties
     /// </summary>
-    public virtual List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(Module moduleRecord)
+    public virtual List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(ModuleRecord moduleRecord)
     {
         return new List<KeyValuePair<JsValue, JsValue>>();
     }
@@ -450,7 +449,7 @@ public class Host
     /// <summary>
     /// https://tc39.es/ecma262/#sec-hostfinalizeimportmeta
     /// </summary>
-    public virtual void FinalizeImportMeta(ObjectInstance importMeta, Module moduleRecord)
+    public virtual void FinalizeImportMeta(ObjectInstance importMeta, ModuleRecord moduleRecord)
     {
     }
 

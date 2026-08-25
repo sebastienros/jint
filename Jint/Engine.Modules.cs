@@ -10,7 +10,6 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint;
 
@@ -75,9 +74,9 @@ public partial class Engine
     public sealed class ModuleOperations
     {
         private readonly Engine _engine;
-        private readonly Dictionary<ModuleCacheKey, Module> _modules = new();
+        private readonly Dictionary<ModuleCacheKey, ModuleRecord> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
-        private readonly Dictionary<ScriptLoadedModuleKey, Module> _scriptLoadedModules = new();
+        private readonly Dictionary<ScriptLoadedModuleKey, ModuleRecord> _scriptLoadedModules = new();
 
         /// <summary>
         /// The loads an asynchronous loader has started but not finished, keyed by resolved specifier. Two
@@ -227,7 +226,7 @@ public partial class Engine
             }
         }
 
-        internal void RegisterModuleWithAccounting(ModuleCacheKey cacheKey, Module module, long sourceByteCount)
+        internal void RegisterModuleWithAccounting(ModuleCacheKey cacheKey, ModuleRecord module, long sourceByteCount)
         {
             if (_modules.TryGetValue(cacheKey, out var existing))
             {
@@ -263,7 +262,7 @@ public partial class Engine
             }
         }
 
-        internal Module Load(string? referencingModuleLocation, ModuleRequest request)
+        internal ModuleRecord Load(string? referencingModuleLocation, ModuleRequest request)
         {
             var moduleResolution = GuardedResolve(
                 referencingModuleLocation,
@@ -378,7 +377,7 @@ public partial class Engine
                 // asynchronously fetched module statically importing a builder module - where no caller is
                 // left to catch anything: escaping there erupts out of ProcessTasks and strands the graph
                 // load forever, so the error becomes the load's failure instead.
-                Module? builderModule = null;
+                ModuleRecord? builderModule = null;
                 JsValue? builderError = null;
                 Exception? builderException = null;
                 try
@@ -442,7 +441,7 @@ public partial class Engine
                 return;
             }
 
-            Module? loadedModule = null;
+            ModuleRecord? loadedModule = null;
             JsValue? loadError = null;
             Exception? loadException = null;
             try
@@ -462,7 +461,7 @@ public partial class Engine
             // Continue ever threw after a successful load.
             Finish(loadedModule, loadError, loadException);
 
-            void Finish(Module? module, JsValue? error, Exception? exception = null)
+            void Finish(ModuleRecord? module, JsValue? error, Exception? exception = null)
             {
                 if (error is not null
                     && exception is JavaScriptException javaScriptException
@@ -479,12 +478,12 @@ public partial class Engine
         /// <summary>
         /// Looks a request up in the referrer's <c>[[LoadedModules]]</c>.
         /// </summary>
-        internal bool TryGetLoadedModule(IScriptOrModule? referrer, ModuleRequest request, out Module module)
+        internal bool TryGetLoadedModule(IScriptOrModule? referrer, ModuleRequest request, out ModuleRecord module)
             => TryGetLoadedModule(referrer, referrer?.Location, request, out module);
 
-        internal bool TryGetLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, out Module module)
+        internal bool TryGetLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, out ModuleRecord module)
         {
-            if (referrer is Module referrerModule)
+            if (referrer is ModuleRecord referrerModule)
             {
                 return referrerModule.TryGetLoadedModule(request, out module);
             }
@@ -495,9 +494,9 @@ public partial class Engine
         /// <summary>
         /// Step 1 of <see href="https://tc39.es/ecma262/#sec-FinishLoadingImportedModule">FinishLoadingImportedModule</see>.
         /// </summary>
-        internal void RecordLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, Module module)
+        internal void RecordLoadedModule(IScriptOrModule? referrer, string? referrerLocation, ModuleRequest request, ModuleRecord module)
         {
-            if (referrer is Module referrerModule)
+            if (referrer is ModuleRecord referrerModule)
             {
                 referrerModule.RecordLoadedModule(request, module);
                 return;
@@ -522,11 +521,11 @@ public partial class Engine
         /// Registers a module the engine has just obtained, under the resolved specifier every referrer that
         /// resolves to it will look it up by.
         /// </summary>
-        internal void RegisterModule(ModuleCacheKey cacheKey, Module module)
+        internal void RegisterModule(ModuleCacheKey cacheKey, ModuleRecord module)
         {
             // The debugger callback runs before the registry commit so that a callback that throws leaves no
             // half-registered record behind — the failed load can then be retried cleanly.
-            if (module is SourceTextModule sourceTextModule)
+            if (module is SourceTextModuleRecord sourceTextModule)
             {
                 _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
             }
@@ -539,7 +538,7 @@ public partial class Engine
         /// asynchronous load's deferred build, which must not overwrite a record that was registered while
         /// its fetch was in flight.
         /// </summary>
-        internal bool TryGetRegisteredModule(ModuleCacheKey cacheKey, [NotNullWhen(true)] out Module? module)
+        internal bool TryGetRegisteredModule(ModuleCacheKey cacheKey, [NotNullWhen(true)] out ModuleRecord? module)
             => _modules.TryGetValue(cacheKey, out module);
 
         internal void RememberLoadFailure(JsValue error, Exception exception)
@@ -776,7 +775,7 @@ public partial class Engine
             _lastLoadFailure = null;
         }
 
-        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ModuleCacheKey cacheKey)
+        private BuilderModuleRecord LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ModuleCacheKey cacheKey)
         {
             // The module is named by the key it resolved to - which is what the cache key carries - rather than
             // by the name it was registered under. Those differ exactly when the loader canonicalized, and the
@@ -788,14 +787,14 @@ public partial class Engine
             EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount);
             var parsedModule = moduleBuilder.Parse(cacheKey.Key);
             var hasTopLevelAwait = HoistingScope.HasTopLevelAwait(parsedModule.Program!);
-            var module = new BuilderModule(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
+            var module = new BuilderModuleRecord(_engine, _engine.Realm, in parsedModule, location: parsedModule.Program!.Location.SourceFile, async: hasTopLevelAwait);
             RegisterModuleWithAccounting(cacheKey, module, sourceByteCount);
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
         }
 
-        private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
+        private ModuleRecord LoadFromModuleLoader(ResolvedSpecifier moduleResolution, ModuleCacheKey cacheKey)
         {
             EnsureModuleRegistrationAllowed(cacheKey, sourceByteCount: 0);
             var module = ModuleLoader.LoadModule(_engine, moduleResolution);
@@ -904,14 +903,14 @@ public partial class Engine
             // [[Status]] new can have anything left to load — every later status is only reachable once its
             // transitive dependencies are present — so the warm re-import of an already-evaluated graph, the
             // Import-per-request embedding shape, skips the walk and its allocations entirely. A module
-            // record with no dependencies of its own (anything that is not a CyclicModule) has nothing to
+            // record with no dependencies of its own (anything that is not a CyclicModuleRecord) has nothing to
             // load either way.
-            if (module is CyclicModule { Status: ModuleStatus.New })
+            if (module is CyclicModuleRecord { Status: ModuleStatus.New })
             {
                 RunLoadPhaseBlocking(module, budget);
             }
 
-            if (module is not CyclicModule cyclicModule)
+            if (module is not CyclicModuleRecord cyclicModule)
             {
                 LinkModule(request.Specifier, module);
                 EvaluateModule(request.Specifier, module);
@@ -959,7 +958,7 @@ public partial class Engine
 
             _engine.RunAvailableContinuations();
 
-            return Module.GetModuleNamespace(module);
+            return ModuleRecord.GetModuleNamespace(module);
         }
 
         /// <summary>
@@ -1096,7 +1095,7 @@ public partial class Engine
         /// Loads the root of a module graph: a <c>HostLoadImportedModule</c> call like any other, so with an
         /// asynchronous loader it may only finish on a later turn of the event loop.
         /// </summary>
-        private Module LoadRootModule(
+        private ModuleRecord LoadRootModule(
             ModuleRequest request,
             string? referencingModuleLocation,
             ModuleLoadBudget budget)
@@ -1141,12 +1140,12 @@ public partial class Engine
         }
 
         /// <summary>
-        /// Runs <see cref="Module.LoadRequestedModules"/> and, for an asynchronous loader, drives the event
+        /// Runs <see cref="ModuleRecord.LoadRequestedModules"/> and, for an asynchronous loader, drives the event
         /// loop until the graph is in. Throws whatever the load failed with.
         /// </summary>
-        private void RunLoadPhaseBlocking(Module module, ModuleLoadBudget budget)
+        private void RunLoadPhaseBlocking(ModuleRecord module, ModuleLoadBudget budget)
         {
-            var loadResult = module is CyclicModule cyclicModule
+            var loadResult = module is CyclicModuleRecord cyclicModule
                 ? cyclicModule.LoadRequestedModulesWithBudget(budget)
                 : module.LoadRequestedModules();
             if (loadResult is not JsPromise loadPromise)
@@ -1172,12 +1171,12 @@ public partial class Engine
             }
         }
 
-        private static void LinkModule(string specifier, Module module)
+        private static void LinkModule(string specifier, ModuleRecord module)
         {
             module.Link();
         }
 
-        private JsValue EvaluateModule(string specifier, Module module)
+        private JsValue EvaluateModule(string specifier, ModuleRecord module)
         {
             // Brackets the host entry the same way ExecuteWithConstraints does: Import reaches this
             // outside that method for a non-cyclic module, so it is an entry in its own right.
@@ -1209,7 +1208,7 @@ public partial class Engine
 
             if (promise.State == PromiseState.Rejected)
             {
-                var location = module is CyclicModule cyclicModuleRecord
+                var location = module is CyclicModuleRecord cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation
                     : SourceLocation.From(new Position(), new Position());
 

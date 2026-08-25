@@ -5,11 +5,11 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// This is a custom ModuleRecord implementation for dynamically built modules using <see cref="ModuleBuilder"/>
 /// </summary>
-internal sealed class BuilderModule : SourceTextModule
+internal sealed class BuilderModuleRecord : SourceTextModuleRecord
 {
     private List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
 
-    internal BuilderModule(Engine engine, Realm realm, in Prepared<AstModule> source, string? location, bool async)
+    internal BuilderModuleRecord(Engine engine, Realm realm, in Prepared<Module> source, string? location, bool async)
         : base(engine, realm, in source, location, async)
     {
     }

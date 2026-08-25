@@ -8,14 +8,14 @@ using Jint.Runtime.Environments;
 namespace Jint.Runtime.Modules;
 
 internal sealed record ExportResolveSetItem(
-    CyclicModule Module,
+    CyclicModuleRecord Module,
     string ExportName
 );
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-abstract-module-records
 /// </summary>
-public abstract class Module : JsValue, IScriptOrModule
+public abstract class ModuleRecord : JsValue, IScriptOrModule
 {
     private ObjectInstance _namespace;
     private ObjectInstance _deferredNamespace;
@@ -35,7 +35,7 @@ public abstract class Module : JsValue, IScriptOrModule
     /// is the memo that makes both true: once a request has an entry here, no loader call and not even a
     /// <see cref="IModuleLoader.Resolve"/> call is made for it again.
     /// </summary>
-    private Dictionary<ModuleRequest, Module> _loadedModules;
+    private Dictionary<ModuleRequest, ModuleRecord> _loadedModules;
 
     /// <summary>
     /// The module's [[ModuleSource]] internal slot — an %AbstractModuleSource% instance for module types
@@ -47,7 +47,7 @@ public abstract class Module : JsValue, IScriptOrModule
 
     public string Location { get; }
 
-    internal Module(Engine engine, Realm realm, string location) : base(InternalTypes.Module)
+    internal ModuleRecord(Engine engine, Realm realm, string location) : base(InternalTypes.Module)
     {
         _engine = engine;
         _realm = realm;
@@ -56,13 +56,13 @@ public abstract class Module : JsValue, IScriptOrModule
 
     /// <summary>
     /// The UTF-8 encoded byte length of the module's original source, set at creation time. Modules whose
-    /// source size is unknowable — exports-only builders, prepared modules, and custom <see cref="Module"/>
-    /// records — report 0. Raw byte modules use their exact byte length; string sources use their UTF-8
-    /// byte count.
+    /// source size is unknowable — exports-only builders, prepared modules, and custom
+    /// <see cref="ModuleRecord"/> implementations — report 0. Raw byte modules use their exact byte
+    /// length; string sources use their UTF-8 byte count.
     /// </summary>
     internal long SourceByteLength { get; set; }
 
-    public abstract List<string> GetExportedNames(List<CyclicModule> exportStarSet = null);
+    public abstract List<string> GetExportedNames(List<CyclicModuleRecord> exportStarSet = null);
     internal abstract ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null);
     public abstract void Link();
     public abstract JsValue Evaluate();
@@ -76,7 +76,7 @@ public abstract class Module : JsValue, IScriptOrModule
     /// </summary>
     /// <remarks>
     /// A module record with no dependencies of its own — anything that is not a
-    /// <see cref="CyclicModule"/> — has nothing to load, so the base implementation hands back an
+    /// <see cref="CyclicModuleRecord"/> — has nothing to load, so the base implementation hands back an
     /// already-fulfilled promise.
     /// </remarks>
     public virtual JsValue LoadRequestedModules()
@@ -89,7 +89,7 @@ public abstract class Module : JsValue, IScriptOrModule
     /// <summary>
     /// Looks a request up in this module's <c>[[LoadedModules]]</c>.
     /// </summary>
-    internal bool TryGetLoadedModule(ModuleRequest request, out Module module)
+    internal bool TryGetLoadedModule(ModuleRequest request, out ModuleRecord module)
     {
         if (_loadedModules is null)
         {
@@ -105,9 +105,9 @@ public abstract class Module : JsValue, IScriptOrModule
     /// records the module the host produced for a request, and asserts the host's consistency requirement if
     /// an entry is already there.
     /// </summary>
-    internal void RecordLoadedModule(ModuleRequest request, Module module)
+    internal void RecordLoadedModule(ModuleRequest request, ModuleRecord module)
     {
-        _loadedModules ??= new Dictionary<ModuleRequest, Module>(LoadedModuleRequestComparer.Instance);
+        _loadedModules ??= new Dictionary<ModuleRequest, ModuleRecord>(LoadedModuleRequestComparer.Instance);
 
         if (_loadedModules.TryGetValue(request, out var existing))
         {
@@ -123,15 +123,15 @@ public abstract class Module : JsValue, IScriptOrModule
         _loadedModules[request] = module;
     }
 
-    protected internal abstract int InnerModuleLinking(Stack<CyclicModule> stack, int index);
-    protected internal abstract Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder);
+    protected internal abstract int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index);
+    protected internal abstract Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>
-    public static ObjectInstance GetModuleNamespace(Module module) => GetModuleNamespace(module, ModuleImportPhase.Evaluation);
+    public static ObjectInstance GetModuleNamespace(ModuleRecord module) => GetModuleNamespace(module, ModuleImportPhase.Evaluation);
 
-    internal static ObjectInstance GetModuleNamespace(Module module, ModuleImportPhase phase)
+    internal static ObjectInstance GetModuleNamespace(ModuleRecord module, ModuleImportPhase phase)
     {
         if (phase == ModuleImportPhase.Defer)
         {
@@ -180,7 +180,7 @@ public abstract class Module : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-modulenamespacecreate
     /// </summary>
-    private static ModuleNamespace CreateModuleNamespace(Module module, List<string> unambiguousNames, bool deferred)
+    private static ModuleNamespace CreateModuleNamespace(ModuleRecord module, List<string> unambiguousNames, bool deferred)
     {
         var m = new ModuleNamespace(module._engine, module, unambiguousNames, deferred);
         if (deferred)

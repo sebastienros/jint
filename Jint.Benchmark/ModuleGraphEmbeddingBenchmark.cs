@@ -3,15 +3,14 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
+using Acornima.Ast;
 using BenchmarkDotNet.Attributes;
 using Jint.Native;
 using Jint.Runtime.Modules;
 
-// Jint.Benchmark does not inherit the repository-root Directory.Build.props, so the AstModule alias
-// it declares globally for the engine's own projects has to be spelled out here. Both names are
-// needed in this file: the loaders cache Acornima's parsed Module and return Jint's runtime Module.
-using AstModule = Acornima.Ast.Module;
-using Module = Jint.Runtime.Modules.Module;
+// Jint.Benchmark does not inherit the repository-root Directory.Build.props, so the global using for
+// Acornima.Ast that the engine's own projects get has to be spelled out here. Both module types are
+// named below: the loaders cache Acornima's parsed Module and return Jint's ModuleRecord.
 
 namespace Jint.Benchmark;
 
@@ -294,9 +293,9 @@ public class ModuleGraphEmbeddingBenchmark
     /// returned so BenchmarkDotNet consumes it and nothing is eliminated as dead.
     /// </summary>
     [Benchmark]
-    public List<Prepared<AstModule>> PrepareModuleGraph()
+    public List<Prepared<Module>> PrepareModuleGraph()
     {
-        var prepared = new List<Prepared<AstModule>>(ModuleCount);
+        var prepared = new List<Prepared<Module>>(ModuleCount);
         foreach (var key in Keys)
         {
             prepared.Add(Engine.PrepareModule(Sources[key], key));
@@ -312,9 +311,9 @@ public class ModuleGraphEmbeddingBenchmark
     /// <see cref="ColdImport_ParseOnlyShared"/> and <see cref="PoolFill_ParseOnlyShared"/>.
     /// </summary>
     [Benchmark]
-    public List<Prepared<AstModule>> PrepareModuleGraph_ParseOnly()
+    public List<Prepared<Module>> PrepareModuleGraph_ParseOnly()
     {
-        var prepared = new List<Prepared<AstModule>>(ModuleCount);
+        var prepared = new List<Prepared<Module>>(ModuleCount);
         foreach (var key in Keys)
         {
             prepared.Add(Engine.PrepareModule(Sources[key], key, ParseOnlyOptions));
@@ -507,7 +506,7 @@ public class ModuleGraphEmbeddingBenchmark
     /// </param>
     private sealed class SharedPreparedLoader(ModulePreparationOptions? options = null) : IModuleLoader
     {
-        private readonly ConcurrentDictionary<string, Prepared<AstModule>> _prepared = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, Prepared<Module>> _prepared = new(StringComparer.Ordinal);
         private readonly ModulePreparationOptions _options = options ?? ModulePreparationOptions.Default;
         private int _modulesParsed;
 
@@ -520,7 +519,7 @@ public class ModuleGraphEmbeddingBenchmark
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => ResolveInGraph(referencingModuleLocation, moduleRequest);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             var prepared = GetOrPrepare(resolved.Key);
             return ModuleFactory.BuildSourceTextModule(engine, in prepared);
@@ -535,10 +534,10 @@ public class ModuleGraphEmbeddingBenchmark
             }
         }
 
-        private Prepared<AstModule> GetOrPrepare(string key)
+        private Prepared<Module> GetOrPrepare(string key)
             => _prepared.GetOrAdd(key, static (k, self) => self.Prepare(k), this);
 
-        private Prepared<AstModule> Prepare(string key)
+        private Prepared<Module> Prepare(string key)
         {
             var prepared = Engine.PrepareModule(SourceFor(key), key, _options);
             Interlocked.Increment(ref _modulesParsed);
@@ -556,7 +555,7 @@ public class ModuleGraphEmbeddingBenchmark
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
             => ResolveInGraph(referencingModuleLocation, moduleRequest);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
         {
             // ModuleParsingOptions.Default, not a fresh instance: GetParserOptions() short-circuits on
             // ReferenceEquals(this, Default), so handing it a new instance would clone a ParserOptions per

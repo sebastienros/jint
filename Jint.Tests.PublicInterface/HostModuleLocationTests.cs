@@ -7,12 +7,11 @@ using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// The name a loaded module knows itself by — <see cref="Module.Location"/>. These tests live in the
+/// The name a loaded module knows itself by — <see cref="ModuleRecord.Location"/>. These tests live in the
 /// public-interface suite on purpose: the project has no <c>InternalsVisibleTo</c> grant, so every green
 /// assertion here is proof that a third-party embedder can reach the same capability through
 /// <see cref="ModuleLoader"/>, <see cref="ResolvedSpecifier"/>, <see cref="ModuleFactory"/> and
@@ -75,7 +74,7 @@ public class HostModuleLocationTests
     /// </summary>
     private sealed class ImportMetaUrlHost : Host
     {
-        public override List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(Module moduleRecord)
+        public override List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(ModuleRecord moduleRecord)
         {
             var properties = base.GetImportMetaProperties(moduleRecord);
             properties.Add(new KeyValuePair<JsValue, JsValue>("url", moduleRecord.Location));

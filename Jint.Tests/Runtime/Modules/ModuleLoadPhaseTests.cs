@@ -2,7 +2,6 @@ using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Modules;
 
-using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Tests.Runtime.Modules;
 
@@ -35,7 +34,7 @@ public class ModuleLoadPhaseTests
         public ResolvedSpecifier Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
             => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
 
-        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException("the synchronous path must not be taken");
 
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
@@ -127,7 +126,7 @@ public class ModuleLoadPhaseTests
         }, holdBack: "second");
 
         var engine = new Engine(options => options.UseModules(loader));
-        var module = (CyclicModule) ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import 'first'; import 'second';", "root"));
+        var module = (CyclicModuleRecord) ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("import 'first'; import 'second';", "root"));
 
         module.Status.Should().Be(ModuleStatus.New);
 
@@ -204,7 +203,7 @@ public class ModuleLoadPhaseTests
         engine.Modules.Add("dep", "export const v = 1;");
         engine.Modules.Add("root", "import { v } from 'dep'; export const value = v;");
 
-        var module = (CyclicModule) engine.Modules.Load(null, new ModuleRequest("root", []));
+        var module = (CyclicModuleRecord) engine.Modules.Load(null, new ModuleRequest("root", []));
         var loadPromise = (JsPromise) module.LoadRequestedModules();
 
         loadPromise.State.Should().Be(PromiseState.Fulfilled);

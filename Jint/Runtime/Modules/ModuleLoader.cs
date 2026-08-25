@@ -7,12 +7,12 @@ public abstract class ModuleLoader : IModuleLoader
 {
     public abstract ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest);
 
-    public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+    public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
         // A NotSupportedException is API-misuse guidance, not a failed load: AsyncModuleLoader's synchronous
         // entry throws one saying how to reach the loader correctly, and reducing it to the generic message
         // below made it read as a missing file. It propagates as itself.
-        Module moduleRecord;
+        ModuleRecord moduleRecord;
         if (resolved.ModuleRequest.IsBytesModule())
         {
             byte[] bytes;

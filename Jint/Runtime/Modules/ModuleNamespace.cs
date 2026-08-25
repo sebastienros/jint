@@ -14,11 +14,11 @@ namespace Jint.Runtime.Modules;
 /// </summary>
 internal sealed class ModuleNamespace : ObjectInstance
 {
-    private readonly Module _module;
+    private readonly ModuleRecord _module;
     private readonly HashSet<string> _exports;
     private readonly bool _deferred;
 
-    public ModuleNamespace(Engine engine, Module module, List<string> exports, bool deferred = false) : base(engine)
+    public ModuleNamespace(Engine engine, ModuleRecord module, List<string> exports, bool deferred = false) : base(engine)
     {
         // [[Get]] resolves module exports (and throws on symbol-like keys), not ordinary property lookup,
         // so the prototype-method inline cache must skip this receiver. See InternalTypes.ExoticGet.
@@ -63,15 +63,15 @@ internal sealed class ModuleNamespace : ObjectInstance
     {
         if (_deferred)
         {
-            if (_module is CyclicModule cyclicModule
+            if (_module is CyclicModuleRecord cyclicModule
                 && cyclicModule.Status != ModuleStatus.Evaluated
-                && !CyclicModule.ReadyForSyncExecution(cyclicModule))
+                && !CyclicModuleRecord.ReadyForSyncExecution(cyclicModule))
             {
                 Throw.TypeError(_engine.Realm,
                     "Cannot access deferred module namespace: module has async dependencies that have not been evaluated");
             }
 
-            CyclicModule.EvaluateSync(_module);
+            CyclicModuleRecord.EvaluateSync(_module);
         }
 
         return _exports;
@@ -246,7 +246,7 @@ internal sealed class ModuleNamespace : ObjectInstance
 
         if (string.Equals(binding.BindingName, "*namespace*", StringComparison.Ordinal))
         {
-            return Module.GetModuleNamespace(targetModule);
+            return ModuleRecord.GetModuleNamespace(targetModule);
         }
 
         if (string.Equals(binding.BindingName, "*source*", StringComparison.Ordinal))

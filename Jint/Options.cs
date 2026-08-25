@@ -1419,8 +1419,8 @@ public sealed partial class Options
         /// <summary>
         /// Maximum cumulative UTF-8 encoded source bytes across all modules registered in an engine's lifetime.
         /// Charged once per distinct module at registration time. Modules whose original encoded source size is
-        /// unknowable — exports-only builders, prepared modules, and custom <see cref="Module"/> records —
-        /// charge 0 bytes; raw byte modules use their exact byte length; string sources use their UTF-8 byte
+        /// unknowable — exports-only builders, prepared modules, and custom <see cref="ModuleRecord"/>
+        /// implementations — charge 0 bytes; raw byte modules use their exact byte length; string sources use their UTF-8 byte
         /// count. <see cref="long.MaxValue"/> means unlimited (the default). A non-positive finite value throws
         /// at engine construction.
         /// </summary>
@@ -1442,7 +1442,7 @@ public sealed partial class Options
         /// load operation. Cached <c>[[LoadedModules]]</c> hits do not count. The budget resets for each
         /// <see cref="Engine.ModuleOperations.Import(string)"/>,
         /// <see cref="Engine.ModuleOperations.StartImport(string)"/>, or host call to
-        /// <see cref="Jint.Runtime.Modules.Module.LoadRequestedModules()"/>. Registration indexing does not consume hops, so pooled
+        /// <see cref="Jint.Runtime.Modules.ModuleRecord.LoadRequestedModules()"/>. Registration indexing does not consume hops, so pooled
         /// engines never fail from accumulated registrations. <see cref="int.MaxValue"/> means unlimited
         /// (the default). A non-positive finite value throws at engine construction.
         /// </summary>

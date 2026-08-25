@@ -567,7 +567,7 @@ the four rows of `interfaces/WorkerGlobalScope/self.any.js` pass on `self === se
 
 **Three of the eight failures are one decision family** (`NeedsDeclinedWorkerGlobals`): the worker global is
 the global the engine already builds plus the worker names, and there are two names it deliberately does not
-add. `WorkerLocation` (divergence #6) — a worker's script name is its `Module.Location`, and there is no URL
+add. `WorkerLocation` (divergence #6) — a worker's script name is its `ModuleRecord.Location`, and there is no URL
 for the other eight members to be parts of. `WorkerNavigator`, and `hardwareConcurrency` in particular (#7) —
 in Jint the *host* owns every thread, so an engine answering a number would be guessing at a resource it does
 not allocate. **The fourth** is `exposure.any.js`'s "Worker exposure" (`NeedsWorkerNesting`): nesting is off by

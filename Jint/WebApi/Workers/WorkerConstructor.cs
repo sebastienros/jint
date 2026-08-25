@@ -255,7 +255,7 @@ internal sealed partial class WorkerConstructor : Constructor
     /// relative specifier the way <c>import()</c> would have; null when the call came from a script.
     /// </summary>
     private string? ReferencingLocation()
-        => _engine.GetActiveScriptOrModule() is Jint.Runtime.Modules.Module module ? module.Location : null;
+        => _engine.GetActiveScriptOrModule() is Jint.Runtime.Modules.ModuleRecord module ? module.Location : null;
 
     /// <summary>
     /// The <c>WorkerOptions</c> dictionary, https://html.spec.whatwg.org/multipage/workers.html#workeroptions.

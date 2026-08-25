@@ -78,9 +78,9 @@ F:Jint.Runtime.Descriptors.PropertyFlag.OnlyWritable
 F:Jint.Runtime.Descriptors.PropertyFlag.Writable
 F:Jint.Runtime.Descriptors.PropertyFlag.WritableSet
 F:Jint.Runtime.Interop.TypeResolver.Default
-F:Jint.Runtime.Modules.CyclicModule._hasTLA
-F:Jint.Runtime.Modules.Module._engine
-F:Jint.Runtime.Modules.Module._realm
+F:Jint.Runtime.Modules.CyclicModuleRecord._hasTLA
+F:Jint.Runtime.Modules.ModuleRecord._engine
+F:Jint.Runtime.Modules.ModuleRecord._realm
 F:Jint.Runtime.Modules.SpecifierType.Bare
 F:Jint.Runtime.Modules.SpecifierType.Error
 F:Jint.Runtime.Modules.SpecifierType.RelativeOrAbsolute
@@ -356,11 +356,6 @@ M:Jint.Runtime.JavaScriptException.SetJavaScriptLocation(Acornima.SourceLocation
 M:Jint.Runtime.MemoryLimitExceededException.#ctor(System.String)
 M:Jint.Runtime.Modules.AsyncModuleLoader.#ctor
 M:Jint.Runtime.Modules.DefaultModuleLoader.#ctor(System.String,System.Boolean)
-M:Jint.Runtime.Modules.Module.Evaluate
-M:Jint.Runtime.Modules.Module.GetExportedNames(System.Collections.Generic.List{Jint.Runtime.Modules.CyclicModule})
-M:Jint.Runtime.Modules.Module.InnerModuleEvaluation(System.Collections.Generic.Stack{Jint.Runtime.Modules.CyclicModule},System.Int32,System.Int32@)
-M:Jint.Runtime.Modules.Module.InnerModuleLinking(System.Collections.Generic.Stack{Jint.Runtime.Modules.CyclicModule},System.Int32)
-M:Jint.Runtime.Modules.Module.Link
 M:Jint.Runtime.Modules.ModuleAllowlistPolicy.#ctor
 M:Jint.Runtime.Modules.ModuleBuilder.AddSource(System.String)
 M:Jint.Runtime.Modules.ModuleBuilder.ExportFunction(System.String,System.Action)
@@ -379,6 +374,11 @@ M:Jint.Runtime.Modules.ModuleImportAttribute.#ctor(System.String,System.String)
 M:Jint.Runtime.Modules.ModuleLoader.#ctor
 M:Jint.Runtime.Modules.ModuleLoader.LoadModule(Jint.Engine,Jint.Runtime.Modules.ResolvedSpecifier)
 M:Jint.Runtime.Modules.ModuleLoader.Resolve(System.String,Jint.Runtime.Modules.ModuleRequest)
+M:Jint.Runtime.Modules.ModuleRecord.Evaluate
+M:Jint.Runtime.Modules.ModuleRecord.GetExportedNames(System.Collections.Generic.List{Jint.Runtime.Modules.CyclicModuleRecord})
+M:Jint.Runtime.Modules.ModuleRecord.InnerModuleEvaluation(System.Collections.Generic.Stack{Jint.Runtime.Modules.CyclicModuleRecord},System.Int32,System.Int32@)
+M:Jint.Runtime.Modules.ModuleRecord.InnerModuleLinking(System.Collections.Generic.Stack{Jint.Runtime.Modules.CyclicModuleRecord},System.Int32)
+M:Jint.Runtime.Modules.ModuleRecord.Link
 M:Jint.Runtime.Modules.ModuleRequest.#ctor(System.String,Jint.Runtime.Modules.ModuleImportAttribute[])
 M:Jint.Runtime.Modules.ModuleResolutionException.#ctor(System.String,System.String,System.String,System.String)
 M:Jint.Runtime.Modules.NodeModuleLoaderOptions.#ctor
@@ -511,9 +511,9 @@ P:Jint.Runtime.Intrinsics.Uint8ClampedArray
 P:Jint.Runtime.JavaScriptException.Error
 P:Jint.Runtime.JavaScriptException.JavaScriptStackTrace
 P:Jint.Runtime.JavaScriptException.Location
-P:Jint.Runtime.Modules.Module.Location
 P:Jint.Runtime.Modules.ModuleImportAttribute.Key
 P:Jint.Runtime.Modules.ModuleImportAttribute.Value
+P:Jint.Runtime.Modules.ModuleRecord.Location
 P:Jint.Runtime.Modules.ModuleRequest.Attributes
 P:Jint.Runtime.Modules.ModuleRequest.Specifier
 P:Jint.Runtime.Modules.ModuleResolutionException.FilePath

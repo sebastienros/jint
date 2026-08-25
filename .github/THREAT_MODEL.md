@@ -562,7 +562,7 @@ traces, and `import.meta.url` can disclose paths, hostnames, queries, or credent
 - A loader can deliberately bypass automatic redaction with
   `ModuleLoadCompletion.SetError(string)`, an error decorator, or an explicit
   `JavaScriptException` message.
-- `Module.Location`, `import.meta`, debugger/source metadata, and successful module values
+- `ModuleRecord.Location`, `import.meta`, debugger/source metadata, and successful module values
   are not anonymized. The host still controls those names and values.
 - `ExposeDetailedErrors()` or `Modules.ExposeDetailedLoadErrors = true` restores detailed
   loader and source messages for trusted development environments.
@@ -597,7 +597,7 @@ can alter or observe subsequent execution.
   request's closures and authority.
 
 **Required host action.** Use a fresh engine per request for mutually distrusting users, or
-at minimum per tenant/trust domain. Share `Prepared<T>`, not `JsValue` or `Module`. Convert
+at minimum per tenant/trust domain. Share `Prepared<T>`, not `JsValue` or `ModuleRecord`. Convert
 results to bounded CLR data before discarding the engine. Do not use snapshots as a
 security boundary.
 

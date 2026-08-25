@@ -9,7 +9,7 @@ namespace Jint.Runtime.Modules;
 
 #pragma warning disable CS0649 // never assigned to, waiting for new functionalities in spec
 
-internal sealed record ResolvedBinding(Module Module, string BindingName)
+internal sealed record ResolvedBinding(ModuleRecord Module, string BindingName)
 {
     internal static ResolvedBinding Ambiguous => new(null, "ambiguous");
 }
@@ -17,23 +17,23 @@ internal sealed record ResolvedBinding(Module Module, string BindingName)
 /// <summary>
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// </summary>
-public abstract class CyclicModule : Module
+public abstract class CyclicModuleRecord : ModuleRecord
 {
     private Completion? _evalError;
     private int _dfsAncestorIndex;
     internal HashSet<ModuleRequest> _requestedModules;
-    private CyclicModule _cycleRoot;
+    private CyclicModuleRecord _cycleRoot;
     protected bool _hasTLA;
     private bool _asyncEvaluation;
     private PromiseCapability _topLevelCapability;
-    private readonly List<CyclicModule> _asyncParentModules = [];
+    private readonly List<CyclicModuleRecord> _asyncParentModules = [];
     private int _asyncEvalOrder;
     private int _pendingAsyncDependencies;
 
     internal JsValue _evalResult;
     private SourceLocation _abnormalCompletionLocation;
 
-    internal CyclicModule(Engine engine, Realm realm, string location, bool isAsync) : base(engine, realm, location)
+    internal CyclicModuleRecord(Engine engine, Realm realm, string location, bool isAsync) : base(engine, realm, location)
     {
         _hasTLA = isAsync;
     }
@@ -82,7 +82,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLoading
     /// </summary>
-    internal static void InnerModuleLoading(GraphLoadingState state, Module module, int depth)
+    internal static void InnerModuleLoading(GraphLoadingState state, ModuleRecord module, int depth)
     {
         if (!state.IsLoading)
         {
@@ -100,7 +100,7 @@ public abstract class CyclicModule : Module
             while (state.IsLoading && state.TryDequeue(out var pending))
             {
                 var pendingModule = pending.Module;
-                if (pendingModule is CyclicModule { Status: ModuleStatus.New } cyclicModule
+                if (pendingModule is CyclicModuleRecord { Status: ModuleStatus.New } cyclicModule
                     && !state.TryExpand(cyclicModule))
                 {
                     state.SettleOnePendingModule();
@@ -115,7 +115,7 @@ public abstract class CyclicModule : Module
                         $"Module graph depth limit of {maximumDepth} exceeded while loading '{pendingModule.Location}'.");
                 }
 
-                if (pendingModule is CyclicModule { Status: ModuleStatus.New } newCyclicModule)
+                if (pendingModule is CyclicModuleRecord { Status: ModuleStatus.New } newCyclicModule)
                 {
                     state.PendingModulesCount += newCyclicModule._requestedModules.Count;
                     var childDepth = checked(pending.Depth + 1);
@@ -202,7 +202,7 @@ public abstract class CyclicModule : Module
             }
         }
 
-        var stack = new Stack<CyclicModule>();
+        var stack = new Stack<CyclicModuleRecord>();
 
         try
         {
@@ -281,7 +281,7 @@ public abstract class CyclicModule : Module
             Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
-        var stack = new Stack<CyclicModule>();
+        var stack = new Stack<CyclicModuleRecord>();
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
         // Per spec, [[ModuleAsyncEvaluationCount]] is agent-level, not per-Evaluate() call.
         // This ensures correct ordering across dynamic import() calls.
@@ -343,7 +343,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLinking
     /// </summary>
-    protected internal override int InnerModuleLinking(Stack<CyclicModule> stack, int index)
+    protected internal override int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index)
     {
         if (Status is
             ModuleStatus.Linking or
@@ -380,7 +380,7 @@ public abstract class CyclicModule : Module
 
             index = requiredModule.InnerModuleLinking(stack, index);
 
-            if (requiredModule is not CyclicModule requiredCyclicModule)
+            if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
             {
                 continue;
             }
@@ -436,7 +436,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-innermoduleevaluation
     /// </summary>
-    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder)
+    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder)
     {
         if (Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
@@ -467,7 +467,7 @@ public abstract class CyclicModule : Module
         stack.Push(this);
 
         // Build evaluationList per spec - deferred imports only evaluate async transitive deps
-        var evaluationList = new List<Module>();
+        var evaluationList = new List<ModuleRecord>();
         foreach (var required in _requestedModules)
         {
             if (required.Phase == ModuleImportPhase.Source)
@@ -505,7 +505,7 @@ public abstract class CyclicModule : Module
 
             index = TypeConverter.ToInt32(result.Value);
 
-            if (requiredModule is CyclicModule requiredCyclicModule)
+            if (requiredModule is CyclicModuleRecord requiredCyclicModule)
             {
                 if (requiredCyclicModule.Status != ModuleStatus.Evaluating &&
                     requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync &&
@@ -620,7 +620,7 @@ public abstract class CyclicModule : Module
         return new Completion(CompletionType.Normal, index, default);
     }
 
-    private int StackReferenceCount(Stack<CyclicModule> stack)
+    private int StackReferenceCount(Stack<CyclicModuleRecord> stack)
     {
         var count = 0;
         foreach (var item in stack)
@@ -669,7 +669,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private static void AsyncModuleExecutionFulfilled(CyclicModule module)
+    private static void AsyncModuleExecutionFulfilled(CyclicModuleRecord module)
     {
         if (module.Status == ModuleStatus.Evaluated)
         {
@@ -701,7 +701,7 @@ public abstract class CyclicModule : Module
             module._topLevelCapability.Resolve(JsValue.Undefined);
         }
 
-        var execList = new List<CyclicModule>();
+        var execList = new List<CyclicModuleRecord>();
         module.GatherAvailableAncestors(execList);
         execList.Sort((x, y) => x._asyncEvalOrder - y._asyncEvalOrder);
 
@@ -753,7 +753,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
     /// </summary>
-    private static void AsyncModuleExecutionRejected(CyclicModule module, JsValue error)
+    private static void AsyncModuleExecutionRejected(CyclicModuleRecord module, JsValue error)
     {
         if (module.Status == ModuleStatus.Evaluated)
         {
@@ -796,7 +796,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-gather-available-ancestors
     /// </summary>
-    private void GatherAvailableAncestors(List<CyclicModule> execList)
+    private void GatherAvailableAncestors(List<CyclicModuleRecord> execList)
     {
         foreach (var m in _asyncParentModules)
         {
@@ -830,7 +830,7 @@ public abstract class CyclicModule : Module
     /// own status alone would report that graph as settled and let a deferred dependency of it run —
     /// or be declared synchronously runnable — before the cycle has actually finished.
     /// </summary>
-    private static bool IsModuleSCCEvaluated(CyclicModule module)
+    private static bool IsModuleSCCEvaluated(CyclicModuleRecord module)
     {
         var cycleRoot = module._cycleRoot;
         if (cycleRoot is not null)
@@ -844,14 +844,14 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/proposal-defer-import-eval/#sec-ReadyForSyncExecution
     /// </summary>
-    internal static bool ReadyForSyncExecution(Module module, HashSet<Module> seen = null)
+    internal static bool ReadyForSyncExecution(ModuleRecord module, HashSet<ModuleRecord> seen = null)
     {
-        if (module is not CyclicModule cyclicModule)
+        if (module is not CyclicModuleRecord cyclicModule)
         {
             return true;
         }
 
-        seen ??= new HashSet<Module>();
+        seen ??= new HashSet<ModuleRecord>();
         if (!seen.Add(cyclicModule))
         {
             return true;
@@ -891,7 +891,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/proposal-defer-import-eval/#sec-EvaluateSync
     /// </summary>
-    internal static void EvaluateSync(Module module)
+    internal static void EvaluateSync(ModuleRecord module)
     {
         if (!ReadyForSyncExecution(module))
         {
@@ -919,16 +919,16 @@ public abstract class CyclicModule : Module
     /// https://tc39.es/proposal-defer-import-eval/#sec-GatherAsynchronousTransitiveDependencies
     /// </summary>
     internal static void GatherAsynchronousTransitiveDependencies(
-        Module module,
-        List<Module> result,
-        HashSet<Module> seen = null)
+        ModuleRecord module,
+        List<ModuleRecord> result,
+        HashSet<ModuleRecord> seen = null)
     {
-        if (module is not CyclicModule cyclicModule)
+        if (module is not CyclicModuleRecord cyclicModule)
         {
             return;
         }
 
-        seen ??= new HashSet<Module>();
+        seen ??= new HashSet<ModuleRecord>();
         if (!seen.Add(cyclicModule))
         {
             return;

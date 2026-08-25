@@ -74,7 +74,7 @@ public partial class ScriptModulePreparationTests
         // A script root's cached scope is what GlobalDeclarationInstantiation, direct eval and ShadowRealm read.
         Engine.PrepareScript("var a = 1; const b = 2;").Program.UserData.Should().BeOfType<CachedHoistingScope>();
 
-        // A module root reports the same node type but has no reader: SourceTextModule walks its own
+        // A module root reports the same node type but has no reader: SourceTextModuleRecord walks its own
         // declarations, so caching a scope for it was a whole-AST walk nothing consumed.
         Engine.PrepareModule("export const a = 1; const b = 2;").Program.UserData.Should().BeNull();
     }

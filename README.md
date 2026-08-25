@@ -2297,11 +2297,11 @@ engines can keep host objects alive between runs.
 **Sharing a module graph across pooled engines.** A host whose templates or plugins are ES modules pays for
 that graph per engine: `IModuleLoader.LoadModule` is called by every engine that imports a module, so the
 obvious loader re-reads and re-parses the whole graph for every engine in the pool. Prepare each module once
-per *build* instead — cache the `Prepared<AstModule>` (`AstModule` being Acornima's `Module`, which an alias
-keeps apart from Jint's runtime `Module`) keyed by module location, and hand it to the overload that takes an
+per *build* instead — cache the `Prepared<Module>` (Acornima's `Module`, the parsed AST, which is a different
+type from Jint's `ModuleRecord`) keyed by module location, and hand it to the overload that takes an
 already prepared AST, `ModuleFactory.BuildSourceTextModule(engine, in prepared)`. Name the prepared module
 exactly as the engine would: `Engine.PrepareModule(code, source)` takes the name up front, and it becomes
-`Module.Location` and therefore the `referencingModuleLocation` echoed back into `IModuleLoader.Resolve` for
+`ModuleRecord.Location` and therefore the `referencingModuleLocation` echoed back into `IModuleLoader.Resolve` for
 that module's own imports — so a name derived by hand that differs from the engine's breaks relative-import
 resolution with nothing to point at. `ModuleFactory.LocationOf(resolved)` *is* that rule; call it rather than
 reimplementing it.
@@ -2312,16 +2312,17 @@ Wrapping the value in a `Lazy<T>` — whose default thread-safety mode is exactl
 else waits" — is enough:
 
 ```c#
-using AstModule = Acornima.Ast.Module; // Jint.Runtime.Modules.Module is a different type
+using Acornima.Ast;          // Module — the parsed AST
+using Jint.Runtime.Modules;  // ModuleRecord — the loaded, linkable module
 
-private readonly ConcurrentDictionary<string, Lazy<Prepared<AstModule>>> _prepared
+private readonly ConcurrentDictionary<string, Lazy<Prepared<Module>>> _prepared
     = new(StringComparer.Ordinal);
 
-public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
 {
     var location = ModuleFactory.LocationOf(resolved);
     var prepared = _prepared.GetOrAdd(location,
-        static key => new Lazy<Prepared<AstModule>>(() => Engine.PrepareModule(ReadSource(key), key))).Value;
+        static key => new Lazy<Prepared<Module>>(() => Engine.PrepareModule(ReadSource(key), key))).Value;
 
     return ModuleFactory.BuildSourceTextModule(engine, in prepared);
 }
@@ -3255,7 +3256,7 @@ engine but the first from parsing them again.
 
 ### How a module is named
 
-Every module has a location — the string it knows itself by, `Module.Location` — and for a module a loader
+Every module has a location — the string it knows itself by, `ModuleRecord.Location` — and for a module a loader
 produced, that string is `ModuleFactory.LocationOf(resolved)`: the `LocalPath` of an absolute `file:` uri, and
 otherwise `ResolvedSpecifier.Key`, exactly as your `Resolve` wrote it. It is never null.
 
@@ -3282,7 +3283,7 @@ One consequence to weigh if the url carries anything sensitive. This string reac
 hands untrusted script the credential and the api key. A browser's `import.meta.url` carries the query too,
 so this follows from naming a module by its url at all; keep secrets out of the key, or out of the url.
 
-If you name modules yourself — preparing each one once and sharing the `Prepared<AstModule>` across pooled
+If you name modules yourself — preparing each one once and sharing the `Prepared<Module>` across pooled
 engines, per **Sharing a module graph across pooled engines** — call `ModuleFactory.LocationOf` for the name
 rather than deriving it by hand. A name that differs from the engine's own answer breaks relative-import
 resolution with nothing to point at.
@@ -3378,7 +3379,7 @@ var engine = new Engine(options =>
 | Limit | Scope | What counts |
 |---|---|---|
 | `MaxModuleCount` | Engine lifetime | Each distinct successfully registered module record. Duplicates, cached lookups, and coalesced async fetches do not recount. Programmatic modules (`Engine.Modules.Add`) participate. |
-| `MaxTotalModuleSourceBytes` | Engine lifetime | UTF-8 byte count of source text for string-based modules; exact byte length for `byte[]` modules. Prepared modules, exports-only modules, and custom `Module` records whose original encoded size is unknowable charge **0 bytes** — this is a known limitation. |
+| `MaxTotalModuleSourceBytes` | Engine lifetime | UTF-8 byte count of source text for string-based modules; exact byte length for `byte[]` modules. Prepared modules, exports-only modules, and custom `ModuleRecord` implementations whose original encoded size is unknowable charge **0 bytes** — this is a known limitation. |
 | `MaxModuleGraphDepth` | Per graph load | Conservative import-chain depth (root = 1). Cycles are collapsed into strongly connected components but every module in a cycle contributes to its component's weight; Jint then enforces the longest weighted path through the resulting acyclic graph. The answer is independent of source traversal and async completion order. |
 | `MaxModuleResolutionHops` | Per import operation | Each actual `Resolve` call caused by an import. Cached `[[LoadedModules]]` hits do not resolve and do not count. Registration indexing does not consume hops. Budget resets per `Import`/`StartImport` call, so pooled engines never fail from accumulated operations. |
 
