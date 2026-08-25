@@ -15,12 +15,28 @@
 // Type.MakeGenericType + Activator.CreateInstance or MethodInfo.MakeGenericMethod. Reference-type
 // arguments share canonical code and work; value types need a specific instantiation the compiler
 // never saw. The sibling probe beside each gap pins that boundary rather than merely asserting it.
-// All five were https://github.com/sebastienros/jint/issues/3299; three of them now degrade to an
-// untyped wrapper instead of throwing, and their rows below are Probes rather than gaps. The two
-// that remain are the two with no non-generic answer to degrade TO: there is no way to produce a
-// Task<double> without Task.FromResult<double>, and declining a generic host method would report
-// "no matching overload" for a method that plainly exists. Both would trade a diagnosable throw for
-// a wrong answer, so both stay gaps.
+//
+// https://github.com/sebastienros/jint/issues/3299 is the enumeration of those sites. Eight exist, not
+// the five it was filed with - the T[] wrapper branch arrived later, and two more were never in the
+// list - and each is now either a Probe or a KnownAotGap below. The split is whether there is a
+// non-generic answer to degrade TO:
+//
+//   degrades, and the Probe checks the degradation is CORRECT and not merely quiet
+//     ArrayWrapperFactory<int> / GenericListWrapperFactory<int> -> ListWrapper
+//     ReadOnlyListWrapperFactory<double>                        -> plain ObjectWrapper
+//     EnumerableSnapshotFactory<int>                            -> object snapshot
+//   throws, because nothing non-generic satisfies the contract asked for
+//     Task.FromResult<double>              - nothing else produces a Task<double>
+//     hostMethod.MakeGenericMethod(double) - declining reports "no matching overload" for a method
+//                                            that plainly exists
+//     List<long> for an IEnumerable<long> parameter, and its Collection<short> sibling
+//     a closed generic type the SCRIPT named, constructed through importNamespace
+//
+// Each of the four that throw can be closed by the embedder rather than by Jint, by making the
+// instantiation reachable from their own code; docs/v5-migration.md section 6.2 says how. Jint cannot
+// do it for them: no signature anywhere in Jint predicts which value types a host's members and a
+// script's arguments will produce, and rooting a guessed set would cost every AOT consumer binary size
+// for instantiations they never use.
 
 using Jint;
 using Jint.Native;
@@ -156,6 +172,81 @@ Probe("Dictionary<string, int> crossing", static () =>
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("map", new Dictionary<string, int> { ["a"] = 1 });
     Expect(1, engine.Evaluate("map.a"));
+});
+
+Probe("string[] live view (ArrayWrapperFactory<string>)", static () =>
+{
+    var engine = new Engine(static cfg => { cfg.AllowClr(); cfg.Interop.ArrayConversion = ArrayConversionMode.LiveView; cfg.Interop.AllowWrite = true; });
+    engine.SetValue("arr", new ArrayHolder());
+    Expect("a", engine.Evaluate("arr.strings[0]"));
+    Expect("z", engine.Evaluate("arr.strings[1] = 'z'; arr.strings[1]"));
+    Expect("TypeError", engine.Evaluate("try { arr.strings.push('z'); 'no throw' } catch (e) { e.constructor.name }"));
+});
+
+// ObjectWrapper.ResolveArrayLikeWrapperFactoryType, T[] branch: ArrayWrapperFactory<int> has no native
+// code, so the array degrades to the untyped ListWrapper. The degradation is only worth having if it
+// still answers the way the typed wrapper does, which is why this probe writes an element and attempts
+// a resize rather than only reading: ListWrapper served the write as a boxed double (InvalidCastException
+// into an int[]) and served the resize through IList.Add, which on an array raises the CLR's own
+// "Collection was of a fixed size" past script instead of the TypeError the JIT path gives (#3299).
+Probe("int[] live view (ListWrapper fallback under AOT)", static () =>
+{
+    var engine = new Engine(static cfg => { cfg.AllowClr(); cfg.Interop.ArrayConversion = ArrayConversionMode.LiveView; cfg.Interop.AllowWrite = true; });
+    engine.SetValue("arr", new ArrayHolder());
+    Expect(1, engine.Evaluate("arr.numbers[0]"));
+    Expect(9, engine.Evaluate("arr.numbers[1] = 9; arr.numbers[1]"));
+    Expect("TypeError", engine.Evaluate("try { arr.numbers.push(9); 'no throw' } catch (e) { e.constructor.name }"));
+});
+
+Probe("JS array -> IEnumerable<string> parameter", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("taker", new ListTaker());
+    Expect("a,b", engine.Evaluate("taker.joinStrings(['a', 'b'])"));
+});
+
+// The parameter type is List<int> itself, so ILC compiled that instantiation for the signature and
+// MakeGenericType finds it. This is the boundary worth pinning beside the gap below: whether the site
+// works depends on whether the host's own signatures happen to name the closed type Jint asks for.
+Probe("JS array -> List<int> parameter", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("taker", new ListTaker());
+    Expect(6, engine.Evaluate("taker.sumList([1, 2, 3])"));
+});
+
+// DefaultTypeConverter.TryConvertInternal: typeof(List<>).MakeGenericType(long). The parameter is an
+// interface, so nothing in the closed program names List<long> and there is no non-generic value that
+// satisfies IEnumerable<long> to degrade to - an array would need long[] to exist for the same reason,
+// and would hand a host that calls Add a fixed-size collection.
+KnownAotGap("JS array -> IEnumerable<long> parameter", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("taker", new ListTaker());
+    Expect(6, engine.Evaluate("taker.sumEnumerable([1, 2, 3])"));
+});
+
+// The Collection<T> branch of the same method, which builds the inner List<short> the constructor takes.
+KnownAotGap("JS array -> Collection<short> parameter", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("taker", new ListTaker());
+    Expect(2, engine.Evaluate("taker.countCollection([1, 2])"));
+});
+
+Probe("script-built generic CLR type, reference type argument", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr(typeof(Company).Assembly, typeof(string).Assembly));
+    Expect("a", engine.Evaluate("var B = importNamespace('AotProbe').Box(System.String); new B('a').read()"));
+});
+
+// NamespaceReference.MakeGenericType, driven from script: the type arguments are named by the script, so
+// no signature anywhere in the closed program predicts them. The instantiation itself survives - it is
+// metadata, and Box<T> is rooted - and the failure lands where the code is needed, on construction.
+KnownAotGap("script-built generic CLR type, value type argument", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr(typeof(Company).Assembly, typeof(string).Assembly));
+    Expect(3, engine.Evaluate("var B = importNamespace('AotProbe').Box(System.Int16); new B(3).read()"));
 });
 
 Probe("delegate crossing: JS function -> Func<int, int>", static () =>
@@ -360,6 +451,20 @@ public class GenericHost
     public T Identity<T>(T value) => value;
 }
 
+public class ArrayHolder
+{
+    public string[] Strings { get; } = ["a", "b"];
+    public int[] Numbers { get; } = [1, 2, 3];
+}
+
+public class ListTaker
+{
+    public string JoinStrings(IEnumerable<string> values) => string.Join(",", values);
+    public int SumList(List<int> values) { var sum = 0; foreach (var v in values) { sum += v; } return sum; }
+    public long SumEnumerable(IEnumerable<long> values) { long sum = 0; foreach (var v in values) { sum += v; } return sum; }
+    public int CountCollection(System.Collections.ObjectModel.Collection<short> values) => values.Count;
+}
+
 public sealed class ReadOnlyStrings : IReadOnlyList<string>
 {
     private readonly List<string> _items = ["x", "y"];
@@ -376,4 +481,14 @@ public sealed class ReadOnlyDoubles : IReadOnlyList<double>
     public int Count => _items.Count;
     public IEnumerator<double> GetEnumerator() => _items.GetEnumerator();
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+}
+
+namespace AotProbe
+{
+    public class Box<T>
+    {
+        private readonly T _value;
+        public Box(T value) => _value = value;
+        public T Read() => _value;
+    }
 }
