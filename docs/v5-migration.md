@@ -495,7 +495,7 @@ parameter declared `List<T>` and assigned from one needs its type changed; `ILis
 `IEnumerable<T>` and `var` are unaffected.
 
 
-### 3.8 `ManualPromise` settles with a CLR value ([#3329](https://github.com/sebastienros/jint/issues/3329))
+### 3.9 `ManualPromise` settles with a CLR value ([#3329](https://github.com/sebastienros/jint/issues/3329))
 
 `Engine.Advanced.RegisterPromise()`'s resolve and reject callbacks took a `JsValue`. They now take an
 `object?`, and the conversion runs inside the enqueued settlement job — on the engine's thread — rather than
@@ -525,7 +525,7 @@ continuation holds a CLR value, and a `JsValue` belongs to the engine that built
 callback runs is a write into an engine another thread may be inside. Jint had the safe shape internally all
 along (`RegisterPromiseWithClrValue`, used by `ExperimentalFeature.TaskInterop` for exactly this reason);
 both registrations are now one.
-### 3.9 `ArrayLikeObject` seals the three members a named getter used to override ([#3338](https://github.com/sebastienros/jint/pull/3338))
+### 3.10 `ArrayLikeObject` seals the three members a named getter used to override ([#3338](https://github.com/sebastienros/jint/pull/3338))
 
 `ArrayLikeObject` derives a whole property model from `Length` and `TryGetIndex` and seals almost all of
 it, so a subclass cannot make the parts disagree. Three members were left open, and the type's own
@@ -570,7 +570,7 @@ enumeration including the CLR conversion, and reaches the probe lane it could no
 member genuinely needs to intercept reads that resolve on its *prototype* was never served by this class —
 `Get` has always been sealed — and stays on plain `ObjectInstance`.
 
-### 3.10 The two converters are abstract classes, and a registration says what it converts ([#3346](https://github.com/sebastienros/jint/pull/3346))
+### 3.11 The two converters are abstract classes, and a registration says what it converts ([#3346](https://github.com/sebastienros/jint/pull/3346))
 
 `IObjectConverter` is now `ObjectConverter` and `ITypeConverter` is now `ClrTypeConverter`, both public
 abstract classes. The rename of the second one avoids an ambiguity that an interface never had: `TypeConverter`
@@ -1196,7 +1196,7 @@ to the host:
 
 The last three are new, and their defaults are exactly the old behaviour, so **an existing subclass keeps
 compiling and behaving**. The same eight are now published by `ArrayLikeObject` too, all `virtual` with
-empty defaults ([§3.9](#39-arraylikeobject-seals-the-three-members-a-named-getter-used-to-override-3338)).
+empty defaults ([§3.10](#310-arraylikeobject-seals-the-three-members-a-named-getter-used-to-override-3338)).
 
 ```c#
 internal sealed class Document : NamedPropertyObject
