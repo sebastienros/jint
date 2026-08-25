@@ -346,7 +346,24 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     internal override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
-    internal override bool HasOriginalIterator => IsArrayLike;
+    /// <summary>
+    /// Whether reading indices <c>0..length-1</c> off this wrapper produces the target's elements.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TypeDescriptor.IsArrayLike"/> answers the weaker question of whether the target has a
+    /// <c>Count</c>, and <see cref="ICollection"/>, <see cref="ICollection{T}"/> and
+    /// <see cref="IReadOnlyCollection{T}"/> are all count-and-enumerate contracts with no index in them:
+    /// <see cref="Queue{T}"/>, <see cref="Stack{T}"/>, <see cref="LinkedList{T}"/> and
+    /// <see cref="HashSet{T}"/> are every one of them array-like with no element at index 0. An indexed lane
+    /// must gate on this rather than on array-likeness (#3302).
+    /// </remarks>
+    internal virtual bool HasIndexedElements => _typeDescriptor.IsIntegerIndexed || Target is IList;
+
+    // A wrapper's Symbol.iterator is never the array iterator — it enumerates the CLR target — so the
+    // index-reading fast path this enables (array destructuring) is indistinguishable from running that
+    // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
+    // collection they do not: [...queue] yields the elements while every index reads undefined.
+    internal override bool HasOriginalIterator => IsArrayLike && HasIndexedElements;
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 
