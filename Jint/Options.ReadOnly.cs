@@ -263,12 +263,10 @@ public sealed partial class Options
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Thread-local rather than a flag toggled on the group, deliberately. The callback is handed the engine's
-    /// own <c>WebApi</c> group, and that group may belong to an <see cref="Options"/> instance other engines
-    /// are being built from at the same moment — including the process-wide instance a parameterless
-    /// <c>new Engine()</c> uses. Clearing the group's own read-only flag for the duration would open it to
-    /// every thread and let a concurrent engine build close it again mid-callback; suspending the guard on
-    /// the calling thread cannot be seen or disturbed by either.
+    /// Thread-local rather than a flag toggled on the group, deliberately. The group is the engine's own copy
+    /// of the web-API subtree — <c>Engine.TakePrivateWebApiOptions</c> takes it before the callback runs, so
+    /// nothing the host writes here reaches another engine — and it stays frozen throughout: what is suspended
+    /// is the guard, on one thread and for the length of one callback, rather than the group's own state.
     /// </para>
     /// <para>
     /// It holds the group being configured rather than a depth count, so the suspension is scoped to one

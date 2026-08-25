@@ -78,9 +78,10 @@ which is why `Materialize` takes the owner's state. So a new setting needs `Thro
 group implements `IOptionsGroup` and joins the two cascades in `Options.ReadOnly.cs`. Nothing Jint writes to
 `Options` may happen after that line — the profile re-expansion and the host's `Configure` callbacks both run
 inside `Options.Apply`, well before it. The one sanctioned post-construction write is
-`Engine.WebApi.Enable`'s callback, which suspends the guard for the web-API groups on the calling
-thread alone; toggling a group's flag instead would open it to every thread, since the `Options` may be one
-other engines are being built from right now.
+`Engine.WebApi.Enable`'s callback, and it writes to a copy of the web-API subtree the engine takes for itself
+first (`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for `new Engine()` it is one Jint
+keeps process-wide, so a per-tenant client set there used to reach every default-built engine. The copy stays
+frozen; the guard is suspended for it on the calling thread alone.
 
 ### Type co-location
 

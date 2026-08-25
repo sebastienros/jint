@@ -150,10 +150,12 @@ public partial class Engine
         /// prevented, but a read already in flight may have resolved the old binding.
         /// </para>
         /// <para>
-        /// <b><paramref name="configure"/> writes to the engine's own <see cref="Options"/> instance</b>, which
-        /// is read-only from construction onwards and is unfrozen here and nowhere else. That instance is
-        /// shared with every engine built from it, and for an engine built by <c>new Engine()</c> it is one
-        /// Jint keeps process-wide — so give an engine its own <see cref="Options"/> before configuring it here.
+        /// <b><paramref name="configure"/> writes where only this engine reads.</b> An <see cref="Options"/>
+        /// instance is shared with every engine built from it, and for an engine built by <c>new Engine()</c>
+        /// it is one Jint keeps process-wide, so before the callback runs the engine takes a copy of the
+        /// web-API settings for itself. The copy starts as a copy — whatever the host configured up front is
+        /// still in force — and what the callback adds reaches this engine and nothing else. Shared
+        /// configuration is still expressed by configuring the <see cref="Options"/> before building.
         /// </para>
         /// </remarks>
         /// <example>
@@ -178,13 +180,11 @@ public partial class Engine
         /// </param>
         /// <param name="configure">
         /// Optional configuration of the per-feature settings, run once — before anything is installed, and
-        /// only when this call is actually enabling something. It is handed this engine's own
-        /// <c>Options.WebApi</c> group, which is the group the engine reads its settings from; <b>an
-        /// <see cref="Options"/> instance shared with other engines is shared here too</b>, exactly as it
-        /// already is at options time, so give an engine its own <see cref="Options"/> when its network policy
-        /// has to be its own. Assigning <c>Features</c> inside the delegate does not enable anything for this
-        /// call — <paramref name="features"/> is what this call enables — and only affects engines built from
-        /// those options later.
+        /// only when this call is actually enabling something. It is handed <b>this engine's own copy</b> of
+        /// the <c>Options.WebApi</c> group, which from that moment is the group the engine reads its settings
+        /// from, so a network policy set here is this engine's and no sibling's. Assigning <c>Features</c>
+        /// inside the delegate does not enable anything — <paramref name="features"/> is what this call
+        /// enables — and, since the copy belongs to this engine, it no longer reaches engines built later.
         /// </param>
         /// <returns>
         /// The features this call actually added, after closure expansion, or

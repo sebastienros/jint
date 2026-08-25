@@ -106,6 +106,56 @@ public partial class Engine
     internal WebApiFeatures _webApiFeatures;
 
     /// <summary>
+    /// Whether <see cref="Options"/> is a copy this engine took for itself, whose web-API subtree therefore
+    /// no other engine reads.
+    /// </summary>
+    private bool _ownsWebApiOptions;
+
+    /// <summary>
+    /// Gives this engine an <see cref="Jint.Options"/> instance whose web-API subtree nothing else reads, and
+    /// returns it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>WebApiRegistration.ApplyLive</c> is the only caller and calls it immediately before running the
+    /// host's configuration callback, because that callback is the one write to an engine's options after
+    /// construction and the instance it would otherwise write to is shared: with every other engine built
+    /// from it, and for <c>new Engine()</c> with an instance Jint keeps process-wide.
+    /// </para>
+    /// <para>
+    /// Swapping the whole instance rather than the group is what makes the copy stick, since every reader
+    /// — <c>console</c>'s sink, a later live enable — reaches the group through <see cref="Options"/>. Only
+    /// the web-API subtree is copied; every other group is shared by reference and frozen, so the swap
+    /// changes no answer this engine was already giving.
+    /// </para>
+    /// <para>
+    /// It happens once. A second copy would orphan the network settings <see cref="WebApiEngineState"/> is
+    /// holding, so the settings a live enable wrote would stop being the ones a fetch reads — which is why
+    /// the one copy re-points that binding at the group it made.
+    /// </para>
+    /// </remarks>
+    internal Options TakePrivateWebApiOptions()
+    {
+        if (_ownsWebApiOptions)
+        {
+            return Options;
+        }
+
+        var privateOptions = Options.CloneWithPrivateWebApiOptions();
+        Options = privateOptions;
+        _ownsWebApiOptions = true;
+
+        // The only group an engine holds by reference rather than reading through Options. A state that has
+        // one is reading the group this copy just replaced.
+        if (_webApi?.FetchOptions is not null)
+        {
+            _webApi.RebindFetchOptions(privateOptions.WebApi.Fetch);
+        }
+
+        return privateOptions;
+    }
+
+    /// <summary>
     /// Whether the event loop still has jobs queued behind the one running now. Only the web-API scheduler
     /// reads it, to keep a task from overtaking the microtasks of the turn it was posted in — see
     /// <see cref="Runtime.EventLoop.HasPendingJobs"/>.
@@ -550,6 +600,21 @@ internal sealed class WebApiEngineState
     internal void AttachFetchOptions(Options.FetchOptions fetchOptions)
     {
         Debug.Assert(FetchOptions is null, "the network settings must never be replaced on a live engine");
+        FetchOptions = fetchOptions;
+    }
+
+    /// <summary>
+    /// Re-points the network settings at the copy <see cref="Engine.TakePrivateWebApiOptions"/> made of the
+    /// group this state was reading.
+    /// </summary>
+    /// <remarks>
+    /// The one sanctioned replacement, and not a contradiction of <see cref="AttachFetchOptions"/>: the group
+    /// arriving here holds exactly what the one it replaces holds, and differs only in that no other engine
+    /// reads it. Without it the copy would be written and the original would still be read.
+    /// </remarks>
+    internal void RebindFetchOptions(Options.FetchOptions fetchOptions)
+    {
+        Debug.Assert(FetchOptions is not null, "there is nothing to re-point before the settings are attached");
         FetchOptions = fetchOptions;
     }
 

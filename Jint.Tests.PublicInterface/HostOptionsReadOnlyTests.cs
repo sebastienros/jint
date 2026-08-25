@@ -275,6 +275,11 @@ public class HostOptionsReadOnlyTests
     /// the suspension it opens is scoped to the group it is configuring — not to web-API groups at large, and
     /// not to the registries.
     /// </summary>
+    /// <remarks>
+    /// The group it hands the callback is the engine's own copy of the web-API subtree, so the host's own
+    /// instance is not written to at all; <see cref="HostWebApiOptionsIsolationTests"/> is where that is
+    /// pinned from the outside.
+    /// </remarks>
     [Fact]
     public void TheLiveWebApiDoorSuspendsTheGuardForTheGroupItIsConfiguringAndNothingElse()
     {
@@ -302,7 +307,13 @@ public class HostOptionsReadOnlyTests
         });
 
         ran.Should().BeTrue();
-        options.WebApi.Timers.MaxActiveTimers.Should().Be(3);
+
+        // The engine got the setting, on the copy of the subtree it took for itself...
+        engine.WebApi.Features.Should().HaveFlag(WebApiFeatures.Timers);
+
+        // ... and this instance, which the host may be sharing with any number of other engines, was not
+        // written to at all.
+        options.WebApi.Timers.MaxActiveTimers.Should().Be(1000);
 
         // ... and the suspension ends with the call.
         Invoking(() => options.WebApi.Timers.MaxActiveTimers = 4)
