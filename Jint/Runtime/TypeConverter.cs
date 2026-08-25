@@ -829,9 +829,18 @@ public static class TypeConverter
     }
 
     /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-toindex">ToIndex</see> — coerces <paramref name="value"/> to
+    /// an integer index, raising a <c>RangeError</c> for a negative or non-integral one. Absent
+    /// (<c>undefined</c>) is 0, and anything above <see cref="uint.MaxValue"/> saturates there.
+    /// </summary>
+    /// <param name="engine">The engine whose running realm raises the <c>RangeError</c>.</param>
+    /// <param name="value">The value to coerce.</param>
+    public static uint ToIndex(Engine engine, JsValue value) => ToIndex(engine.Realm, value);
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-toindex
     /// </summary>
-    public static uint ToIndex(Realm realm, JsValue value)
+    internal static uint ToIndex(Realm realm, JsValue value)
     {
         // Clamped rather than range-checked: every caller of this overload goes on to reject anything
         // larger than the buffer or view it indexes, so a saturated value produces the same RangeError
@@ -1019,8 +1028,19 @@ public static class TypeConverter
         }
     }
 
+    /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-toobject">ToObject</see> — the object an ordinary property
+    /// access sees for <paramref name="value"/>: the value itself when it already is an object, and the
+    /// wrapper its primitive type has otherwise. <c>null</c> and <c>undefined</c> raise a <c>TypeError</c>.
+    /// </summary>
+    /// <param name="engine">The engine whose running realm supplies the wrapper's intrinsics and the
+    /// <c>TypeError</c>.</param>
+    /// <param name="value">The value to coerce.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ObjectInstance ToObject(Realm realm, JsValue value)
+    public static ObjectInstance ToObject(Engine engine, JsValue value) => ToObject(engine.Realm, value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ObjectInstance ToObject(Realm realm, JsValue value)
     {
         if (value is ObjectInstance oi)
         {
@@ -1074,12 +1094,13 @@ public static class TypeConverter
 
     /// <summary>
     /// For a Number, Boolean, or BigInt primitive, returns the intrinsic prototype object that a
-    /// wrapper produced by <see cref="ToObject"/> would delegate every property lookup to. These
+    /// wrapper produced by <see cref="ToObject(Realm, JsValue)"/> would delegate every property lookup to. These
     /// wrapper types add no own properties (unlike a String wrapper, which owns <c>length</c> and the
     /// indexed characters), so resolving a member against the intrinsic prototype with the primitive
     /// itself as the receiver is observationally identical to boxing — same descriptor, same getter
     /// receiver, same prototype-chain / Proxy traversal — but allocates no wrapper. Returns
-    /// <see langword="null"/> for every other value, leaving the caller to box via <see cref="ToObject"/>.
+    /// <see langword="null"/> for every other value, leaving the caller to box via
+    /// <see cref="ToObject(Realm, JsValue)"/>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ObjectInstance? PrimitiveLookupPrototypeOrNull(Realm realm, JsValue value)

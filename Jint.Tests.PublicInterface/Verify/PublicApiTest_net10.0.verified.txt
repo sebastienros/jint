@@ -970,6 +970,12 @@ namespace Jint.Native
         protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
         public abstract Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue[] arguments, Jint.Native.JsValue newTarget);
     }
+    public abstract class HostFunction : Jint.Native.Function.Function
+    {
+        protected HostFunction(Jint.Engine engine, string name, int length = 0) { }
+        protected override sealed Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
+        protected abstract Jint.Native.JsValue Invoke(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments);
+    }
     public interface IJsPrimitive
     {
         Jint.Native.JsValue PrimitiveValue { get; }
@@ -1273,7 +1279,6 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunction : Jint.Native.Object.ObjectInstance
     {
-        public BindFunction(Jint.Engine engine, Jint.Runtime.Realm realm, Jint.Native.Object.ObjectInstance? proto, Jint.Native.Object.ObjectInstance targetFunction, Jint.Native.JsValue boundThis, Jint.Native.JsValue[] boundArgs) { }
         public Jint.Native.JsValue[] BoundArguments { get; }
         public Jint.Native.JsValue BoundTargetFunction { get; }
         public Jint.Native.JsValue BoundThis { get; }
@@ -1287,7 +1292,6 @@ namespace Jint.Native.Function
     {
         protected Jint.Runtime.Descriptors.PropertyDescriptor? _length;
         protected Jint.Runtime.Descriptors.PropertyDescriptor? _prototypeDescriptor;
-        protected Function(Jint.Engine engine, Jint.Runtime.Realm realm, Jint.Native.JsString? name) { }
         public Acornima.Ast.IFunction? FunctionDeclaration { get; }
         public bool Strict { get; }
         protected abstract Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments);
@@ -1987,7 +1991,7 @@ namespace Jint.Runtime
         public static void RequireObjectCoercible(Jint.Engine engine, Jint.Native.JsValue o) { }
         public static System.Numerics.BigInteger ToBigInt(Jint.Native.JsValue value) { }
         public static bool ToBoolean(Jint.Native.JsValue o) { }
-        public static uint ToIndex(Jint.Runtime.Realm realm, Jint.Native.JsValue value) { }
+        public static uint ToIndex(Jint.Engine engine, Jint.Native.JsValue value) { }
         public static int ToInt32(Jint.Native.JsValue o) { }
         public static double ToInteger(Jint.Native.JsValue o) { }
         public static double ToIntegerOrInfinity(Jint.Native.JsValue argument) { }
@@ -1996,7 +2000,7 @@ namespace Jint.Runtime
         public static ulong ToLength(Jint.Native.JsValue o) { }
         public static double ToNumber(Jint.Native.JsValue o) { }
         public static Jint.Native.JsValue ToNumeric(Jint.Native.JsValue value) { }
-        public static Jint.Native.Object.ObjectInstance ToObject(Jint.Runtime.Realm realm, Jint.Native.JsValue value) { }
+        public static Jint.Native.Object.ObjectInstance ToObject(Jint.Engine engine, Jint.Native.JsValue value) { }
         public static Jint.Native.JsValue ToPrimitive(Jint.Native.JsValue input, Jint.Runtime.Types preferredType = 0) { }
         public static Jint.Native.JsValue ToPropertyKey(Jint.Native.JsValue o) { }
         public static string ToString(Jint.Native.JsValue o) { }
@@ -2217,7 +2221,7 @@ namespace Jint.Runtime.Descriptors
         public static Jint.Runtime.Descriptors.PropertyDescriptor CreateLazy(System.Func<Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
         public static Jint.Runtime.Descriptors.PropertyDescriptor CreateLazy<TState>(TState state, System.Func<TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
         public static Jint.Native.JsValue FromPropertyDescriptor(Jint.Engine engine, Jint.Runtime.Descriptors.PropertyDescriptor desc, bool strictUndefined = false) { }
-        public static Jint.Runtime.Descriptors.PropertyDescriptor ToPropertyDescriptor(Jint.Runtime.Realm realm, Jint.Native.JsValue o) { }
+        public static Jint.Runtime.Descriptors.PropertyDescriptor ToPropertyDescriptor(Jint.Engine engine, Jint.Native.JsValue o) { }
     }
     [System.Flags]
     public enum PropertyFlag

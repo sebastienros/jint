@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
@@ -30,7 +29,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
             ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
             : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
 
-        _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
+        _bubbleExceptions = ClrExceptionsBubble(engine);
     }
 
     /// <summary>
@@ -58,7 +57,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
             ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
             : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
 
-        _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
+        _bubbleExceptions = ClrExceptionsBubble(engine);
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
@@ -72,16 +71,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         }
         catch (Exception e) when (e is not JavaScriptException && !Throw.MustPropagateHostException(e))
         {
-            if (_engine.Options.Interop.ExceptionHandler(e))
-            {
-                Throw.FromClrException(_engine, e);
-            }
-            else
-            {
-                ExceptionDispatchInfo.Capture(e).Throw();
-            }
-
-            return Undefined;
+            return TranslateClrException(_engine, e);
         }
     }
 

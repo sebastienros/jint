@@ -633,6 +633,51 @@ from it.
 `Engine.TypeConverter` still hands back exactly the instance your factory produced, verification on or off.
 `SetTypeConverter` now also raises `JINTSEC052` from `ValidateSecurityConfiguration`, as every other host CLR
 callback already did.
+### 3.12 The five members that took a `Realm` take an `Engine` (or are gone) ([#3345](https://github.com/sebastienros/jint/pull/3345))
+
+`Realm` is a public type, but **no public member has ever returned one**: `Engine.Realm` is `internal`, and
+`Realm`'s own constructor became `internal` in
+[#3304](https://github.com/sebastienros/jint/pull/3304). Five signatures nevertheless asked a host for one,
+which made them unreachable from outside the assembly — a compile error, not a subtle one:
+
+```text
+error CS1061: 'Engine' does not contain a definition for 'Realm'
+error CS1729: 'Realm' does not contain a constructor that takes 0 arguments
+```
+
+Three of them are useful and now take the `Engine` a host actually holds. They are pure re-signatures:
+same algorithm, same behaviour, and the realm they use is the engine's running one, which is what a host
+calling from a callback wants.
+
+| 4.16.x / early 5.0 previews | v5 |
+| --- | --- |
+| `TypeConverter.ToObject(Realm, JsValue)` | `TypeConverter.ToObject(Engine, JsValue)` |
+| `TypeConverter.ToIndex(Realm, JsValue)` | `TypeConverter.ToIndex(Engine, JsValue)` |
+| `PropertyDescriptor.ToPropertyDescriptor(Realm, JsValue)` | `PropertyDescriptor.ToPropertyDescriptor(Engine, JsValue)` |
+
+```c#
+// v5
+var o = TypeConverter.ToObject(engine, value);
+var i = TypeConverter.ToIndex(engine, value);
+var d = PropertyDescriptor.ToPropertyDescriptor(engine, descriptorObject);
+```
+
+The other two are gone rather than re-signatured, because neither is something a host has a reason to do:
+
+- **`BindFunction`'s public constructor is `internal`.** The way to bind a function is
+  `Function.prototype.bind`, or `JsValue.Call` with the receiver you want; hand-assembling a bound-function
+  exotic object is engine work. The **class** stays public with `BoundTargetFunction`, `BoundThis` and
+  `BoundArguments` unchanged — those are what a host does with a bound function it is *handed*.
+- **`protected Function(Engine, Realm, JsString?)` is gone.** It was the only accessible constructor on
+  `Function`, so `Function` advertised `Call` as an extension point that no third party could reach. The
+  replacement is [`HostFunction`](#55-a-host-function-is-a-class-you-can-derive-3345), which resolves the
+  realm itself.
+
+After this change `Realm` appears in exactly six places in the public surface, and a host can satisfy every
+one of them: five `Host` virtuals, where the engine *hands* the realm to the host (`CreateRealm` is the only
+one that has to produce one, and `base.CreateRealm()` produces it), and the `protected` `Module._realm`
+field, on a class whose only constructor is `internal` and which therefore cannot be derived from outside
+Jint at all.
 
 ## 4. Breaking without a signature change
 
@@ -1047,6 +1092,32 @@ re-entrant branch there. A host parsing while the engine is *idle* is unaffected
 an unowned engine rather than refusing it. What changes is a parse issued from a background thread while the
 engine is busy, which now fails loudly instead of corrupting quietly.
 
+### 4.18 A host `Constructor` is now a `Function` ([#3345](https://github.com/sebastienros/jint/pull/3345))
+
+`Constructor`'s host-facing constructor, `protected Constructor(Engine, string)`, never assigned the
+object's `[[Prototype]]`, so it kept the one every `ObjectInstance` starts with — `Object.prototype`.
+Every one of Jint's own constructors goes through a different, internal constructor and sets
+`Function.prototype` itself, so the defect was reachable only by a host, and only by the shape this
+repository's own `ConstructorTests` uses:
+
+```js
+// 4.16.x, for `engine.SetValue("Box", new BoxConstructor(engine))`
+typeof Box                                         // "function"   — correct
+Box instanceof Function                            // false        — wrong
+Object.getPrototypeOf(Box) === Function.prototype  // false        — wrong
+typeof Box.call                                    // "undefined"  — no call, apply or bind
+```
+
+`new Box()` worked, which is why this survived: the `[[Construct]]` path never consults the prototype
+chain. Everything a script does to a constructor *as a function object* did not. It now inherits from the
+principal realm's `Function.prototype`, the same rule `ClrFunction` and the new `HostFunction` follow, so
+all four lines above answer as they do for a built-in.
+
+**What could break:** a host that noticed and compensated — by calling `Object.setPrototypeOf` from script,
+or by assigning `Prototype` after construction — is now doing it twice, harmlessly. A host that put its own
+methods on the constructor object as own properties is unaffected: this changes what the object *inherits*,
+never what it owns. A script asserting `Box instanceof Function === false` was asserting the bug.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -1061,6 +1132,9 @@ none of it changes an engine that does not.
 | Statement-level code coverage | `options.Coverage.Enabled = true` | [Code coverage (opt-in)](../README.md#code-coverage-opt-in) |
 | `NamedPropertyObject` — one base class for a host object projecting *named* properties, the string-keyed sibling of `ArrayLikeObject` | derive from it instead of overriding `GetOwnProperty` / `ProbeOwnProperty` / `GetOwnPropertyKeys` / `TryGetOwnPropertyValue` / `GetOwnProperties` by hand | [Projecting host data](../README.md#embedding-performance) |
 | Source-generated CLR interop for annotated types | `[JsAccessible]` on the type, plus one `JsAccessibleRegistration.RegisterAll()` call | [§5.1](#51-source-generated-clr-interop) |
+| The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override) |
+| Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
+| `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#55-a-host-function-is-a-class-you-can-derive-3345) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -1143,7 +1217,6 @@ Consume the generator with an `Analyzer` project reference for now:
 
 Shipping it inside the `Jint` NuGet package, diagnostics for the declined shapes above, and routing the
 generated members through `MemberFilter` and the name policy are each their own follow-up.
-| Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
 
 ### 5.2 Changing one locale datum is one override ([#3335](https://github.com/sebastienros/jint/pull/3335))
 
@@ -1255,7 +1328,62 @@ var rangeError = engine.Intrinsics.RangeError;
 
 The CLR name of `%URIError%` is `Intrinsics.UriError`; script still sees `URIError`. See [Raising an
 error from host code](../README.md#raising-an-error-from-host-code).
-| The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override) |
+### 5.5 A host function is a class you can derive ([#3345](https://github.com/sebastienros/jint/pull/3345))
+
+Until v5 there was exactly one host-writable *plain* callable: `ClrFunction`, which is `sealed` and takes
+its body as a delegate. (`Constructor` was derivable, but its `Call` throws *"requires 'new'"* unless the
+subclass overrides it too, so it is the wrong base for something that is not a constructor.) `Function`
+looked like the other option — it is `public abstract` with a `protected abstract Call` — but its only
+accessible constructor asked for a `Realm`, and nothing public returns one, so nobody could derive it
+from outside Jint ([§3.10](#312-the-five-members-that-took-a-realm-take-an-engine-or-are-gone-3345)).
+A host whose callable had state, or was one member of a family sharing a base, had to close over that state
+in a lambda.
+
+`HostFunction` is that class. It follows the shape `ArrayLikeObject` and `NamedPropertyObject` established:
+one abstract member, everything derived from it sealed.
+
+```c#
+public sealed class Translate : HostFunction
+{
+    private readonly ILocalizer _localizer;
+
+    public Translate(Engine engine, ILocalizer localizer) : base(engine, "t", length: 1)
+        => _localizer = localizer;
+
+    protected override JsValue Invoke(JsValue thisObject, JsValue[] arguments)
+        => new JsString(_localizer[TypeConverter.ToString(arguments.At(0))]);
+}
+
+engine.SetValue("t", new Translate(engine, localizer));
+```
+
+Script sees an ordinary built-in function: `typeof` is `"function"`, it inherits from `Function.prototype`
+(so `call`, `apply` and `bind` work and `instanceof Function` is `true`), and it carries own `name` and
+`length` properties with the attributes
+[§10.3](https://tc39.es/ecma262/#sec-built-in-function-objects) gives a built-in —
+`{ writable: false, enumerable: false, configurable: true }`. (`ClrFunction` makes `length`
+non-configurable by default and takes a `lengthFlags` argument to change it; the new class simply follows
+the specification, because it has no compatibility to keep.)
+
+Four things decided deliberately:
+
+- **`Call` is sealed.** The body is `Invoke`, and the base owns what surrounds it — today, routing a CLR
+  exception that escapes the body through `Options.Interop.ExceptionHandler` exactly as `ClrFunction` does,
+  so which of the two spellings a host chose is not observable from script. A `Call` a subclass could
+  override would make that a per-subclass responsibility.
+- **It is not a constructor.** `new hostFunction()` raises a `TypeError`, which is what the specification
+  says for a built-in with no `[[Construct]]`. A host that wants `new` derives from `Constructor` instead,
+  which is the same deal for the other half: supply `Construct`, the base supplies the rest. (`Constructor`
+  had a defect of its own, fixed here — see
+  [§4.18](#418-a-host-constructor-is-now-a-function-3345).)
+- **The `arguments` array is borrowed.** The engine pools it and may hand the same instance to the next
+  call, so copy anything that must outlive the call. Reading it during the call is always safe.
+- **It belongs to the engine's principal realm**, the rule `ClrFunction` already follows, so a host
+  function built after a `ShadowRealm` exists still inherits from the `Function.prototype` the surrounding
+  script can reach.
+
+Reach for `ClrFunction` when the body is a lambda, and for `HostFunction` when the callable has state,
+wants a name a stack trace can show, or belongs to a family that shares a base.
 
 ## 6. AOT and trimming
 
